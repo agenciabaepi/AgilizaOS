@@ -25,7 +25,7 @@ export default function LoginPage() {
 
   if (loading || user) return null;
 
-  const handleLogin = async (e: any) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
@@ -53,7 +53,7 @@ export default function LoginPage() {
           type="email"
           placeholder="E-mail"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
           className="mb-4 w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           required
         />
@@ -61,7 +61,7 @@ export default function LoginPage() {
           type="password"
           placeholder="Senha"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
           className="mb-6 w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           required
         />
