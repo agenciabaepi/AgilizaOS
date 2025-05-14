@@ -16,7 +16,7 @@ export default function NovaOSPage() {
     troca_tela: { nome: "Troca de Tela", preco: 200 },
   };
 
-  const pecas = {
+  const pecas: Record<string, { nome: string; preco: number }> = {
     bateria: { nome: "Bateria", preco: 120 },
     tela_iphone: { nome: "Tela iPhone", preco: 350 },
   };
