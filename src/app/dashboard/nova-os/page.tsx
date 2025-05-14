@@ -11,7 +11,7 @@ export default function NovaOSPage() {
   const [pecaSelecionada, setPecaSelecionada] = useState("");
   const [servicoSelecionado, setServicoSelecionado] = useState("");
 
-  const servicos = {
+  const servicos: Record<string, { nome: string; preco: number }> = {
     formatacao: { nome: "Formatação", preco: 80 },
     troca_tela: { nome: "Troca de Tela", preco: 200 },
   };
