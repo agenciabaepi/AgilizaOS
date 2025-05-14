@@ -24,7 +24,6 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
-import { Line } from 'react-chartjs-2';
 
 ChartJS.register(
   CategoryScale,
@@ -35,32 +34,6 @@ ChartJS.register(
   Tooltip,
   Legend
 );
-
-const chartData = {
-  labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'],
-  datasets: [
-    {
-      label: 'OS Criadas',
-      data: [12, 19, 10, 14, 17, 22],
-      fill: false,
-      borderColor: '#1860fa',
-      tension: 0.4,
-    },
-  ],
-};
-
-const chartOptions = {
-  responsive: true,
-  plugins: {
-    legend: {
-      display: true,
-      position: 'top' as const,
-    },
-    title: {
-      display: false,
-    },
-  },
-};
 
 import { useState } from 'react';
 
