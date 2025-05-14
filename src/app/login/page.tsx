@@ -32,9 +32,13 @@ export default function LoginPage() {
       await signInWithEmailAndPassword(firebaseAuth, email, password);
       setIsSubmitting(false);
       router.push('/dashboard');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setIsSubmitting(false);
-      alert(err.message);
+      if (err instanceof Error) {
+        alert(err.message);
+      } else {
+        alert('Erro inesperado.');
+      }
     }
   };
 
