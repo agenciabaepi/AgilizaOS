@@ -48,7 +48,7 @@ export default function DashboardPage({ children }: { children: React.ReactNode 
     if (!loading && !user) {
       router.push('/login');
     }
-  }, [user, loading]);
+  }, [user, loading, router]);
 
   if (loading) return <p>Carregando...</p>;
   if (!user) return null;
