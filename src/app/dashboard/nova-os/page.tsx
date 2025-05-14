@@ -146,8 +146,9 @@ export default function NovaOSPage() {
                                 ? {
                                     value: servicoSelecionado,
                                     label:
-                                      servicos[servicoSelecionado].nome +
-                                      ` - R$ ${servicos[servicoSelecionado].preco}`,
+                                      servicoSelecionado && servicos[servicoSelecionado]
+                                        ? `${servicos[servicoSelecionado].nome} - R$ ${servicos[servicoSelecionado].preco}`
+                                        : "",
                                   }
                                 : null
                             }
@@ -167,7 +168,7 @@ export default function NovaOSPage() {
                           readOnly
                           className="w-32 border rounded px-3 py-2 text-center bg-gray-50"
                           value={
-                            servicoSelecionado
+                            servicoSelecionado && servicos[servicoSelecionado]
                               ? `R$ ${(servicos[servicoSelecionado].preco * qtdServico).toFixed(2)}`
                               : ""
                           }
