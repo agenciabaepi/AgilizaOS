@@ -1,15 +1,13 @@
 'use client';
 import { useState } from 'react';
 import Select from 'react-select';
-import { FiSmartphone, FiCalendar, FiCheckCircle, FiHash, FiTag, FiDroplet } from 'react-icons/fi';
+import { FiSmartphone, FiCalendar, FiCheckCircle } from 'react-icons/fi';
 import { FiUserPlus } from 'react-icons/fi';
 import '@/styles/animations.css'; // precisa existir esse CSS
 
 export default function NovaOSPage() {
   const [showModal, setShowModal] = useState(false);
   const [status, setStatus] = useState("analise");
-  const [peca, setPeca] = useState("");
-  const [maoDeObra, setMaoDeObra] = useState("");
   const [pecaSelecionada, setPecaSelecionada] = useState("");
   const [servicoSelecionado, setServicoSelecionado] = useState("");
 
