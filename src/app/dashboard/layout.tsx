@@ -1,6 +1,7 @@
 'use client';
 import Image from 'next/image';
 import logo from '@/assets/imagens/logoagiliza.png';
+import logoIcon from '@/assets/imagens/logoicon.png';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect } from 'react';
@@ -13,6 +14,8 @@ import {
   FiDollarSign,
   FiFileText,
   FiLogOut,
+  FiCheckCircle,
+  FiHelpCircle,
 } from 'react-icons/fi';
 import {
   Chart as ChartJS,
@@ -63,13 +66,20 @@ export default function DashboardPage({ children }: { children: React.ReactNode 
         }`}
       >
         <div className="flex items-center gap-3 px-3 mb-6">
-          <Image src={logo} alt="Logo AgilizaOS" width={100} height={40} className="mx-auto" />
+          <Image
+            src={expanded ? logo : logoIcon}
+            alt="Logo AgilizaOS"
+            width={expanded ? 200 : 160}
+            height={expanded ? 100 : 160}
+            className="mx-auto transition-all duration-300"
+          />
         </div>
 
         <nav className="space-y-2">
           {[
             { icon: FiHome, label: 'Dashboard', href: '/dashboard' },
             { icon: FiFilePlus, label: 'Nova OS', href: '/dashboard/nova-os' },
+            { icon: FiFileText, label: 'Ordens', href: '/dashboard/ordens' },
             { icon: FiUsers, label: 'Clientes', href: '/dashboard/clientes' },
             { icon: FiBox, label: 'Produtos/Serviços', href: '/dashboard/produtos' },
             { icon: FiTool, label: 'Técnicos', href: '/dashboard/tecnicos' },
@@ -119,7 +129,17 @@ export default function DashboardPage({ children }: { children: React.ReactNode 
           </button>
         </nav>
       </aside>
-      <main className={`transition-all duration-300 ${expanded ? 'ml-64' : 'ml-14'} bg-gray-50 p-6 z-0 relative overflow-x-auto w-full`}>
+      <main className={`transition-all duration-300 ${expanded ? 'ml-64' : 'ml-14'} bg-gray-50 p-6 z-0 relative overflow-x-auto w-full mt-14`}>
+        <div className="fixed top-0 left-0 w-full z-40 h-14 bg-white border-b border-gray-200 shadow-sm px-6 flex items-center justify-end gap-6">
+          <div className="flex items-center gap-2 text-sm text-green-600 font-medium">
+            <FiCheckCircle size={16} />
+            Licença ativa
+          </div>
+          <button className="flex items-center gap-2 text-sm text-blue-600 hover:underline">
+            <FiHelpCircle size={16} />
+            Suporte
+          </button>
+        </div>
         {children}
       </main>
     </div>
