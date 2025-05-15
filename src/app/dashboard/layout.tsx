@@ -62,19 +62,11 @@ export default function DashboardPage({ children }: { children: React.ReactNode 
       <aside
         onMouseEnter={() => setExpanded(true)}
         onMouseLeave={() => setExpanded(false)}
-        className={`transition-[width] duration-300 ease-in-out bg-white shadow-md py-6 px-2 flex flex-col h-screen fixed top-0 left-0 z-50 ${
+        className={`transition-all duration-500 ease-in-out bg-white shadow-md py-6 px-2 flex flex-col h-screen fixed top-0 left-0 z-50 ${
           expanded ? 'w-64' : 'w-14'
         }`}
       >
-        <div className="flex items-center gap-3 px-3 mb-6">
-          <Image
-            src={expanded ? logo : logoIcon}
-            alt="Logo AgilizaOS"
-            width={expanded ? 200 : 160}
-            height={expanded ? 100 : 160}
-            className="mx-auto transition-all duration-300"
-          />
-        </div>
+        <div className="h-[48px] mb-6" />
 
         <nav className="space-y-2">
           {[
@@ -130,8 +122,11 @@ export default function DashboardPage({ children }: { children: React.ReactNode 
           </button>
         </nav>
       </aside>
-      <main className={`transition-all duration-300 ${expanded ? 'ml-64' : 'ml-14'} bg-gray-50 p-6 z-0 relative overflow-x-auto w-full mt-14`}>
+      <main className="transition-all duration-300 bg-gray-50 p-6 pl-16 z-0 relative overflow-x-auto w-full mt-14">
         <div className="fixed top-0 left-0 w-full z-40 h-14 bg-white border-b border-gray-200 shadow-sm px-6 flex items-center justify-end gap-6">
+          <div className="flex items-center gap-3 mr-auto ml-20">
+            <Image src={logo} alt="Logo AgilizaOS" width={120} className="h-auto" />
+          </div>
           <div className="flex items-center gap-2 text-sm text-green-600 font-medium">
             <FiCheckCircle size={16} />
             Licença ativa
