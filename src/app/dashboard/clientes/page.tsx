@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
-import { FiPlus, FiSearch, FiEdit2, FiTrash2, FiUser, FiEye, FiMessageSquare } from 'react-icons/fi';
+import { FiPlus, FiSearch, FiEdit2, FiTrash2, FiEye, FiMessageSquare } from 'react-icons/fi';
 
 const clientesFake = [
   {

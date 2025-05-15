@@ -1,13 +1,11 @@
 'use client';
 import Image from 'next/image';
 import logo from '@/assets/imagens/logoagiliza.png';
-import logoIcon from '@/assets/imagens/logoicon.png';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import {
   FiHome,
-  FiFilePlus,
   FiUsers,
   FiBox,
   FiTool,
