@@ -16,6 +16,7 @@ import {
   FiLogOut,
   FiCheckCircle,
   FiHelpCircle,
+  FiUserCheck,
 } from 'react-icons/fi';
 import {
   Chart as ChartJS,
@@ -78,12 +79,12 @@ export default function DashboardPage({ children }: { children: React.ReactNode 
         <nav className="space-y-2">
           {[
             { icon: FiHome, label: 'Dashboard', href: '/dashboard' },
-            { icon: FiFilePlus, label: 'Nova OS', href: '/dashboard/nova-os' },
-            { icon: FiFileText, label: 'Ordens', href: '/dashboard/ordens' },
+            { icon: FiFileText, label: 'Ordens de Serviço', href: '/dashboard/ordens' },
             { icon: FiUsers, label: 'Clientes', href: '/dashboard/clientes' },
             { icon: FiBox, label: 'Produtos/Serviços', href: '/dashboard/produtos' },
-            { icon: FiTool, label: 'Técnicos', href: '/dashboard/tecnicos' },
+            { icon: FiUserCheck, label: 'Técnicos', href: '/dashboard/tecnicos' },
             { icon: FiDollarSign, label: 'Financeiro', href: '/dashboard/financeiro' },
+            { icon: FiTool, label: 'Bancada', href: '/dashboard/bancada' },
             { icon: FiFileText, label: 'Termos', href: '/dashboard/termos' },
           ].map(({ icon: Icon, label, href }) => {
             const isActive = pathname === href;

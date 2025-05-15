@@ -27,6 +27,15 @@ export default function NovaOSPage() {
   return (
     <div className="flex justify-center px-4">
       <div className="w-full max-w-5xl bg-white rounded-2xl shadow-xl p-8 border border-gray-100 space-y-8">
+      <button
+        onClick={() => window.history.back()}
+        className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 transition mb-4"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        Voltar para Ordens de Serviço
+      </button>
       <h1 className="text-3xl font-semibold text-blue-600 mb-6 tracking-tight">Nova Ordem de Serviço</h1>
 
       {/* Novo formulário elegante em seções */}

@@ -45,8 +45,25 @@ export default function ListaOrdensPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const paginated = ordens.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-  const totalPages = Math.ceil(ordens.length / itemsPerPage);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [aparelhoFilter, setAparelhoFilter] = useState('');
+  const [tecnicoFilter, setTecnicoFilter] = useState('');
+  const [statusTecnicoFilter, setStatusTecnicoFilter] = useState('');
+
+  const filtered = ordens.filter((os) => {
+    const matchesSearch = os.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      os.aparelho.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      os.id.includes(searchTerm);
+    const matchesStatus = statusFilter === '' || os.statusOS === statusFilter;
+    const matchesAparelho = aparelhoFilter === '' || os.aparelho.includes(aparelhoFilter);
+    const matchesTecnico = tecnicoFilter === '' || os.tecnico === tecnicoFilter;
+    const matchesStatusTecnico = statusTecnicoFilter === '' || os.statusTecnico === statusTecnicoFilter;
+    return matchesSearch && matchesStatus && matchesAparelho && matchesTecnico && matchesStatusTecnico;
+  });
+
+  const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
 
   return (
     <div className="w-full px-6 py-4">
@@ -72,19 +89,70 @@ export default function ListaOrdensPage() {
       </div>
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-2xl font-bold">Ordens de Serviço</h1>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-4 items-center">
           <input
             type="text"
             placeholder="Buscar OS..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm"
           />
-          <button className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm shadow hover:bg-blue-700 transition">
+          <select
+            className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="">Filtrar por Status</option>
+            <option value="Finalizada">Finalizada</option>
+            <option value="Aguardando aprovação">Aguardando aprovação</option>
+            <option value="Pronta para retirada">Pronta para retirada</option>
+            <option value="Aberta">Aberta</option>
+            <option value="Não aprovada">Não aprovada</option>
+          </select>
+          <select
+            className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm"
+            value={statusTecnicoFilter}
+            onChange={(e) => setStatusTecnicoFilter(e.target.value)}
+          >
+            <option value="">Status Técnico</option>
+            <option value="Serviço finalizado">Serviço finalizado</option>
+            <option value="Sem conserto">Sem conserto</option>
+            <option value="Reparo em andamento">Reparo em andamento</option>
+            <option value="Aguardando peça">Aguardando peça</option>
+            <option value="Em análise">Em análise</option>
+            <option value="Sem reparo">Sem reparo</option>
+          </select>
+          <select
+            className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm"
+            value={aparelhoFilter}
+            onChange={(e) => setAparelhoFilter(e.target.value)}
+          >
+            <option value="">Todos os Tipos</option>
+            <option value="iPhone">Celulares</option>
+            <option value="Samsung">Celulares</option>
+            <option value="Notebook">Computadores</option>
+          </select>
+
+          <select
+            className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm"
+            value={tecnicoFilter}
+            onChange={(e) => setTecnicoFilter(e.target.value)}
+          >
+            <option value="">Todos os Técnicos</option>
+            <option value="Carlos">Carlos</option>
+            <option value="Fernanda">Fernanda</option>
+          </select>
+          <button
+            onClick={() => router.push('/dashboard/nova-os')}
+            className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm shadow hover:bg-blue-700 transition"
+          >
             + Nova OS
           </button>
         </div>
       </div>
       <div className="bg-white rounded-xl shadow p-6">
         <div className="grid grid-cols-12 items-center gap-6 text-sm font-semibold text-gray-500 px-6 mb-4">
+          <div>OS</div>
           <div>Cliente</div>
           <div>Aparelho</div>
           <div>Serviço</div>
@@ -94,7 +162,7 @@ export default function ListaOrdensPage() {
           <div>Total</div>
           <div className="mr-6">Status Técnico</div>
           <div className=" ml-10">Status OS</div>
-          <div className="text-right col-span-3">Ações</div>
+          <div className="text-right col-span-2">Ações</div>
         </div>
         <div className="space-y-4">
           {paginated.map((os) => (
@@ -112,6 +180,7 @@ export default function ListaOrdensPage() {
                   : 'bg-gray-100/30'
               }`}
             >
+              <div className="font-mono text-sm text-gray-500">#{os.id}</div>
               <div className="font-medium text-gray-800">{os.cliente}</div>
               <div className="text-sm text-gray-600">{os.aparelho}</div>
               <div className="text-sm text-gray-600">{os.servico}</div>
