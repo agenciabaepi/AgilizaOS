@@ -2,6 +2,14 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
+interface SupabaseError {
+  message: string;
+}
+
+interface SupabaseUser {
+  id: string;
+}
+
 interface Empresa {
   id: string;
   nome: string;
@@ -35,7 +43,7 @@ export default function ConfigEmpresa() {
     const fetchEmpresa = async () => {
       setLoading(true);
       try {
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        const { data: { user }, error: userError } = await supabase.auth.getUser() as { data: { user: SupabaseUser }, error: SupabaseError | null };
         if (userError) throw new Error('Erro ao obter usuário: ' + userError.message);
 
         const { data, error } = await supabase
@@ -61,7 +69,7 @@ export default function ConfigEmpresa() {
           });
           setEmpresaId(data.id);
         }
-      } catch (err: any) {
+      } catch (err: SupabaseError | Error) {
         console.error('Erro geral ao buscar empresa:', err);
         setError(err.message || 'Erro ao buscar dados');
       } finally {
@@ -82,7 +90,7 @@ export default function ConfigEmpresa() {
     setError(null);
 
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await supabase.auth.getUser() as { data: { user: SupabaseUser }, error: SupabaseError | null };
       if (userError) throw new Error('Erro ao obter usuário: ' + userError.message);
 
       if (!user) throw new Error('Usuário não autenticado');
@@ -133,7 +141,7 @@ export default function ConfigEmpresa() {
         alert('Configurações salvas com sucesso!');
         setIsEditing(false);
       }
-    } catch (err: any) {
+    } catch (err: SupabaseError | Error) {
       console.error('Erro geral:', err);
       setError(err.message || 'Erro desconhecido');
     } finally {
