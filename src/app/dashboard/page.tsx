@@ -3,6 +3,8 @@
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { supabase } from '@/lib/supabaseClient';
+import { useState } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -23,11 +25,71 @@ export default function DashboardPage() {
   const auth = useAuth();
   const { user, loading } = auth || {};
 
+  const [empresaNome, setEmpresaNome] = useState<string | null>(null);
+  const [nivel, setNivel] = useState<string | null>(null);
+
   useEffect(() => {
-    if (!loading && !user) {
+    if (loading) return; // Aguarda carregamento completo
+    if (!user) {
       router.push('/login');
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    const fetchEmpresaNome = async () => {
+      if (user) {
+        const { data } = await supabase
+          .from('empresas')
+          .select('nome')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (data) {
+          setEmpresaNome(data.nome);
+        }
+      }
+    };
+
+    fetchEmpresaNome();
+  }, [user]);
+
+useEffect(() => {
+  const fetchNivel = async () => {
+    if (user) {
+      const userIdSanitized = user.id.trim().toLowerCase();
+      console.log("user.id:", user.id, "length:", user.id.length);
+      console.log("userIdSanitized:", userIdSanitized, "length:", userIdSanitized.length);
+
+      const { data, error } = await supabase
+        .from('tecnicos')
+        .select('nivel, auth_user_id')
+        .ilike('auth_user_id', `%${userIdSanitized}%`)
+        .limit(1);
+
+      console.log('Resultado data:', data, 'Erro:', error);
+      console.log('Resultado da busca de nivel:', data, error);
+      if (data && data.length > 0) {
+        console.log("data[0].auth_user_id:", data[0].auth_user_id, "length:", data[0].auth_user_id?.length);
+        console.log("Comparando data[0].auth_user_id === user.id:", data[0].auth_user_id === user.id);
+        console.log("Nivel retornado:", data[0].nivel);
+        setNivel(data[0].nivel);
+      } else {
+        console.warn("Nenhum técnico encontrado com auth_user_id igual ao:", userIdSanitized);
+        setNivel(null);
+      }
+    }
+  };
+
+  fetchNivel();
+}, [user]);
+
+  const isTecnico = nivel === 'tecnico';
+
+  useEffect(() => {
+    if (isTecnico) {
+      router.push('/dashboard/bancada');
+    }
+  }, [isTecnico, router]);
 
   const data = {
     labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
@@ -53,11 +115,11 @@ export default function DashboardPage() {
     },
   };
 
-  if (loading) return null;
+  if (loading) return <p>Carregando...</p>;
 
   return (
     <div className="w-full px-6 py-4">
-      <h1 className="text-2xl font-bold mb-2">Bem-vindo ao AgilizaOS</h1>
+      <h1 className="text-2xl font-bold mb-2">Seja Bem-vindo {empresaNome}</h1>
       <p className="text-sm text-gray-600 mb-6">Usuário: {user?.email}</p>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">

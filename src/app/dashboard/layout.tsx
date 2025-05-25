@@ -3,7 +3,7 @@ import Image from 'next/image';
 import logo from '@/assets/imagens/logoagiliza.png';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   FiHome,
   FiUsers,
@@ -37,26 +37,203 @@ ChartJS.register(
   Legend
 );
 
-import { useState } from 'react';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function DashboardPage({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
   const [expanded, setExpanded] = useState(false);
+  const [empresa, setEmpresa] = useState<{ logo_url: string } | null>(null);
+  const [isTecnico, setIsTecnico] = useState(false);
+  const [checandoPermissao, setChecandoPermissao] = useState(true);
+  const [permissaoChecada, setPermissaoChecada] = useState(false);
   const { user, loading } = auth || {};
   const router = useRouter();
   const pathname = usePathname();
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    }
-  }, [user, loading, router]);
+useEffect(() => {
+  if (loading) return; // Aguarda loading terminar
 
-  if (loading) return <p>Carregando...</p>;
+  if (!user) {
+    router.push('/login');
+    return;
+  }
+
+    console.log('user:', user);
+    console.log('pathname:', pathname);
+
+    // Protege acesso para técnicos
+    const protegerAcesso = async () => {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+
+      console.log('currentUser:', currentUser);
+
+      if (!currentUser) {
+        console.warn('Usuário não logado ao proteger acesso');
+        router.push('/login');
+        setChecandoPermissao(false);
+        return;
+      }
+
+      const userId = String(currentUser.id).trim();
+      console.log('userId:', userId, 'tipo:', typeof userId, 'length:', userId.length);
+      const { data: tecnico, error: erroTecnico } = await supabase
+        .from('tecnicos')
+        .select('id, nivel, auth_user_id')
+        .eq('auth_user_id', userId)
+        .maybeSingle();
+
+      if (erroTecnico) {
+        console.error('Erro ao buscar técnico:', erroTecnico);
+      }
+
+      console.log('Resultado técnico:', tecnico);
+
+      if (!tecnico) {
+        console.warn(`Nenhum técnico encontrado com auth_user_id igual a: ${userId}`);
+      } else {
+        console.log(`Técnico encontrado:`, tecnico);
+      }
+
+      const isUserTecnico = tecnico?.nivel === 'tecnico';
+      console.log('isUserTecnico:', isUserTecnico);
+      setIsTecnico(isUserTecnico);
+
+      if (isUserTecnico && pathname !== '/dashboard/bancada') {
+        router.push('/dashboard/bancada');
+      }
+      setChecandoPermissao(false);
+    };
+
+    Promise.all([protegerAcesso()]).then(() => {
+      setPermissaoChecada(true);
+    });
+  }, [user, loading, router, pathname]);
+
+  useEffect(() => {
+    const fetchEmpresaDoTecnico = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        console.warn('Usuário não logado ao buscar empresa');
+        return;
+      }
+
+      console.log('Buscando técnico com auth_user_id:', user.id);
+
+      const { data: tecnico, error: erroTecnico } = await supabase
+        .from('tecnicos')
+        .select('empresa_id')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+
+      if (erroTecnico) {
+        console.error('Erro ao buscar técnico:', erroTecnico);
+        return;
+      }
+
+      console.log('Técnico encontrado:', tecnico);
+
+      if (!tecnico?.empresa_id) {
+        console.warn('Técnico não possui empresa_id vinculado');
+        return;
+      }
+
+      console.log('Buscando empresa com id:', tecnico.empresa_id);
+
+      const { data: empresaData, error: erroEmpresa } = await supabase
+        .from('empresas')
+        .select('logo_url')
+        .eq('id', tecnico.empresa_id)
+        .maybeSingle();
+
+      if (erroEmpresa) {
+        console.error('Erro ao buscar empresa:', erroEmpresa);
+        return;
+      }
+
+      if (!empresaData?.logo_url) {
+        console.warn('Empresa não possui logo_url');
+        return;
+      }
+
+      console.log('Setando empresa com logo_url:', empresaData.logo_url);
+
+      setEmpresa(empresaData);
+    };
+
+    if (isTecnico) {
+      fetchEmpresaDoTecnico();
+    }
+  }, [isTecnico]);
+
+  useEffect(() => {
+    const fetchEmpresaDoMaster = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        console.warn('Usuário não logado ao buscar empresa');
+        return;
+      }
+
+      const { data: empresaData, error } = await supabase
+        .from('empresas')
+        .select('logo_url')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Erro ao buscar empresa do usuário master:', error);
+        return;
+      }
+
+      if (empresaData) {
+        console.log('Setando empresa do master com logo_url:', empresaData.logo_url);
+        setEmpresa(empresaData);
+      }
+    };
+
+    if (!isTecnico) {
+      fetchEmpresaDoMaster();
+    }
+  }, [isTecnico]);
+
+  const rotasPermitidasParaTecnico = ['/dashboard/bancada'];
+
+useEffect(() => {
+  if (!permissaoChecada) return;
+
+  if (isTecnico && !rotasPermitidasParaTecnico.includes(pathname)) {
+    router.push('/dashboard/bancada');
+  }
+}, [isTecnico, pathname, router, permissaoChecada]);
+
+  if (!permissaoChecada) return <p>Carregando...</p>;
+  if (loading || checandoPermissao) return <p>Carregando...</p>;
   if (!user) return null;
+
+  // Redireciona técnico caso tente acessar a rota de cadastro de técnicos
+  if (isTecnico && pathname === '/dashboard/tecnicos') {
+    router.push('/dashboard/bancada');
+    return null;
+  }
 
   return (
     <div className="flex min-h-screen relative z-0 overflow-x-hidden w-full">
+      <div className="fixed top-0 left-0 w-full z-60 h-14 bg-white border-b border-gray-200 shadow-sm px-6 flex items-center justify-end gap-6">
+        <div className="flex items-center gap-3 mr-auto ml-20">
+          {empresa?.logo_url && (
+            <img src={empresa.logo_url} alt="Logo Empresa" className="h-10 object-contain" />
+          )}
+        </div>
+        <div className="flex items-center gap-2 text-sm text-green-600 font-medium">
+          <FiCheckCircle size={16} />
+          Licença ativa
+        </div>
+        <button className="flex items-center gap-2 text-sm text-blue-600 hover:underline">
+          <FiHelpCircle size={16} />
+          Suporte
+        </button>
+      </div>
       <aside
         onMouseEnter={() => setExpanded(true)}
         onMouseLeave={() => setExpanded(false)}
@@ -67,39 +244,104 @@ export default function DashboardPage({ children }: { children: React.ReactNode 
         <div className="h-[48px] mb-6" />
 
         <nav className="space-y-2">
-          {[
-            { icon: FiHome, label: 'Dashboard', href: '/dashboard' },
-            { icon: FiFileText, label: 'Ordens de Serviço', href: '/dashboard/ordens' },
-            { icon: FiUsers, label: 'Clientes', href: '/dashboard/clientes' },
-            { icon: FiBox, label: 'Produtos/Serviços', href: '/dashboard/produtos' },
-            { icon: FiUserCheck, label: 'Técnicos', href: '/dashboard/tecnicos' },
-            { icon: FiDollarSign, label: 'Financeiro', href: '/dashboard/financeiro' },
-            { icon: FiTool, label: 'Bancada', href: '/dashboard/bancada' },
-            { icon: FiFileText, label: 'Termos', href: '/dashboard/termos' },
-          ].map(({ icon: Icon, label, href }) => {
-            const isActive = pathname === href;
-            return (
+          {isTecnico ? (
+            <>
               <button
-                key={label}
-                onClick={() => router.push(href)}
+                onClick={() => router.push('/dashboard/bancada')}
                 className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${
-                  isActive ? 'bg-[#1860fa] text-white font-semibold' : 'hover:bg-[#1860fa]/10 hover:text-[#1860fa]'
+                  pathname === '/dashboard/bancada'
+                    ? 'bg-[#1860fa] text-white font-semibold'
+                    : 'hover:bg-[#1860fa]/10 hover:text-[#1860fa]'
                 }`}
               >
-                <div className={`min-w-[20px] ${isActive ? 'text-white' : 'text-[#1860fa] group-hover:text-inherit'}`}>
-                  <Icon size={20} />
+                <div className="min-w-[20px]">
+                  <FiTool size={20} />
                 </div>
                 <span
                   className={`ml-2 whitespace-nowrap transition-all duration-300 ease-in-out ${
                     expanded ? 'opacity-100 scale-100' : 'opacity-0 scale-0'
                   }`}
                 >
-                  {label}
+                  Bancada
                 </span>
               </button>
-            );
-          })}
-
+            </>
+          ) : (
+            <>
+              <button onClick={() => router.push('/dashboard')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard' ? 'bg-[#1860fa] text-white font-semibold' : 'hover:bg-[#1860fa]/10 hover:text-[#1860fa]'}`}>
+                <div className="min-w-[20px]">
+                  <FiHome size={20} />
+                </div>
+                <span className={`ml-2 whitespace-nowrap transition-all duration-300 ease-in-out ${expanded ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}`}>
+                  Dashboard
+                </span>
+              </button>
+              <button onClick={() => router.push('/dashboard/ordens')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/ordens' ? 'bg-[#1860fa] text-white font-semibold' : 'hover:bg-[#1860fa]/10 hover:text-[#1860fa]'}`}>
+                <div className="min-w-[20px]">
+                  <FiFileText size={20} />
+                </div>
+                <span className={`ml-2 whitespace-nowrap transition-all duration-300 ease-in-out ${expanded ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}`}>
+                  Ordens de Serviço
+                </span>
+              </button>
+              <button onClick={() => router.push('/dashboard/clientes')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/clientes' ? 'bg-[#1860fa] text-white font-semibold' : 'hover:bg-[#1860fa]/10 hover:text-[#1860fa]'}`}>
+                <div className="min-w-[20px]">
+                  <FiUsers size={20} />
+                </div>
+                <span className={`ml-2 whitespace-nowrap transition-all duration-300 ease-in-out ${expanded ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}`}>
+                  Clientes
+                </span>
+              </button>
+              <button onClick={() => router.push('/dashboard/produtos')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/produtos' ? 'bg-[#1860fa] text-white font-semibold' : 'hover:bg-[#1860fa]/10 hover:text-[#1860fa]'}`}>
+                <div className="min-w-[20px]">
+                  <FiBox size={20} />
+                </div>
+                <span className={`ml-2 whitespace-nowrap transition-all duration-300 ease-in-out ${expanded ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}`}>
+                  Produtos/Serviços
+                </span>
+              </button>
+              <button onClick={() => router.push('/dashboard/tecnicos')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/tecnicos' ? 'bg-[#1860fa] text-white font-semibold' : 'hover:bg-[#1860fa]/10 hover:text-[#1860fa]'}`}>
+                <div className="min-w-[20px]">
+                  <FiUserCheck size={20} />
+                </div>
+                <span className={`ml-2 whitespace-nowrap transition-all duration-300 ease-in-out ${expanded ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}`}>
+                  Técnicos
+                </span>
+              </button>
+              <button onClick={() => router.push('/dashboard/financeiro')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/financeiro' ? 'bg-[#1860fa] text-white font-semibold' : 'hover:bg-[#1860fa]/10 hover:text-[#1860fa]'}`}>
+                <div className="min-w-[20px]">
+                  <FiDollarSign size={20} />
+                </div>
+                <span className={`ml-2 whitespace-nowrap transition-all duration-300 ease-in-out ${expanded ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}`}>
+                  Financeiro
+                </span>
+              </button>
+              <button onClick={() => router.push('/dashboard/bancada')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/bancada' ? 'bg-[#1860fa] text-white font-semibold' : 'hover:bg-[#1860fa]/10 hover:text-[#1860fa]'}`}>
+                <div className="min-w-[20px]">
+                  <FiTool size={20} />
+                </div>
+                <span className={`ml-2 whitespace-nowrap transition-all duration-300 ease-in-out ${expanded ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}`}>
+                  Bancada
+                </span>
+              </button>
+              <button onClick={() => router.push('/dashboard/termos')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/termos' ? 'bg-[#1860fa] text-white font-semibold' : 'hover:bg-[#1860fa]/10 hover:text-[#1860fa]'}`}>
+                <div className="min-w-[20px]">
+                  <FiFileText size={20} />
+                </div>
+                <span className={`ml-2 whitespace-nowrap transition-all duration-300 ease-in-out ${expanded ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}`}>
+                  Termos
+                </span>
+              </button>
+              <button onClick={() => router.push('/dashboard/configuracoes')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/configuracoes' ? 'bg-[#1860fa] text-white font-semibold' : 'hover:bg-[#1860fa]/10 hover:text-[#1860fa]'}`}>
+                <div className="min-w-[20px]">
+                  <FiTool size={20} />
+                </div>
+                <span className={`ml-2 whitespace-nowrap transition-all duration-300 ease-in-out ${expanded ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}`}>
+                  Configurações
+                </span>
+              </button>
+            </>
+          )}
           <button
             onClick={() => {
               auth?.signOut();
@@ -120,20 +362,7 @@ export default function DashboardPage({ children }: { children: React.ReactNode 
           </button>
         </nav>
       </aside>
-      <main className="transition-all duration-300 bg-gray-50 p-6 pl-16 z-0 relative overflow-x-auto w-full mt-14">
-        <div className="fixed top-0 left-0 w-full z-40 h-14 bg-white border-b border-gray-200 shadow-sm px-6 flex items-center justify-end gap-6">
-          <div className="flex items-center gap-3 mr-auto ml-20">
-            <Image src={logo} alt="Logo AgilizaOS" width={120} className="h-auto" />
-          </div>
-          <div className="flex items-center gap-2 text-sm text-green-600 font-medium">
-            <FiCheckCircle size={16} />
-            Licença ativa
-          </div>
-          <button className="flex items-center gap-2 text-sm text-blue-600 hover:underline">
-            <FiHelpCircle size={16} />
-            Suporte
-          </button>
-        </div>
+      <main className="transition-all duration-300 bg-gray-50 p-6 pl-16 z-0 relative overflow-x-auto w-full mt-16">
         {children}
       </main>
     </div>

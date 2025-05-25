@@ -1,31 +1,26 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { FiPlus, FiSearch, FiEdit2, FiTrash2, FiEye, FiMessageSquare } from 'react-icons/fi';
-
-const clientesFake = [
-  {
-    id: '1',
-    nome: 'Lucas Oliveira',
-    telefone: '(12) 99999-1234',
-    celular: '(12) 98111-2222',
-    email: 'lucas@email.com',
-    documento: '123.456.789-00',
-  },
-  {
-    id: '2',
-    nome: 'Maria Souza',
-    telefone: '(11) 98888-5678',
-    celular: '(11) 97777-3333',
-    email: 'maria@email.com',
-    documento: '987.654.321-00',
-  },
-];
+import { supabase } from '@/lib/supabaseClient';
 
 export default function ClientesPage() {
   const [busca, setBusca] = useState('');
+  const [clientes, setClientes] = useState<any[]>([]);
 
-  const clientes = clientesFake.filter((c) =>
+  useEffect(() => {
+    const fetchClientes = async () => {
+      const { data, error } = await supabase.from('clientes').select('*');
+      if (error) {
+        console.error('Erro ao buscar clientes:', error);
+      } else {
+        setClientes(data || []);
+      }
+    };
+    fetchClientes();
+  }, []);
+
+  const clientesFiltrados = clientes.filter((c) =>
     c.nome.toLowerCase().includes(busca.toLowerCase()) ||
     c.telefone.includes(busca) ||
     c.celular.includes(busca) ||
@@ -69,7 +64,7 @@ export default function ClientesPage() {
           </tr>
         </thead>
         <tbody>
-          {clientes.map((c, idx) => (
+          {clientesFiltrados.map((c, idx) => (
             <tr key={c.id} className="bg-white rounded-xl shadow-sm">
               <td className="px-4 py-3">{idx + 1}</td>
               <td className="px-4 py-3 font-medium">{c.nome}</td>
@@ -78,8 +73,12 @@ export default function ClientesPage() {
               <td className="px-4 py-3">{c.email}</td>
               <td className="px-4 py-3">{c.documento}</td>
               <td className="px-4 py-3 text-right flex justify-end gap-3">
-                <button className="text-blue-600"><FiEye /></button>
-                <button className="text-yellow-600"><FiEdit2 /></button>
+                <Link href={`/dashboard/clientes/${c.id}`} className="text-blue-600">
+                  <FiEye />
+                </Link>
+                <Link href={`/dashboard/clientes/${c.id}/editar`} className="text-yellow-600">
+                  <FiEdit2 />
+                </Link>
                 <button className="text-red-600"><FiTrash2 /></button>
                 <button className="text-green-600"><FiMessageSquare /></button>
               </td>

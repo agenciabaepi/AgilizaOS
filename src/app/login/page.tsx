@@ -1,8 +1,7 @@
 // 📁 src/app/login/page.tsx
 'use client';
 import { useState, useEffect } from 'react';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth as firebaseAuth } from '@/firebase/firebaseConfig';
+import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
@@ -12,6 +11,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRecovering, setIsRecovering] = useState(false);
   const router = useRouter();
 
   const auth = useAuth();
@@ -28,17 +28,32 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
-    try {
-      await signInWithEmailAndPassword(firebaseAuth, email, password);
-      setIsSubmitting(false);
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    setIsSubmitting(false);
+    if (error) {
+      alert(error.message);
+    } else {
       router.push('/dashboard');
-    } catch (err: unknown) {
-      setIsSubmitting(false);
-      if (err instanceof Error) {
-        alert(err.message);
-      } else {
-        alert('Erro inesperado.');
-      }
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!email) {
+      alert('Informe seu e-mail para recuperar a senha.');
+      return;
+    }
+    setIsRecovering(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setIsRecovering(false);
+    if (error) {
+      alert(error.message);
+    } else {
+      alert('E-mail de recuperação enviado!');
     }
   };
 
@@ -51,13 +66,15 @@ export default function LoginPage() {
         <div className="flex justify-center mb-6">
           <Image src={logo} alt="Logo AgilizaOS" width={200} height={200} />
         </div>
-        <p className="text-sm text-gray-500 mb-6 text-center">Acesse sua conta para continuar</p>
+        <p className="text-sm text-gray-500 mb-6 text-center">
+          Acesse sua conta para continuar
+        </p>
 
         <input
           type="email"
           placeholder="E-mail"
           value={email}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+          onChange={(e) => setEmail(e.target.value)}
           className="mb-4 w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           required
         />
@@ -65,16 +82,26 @@ export default function LoginPage() {
           type="password"
           placeholder="Senha"
           value={password}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-          className="mb-6 w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          onChange={(e) => setPassword(e.target.value)}
+          className="mb-2 w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           required
         />
+
         <button
           type="submit"
-          className="w-full bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition flex justify-center items-center"
+          className="w-full bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition flex justify-center items-center mb-2"
           disabled={isSubmitting}
         >
           {isSubmitting ? 'Entrando...' : 'Entrar'}
+        </button>
+
+        <button
+          type="button"
+          className="w-full bg-gray-200 text-gray-700 font-semibold py-3 rounded-lg hover:bg-gray-300 transition"
+          onClick={handlePasswordReset}
+          disabled={isRecovering}
+        >
+          {isRecovering ? 'Enviando...' : 'Esqueci minha senha'}
         </button>
       </form>
     </div>
