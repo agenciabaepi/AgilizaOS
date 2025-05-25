@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
@@ -7,10 +5,26 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { FiArrowLeft, FiEdit2 } from 'react-icons/fi';
 
+interface Cliente {
+  id: string;
+  nome: string;
+  documento: string;
+  telefone: string;
+  celular: string;
+  email: string;
+  responsavel: string;
+  tipo: string;
+  origem: string;
+  aniversario: string;
+  cep: string;
+  endereco: string;
+  observacoes: string;
+}
+
 export default function VisualizarClientePage() {
   const params = useParams();
   const router = useRouter();
-  const [cliente, setCliente] = useState<any>(null);
+  const [cliente, setCliente] = useState<Cliente | null>(null);
 
   useEffect(() => {
     const fetchCliente = async () => {

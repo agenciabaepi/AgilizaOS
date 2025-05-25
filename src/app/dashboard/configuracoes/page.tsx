@@ -2,6 +2,18 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
+interface Empresa {
+  id: string;
+  nome: string;
+  cnpj: string;
+  endereco: string;
+  logo_url: string;
+  telefone: string;
+  email: string;
+  website: string;
+  user_id: string;
+}
+
 export default function ConfigEmpresa() {
   const [form, setForm] = useState({
     nome: '',
@@ -91,7 +103,7 @@ export default function ConfigEmpresa() {
         }
       }
 
-      const empresaData: any = { 
+      const empresaData: Partial<Empresa> = { 
         user_id: user.id, 
         nome: form.nome,
         cnpj: form.cnpj,
@@ -220,7 +232,7 @@ export default function ConfigEmpresa() {
             <input
               id={field}
               name={field}
-              value={(form as any)[field]}
+              value={(form as Record<string, string>)[field]}
               onChange={handleChange}
               className="w-full p-2 border rounded"
               disabled={!isEditing}

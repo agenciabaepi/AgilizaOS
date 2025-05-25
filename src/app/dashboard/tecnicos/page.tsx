@@ -1,3 +1,9 @@
+interface Tecnico {
+  id: string;
+  nome: string;
+  email: string;
+  telefone: string;
+}
 'use client';
 
 import { supabase } from '@/lib/supabaseClient';
@@ -28,7 +34,7 @@ async function cadastrarTecnico({ nome, email, senha, empresa_id }: { nome: stri
 import { useState, useEffect } from 'react';
 
 export default function TecnicosPage() {
-  const [tecnicos, setTecnicos] = useState([]);
+  const [tecnicos, setTecnicos] = useState<Tecnico[]>([]);
   const [form, setForm] = useState({ nome: '', email: '', telefone: '', senha: '' });
   const [empresaPlano, setEmpresaPlano] = useState({ maxUsuarios: 0 });
   const [empresaId, setEmpresaId] = useState<string | null>(null);
@@ -129,7 +135,7 @@ export default function TecnicosPage() {
       </form>
       <h2 className="text-xl font-bold mt-6">Técnicos Cadastrados</h2>
       <ul className="mt-2">
-        {tecnicos.map((tecnico: any) => (
+        {tecnicos.map((tecnico: Tecnico) => (
           <li key={tecnico.id}>
             {tecnico.nome} - {tecnico.email}
           </li>

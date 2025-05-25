@@ -5,7 +5,29 @@ import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import { FiArrowLeft, FiUserPlus } from "react-icons/fi";
 
-export default function ClienteForm({ cliente }: { cliente?: any }) {
+interface Cliente {
+  id: string;
+  nome: string;
+  telefone: string;
+  celular: string;
+  email: string;
+  documento: string;
+  tipo: string;
+  observacoes: string;
+  responsavel: string;
+  senha: string;
+  cep: string;
+  rua: string;
+  numero: string;
+  complemento: string;
+  bairro: string;
+  cidade: string;
+  estado: string;
+  origem: string;
+  aniversario: string;
+}
+
+export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
   const [form, setForm] = useState({
     nome: '',
     telefone: '',
