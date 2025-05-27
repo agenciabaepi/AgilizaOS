@@ -205,7 +205,7 @@ useEffect(() => {
 useEffect(() => {
   if (!permissaoChecada) return;
 
-  if (isTecnico && !rotasPermitidasParaTecnico.includes(pathname)) {
+  if (isTecnico && pathname && !rotasPermitidasParaTecnico.includes(pathname)) {
     router.push('/dashboard/bancada');
   }
 }, [isTecnico, pathname, router, permissaoChecada]);
@@ -215,7 +215,7 @@ useEffect(() => {
   if (!user) return null;
 
   // Redireciona técnico caso tente acessar a rota de cadastro de técnicos
-  if (isTecnico && pathname === '/dashboard/tecnicos') {
+  if (isTecnico && pathname && !rotasPermitidasParaTecnico.includes(pathname)) {
     router.push('/dashboard/bancada');
     return null;
   }
