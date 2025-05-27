@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+
 function BarraDeProgresso({ etapaAtual, total }: { etapaAtual: number; total: number }) {
   const porcentagem = (etapaAtual / total) * 100;
   const corProgresso = etapaAtual === total ? 'bg-green-500' : 'bg-blue-600';
@@ -23,10 +25,10 @@ import { supabase } from "@/lib/supabaseClient";
 import { useState, useEffect } from 'react';
 import Select from 'react-select';
 import { components } from 'react-select';
-import { Toaster, toast } from 'react-hot-toast';
-import { useForm } from 'react-hook-form';
+import { toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
-import { ArrowLeft, UserPlus, UserCircle, DeviceMobileCamera, UsersThree, ClipboardText, NotePencil, Image } from 'phosphor-react';
+import { ArrowLeft, UserPlus, UserCircle, DeviceMobileCamera, UsersThree, ClipboardText, NotePencil } from 'phosphor-react';
+import { Image as IconImage } from 'phosphor-react';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import Cleave from 'cleave.js/react';
@@ -56,8 +58,19 @@ export default function NovaOSPage() {
   const [pecaSelecionada, setPecaSelecionada] = useState("");
   const [servicoSelecionado, setServicoSelecionado] = useState("");
   // Estado para clientes e cliente selecionado
-  const [clientes, setClientes] = useState<any[]>([]);
-  const [clienteSelecionado, setClienteSelecionado] = useState<any>(null);
+  interface Cliente {
+    id: string;
+    nome: string;
+    telefone: string;
+    celular?: string;
+    email?: string;
+    documento?: string;
+    cep?: string;
+    origem?: string;
+    cadastrado_por?: string;
+  }
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   // Estados para animação de campos e preview de imagens
   const [categoria, setCategoria] = useState("");
@@ -261,7 +274,7 @@ export default function NovaOSPage() {
                     (etapa === 3 && <UsersThree size={16} />) ||
                     (etapa === 4 && <ClipboardText size={16} />) ||
                     (etapa === 5 && <NotePencil size={16} />) ||
-                    (etapa === 6 && <Image size={16} />)
+                    (etapa === 6 && <IconImage size={16} />)
                   }
                 </div>
                 <span className="text-xs mt-1 text-center">
@@ -287,48 +300,48 @@ export default function NovaOSPage() {
                       {isLoading ? (
                         <Skeleton count={1} height={44} />
                       ) : (
-                        <Select
-                          options={clientes.map((c) => ({ value: c.id, label: c.nome }))}
-                          placeholder="Selecionar cliente"
-                          className="w-full rounded-md"
-                          value={clienteSelecionado ? { value: clienteSelecionado.id, label: clienteSelecionado.nome } : null}
-                          onChange={async (selected) => {
-                            if (!selected) return;
-                            const { data, error } = await supabase
-                              .from('clientes')
-                              .select('*')
-                              .eq('id', selected.value)
-                              .single();
-                            if (!error && data) setClienteSelecionado(data);
-                          }}
-                          components={{ SingleValue: CustomSingleValue }}
-                          styles={{
-                            control: (provided: any) => ({
-                              ...provided,
-                              borderRadius: '0.375rem',
-                              borderColor: '#e5e7eb',
-                              backgroundColor: 'white',
-                              boxShadow: 'none',
-                              ':hover': { borderColor: '#3b82f6' }
-                            }),
-                            option: (provided: any, state: any) => ({
-                              ...provided,
-                              backgroundColor: state.isSelected
-                                ? '#3b82f6'
-                                : state.isFocused
-                                ? '#e0f2fe'
-                                : 'white',
-                              color: state.isSelected ? 'white' : '#111827',
-                              padding: '0.75rem 1rem',
-                              fontSize: '0.875rem',
-                            }),
-                            singleValue: (provided: any) => ({
-                              ...provided,
-                              fontSize: '0.875rem',
-                              lineHeight: '1.25rem',
-                            }),
-                          }}
-                        />
+                      <Select
+                        options={clientes.map((c) => ({ value: c.id, label: c.nome }))}
+                        placeholder="Selecionar cliente"
+                        className="w-full rounded-md"
+                        value={clienteSelecionado ? { value: clienteSelecionado.id, label: clienteSelecionado.nome } : null}
+                        onChange={async (selected: { value: string; label: string } | null) => {
+                          if (!selected) return;
+                          const { data, error } = await supabase
+                            .from('clientes')
+                            .select('*')
+                            .eq('id', selected.value)
+                            .single();
+                          if (!error && data) setClienteSelecionado(data);
+                        }}
+                        components={{ SingleValue: CustomSingleValue }}
+                        styles={{
+                          control: (provided: any) => ({
+                            ...provided,
+                            borderRadius: '0.375rem',
+                            borderColor: '#e5e7eb',
+                            backgroundColor: 'white',
+                            boxShadow: 'none',
+                            ':hover': { borderColor: '#3b82f6' }
+                          }),
+                          option: (provided: any, state: any) => ({
+                            ...provided,
+                            backgroundColor: state.isSelected
+                              ? '#3b82f6'
+                              : state.isFocused
+                              ? '#e0f2fe'
+                              : 'white',
+                            color: state.isSelected ? 'white' : '#111827',
+                            padding: '0.75rem 1rem',
+                            fontSize: '0.875rem',
+                          }),
+                          singleValue: (provided: any) => ({
+                            ...provided,
+                            fontSize: '0.875rem',
+                            lineHeight: '1.25rem',
+                          }),
+                        }}
+                      />
                       )}
                     </div>
                     <button
@@ -373,7 +386,7 @@ export default function NovaOSPage() {
                         ]}
                         placeholder="Selecione a categoria"
                         className="w-full rounded-md"
-                        onChange={(selected) => setCategoria(selected?.value || "")}
+                        onChange={(selected: { value: string; label: string } | null) => setCategoria(selected?.value || "")}
                         components={{ SingleValue: CustomSingleValue }}
                         styles={{
                           control: (provided: any) => ({
@@ -415,7 +428,7 @@ export default function NovaOSPage() {
                         ]}
                         placeholder="Selecione a marca"
                         className="w-full rounded-md"
-                        onChange={(selected) => setMarca(selected?.value || "")}
+                        onChange={(selected: { value: string; label: string } | null) => setMarca(selected?.value || "")}
                         components={{ SingleValue: CustomSingleValue }}
                         styles={{
                           control: (provided: any) => ({
@@ -456,7 +469,7 @@ export default function NovaOSPage() {
                         ]}
                         placeholder="Selecione o modelo"
                         className="w-full rounded-md"
-                        onChange={(selected) => setModelo(selected?.value || "")}
+                        onChange={(selected: { value: string; label: string } | null) => setModelo(selected?.value || "")}
                         components={{ SingleValue: CustomSingleValue }}
                         styles={{
                           control: (provided: any) => ({
@@ -498,7 +511,7 @@ export default function NovaOSPage() {
                         ]}
                         placeholder="Selecione a cor"
                         className="w-full rounded-md"
-                        onChange={(selected) => setCor(selected?.value || "")}
+                        onChange={(selected: { value: string; label: string } | null) => setCor(selected?.value || "")}
                         components={{ SingleValue: CustomSingleValue }}
                         styles={{
                           control: (provided: any) => ({
@@ -585,7 +598,7 @@ export default function NovaOSPage() {
                         ]}
                         placeholder="Selecionar técnico"
                         className="w-full rounded-md"
-                        onChange={(selected) => setTecnico(selected?.value || "")}
+                        onChange={(selected: { value: string; label: string } | null) => setTecnico(selected?.value || "")}
                         components={{ SingleValue: CustomSingleValue }}
                         styles={{
                           control: (provided: any) => ({
@@ -624,7 +637,7 @@ export default function NovaOSPage() {
                         ]}
                         placeholder="Selecionar atendente"
                         className="w-full rounded-md"
-                        onChange={(selected) => setAtendente(selected?.value || "")}
+                        onChange={(selected: { value: string; label: string } | null) => setAtendente(selected?.value || "")}
                         components={{ SingleValue: CustomSingleValue }}
                         styles={{
                           control: (provided: any) => ({
@@ -707,7 +720,7 @@ export default function NovaOSPage() {
                             ? 'Aprovado'
                             : 'Concluído',
                       }}
-                      onChange={(selected) => setStatus(selected?.value || 'analise')}
+                      onChange={(selected: { value: string; label: string } | null) => setStatus(selected?.value || 'analise')}
                       placeholder="Selecionar status"
                       className="w-full rounded-md"
                       components={{ SingleValue: CustomSingleValue }}
@@ -762,7 +775,7 @@ export default function NovaOSPage() {
                                       }
                                     : null
                                 }
-                                onChange={(selected) => setServicoSelecionado(selected?.value || "")}
+                                onChange={(selected: { value: string; label: string } | null) => setServicoSelecionado(selected?.value || "")}
                                 placeholder="Selecionar serviço"
                                 className="w-full rounded-md"
                                 components={{ SingleValue: CustomSingleValue }}
@@ -832,7 +845,7 @@ export default function NovaOSPage() {
                                       }
                                     : null
                                 }
-                                onChange={(selected) => setPecaSelecionada(selected?.value || "")}
+                                onChange={(selected: { value: string; label: string } | null) => setPecaSelecionada(selected?.value || "")}
                                 placeholder="Selecionar peça"
                                 className="w-full rounded-md"
                                 components={{ SingleValue: CustomSingleValue }}
@@ -896,7 +909,7 @@ export default function NovaOSPage() {
                         ]}
                         placeholder="Selecionar termo"
                         className="w-full rounded-md"
-                        onChange={(selected) => setTermoGarantia(selected?.value || "")}
+                        onChange={(selected: { value: string; label: string } | null) => setTermoGarantia(selected?.value || "")}
                         isSearchable
                         components={{ SingleValue: CustomSingleValue }}
                         styles={{
@@ -1014,7 +1027,9 @@ export default function NovaOSPage() {
                         }}
                         className="w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20 cursor-pointer hover:bg-gray-100"
                       />
-                      {previewEntrada && <img src={previewEntrada} alt="Preview" className="w-32 h-32 object-cover rounded-lg mt-2" />}
+                      {previewEntrada && (
+                        <Image src={previewEntrada} alt="Preview" width={128} height={128} className="w-32 h-32 object-cover rounded-lg mt-2" />
+                      )}
                     </div>
                     <div>
                       <label className="text-sm font-semibold text-gray-700 mb-2">Imagem de Saída</label>
@@ -1026,7 +1041,9 @@ export default function NovaOSPage() {
                         }}
                         className="w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20 cursor-pointer hover:bg-gray-100"
                       />
-                      {previewSaida && <img src={previewSaida} alt="Preview" className="w-32 h-32 object-cover rounded-lg mt-2" />}
+                      {previewSaida && (
+                        <Image src={previewSaida} alt="Preview" width={128} height={128} className="w-32 h-32 object-cover rounded-lg mt-2" />
+                      )}
                     </div>
                   </div>
                   <div className="p-4 bg-gray-200 rounded-lg shadow-md mt-4">
@@ -1308,7 +1325,7 @@ function FastRegisterForm({ onClose, onSubmit, isLoading }: { onClose: () => voi
               lineHeight: '1.25rem',
             }),
           }}
-          onChange={(selected) => handleSelectChange('origem', selected)}
+          onChange={(selected: { value: string; label: string } | null) => handleSelectChange('origem', selected)}
         />
         {formData.origem && (
           <div className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4">
@@ -1352,7 +1369,7 @@ function FastRegisterForm({ onClose, onSubmit, isLoading }: { onClose: () => voi
               lineHeight: '1.25rem',
             }),
           }}
-          onChange={(selected) => handleSelectChange('cadastradoPor', selected)}
+          onChange={(selected: { value: string; label: string } | null) => handleSelectChange('cadastradoPor', selected)}
         />
         {formData.cadastradoPor && (
           <div className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4">
