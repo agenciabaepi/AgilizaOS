@@ -18,7 +18,7 @@ export default function VisualizarClientePage() {
       const { data, error } = await supabase
         .from('clientes')
         .select('*')
-        .eq('id', params.id)
+        .eq('id', params?.id ?? '')
         .single();
 
       if (error) {
@@ -29,7 +29,7 @@ export default function VisualizarClientePage() {
     };
 
     fetchCliente();
-  }, [params.id]);
+  }, [params?.id]);
 
   if (!cliente) return <p>Carregando...</p>;
 
