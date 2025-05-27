@@ -30,12 +30,12 @@ export default function EditarClientePage() {
       const { data } = await supabase
         .from('clientes')
         .select('*')
-        .eq('id', params.id)
+        .eq('id', params?.id ?? '')
         .single();
       setCliente(data);
     };
     fetchCliente();
-  }, [params.id]);
+  }, [params?.id]);
 
   if (!cliente) return <p>Carregando...</p>;
 
