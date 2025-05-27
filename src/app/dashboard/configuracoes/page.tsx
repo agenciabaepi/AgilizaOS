@@ -69,7 +69,7 @@ export default function ConfigEmpresa() {
           });
           setEmpresaId(data.id);
         }
-      } catch (err: SupabaseError | Error) {
+      } catch (err: any) {
         console.error('Erro geral ao buscar empresa:', err);
         setError(err.message || 'Erro ao buscar dados');
       } finally {
@@ -141,7 +141,7 @@ export default function ConfigEmpresa() {
         alert('Configurações salvas com sucesso!');
         setIsEditing(false);
       }
-    } catch (err: SupabaseError | Error) {
+    } catch (err: any) {
       console.error('Erro geral:', err);
       setError(err.message || 'Erro desconhecido');
     } finally {
