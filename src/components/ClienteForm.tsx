@@ -109,6 +109,7 @@ export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
       .eq('user_id', userData?.user?.id)
       .single();
 
+
     if (empresaError || !empresaData?.id) {
       setShowError(true);
       setTimeout(() => setShowError(false), 2000);
@@ -145,13 +146,13 @@ export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
       .select('numero_cliente')
       .eq('empresa_id', empresaId)
       .order('numero_cliente', { ascending: false })
-      .limit(1);
+      .limit(1)
+      .single();
 
-    if (maxError) {
-      console.error('Erro ao buscar numero_cliente:', maxError);
+    let numeroCliente = 1;
+    if (maxResult && maxResult.numero_cliente) {
+      numeroCliente = maxResult.numero_cliente + 1;
     }
-
-    const proximoNumero = (maxResult?.[0]?.numero_cliente || 0) + 1;
 
     const clientePayload = {
       empresa_id: empresaId,
@@ -176,7 +177,7 @@ export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
       cpf: form.documento,
       endereco: `${form.rua}, ${form.numero}, ${form.bairro}, ${form.cidade} - ${form.estado}`,
       data_cadastro: new Date().toISOString(),
-      numero_cliente: proximoNumero
+      numero_cliente: numeroCliente
     };
 
     console.log("Cliente payload:", clientePayload);
