@@ -1399,7 +1399,7 @@ function FastRegisterForm({ onClose, onSubmit, isLoading }: { onClose: () => voi
                 : 'white',
               color: state.isSelected ? 'white' : '#111827',
               padding: '0.75rem 1rem',
-              fontSize: '0.875rem',
+              fontSize: '0.875rem', 
             }),
             singleValue: (provided: any) => ({
               ...provided,
