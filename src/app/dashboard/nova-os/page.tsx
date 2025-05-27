@@ -306,8 +306,8 @@ export default function NovaOSPage() {
                         placeholder="Selecionar cliente"
                         className="w-full rounded-md"
                         value={clienteSelecionado ? { value: clienteSelecionado.id, label: clienteSelecionado.nome } : null}
-                        onChange={(newValue: SingleValue<{ value: string; label: string }>) => {
-                          if (!newValue) return;
+                        onChange={(newValue, _actionMeta) => {
+                          if (!newValue || Array.isArray(newValue)) return;
                           supabase
                             .from('clientes')
                             .select('*')
@@ -389,7 +389,7 @@ export default function NovaOSPage() {
                         ]}
                         placeholder="Selecione a categoria"
                         className="w-full rounded-md"
-                        onChange={(newValue) => {
+                        onChange={(newValue, _actionMeta) => {
                           if (!newValue || Array.isArray(newValue)) return;
                           setCategoria(newValue.value);
                         }}
@@ -434,7 +434,7 @@ export default function NovaOSPage() {
                         ]}
                         placeholder="Selecione a marca"
                         className="w-full rounded-md"
-                        onChange={(newValue) => {
+                        onChange={(newValue, _actionMeta) => {
                           if (!newValue || Array.isArray(newValue)) return;
                           setMarca(newValue.value);
                         }}
@@ -478,7 +478,7 @@ export default function NovaOSPage() {
                         ]}
                         placeholder="Selecione o modelo"
                         className="w-full rounded-md"
-                        onChange={(newValue) => {
+                        onChange={(newValue, _actionMeta) => {
                           if (!newValue || Array.isArray(newValue)) return;
                           setModelo(newValue.value);
                         }}
@@ -523,7 +523,7 @@ export default function NovaOSPage() {
                         ]}
                         placeholder="Selecione a cor"
                         className="w-full rounded-md"
-                        onChange={(newValue) => {
+                        onChange={(newValue, _actionMeta) => {
                           if (!newValue || Array.isArray(newValue)) return;
                           setCor(newValue.value);
                         }}
@@ -613,7 +613,7 @@ export default function NovaOSPage() {
                         ]}
                         placeholder="Selecionar técnico"
                         className="w-full rounded-md"
-                        onChange={(newValue) => {
+                        onChange={(newValue, _actionMeta) => {
                           if (!newValue || Array.isArray(newValue)) return;
                           setTecnico(newValue.value);
                         }}
@@ -655,7 +655,7 @@ export default function NovaOSPage() {
                         ]}
                         placeholder="Selecionar atendente"
                         className="w-full rounded-md"
-                        onChange={(newValue) => {
+                        onChange={(newValue, _actionMeta) => {
                           if (!newValue || Array.isArray(newValue)) return;
                           setAtendente(newValue.value);
                         }}
@@ -741,7 +741,7 @@ export default function NovaOSPage() {
                             ? 'Aprovado'
                             : 'Concluído',
                       }}
-                      onChange={(newValue) => {
+                      onChange={(newValue, _actionMeta) => {
                         if (!newValue || Array.isArray(newValue)) return;
                         setStatus(newValue.value);
                       }}
@@ -775,6 +775,7 @@ export default function NovaOSPage() {
                         }),
                       }}
                     />
+// SERVIÇO
                   </div>
                   {status === "aprovado" && (
                   <div className="transition-all duration-500 ease-in-out animate-fadeIn">
@@ -799,7 +800,7 @@ export default function NovaOSPage() {
                                       }
                                     : null
                                 }
-                                onChange={(newValue) => {
+                                onChange={(newValue, _actionMeta) => {
                                   if (!newValue || Array.isArray(newValue)) return;
                                   setServicoSelecionado(newValue.value);
                                 }}
@@ -833,6 +834,7 @@ export default function NovaOSPage() {
                                   }),
                                 }}
                               />
+// PEÇA
                             </div>
                             <input
                               type="number"
@@ -872,7 +874,7 @@ export default function NovaOSPage() {
                                       }
                                     : null
                                 }
-                                onChange={(newValue) => {
+                                onChange={(newValue, _actionMeta) => {
                                   if (!newValue || Array.isArray(newValue)) return;
                                   setPecaSelecionada(newValue.value);
                                 }}
@@ -939,7 +941,7 @@ export default function NovaOSPage() {
                         ]}
                         placeholder="Selecionar termo"
                         className="w-full rounded-md"
-                        onChange={(newValue) => {
+                        onChange={(newValue, _actionMeta) => {
                           if (!newValue || Array.isArray(newValue)) return;
                           setTermoGarantia(newValue.value);
                         }}
