@@ -5,7 +5,8 @@ import { useState } from 'react';
 import { FiClipboard, FiSave, FiBox, FiTool, FiCamera, FiFileText, FiPlay, FiCheck, FiDollarSign, FiFlag } from 'react-icons/fi';
 
 export default function DetalheBancadaPage() {
-  const { id } = useParams();
+  const params = useParams();
+  const id = params?.id as string;
   const [laudo, setLaudo] = useState('');
   const [status, setStatus] = useState('Em análise');
   const [peca, setPeca] = useState('');
