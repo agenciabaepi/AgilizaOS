@@ -4,25 +4,7 @@ import Link from 'next/link';
 import { FiPlus, FiSearch, FiEdit2, FiTrash2, FiEye, FiMessageSquare } from 'react-icons/fi';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
-
-interface Cliente {
-  id: string;
-  numero: number;
-  numero_cliente: number;
-  nome: string;
-  documento: string;
-  telefone: string;
-  celular: string;
-  email: string;
-  responsavel: string;
-  tipo: string;
-  origem: string;
-  aniversario: string;
-  cep: string;
-  endereco: string;
-  observacoes: string;
-  data_cadastro: string;
-}
+import { Cliente } from '@/types/Cliente';
 
 export default function ClientesPage() {
   const [busca, setBusca] = useState('');

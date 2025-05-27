@@ -4,22 +4,7 @@ import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from "@/lib/supabaseClient";
 import ClienteForm from '../../../../../components/ClienteForm';
-
-interface Cliente {
-  id: string;
-  nome: string;
-  documento: string;
-  telefone: string;
-  celular: string;
-  email: string;
-  responsavel: string;
-  tipo: string;
-  origem: string;
-  aniversario: string;
-  cep: string;
-  endereco: string;
-  observacoes: string;
-}
+import { Cliente } from "@/types/cliente";
 
 export default function EditarClientePage() {
   const params = useParams();

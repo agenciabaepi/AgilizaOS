@@ -5,22 +5,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { FiArrowLeft, FiEdit2 } from 'react-icons/fi';
 import React from 'react';
-
-interface Cliente {
-  id: string;
-  nome: string;
-  documento: string;
-  telefone: string;
-  celular: string;
-  email: string;
-  responsavel: string;
-  tipo: string;
-  origem: string;
-  aniversario: string;
-  cep: string;
-  endereco: string;
-  observacoes: string;
-}
+import { Cliente } from '@/types/cliente';
 
 export default function VisualizarClientePage() {
   const params = useParams();
