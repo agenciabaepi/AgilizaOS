@@ -390,7 +390,10 @@ export default function NovaOSPage() {
                         ]}
                         placeholder="Selecione a categoria"
                         className="w-full rounded-md"
-                        onChange={(selected: { value: string; label: string } | null) => setCategoria(selected?.value || "")}
+                        onChange={(newValue) => {
+                          if (!newValue || Array.isArray(newValue)) return;
+                          setCategoria(newValue.value);
+                        }}
                         components={{ SingleValue: CustomSingleValue }}
                         styles={{
                           control: (provided: any) => ({
@@ -432,7 +435,10 @@ export default function NovaOSPage() {
                         ]}
                         placeholder="Selecione a marca"
                         className="w-full rounded-md"
-                        onChange={(selected: { value: string; label: string } | null) => setMarca(selected?.value || "")}
+                        onChange={(newValue) => {
+                          if (!newValue || Array.isArray(newValue)) return;
+                          setMarca(newValue.value);
+                        }}
                         components={{ SingleValue: CustomSingleValue }}
                         styles={{
                           control: (provided: any) => ({
@@ -473,7 +479,10 @@ export default function NovaOSPage() {
                         ]}
                         placeholder="Selecione o modelo"
                         className="w-full rounded-md"
-                        onChange={(selected: { value: string; label: string } | null) => setModelo(selected?.value || "")}
+                        onChange={(newValue) => {
+                          if (!newValue || Array.isArray(newValue)) return;
+                          setModelo(newValue.value);
+                        }}
                         components={{ SingleValue: CustomSingleValue }}
                         styles={{
                           control: (provided: any) => ({
@@ -515,7 +524,10 @@ export default function NovaOSPage() {
                         ]}
                         placeholder="Selecione a cor"
                         className="w-full rounded-md"
-                        onChange={(selected: { value: string; label: string } | null) => setCor(selected?.value || "")}
+                        onChange={(newValue) => {
+                          if (!newValue || Array.isArray(newValue)) return;
+                          setCor(newValue.value);
+                        }}
                         components={{ SingleValue: CustomSingleValue }}
                         styles={{
                           control: (provided: any) => ({
@@ -602,7 +614,10 @@ export default function NovaOSPage() {
                         ]}
                         placeholder="Selecionar técnico"
                         className="w-full rounded-md"
-                        onChange={(selected: { value: string; label: string } | null) => setTecnico(selected?.value || "")}
+                        onChange={(newValue) => {
+                          if (!newValue || Array.isArray(newValue)) return;
+                          setTecnico(newValue.value);
+                        }}
                         components={{ SingleValue: CustomSingleValue }}
                         styles={{
                           control: (provided: any) => ({
@@ -641,7 +656,10 @@ export default function NovaOSPage() {
                         ]}
                         placeholder="Selecionar atendente"
                         className="w-full rounded-md"
-                        onChange={(selected: { value: string; label: string } | null) => setAtendente(selected?.value || "")}
+                        onChange={(newValue) => {
+                          if (!newValue || Array.isArray(newValue)) return;
+                          setAtendente(newValue.value);
+                        }}
                         components={{ SingleValue: CustomSingleValue }}
                         styles={{
                           control: (provided: any) => ({
@@ -724,7 +742,10 @@ export default function NovaOSPage() {
                             ? 'Aprovado'
                             : 'Concluído',
                       }}
-                      onChange={(selected: { value: string; label: string } | null) => setStatus(selected?.value || 'analise')}
+                      onChange={(newValue) => {
+                        if (!newValue || Array.isArray(newValue)) return;
+                        setStatus(newValue.value);
+                      }}
                       placeholder="Selecionar status"
                       className="w-full rounded-md"
                       components={{ SingleValue: CustomSingleValue }}
@@ -779,7 +800,10 @@ export default function NovaOSPage() {
                                       }
                                     : null
                                 }
-                                onChange={(selected: { value: string; label: string } | null) => setServicoSelecionado(selected?.value || "")}
+                                onChange={(newValue) => {
+                                  if (!newValue || Array.isArray(newValue)) return;
+                                  setServicoSelecionado(newValue.value);
+                                }}
                                 placeholder="Selecionar serviço"
                                 className="w-full rounded-md"
                                 components={{ SingleValue: CustomSingleValue }}
@@ -849,7 +873,10 @@ export default function NovaOSPage() {
                                       }
                                     : null
                                 }
-                                onChange={(selected: { value: string; label: string } | null) => setPecaSelecionada(selected?.value || "")}
+                                onChange={(newValue) => {
+                                  if (!newValue || Array.isArray(newValue)) return;
+                                  setPecaSelecionada(newValue.value);
+                                }}
                                 placeholder="Selecionar peça"
                                 className="w-full rounded-md"
                                 components={{ SingleValue: CustomSingleValue }}
@@ -913,7 +940,10 @@ export default function NovaOSPage() {
                         ]}
                         placeholder="Selecionar termo"
                         className="w-full rounded-md"
-                        onChange={(selected: { value: string; label: string } | null) => setTermoGarantia(selected?.value || "")}
+                        onChange={(newValue) => {
+                          if (!newValue || Array.isArray(newValue)) return;
+                          setTermoGarantia(newValue.value);
+                        }}
                         isSearchable
                         components={{ SingleValue: CustomSingleValue }}
                         styles={{
