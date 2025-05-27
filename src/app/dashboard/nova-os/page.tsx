@@ -124,7 +124,7 @@ export default function NovaOSPage() {
       if (empresaError) throw new Error("Erro ao obter dados da empresa");
       const empresa_id = empresaData?.id;
       const { error: insertError } = await supabase.from("ordens_servico").insert({
-        cliente_id: clienteSelecionado.value,
+        cliente_id: clienteSelecionado.id,
         empresa_id,
         status,
         servico: servicoSelecionado,
