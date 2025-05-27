@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { FiPlus, FiSearch, FiEdit2, FiTrash2, FiEye, FiMessageSquare } from 'react-icons/fi';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
-import { Cliente } from '@/types/Cliente';
+import { Cliente } from '@/types/cliente';
 
 export default function ClientesPage() {
   const [busca, setBusca] = useState('');
