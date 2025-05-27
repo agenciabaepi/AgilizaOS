@@ -306,14 +306,17 @@ export default function NovaOSPage() {
                         placeholder="Selecionar cliente"
                         className="w-full rounded-md"
                         value={clienteSelecionado ? { value: clienteSelecionado.id, label: clienteSelecionado.nome } : null}
-                        onChange={async (selected: { value: string; label: string } | null) => {
+                        onChange={(newValue) => {
+                          const selected = newValue as { value: string; label: string } | null;
                           if (!selected) return;
-                          const { data, error } = await supabase
+                          supabase
                             .from('clientes')
                             .select('*')
                             .eq('id', selected.value)
-                            .single();
-                          if (!error && data) setClienteSelecionado(data);
+                            .single()
+                            .then(({ data, error }) => {
+                              if (!error && data) setClienteSelecionado(data);
+                            });
                         }}
                         components={{ SingleValue: CustomSingleValue }}
                         styles={{
