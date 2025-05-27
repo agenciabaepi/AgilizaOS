@@ -306,8 +306,8 @@ export default function NovaOSPage() {
                         placeholder="Selecionar cliente"
                         className="w-full rounded-md"
                         value={clienteSelecionado ? { value: clienteSelecionado.id, label: clienteSelecionado.nome } : null}
-                        onChange={(newValue) => {
-                          if (!newValue || Array.isArray(newValue)) return;
+                        onChange={(newValue: SingleValue<{ value: string; label: string }>) => {
+                          if (!newValue) return;
                           supabase
                             .from('clientes')
                             .select('*')
