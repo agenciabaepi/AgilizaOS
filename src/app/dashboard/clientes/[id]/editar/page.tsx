@@ -51,7 +51,6 @@ export default function EditarClientePage() {
     origem: cliente.origem ?? '',
     aniversario: cliente.aniversario ?? '',
     cep: cliente.cep ?? '',
-    endereco: cliente.endereco ?? '',
     observacoes: cliente.observacoes ?? '',
   }} />;
 }
