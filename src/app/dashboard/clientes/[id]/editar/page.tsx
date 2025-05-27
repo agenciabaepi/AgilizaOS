@@ -39,5 +39,19 @@ export default function EditarClientePage() {
 
   if (!cliente) return <p>Carregando...</p>;
 
-  return <ClienteForm cliente={cliente} />;
+  return <ClienteForm cliente={{
+    ...cliente,
+    nome: cliente.nome ?? '',
+    documento: cliente.documento ?? '',
+    telefone: cliente.telefone ?? '',
+    celular: cliente.celular ?? '',
+    email: cliente.email ?? '',
+    responsavel: cliente.responsavel ?? '',
+    tipo: cliente.tipo ?? '',
+    origem: cliente.origem ?? '',
+    aniversario: cliente.aniversario ?? '',
+    cep: cliente.cep ?? '',
+    endereco: cliente.endereco ?? '',
+    observacoes: cliente.observacoes ?? '',
+  }} />;
 }

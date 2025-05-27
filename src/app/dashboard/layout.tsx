@@ -27,6 +27,8 @@ import {
   Legend,
 } from 'chart.js';
 
+import { Toaster } from 'react-hot-toast';
+
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -365,6 +367,17 @@ useEffect(() => {
       <main className="transition-all duration-300 bg-gray-50 p-6 pl-16 z-0 relative overflow-x-auto w-full mt-16">
         {children}
       </main>
+      <Toaster
+        position="top-center"
+        reverseOrder={false}
+        toastOptions={{
+          style: {
+            fontSize: '1rem',
+            padding: '16px 24px',
+            borderRadius: '8px',
+          },
+        }}
+      />
     </div>
   );
 }
