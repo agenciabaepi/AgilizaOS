@@ -48,7 +48,8 @@ export default function DashboardPage({ children }: { children: React.ReactNode 
   const [isTecnico, setIsTecnico] = useState(false);
   const [checandoPermissao, setChecandoPermissao] = useState(true);
   const [permissaoChecada, setPermissaoChecada] = useState(false);
-  const { user, loading } = auth || {};
+  const { user } = auth || {};
+  const loading = false; // ou ajuste conforme a definição correta do contexto de autenticação
   const router = useRouter();
   const pathname = usePathname();
 
