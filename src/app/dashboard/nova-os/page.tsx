@@ -1360,7 +1360,10 @@ function FastRegisterForm({ onClose, onSubmit, isLoading }: { onClose: () => voi
               lineHeight: '1.25rem',
             }),
           }}
-          onChange={(selected: { value: string; label: string } | null) => handleSelectChange('origem', selected)}
+          onChange={(newValue, _actionMeta) => {
+            if (!newValue || Array.isArray(newValue)) return;
+            handleSelectChange('origem', newValue);
+          }}
         />
         {formData.origem && (
           <div className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4">
@@ -1404,7 +1407,10 @@ function FastRegisterForm({ onClose, onSubmit, isLoading }: { onClose: () => voi
               lineHeight: '1.25rem',
             }),
           }}
-          onChange={(selected: { value: string; label: string } | null) => handleSelectChange('cadastradoPor', selected)}
+          onChange={(newValue, _actionMeta) => {
+            if (!newValue || Array.isArray(newValue)) return;
+            handleSelectChange('cadastradoPor', newValue);
+          }}
         />
         {formData.cadastradoPor && (
           <div className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4">
