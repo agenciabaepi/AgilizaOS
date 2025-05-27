@@ -73,7 +73,7 @@ export default function DetalheBancadaPage() {
           <div>
             <p className="text-[13px] font-medium text-gray-500 mb-1">Relato do cliente</p>
             <p className="text-base text-gray-800 leading-snug">
-              Aparelho não liga mesmo após carregamento
+              Aparelho não liga mesmo após carregamento o dia todo
             </p>
           </div>
           <div>
