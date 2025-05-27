@@ -52,5 +52,10 @@ export default function EditarClientePage() {
     aniversario: cliente.aniversario ?? '',
     cep: cliente.cep ?? '',
     observacoes: cliente.observacoes ?? '',
+    senha: cliente.senha ?? '',
+    rua: cliente.rua ?? '',
+    numero: cliente.numero ?? '',
+    complemento: cliente.complemento ?? '',
+    // Adicione outras propriedades obrigatórias aqui se existirem
   }} />;
 }
