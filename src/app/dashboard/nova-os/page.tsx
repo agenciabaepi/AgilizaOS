@@ -25,6 +25,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useState, useEffect } from 'react';
 import Select from 'react-select';
 import { components } from 'react-select';
+import { SingleValueProps } from 'react-select';
 import { toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { ArrowLeft, UserPlus, UserCircle, DeviceMobileCamera, UsersThree, ClipboardText, NotePencil } from 'phosphor-react';
@@ -36,7 +37,7 @@ import Lottie from 'lottie-react';
 import checkmarkAnimation from '@/assets/animations/checkmark.json';
 import errorAnimation from '@/assets/animations/error.json';
 // Custom SingleValue for react-select to show animated checkmark at right
-const CustomSingleValue = (props) => (
+const CustomSingleValue = (props: SingleValueProps<any>) => (
   <components.SingleValue {...props}>
     <div className="flex items-center justify-between w-full">
       <span>{props.data.label}</span>
