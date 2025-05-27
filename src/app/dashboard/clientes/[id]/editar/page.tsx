@@ -41,6 +41,8 @@ export default function EditarClientePage() {
     rua: cliente.rua ?? '',
     numero: cliente.numero ?? '',
     complemento: cliente.complemento ?? '',
-    // Adicione outras propriedades obrigatórias aqui se existirem
+    bairro: cliente.bairro ?? '',
+    cidade: cliente.cidade ?? '',
+    estado: cliente.estado ?? ''
   }} />;
 }
