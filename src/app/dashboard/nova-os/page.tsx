@@ -24,7 +24,7 @@ import { supabase } from "@/lib/supabaseClient";
 
 import { useState, useEffect } from 'react';
 import Select from 'react-select';
-import { components } from 'react-select';
+import { components, SingleValue } from 'react-select';
 import { SingleValueProps } from 'react-select';
 import { toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
