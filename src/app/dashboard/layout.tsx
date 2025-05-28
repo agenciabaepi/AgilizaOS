@@ -221,21 +221,39 @@ useEffect(() => {
   }
 
   return (
+    
     <div className="flex min-h-screen relative z-0 overflow-x-hidden w-full">
-      <div className="fixed top-0 left-0 w-full z-60 h-14 bg-white border-b border-gray-200 shadow-sm px-6 flex items-center justify-end gap-6">
-        <div className="flex items-center gap-3 mr-auto ml-20">
-          {empresa?.logo_url && (
-            <img src={empresa.logo_url} alt="Logo Empresa" className="h-10 object-contain" />
-          )}
+      <div className="fixed top-0 left-0 w-full z-60 h-16 bg-[#00117f] text-white flex items-center justify-between px-6">
+        {/* Esquerda: Logo */}
+        <div className="flex items-center mr-6">
+          <Image src={logo} alt="Logo Agiliza" className="h-10 object-contain" />
         </div>
-        <div className="flex items-center gap-2 text-sm text-green-600 font-medium">
-          <FiCheckCircle size={16} />
-          Licença ativa
+
+        {/* Direita: Busca + Notificação + Licença + Suporte */}
+        <div className="flex items-center gap-4">
+          <div className="relative w-40">
+            <input
+              type="text"
+              placeholder="Buscar..."
+              className="w-full pl-10 pr-4 py-2 rounded-full bg-white text-gray-700 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1860fa]"
+            />
+            <FiSearch className="absolute left-3 top-2.5 text-gray-400" size={18} />
+          </div>
+
+          <div className="relative w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 cursor-pointer hover:bg-gray-200">
+            <FiBell className="text-gray-500" size={18} />
+          </div>
+
+          <div className="flex items-center gap-2 text-sm text-green-400 font-medium whitespace-nowrap">
+            <FiCheckCircle size={16} />
+            Licença ativa
+          </div>
+
+          <button className="flex items-center gap-2 text-sm text-white hover:text-[#1860fa]">
+            <FiHelpCircle size={16} />
+            Suporte
+          </button>
         </div>
-        <button className="flex items-center gap-2 text-sm text-blue-600 hover:underline">
-          <FiHelpCircle size={16} />
-          Suporte
-        </button>
       </div>
       <aside
         onMouseEnter={() => setExpanded(true)}
@@ -382,3 +400,5 @@ useEffect(() => {
     </div>
   );
 }
+
+import { FiSearch, FiBell } from 'react-icons/fi';
