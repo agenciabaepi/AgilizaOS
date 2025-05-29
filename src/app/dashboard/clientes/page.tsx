@@ -354,115 +354,136 @@ export default function ClientesPage() {
       )}
 
       {carregando ? (
-        <table className="w-full text-sm rounded-md overflow-hidden border border-gray-200">
-          <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-            <tr>
-              <th>#</th>
-              <th>Nome</th>
-              <th>Telefone</th>
-              <th>Celular</th>
-              <th>Email</th>
-              <th>Documento</th>
-              <th>Status</th>
-              <th>Data Cadastro</th>
-              <th className="text-right">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {Array.from({ length: 10 }).map((_, idx) => (
-              <tr key={idx} className="border-b border-gray-100">
-                <td className="px-1 py-4"><Skeleton width={18} height={18} /></td>
-                <td className="px-1 py-4"><Skeleton width={30} height={14} /></td>
-                <td className="px-1 py-4"><Skeleton width={100} height={14} /></td>
-                <td className="px-1 py-4"><Skeleton width={100} height={14} /></td>
-                <td className="px-1 py-4"><Skeleton width={160} height={14} /></td>
-                <td className="px-1 py-4"><Skeleton width={100} height={14} /></td>
-                <td className="px-1 py-4"><Skeleton width={50} height={18} /></td>
-                <td className="px-1 py-4"><Skeleton width={80} height={14} /></td>
-                <td className="px-1 py-4 text-right">
-                  <div className="flex justify-end gap-3">
-                    <Skeleton width={18} height={18} />
-                    <Skeleton width={18} height={18} />
-                    <Skeleton width={18} height={18} />
-                    <Skeleton width={18} height={18} />
-                  </div>
-                </td>
+        <div className="bg-white shadow rounded-lg px-6 py-6">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+              <tr>
+                <th>#</th>
+                <th>Nome</th>
+                <th>Telefone</th>
+                <th>Celular</th>
+                <th>Email</th>
+                <th>Documento</th>
+                <th>Status</th>
+                <th>Data Cadastro</th>
+                <th className="text-right">Ações</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {Array.from({ length: 10 }).map((_, idx) => (
+                <tr key={idx} className="border-b border-gray-100">
+                  <td className="px-1 py-4"><Skeleton width={18} height={18} /></td>
+                  <td className="px-1 py-4"><Skeleton width={30} height={14} /></td>
+                  <td className="px-1 py-4"><Skeleton width={100} height={14} /></td>
+                  <td className="px-1 py-4"><Skeleton width={100} height={14} /></td>
+                  <td className="px-1 py-4"><Skeleton width={160} height={14} /></td>
+                  <td className="px-1 py-4"><Skeleton width={100} height={14} /></td>
+                  <td className="px-1 py-4"><Skeleton width={50} height={18} /></td>
+                  <td className="px-1 py-4"><Skeleton width={80} height={14} /></td>
+                  <td className="px-1 py-4 text-right">
+                    <div className="flex justify-end gap-3">
+                      <Skeleton width={18} height={18} />
+                      <Skeleton width={18} height={18} />
+                      <Skeleton width={18} height={18} />
+                      <Skeleton width={18} height={18} />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : (
-        <table className="w-full text-sm rounded-md overflow-hidden border border-gray-200">
-          <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-            <tr>
-              <th className="relative z-10 align-middle py-3">
-                <input type="checkbox" onChange={(e) => setSelecionados(e.target.checked ? clientesFiltrados.map(c => c.id) : [])} />
-              </th>
-              <th className="px-1 py-3 sticky left-0 bg-gray-100 z-10 text-sm text-left font-semibold text-gray-700">#</th>
-              <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700">Nome</th>
-              <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700">Telefone</th>
-              <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700">Celular</th>
-              <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700">Email</th>
-              <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700">Documento</th>
-              <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700">Cadastrado por</th>
-              <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700">Status</th>
-              <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700">Data Cadastro</th>
-              <th className="px-1 py-3 text-sm text-right font-semibold text-gray-700">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {clientesFiltrados.map((c, idx) => (
-              <tr key={c.id} className="hover:bg-gray-50 transition-transform transform hover:scale-[1.005] border-b border-gray-100">
-                <td className="relative z-10 align-middle py-4">
-                  <input type="checkbox" checked={selecionados.includes(c.id)} onChange={(e) => {
-                    if(e.target.checked) setSelecionados([...selecionados, c.id]);
-                    else setSelecionados(selecionados.filter(id => id !== c.id));
-                  }} />
-                </td>
-                <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.numero_cliente}</td>
-                <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.nome}</td>
-                <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.telefone}</td>
-                <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.celular}</td>
-                <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.email}</td>
-                <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.documento}</td>
-                <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.cadastrado_por || '—'}</td>
-                <td className="px-1 py-4 align-middle">
-                  <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                    c.status === 'ativo' ? 'bg-green-100 text-green-800' :
-                    c.status === 'inativo' ? 'bg-red-100 text-red-800' :
-                    'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {c.status}
-                  </span>
-                </td>
-                <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{new Date(c.created_at).toLocaleDateString()}</td>
-                <td className="px-1 py-4 flex justify-end gap-3 align-middle">
-                  <Link href={`/dashboard/clientes/${c.id}`} className="text-blue-600">
-                    <FiEye className="w-5 h-5 hover:text-gray-700" />
-                  </Link>
-                  <Link href={`/dashboard/clientes/${c.id}/editar`} className="text-yellow-600">
-                    <FiEdit2 className="w-5 h-5 hover:text-gray-700" />
-                  </Link>
-                  <button
-                    className="text-red-600 hover:scale-110 transform transition"
-                    onClick={() => solicitarExclusao(c)}
-                  >
-                    <FiTrash2 className="w-5 h-5 hover:text-gray-700" />
-                  </button>
-                  <a
-                    href={`https://wa.me/${c.celular.replace(/\D/g, '')}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-green-600 hover:scale-110 transform transition"
-                    aria-label={`Enviar mensagem para ${c.nome}`}
-                  >
-                    <FaWhatsapp className="w-5 h-5 hover:text-gray-700" />
-                  </a>
-                </td>
+        <div className="bg-white shadow rounded-lg px-4 py-4">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="relative z-10 align-middle py-3 sticky top-0 z-10 bg-white">
+                  <input type="checkbox" onChange={(e) => setSelecionados(e.target.checked ? clientesFiltrados.map(c => c.id) : [])} />
+                </th>
+                <th className="px-1 py-3 sticky left-0 bg-gray-100 z-10 text-sm text-left font-semibold text-gray-700 sticky top-0 z-10 bg-white">#</th>
+                <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700 sticky top-0 z-10 bg-white">Nome</th>
+                <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700 sticky top-0 z-10 bg-white">Telefone</th>
+                <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700 sticky top-0 z-10 bg-white">WhatsApp</th>
+                <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700 sticky top-0 z-10 bg-white">Email</th>
+                <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700 sticky top-0 z-10 bg-white">Documento</th>
+                <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700 sticky top-0 z-10 bg-white">Cadastrado por</th>
+                <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700 sticky top-0 z-10 bg-white">Status</th>
+                <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700 sticky top-0 z-10 bg-white">Data Cadastro</th>
+                <th className="px-1 py-3 text-sm text-right font-semibold text-gray-700 sticky top-0 z-10 bg-white">Ações</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {clientesFiltrados.map((c, idx) => (
+                <tr
+                  key={c.id}
+                  className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-50 transition-transform transform hover:scale-[1.005] border-b border-gray-100`}
+                >
+                  <td className="relative z-10 align-middle py-4">
+                    <input
+                      type="checkbox"
+                      checked={selecionados.includes(c.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) setSelecionados([...selecionados, c.id]);
+                        else setSelecionados(selecionados.filter(id => id !== c.id));
+                      }}
+                    />
+                  </td>
+                  <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.numero_cliente}</td>
+                  <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.nome}</td>
+                  <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.telefone}</td>
+                  <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.celular}</td>
+                  <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.email}</td>
+                  <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.documento}</td>
+                  <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.cadastrado_por || '—'}</td>
+                  <td className="px-1 py-4 align-middle">
+                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                      c.status === 'ativo' ? 'bg-green-100 text-green-800' :
+                      c.status === 'inativo' ? 'bg-red-100 text-red-800' :
+                      'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {c.status}
+                    </span>
+                  </td>
+                  <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{new Date(c.created_at).toLocaleDateString()}</td>
+                  <td className="px-1 py-4 flex justify-end gap-3 align-middle">
+                    <Link
+                      href={`/dashboard/clientes/${c.id}`}
+                      className="text-blue-600"
+                      title="Visualizar cliente"
+                    >
+                      <FiEye className="w-5 h-5 hover:text-gray-700" />
+                    </Link>
+                    <Link
+                      href={`/dashboard/clientes/${c.id}/editar`}
+                      className="text-yellow-600"
+                      title="Editar cliente"
+                    >
+                      <FiEdit2 className="w-5 h-5 hover:text-gray-700" />
+                    </Link>
+                    <button
+                      className="text-red-600 hover:scale-110 transform transition"
+                      onClick={() => solicitarExclusao(c)}
+                      title="Excluir cliente"
+                    >
+                      <FiTrash2 className="w-5 h-5 hover:text-gray-700" />
+                    </button>
+                    <a
+                      href={`https://wa.me/${c.celular.replace(/\D/g, '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-green-600 hover:scale-110 transform transition"
+                      aria-label={`Enviar mensagem para ${c.nome}`}
+                      title="Enviar WhatsApp"
+                    >
+                      <FaWhatsapp className="w-5 h-5 hover:text-gray-700" />
+                    </a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
       {/* Paginação */}
       <div className="flex justify-center gap-2 mt-4">
@@ -535,62 +556,6 @@ export default function ClientesPage() {
         </div>
       </div>
 
-      {/* Gráfico Misto - Fontes de Tráfego */}
-      <div className="mt-8">
-        <h2 className="text-xl font-semibold mb-4">Fontes de Tráfego</h2>
-        <Chart
-          options={{
-            chart: {
-              height: 350,
-              type: 'line',
-              stacked: false
-            },
-            stroke: {
-              width: [3, 3]
-            },
-            title: {
-              text: 'Traffic Sources'
-            },
-            xaxis: {
-              categories: ['01 Jan', '03 Jan', '05 Jan', '07 Jan', '09 Jan', '11 Jan', '13 Jan']
-            },
-            yaxis: [
-              {
-                title: {
-                  text: 'Website Blog'
-                }
-              },
-              {
-                opposite: true,
-                title: {
-                  text: 'Social Media'
-                }
-              }
-            ],
-            tooltip: {
-              shared: true,
-              intersect: false
-            },
-            colors: ['#1e3bef', '#00e396'],
-            markers: {
-              size: 5
-            }
-          }}
-          series={[
-            {
-              name: 'Website Blog',
-              type: 'bar',
-              data: [505, 410, 520, 280, 180, 200, 300]
-            },
-            {
-              name: 'Social Media',
-              type: 'line',
-              data: [42, 35, 27, 22, 17, 31, 22]
-            }
-          ]}
-          height={350}
-        />
-      </div>
 
       <ToastContainer 
         position="bottom-right" 
