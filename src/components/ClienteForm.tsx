@@ -104,6 +104,9 @@ export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
     setLoading(true);
 
     const { data: userData } = await supabase.auth.getUser();
+    const primeiroNome = userData?.user?.user_metadata?.nome?.split(' ')[0];
+    const emailUsuario = userData?.user?.email;
+    const nomeUsuario = primeiroNome || emailUsuario || 'Desconhecido';
     const { data: empresaData, error: empresaError } = await supabase
       .from('empresas')
       .select('id')
@@ -179,7 +182,8 @@ export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
       endereco: `${form.rua}, ${form.numero}, ${form.bairro}, ${form.cidade} - ${form.estado}`,
       data_cadastro: new Date().toISOString(),
       numero_cliente: numeroCliente,
-      status: form.status
+      status: form.status,
+      cadastrado_por: nomeUsuario,
     };
 
     console.log("Cliente payload:", clientePayload);

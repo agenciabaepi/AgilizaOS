@@ -10,6 +10,8 @@ import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 
+import { useSession } from '@supabase/auth-helpers-react';
+
 const Chart = dynamic(() => import('react-apexcharts'), { ssr: false });
 import { Cliente } from '@/types/cliente';
 import { toast } from 'react-toastify';
@@ -172,6 +174,8 @@ export default function ClientesPage() {
 
   const router = useRouter();
 
+  const session = useSession();
+
   useEffect(() => {
     const fetchClientes = async () => {
       setCarregando(true);
@@ -279,7 +283,7 @@ export default function ClientesPage() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-semibold text-gray-800">Clientes</h1>
         <Link
-          href="/dashboard/clientes/novo"
+          href={`/dashboard/clientes/novo?atendente=${session?.user?.user_metadata?.nome || ''}`}
           className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition"
         >
           <FiPlus className="w-6 h-6" />
@@ -400,6 +404,7 @@ export default function ClientesPage() {
               <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700">Celular</th>
               <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700">Email</th>
               <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700">Documento</th>
+              <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700">Cadastrado por</th>
               <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700">Status</th>
               <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700">Data Cadastro</th>
               <th className="px-1 py-3 text-sm text-right font-semibold text-gray-700">Ações</th>
@@ -415,11 +420,12 @@ export default function ClientesPage() {
                   }} />
                 </td>
                 <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.numero_cliente}</td>
-                <td className="">{c.nome}</td>
+                <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.nome}</td>
                 <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.telefone}</td>
                 <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.celular}</td>
                 <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.email}</td>
                 <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.documento}</td>
+                <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.cadastrado_por || '—'}</td>
                 <td className="px-1 py-4 align-middle">
                   <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                     c.status === 'ativo' ? 'bg-green-100 text-green-800' :
