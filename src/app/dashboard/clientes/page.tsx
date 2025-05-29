@@ -321,28 +321,32 @@ export default function ClientesPage() {
       </div>
 
       {selecionados.length > 0 && (
-        <div className="mb-4">
-          <button onClick={() => console.log('Exportar selecionados')} className="mr-2 px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">Exportar Selecionados</button>
-          <button onClick={() => setSelecionados([])} className="px-3 py-1 bg-gray-300 rounded-md hover:bg-gray-400 transition">Limpar Seleção</button>
+        <div className="flex justify-end gap-2 mb-4 text-sm">
+          <button 
+            onClick={() => console.log('Exportar selecionados')} 
+            className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+          >
+            Exportar Selecionados
+          </button>
+          <button 
+            onClick={exportarCSV} 
+            className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition"
+          >
+            Exportar CSV
+          </button>
+          <button
+            onClick={() => setModalExclusaoMassaOpen(true)}
+            className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
+          >
+            Excluir Selecionados
+          </button>
+          <button 
+            onClick={() => setSelecionados([])} 
+            className="px-3 py-1 bg-gray-300 text-black rounded-md hover:bg-gray-400 transition"
+          >
+            Limpar Seleção
+          </button>
         </div>
-      )}
-
-      {/* Botão para exportar todos os clientes filtrados */}
-      <button 
-        onClick={exportarCSV} 
-        className="mb-4 px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition"
-      >
-        Exportar CSV
-      </button>
-
-      {/* Botão para exclusão em massa dos clientes selecionados */}
-      {selecionados.length > 0 && (
-        <button
-          onClick={() => setModalExclusaoMassaOpen(true)}
-          className="mb-4 ml-2 px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
-        >
-          Excluir Selecionados
-        </button>
       )}
 
       {carregando ? (
@@ -361,17 +365,24 @@ export default function ClientesPage() {
             </tr>
           </thead>
           <tbody>
-            {Array.from({ length: 5 }).map((_, idx) => (
+            {Array.from({ length: 10 }).map((_, idx) => (
               <tr key={idx} className="border-b border-gray-100">
-                <td><Skeleton width={20} /></td>
-                <td><Skeleton width={80} /></td>
-                <td><Skeleton width={80} /></td>
-                <td><Skeleton width={80} /></td>
-                <td><Skeleton width={120} /></td>
-                <td><Skeleton width={80} /></td>
-                <td><Skeleton width={50} /></td>
-                <td><Skeleton width={100} /></td>
-                <td className="text-right"><Skeleton width={60} /></td>
+                <td className="px-1 py-4"><Skeleton width={18} height={18} /></td>
+                <td className="px-1 py-4"><Skeleton width={30} height={14} /></td>
+                <td className="px-1 py-4"><Skeleton width={100} height={14} /></td>
+                <td className="px-1 py-4"><Skeleton width={100} height={14} /></td>
+                <td className="px-1 py-4"><Skeleton width={160} height={14} /></td>
+                <td className="px-1 py-4"><Skeleton width={100} height={14} /></td>
+                <td className="px-1 py-4"><Skeleton width={50} height={18} /></td>
+                <td className="px-1 py-4"><Skeleton width={80} height={14} /></td>
+                <td className="px-1 py-4 text-right">
+                  <div className="flex justify-end gap-3">
+                    <Skeleton width={18} height={18} />
+                    <Skeleton width={18} height={18} />
+                    <Skeleton width={18} height={18} />
+                    <Skeleton width={18} height={18} />
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -380,36 +391,36 @@ export default function ClientesPage() {
         <table className="w-full text-sm rounded-md overflow-hidden border border-gray-200">
           <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
             <tr>
-              <th>
+              <th className="relative z-10 align-middle py-3">
                 <input type="checkbox" onChange={(e) => setSelecionados(e.target.checked ? clientesFiltrados.map(c => c.id) : [])} />
               </th>
-              <th className="px-4 sticky left-0 bg-gray-100 z-10">#</th>
-              <th className="px-4">Nome</th>
-              <th className="px-4">Telefone</th>
-              <th className="px-4">Celular</th>
-              <th className="px-4">Email</th>
-              <th className="px-4">Documento</th>
-              <th>Status</th>
-              <th className="px-4">Data Cadastro</th>
-              <th className="px-4 text-right">Ações</th>
+              <th className="px-1 py-3 sticky left-0 bg-gray-100 z-10 text-sm text-left font-semibold text-gray-700">#</th>
+              <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700">Nome</th>
+              <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700">Telefone</th>
+              <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700">Celular</th>
+              <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700">Email</th>
+              <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700">Documento</th>
+              <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700">Status</th>
+              <th className="px-1 py-3 text-sm text-left font-semibold text-gray-700">Data Cadastro</th>
+              <th className="px-1 py-3 text-sm text-right font-semibold text-gray-700">Ações</th>
             </tr>
           </thead>
           <tbody>
             {clientesFiltrados.map((c, idx) => (
               <tr key={c.id} className="hover:bg-gray-50 transition-transform transform hover:scale-[1.005] border-b border-gray-100">
-                <td>
+                <td className="relative z-10 align-middle py-4">
                   <input type="checkbox" checked={selecionados.includes(c.id)} onChange={(e) => {
                     if(e.target.checked) setSelecionados([...selecionados, c.id]);
                     else setSelecionados(selecionados.filter(id => id !== c.id));
                   }} />
                 </td>
-                <td className="px-3 py-2 font-medium text-gray-600">{c.numero_cliente}</td>
-                <td className="px-4 py-3 font-medium">{c.nome}</td>
-                <td className="px-4 py-3">{c.telefone}</td>
-                <td className="px-4 py-3">{c.celular}</td>
-                <td className="px-4 py-3">{c.email}</td>
-                <td className="px-4 py-3">{c.documento}</td>
-                <td>
+                <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.numero_cliente}</td>
+                <td className="">{c.nome}</td>
+                <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.telefone}</td>
+                <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.celular}</td>
+                <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.email}</td>
+                <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.documento}</td>
+                <td className="px-1 py-4 align-middle">
                   <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                     c.status === 'ativo' ? 'bg-green-100 text-green-800' :
                     c.status === 'inativo' ? 'bg-red-100 text-red-800' :
@@ -418,8 +429,8 @@ export default function ClientesPage() {
                     {c.status}
                   </span>
                 </td>
-                <td className="px-4 py-3">{new Date(c.created_at).toLocaleDateString()}</td>
-                <td className="px-3 py-2 flex justify-end gap-3">
+                <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{new Date(c.created_at).toLocaleDateString()}</td>
+                <td className="px-1 py-4 flex justify-end gap-3 align-middle">
                   <Link href={`/dashboard/clientes/${c.id}`} className="text-blue-600">
                     <FiEye className="w-5 h-5 hover:text-gray-700" />
                   </Link>
@@ -473,35 +484,47 @@ export default function ClientesPage() {
           <div className="bg-white rounded-lg shadow p-4 min-h-[280px] flex flex-col justify-center items-center gap-2">
             <FiUsers size={20} className="text-indigo-600" />
             <h3 className="text-md font-semibold text-center">Total</h3>
-            <Chart 
-              options={{ ...optionsPizza, labels: ['Total'], colors: ['#6366F1'] }}
-              series={[totalClientes]}
-              type="donut"
-              width={220}
-              height={220}
-            />
+            {totalClientes > 0 ? (
+              <Chart
+                options={{ ...optionsPizza, labels: ['Total'], colors: ['#1e3bef'] }}
+                series={[totalClientes]}
+                type="donut"
+                width={220}
+                height={220}
+              />
+            ) : (
+              <p className="text-gray-400 mt-4">Sem dados</p>
+            )}
           </div>
           <div className="bg-white rounded-lg shadow p-4 min-h-[280px] flex flex-col justify-center items-center gap-2">
             <FiCalendar size={20} className="text-green-600" />
             <h3 className="text-md font-semibold text-center">Este mês</h3>
-            <Chart 
-              options={{ ...optionsPizza, labels: ['Este mês'], colors: ['#10B981'] }}
-              series={[clientesMesAtual]}
-              type="donut"
-              width={220}
-              height={220}
-            />
+            {clientesMesAtual > 0 ? (
+              <Chart
+                options={{ ...optionsPizza, labels: ['Este mês'], colors: ['#10B981'] }}
+                series={[clientesMesAtual]}
+                type="donut"
+                width={220}
+                height={220}
+              />
+            ) : (
+              <p className="text-gray-400 mt-4">Sem dados</p>
+            )}
           </div>
           <div className="bg-white rounded-lg shadow p-4 min-h-[280px] flex flex-col justify-center items-center gap-2">
             <FiClock size={20} className="text-yellow-600" />
             <h3 className="text-md font-semibold text-center">Últimos 7 dias</h3>
-            <Chart 
-              options={{ ...optionsPizza, labels: ['Últimos 7 dias'], colors: ['#F59E0B'] }}
-              series={[clientesUltimos7Dias]}
-              type="donut"
-              width={220}
-              height={220}
-            />
+            {clientesUltimos7Dias > 0 ? (
+              <Chart
+                options={{ ...optionsPizza, labels: ['Últimos 7 dias'], colors: ['#F59E0B'] }}
+                series={[clientesUltimos7Dias]}
+                type="donut"
+                width={220}
+                height={220}
+              />
+            ) : (
+              <p className="text-gray-400 mt-4">Sem dados</p>
+            )}
           </div>
         </div>
       </div>
@@ -517,7 +540,7 @@ export default function ClientesPage() {
               stacked: false
             },
             stroke: {
-              width: [0, 4]
+              width: [3, 3]
             },
             title: {
               text: 'Traffic Sources'
@@ -542,7 +565,7 @@ export default function ClientesPage() {
               shared: true,
               intersect: false
             },
-            colors: ['#007bff', '#00e396'],
+            colors: ['#1e3bef', '#00e396'],
             markers: {
               size: 5
             }
@@ -550,7 +573,7 @@ export default function ClientesPage() {
           series={[
             {
               name: 'Website Blog',
-              type: 'column',
+              type: 'bar',
               data: [505, 410, 520, 280, 180, 200, 300]
             },
             {

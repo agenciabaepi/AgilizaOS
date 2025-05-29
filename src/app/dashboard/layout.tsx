@@ -223,10 +223,10 @@ useEffect(() => {
   return (
     
     <div className="flex min-h-screen relative z-0 overflow-x-hidden w-full">
-      <div className="fixed top-0 left-0 w-full z-60 h-16 bg-[#00117f] text-white flex items-center justify-between px-6">
+      <div className="fixed top-0 left-0 w-full z-60 h-16 bg-white text-black flex items-center justify-between px-6">
         {/* Esquerda: Logo */}
-        <div className="flex items-center mr-6">
-          <Image src={logo} alt="Logo Agiliza" className="h-10 object-contain" />
+        <div className="flex items-center mr-260">
+          <Image src={logo} alt="Logo Agiliza" className="h-20 object-contain" />
         </div>
 
         {/* Direita: Busca + Notificação + Licença + Suporte */}
@@ -237,11 +237,11 @@ useEffect(() => {
               placeholder="Buscar..."
               className="w-full pl-10 pr-4 py-2 rounded-full bg-white text-gray-700 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1860fa]"
             />
-            <FiSearch className="absolute left-3 top-2.5 text-gray-400" size={18} />
+            <FiSearch className="absolute left-3 top-2.5 text-black" size={18} />
           </div>
 
           <div className="relative w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 cursor-pointer hover:bg-gray-200">
-            <FiBell className="text-gray-500" size={18} />
+            <FiBell className="text-black" size={18} />
           </div>
 
           <div className="flex items-center gap-2 text-sm text-green-400 font-medium whitespace-nowrap">
@@ -249,7 +249,7 @@ useEffect(() => {
             Licença ativa
           </div>
 
-          <button className="flex items-center gap-2 text-sm text-white hover:text-[#1860fa]">
+          <button className="flex items-center gap-2 text-sm text-black hover:text-[#1860fa]">
             <FiHelpCircle size={16} />
             Suporte
           </button>
@@ -258,7 +258,7 @@ useEffect(() => {
       <aside
         onMouseEnter={() => setExpanded(true)}
         onMouseLeave={() => setExpanded(false)}
-        className={`transition-all duration-500 ease-in-out bg-white shadow-md py-6 px-2 flex flex-col h-screen fixed top-0 left-0 z-50 ${
+        className={`transition-[width] duration-300 ease-out bg-white shadow-md py-6 px-2 flex flex-col h-screen fixed top-0 left-0 z-50 ${
           expanded ? 'w-64' : 'w-14'
         }`}
       >
@@ -271,8 +271,8 @@ useEffect(() => {
                 onClick={() => router.push('/dashboard/bancada')}
                 className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${
                   pathname === '/dashboard/bancada'
-                    ? 'bg-[#1860fa] text-white font-semibold'
-                    : 'hover:bg-[#1860fa]/10 hover:text-[#1860fa]'
+                    ? 'bg-[#1e3bef] text-white font-semibold'
+                    : 'hover:bg-[#1e3bef]/10 hover:text-[#1e3bef]'
                 }`}
               >
                 <div className="min-w-[20px]">
@@ -289,7 +289,7 @@ useEffect(() => {
             </>
           ) : (
             <>
-              <button onClick={() => router.push('/dashboard')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard' ? 'bg-[#1860fa] text-white font-semibold' : 'hover:bg-[#1860fa]/10 hover:text-[#1860fa]'}`}>
+              <button onClick={() => router.push('/dashboard')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard' ? 'bg-[#1e3bef] text-white font-semibold' : 'hover:bg-[#1e3bef]/10 hover:text-[#1e3bef]'}`}>
                 <div className="min-w-[20px]">
                   <FiHome size={20} />
                 </div>
@@ -297,7 +297,7 @@ useEffect(() => {
                   Dashboard
                 </span>
               </button>
-              <button onClick={() => router.push('/dashboard/ordens')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/ordens' ? 'bg-[#1860fa] text-white font-semibold' : 'hover:bg-[#1860fa]/10 hover:text-[#1860fa]'}`}>
+              <button onClick={() => router.push('/dashboard/ordens')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/ordens' ? 'bg-[#1e3bef] text-white font-semibold' : 'hover:bg-[#1e3bef]/10 hover:text-[#1e3bef]'}`}>
                 <div className="min-w-[20px]">
                   <FiFileText size={20} />
                 </div>
@@ -305,7 +305,7 @@ useEffect(() => {
                   Ordens de Serviço
                 </span>
               </button>
-              <button onClick={() => router.push('/dashboard/clientes')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/clientes' ? 'bg-[#1860fa] text-white font-semibold' : 'hover:bg-[#1860fa]/10 hover:text-[#1860fa]'}`}>
+              <button onClick={() => router.push('/dashboard/clientes')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/clientes' ? 'bg-[#1e3bef] text-white font-semibold' : 'hover:bg-[#1e3bef]/10 hover:text-[#1e3bef]'}`}>
                 <div className="min-w-[20px]">
                   <FiUsers size={20} />
                 </div>
@@ -313,7 +313,7 @@ useEffect(() => {
                   Clientes
                 </span>
               </button>
-              <button onClick={() => router.push('/dashboard/produtos')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/produtos' ? 'bg-[#1860fa] text-white font-semibold' : 'hover:bg-[#1860fa]/10 hover:text-[#1860fa]'}`}>
+              <button onClick={() => router.push('/dashboard/produtos')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/produtos' ? 'bg-[#1e3bef] text-white font-semibold' : 'hover:bg-[#1e3bef]/10 hover:text-[#1e3bef]'}`}>
                 <div className="min-w-[20px]">
                   <FiBox size={20} />
                 </div>
@@ -321,7 +321,7 @@ useEffect(() => {
                   Produtos/Serviços
                 </span>
               </button>
-              <button onClick={() => router.push('/dashboard/tecnicos')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/tecnicos' ? 'bg-[#1860fa] text-white font-semibold' : 'hover:bg-[#1860fa]/10 hover:text-[#1860fa]'}`}>
+              <button onClick={() => router.push('/dashboard/tecnicos')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/tecnicos' ? 'bg-[#1e3bef] text-white font-semibold' : 'hover:bg-[#1e3bef]/10 hover:text-[#1e3bef]'}`}>
                 <div className="min-w-[20px]">
                   <FiUserCheck size={20} />
                 </div>
@@ -329,7 +329,7 @@ useEffect(() => {
                   Técnicos
                 </span>
               </button>
-              <button onClick={() => router.push('/dashboard/financeiro')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/financeiro' ? 'bg-[#1860fa] text-white font-semibold' : 'hover:bg-[#1860fa]/10 hover:text-[#1860fa]'}`}>
+              <button onClick={() => router.push('/dashboard/financeiro')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/financeiro' ? 'bg-[#1e3bef] text-white font-semibold' : 'hover:bg-[#1e3bef]/10 hover:text-[#1e3bef]'}`}>
                 <div className="min-w-[20px]">
                   <FiDollarSign size={20} />
                 </div>
@@ -337,7 +337,7 @@ useEffect(() => {
                   Financeiro
                 </span>
               </button>
-              <button onClick={() => router.push('/dashboard/bancada')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/bancada' ? 'bg-[#1860fa] text-white font-semibold' : 'hover:bg-[#1860fa]/10 hover:text-[#1860fa]'}`}>
+              <button onClick={() => router.push('/dashboard/bancada')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/bancada' ? 'bg-[#1e3bef] text-white font-semibold' : 'hover:bg-[#1e3bef]/10 hover:text-[#1e3bef]'}`}>
                 <div className="min-w-[20px]">
                   <FiTool size={20} />
                 </div>
@@ -345,7 +345,7 @@ useEffect(() => {
                   Bancada
                 </span>
               </button>
-              <button onClick={() => router.push('/dashboard/termos')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/termos' ? 'bg-[#1860fa] text-white font-semibold' : 'hover:bg-[#1860fa]/10 hover:text-[#1860fa]'}`}>
+              <button onClick={() => router.push('/dashboard/termos')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/termos' ? 'bg-[#1e3bef] text-white font-semibold' : 'hover:bg-[#1e3bef]/10 hover:text-[#1e3bef]'}`}>
                 <div className="min-w-[20px]">
                   <FiFileText size={20} />
                 </div>
@@ -353,7 +353,7 @@ useEffect(() => {
                   Termos
                 </span>
               </button>
-              <button onClick={() => router.push('/dashboard/configuracoes')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/configuracoes' ? 'bg-[#1860fa] text-white font-semibold' : 'hover:bg-[#1860fa]/10 hover:text-[#1860fa]'}`}>
+              <button onClick={() => router.push('/dashboard/configuracoes')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/configuracoes' ? 'bg-[#1e3bef] text-white font-semibold' : 'hover:bg-[#1e3bef]/10 hover:text-[#1e3bef]'}`}>
                 <div className="min-w-[20px]">
                   <FiTool size={20} />
                 </div>

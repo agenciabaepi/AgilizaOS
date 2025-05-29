@@ -34,26 +34,27 @@ interface Cliente {
 }
 
 export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
-  const [form, setForm] = useState({
-    nome: '',
-    telefone: '',
-    celular: '',
-    email: '',
-    documento: '',
-    tipo: 'pf',
-    observacoes: '',
-    responsavel: '',
-    senha: '',
-    cep: '',
-    rua: '',
-    numero: '',
-    complemento: '',
-    bairro: '',
-    cidade: '',
-    estado: '',
-    origem: '',
-    aniversario: '',
-  });
+    const [form, setForm] = useState({
+        nome: '',
+        telefone: '',
+        celular: '',
+        email: '',
+        documento: '',
+        tipo: 'pf',
+        observacoes: '',
+        responsavel: '',
+        senha: '',
+        cep: '',
+        rua: '',
+        numero: '',
+        complemento: '',
+        bairro: '',
+        cidade: '',
+        estado: '',
+        origem: '',
+        aniversario: '',
+        status: 'ativo', // <-- adicionado aqui
+      });
 
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -69,8 +70,8 @@ export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
 
   useEffect(() => {
     if (cliente) {
-      setForm(cliente);
-    }
+        setForm({ ...cliente, status: cliente.status ?? 'ativo' });
+      }
   }, [cliente]);
 
   const handleChange = async (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -140,18 +141,18 @@ export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
       return;
     }
 
-    // Buscar o maior numero_cliente atual para a empresa e calcular o próximo
-    const { data: maxResult, error: maxError } = await supabase
-      .from('clientes')
-      .select('numero_cliente')
-      .eq('empresa_id', empresaId)
-      .order('numero_cliente', { ascending: false })
-      .limit(1)
-      .single();
+    // Buscar o maior numero_cliente atual para a empresa e calcular o próximo, preservando ao editar
+    let numeroCliente = cliente?.numero_cliente;
+    if (!numeroCliente) {
+      const { data: maxResult, error: maxError } = await supabase
+        .from('clientes')
+        .select('numero_cliente')
+        .eq('empresa_id', empresaId)
+        .order('numero_cliente', { ascending: false })
+        .limit(1)
+        .single();
 
-    let numeroCliente = 1;
-    if (maxResult && maxResult.numero_cliente) {
-      numeroCliente = maxResult.numero_cliente + 1;
+      numeroCliente = maxResult?.numero_cliente ? maxResult.numero_cliente + 1 : 1;
     }
 
     const clientePayload = {
@@ -177,7 +178,8 @@ export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
       cpf: form.documento,
       endereco: `${form.rua}, ${form.numero}, ${form.bairro}, ${form.cidade} - ${form.estado}`,
       data_cadastro: new Date().toISOString(),
-      numero_cliente: numeroCliente
+      numero_cliente: numeroCliente,
+      status: form.status
     };
 
     console.log("Cliente payload:", clientePayload);
@@ -257,6 +259,30 @@ export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
         </div>
 
         <section>
+        <div className="mb-4 flex items-center gap-4">
+          <span className="block text-sm font-medium text-gray-700">Status:</span>
+          <button
+            type="button"
+            onClick={() =>
+              setForm(prev => ({
+                ...prev,
+                status: prev.status === 'ativo' ? 'inativo' : 'ativo'
+              }))
+            }
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              form.status === 'ativo' ? 'bg-green-500' : 'bg-gray-300'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                form.status === 'ativo' ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            /> 
+          </button>
+          <span className="text-sm text-gray-600">
+            {form.status === 'ativo' ? 'Ativo' : 'Inativo'}
+          </span>
+        </div>
           <h3 className="mb-4 text-base font-semibold text-gray-700">Informações Pessoais</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <input

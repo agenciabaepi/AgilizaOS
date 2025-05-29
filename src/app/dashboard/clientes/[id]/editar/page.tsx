@@ -43,6 +43,7 @@ export default function EditarClientePage() {
     complemento: cliente.complemento ?? '',
     bairro: cliente.bairro ?? '',
     cidade: cliente.cidade ?? '',
-    estado: cliente.estado ?? ''
+    estado: cliente.estado ?? '',
+    status: cliente.status ?? 'ativo'
   }} />;
 }
