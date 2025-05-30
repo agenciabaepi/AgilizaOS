@@ -54,7 +54,8 @@ export default function DashboardPage() {
   const [novaNota, setNovaNota] = useState({
     titulo: '',
     texto: '',
-    cor: 'bg-yellow-500'
+    cor: 'bg-yellow-500',
+    coluna: 'lembretes' // novo campo
   });
   // Estado para nota em edição
   const [notaEditando, setNotaEditando] = useState<any | null>(null);
@@ -69,11 +70,13 @@ export default function DashboardPage() {
         .update({
           titulo: novaNota.titulo,
           texto: novaNota.texto,
-          cor: novaNota.cor
+          cor: novaNota.cor,
+          coluna: novaNota.coluna
         })
         .eq('id', notaEditando.id);
 
       if (error) {
+        console.error('Erro ao inserir nota:', error);
         toast.error('Erro ao atualizar nota.');
         return;
       }
@@ -89,6 +92,7 @@ export default function DashboardPage() {
         texto: novaNota.texto,
         responsavel: user?.email || '',
         cor: novaNota.cor,
+        coluna: novaNota.coluna,
         empresa_id: empresaId,
         pos_x: 0,
         pos_y: 0,
@@ -97,6 +101,7 @@ export default function DashboardPage() {
 
       const { error } = await supabase.from('notas_dashboard').insert([nota]);
       if (error) {
+        console.error('Erro ao inserir nota:', error);
         toast.error('Erro ao salvar nota.');
         return;
       }
@@ -106,7 +111,7 @@ export default function DashboardPage() {
     }
 
     setShowModal(false);
-    setNovaNota({ titulo: '', texto: '', cor: 'bg-yellow-500' });
+    setNovaNota({ titulo: '', texto: '', cor: 'bg-yellow-500', coluna: 'lembretes' });
     setNotaEditando(null);
   };
 
@@ -291,56 +296,73 @@ useEffect(() => {
 
       <div className="bg-yellow-100 border border-yellow-300 rounded-xl shadow p-4 mb-6">
         <h2 className="text-lg font-semibold mb-4">🗒️ Anotações Fixas</h2>
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={notes.map(n => n.id)} strategy={horizontalListSortingStrategy}>
-            <div className="flex gap-4 overflow-x-auto pb-2">
-              {notes.map((note) => (
-                <SortableNoteCard key={note.id} id={note.id}>
-                  <div className="bg-white rounded-lg shadow-md w-60 h-44 cursor-move border border-gray-200 overflow-hidden flex flex-col">
-                    <div className={`px-3 py-2 ${note.cor} text-white font-bold text-sm`}>
-                      {note.titulo}
-                    </div>
-                    <div className="p-3 flex flex-col justify-between flex-1">
-                      <div className="text-xs text-gray-700 line-clamp-3">{note.texto}</div>
-                      <div className="flex justify-end mt-2 gap-2">
-                        <button
-                          type="button"
-                          onMouseDown={() => {
-                            setNovaNota({ titulo: note.titulo, texto: note.texto, cor: note.cor });
-                            setNotaEditando(note);
-                            setShowModal(true);
-                          }}
-                          className="text-yellow-600 hover:text-yellow-800 transition-colors"
-                        >
-                          <FiEdit size={16} />
-                        </button>
-                        <button
-                          type="button"
-                          onMouseDown={() => {
-                            setNotaParaExcluir(note);
-                          }}
-                          className="text-red-600 hover:text-red-800 transition-colors"
-                        >
-                          <FiTrash2 size={16} />
-                        </button>
-                      </div>
-                    </div>
+        <div className="flex gap-6 overflow-x-auto">
+          {['compras', 'avisos', 'lembretes'].map((coluna) => (
+            <div key={coluna} className="min-w-[250px] bg-white rounded-xl shadow p-3 flex flex-col gap-3">
+              <h3 className="text-md font-semibold text-gray-700 capitalize">{coluna === 'avisos' ? 'Avisos Técnicos' : coluna}</h3>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext
+                  items={notes.filter((n) => n.coluna === coluna).map((n) => n.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="flex flex-col gap-3">
+                    {notes
+                      .filter((note) => note.coluna === coluna)
+                      .map((note) => (
+                        <SortableNoteCard key={note.id} id={note.id}>
+                          <div className="bg-white rounded-lg shadow-md w-60 h-44 cursor-move border border-gray-200 overflow-hidden flex flex-col">
+                            <div className={`px-3 py-2 ${note.cor} text-white font-bold text-sm`}>
+                              {note.titulo}
+                            </div>
+                            <div className="p-3 flex flex-col justify-between flex-1">
+                              <div className="text-xs text-gray-700 line-clamp-3">{note.texto}</div>
+                              <div className="flex justify-end mt-2 gap-2">
+                                <button
+                                  type="button"
+                                  onMouseDown={() => {
+                                    setNovaNota({
+                                      titulo: note.titulo,
+                                      texto: note.texto,
+                                      cor: note.cor,
+                                      coluna: note.coluna,
+                                    });
+                                    setNotaEditando(note);
+                                    setShowModal(true);
+                                  }}
+                                  className="text-yellow-600 hover:text-yellow-800 transition-colors"
+                                >
+                                  <FiEdit size={16} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onMouseDown={() => {
+                                    setNotaParaExcluir(note);
+                                  }}
+                                  className="text-red-600 hover:text-red-800 transition-colors"
+                                >
+                                  <FiTrash2 size={16} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </SortableNoteCard>
+                      ))}
                   </div>
-                </SortableNoteCard>
-              ))}
+                </SortableContext>
+              </DndContext>
               <div
-                className="bg-white p-4 rounded-lg shadow-md w-60 h-40 cursor-pointer border border-dashed border-gray-300 flex items-center justify-center hover:bg-gray-50"
+                className="bg-gray-50 border border-dashed rounded-lg p-3 text-center text-sm text-gray-500 hover:bg-gray-100 cursor-pointer"
                 onClick={() => {
-                  setNovaNota({ titulo: '', texto: '', cor: 'bg-yellow-500' });
+                  setNovaNota({ titulo: '', texto: '', cor: 'bg-yellow-500', coluna });
                   setNotaEditando(null);
                   setShowModal(true);
                 }}
               >
-                <span className="text-sm text-gray-500">+ Nova anotação</span>
+                + Nova anotação
               </div>
             </div>
-          </SortableContext>
-        </DndContext>
+          ))}
+        </div>
       </div>
 
       <div className="bg-white p-6 rounded-xl shadow mb-6">
@@ -527,6 +549,22 @@ useEffect(() => {
                 onClick={() => setNovaNota({ ...novaNota, cor: opcao.cor })}
                 className={`w-6 h-6 rounded-full ${opcao.cor} ${novaNota.cor === opcao.cor ? 'ring-2 ring-black' : ''} cursor-pointer`}
               />
+            ))}
+          </div>
+          {/* Botões para seleção da coluna */}
+          <div className="flex gap-2 text-sm">
+            {[
+              { label: 'Compras', value: 'compras' },
+              { label: 'Avisos Técnicos', value: 'avisos' },
+              { label: 'Lembretes', value: 'lembretes' }
+            ].map((opcao) => (
+              <button
+                key={opcao.value}
+                onClick={() => setNovaNota({ ...novaNota, coluna: opcao.value })}
+                className={`px-3 py-1 rounded border ${novaNota.coluna === opcao.value ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+              >
+                {opcao.label}
+              </button>
             ))}
           </div>
           <div className="flex justify-end gap-2">
