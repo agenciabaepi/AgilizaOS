@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -48,6 +49,47 @@ export default function DashboardPage() {
   const [notes, setNotes] = useState<any[]>([]);
   const [empresaId, setEmpresaId] = useState<string | null>(null);
   const [notaParaExcluir, setNotaParaExcluir] = useState<any | null>(null);
+  // Estado dinâmico das colunas
+  const [colunas, setColunas] = useState<string[]>(['compras', 'avisos', 'lembretes']);
+  // Buscar colunas salvas do banco ao carregar empresaId
+  useEffect(() => {
+    const fetchColunas = async () => {
+      if (!empresaId) return;
+      const { data, error } = await supabase
+        .from('colunas_dashboard')
+        .select('nome')
+        .eq('empresa_id', empresaId)
+        .order('posicao', { ascending: true });
+
+      if (data) {
+        setColunas(data.map((c) => c.nome));
+      }
+    };
+    fetchColunas();
+  }, [empresaId]);
+
+  // Salvar colunas no banco
+  const salvarColunasNoBanco = async (colunas: string[]) => {
+    if (!empresaId) return;
+    const colunasParaSalvar = colunas.map((nome, index) => ({
+      nome,
+      posicao: index,
+      empresa_id: empresaId,
+    }));
+
+    // Limpa colunas antigas e insere as novas
+    await supabase.from('colunas_dashboard').delete().eq('empresa_id', empresaId);
+    await supabase.from('colunas_dashboard').insert(colunasParaSalvar);
+  };
+
+  // Função dedicada para atualizar o nome da coluna
+  const atualizarNomeColuna = (index: number, novoNome: string) => {
+    setColunas((prev) => {
+      const atualizado = [...prev];
+      atualizado[index] = novoNome;
+      return atualizado;
+    });
+  };
 
   // Modal de nova nota/edição de nota
   const [showModal, setShowModal] = useState(false);
@@ -55,7 +97,7 @@ export default function DashboardPage() {
     titulo: '',
     texto: '',
     cor: 'bg-yellow-500',
-    coluna: 'lembretes' // novo campo
+    coluna: 'lembretes',
   });
   // Estado para nota em edição
   const [notaEditando, setNotaEditando] = useState<any | null>(null);
@@ -221,23 +263,74 @@ useEffect(() => {
 
   const sensors = useSensors(useSensor(PointerSensor));
 
+  // Função para lidar com o fim do drag and drop (localizada)
   const handleDragEnd = async (event: any) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    const oldIndex = notes.findIndex((n) => n.id === active.id);
-    const newIndex = notes.findIndex((n) => n.id === over.id);
+    const isColuna = (id: string) => String(id).startsWith('coluna-');
 
-    if (oldIndex === -1 || newIndex === -1) return;
+    // Mover coluna
+    if (isColuna(active.id) && isColuna(over.id)) {
+      const activeIndex = colunas.findIndex((c) => `coluna-${c}` === active.id);
+      const overIndex = colunas.findIndex((c) => `coluna-${c}` === over.id);
+      if (activeIndex !== -1 && overIndex !== -1) {
+        const novasColunas = arrayMove(colunas, activeIndex, overIndex);
+        setColunas(novasColunas);
+        salvarColunasNoBanco(novasColunas);
+      }
+      return;
+    }
 
-    const reordered = arrayMove(notes, oldIndex, newIndex);
-    setNotes(reordered);
+    // Novo bloco: tratar movimentação entre colunas explicitamente
+    if (!isColuna(active.id) && !isColuna(over.id)) {
+      const notaMovida = notes.find((n) => n.id === active.id);
+      const notaAlvo = notes.find((n) => n.id === over.id);
 
-    for (let i = 0; i < reordered.length; i++) {
-      await supabase
-        .from('notas_dashboard')
-        .update({ pos_x: i })
-        .eq('id', reordered[i].id);
+      if (!notaMovida || !notaAlvo) return;
+
+      const novaColuna = notaAlvo.coluna;
+
+      // Atualiza a coluna da nota movida (caso tenha mudado)
+      let novaNotaMovida = { ...notaMovida, coluna: novaColuna };
+
+      // Atualiza lista temporária com a nota movida atualizada
+      let notasTemp = notes.map((n) => (n.id === notaMovida.id ? novaNotaMovida : n));
+
+      // Filtra as notas da nova coluna
+      let notasNaColuna = notasTemp
+        .filter((n) => n.coluna === novaColuna)
+        .sort((a, b) => a.pos_x - b.pos_x);
+
+      // Garante que a nota movida está na lista
+      if (!notasNaColuna.find((n) => n.id === active.id)) {
+        notasNaColuna.push(novaNotaMovida);
+      }
+
+      const activeIndex = notasNaColuna.findIndex((n) => n.id === active.id);
+      const overIndex = notasNaColuna.findIndex((n) => n.id === over.id);
+      if (activeIndex === -1 || overIndex === -1) return;
+
+      const notasReordenadas = arrayMove(notasNaColuna, activeIndex, overIndex).map(
+        (nota, index) => ({ ...nota, pos_x: index })
+      );
+
+      // Atualiza estado antes de salvar no banco para evitar delay visual
+      setNotes((prev) => {
+        const idsAtualizados = new Set(notasReordenadas.map((n) => n.id));
+        const restantes = prev.filter((n) => !idsAtualizados.has(n.id));
+        return [...restantes, ...notasReordenadas].sort((a, b) => a.pos_x - b.pos_x);
+      });
+
+      // Atualiza no banco
+      for (const nota of notasReordenadas) {
+        await supabase
+          .from('notas_dashboard')
+          .update({ pos_x: nota.pos_x, coluna: nota.coluna })
+          .eq('id', nota.id);
+      }
+
+      return;
     }
   };
   const excluirNota = async (id: string) => {
@@ -261,8 +354,48 @@ useEffect(() => {
       transition,
     };
     return (
-      <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-        {children}
+      <div ref={setNodeRef} style={style}>
+        <div {...attributes} {...listeners}>
+          {children}
+        </div>
+      </div>
+    );
+  }
+
+  // Componente para colunas sortables
+  function SortableColunaCard({
+    id,
+    children,
+    className = '',
+  }: {
+    id: string;
+    children: React.ReactNode;
+    className?: string;
+  }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+    };
+
+    // Refatoração da função de reordenação das colunas
+    const setColunasOrdenadas = (activeIndex: number, overIndex: number) => {
+      const novas = arrayMove(colunas, activeIndex, overIndex);
+      setColunas(novas);
+      salvarColunasNoBanco(novas);
+    };
+
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={className}
+      >
+        {/* children pode acessar setColunasOrdenadas se necessário */}
+        {typeof children === "function"
+          ? children({ attributes, listeners, setColunasOrdenadas })
+          : children}
       </div>
     );
   }
@@ -293,76 +426,160 @@ useEffect(() => {
         </div>
       </div>
 
-
       <div className="bg-yellow-100 border border-yellow-300 rounded-xl shadow p-4 mb-6">
         <h2 className="text-lg font-semibold mb-4">🗒️ Anotações Fixas</h2>
-        <div className="flex gap-6 overflow-x-auto">
-          {['compras', 'avisos', 'lembretes'].map((coluna) => (
-            <div key={coluna} className="min-w-[250px] bg-white rounded-xl shadow p-3 flex flex-col gap-3">
-              <h3 className="text-md font-semibold text-gray-700 capitalize">{coluna === 'avisos' ? 'Avisos Técnicos' : coluna}</h3>
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <SortableContext
-                  items={notes.filter((n) => n.coluna === coluna).map((n) => n.id)}
-                  strategy={verticalListSortingStrategy}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext
+            items={colunas.map((coluna) => `coluna-${coluna}`)}
+            strategy={horizontalListSortingStrategy}
+          >
+            <div className="flex gap-6 overflow-x-auto">
+              {colunas.map((coluna, index) => (
+                <SortableColunaCard
+                  key={`coluna-${coluna}`}
+                  id={`coluna-${coluna}`}
+                  className="min-w-[250px] bg-white rounded-xl shadow p-3 flex flex-col gap-3"
                 >
-                  <div className="flex flex-col gap-3">
-                    {notes
-                      .filter((note) => note.coluna === coluna)
-                      .map((note) => (
-                        <SortableNoteCard key={note.id} id={note.id}>
-                          <div className="bg-white rounded-lg shadow-md w-60 h-44 cursor-move border border-gray-200 overflow-hidden flex flex-col">
-                            <div className={`px-3 py-2 ${note.cor} text-white font-bold text-sm`}>
-                              {note.titulo}
+                  {(params) => {
+                    const { attributes, listeners, setColunasOrdenadas } = params;
+                    return (
+                      <>
+                        <div
+                          className="flex justify-between items-center cursor-move"
+                          {...attributes}
+                          {...listeners}
+                          onMouseUpCapture={() => {
+                            // Não faz nada aqui, a ordem é tratada no handleDragEnd
+                          }}
+                        >
+                          <h3 className="font-semibold text-gray-700 text-md">{coluna}</h3>
+                        </div>
+
+                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(event: any) => {
+                          const { active, over } = event;
+                          if (!over || active.id === over.id) return;
+                          const isColuna = (id: string) => String(id).startsWith('coluna-');
+                          if (isColuna(active.id) && isColuna(over.id)) {
+                            const activeIndex = colunas.findIndex((c) => `coluna-${c}` === active.id);
+                            const overIndex = colunas.findIndex((c) => `coluna-${c}` === over.id);
+                            if (activeIndex !== -1 && overIndex !== -1) {
+                              // CHAMAR salvarColunasNoBanco após atualizar
+                              const novas = arrayMove(colunas, activeIndex, overIndex);
+                              setColunas(novas);
+                              salvarColunasNoBanco(novas);
+                            }
+                            return;
+                          }
+                          // fallback para handleDragEnd original para notas
+                          handleDragEnd(event);
+                        }}>
+                          <SortableContext
+                            items={notes
+                              .filter((n) => n.coluna === coluna)
+                              .sort((a, b) => a.pos_x - b.pos_x)
+                              .map((n) => n.id)}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            <div className="flex flex-col gap-3">
+                              {notes
+                                .filter((note) => note.coluna === coluna)
+                                .sort((a, b) => a.pos_x - b.pos_x)
+                                .map((note) => (
+                                  <SortableNoteCard key={note.id} id={note.id}>
+                                    <div className="bg-white rounded-lg shadow-md w-60 h-44 border border-gray-200 overflow-hidden flex flex-col">
+                                      <div className={`px-3 py-2 ${note.cor} text-white font-bold text-sm`}>
+                                        {note.titulo}
+                                      </div>
+                                      <div className="p-3 flex flex-col justify-between flex-1">
+                                        <div className="text-xs text-gray-700 line-clamp-3">{note.texto}</div>
+                                        <div className="flex justify-end mt-2 gap-2">
+                                          <button
+                                            type="button"
+                                            onMouseDown={() => {
+                                              setNovaNota({
+                                                titulo: note.titulo,
+                                                texto: note.texto,
+                                                cor: note.cor,
+                                                coluna: note.coluna,
+                                              });
+                                              setNotaEditando(note);
+                                              setShowModal(true);
+                                            }}
+                                            className="text-yellow-600 hover:text-yellow-800 transition-colors"
+                                          >
+                                            <FiEdit size={16} />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onMouseDown={() => {
+                                              setNotaParaExcluir(note);
+                                            }}
+                                            className="text-red-600 hover:text-red-800 transition-colors"
+                                          >
+                                            <FiTrash2 size={16} />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </SortableNoteCard>
+                                ))}
                             </div>
-                            <div className="p-3 flex flex-col justify-between flex-1">
-                              <div className="text-xs text-gray-700 line-clamp-3">{note.texto}</div>
-                              <div className="flex justify-end mt-2 gap-2">
-                                <button
-                                  type="button"
-                                  onMouseDown={() => {
-                                    setNovaNota({
-                                      titulo: note.titulo,
-                                      texto: note.texto,
-                                      cor: note.cor,
-                                      coluna: note.coluna,
-                                    });
-                                    setNotaEditando(note);
-                                    setShowModal(true);
-                                  }}
-                                  className="text-yellow-600 hover:text-yellow-800 transition-colors"
-                                >
-                                  <FiEdit size={16} />
-                                </button>
-                                <button
-                                  type="button"
-                                  onMouseDown={() => {
-                                    setNotaParaExcluir(note);
-                                  }}
-                                  className="text-red-600 hover:text-red-800 transition-colors"
-                                >
-                                  <FiTrash2 size={16} />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </SortableNoteCard>
-                      ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
-              <div
-                className="bg-gray-50 border border-dashed rounded-lg p-3 text-center text-sm text-gray-500 hover:bg-gray-100 cursor-pointer"
-                onClick={() => {
-                  setNovaNota({ titulo: '', texto: '', cor: 'bg-yellow-500', coluna });
-                  setNotaEditando(null);
-                  setShowModal(true);
-                }}
-              >
-                + Nova anotação
+                          </SortableContext>
+                        </DndContext>
+
+                        <button
+                          type="button"
+                          onMouseDown={() => {
+                            setNovaNota({ titulo: '', texto: '', cor: 'bg-yellow-500', coluna });
+                            setNotaEditando(null);
+                            setShowModal(true);
+                          }}
+                          className="bg-gray-50 border border-dashed rounded-lg p-3 text-center text-sm text-gray-500 hover:bg-gray-100 cursor-pointer"
+                        >
+                          + Nova anotação
+                        </button>
+
+                        <button
+                          type="button"
+                          onMouseDown={async () => {
+                            const confirmacao = window.confirm(`Tem certeza que deseja excluir a coluna "${coluna}"?`);
+                            if (confirmacao) {
+                              const novas = colunas.filter((_, i) => i !== index);
+                              setColunas(novas);
+                              await supabase.from('colunas_dashboard').delete().eq('empresa_id', empresaId).eq('nome', coluna);
+                              salvarColunasNoBanco(novas);
+                              setNotes((prev) => prev.filter((n) => n.coluna !== coluna));
+                            }
+                          }}
+                          className="mt-2 text-sm text-red-500 hover:text-red-700 flex items-center justify-center"
+                          title="Excluir coluna"
+                        >
+                          <FiTrash2 size={16} className="mr-1" />
+                          Excluir coluna
+                        </button>
+                      </>
+                    );
+                  }}
+                </SortableColunaCard>
+              ))}
+              <div className="min-w-[250px]">
+                <button
+                  onClick={() => {
+                    const nova = prompt('Nome da nova coluna');
+                    if (nova && !colunas.includes(nova)) {
+                      const novas = [...colunas, nova.toLowerCase()];
+                      setColunas(novas);
+                      salvarColunasNoBanco(novas);
+                    }
+                  }}
+                  className="bg-white border border-dashed rounded-lg w-full h-full p-4 text-center text-sm text-gray-500 hover:bg-gray-100"
+                >
+                  + Nova coluna
+                </button>
               </div>
             </div>
-          ))}
-        </div>
+          </SortableContext>
+        </DndContext>
       </div>
 
       <div className="bg-white p-6 rounded-xl shadow mb-6">
@@ -516,125 +733,125 @@ useEffect(() => {
           />
         </div>
       </div>
-    {/* Modal Nova Anotação / Editar Anotação */}
-    {showModal && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-        <div className="bg-white rounded-lg p-6 w-full max-w-md space-y-4">
-          <h2 className="text-lg font-semibold">
-            {notaEditando ? 'Editar Anotação' : 'Nova Anotação'}
-          </h2>
-          <input
-            type="text"
-            placeholder="Título"
-            value={novaNota.titulo}
-            onChange={(e) => setNovaNota({ ...novaNota, titulo: e.target.value })}
-            className="w-full border rounded p-2 text-sm"
-          />
-          <textarea
-            placeholder="Texto"
-            value={novaNota.texto}
-            onChange={(e) => setNovaNota({ ...novaNota, texto: e.target.value })}
-            className="w-full border rounded p-2 text-sm"
-          />
-          <div className="flex gap-2">
-            {[
-              { cor: 'bg-yellow-500' },
-              { cor: 'bg-green-500' },
-              { cor: 'bg-blue-500' },
-              { cor: 'bg-purple-500' },
-              { cor: 'bg-orange-500' }
-            ].map((opcao) => (
-              <div
-                key={opcao.cor}
-                onClick={() => setNovaNota({ ...novaNota, cor: opcao.cor })}
-                className={`w-6 h-6 rounded-full ${opcao.cor} ${novaNota.cor === opcao.cor ? 'ring-2 ring-black' : ''} cursor-pointer`}
-              />
-            ))}
-          </div>
-          {/* Botões para seleção da coluna */}
-          <div className="flex gap-2 text-sm">
-            {[
-              { label: 'Compras', value: 'compras' },
-              { label: 'Avisos Técnicos', value: 'avisos' },
-              { label: 'Lembretes', value: 'lembretes' }
-            ].map((opcao) => (
-              <button
-                key={opcao.value}
-                onClick={() => setNovaNota({ ...novaNota, coluna: opcao.value })}
-                className={`px-3 py-1 rounded border ${novaNota.coluna === opcao.value ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
-              >
-                {opcao.label}
-              </button>
-            ))}
-          </div>
-          <div className="flex justify-end gap-2">
-            <button
-              onClick={() => {
-                setShowModal(false);
-                setNotaEditando(null);
-              }}
-              className="px-4 py-2 text-sm rounded bg-gray-200 hover:bg-gray-300"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={salvarOuAtualizarNota}
-              className="px-4 py-2 text-sm rounded bg-[#1860fa] text-white hover:bg-blue-700"
-            >
-              {notaEditando ? 'Atualizar' : 'Salvar'}
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
-    {/* Modal de confirmação de exclusão */}
-    {notaParaExcluir && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-        <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl space-y-4">
-          <h2 className="text-xl font-bold">Confirmar Exclusão</h2>
-          <p className="text-gray-600">
-            Tem certeza que deseja excluir a anotação <strong>{notaParaExcluir.titulo}</strong>?
-          </p>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              excluirNota(notaParaExcluir.id).then(() => {
-                setNotaParaExcluir(null);
-              });
-            }}
-          >
+      {/* Modal Nova Anotação / Editar Anotação */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md space-y-4">
+            <h2 className="text-lg font-semibold">
+              {notaEditando ? 'Editar Anotação' : 'Nova Anotação'}
+            </h2>
+            <input
+              type="text"
+              placeholder="Título"
+              value={novaNota.titulo}
+              onChange={(e) => setNovaNota({ ...novaNota, titulo: e.target.value })}
+              className="w-full border rounded p-2 text-sm"
+            />
+            <textarea
+              placeholder="Texto"
+              value={novaNota.texto}
+              onChange={(e) => setNovaNota({ ...novaNota, texto: e.target.value })}
+              className="w-full border rounded p-2 text-sm"
+            />
+            <div className="flex gap-2">
+              {[
+                { cor: 'bg-yellow-500' },
+                { cor: 'bg-green-500' },
+                { cor: 'bg-blue-500' },
+                { cor: 'bg-purple-500' },
+                { cor: 'bg-orange-500' }
+              ].map((opcao) => (
+                <div
+                  key={opcao.cor}
+                  onClick={() => setNovaNota({ ...novaNota, cor: opcao.cor })}
+                  className={`w-6 h-6 rounded-full ${opcao.cor} ${novaNota.cor === opcao.cor ? 'ring-2 ring-black' : ''} cursor-pointer`}
+                />
+              ))}
+            </div>
+            {/* Botões para seleção da coluna */}
+            <div className="flex gap-2 text-sm">
+              {[
+                { label: 'Compras', value: 'compras' },
+                { label: 'Avisos Técnicos', value: 'avisos' },
+                { label: 'Lembretes', value: 'lembretes' }
+              ].map((opcao) => (
+                <button
+                  key={opcao.value}
+                  onClick={() => setNovaNota({ ...novaNota, coluna: opcao.value })}
+                  className={`px-3 py-1 rounded border ${novaNota.coluna === opcao.value ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+                >
+                  {opcao.label}
+                </button>
+              ))}
+            </div>
             <div className="flex justify-end gap-2">
               <button
-                type="button"
-                onClick={() => setNotaParaExcluir(null)}
+                onClick={() => {
+                  setShowModal(false);
+                  setNotaEditando(null);
+                }}
                 className="px-4 py-2 text-sm rounded bg-gray-200 hover:bg-gray-300"
               >
                 Cancelar
               </button>
               <button
-                type="submit"
-                className="px-4 py-2 text-sm rounded bg-black text-white hover:bg-red-700"
+                onClick={salvarOuAtualizarNota}
+                className="px-4 py-2 text-sm rounded bg-[#1860fa] text-white hover:bg-blue-700"
               >
-                Excluir
+                {notaEditando ? 'Atualizar' : 'Salvar'}
               </button>
             </div>
-          </form>
+          </div>
         </div>
-      </div>
-    )}
-    {/* ToastContainer para notificações */}
-    <ToastContainer
-      position="bottom-right"
-      autoClose={3000}
-      hideProgressBar={false}
-      newestOnTop
-      closeOnClick
-      rtl={false}
-      pauseOnFocusLoss
-      draggable
-      pauseOnHover
-      theme="colored"
-    />
+      )}
+      {/* Modal de confirmação de exclusão */}
+      {notaParaExcluir && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl space-y-4">
+            <h2 className="text-xl font-bold">Confirmar Exclusão</h2>
+            <p className="text-gray-600">
+              Tem certeza que deseja excluir a anotação <strong>{notaParaExcluir.titulo}</strong>?
+            </p>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                excluirNota(notaParaExcluir.id).then(() => {
+                  setNotaParaExcluir(null);
+                });
+              }}
+            >
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setNotaParaExcluir(null)}
+                  className="px-4 py-2 text-sm rounded bg-gray-200 hover:bg-gray-300"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm rounded bg-black text-white hover:bg-red-700"
+                >
+                  Excluir
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* ToastContainer para notificações */}
+      <ToastContainer
+        position="bottom-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="colored"
+      />
     </div>
   );
 }
