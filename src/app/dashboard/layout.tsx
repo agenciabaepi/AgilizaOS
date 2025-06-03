@@ -329,6 +329,14 @@ useEffect(() => {
                   Técnicos
                 </span>
               </button>
+              <button onClick={() => router.push('/dashboard/equipamentos')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/equipamentos' ? 'bg-[#1e3bef] text-white font-semibold' : 'hover:bg-[#1e3bef]/10 hover:text-[#1e3bef]'}`}>
+                <div className="min-w-[20px]">
+                  <FiBox size={20} />
+                </div>
+                <span className={`ml-2 whitespace-nowrap transition-all duration-300 ease-in-out ${expanded ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}`}>
+                  Equipamentos
+                </span>
+              </button>
               <button onClick={() => router.push('/dashboard/financeiro')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/financeiro' ? 'bg-[#1e3bef] text-white font-semibold' : 'hover:bg-[#1e3bef]/10 hover:text-[#1e3bef]'}`}>
                 <div className="min-w-[20px]">
                   <FiDollarSign size={20} />
