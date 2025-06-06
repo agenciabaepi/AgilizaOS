@@ -23,6 +23,7 @@ function BarraDeProgresso({ etapaAtual, total }: { etapaAtual: number; total: nu
 import { supabase } from "@/lib/supabaseClient";
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Select from 'react-select';
 import { components, SingleValue } from 'react-select';
 import { SingleValueProps } from 'react-select';
@@ -52,12 +53,12 @@ import '@/styles/animations.css'; // precisa existir esse CSS
 export default function NovaOSPage() {
   // Etapa da navegação
   const [etapaAtual, setEtapaAtual] = useState<number>(1);
-  const [modoCompacto, setModoCompacto] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showResumoModal, setShowResumoModal] = useState(false);
   const [status, setStatus] = useState("analise");
-  const [pecaSelecionada, setPecaSelecionada] = useState("");
   const [servicoSelecionado, setServicoSelecionado] = useState("");
+  const [pecaSelecionada, setPecaSelecionada] = useState('');
+  const [qtdPecaAdicionar, setQtdPecaAdicionar] = useState(1);
   // Estado para clientes e cliente selecionado
   interface Cliente {
     id: string;
@@ -74,20 +75,36 @@ export default function NovaOSPage() {
   const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   // Estados para animação de campos e preview de imagens
-  const [categoria, setCategoria] = useState("");
-  const [marca, setMarca] = useState("");
-  const [modelo, setModelo] = useState("");
-  const [cor, setCor] = useState("");
+  const [modelo, setModelo] = useState(""); // Modelo como string
   const [numeroSerie, setNumeroSerie] = useState("");
+  const [cor, setCor] = useState("");
   const [tecnico, setTecnico] = useState("");
   const [atendente, setAtendente] = useState("");
-  const [termoGarantia, setTermoGarantia] = useState("");
   const [relato, setRelato] = useState("");
   const [observacao, setObservacao] = useState("");
   const [previewEntrada, setPreviewEntrada] = useState<string | null>(null);
   const [previewSaida, setPreviewSaida] = useState<string | null>(null);
+  // Técnicos
+  const [tecnicos, setTecnicos] = useState<{ id: string; nome: string }[]>([]);
+  // Serviços adicionados
+  const [servicosAdicionados, setServicosAdicionados] = useState<
+    { id: string; nome: string; valor: number; quantidade: number }[]
+  >([]);
+  // Peças adicionadas
+  const [pecasAdicionadas, setPecasAdicionadas] = useState<any[]>([]);
+  // Termo de Garantia
+  const [termoGarantia, setTermoGarantia] = useState('');
 
-  // Buscar clientes ao montar
+  // Estados para categorias, marcas e modelos de equipamentos
+  const [categoriasEquip, setCategoriasEquip] = useState<{ id: string; nome: string }[]>([]);
+  const [categoriaEquip, setCategoriaEquip] = useState('');
+  const [marcasEquip, setMarcasEquip] = useState<{ id: string; nome: string }[]>([]);
+  const [marcaSelecionada, setMarcaSelecionada] = useState('');
+  const [modelosEquip, setModelosEquip] = useState<{ id: string; nome: string }[]>([]);
+
+  const router = useRouter();
+
+  // Buscar clientes e equipamentos ao montar
   useEffect(() => {
     async function fetchClientes() {
       setIsLoading(true);
@@ -95,8 +112,30 @@ export default function NovaOSPage() {
       if (!error && data) setClientes(data);
       setIsLoading(false);
     }
+    async function fetchEquipamentos() {
+      const { data: categoriasData } = await supabase.from("categorias").select("*");
+      const { data: marcasData } = await supabase.from("marcas").select("*");
+      const { data: modelosData } = await supabase.from("modelos").select("*");
+      if (categoriasData) setCategoriasEquip(categoriasData);
+      if (marcasData) setMarcasEquip(marcasData);
+      if (modelosData) setModelosEquip(modelosData);
+    }
+    async function fetchTecnicos() {
+      const { data } = await supabase.from("tecnicos").select("id, nome");
+      if (data) setTecnicos(data);
+    }
     fetchClientes();
+    fetchEquipamentos();
+    fetchTecnicos();
   }, []);
+
+  // Função para validar UUID
+  function isValidUUID(uuid: string) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(uuid);
+  }
+
+  // Estado para armazenar a data de entrega selecionada
+  // Removido campos de data de entrega e vencimento de garantia
 
   // Função para submissão do formulário principal de Nova OS
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -107,42 +146,128 @@ export default function NovaOSPage() {
       setIsLoading(false);
       return;
     }
-    // Coleta categoria, marca e cor do formulário
-    const formData = new FormData(e.currentTarget);
-    const categoria = formData.get("categoria");
-    const marca = formData.get("marca");
-    const cor = formData.get("cor");
     try {
+      // Nova lógica: busca usuário autenticado e empresa, faz insert amarrando empresa_id
       const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError) throw new Error("Erro ao obter usuário autenticado");
-      const userId = userData?.user?.id;
+      if (userError) {
+        console.error("Erro ao obter usuário:", userError);
+        setIsLoading(false);
+        return;
+      }
+
       const { data: empresaData, error: empresaError } = await supabase
         .from("empresas")
         .select("id")
-        .eq("user_id", userId)
+        .eq("user_id", userData?.user?.id)
         .single();
-      if (empresaError) throw new Error("Erro ao obter dados da empresa");
-      const empresa_id = empresaData?.id;
-      const { error: insertError } = await supabase.from("ordens_servico").insert({
-        cliente_id: clienteSelecionado.id,
+
+      if (empresaError || !empresaData) {
+        console.error("Erro ao buscar empresa:", empresaError);
+        setIsLoading(false);
+        return;
+      }
+
+      const empresa_id = empresaData.id;
+      // Variáveis de estado adicionais
+      // Definições para garantir que os campos estejam definidos
+      // Para campos de serviço e peça, vamos considerar apenas o primeiro serviço/peça adicionado para simplificação (ajuste conforme sua lógica)
+      const aparelho = modelo || null;
+      const categoria = categoriaEquip || null;
+      const marca = marcaSelecionada || null;
+      const modeloAparelho = modelo || null;
+      const corAparelho = cor || null;
+      const numero_serie = numeroSerie || null;
+      // Para serviços e peças: pegar o primeiro ou null
+      const servico = servicosAdicionados.length > 0 ? servicosAdicionados[0].nome : null;
+      const qtd_servico = servicosAdicionados.length > 0 ? servicosAdicionados[0].quantidade : null;
+      const valor_servico = servicosAdicionados.length > 0 ? servicosAdicionados[0].valor : null;
+      const peca = pecasAdicionadas.length > 0 ? pecasAdicionadas[0].nome : null;
+      const qtd_peca = pecasAdicionadas.length > 0 ? pecasAdicionadas[0].quantidade : null;
+      const valor_peca = pecasAdicionadas.length > 0 && pecas[pecasAdicionadas[0].id] ? pecas[pecasAdicionadas[0].id].preco : null;
+      // Totais
+      const valorFaturado =
+        servicosAdicionados.reduce((acc, s) => acc + (s.valor * (s.quantidade || 1)), 0) +
+        pecasAdicionadas.reduce((acc, peca) => acc + (pecas[peca.id]?.preco * peca.quantidade), 0);
+      // Desconto (não implementado no seu código, ajuste se precisar)
+      const desconto = null;
+      // Data de entrega e vencimento de garantia (não implementados, ajuste se necessário)
+      const dataEntrega = null;
+      const vencimentoGarantia = null;
+
+      // Adicione console.log para depuração dos valores enviados
+      console.log('Valores enviados para OS:', {
         empresa_id,
-        status,
-        servico: servicoSelecionado,
-        qtd_servico: qtdServico,
-        peca: pecaSelecionada,
-        qtd_peca: qtdPeca,
+        cliente_id: clienteSelecionado?.id,
+        tecnico_id: tecnico || null,
+        status: status || "pendente",
+        aparelho,
+        atendente: atendente || null,
+        tecnico: tecnico || null,
         categoria,
         marca,
-        cor,
-        data_cadastro: new Date().toISOString(),
+        modelo: modeloAparelho,
+        cor: corAparelho,
+        numero_serie,
+        servico,
+        qtd_servico,
+        peca,
+        qtd_peca,
+        termo_garantia: termoGarantia,
+        relato: relato || null,
+        observacao: observacao || null,
+        data_cadastro: new Date(),
+        numero_os: null,
+        data_entrega: dataEntrega,
+        vencimento_garantia: vencimentoGarantia,
+        valor_peca,
+        valor_servico,
+        desconto,
+        valor_faturado: valorFaturado || null,
       });
-      if (insertError) throw insertError;
-      toast.success("Ordem de Serviço cadastrada com sucesso!");
-      setTimeout(() => {
-        window.location.href = "/dashboard/ordens";
-      }, 1200);
+
+      const { error: insertError } = await supabase.from("ordens_servico").insert([
+        {
+          empresa_id,
+          cliente_id: clienteSelecionado?.id,
+          tecnico_id: tecnico || null,
+          status: status || "pendente",
+          atendente: atendente || null,
+          tecnico: tecnico || null,
+          categoria,
+          marca,
+          modelo: modeloAparelho,
+          cor: corAparelho,
+          numero_serie,
+          servico,
+          qtd_servico,
+          peca,
+          qtd_peca,
+          termo_garantia: termoGarantia,
+          relato: relato || null,
+          observacao: observacao || null,
+          data_cadastro: new Date(),
+          numero_os: null, // será gerado automaticamente pelo trigger
+          data_entrega: dataEntrega,
+          vencimento_garantia: vencimentoGarantia,
+          valor_peca,
+          valor_servico,
+          desconto,
+          valor_faturado: valorFaturado || null,
+        }
+      ]);
+
+      if (insertError) {
+        console.error("❌ Erro ao inserir OS:", insertError.message, insertError.details, insertError.hint);
+        toast.error("Erro ao cadastrar OS: " + insertError.message);
+      } else {
+        console.log("✅ OS inserida com sucesso.");
+        toast.success("Ordem de Serviço cadastrada com sucesso!");
+        setTimeout(() => {
+          router.push("/dashboard/ordens");
+        }, 1200);
+      }
     } catch (err: any) {
-      console.error(err);
+      console.error("Erro ao inserir OS:", err);
       toast.error(`Erro ao cadastrar OS: ${err.message}`);
     } finally {
       setIsLoading(false);
@@ -230,37 +355,108 @@ export default function NovaOSPage() {
     tela_iphone: { nome: "Tela iPhone", preco: 350 },
   };
 
-  const [qtdServico, setQtdServico] = useState(1);
-  const [qtdPeca, setQtdPeca] = useState(1);
+  // Remove estados e lógica de serviços, peças e descontos
 
+  // Handler para adicionar serviço à lista
+  function handleAdicionarServico() {
+    if (!servicoSelecionado) {
+      toast.error("Selecione um serviço!");
+      return;
+    }
+    const servicoObj = servicos[servicoSelecionado];
+    if (!servicoObj) {
+      toast.error("Serviço inválido!");
+      return;
+    }
+    // Evita adicionar duplicado
+    if (servicosAdicionados.some(s => s.id === servicoSelecionado)) {
+      toast.error("Serviço já adicionado!");
+      return;
+    }
+    setServicosAdicionados(prev => [
+      ...prev,
+      { id: servicoSelecionado, nome: servicoObj.nome, valor: servicoObj.preco, quantidade: 1 }
+    ]);
+    setServicoSelecionado("");
+  }
+
+  // Handler para remover serviço da lista
+  function handleRemoverServico(index: number) {
+    setServicosAdicionados(prev => prev.filter((_, i) => i !== index));
+  }
+
+  // Handler para alterar a quantidade de um serviço
+  function handleAlterarQuantidadeServico(index: number, quantidade: number) {
+    setServicosAdicionados(prev =>
+      prev.map((servico, i) =>
+        i === index ? { ...servico, quantidade: quantidade < 1 ? 1 : quantidade } : servico
+      )
+    );
+  }
+  // Handler para remover peça da lista
+  function handleRemoverProduto(index: number) {
+    setPecasAdicionadas(prev => prev.filter((_, i) => i !== index));
+  }
+
+  // Handler para adicionar peça à lista
+  function handleAdicionarPeca() {
+    if (!pecaSelecionada || !qtdPecaAdicionar || qtdPecaAdicionar < 1) {
+      toast.error("Selecione uma peça e quantidade válida!");
+      return;
+    }
+    const pecaObj = pecas[pecaSelecionada];
+    if (!pecaObj) {
+      toast.error("Peça inválida!");
+      return;
+    }
+    setPecasAdicionadas(prev => [
+      ...prev,
+      { id: pecaSelecionada, nome: pecaObj.nome, quantidade: qtdPecaAdicionar }
+    ]);
+    setPecaSelecionada("");
+    setQtdPecaAdicionar(1);
+  }
+
+  // Função auxiliar para mostrar modelo do aparelho (modelo + cor)
+  const modeloAparelho = modelo
+    ? `${modelo}${cor ? ` - ${cor}` : ''}`
+    : '';
+  // Nome do técnico selecionado (mock para exemplo)
+  const tecnicoSelecionado = tecnico
+    ? { nome: tecnico.charAt(0).toUpperCase() + tecnico.slice(1) }
+    : null;
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-0">
-      <div className="w-full max-w-6xl bg-white dark:bg-gray-800 text-black dark:text-white rounded-xl shadow-lg p-8 mx-auto">
-        <ThemeSwitcher />
-        <div className="flex justify-end mb-4">
-          <label className="inline-flex items-center space-x-2">
-            <span className="text-sm text-gray-700 dark:text-gray-300">Modo Compacto</span>
-            <ReactSwitch
-              checked={modoCompacto}
-              onChange={() => setModoCompacto(!modoCompacto)}
-              offColor="#ddd"
-              onColor="#3b82f6"
-              uncheckedIcon={false}
-              checkedIcon={false}
-              height={20}
-              width={40}
-              handleDiameter={18}
-            />
-          </label>
+    <>
+      {/* Título principal fora do container */}
+      <div className="w-full">
+        <h1 className="text-3xl font-bold text-blue-600 text-center mb-8">
+          Nova Ordem de Serviço
+        </h1>
+      </div>
+      {/* Mini-resumo moderno logo abaixo do título */}
+      <div className="flex justify-center mb-4">
+        <div className="flex items-center space-x-4 bg-white shadow-md rounded-full px-6 py-2">
+          <div className="text-sm text-gray-600 font-medium">Etapa: <span className="text-blue-600 font-semibold">{etapaAtual + 1} de 6</span></div>
+          <div className="w-2 h-2 rounded-full bg-blue-600"></div>
+          <div className="text-sm text-gray-600 font-medium">
+            {etapaAtual === 0 && "Informações do Cliente"}
+            {etapaAtual === 1 && "Informações do Aparelho"}
+            {etapaAtual === 2 && "Serviços e Peças"}
+            {etapaAtual === 3 && "Finalização"}
+          </div>
         </div>
-        <div className={`w-full ${modoCompacto ? 'space-y-2 gap-2' : 'space-y-8 gap-8'}`}>
+      </div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-0">
+        <div className="w-full max-w-6xl bg-white dark:bg-gray-800 text-black dark:text-white rounded-xl shadow-lg p-8 mx-auto mt-2">
+        <ThemeSwitcher />
+        <div className="w-full space-y-8 gap-8">
         <BarraDeProgresso etapaAtual={etapaAtual} total={6} />
+        {/* Botão Voltar acima do título principal */}
         <button
-          onClick={() => window.history.back()}
-          className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 transition mb-2"
+          onClick={() => router.back()}
+          className="mb-4 text-sm text-blue-600 hover:underline"
         >
-          <ArrowLeft size={20} />
-          Voltar para Ordens de Serviço
+          ← Voltar
         </button>
         <div className="mt-2">
           <div className="flex items-center justify-between w-full mb-4">
@@ -289,14 +485,12 @@ export default function NovaOSPage() {
               </div>
             ))}
           </div>
-          <h1 className="text-3xl font-semibold text-blue-600 tracking-tight text-center mt-2">Nova Ordem de Serviço</h1>
           <form onSubmit={handleSubmit} className="text-center mt-4">
-            <div className={`${modoCompacto ? 'space-y-2 gap-2' : 'space-y-6 gap-6'}`}>
+            <div className="space-y-6 gap-6">
               {/* Etapa 1: Informações do Cliente */}
               {etapaAtual === 1 && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={`${modoCompacto ? 'space-y-2 gap-2' : 'space-y-4 gap-4'} bg-white rounded-lg shadow-md p-4 border border-gray-200`}>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2 text-center">Informações do Cliente</h3>
-                  <div className={`flex items-center ${modoCompacto ? 'gap-2' : 'gap-4'}`}>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4 gap-4 bg-white rounded-lg shadow-md p-4 border border-gray-200">
+                  <div className="flex items-center gap-4">
                     <div className="flex-1 relative">
                       {isLoading ? (
                         <Skeleton count={1} height={44} />
@@ -360,7 +554,7 @@ export default function NovaOSPage() {
                       <UserPlus size={20} />
                     </button>
                   </div>
-                  <div className={`flex mt-4 ${modoCompacto ? 'gap-2' : 'gap-4'}`}>
+                  <div className="flex mt-4 gap-4">
                     <button
                       type="button"
                       onClick={() => {
@@ -380,185 +574,38 @@ export default function NovaOSPage() {
 
               {/* Etapa 2: Informações do Aparelho */}
               {etapaAtual === 2 && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={`${modoCompacto ? 'space-y-2 gap-2' : 'space-y-4 gap-4'} bg-white rounded-lg shadow-md p-4 border border-gray-200`}>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2 text-center">Informações do Aparelho</h3>
-                  <div className={`grid grid-cols-1 md:grid-cols-2 ${modoCompacto ? 'gap-2' : 'gap-4'}`}>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4 gap-4 bg-white rounded-lg shadow-md p-4 border border-gray-200">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Categoria */}
                     <div className="relative flex items-center">
-                      <Select
-                        name="categoria"
-                        options={[
-                          { value: 'celular', label: 'Celular' },
-                          { value: 'notebook', label: 'Notebook' },
-                          { value: 'computador', label: 'Computador' },
-                        ]}
-                        placeholder="Selecione a categoria"
-                        className="w-full rounded-md"
-                        onChange={(newValue, _actionMeta) => {
-                          if (!newValue || Array.isArray(newValue)) return;
-                          setCategoria(newValue.value);
-                        }}
-                        components={{ SingleValue: CustomSingleValue }}
-                        styles={{
-                          control: (provided: any) => ({
-                            ...provided,
-                            borderRadius: '0.375rem',
-                            borderColor: '#e5e7eb',
-                            backgroundColor: 'white',
-                            boxShadow: 'none',
-                            ':hover': { borderColor: '#3b82f6' }
-                          }),
-                          option: (provided: any, state: any) => ({
-                            ...provided,
-                            backgroundColor: state.isSelected
-                              ? '#3b82f6'
-                              : state.isFocused
-                              ? '#e0f2fe'
-                              : 'white',
-                            color: state.isSelected ? 'white' : '#111827',
-                            padding: '0.75rem 1rem',
-                            fontSize: '0.875rem',
-                          }),
-                          singleValue: (provided: any) => ({
-                            ...provided,
-                            fontSize: '0.875rem',
-                            lineHeight: '1.25rem',
-                          }),
-                        }}
+                      <input
+                        type="text"
+                        value={categoriaEquip}
+                        onChange={(e) => setCategoriaEquip(e.target.value)}
+                        placeholder="Digite a categoria"
+                        className="input input-bordered w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20"
                       />
                     </div>
                     {/* Marca */}
                     <div className="relative flex items-center">
-                      <Select
-                        name="marca"
-                        options={[
-                          { value: 'apple', label: 'Apple' },
-                          { value: 'samsung', label: 'Samsung' },
-                          { value: 'dell', label: 'Dell' },
-                          { value: 'lenovo', label: 'Lenovo' },
-                        ]}
-                        placeholder="Selecione a marca"
-                        className="w-full rounded-md"
-                        onChange={(newValue, _actionMeta) => {
-                          if (!newValue || Array.isArray(newValue)) return;
-                          setMarca(newValue.value);
-                        }}
-                        components={{ SingleValue: CustomSingleValue }}
-                        styles={{
-                          control: (provided: any) => ({
-                            ...provided,
-                            borderRadius: '0.375rem',
-                            borderColor: '#e5e7eb',
-                            backgroundColor: 'white',
-                            boxShadow: 'none',
-                            ':hover': { borderColor: '#3b82f6' }
-                          }),
-                          option: (provided: any, state: any) => ({
-                            ...provided,
-                            backgroundColor: state.isSelected
-                              ? '#3b82f6'
-                              : state.isFocused
-                              ? '#e0f2fe'
-                              : 'white',
-                            color: state.isSelected ? 'white' : '#111827',
-                            padding: '0.75rem 1rem',
-                            fontSize: '0.875rem',
-                          }),
-                          singleValue: (provided: any) => ({
-                            ...provided,
-                            fontSize: '0.875rem',
-                            lineHeight: '1.25rem',
-                          }),
-                        }}
+                      <input
+                        type="text"
+                        value={marcaSelecionada}
+                        onChange={(e) => setMarcaSelecionada(e.target.value)}
+                        placeholder="Digite a marca"
+                        className="input input-bordered w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20"
                       />
                     </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Modelo */}
                     <div className="relative flex items-center">
-                      <Select
-                        options={[
-                          { value: 'iphone13', label: '📱 iPhone 13' },
-                          { value: 'galaxyS22', label: '📱 Galaxy S22' },
-                          { value: 'inspiron', label: '💻 Dell Inspiron 15' },
-                          { value: 'ideapad', label: '💻 Lenovo IdeaPad 3' },
-                        ]}
-                        placeholder="Selecione o modelo"
-                        className="w-full rounded-md"
-                        onChange={(newValue, _actionMeta) => {
-                          if (!newValue || Array.isArray(newValue)) return;
-                          setModelo(newValue.value);
-                        }}
-                        components={{ SingleValue: CustomSingleValue }}
-                        styles={{
-                          control: (provided: any) => ({
-                            ...provided,
-                            borderRadius: '0.375rem',
-                            borderColor: '#e5e7eb',
-                            backgroundColor: 'white',
-                            boxShadow: 'none',
-                            ':hover': { borderColor: '#3b82f6' }
-                          }),
-                          option: (provided: any, state: any) => ({
-                            ...provided,
-                            backgroundColor: state.isSelected
-                              ? '#3b82f6'
-                              : state.isFocused
-                              ? '#e0f2fe'
-                              : 'white',
-                            color: state.isSelected ? 'white' : '#111827',
-                            padding: '0.75rem 1rem',
-                            fontSize: '0.875rem',
-                          }),
-                          singleValue: (provided: any) => ({
-                            ...provided,
-                            fontSize: '0.875rem',
-                            lineHeight: '1.25rem',
-                          }),
-                        }}
-                      />
-                    </div>
-                    {/* Cor */}
-                    <div className="relative flex items-center">
-                      <Select
-                        name="cor"
-                        options={[
-                          { value: 'preto', label: 'Preto' },
-                          { value: 'branco', label: 'Branco' },
-                          { value: 'cinza', label: 'Cinza' },
-                          { value: 'azul', label: 'Azul' },
-                        ]}
-                        placeholder="Selecione a cor"
-                        className="w-full rounded-md"
-                        onChange={(newValue, _actionMeta) => {
-                          if (!newValue || Array.isArray(newValue)) return;
-                          setCor(newValue.value);
-                        }}
-                        components={{ SingleValue: CustomSingleValue }}
-                        styles={{
-                          control: (provided: any) => ({
-                            ...provided,
-                            borderRadius: '0.375rem',
-                            borderColor: '#e5e7eb',
-                            backgroundColor: 'white',
-                            boxShadow: 'none',
-                            ':hover': { borderColor: '#3b82f6' }
-                          }),
-                          option: (provided: any, state: any) => ({
-                            ...provided,
-                            backgroundColor: state.isSelected
-                              ? '#3b82f6'
-                              : state.isFocused
-                              ? '#e0f2fe'
-                              : 'white',
-                            color: state.isSelected ? 'white' : '#111827',
-                            padding: '0.75rem 1rem',
-                            fontSize: '0.875rem',
-                          }),
-                          singleValue: (provided: any) => ({
-                            ...provided,
-                            fontSize: '0.875rem',
-                            lineHeight: '1.25rem',
-                          }),
-                        }}
+                      <input
+                        type="text"
+                        value={modelo}
+                        onChange={(e) => setModelo(e.target.value)}
+                        placeholder="Digite o modelo"
+                        className="input input-bordered w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20"
                       />
                     </div>
                     {/* Número de Série */}
@@ -578,7 +625,19 @@ export default function NovaOSPage() {
                       )}
                     </div>
                   </div>
-                    <div className={`flex justify-between mt-4 ${modoCompacto ? 'gap-2' : 'gap-4'}`}>
+                  {/* Cor */}
+                  <div className="flex gap-4 mt-4">
+                    <div className="w-1/2">
+                      <input
+                        type="text"
+                        placeholder="Cor do aparelho"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20"
+                        value={cor}
+                        onChange={(e) => setCor(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-between mt-4 gap-4">
                     <button
                       type="button"
                       onClick={() => setEtapaAtual(etapaAtual - 1)}
@@ -589,7 +648,7 @@ export default function NovaOSPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        if (!categoria || !marca || !modelo || !cor || !numeroSerie) {
+                        if (!categoriaEquip || !marcaSelecionada || !modelo || !numeroSerie) {
                           toast.error("Preencha todas as informações do aparelho!");
                           return;
                         }
@@ -605,19 +664,15 @@ export default function NovaOSPage() {
 
               {/* Etapa 3: Responsáveis */}
               {etapaAtual === 3 && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={`${modoCompacto ? 'space-y-2 gap-2' : 'space-y-4 gap-4'} bg-white rounded-lg shadow-md p-4 border border-gray-200`}>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2 text-center">Responsáveis</h3>
-                  <div className={`grid grid-cols-1 md:grid-cols-2 items-center ${modoCompacto ? 'gap-2' : 'gap-4'}`}>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4 gap-4 bg-white rounded-lg shadow-md p-4 border border-gray-200">
+                  <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-4">
                     {/* Técnico */}
                     <div className="relative flex items-center">
                       <Select
-                        options={[
-                          { value: 'marcos', label: 'Marcos' },
-                          { value: 'ana', label: 'Ana' },
-                          { value: 'paulo', label: 'Paulo' },
-                        ]}
+                        options={tecnicos.map((t) => ({ value: t.id, label: t.nome }))}
                         placeholder="Selecionar técnico"
                         className="w-full rounded-md"
+                        value={tecnico ? { value: tecnico, label: tecnicos.find(t => t.id === tecnico)?.nome || "" } : null}
                         onChange={(newValue, _actionMeta) => {
                           if (!newValue || Array.isArray(newValue)) return;
                           setTecnico(newValue.value);
@@ -660,6 +715,7 @@ export default function NovaOSPage() {
                         ]}
                         placeholder="Selecionar atendente"
                         className="w-full rounded-md"
+                        value={atendente ? { value: atendente, label: atendente.charAt(0).toUpperCase() + atendente.slice(1) } : null}
                         onChange={(newValue, _actionMeta) => {
                           if (!newValue || Array.isArray(newValue)) return;
                           setAtendente(newValue.value);
@@ -698,7 +754,7 @@ export default function NovaOSPage() {
                       className="w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20"
                     />
                   </div>
-                    <div className={`flex justify-between mt-4 ${modoCompacto ? 'gap-2' : 'gap-4'}`}>
+                    <div className="flex justify-between mt-4 gap-4">
                     <button
                       type="button"
                       onClick={() => setEtapaAtual(etapaAtual - 1)}
@@ -725,27 +781,22 @@ export default function NovaOSPage() {
 
               {/* Etapa 4: Status e Aplicações */}
               {etapaAtual === 4 && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={`${modoCompacto ? 'space-y-2 gap-2' : 'space-y-4 gap-4'} bg-white rounded-lg shadow-md p-4 border border-gray-200`}>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2 text-center">Status e Aplicações</h3>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4 gap-4 bg-white rounded-lg shadow-md p-4 border border-gray-200">
+                  {/* Status Select */}
                   <div className="relative flex items-center">
                     <Select
                       options={[
-                        { value: 'analise', label: 'Em análise' },
-                        { value: 'orcamento', label: 'Orçamento enviado' },
+                        { value: 'orcamento', label: 'Orçamento' },
                         { value: 'aprovado', label: 'Aprovado' },
-                        { value: 'concluido', label: 'Concluído' },
                       ]}
-                      value={{
-                        value: status,
-                        label:
-                          status === 'analise'
-                            ? 'Em análise'
-                            : status === 'orcamento'
-                            ? 'Orçamento enviado'
-                            : status === 'aprovado'
-                            ? 'Aprovado'
-                            : 'Concluído',
-                      }}
+                      value={
+                        status
+                          ? [
+                              { value: 'orcamento', label: 'Orçamento' },
+                              { value: 'aprovado', label: 'Aprovado' },
+                            ].find(opt => opt.value === status)
+                          : null
+                      }
                       onChange={(newValue, _actionMeta) => {
                         if (!newValue || Array.isArray(newValue)) return;
                         setStatus(newValue.value);
@@ -780,208 +831,238 @@ export default function NovaOSPage() {
                         }),
                       }}
                     />
-// SERVIÇO
                   </div>
+                  {/* Serviços e Peças (nova visualização estilo tabela, aparece apenas se aprovado) */}
                   {status === "aprovado" && (
-                  <div className="transition-all duration-500 ease-in-out animate-fadeIn">
-                    <div className={`grid grid-cols-1 md:grid-cols-2 ${modoCompacto ? 'gap-2' : 'gap-4'}`}>
-                        <div>
-                          <label className="text-sm font-semibold text-gray-700 mb-2">Serviço</label>
-                          <div className={`flex items-center ${modoCompacto ? 'gap-2' : 'gap-4'}`}>
-                            <div className="w-full relative flex items-center">
-                              <Select
-                                options={[
-                                  { value: 'formatacao', label: 'Formatação - R$ 80,00' },
-                                  { value: 'troca_tela', label: 'Troca de Tela - R$ 200,00' },
-                                ]}
-                                value={
-                                  servicoSelecionado
-                                    ? {
-                                        value: servicoSelecionado,
-                                        label:
-                                          servicoSelecionado && servicos[servicoSelecionado]
-                                            ? `${servicos[servicoSelecionado].nome} - R$ ${servicos[servicoSelecionado].preco}`
-                                            : "",
-                                      }
-                                    : null
-                                }
-                                onChange={(newValue, _actionMeta) => {
-                                  if (!newValue || Array.isArray(newValue)) return;
-                                  setServicoSelecionado(newValue.value);
-                                }}
-                                placeholder="Selecionar serviço"
-                                className="w-full rounded-md"
-                                components={{ SingleValue: CustomSingleValue }}
-                                styles={{
-                                  control: (provided: any) => ({
-                                    ...provided,
-                                    borderRadius: '0.375rem',
-                                    borderColor: '#e5e7eb',
-                                    backgroundColor: 'white',
-                                    boxShadow: 'none',
-                                    ':hover': { borderColor: '#3b82f6' }
-                                  }),
-                                  option: (provided: any, state: any) => ({
-                                    ...provided,
-                                    backgroundColor: state.isSelected
-                                      ? '#3b82f6'
-                                      : state.isFocused
-                                      ? '#e0f2fe'
-                                      : 'white',
-                                    color: state.isSelected ? 'white' : '#111827',
-                                    padding: '0.75rem 1rem',
-                                    fontSize: '0.875rem',
-                                  }),
-                                  singleValue: (provided: any) => ({
-                                    ...provided,
-                                    fontSize: '0.875rem',
-                                    lineHeight: '1.25rem',
-                                  }),
-                                }}
-                              />
-// PEÇA
+                    <>
+                        {/* Nova organização estilo card com totais */}
+                        <div className="space-y-8">
+                          {/* Seleção de Serviços */}
+                          <div className="shadow-sm border rounded-lg p-4 bg-white">
+                            <div className="space-y-4">
+                              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Serviços</label>
+                              <div className="grid grid-cols-4 gap-2 items-center">
+                                <div className="col-span-2">
+                                  <Select
+                                    options={Object.entries(servicos).map(([id, servico]) => ({
+                                      value: id,
+                                      label: `${servico.nome} - R$ ${servico.preco.toFixed(2)}`,
+                                    }))}
+                                    value={
+                                      servicoSelecionado
+                                        ? {
+                                            value: servicoSelecionado,
+                                            label:
+                                              servicos[servicoSelecionado]?.nome +
+                                              " - R$ " +
+                                              (servicos[servicoSelecionado]?.preco?.toFixed(2) ?? "")
+                                          }
+                                        : null
+                                    }
+                                    onChange={(newValue) => {
+                                      if (!newValue || Array.isArray(newValue)) return;
+                                      setServicoSelecionado(newValue.value);
+                                    }}
+                                    className="w-full"
+                                    placeholder="Selecione um serviço"
+                                    isSearchable
+                                  />
+                                </div>
+                                <div>
+                                  {/* Espaço reservado para futura quantidade, se necessário */}
+                                </div>
+                                <div>
+                                  <button
+                                    type="button"
+                                    onClick={handleAdicionarServico}
+                                    className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm"
+                                  >
+                                    Adicionar
+                                  </button>
+                                </div>
+                              </div>
+                              {/* Lista de Serviços Adicionados */}
+                              {servicosAdicionados.length > 0 && (
+                                <div className="mt-4 space-y-2">
+                                  <div className="grid grid-cols-5 gap-2 items-center text-sm font-semibold text-gray-600 border-b pb-2">
+                                    <div>Serviço</div>
+                                    <div>Qtd</div>
+                                    <div>Valor Unitário</div>
+                                    <div>Subtotal</div>
+                                    <div>Ação</div>
+                                  </div>
+                                  {servicosAdicionados.map((servico, index) => (
+                                    <div
+                                      key={index}
+                                      className="grid grid-cols-5 gap-2 items-center text-sm border-b py-2"
+                                    >
+                                      <div>{servico.nome}</div>
+                                      <div>
+                                        <input
+                                          type="number"
+                                          min={1}
+                                          value={servico.quantidade}
+                                          onChange={e => handleAlterarQuantidadeServico(index, Number(e.target.value))}
+                                          className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-center"
+                                        />
+                                      </div>
+                                      <div>R$ {servico.valor.toFixed(2)}</div>
+                                      <div className="font-semibold">
+                                        R$ {(servico.valor * servico.quantidade).toFixed(2)}
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoverServico(index)}
+                                        className="text-red-500 hover:text-red-700 text-base"
+                                        title="Remover serviço"
+                                      >
+                                        ❌
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                            <input
-                              type="number"
-                              value={qtdServico}
-                              onChange={(e) => setQtdServico(Number(e.target.value))}
-                              className="w-20 px-3 py-2 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20"
-                            />
-                            <input
-                              type="text"
-                              readOnly
-                              className="w-28 px-3 py-2 text-center text-sm border border-gray-300 rounded-md bg-white"
-                              value={
-                                servicoSelecionado && servicos[servicoSelecionado]
-                                  ? `R$ ${(servicos[servicoSelecionado].preco * qtdServico).toFixed(2)}`
-                                  : ""
-                              }
-                            />
                           </div>
-                        </div>
 
-                        <div>
-                          <label className="text-sm font-semibold text-gray-700 mb-2">Peça</label>
-                          <div className={`flex items-center ${modoCompacto ? 'gap-2' : 'gap-4'}`}>
-                            <div className="w-full relative flex items-center">
-                              <Select
-                                options={[
-                                  { value: 'bateria', label: 'Bateria - R$ 120,00' },
-                                  { value: 'tela_iphone', label: 'Tela iPhone - R$ 350,00' },
-                                ]}
-                                value={
-                                  pecaSelecionada
-                                    ? {
-                                        value: pecaSelecionada,
-                                        label:
-                                          pecas[pecaSelecionada].nome +
-                                          ` - R$ ${pecas[pecaSelecionada].preco}`,
-                                      }
-                                    : null
-                                }
-                                onChange={(newValue, _actionMeta) => {
-                                  if (!newValue || Array.isArray(newValue)) return;
-                                  setPecaSelecionada(newValue.value);
-                                }}
-                                placeholder="Selecionar peça"
-                                className="w-full rounded-md"
-                                components={{ SingleValue: CustomSingleValue }}
-                                styles={{
-                                  control: (provided: any) => ({
-                                    ...provided,
-                                    borderRadius: '0.375rem',
-                                    borderColor: '#e5e7eb',
-                                    backgroundColor: 'white',
-                                    boxShadow: 'none',
-                                    ':hover': { borderColor: '#3b82f6' }
-                                  }),
-                                  option: (provided: any, state: any) => ({
-                                    ...provided,
-                                    backgroundColor: state.isSelected
-                                      ? '#3b82f6'
-                                      : state.isFocused
-                                      ? '#e0f2fe'
-                                      : 'white',
-                                    color: state.isSelected ? 'white' : '#111827',
-                                    padding: '0.75rem 1rem',
-                                    fontSize: '0.875rem',
-                                  }),
-                                  singleValue: (provided: any) => ({
-                                    ...provided,
-                                    fontSize: '0.875rem',
-                                    lineHeight: '1.25rem',
-                                  }),
-                                }}
-                              />
+                          {/* Adicionar Peça */}
+                          <div className="shadow-sm border rounded-lg p-4 bg-white">
+                            <h3 className="text-base font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                              📦 Peças Utilizadas
+                            </h3>
+                            <div>
+                              <h4 className="text-sm font-semibold text-gray-600 mb-2">Adicionar peça</h4>
+                              <div className="grid grid-cols-3 gap-2 items-center">
+                                <div className="col-span-2">
+                                  <Select
+                                    options={Object.entries(pecas).map(([id, peca]) => ({
+                                      value: id,
+                                      label: `${peca.nome} - R$ ${peca.preco}`
+                                    }))}
+                                    value={pecaSelecionada ? {
+                                      value: pecaSelecionada,
+                                      label: pecas[pecaSelecionada]
+                                        ? `${pecas[pecaSelecionada].nome} - R$ ${pecas[pecaSelecionada].preco}` : ''
+                                    } : null}
+                                    onChange={(selected) => {
+                                      if (!selected || Array.isArray(selected)) return;
+                                      setPecaSelecionada(selected.value);
+                                    }}
+                                    placeholder="Selecionar peça"
+                                  />
+                                </div>
+                                <div>
+                                  <button
+                                    type="button"
+                                    onClick={handleAdicionarPeca}
+                                    className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm"
+                                  >
+                                    ➕ Adicionar
+                                  </button>
+                                </div>
+                              </div>
                             </div>
-                            <input
-                              type="number"
-                              value={qtdPeca}
-                              onChange={(e) => setQtdPeca(Number(e.target.value))}
-                              className="w-20 px-3 py-2 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20"
-                            />
-                            <input
-                              type="text"
-                              readOnly
-                              className="w-28 px-3 py-2 text-center text-sm border border-gray-300 rounded-md bg-white"
-                              value={
-                                pecaSelecionada
-                                  ? `R$ ${(pecas[pecaSelecionada].preco * qtdPeca).toFixed(2)}`
-                                  : ""
-                              }
-                            />
+                            {/* Lista de peças adicionadas */}
+                            {pecasAdicionadas.length > 0 ? (
+                              <div className="mt-6" aria-label="Lista de peças adicionadas">
+                                <div className="grid grid-cols-5 gap-2 items-center text-sm font-semibold text-gray-600 border-b pb-2">
+                                  <div>Peça</div>
+                                  <div>Qtd</div>
+                                  <div>Preço Unitário</div>
+                                  <div>Subtotal</div>
+                                  <div>Ação</div>
+                                </div>
+                                {pecasAdicionadas.map((peca, index) => (
+                                  <div key={index} className="grid grid-cols-5 gap-2 items-center text-sm border-b py-2">
+                                    <div>{peca.nome}</div>
+                                    <div>
+                                      <input
+                                        type="number"
+                                        min={1}
+                                        value={peca.quantidade}
+                                        onChange={(e) => {
+                                          const novaQtd = Number(e.target.value);
+                                          setPecasAdicionadas((prev) =>
+                                            prev.map((p, i) =>
+                                              i === index ? { ...p, quantidade: novaQtd < 1 ? 1 : novaQtd } : p
+                                            )
+                                          );
+                                        }}
+                                        className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-center"
+                                      />
+                                    </div>
+                                    <div>R$ {pecas[peca.id]?.preco.toFixed(2)}</div>
+                                    <div className="font-semibold">
+                                      R$ {(pecas[peca.id]?.preco * peca.quantidade).toFixed(2)}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      className="text-red-500 hover:text-red-700 text-base"
+                                      title="Remover produto"
+                                      onClick={() => handleRemoverProduto(index)}
+                                    >
+                                      ❌
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-gray-500 mt-6" aria-label="Nenhuma peça adicionada">Nenhuma peça adicionada.</p>
+                            )}
+                          </div>
+
+                          {/* Totais */}
+                          <div className="shadow-sm border rounded-lg p-4 bg-white">
+                            <h3 className="text-base font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                              🧾 Totais
+                            </h3>
+                            <div className="grid grid-cols-3 md:grid-cols-5 gap-4 text-sm">
+                              <div>
+                                <label className="block mb-1 text-gray-600 text-sm">Serviços</label>
+                                <input
+                                  type="text"
+                                  readOnly
+                                  className="w-full px-3 py-2 border rounded bg-gray-100 text-sm"
+                                  value={`R$ ${servicosAdicionados.reduce((acc, s) => acc + (s.valor * (s.quantidade || 1)), 0).toFixed(2)}`}
+                                />
+                              </div>
+                              <div>
+                                <label className="block mb-1 text-gray-600 text-sm">Peças</label>
+                                <input
+                                  type="text"
+                                  readOnly
+                                  className="w-full px-3 py-2 border rounded bg-gray-100 text-sm"
+                                  value={`R$ ${pecasAdicionadas.reduce((acc, peca) => acc + (pecas[peca.id]?.preco * peca.quantidade), 0).toFixed(2)}`}
+                                />
+                              </div>
+                              <div className="col-span-1 md:col-span-1 flex flex-col items-center justify-center">
+                                <label className="block mb-1 text-green-700 font-semibold text-sm text-center">Valor Total</label>
+                                <input
+                                  type="text"
+                                  readOnly
+                                  className="w-full px-3 py-2 border rounded bg-green-100 text-green-800 font-bold text-lg text-center"
+                                  value={`R$ ${(servicosAdicionados.reduce((acc, s) => acc + (s.valor * (s.quantidade || 1)), 0) + pecasAdicionadas.reduce((acc, peca) => acc + (pecas[peca.id]?.preco * peca.quantidade), 0)).toFixed(2)}`}
+                                />
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </div>
+                    </>
                   )}
                   {/* Termo de Garantia */}
-                  <div className={`${modoCompacto ? 'space-y-2 gap-2' : 'space-y-4 gap-4'}`}>
+                  <div className="space-y-4 gap-4">
                     <h3 className="text-sm font-semibold text-gray-700 mb-2 text-center">Termo de Garantia</h3>
                     <div className="relative flex items-center">
-                      <Select
-                        options={[
-                          { value: 'padrao', label: 'Termo Padrão (90 dias)' },
-                          { value: 'personalizado', label: 'Termo Personalizado' },
-                        ]}
-                        placeholder="Selecionar termo"
-                        className="w-full rounded-md"
-                        onChange={(newValue, _actionMeta) => {
-                          if (!newValue || Array.isArray(newValue)) return;
-                          setTermoGarantia(newValue.value);
-                        }}
-                        isSearchable
-                        components={{ SingleValue: CustomSingleValue }}
-                        styles={{
-                          control: (provided: any) => ({
-                            ...provided,
-                            borderRadius: '0.375rem',
-                            borderColor: '#e5e7eb',
-                            backgroundColor: 'white',
-                            boxShadow: 'none',
-                            ':hover': { borderColor: '#3b82f6' }
-                          }),
-                          option: (provided: any, state: any) => ({
-                            ...provided,
-                            backgroundColor: state.isSelected
-                              ? '#3b82f6'
-                              : state.isFocused
-                              ? '#e0f2fe'
-                              : 'white',
-                            color: state.isSelected ? 'white' : '#111827',
-                            padding: '0.75rem 1rem',
-                            fontSize: '0.875rem',
-                          }),
-                          singleValue: (provided: any) => ({
-                            ...provided,
-                            fontSize: '0.875rem',
-                            lineHeight: '1.25rem',
-                          }),
-                        }}
+                      <textarea
+                        value={termoGarantia}
+                        onChange={(e) => setTermoGarantia(e.target.value)}
+                        placeholder="Termo de garantia"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20 placeholder-gray-400"
+                        rows={3}
                       />
                     </div>
                   </div>
-                  <div className={`flex justify-between mt-4 ${modoCompacto ? 'gap-2' : 'gap-4'}`}>
+                  <div className="flex justify-between mt-4 gap-4">
                     <button
                       type="button"
                       onClick={() => setEtapaAtual(etapaAtual - 1)}
@@ -994,9 +1075,9 @@ export default function NovaOSPage() {
                       onClick={() => {
                         if (
                           status === 'aprovado' &&
-                          (!servicoSelecionado || !pecaSelecionada)
+                          (servicosAdicionados.length === 0 || pecasAdicionadas.length === 0)
                         ) {
-                          toast.error("Selecione serviço e peça!");
+                          toast.error("Adicione pelo menos um serviço e uma peça!");
                           return;
                         }
                         setEtapaAtual(etapaAtual + 1);
@@ -1011,9 +1092,8 @@ export default function NovaOSPage() {
 
               {/* Etapa 5: Observações */}
               {etapaAtual === 5 && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={`${modoCompacto ? 'space-y-2 gap-2' : 'space-y-4 gap-4'} bg-white rounded-lg shadow-md p-4 border border-gray-200`}>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2 text-center">Observações</h3>
-                  {/* Relato */}
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4 gap-4 bg-white rounded-lg shadow-md p-4 border border-gray-200">
+                  {/* Relato do cliente */}
                   <div className="relative flex items-center">
                     <textarea
                       placeholder="Relato do cliente"
@@ -1023,7 +1103,7 @@ export default function NovaOSPage() {
                       onChange={(e) => setRelato(e.target.value)}
                     />
                   </div>
-                  {/* Observação */}
+                  {/* Observações internas */}
                   <div className="relative flex items-center">
                     <textarea
                       placeholder="Observações internas"
@@ -1033,7 +1113,7 @@ export default function NovaOSPage() {
                       onChange={(e) => setObservacao(e.target.value)}
                     />
                   </div>
-                  <div className={`flex justify-between mt-4 ${modoCompacto ? 'gap-2' : 'gap-4'}`}>
+                  <div className="flex justify-between mt-4 gap-4">
                     <button
                       type="button"
                       onClick={() => setEtapaAtual(etapaAtual - 1)}
@@ -1054,9 +1134,8 @@ export default function NovaOSPage() {
 
               {/* Etapa 6: Imagens */}
               {etapaAtual === 6 && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={`${modoCompacto ? 'space-y-2 gap-2' : 'space-y-4 gap-4'} bg-white rounded-lg shadow-md p-4 border border-gray-200`}>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2 text-center">Imagens</h3>
-                  <div className={`grid grid-cols-1 md:grid-cols-2 ${modoCompacto ? 'gap-2' : 'gap-4'}`}>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4 gap-4 bg-white rounded-lg shadow-md p-4 border border-gray-200">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-semibold text-gray-700 mb-2">Imagem de Entrada</label>
                       <input
@@ -1086,13 +1165,16 @@ export default function NovaOSPage() {
                       )}
                     </div>
                   </div>
-                  <div className="p-4 bg-gray-200 rounded-lg shadow-md mt-4">
-                    <h3 className="text-lg font-semibold mb-2 text-center">Resumo</h3>
-                    <p><strong>Cliente:</strong> {clienteSelecionado?.label}</p>
-                    <p><strong>Aparelho:</strong> {categoria} - {marca} - {modelo}</p>
-                    <p><strong>Status:</strong> {status}</p>
+                  <div className="p-6 bg-gray-100 rounded-lg mt-6 text-base">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <p><strong>Cliente:</strong> {clienteSelecionado?.nome}</p>
+                      <p><strong>Aparelho:</strong> {categoriasEquip.find(c => c.id === categoriaEquip)?.nome || categoriaEquip} - {modelo} {cor && `- ${cor}`}</p>
+                      {/* <p><strong>Descrição do serviço:</strong> {relatorio}</p> */}
+                      <p><strong>Relato do cliente:</strong> {relato}</p>
+                      <p><strong>Observações internas:</strong> {observacao}</p>
+                    </div>
                   </div>
-                  <div className={`flex flex-col md:flex-row justify-between mt-4 ${modoCompacto ? 'gap-2' : 'gap-4'}`}>
+                  <div className="flex flex-col md:flex-row justify-between mt-4 gap-4">
                     <button
                       type="button"
                       onClick={() => setEtapaAtual(etapaAtual - 1)}
@@ -1148,23 +1230,63 @@ export default function NovaOSPage() {
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg w-full max-w-2xl p-6 relative">
               <h2 className="text-2xl font-semibold text-gray-800 dark:text-white mb-6 text-center">Resumo da Ordem de Serviço</h2>
-              <div className={`${modoCompacto ? 'space-y-1 gap-1' : 'space-y-2 gap-2'} text-gray-700 dark:text-gray-300`}>
-                <p><strong>Nome:</strong> {clienteSelecionado?.nome}</p>
-                <p><strong>Telefone:</strong> {clienteSelecionado?.telefone}</p>
-                <p><strong>Celular:</strong> {clienteSelecionado?.celular}</p>
-                <p><strong>Email:</strong> {clienteSelecionado?.email}</p>
-                <p><strong>Documento:</strong> {clienteSelecionado?.documento}</p>
-                <p><strong>CEP:</strong> {clienteSelecionado?.cep}</p>
-                <p><strong>Origem:</strong> {clienteSelecionado?.origem}</p>
-                <p><strong>Cadastrado por:</strong> {clienteSelecionado?.cadastrado_por}</p>
-                <p><strong>Aparelho:</strong> {categoria} - {marca} - {modelo} ({cor})</p>
-                <p><strong>Status:</strong> {status}</p>
-                <p><strong>Técnico:</strong> {tecnico}</p>
-                <p><strong>Atendente:</strong> {atendente}</p>
-                <p><strong>Serviço:</strong> {servicoSelecionado ? servicoSelecionado : 'N/A'} (Qtd: {qtdServico})</p>
-                <p><strong>Peça:</strong> {pecaSelecionada ? pecaSelecionada : 'N/A'} (Qtd: {qtdPeca})</p>
-                <p><strong>Relato:</strong> {relato}</p>
-                <p><strong>Observação:</strong> {observacao}</p>
+              {/* Novo layout minimalista e organizado */}
+              <div className="p-6 bg-white rounded-lg mt-6 text-base space-y-6 border border-gray-200">
+                {/* Dados do Cliente */}
+                <div>
+                  <h2 className="text-xl font-semibold text-blue-600 mb-2">Dados do Cliente</h2>
+                  <p><strong>Nome:</strong> {clienteSelecionado?.nome}</p>
+                  <p><strong>Telefone:</strong> {clienteSelecionado?.telefone}</p>
+                </div>
+
+                {/* Dados do Aparelho */}
+                <div>
+                  <h2 className="text-xl font-semibold text-blue-600 mb-2">Aparelho</h2>
+                  <p><strong>Categoria:</strong> {categoriasEquip.find(c => c.id === categoriaEquip)?.nome || categoriaEquip}</p>
+                  <p><strong>Modelo:</strong> {modelo}</p>
+                  <p><strong>Cor:</strong> {cor}</p>
+                  <p><strong>Número de série:</strong> {numeroSerie}</p>
+                </div>
+
+                {/* Descrição do Serviço */}
+                <div>
+                  <h2 className="text-xl font-semibold text-blue-600 mb-2">Serviço</h2>
+                  {/* <p><strong>Descrição:</strong> {relatorio}</p> */}
+                  <p><strong>Relato do cliente:</strong> {relato}</p>
+                  <p><strong>Observações internas:</strong> {observacao}</p>
+                </div>
+
+                {/* Lista de Serviços */}
+                <div>
+                  <h2 className="text-xl font-semibold text-blue-600 mb-2">Serviços Adicionados</h2>
+                  {servicosAdicionados.length > 0 ? (
+                    <ul className="list-disc ml-6 space-y-1">
+                      {servicosAdicionados.map((s, index) => (
+                        <li key={index}>
+                          {s.nome} (x{s.quantidade}) — R$ {(s.valor * s.quantidade).toFixed(2)}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-500">Nenhum serviço adicionado.</p>
+                  )}
+                </div>
+
+                {/* Lista de Peças */}
+                <div>
+                  <h2 className="text-xl font-semibold text-blue-600 mt-6 mb-2">Peças Utilizadas</h2>
+                  {pecasAdicionadas.length > 0 ? (
+                    <ul className="list-disc ml-6 space-y-1">
+                      {pecasAdicionadas.map((p, index) => (
+                        <li key={index}>
+                          {pecas[p.id]?.nome || p.id} (x{p.quantidade}) — R$ {(pecas[p.id]?.preco * p.quantidade).toFixed(2)}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-500">Nenhuma peça adicionada.</p>
+                  )}
+                </div>
               </div>
               <div className="flex justify-between mt-6">
                 <button
@@ -1195,7 +1317,8 @@ export default function NovaOSPage() {
         )}
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 // Componente para o formulário da modal de cadastro rápido de cliente
@@ -1236,7 +1359,7 @@ function FastRegisterForm({ onClose, onSubmit, isLoading }: { onClose: () => voi
     setFormData((prev) => ({ ...prev, [name]: option?.value || '' }));
   }
   return (
-    <form className={`grid grid-cols-1 md:grid-cols-2 ${modoCompacto ? 'gap-2' : 'gap-6'} text-center`} onSubmit={onSubmit}>
+    <form className="grid grid-cols-1 md:grid-cols-2 gap-6 text-center" onSubmit={onSubmit}>
       <div className="col-span-2 relative flex items-center">
         <input
           type="text"
@@ -1442,7 +1565,6 @@ function FastRegisterForm({ onClose, onSubmit, isLoading }: { onClose: () => voi
             type="submit"
             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg px-5 py-2 shadow-md"
             disabled={isLoading}
-            onClick={() => setIsLoading(true)}
           >
             {isLoading ? 'Salvando...' : 'Salvar'}
           </button>
