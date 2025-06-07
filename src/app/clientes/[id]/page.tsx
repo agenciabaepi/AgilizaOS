@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { FiArrowLeft, FiEdit2 } from 'react-icons/fi';
 import React from 'react';
 import { Cliente } from '@/types/cliente';
+import MenuLayout from '@/components/MenuLayout';
 
 export default function VisualizarClientePage() {
   const params = useParams();
@@ -34,7 +35,7 @@ export default function VisualizarClientePage() {
   if (!cliente) return <p>Carregando...</p>;
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
+    <MenuLayout>
       <div className="max-w-5xl w-full mx-auto flex-1 flex flex-col px-4 py-8">
         <div className="flex items-center justify-between mb-6">
           <button
@@ -119,6 +120,6 @@ export default function VisualizarClientePage() {
           </div>
         )}
       </div>
-    </div>
+    </MenuLayout>
   );
 }

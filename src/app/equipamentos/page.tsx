@@ -1,4 +1,5 @@
 'use client';
+import MenuLayout from '@/components/MenuLayout';
 import React from 'react';
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@supabase/supabase-js';
@@ -190,7 +191,8 @@ export default function EquipamentosPage() {
   };
 
   return (
-    <div className="py-10 px-6 bg-gray-50 min-h-screen">
+    <MenuLayout>
+      <div className="py-10 px-6 bg-gray-50 min-h-screen">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-white border border-gray-200 shadow rounded-lg p-4">
           <h3 className="text-sm text-gray-500 mb-1">Categorias</h3>
@@ -494,6 +496,7 @@ export default function EquipamentosPage() {
           ))}
         </div>
       </div>
-    </div>
+      </div>
+    </MenuLayout>
   );
 }

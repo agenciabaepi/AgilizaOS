@@ -1,5 +1,6 @@
 'use client';
 
+import MenuLayout from '@/components/MenuLayout';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from "@/lib/supabaseClient";
@@ -24,26 +25,30 @@ export default function EditarClientePage() {
 
   if (!cliente) return <p>Carregando...</p>;
 
-  return <ClienteForm cliente={{
-    ...cliente,
-    nome: cliente.nome ?? '',
-    documento: cliente.documento ?? '',
-    telefone: cliente.telefone ?? '',
-    celular: cliente.celular ?? '',
-    email: cliente.email ?? '',
-    responsavel: cliente.responsavel ?? '',
-    tipo: cliente.tipo ?? '',
-    origem: cliente.origem ?? '',
-    aniversario: cliente.aniversario ?? '',
-    cep: cliente.cep ?? '',
-    observacoes: cliente.observacoes ?? '',
-    senha: cliente.senha ?? '',
-    rua: cliente.rua ?? '',
-    numero: cliente.numero ?? '',
-    complemento: cliente.complemento ?? '',
-    bairro: cliente.bairro ?? '',
-    cidade: cliente.cidade ?? '',
-    estado: cliente.estado ?? '',
-    status: cliente.status ?? 'ativo'
-  }} />;
+  return (
+    <MenuLayout>
+      <ClienteForm cliente={{
+        ...cliente,
+        nome: cliente.nome ?? '',
+        documento: cliente.documento ?? '',
+        telefone: cliente.telefone ?? '',
+        celular: cliente.celular ?? '',
+        email: cliente.email ?? '',
+        responsavel: cliente.responsavel ?? '',
+        tipo: cliente.tipo ?? '',
+        origem: cliente.origem ?? '',
+        aniversario: cliente.aniversario ?? '',
+        cep: cliente.cep ?? '',
+        observacoes: cliente.observacoes ?? '',
+        senha: cliente.senha ?? '',
+        rua: cliente.rua ?? '',
+        numero: cliente.numero ?? '',
+        complemento: cliente.complemento ?? '',
+        bairro: cliente.bairro ?? '',
+        cidade: cliente.cidade ?? '',
+        estado: cliente.estado ?? '',
+        status: cliente.status ?? 'ativo'
+      }} />
+    </MenuLayout>
+  );
 }

@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import MenuLayout from '@/components/MenuLayout';
 
 interface SupabaseError {
   message: string;
@@ -191,7 +192,8 @@ export default function ConfigEmpresa() {
   };
 
   return (
-    <div className="max-w-xl mx-auto mt-10 p-8 bg-white rounded-lg shadow space-y-6">
+    <MenuLayout>
+      <div className="max-w-xl mx-auto mt-10 p-8 bg-white rounded-lg shadow space-y-6">
       <h1 className="text-2xl font-bold mb-4">Configurações da Empresa</h1>
       <div className="p-4 bg-gray-100 rounded">
         <h2 className="font-semibold mb-2">Dados Atuais:</h2>
@@ -258,6 +260,7 @@ export default function ConfigEmpresa() {
           </button>
         </div>
       </form>
-    </div>
+      </div>
+    </MenuLayout>
   );
 }

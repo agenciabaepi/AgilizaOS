@@ -6,6 +6,7 @@ interface Tecnico {
 }
 'use client';
 
+import MenuLayout from '@/components/MenuLayout';
 import { supabase } from '@/lib/supabaseClient';
 
 // Função de cadastro de técnico via API backend
@@ -95,52 +96,54 @@ export default function TecnicosPage() {
   };
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-4">Cadastro de Técnicos</h1>
-      <form onSubmit={handleSubmit} className="space-y-2">
-        <input 
-          type="text" 
-          placeholder="Nome" 
-          value={form.nome} 
-          onChange={(e) => setForm({ ...form, nome: e.target.value })} 
-          className="w-full p-2 border rounded"
-        />
-        <input 
-          type="email" 
-          placeholder="Email" 
-          value={form.email} 
-          onChange={(e) => setForm({ ...form, email: e.target.value })} 
-          className="w-full p-2 border rounded"
-        />
-        <input 
-          type="text" 
-          placeholder="Telefone" 
-          value={form.telefone} 
-          onChange={(e) => setForm({ ...form, telefone: e.target.value })} 
-          className="w-full p-2 border rounded"
-        />
-        <input 
-          type="password" 
-          placeholder="Senha" 
-          value={form.senha} 
-          onChange={(e) => setForm({ ...form, senha: e.target.value })} 
-          className="w-full p-2 border rounded"
-        />
-        <button 
-          type="submit" 
-          className="bg-blue-500 text-white px-4 py-2 rounded"
-        >
-          Cadastrar Técnico
-        </button>
-      </form>
-      <h2 className="text-xl font-bold mt-6">Técnicos Cadastrados</h2>
-      <ul className="mt-2">
-        {tecnicos.map((tecnico: Tecnico) => (
-          <li key={tecnico.id}>
-            {tecnico.nome} - {tecnico.email}
-          </li>
-        ))}
-      </ul>
-    </div>
+    <MenuLayout>
+      <div>
+        <h1 className="text-2xl font-bold mb-4">Cadastro de Técnicos</h1>
+        <form onSubmit={handleSubmit} className="space-y-2">
+          <input 
+            type="text" 
+            placeholder="Nome" 
+            value={form.nome} 
+            onChange={(e) => setForm({ ...form, nome: e.target.value })} 
+            className="w-full p-2 border rounded"
+          />
+          <input 
+            type="email" 
+            placeholder="Email" 
+            value={form.email} 
+            onChange={(e) => setForm({ ...form, email: e.target.value })} 
+            className="w-full p-2 border rounded"
+          />
+          <input 
+            type="text" 
+            placeholder="Telefone" 
+            value={form.telefone} 
+            onChange={(e) => setForm({ ...form, telefone: e.target.value })} 
+            className="w-full p-2 border rounded"
+          />
+          <input 
+            type="password" 
+            placeholder="Senha" 
+            value={form.senha} 
+            onChange={(e) => setForm({ ...form, senha: e.target.value })} 
+            className="w-full p-2 border rounded"
+          />
+          <button 
+            type="submit" 
+            className="bg-blue-500 text-white px-4 py-2 rounded"
+          >
+            Cadastrar Técnico
+          </button>
+        </form>
+        <h2 className="text-xl font-bold mt-6">Técnicos Cadastrados</h2>
+        <ul className="mt-2">
+          {tecnicos.map((tecnico: Tecnico) => (
+            <li key={tecnico.id}>
+              {tecnico.nome} - {tecnico.email}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </MenuLayout>
   );
 }

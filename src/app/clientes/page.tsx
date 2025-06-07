@@ -22,6 +22,8 @@ import 'react-toastify/dist/ReactToastify.css';
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment, useState as useStateFragment } from 'react';
 
+import MenuLayout from '@/components/MenuLayout';
+
 function ConfirmModal({ isOpen, onClose, onConfirm, clienteNome }) {
   return (
     <Transition appear show={isOpen} as={Fragment}>
@@ -279,7 +281,8 @@ export default function ClientesPage() {
   };
 
   return (
-    <div className="px-6 py-8">
+    <MenuLayout>
+      <div className="px-6 py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-semibold text-gray-800">Clientes</h1>
         <Link
@@ -448,14 +451,14 @@ export default function ClientesPage() {
                   <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{new Date(c.created_at).toLocaleDateString()}</td>
                   <td className="px-1 py-4 flex justify-end gap-3 align-middle">
                     <Link
-                      href={`/dashboard/clientes/${c.id}`}
+                      href={`/clientes/${c.id}`}
                       className="text-blue-600"
                       title="Visualizar cliente"
                     >
                       <FiEye className="w-5 h-5 hover:text-gray-700" />
                     </Link>
                     <Link
-                      href={`/dashboard/clientes/${c.id}/editar`}
+                      href={`/clientes/${c.id}/editar`}
                       className="text-yellow-600"
                       title="Editar cliente"
                     >
@@ -557,46 +560,47 @@ export default function ClientesPage() {
       </div>
 
 
-      <ToastContainer 
-        position="bottom-right" 
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        transition={Slide}
-        theme="colored"
-      />
-      <ConfirmModal 
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onConfirm={confirmarExclusao}
-        clienteNome={clienteParaExcluir?.nome || ''}
-      />
-      {/* Modal para exclusão em massa */}
-      <ConfirmModal 
-        isOpen={modalExclusaoMassaOpen}
-        onClose={() => setModalExclusaoMassaOpen(false)}
-        onConfirm={async () => {
-          const { error } = await supabase
-            .from('clientes')
-            .delete()
-            .in('id', selecionados);
-          if (error) {
-            toast.error('Erro ao excluir clientes selecionados: ' + error.message);
-          } else {
-            toast.success('Clientes excluídos com sucesso!');
-            setClientes(clientes.filter(c => !selecionados.includes(c.id)));
-            setSelecionados([]);
-          }
-          setModalExclusaoMassaOpen(false);
-        }}
-        clienteNome={`${selecionados.length} cliente(s) selecionado(s)`}
-      />
-    </div>
+        <ToastContainer 
+          position="bottom-right" 
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          transition={Slide}
+          theme="colored"
+        />
+        <ConfirmModal 
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          onConfirm={confirmarExclusao}
+          clienteNome={clienteParaExcluir?.nome || ''}
+        />
+        {/* Modal para exclusão em massa */}
+        <ConfirmModal 
+          isOpen={modalExclusaoMassaOpen}
+          onClose={() => setModalExclusaoMassaOpen(false)}
+          onConfirm={async () => {
+            const { error } = await supabase
+              .from('clientes')
+              .delete()
+              .in('id', selecionados);
+            if (error) {
+              toast.error('Erro ao excluir clientes selecionados: ' + error.message);
+            } else {
+              toast.success('Clientes excluídos com sucesso!');
+              setClientes(clientes.filter(c => !selecionados.includes(c.id)));
+              setSelecionados([]);
+            }
+            setModalExclusaoMassaOpen(false);
+          }}
+          clienteNome={`${selecionados.length} cliente(s) selecionado(s)`}
+        />
+      </div>
+    </MenuLayout>
   );
 }
 // O botão "Excluir Selecionados" permite a exclusão em massa dos clientes marcados na lista.
