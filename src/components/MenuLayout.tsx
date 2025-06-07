@@ -37,27 +37,20 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="flex min-h-screen relative z-0 overflow-x-hidden w-full">
       {/* Topbar */}
-      <div className="fixed top-0 left-0 w-full z-60 h-16 bg-white text-black flex items-center justify-between px-6">
-        <div className="flex items-center mr-260">
-          <Image src={logo} alt="Logo Agiliza" className="h-20 object-contain" />
-        </div>
+      <div className="fixed top-0 left-0 w-full z-60 h-10 bg-[#1e3bef] text-white flex items-center justify-end px-4">
         <div className="flex items-center gap-4">
-          <div className="relative w-40">
+          <div className="flex items-center gap-2 bg-white/10 px-3 py-1 rounded-md">
+            <FiSearch className="text-white" size={16} />
             <input
               type="text"
               placeholder="Buscar..."
-              className="w-full pl-10 pr-4 py-2 rounded-full bg-white text-gray-700 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1860fa]"
+              className="bg-transparent placeholder-white/80 text-white text-sm focus:outline-none"
             />
-            <FiSearch className="absolute left-3 top-2.5 text-black" size={18} />
           </div>
-          <div className="relative w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 cursor-pointer hover:bg-gray-200">
-            <FiBell className="text-black" size={18} />
-          </div>
-          <div className="flex items-center gap-2 text-sm text-green-400 font-medium whitespace-nowrap">
-            <FiCheckCircle size={16} />
-            Licença ativa
-          </div>
-          <button className="flex items-center gap-2 text-sm text-black hover:text-[#1860fa]">
+          <FiBell className="text-white hover:text-gray-200 cursor-pointer" size={18} />
+          <FiCheckCircle className="text-green-400" size={16} />
+          <span className="text-white/80 text-sm">Licença ativa</span>
+          <button className="text-white/80 text-sm hover:text-white flex items-center gap-1">
             <FiHelpCircle size={16} />
             Suporte
           </button>
@@ -66,9 +59,11 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
 
       {/* Sidebar */}
       <aside
-        className="transition-[width] duration-300 ease-out bg-white shadow-md py-6 px-2 flex flex-col h-screen fixed top-0 left-0 z-50 w-64"
+        className="bg-white shadow-md pt-16 px-2 flex flex-col h-screen fixed top-0 left-0 z-50 w-64"
       >
-        <div className="h-[48px] mb-6" />
+        <div className="flex items-center justify-center mb-6">
+          <Image src={logo} alt="Logo Agiliza" className="h-10 object-contain" />
+        </div>
         <nav className="space-y-2">
           {isTecnico ? (
             <>
@@ -77,14 +72,14 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           ) : (
             <>
               <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" />
-              <SidebarButton path="/dashboard/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" />
-              <SidebarButton path="/dashboard/clientes" icon={<FiUsers size={20} />} label="Clientes" />
-              <SidebarButton path="/dashboard/tecnicos" icon={<FiUserCheck size={20} />} label="Técnicos" />
-              <SidebarButton path="/dashboard/equipamentos" icon={<FiBox size={20} />} label="Produtos/Serviços" />
-              <SidebarButton path="/dashboard/financeiro" icon={<FiDollarSign size={20} />} label="Financeiro" />
-              <SidebarButton path="/dashboard/bancada" icon={<FiTool size={20} />} label="Bancada" />
-              <SidebarButton path="/dashboard/termos" icon={<FiFileText size={20} />} label="Termos" />
-              <SidebarButton path="/dashboard/configuracoes" icon={<FiTool size={20} />} label="Configurações" />
+              <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" />
+              <SidebarButton path="/clientes" icon={<FiUsers size={20} />} label="Clientes" />
+              <SidebarButton path="/tecnicos" icon={<FiUserCheck size={20} />} label="Técnicos" />
+              <SidebarButton path="/equipamentos" icon={<FiBox size={20} />} label="Produtos/Serviços" />
+              <SidebarButton path="/financeiro" icon={<FiDollarSign size={20} />} label="Financeiro" />
+              <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" />
+              <SidebarButton path="/termos" icon={<FiFileText size={20} />} label="Termos" />
+              <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" />
             </>
           )}
           <button
@@ -100,6 +95,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             <span className="ml-2 whitespace-nowrap transition-all duration-300 ease-in-out opacity-100 scale-100">Sair</span>
           </button>
         </nav>
+        <div className="mt-auto text-center text-xs text-gray-400 pb-4">
+          v1.0.0
+        </div>
       </aside>
 
       {/* Conteúdo principal */}

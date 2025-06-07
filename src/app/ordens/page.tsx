@@ -1,5 +1,6 @@
 'use client';
 
+import Menu from '@/components/MenuLayout';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { FiEye, FiEdit, FiPrinter, FiUsers } from 'react-icons/fi';
@@ -106,139 +107,144 @@ export default function ListaOrdensPage() {
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
 
   return (
-    <div className="w-full px-6 py-4">
-      <div className="bg-white p-6 rounded-xl shadow mb-6">
-        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <FiUsers className="text-blue-600" />
-          Aparelhos em Andamento por Técnico
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg shadow-sm hover:shadow-md transition">
-            <h3 className="text-sm font-semibold text-blue-800">Carlos</h3>
-            <p className="text-sm text-blue-700">3 aparelhos</p>
-          </div>
-          <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg shadow-sm hover:shadow-md transition">
-            <h3 className="text-sm font-semibold text-yellow-800">Fernanda</h3>
-            <p className="text-sm text-yellow-700">5 aparelhos</p>
-          </div>
-          <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg shadow-sm hover:shadow-md transition">
-            <h3 className="text-sm font-semibold text-gray-800">Eduardo</h3>
-            <p className="text-sm text-gray-700">2 aparelhos</p>
+    <div className="flex">
+      <div className="w-64 min-h-screen fixed left-0 top-0 bg-white z-50 shadow">
+        <Menu />
+      </div>
+      <div className="ml-64 flex-1 p-6 pt-20">
+        <div className="bg-white p-6 rounded-xl shadow mb-6">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <FiUsers className="text-blue-600" />
+            Aparelhos em Andamento por Técnico
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg shadow-sm hover:shadow-md transition">
+              <h3 className="text-sm font-semibold text-blue-800">Carlos</h3>
+              <p className="text-sm text-blue-700">3 aparelhos</p>
+            </div>
+            <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg shadow-sm hover:shadow-md transition">
+              <h3 className="text-sm font-semibold text-yellow-800">Fernanda</h3>
+              <p className="text-sm text-yellow-700">5 aparelhos</p>
+            </div>
+            <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg shadow-sm hover:shadow-md transition">
+              <h3 className="text-sm font-semibold text-gray-800">Eduardo</h3>
+              <p className="text-sm text-gray-700">2 aparelhos</p>
+            </div>
           </div>
         </div>
-      </div>
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Ordens de Serviço</h1>
-        <div className="flex flex-wrap gap-4 items-center">
-          <input
-            type="text"
-            placeholder="Buscar OS..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm"
-          />
-          <select
-            className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="">Filtrar por Status</option>
-            <option value="Finalizada">Finalizada</option>
-            <option value="Aguardando aprovação">Aguardando aprovação</option>
-            <option value="Pronta para retirada">Pronta para retirada</option>
-            <option value="Aberta">Aberta</option>
-            <option value="Não aprovada">Não aprovada</option>
-          </select>
-          <select
-            className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm"
-            value={aparelhoFilter}
-            onChange={(e) => setAparelhoFilter(e.target.value)}
-          >
-            <option value="">Todos os Tipos</option>
-            <option value="iPhone">Celulares</option>
-            <option value="Samsung">Celulares</option>
-            <option value="Notebook">Computadores</option>
-          </select>
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-2xl font-bold">Ordens de Serviço</h1>
+          <div className="flex flex-wrap gap-4 items-center">
+            <input
+              type="text"
+              placeholder="Buscar OS..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm"
+            />
+            <select
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="">Filtrar por Status</option>
+              <option value="Finalizada">Finalizada</option>
+              <option value="Aguardando aprovação">Aguardando aprovação</option>
+              <option value="Pronta para retirada">Pronta para retirada</option>
+              <option value="Aberta">Aberta</option>
+              <option value="Não aprovada">Não aprovada</option>
+            </select>
+            <select
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm"
+              value={aparelhoFilter}
+              onChange={(e) => setAparelhoFilter(e.target.value)}
+            >
+              <option value="">Todos os Tipos</option>
+              <option value="iPhone">Celulares</option>
+              <option value="Samsung">Celulares</option>
+              <option value="Notebook">Computadores</option>
+            </select>
 
-          <select
-            className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm"
-            value={tecnicoFilter}
-            onChange={(e) => setTecnicoFilter(e.target.value)}
-          >
-            <option value="">Todos os Técnicos</option>
-            <option value="Carlos">Carlos</option>
-            <option value="Fernanda">Fernanda</option>
-          </select>
-          <button
-            onClick={() => router.push('/dashboard/nova-os')}
-            className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm shadow hover:bg-blue-700 transition"
-          >
-            + Nova OS
-          </button>
+            <select
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm"
+              value={tecnicoFilter}
+              onChange={(e) => setTecnicoFilter(e.target.value)}
+            >
+              <option value="">Todos os Técnicos</option>
+              <option value="Carlos">Carlos</option>
+              <option value="Fernanda">Fernanda</option>
+            </select>
+            <button
+              onClick={() => router.push('/dashboard/nova-os')}
+              className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm shadow hover:bg-blue-700 transition"
+            >
+              + Nova OS
+            </button>
+          </div>
         </div>
-      </div>
-      <div className="overflow-x-auto rounded-lg shadow-md bg-white p-4">
-        <table className="min-w-full divide-y divide-gray-200 text-sm text-left text-gray-700">
-          <thead className="bg-gray-100 text-xs uppercase text-gray-700">
-            <tr>
-              <th className="px-3 py-2">#</th>
-              <th className="px-3 py-2">Cliente</th>
-              <th className="px-3 py-2">Aparelho</th>
-              <th className="px-3 py-2">Serviço</th>
-              <th className="px-3 py-2">Entrega</th>
-              <th className="px-3 py-2">Responsável</th>
-              <th className="px-3 py-2">Garantia</th>
-              <th className="px-3 py-2">Total</th>
-              <th className="px-3 py-2">Técnico</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2 text-right">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {paginated.map((os) => (
-              <tr key={os.id} className="hover:bg-gray-50 transition">
-                <td className="px-3 py-2 font-medium">#{os.numero}</td>
-                <td className="px-3 py-2">{os.cliente}</td>
-                <td className="px-3 py-2">{os.aparelho}</td>
-                <td className="px-3 py-2">{os.servico}</td>
-                <td className="px-3 py-2">{formatDate(os.entrega)}</td>
-                <td className="px-3 py-2">{os.atendente}</td>
-                <td className="px-3 py-2">{formatDate(os.garantia)}</td>
-                <td className="px-3 py-2 font-semibold text-gray-800">R$ {os.valorTotal?.toFixed(2)}</td>
-                <td className="px-3 py-2">{os.tecnico}</td>
-                <td className="px-3 py-2">
-                  <span className="bg-gray-100 px-2 py-1 rounded-full text-xs">{os.statusOS}</span>
-                </td>
-                <td className="px-3 py-2 text-right">
-                  <div className="flex justify-end gap-2">
-                    <button onClick={() => router.push(`/dashboard/ordens/${os.id}`)} className="text-blue-600 hover:text-blue-800">
-                      <FiEye size={18} />
-                    </button>
-                    <button onClick={() => router.push(`/dashboard/ordens/${os.id}/editar`)} className="text-yellow-600 hover:text-yellow-800">
-                      <FiEdit size={18} />
-                    </button>
-                    <button onClick={() => console.log('Imprimir', os.id)} className="text-gray-600 hover:text-gray-800">
-                      <FiPrinter size={18} />
-                    </button>
-                  </div>
-                </td>
+        <div className="overflow-x-auto rounded-lg shadow-md bg-white p-4">
+          <table className="min-w-full divide-y divide-gray-200 text-sm text-left text-gray-700">
+            <thead className="bg-gray-100 text-xs uppercase text-gray-700">
+              <tr>
+                <th className="px-3 py-2">#</th>
+                <th className="px-3 py-2">Cliente</th>
+                <th className="px-3 py-2">Aparelho</th>
+                <th className="px-3 py-2">Serviço</th>
+                <th className="px-3 py-2">Entrega</th>
+                <th className="px-3 py-2">Responsável</th>
+                <th className="px-3 py-2">Garantia</th>
+                <th className="px-3 py-2">Total</th>
+                <th className="px-3 py-2">Técnico</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2 text-right">Ações</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div className="mt-6 flex justify-center gap-2">
-        {Array.from({ length: totalPages }, (_, i) => (
-          <button
-            key={i}
-            onClick={() => setCurrentPage(i + 1)}
-            className={`px-3 py-1 rounded-md text-sm font-medium border ${
-              currentPage === i + 1 ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'
-            } hover:bg-blue-500 hover:text-white transition`}
-          >
-            {i + 1}
-          </button>
-        ))}
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {paginated.map((os) => (
+                <tr key={os.id} className="hover:bg-gray-50 transition">
+                  <td className="px-3 py-2 font-medium">#{os.numero}</td>
+                  <td className="px-3 py-2">{os.cliente}</td>
+                  <td className="px-3 py-2">{os.aparelho}</td>
+                  <td className="px-3 py-2">{os.servico}</td>
+                  <td className="px-3 py-2">{formatDate(os.entrega)}</td>
+                  <td className="px-3 py-2">{os.atendente}</td>
+                  <td className="px-3 py-2">{formatDate(os.garantia)}</td>
+                  <td className="px-3 py-2 font-semibold text-gray-800">R$ {os.valorTotal?.toFixed(2)}</td>
+                  <td className="px-3 py-2">{os.tecnico}</td>
+                  <td className="px-3 py-2">
+                    <span className="bg-gray-100 px-2 py-1 rounded-full text-xs">{os.statusOS}</span>
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => router.push(`/dashboard/ordens/${os.id}`)} className="text-blue-600 hover:text-blue-800">
+                        <FiEye size={18} />
+                      </button>
+                      <button onClick={() => router.push(`/dashboard/ordens/${os.id}/editar`)} className="text-yellow-600 hover:text-yellow-800">
+                        <FiEdit size={18} />
+                      </button>
+                      <button onClick={() => console.log('Imprimir', os.id)} className="text-gray-600 hover:text-gray-800">
+                        <FiPrinter size={18} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-6 flex justify-center gap-2">
+          {Array.from({ length: totalPages }, (_, i) => (
+            <button
+              key={i}
+              onClick={() => setCurrentPage(i + 1)}
+              className={`px-3 py-1 rounded-md text-sm font-medium border ${
+                currentPage === i + 1 ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'
+              } hover:bg-blue-500 hover:text-white transition`}
+            >
+              {i + 1}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
