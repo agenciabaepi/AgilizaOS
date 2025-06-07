@@ -514,7 +514,7 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
         </div>
         <div className="bg-white p-4 rounded-xl shadow">
           <p className="text-sm text-gray-500">Total do mês</p>
-          <p className="text-2xl font-bold">R$ 4.890,00</p>
+          <p className="text-2xl font-bold">R$ 456.890,00</p>
         </div>
         <div className="bg-white p-4 rounded-xl shadow">
           <p className="text-sm text-gray-500">Técnicos ativos</p>
