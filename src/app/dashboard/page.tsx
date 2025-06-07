@@ -29,5 +29,9 @@ export default function DashboardRedirectPage() {
     }
   }, [router]);
 
-  return null;
+  return (
+    <div className="flex items-center justify-center h-screen">
+      <p className="text-gray-500 text-lg">Carregando dashboard...</p>
+    </div>
+  );
 }

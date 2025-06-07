@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/context/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import logo from '@/assets/imagens/logoagiliza.png';
 import {
@@ -26,13 +26,26 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const router = useRouter();
   const pathname = usePathname();
 
+  const [isReady, setIsReady] = useState(false);
+
   useEffect(() => {
+    if (auth?.user === undefined) return;
     if (!auth?.user) {
       router.push('/login');
+    } else {
+      setIsReady(true);
     }
   }, [auth?.user]);
 
   const isTecnico = auth?.user?.nivel === 'tecnico';
+
+  if (!isReady) {
+    return (
+      <div className="w-full h-screen flex items-center justify-center bg-white">
+        <span className="text-gray-400">Carregando...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen relative z-0 overflow-x-hidden w-full">
@@ -71,7 +84,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             </>
           ) : (
             <>
-              <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" />
+              <SidebarButton path="/dashboard/admin" icon={<FiHome size={20} />} label="Dashboard" />
               <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" />
               <SidebarButton path="/clientes" icon={<FiUsers size={20} />} label="Clientes" />
               <SidebarButton path="/tecnicos" icon={<FiUserCheck size={20} />} label="Técnicos" />

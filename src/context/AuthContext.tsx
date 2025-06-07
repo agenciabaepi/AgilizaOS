@@ -94,6 +94,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  if (loading) {
+    return <div className="p-6 text-center">Carregando...</div>;
+  }
+
   return (
     <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut, resetPassword }}>
       {children}
