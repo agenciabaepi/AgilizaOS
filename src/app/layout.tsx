@@ -1,18 +1,24 @@
-import { AuthProvider } from "@/context/AuthContext";
+'use client';
+
+import { useState } from 'react';
+import { createBrowserSupabaseClient } from '@supabase/auth-helpers-nextjs';
+import { SessionContextProvider } from '@supabase/auth-helpers-react';
+import { AuthProvider } from '@/context/AuthContext';
 import './globals.css';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-export const metadata = {
-  title: "AgilizaOS",
-  description: "Sistema de ordem de serviço",
-};
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const [supabase] = useState(() => createBrowserSupabaseClient());
+
   return (
     <html lang="pt-BR">
       <body suppressHydrationWarning={true}>
-        <AuthProvider>{children}</AuthProvider>
+        <SessionContextProvider supabaseClient={supabase}>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+        </SessionContextProvider>
         <ToastContainer 
           position="bottom-right" 
           autoClose={3000}
