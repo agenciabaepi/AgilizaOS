@@ -1,9 +1,6 @@
-import MenuLayout from '@/components/MenuLayout';
+'use client'
 
-export const metadata = {
-  title: 'Dashboard',
-  description: 'Área logada do sistema',
-}
+import MenuLayout from '@/components/MenuLayout';
 
 export default function DashboardLayout({
   children,

@@ -8,6 +8,7 @@ import { Session, User } from '@supabase/supabase-js';
 interface AuthContextType {
   user: User | null;
   session: Session | null;
+  loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -19,16 +20,36 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const fetchSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
-      setUser(session?.user ?? null);
-    });
+      if (session?.user) {
+        setUser(session.user);
+        localStorage.setItem("user", JSON.stringify(session.user));
+      } else {
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+          setUser(JSON.parse(storedUser));
+        }
+      }
+      setLoading(false);
+    };
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    fetchSession();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      const loggedUser = session?.user ?? null;
+      setUser(loggedUser);
+      if (loggedUser) {
+        localStorage.setItem("user", JSON.stringify(loggedUser));
+      } else {
+        localStorage.removeItem("user");
+      }
       setSession(session);
-      setUser(session?.user ?? null);
+      setLoading(false);
     });
 
     return () => {
@@ -41,6 +62,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (error) {
       console.error('Erro no login:', error.message);
       throw new Error(error.message);
+    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      localStorage.setItem("user", JSON.stringify(user));
+      setUser(user);
     }
   };
 
@@ -69,7 +95,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, signIn, signUp, signOut, resetPassword }}>
+    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut, resetPassword }}>
       {children}
     </AuthContext.Provider>
   );

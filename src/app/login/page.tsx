@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -15,6 +15,23 @@ export default function LoginPage() {
 
   const auth = useAuth();
   const { user, loading } = auth || {};
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !loading && user) {
+      const userData = localStorage.getItem('user');
+      try {
+        const { nivel } = userData ? JSON.parse(userData) : {};
+        if (nivel === 'tecnico') {
+          router.replace('/dashboard/tecnico');
+        } else {
+          router.replace('/dashboard/admin');
+        }
+      } catch (e) {
+        console.error('Erro ao ler user do localStorage:', e);
+        localStorage.removeItem('user');
+      }
+    }
+  }, [user, loading]);
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -39,8 +56,17 @@ export default function LoginPage() {
     const { data: perfil } = await supabase
       .from('usuarios')
       .select('nivel')
-      .eq('id_auth', userId)
+      .eq('auth_user_id', userId)
       .single();
+
+    if (perfil) {
+      localStorage.setItem("user", JSON.stringify({
+        id: userId,
+        email,
+        nivel: perfil.nivel
+      }));
+      window.location.reload();
+    }
 
     if (perfil?.nivel === 'tecnico') {
       router.replace('/dashboard/tecnico');

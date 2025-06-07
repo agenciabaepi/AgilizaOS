@@ -48,15 +48,24 @@ export default function DashboardPage() {
   const [notaParaExcluir, setNotaParaExcluir] = useState<any | null>(null);
   // Estado dinâmico das colunas
   const [colunas, setColunas] = useState<string[]>(['compras', 'avisos', 'lembretes']);
+  const [carregando, setCarregando] = useState(true);
   // Recuperar usuário logado e setar empresaId (client-side)
   useEffect(() => {
+    console.log('Verificando sessão...');
     const getSessionAndEmpresa = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user;
-      setUser(user);
+      if (user) {
+        localStorage.setItem('user', JSON.stringify(user));
+        setUser(user);
+      }
 
       if (!user) {
         console.warn('Usuário não logado');
+        localStorage.removeItem('user');
+        setUser(null);
+        setEmpresaId(null);
+        window.location.href = '/login';
         return;
       }
 
@@ -68,13 +77,16 @@ export default function DashboardPage() {
 
       if (error || !usuario) {
         console.warn('Empresa ID não encontrado.');
+        setCarregando(false);
         return;
       }
 
       setEmpresaId(usuario.empresa_id);
-      setUser({ ...user, nome: usuario.nome }); // adiciona nome manualmente ao user
+      setUser({ ...user, nome: usuario.nome });
+      localStorage.setItem('user', JSON.stringify({ ...user, nome: usuario.nome, empresa_id: usuario.empresa_id }));
       console.log('Usuário logado:', { ...user, nome: usuario.nome });
       console.log('Empresa ID:', usuario.empresa_id);
+      setCarregando(false);
     };
 
     getSessionAndEmpresa();
@@ -85,7 +97,7 @@ export default function DashboardPage() {
     const fetchColunas = async () => {
       try {
         console.log('Usuário logado:', user);
-        const empresaId = user?.user_metadata?.empresa_id;
+        const empresaId = user?.empresa_id || user?.user_metadata?.empresa_id;
         console.log('Empresa ID:', empresaId);
 
         if (!empresaId) {
@@ -469,6 +481,21 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
           : children}
       </div>
     );
+  }
+
+  // Checagem de carregamento e autenticação
+  if (carregando) {
+    return <div className="p-6">Carregando...</div>;
+  }
+
+  if (!carregando && (!user || !empresaId)) {
+    localStorage.removeItem('user');
+    setUser(null);
+    setEmpresaId(null);
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
+    return null;
   }
 
   return (
