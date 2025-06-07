@@ -42,23 +42,14 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 export default function DashboardPage() {
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const usuarioLocal = localStorage.getItem('usuario');
-      if (!usuarioLocal || usuarioLocal === 'null' || usuarioLocal === 'undefined') {
-        window.location.href = '/login';
-      } else {
-        try {
-          const usuario = JSON.parse(usuarioLocal);
-          if (usuario.nivel !== 'admin') {
-            window.location.href = '/dashboard/tecnico';
-          } else {
-            setEmpresaId(usuario.empresa_id);
-          }
-        } catch (error) {
-          window.location.href = '/login';
-        }
+    const buscarEmpresa = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const usuario = session?.user?.user_metadata;
+      if (usuario?.empresa_id) {
+        setEmpresaId(usuario.empresa_id);
       }
-    }
+    };
+    buscarEmpresa();
   }, []);
   const [notes, setNotes] = useState<any[]>([]);
   const [empresaId, setEmpresaId] = useState<string | null>(null);

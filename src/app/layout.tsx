@@ -10,18 +10,20 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <AuthProvider>
-      {children}
-      <ToastContainer 
-        position="bottom-right" 
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        pauseOnHover
-        draggable
-        theme="light"
-      />
-    </AuthProvider>
+    <html lang="pt-BR">
+      <body suppressHydrationWarning={true}>
+        <AuthProvider>{children}</AuthProvider>
+        <ToastContainer 
+          position="bottom-right" 
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          pauseOnHover
+          draggable
+          theme="light"
+        />
+      </body>
+    </html>
   );
 }

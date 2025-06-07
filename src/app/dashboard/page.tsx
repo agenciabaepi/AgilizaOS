@@ -7,12 +7,25 @@ export default function DashboardRedirectPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    try {
+      const userString = localStorage.getItem("user");
+      if (!userString) {
+        router.push("/login");
+        return;
+      }
 
-    if (user?.tipo === "tecnico") {
-      router.push("/pages/dashboard/tecnico");
-    } else {
-      router.push("/pages/dashboard/admin");
+      const user = JSON.parse(userString);
+
+      if (user?.nivel === "admin") {
+        router.push("/dashboard/admin");
+      } else if (user?.nivel === "tecnico") {
+        router.push("/dashboard/tecnico");
+      } else {
+        router.push("/login");
+      }
+    } catch (error) {
+      console.error("Failed to parse user from localStorage:", error);
+      router.push("/login");
     }
   }, [router]);
 
