@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/context/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import Image from 'next/image';
 import logo from '@/assets/imagens/logoagiliza.png';
 import {
@@ -23,7 +23,6 @@ import { Toaster } from 'react-hot-toast';
 
 export default function MenuLayout({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
-  const [expanded, setExpanded] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -67,9 +66,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
 
       {/* Sidebar */}
       <aside
-        onMouseEnter={() => setExpanded(true)}
-        onMouseLeave={() => setExpanded(false)}
-        className={`transition-[width] duration-300 ease-out bg-white shadow-md py-6 px-2 flex flex-col h-screen fixed top-0 left-0 z-50 ${expanded ? 'w-64' : 'w-14'}`}
+        className="transition-[width] duration-300 ease-out bg-white shadow-md py-6 px-2 flex flex-col h-screen fixed top-0 left-0 z-50 w-64"
       >
         <div className="h-[48px] mb-6" />
         <nav className="space-y-2">
@@ -100,13 +97,13 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             <div className="min-w-[20px]">
               <FiLogOut size={20} />
             </div>
-            <span className={`ml-2 whitespace-nowrap transition-all duration-300 ease-in-out ${expanded ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}`}>Sair</span>
+            <span className="ml-2 whitespace-nowrap transition-all duration-300 ease-in-out opacity-100 scale-100">Sair</span>
           </button>
         </nav>
       </aside>
 
       {/* Conteúdo principal */}
-      <main className="transition-all duration-300 bg-gray-50 p-6 pl-16 z-0 relative overflow-x-auto w-full mt-16">
+      <main className="transition-all duration-300 bg-gray-50 p-6 pl-64 z-0 relative overflow-x-auto w-full mt-16">
         {children}
       </main>
 
@@ -128,17 +125,20 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
 function SidebarButton({ path, icon, label }: { path: string; icon: React.ReactNode; label: string }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [expanded, setExpanded] = useState(false);
 
   return (
     <button
       onClick={() => router.push(path)}
-      className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === path ? 'bg-[#1e3bef] text-white font-semibold' : 'hover:bg-[#1e3bef]/10 hover:text-[#1e3bef]'}`}
-      onMouseEnter={() => setExpanded(true)}
-      onMouseLeave={() => setExpanded(false)}
+      className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${
+        pathname === path ? 'bg-[#1e3bef] text-white font-semibold' : 'hover:bg-[#1e3bef]/10 hover:text-[#1e3bef]'
+      }`}
     >
       <div className="min-w-[20px]">{icon}</div>
-      <span className={`ml-2 whitespace-nowrap transition-all duration-300 ease-in-out ${expanded ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}`}>{label}</span>
+      <span
+        className="ml-2 whitespace-nowrap transition-all duration-300 ease-in-out opacity-100 scale-100"
+      >
+        {label}
+      </span>
     </button>
   );
 }
