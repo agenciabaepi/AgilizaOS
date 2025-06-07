@@ -1,6 +1,5 @@
-// 📁 src/app/login/page.tsx
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -8,8 +7,8 @@ import Image from 'next/image';
 import logo from '@/assets/imagens/logoagiliza.png';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('lucas@hotmail.com');
+  const [password, setPassword] = useState('123456');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
   const router = useRouter();
@@ -17,26 +16,36 @@ export default function LoginPage() {
   const auth = useAuth();
   const { user, loading } = auth || {};
 
-  useEffect(() => {
-    if (!loading && user) {
-      router.push('/dashboard');
-    }
-  }, [user, loading]);
-
-  if (loading || user) return null;
-
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
-    const { error } = await supabase.auth.signInWithPassword({
+    const {
+      data: { session },
+      error
+    } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+
     setIsSubmitting(false);
-    if (error) {
-      alert(error.message);
+
+    if (error || !session?.user) {
+      alert('Erro ao fazer login.');
+      return;
+    }
+
+    const userId = session.user.id;
+
+    const { data: perfil } = await supabase
+      .from('usuarios')
+      .select('nivel')
+      .eq('id_auth', userId)
+      .single();
+
+    if (perfil?.nivel === 'tecnico') {
+      router.replace('/dashboard/tecnico');
     } else {
-      router.push('/dashboard');
+      router.replace('/dashboard/admin');
     }
   };
 

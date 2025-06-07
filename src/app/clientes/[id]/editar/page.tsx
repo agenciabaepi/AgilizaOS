@@ -3,7 +3,7 @@
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from "@/lib/supabaseClient";
-import ClienteForm from '../../../../../components/ClienteForm';
+import ClienteForm from '../../../../components/ClienteForm';
 import { Cliente } from "@/types/cliente";
 
 export default function EditarClientePage() {

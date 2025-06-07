@@ -15,213 +15,28 @@ import {
   FiCheckCircle,
   FiHelpCircle,
   FiUserCheck,
+  FiSearch,
+  FiBell,
 } from 'react-icons/fi';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js';
-
 import { Toaster } from 'react-hot-toast';
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend
-);
-
-import { supabase } from '@/lib/supabaseClient';
 
 export default function DashboardPage({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
   const [expanded, setExpanded] = useState(false);
-  const [empresa, setEmpresa] = useState<{ logo_url: string } | null>(null);
-  const [isTecnico, setIsTecnico] = useState(false);
-  const [checandoPermissao, setChecandoPermissao] = useState(true);
-  const [permissaoChecada, setPermissaoChecada] = useState(false);
-  const { user } = auth || {};
-  const loading = false; // ou ajuste conforme a definição correta do contexto de autenticação
   const router = useRouter();
   const pathname = usePathname();
 
-useEffect(() => {
-  if (loading) return; // Aguarda loading terminar
-
-  if (!user) {
-    router.push('/login');
-    return;
-  }
-
-    console.log('user:', user);
-    console.log('pathname:', pathname);
-
-    // Protege acesso para técnicos
-    const protegerAcesso = async () => {
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-
-      console.log('currentUser:', currentUser);
-
-      if (!currentUser) {
-        console.warn('Usuário não logado ao proteger acesso');
-        router.push('/login');
-        setChecandoPermissao(false);
-        return;
-      }
-
-      const userId = String(currentUser.id).trim();
-      console.log('userId:', userId, 'tipo:', typeof userId, 'length:', userId.length);
-      const { data: tecnico, error: erroTecnico } = await supabase
-        .from('tecnicos')
-        .select('id, nivel, auth_user_id')
-        .eq('auth_user_id', userId)
-        .maybeSingle();
-
-      if (erroTecnico) {
-        console.error('Erro ao buscar técnico:', erroTecnico);
-      }
-
-      console.log('Resultado técnico:', tecnico);
-
-      if (!tecnico) {
-        console.warn(`Nenhum técnico encontrado com auth_user_id igual a: ${userId}`);
-      } else {
-        console.log(`Técnico encontrado:`, tecnico);
-      }
-
-      const isUserTecnico = tecnico?.nivel === 'tecnico';
-      console.log('isUserTecnico:', isUserTecnico);
-      setIsTecnico(isUserTecnico);
-
-      if (isUserTecnico && pathname !== '/dashboard/bancada') {
-        router.push('/dashboard/bancada');
-      }
-      setChecandoPermissao(false);
-    };
-
-    Promise.all([protegerAcesso()]).then(() => {
-      setPermissaoChecada(true);
-    });
-  }, [user, loading, router, pathname]);
-
   useEffect(() => {
-    const fetchEmpresaDoTecnico = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) {
-        console.warn('Usuário não logado ao buscar empresa');
-        return;
-      }
-
-      console.log('Buscando técnico com auth_user_id:', user.id);
-
-      const { data: tecnico, error: erroTecnico } = await supabase
-        .from('tecnicos')
-        .select('empresa_id')
-        .eq('auth_user_id', user.id)
-        .maybeSingle();
-
-      if (erroTecnico) {
-        console.error('Erro ao buscar técnico:', erroTecnico);
-        return;
-      }
-
-      console.log('Técnico encontrado:', tecnico);
-
-      if (!tecnico?.empresa_id) {
-        console.warn('Técnico não possui empresa_id vinculado');
-        return;
-      }
-
-      console.log('Buscando empresa com id:', tecnico.empresa_id);
-
-      const { data: empresaData, error: erroEmpresa } = await supabase
-        .from('empresas')
-        .select('logo_url')
-        .eq('id', tecnico.empresa_id)
-        .maybeSingle();
-
-      if (erroEmpresa) {
-        console.error('Erro ao buscar empresa:', erroEmpresa);
-        return;
-      }
-
-      if (!empresaData?.logo_url) {
-        console.warn('Empresa não possui logo_url');
-        return;
-      }
-
-      console.log('Setando empresa com logo_url:', empresaData.logo_url);
-
-      setEmpresa(empresaData);
-    };
-
-    if (isTecnico) {
-      fetchEmpresaDoTecnico();
+    if (!auth?.user) {
+      router.push('/login');
     }
-  }, [isTecnico]);
+  }, [auth?.user]);
 
-  useEffect(() => {
-    const fetchEmpresaDoMaster = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
 
-      if (!user) {
-        console.warn('Usuário não logado ao buscar empresa');
-        return;
-      }
-
-      const { data: empresaData, error } = await supabase
-        .from('empresas')
-        .select('logo_url')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Erro ao buscar empresa do usuário master:', error);
-        return;
-      }
-
-      if (empresaData) {
-        console.log('Setando empresa do master com logo_url:', empresaData.logo_url);
-        setEmpresa(empresaData);
-      }
-    };
-
-    if (!isTecnico) {
-      fetchEmpresaDoMaster();
-    }
-  }, [isTecnico]);
-
-  const rotasPermitidasParaTecnico = ['/dashboard/bancada'];
-
-useEffect(() => {
-  if (!permissaoChecada) return;
-
-  if (isTecnico && pathname && !rotasPermitidasParaTecnico.includes(pathname)) {
-    router.push('/dashboard/bancada');
-  }
-}, [isTecnico, pathname, router, permissaoChecada]);
-
-  if (!permissaoChecada) return <p>Carregando...</p>;
-  if (loading || checandoPermissao) return <p>Carregando...</p>;
-  if (!user) return null;
-
-  // Redireciona técnico caso tente acessar a rota de cadastro de técnicos
-  if (isTecnico && pathname && !rotasPermitidasParaTecnico.includes(pathname)) {
-    router.push('/dashboard/bancada');
-    return null;
-  }
+  const isTecnico = auth?.user?.nivel === 'tecnico';
 
   return (
-    
     <div className="flex min-h-screen relative z-0 overflow-x-hidden w-full">
       <div className="fixed top-0 left-0 w-full z-60 h-16 bg-white text-black flex items-center justify-between px-6">
         {/* Esquerda: Logo */}
@@ -313,14 +128,6 @@ useEffect(() => {
                   Clientes
                 </span>
               </button>
-              <button onClick={() => router.push('/dashboard/produtos')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/produtos' ? 'bg-[#1e3bef] text-white font-semibold' : 'hover:bg-[#1e3bef]/10 hover:text-[#1e3bef]'}`}>
-                <div className="min-w-[20px]">
-                  <FiBox size={20} />
-                </div>
-                <span className={`ml-2 whitespace-nowrap transition-all duration-300 ease-in-out ${expanded ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}`}>
-                  Produtos/Serviços
-                </span>
-              </button>
               <button onClick={() => router.push('/dashboard/tecnicos')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/tecnicos' ? 'bg-[#1e3bef] text-white font-semibold' : 'hover:bg-[#1e3bef]/10 hover:text-[#1e3bef]'}`}>
                 <div className="min-w-[20px]">
                   <FiUserCheck size={20} />
@@ -334,7 +141,7 @@ useEffect(() => {
                   <FiBox size={20} />
                 </div>
                 <span className={`ml-2 whitespace-nowrap transition-all duration-300 ease-in-out ${expanded ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}`}>
-                  Equipamentos
+                  Produtos/Serviços
                 </span>
               </button>
               <button onClick={() => router.push('/dashboard/financeiro')} className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${pathname === '/dashboard/financeiro' ? 'bg-[#1e3bef] text-white font-semibold' : 'hover:bg-[#1e3bef]/10 hover:text-[#1e3bef]'}`}>
@@ -408,5 +215,3 @@ useEffect(() => {
     </div>
   );
 }
-
-import { FiSearch, FiBell } from 'react-icons/fi';
