@@ -1,9 +1,3 @@
-interface Tecnico {
-  id: string;
-  nome: string;
-  email: string;
-  telefone: string;
-}
 'use client';
 
 import MenuLayout from '@/components/MenuLayout';
@@ -33,6 +27,13 @@ async function cadastrarTecnico({ nome, email, senha, empresa_id }: { nome: stri
 }
 
 import { useState, useEffect } from 'react';
+
+interface Tecnico {
+  id: string;
+  nome: string;
+  email: string;
+  telefone: string;
+}
 
 export default function TecnicosPage() {
   const [tecnicos, setTecnicos] = useState<Tecnico[]>([]);
@@ -97,52 +98,60 @@ export default function TecnicosPage() {
 
   return (
     <MenuLayout>
-      <div>
-        <h1 className="text-2xl font-bold mb-4">Cadastro de Técnicos</h1>
-        <form onSubmit={handleSubmit} className="space-y-2">
-          <input 
-            type="text" 
-            placeholder="Nome" 
-            value={form.nome} 
-            onChange={(e) => setForm({ ...form, nome: e.target.value })} 
-            className="w-full p-2 border rounded"
+      <div className="p-6 max-w-5xl mx-auto">
+        <div className="mb-6">
+          <h1 className="text-xl font-semibold text-gray-800">Cadastro de Técnicos</h1>
+        </div>
+
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-6 rounded-lg shadow-sm mb-8">
+          <input
+            type="text"
+            placeholder="Nome"
+            value={form.nome}
+            onChange={(e) => setForm({ ...form, nome: e.target.value })}
+            className="p-2 border border-gray-300 rounded-md bg-gray-50 text-sm text-gray-700"
           />
-          <input 
-            type="email" 
-            placeholder="Email" 
-            value={form.email} 
-            onChange={(e) => setForm({ ...form, email: e.target.value })} 
-            className="w-full p-2 border rounded"
+          <input
+            type="email"
+            placeholder="Email"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            className="p-2 border border-gray-300 rounded-md bg-gray-50 text-sm text-gray-700"
           />
-          <input 
-            type="text" 
-            placeholder="Telefone" 
-            value={form.telefone} 
-            onChange={(e) => setForm({ ...form, telefone: e.target.value })} 
-            className="w-full p-2 border rounded"
+          <input
+            type="text"
+            placeholder="Telefone"
+            value={form.telefone}
+            onChange={(e) => setForm({ ...form, telefone: e.target.value })}
+            className="p-2 border border-gray-300 rounded-md bg-gray-50 text-sm text-gray-700"
           />
-          <input 
-            type="password" 
-            placeholder="Senha" 
-            value={form.senha} 
-            onChange={(e) => setForm({ ...form, senha: e.target.value })} 
-            className="w-full p-2 border rounded"
+          <input
+            type="password"
+            placeholder="Senha"
+            value={form.senha}
+            onChange={(e) => setForm({ ...form, senha: e.target.value })}
+            className="p-2 border border-gray-300 rounded-md bg-gray-50 text-sm text-gray-700"
           />
-          <button 
-            type="submit" 
-            className="bg-blue-500 text-white px-4 py-2 rounded"
-          >
-            Cadastrar Técnico
-          </button>
+          <div className="md:col-span-2">
+            <button
+              type="submit"
+              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition"
+            >
+              Cadastrar Técnico
+            </button>
+          </div>
         </form>
-        <h2 className="text-xl font-bold mt-6">Técnicos Cadastrados</h2>
-        <ul className="mt-2">
-          {tecnicos.map((tecnico: Tecnico) => (
-            <li key={tecnico.id}>
-              {tecnico.nome} - {tecnico.email}
-            </li>
-          ))}
-        </ul>
+
+        <section className="bg-white p-6 rounded-lg shadow-sm">
+          <h2 className="text-lg font-medium text-gray-800 mb-4">Técnicos Cadastrados</h2>
+          <ul className="divide-y divide-gray-200">
+            {tecnicos.map((tecnico: Tecnico) => (
+              <li key={tecnico.id} className="py-3 text-gray-700">
+                {tecnico.nome} - {tecnico.email}
+              </li>
+            ))}
+          </ul>
+        </section>
       </div>
     </MenuLayout>
   );
