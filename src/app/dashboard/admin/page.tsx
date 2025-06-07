@@ -35,42 +35,96 @@ import {
 import { Line } from 'react-chartjs-2';
 import { FiEye, FiEdit, FiPrinter, FiTrash2, FiBook } from 'react-icons/fi';
 import { supabase } from '@/lib/supabaseClient';
+import ClientOnly from '@/components/ClientOnly';
 import { v4 as uuidv4 } from 'uuid';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 export default function DashboardPage() {
-
-  useEffect(() => {
-    const buscarEmpresa = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const usuario = session?.user?.user_metadata;
-      if (usuario?.empresa_id) {
-        setEmpresaId(usuario.empresa_id);
-      }
-    };
-    buscarEmpresa();
-  }, []);
-  const [notes, setNotes] = useState<any[]>([]);
+  // Estado para empresaId, user e notas
   const [empresaId, setEmpresaId] = useState<string | null>(null);
+  const [user, setUser] = useState<any | null>(null);
+  const [notes, setNotes] = useState<any[]>([]);
   const [notaParaExcluir, setNotaParaExcluir] = useState<any | null>(null);
   // Estado dinâmico das colunas
   const [colunas, setColunas] = useState<string[]>(['compras', 'avisos', 'lembretes']);
-  // Buscar colunas salvas do banco ao carregar empresaId
+  // Recuperar usuário logado e setar empresaId (client-side)
+  useEffect(() => {
+    const getSessionAndEmpresa = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      setUser(user);
+
+      if (!user) {
+        console.warn('Usuário não logado');
+        return;
+      }
+
+      const { data: usuario, error } = await supabase
+        .from('usuarios')
+        .select('empresa_id, nome')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+
+      if (error || !usuario) {
+        console.warn('Empresa ID não encontrado.');
+        return;
+      }
+
+      setEmpresaId(usuario.empresa_id);
+      setUser({ ...user, nome: usuario.nome }); // adiciona nome manualmente ao user
+      console.log('Usuário logado:', { ...user, nome: usuario.nome });
+      console.log('Empresa ID:', usuario.empresa_id);
+    };
+
+    getSessionAndEmpresa();
+  }, []);
+
+  // Buscar colunas salvas do banco ao carregar user
   useEffect(() => {
     const fetchColunas = async () => {
-      if (!empresaId) return;
-      const { data, error } = await supabase
-        .from('colunas_dashboard')
-        .select('nome')
-        .eq('empresa_id', empresaId)
-        .order('posicao', { ascending: true });
+      try {
+        console.log('Usuário logado:', user);
+        const empresaId = user?.user_metadata?.empresa_id;
+        console.log('Empresa ID:', empresaId);
 
-      if (data) {
-        setColunas(data.map((c) => c.nome));
+        if (!empresaId) {
+          console.warn('Empresa ID não encontrado.');
+          return;
+        }
+
+        const q = query(
+          collection(FIRESTORE_DB, 'colunas'),
+          where('empresa_id', '==', empresaId)
+        );
+        const querySnapshot = await getDocs(q);
+        const colunasData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        console.log('Colunas carregadas:', colunasData);
+        setColunas(colunasData);
+      } catch (error) {
+        console.error('Erro ao buscar colunas:', error);
       }
     };
+
     fetchColunas();
+  }, [user]);
+
+  // Buscar notas do banco assim que empresaId estiver disponível
+  useEffect(() => {
+    const fetchNotas = async () => {
+      if (!empresaId) return;
+      const { data, error } = await supabase
+        .from("notas_dashboard")
+        .select("*")
+        .eq("empresa_id", empresaId);
+
+      if (error) {
+        console.error("Erro ao buscar notas:", error);
+      } else {
+        setNotes(data || []);
+      }
+    };
+    fetchNotas();
   }, [empresaId]);
 
   // Salvar colunas no banco
@@ -419,7 +473,8 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
 
   return (
     <div className="w-full px-6 py-4">
-      <h1 className="text-2xl font-bold mb-2">Dashboard Admin</h1>
+      <h1 className="text-2xl font-bold tracking-tight">Dashboard Admin</h1>
+      <p className="text-lg text-gray-600 mt-1">{user?.nome}</p>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-[#1860fa] text-white p-4 rounded-xl shadow">
@@ -445,170 +500,173 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
           <FiBook className="text-yellow-500" />
           Anotações Fixas
         </h2>
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext
-            items={colunas.map((coluna) => `coluna-${coluna}`)}
-            strategy={horizontalListSortingStrategy}
-          >
-            <div className="flex gap-6 overflow-x-auto">
-              {colunas.map((coluna, index) => (
-                <SortableColunaCard
-                  key={`coluna-${coluna}`}
-                  id={`coluna-${coluna}`}
-                  className="min-w-[250px] bg-white border border-yellow-400 rounded-md shadow-sm p-3 flex flex-col gap-3"
-                >
-                  {(params) => {
-                    const { attributes, listeners, setColunasOrdenadas } = params;
-                    return (
-                      <>
-                        <div
-                          className="flex justify-between items-center cursor-move"
-                          {...attributes}
-                          {...listeners}
-                        >
-                          <span className="font-semibold text-lg w-full truncate">{colunas[index]}</span>
-                        </div>
-
-                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(event: any) => {
-                          const { active, over } = event;
-                          if (!over || active.id === over.id) return;
-                          const isColuna = (id: string) => String(id).startsWith('coluna-');
-                          if (isColuna(active.id) && isColuna(over.id)) {
-                            const activeIndex = colunas.findIndex((c) => `coluna-${c}` === active.id);
-                            const overIndex = colunas.findIndex((c) => `coluna-${c}` === over.id);
-                            if (activeIndex !== -1 && overIndex !== -1) {
-                              // CHAMAR salvarColunasNoBanco após atualizar
-                              const novas = arrayMove(colunas, activeIndex, overIndex);
-                              setColunas(novas);
-                              salvarColunasNoBanco(novas);
-                            }
-                            return;
-                          }
-                          // fallback para handleDragEnd original para notas
-                          handleDragEnd(event);
-                        }}>
-                          <SortableContext
-                            items={notes
-                              .filter((n) => n.coluna === coluna)
-                              .sort((a, b) => a.pos_x - b.pos_x)
-                              .map((n) => n.id)}
-                            strategy={verticalListSortingStrategy}
+        <ClientOnly>
+          {/* Envolva a lógica de DndContext, SortableContext, colunas e notas aqui */}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext
+              items={colunas.map((coluna) => `coluna-${coluna}`)}
+              strategy={horizontalListSortingStrategy}
+            >
+              <div className="flex gap-6 overflow-x-auto">
+                {colunas.map((coluna, index) => (
+                  <SortableColunaCard
+                    key={`coluna-${coluna}`}
+                    id={`coluna-${coluna}`}
+                    className="min-w-[250px] bg-white border border-yellow-400 rounded-md shadow-sm p-3 flex flex-col gap-3"
+                  >
+                    {(params) => {
+                      const { attributes, listeners, setColunasOrdenadas } = params;
+                      return (
+                        <>
+                          <div
+                            className="flex justify-between items-center cursor-move"
+                            {...attributes}
+                            {...listeners}
                           >
-                            <div className="flex flex-col gap-3 bg-yellow-50 rounded-md">
-                              {notes
-                                .filter((note) => note.coluna === coluna)
-                                .sort((a, b) => a.pos_x - b.pos_x)
-                                .map((note) => (
-                                  <SortableNoteCard key={note.id} id={note.id}>
-                                    <div className="bg-white rounded-lg shadow-md w-60 h-44 border border-gray-200 overflow-hidden flex flex-col">
-                                      <div className={`px-3 py-2 ${note.cor} text-white font-bold text-sm flex items-center justify-between`}>
-                                        <span>{note.titulo}</span>
-                                        {note.prioridade && (
-                                          <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                                            note.prioridade === 'Alta' ? 'bg-red-100 text-red-600' :
-                                            note.prioridade === 'Média' ? 'bg-yellow-100 text-yellow-600' :
-                                            'bg-green-100 text-green-600'
-                                          }`}>
-                                            {note.prioridade}
-                                          </span>
-                                        )}
-                                      </div>
-                                      <div className="p-3 flex flex-col justify-between flex-1">
-                                        <div className="text-xs text-gray-700 line-clamp-3">{note.texto}</div>
-                                        <div className="flex justify-end mt-2 gap-2">
-                                          <button
-                                            type="button"
-                                            onMouseDown={() => {
-                                              setNovaNota({
-                                                titulo: note.titulo,
-                                                texto: note.texto,
-                                                cor: note.cor,
-                                                coluna: note.coluna,
-                                                prioridade: note.prioridade || 'Média'
-                                              });
-                                              setNotaEditando(note);
-                                              setShowModal(true);
-                                            }}
-                                            className="text-yellow-600 hover:text-yellow-800 transition-colors"
-                                          >
-                                            <FiEdit size={16} />
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onMouseDown={() => {
-                                              setNotaParaExcluir(note);
-                                            }}
-                                            className="text-red-600 hover:text-red-800 transition-colors"
-                                          >
-                                            <FiTrash2 size={16} />
-                                          </button>
-                                        </div>
-                                        <div className="text-[10px] text-gray-400 text-right mt-2">
-                                          {note.data_criacao
-                                            ? format(new Date(note.data_criacao), 'dd/MM/yyyy')
-                                            : (note.created_at ? format(new Date(note.created_at), 'dd/MM/yyyy') : '')}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </SortableNoteCard>
-                                ))}
-                            </div>
-                          </SortableContext>
-                        </DndContext>
+                            <span className="font-semibold text-lg w-full truncate">{colunas[index]}</span>
+                          </div>
 
-                        <button
-                          type="button"
-                          onMouseDown={() => {
-                            setNovaNota({ titulo: '', texto: '', cor: 'bg-yellow-500', coluna });
-                            setNotaEditando(null);
-                            setShowModal(true);
-                          }}
-                          className="bg-gray-50 border border-dashed rounded-lg p-3 text-center text-sm text-gray-500 hover:bg-gray-100 cursor-pointer"
-                        >
-                          + Nova anotação
-                        </button>
-
-                        <button
-                          type="button"
-                          onMouseDown={async () => {
-                            const confirmacao = window.confirm(`Tem certeza que deseja excluir a coluna "${coluna}"?`);
-                            if (confirmacao) {
-                              const novas = colunas.filter((_, i) => i !== index);
-                              setColunas(novas);
-                              await supabase.from('colunas_dashboard').delete().eq('empresa_id', empresaId).eq('nome', coluna);
-                              salvarColunasNoBanco(novas);
-                              setNotes((prev) => prev.filter((n) => n.coluna !== coluna));
+                          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(event: any) => {
+                            const { active, over } = event;
+                            if (!over || active.id === over.id) return;
+                            const isColuna = (id: string) => String(id).startsWith('coluna-');
+                            if (isColuna(active.id) && isColuna(over.id)) {
+                              const activeIndex = colunas.findIndex((c) => `coluna-${c}` === active.id);
+                              const overIndex = colunas.findIndex((c) => `coluna-${c}` === over.id);
+                              if (activeIndex !== -1 && overIndex !== -1) {
+                                // CHAMAR salvarColunasNoBanco após atualizar
+                                const novas = arrayMove(colunas, activeIndex, overIndex);
+                                setColunas(novas);
+                                salvarColunasNoBanco(novas);
+                              }
+                              return;
                             }
-                          }}
-                          className="mt-2 text-sm text-red-500 hover:text-red-700 flex items-center justify-center"
-                          title="Excluir coluna"
-                        >
-                          <FiTrash2 size={16} className="mr-1" />
-                          Excluir coluna
-                        </button>
-                      </>
-                    );
-                  }}
-                </SortableColunaCard>
-              ))}
-              <div className="min-w-[250px]">
-                <button
-                  onClick={() => {
-                    const nova = prompt('Nome da nova coluna');
-                    if (nova && !colunas.includes(nova)) {
-                      const novas = [...colunas, nova.toLowerCase()];
-                      setColunas(novas);
-                      salvarColunasNoBanco(novas);
-                    }
-                  }}
-                  className="bg-white border border-dashed rounded-lg w-full h-full p-4 text-center text-sm text-gray-500 hover:bg-gray-100"
-                >
-                  + Nova coluna
-                </button>
+                            // fallback para handleDragEnd original para notas
+                            handleDragEnd(event);
+                          }}>
+                            <SortableContext
+                              items={notes
+                                .filter((n) => n.coluna === coluna)
+                                .sort((a, b) => a.pos_x - b.pos_x)
+                                .map((n) => n.id)}
+                              strategy={verticalListSortingStrategy}
+                            >
+                              <div className="flex flex-col gap-3 bg-yellow-50 rounded-md">
+                                {notes
+                                  .filter((note) => note.coluna === coluna)
+                                  .sort((a, b) => a.pos_x - b.pos_x)
+                                  .map((note) => (
+                                    <SortableNoteCard key={note.id} id={note.id}>
+                                      <div className="bg-white rounded-lg shadow-md w-60 h-44 border border-gray-200 overflow-hidden flex flex-col">
+                                        <div className={`px-3 py-2 ${note.cor} text-white font-bold text-sm flex items-center justify-between`}>
+                                          <span>{note.titulo}</span>
+                                          {note.prioridade && (
+                                            <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                                              note.prioridade === 'Alta' ? 'bg-red-100 text-red-600' :
+                                              note.prioridade === 'Média' ? 'bg-yellow-100 text-yellow-600' :
+                                              'bg-green-100 text-green-600'
+                                            }`}>
+                                              {note.prioridade}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className="p-3 flex flex-col justify-between flex-1">
+                                          <div className="text-xs text-gray-700 line-clamp-3">{note.texto}</div>
+                                          <div className="flex justify-end mt-2 gap-2">
+                                            <button
+                                              type="button"
+                                              onMouseDown={() => {
+                                                setNovaNota({
+                                                  titulo: note.titulo,
+                                                  texto: note.texto,
+                                                  cor: note.cor,
+                                                  coluna: note.coluna,
+                                                  prioridade: note.prioridade || 'Média'
+                                                });
+                                                setNotaEditando(note);
+                                                setShowModal(true);
+                                              }}
+                                              className="text-yellow-600 hover:text-yellow-800 transition-colors"
+                                            >
+                                              <FiEdit size={16} />
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onMouseDown={() => {
+                                                setNotaParaExcluir(note);
+                                              }}
+                                              className="text-red-600 hover:text-red-800 transition-colors"
+                                            >
+                                              <FiTrash2 size={16} />
+                                            </button>
+                                          </div>
+                                          <div className="text-[10px] text-gray-400 text-right mt-2">
+                                            {note.data_criacao
+                                              ? format(new Date(note.data_criacao), 'dd/MM/yyyy')
+                                              : (note.created_at ? format(new Date(note.created_at), 'dd/MM/yyyy') : '')}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </SortableNoteCard>
+                                  ))}
+                              </div>
+                            </SortableContext>
+                          </DndContext>
+
+                          <button
+                            type="button"
+                            onMouseDown={() => {
+                              setNovaNota({ titulo: '', texto: '', cor: 'bg-yellow-500', coluna });
+                              setNotaEditando(null);
+                              setShowModal(true);
+                            }}
+                            className="bg-gray-50 border border-dashed rounded-lg p-3 text-center text-sm text-gray-500 hover:bg-gray-100 cursor-pointer"
+                          >
+                            + Nova anotação
+                          </button>
+
+                          <button
+                            type="button"
+                            onMouseDown={async () => {
+                              const confirmacao = window.confirm(`Tem certeza que deseja excluir a coluna "${coluna}"?`);
+                              if (confirmacao) {
+                                const novas = colunas.filter((_, i) => i !== index);
+                                setColunas(novas);
+                                await supabase.from('colunas_dashboard').delete().eq('empresa_id', empresaId).eq('nome', coluna);
+                                salvarColunasNoBanco(novas);
+                                setNotes((prev) => prev.filter((n) => n.coluna !== coluna));
+                              }
+                            }}
+                            className="mt-2 text-sm text-red-500 hover:text-red-700 flex items-center justify-center"
+                            title="Excluir coluna"
+                          >
+                            <FiTrash2 size={16} className="mr-1" />
+                            Excluir coluna
+                          </button>
+                        </>
+                      );
+                    }}
+                  </SortableColunaCard>
+                ))}
+                <div className="min-w-[250px]">
+                  <button
+                    onClick={() => {
+                      const nova = prompt('Nome da nova coluna');
+                      if (nova && !colunas.includes(nova)) {
+                        const novas = [...colunas, nova.toLowerCase()];
+                        setColunas(novas);
+                        salvarColunasNoBanco(novas);
+                      }
+                    }}
+                    className="bg-white border border-dashed rounded-lg w-full h-full p-4 text-center text-sm text-gray-500 hover:bg-gray-100"
+                  >
+                    + Nova coluna
+                  </button>
+                </div>
               </div>
-            </div>
-          </SortableContext>
-        </DndContext>
+            </SortableContext>
+          </DndContext>
+        </ClientOnly>
       </div>
 
       <div className="bg-white p-6 rounded-xl shadow mb-6">

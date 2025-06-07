@@ -1,3 +1,5 @@
+import MenuLayout from '@/components/MenuLayout';
+
 export const metadata = {
   title: 'Dashboard',
   description: 'Área logada do sistema',
@@ -8,5 +10,9 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  return <>{children}</>
+  return (
+    <MenuLayout>
+      {children}
+    </MenuLayout>
+  );
 }
