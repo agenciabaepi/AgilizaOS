@@ -1,32 +1,41 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createBrowserSupabaseClient } from "@supabase/auth-helpers-nextjs";
 
 export default function DashboardRedirectPage() {
   const router = useRouter();
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const userString = localStorage.getItem("user");
-      if (!userString) {
-        router.push("/login");
+    const redirect = async () => {
+      const supabase = createBrowserSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session?.user) {
+        router.replace("/login");
         return;
       }
 
-      const user = JSON.parse(userString);
+      const { data: tecnico } = await supabase
+        .from("tecnicos")
+        .select("nivel")
+        .eq("auth_user_id", session.user.id)
+        .single();
 
-      if (user?.nivel === "admin") {
-        router.push("/dashboard/admin");
-      } else if (user?.nivel === "tecnico") {
-        router.push("/dashboard/tecnico");
+      if (tecnico) {
+        if (tecnico.nivel === "tecnico") {
+          router.replace("/bancada");
+        } else {
+          router.replace("/dashboard/admin");
+        }
       } else {
-        router.push("/login");
+        router.replace("/dashboard/admin");
       }
-    } catch (error) {
-      console.error("Failed to parse user from localStorage:", error);
-      router.push("/login");
-    }
+    };
+
+    redirect().finally(() => setLoading(false));
   }, [router]);
 
   return (
