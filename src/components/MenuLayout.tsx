@@ -4,7 +4,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import logo from '@/assets/imagens/logoagiliza.png';
+import logobranco from '@/assets/imagens/logobranco.png';
+import logopreto from '@/assets/imagens/logopreto.png';
 import {
   FiHome,
   FiUsers,
@@ -28,6 +29,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
 
   const [isReady, setIsReady] = useState(false);
   const [menuExpandido, setMenuExpandido] = useState(true);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   useEffect(() => {
     if (auth?.user === undefined) return;
@@ -47,23 +49,41 @@ if (!isReady) {
   return (
     <div className="flex min-h-screen bg-transparent relative z-0 overflow-x-hidden w-full">
       {/* Topbar */}
-      <div className="fixed top-0 left-0 w-full z-60 h-14 bg-white text-[#000000] flex items-center justify-between px-4 border-b border-[#000000]/10">
+      <div className="fixed top-0 left-0 w-full z-60 h-14 bg-black text-white flex items-center justify-between px-4 border-b border-[#000000]/10">
         <div className="flex items-center gap-2">
-          <button onClick={() => setMenuExpandido(!menuExpandido)} className="text-[#000000]">
+          <button onClick={() => setMenuExpandido(!menuExpandido)} className="text-white">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
             </svg>
           </button>
-          <Image src={logo} alt="Logo Agiliza" className="h-6 w-auto object-contain" />
+          <Image src={logobranco} alt="Logo AgilizaOS" className="h-10 w-auto object-contain transition-all duration-300" />
         </div>
-        <div className="flex items-center gap-4">
-          <FiSearch className="text-[#000000]" size={16} />
+        <div className="flex items-center gap-3 px-5 py-2 rounded-full backdrop-blur-lg bg-white/10 border border-white/20 shadow-lg">
+          <FiSearch className="text-white/90 hover:text-[#cffb6d] transition-colors" size={18} />
           <input
             type="text"
             placeholder="Buscar..."
-            className="bg-transparent border-b border-black/10 placeholder-[#000000]/50 text-[#000000] text-sm focus:outline-none"
+            className="bg-transparent placeholder-white/60 text-white text-sm focus:outline-none w-36 sm:w-60"
           />
-          <FiBell className="text-[#000000] hover:text-[#000000]/80 cursor-pointer" size={18} />
+          <div className="relative">
+            <FiBell
+              className="text-white hover:text-[#cffb6d] cursor-pointer transition-colors"
+              size={20}
+              onClick={() => setShowNotifications(!showNotifications)}
+            />
+            {showNotifications && (
+              <div className="absolute right-0 top-8 w-72 z-50">
+                <div className="bg-white text-black rounded-xl shadow-xl p-4 border border-black/10">
+                  <h4 className="font-semibold text-sm mb-2">Notificações</h4>
+                  <ul className="space-y-2 text-sm">
+                    <li className="border-b border-gray-200 pb-1">🔧 Ordem #324 foi aprovada.</li>
+                    <li className="border-b border-gray-200 pb-1">📦 Novo produto cadastrado.</li>
+                    <li>💰 Entrada no financeiro registrada.</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -98,15 +118,15 @@ if (!isReady) {
                 auth?.signOut();
                 router.push('/login');
               }}
-              className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${
-                menuExpandido ? 'text-[#cffb6d] hover:text-white' : 'justify-center text-[#cffb6d]'
+              className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out hover:bg-red-100 ${
+                menuExpandido ? '' : 'justify-center'
               }`}
             >
               <div className="min-w-[20px]">
                 <FiLogOut size={20} />
               </div>
               <span
-                className={`ml-2 transition-all duration-300 ease-in-out whitespace-nowrap ${
+                className={`ml-2 transition-all duration-300 ease-in-out whitespace-nowrap text-red-600 font-medium ${
                   menuExpandido ? 'opacity-100 scale-100 max-w-[200px]' : 'opacity-0 scale-95 max-w-0 overflow-hidden'
                 }`}
               >

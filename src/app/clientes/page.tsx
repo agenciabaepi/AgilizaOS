@@ -287,7 +287,7 @@ export default function ClientesPage() {
         <h1 className="text-2xl font-semibold text-gray-800">Clientes</h1>
         <Link
           href={`/dashboard/clientes/novo?atendente=${session?.user?.user_metadata?.nome || ''}`}
-          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition"
+          className="flex items-center gap-2 bg-[#cffb6d] text-black shadow-lg px-4 py-2 rounded-md hover:bg-[#e5ffa1] backdrop-blur-md"
         >
           <FiPlus className="w-6 h-6" />
           Novo Cliente
@@ -331,25 +331,25 @@ export default function ClientesPage() {
         <div className="flex justify-end gap-2 mb-4 text-sm">
           <button 
             onClick={() => console.log('Exportar selecionados')} 
-            className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+            className="px-3 py-1 bg-white/10 text-white rounded-md hover:bg-white/20 transition backdrop-blur-md"
           >
             Exportar Selecionados
           </button>
           <button 
             onClick={exportarCSV} 
-            className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition"
+            className="px-3 py-1 bg-[#cffb6d]/80 text-black rounded-md hover:bg-[#d8ffa0]/90 transition backdrop-blur-md"
           >
             Exportar CSV
           </button>
           <button
             onClick={() => setModalExclusaoMassaOpen(true)}
-            className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
+            className="px-3 py-1 bg-red-600/80 text-white rounded-md hover:bg-red-700/90 transition backdrop-blur-md"
           >
             Excluir Selecionados
           </button>
           <button 
             onClick={() => setSelecionados([])} 
-            className="px-3 py-1 bg-gray-300 text-black rounded-md hover:bg-gray-400 transition"
+            className="px-3 py-1 bg-white/10 text-white rounded-md hover:bg-white/20 transition backdrop-blur-md"
           >
             Limpar Seleção
           </button>
@@ -493,15 +493,23 @@ export default function ClientesPage() {
         <button
           onClick={() => setPaginaAtual((prev) => Math.max(prev - 1, 1))}
           disabled={paginaAtual === 1}
-          className="px-3 py-1 border rounded disabled:opacity-50"
+          className={`px-3 py-1 rounded transition backdrop-blur-md ${
+            paginaAtual === 1
+              ? 'bg-[#f0ffd0] text-gray-400 cursor-not-allowed'
+              : 'bg-[#cffb6d]/10 text-[#cffb6d] hover:bg-[#cffb6d]/20'
+          }`}
         >
           Anterior
         </button>
-        <span className="px-3 py-1">{paginaAtual} de {totalPaginas}</span>
+        <span className="px-3 py-1 text-black font-semibold">{paginaAtual} de {totalPaginas}</span>
         <button
           onClick={() => setPaginaAtual((prev) => Math.min(prev + 1, totalPaginas))}
           disabled={paginaAtual === totalPaginas}
-          className="px-3 py-1 border rounded disabled:opacity-50"
+          className={`px-3 py-1 rounded transition backdrop-blur-md ${
+            paginaAtual === totalPaginas
+              ? 'bg-[#f0ffd0] text-gray-400 cursor-not-allowed'
+              : 'bg-[#cffb6d]/10 text-[#cffb6d] hover:bg-[#cffb6d]/20'
+          }`}
         >
           Próximo
         </button>
@@ -511,9 +519,9 @@ export default function ClientesPage() {
       <div className="mt-8">
         <h2 className="text-xl font-semibold mb-4">Resumo de Clientes</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white rounded-lg shadow p-4 min-h-[280px] flex flex-col justify-center items-center gap-2">
-            <FiUsers size={20} className="text-indigo-600" />
-            <h3 className="text-md font-semibold text-center">Total</h3>
+          <div className="bg-white rounded-lg border border-[#cffb6d] p-4 min-h-[280px] flex flex-col justify-center items-center gap-2">
+            <FiUsers size={20} className="text-black" />
+            <h3 className="text-md font-semibold text-center text-black">Total</h3>
             {totalClientes > 0 ? (
               <Chart
                 options={{ ...optionsPizza, labels: ['Total'], colors: ['#1e3bef'] }}
@@ -526,9 +534,9 @@ export default function ClientesPage() {
               <p className="text-gray-400 mt-4">Sem dados</p>
             )}
           </div>
-          <div className="bg-white rounded-lg shadow p-4 min-h-[280px] flex flex-col justify-center items-center gap-2">
-            <FiCalendar size={20} className="text-green-600" />
-            <h3 className="text-md font-semibold text-center">Este mês</h3>
+          <div className="bg-white rounded-lg border border-[#cffb6d] p-4 min-h-[280px] flex flex-col justify-center items-center gap-2">
+            <FiCalendar size={20} className="text-black" />
+            <h3 className="text-md font-semibold text-center text-black">Este mês</h3>
             {clientesMesAtual > 0 ? (
               <Chart
                 options={{ ...optionsPizza, labels: ['Este mês'], colors: ['#10B981'] }}
@@ -541,9 +549,9 @@ export default function ClientesPage() {
               <p className="text-gray-400 mt-4">Sem dados</p>
             )}
           </div>
-          <div className="bg-white rounded-lg shadow p-4 min-h-[280px] flex flex-col justify-center items-center gap-2">
-            <FiClock size={20} className="text-yellow-600" />
-            <h3 className="text-md font-semibold text-center">Últimos 7 dias</h3>
+          <div className="bg-white rounded-lg border border-[#cffb6d] p-4 min-h-[280px] flex flex-col justify-center items-center gap-2">
+            <FiClock size={20} className="text-black" />
+            <h3 className="text-md font-semibold text-center text-black">Últimos 7 dias</h3>
             {clientesUltimos7Dias > 0 ? (
               <Chart
                 options={{ ...optionsPizza, labels: ['Últimos 7 dias'], colors: ['#F59E0B'] }}

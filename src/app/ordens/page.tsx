@@ -110,23 +110,23 @@ export default function ListaOrdensPage() {
     <MenuLayout>
       <div className="pt-20 px-6 w-full">
         {/* Cards de técnicos */}
-        <div className="bg-white p-6 rounded-xl shadow mb-6">
+        <div className="backdrop-blur-sm bg-white/60 p-6 rounded-xl shadow mb-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <FiUsers className="text-blue-600" />
+            <FiUsers className="text-white" />
             Aparelhos em Andamento por Técnico
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg shadow-sm hover:shadow-md transition">
-              <h3 className="text-sm font-semibold text-blue-800">Carlos</h3>
-              <p className="text-sm text-blue-700">3 aparelhos</p>
+            <div className="bg-[#cffb6d]/20 border border-[#cffb6d] p-4 rounded-lg shadow-sm hover:shadow-md transition text-[#333]">
+              <h3 className="text-sm font-semibold">Carlos</h3>
+              <p className="text-sm">3 aparelhos</p>
             </div>
-            <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg shadow-sm hover:shadow-md transition">
-              <h3 className="text-sm font-semibold text-yellow-800">Fernanda</h3>
-              <p className="text-sm text-yellow-700">5 aparelhos</p>
+            <div className="bg-[#cffb6d]/30 border border-[#cffb6d] p-4 rounded-lg shadow-sm hover:shadow-md transition text-[#333]">
+              <h3 className="text-sm font-semibold">Fernanda</h3>
+              <p className="text-sm">5 aparelhos</p>
             </div>
-            <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg shadow-sm hover:shadow-md transition">
-              <h3 className="text-sm font-semibold text-gray-800">Eduardo</h3>
-              <p className="text-sm text-gray-700">2 aparelhos</p>
+            <div className="bg-white border border-[#ccc] p-4 rounded-lg shadow-sm hover:shadow-md transition text-[#555]">
+              <h3 className="text-sm font-semibold">Eduardo</h3>
+              <p className="text-sm">2 aparelhos</p>
             </div>
           </div>
         </div>
@@ -140,10 +140,10 @@ export default function ListaOrdensPage() {
               placeholder="Buscar OS..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm"
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm bg-white/70 backdrop-blur"
             />
             <select
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm"
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm bg-white/70 backdrop-blur"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
@@ -155,7 +155,7 @@ export default function ListaOrdensPage() {
               <option value="Não aprovada">Não aprovada</option>
             </select>
             <select
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm"
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm bg-white/70 backdrop-blur"
               value={aparelhoFilter}
               onChange={(e) => setAparelhoFilter(e.target.value)}
             >
@@ -165,7 +165,7 @@ export default function ListaOrdensPage() {
               <option value="Notebook">Computadores</option>
             </select>
             <select
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm"
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm bg-white/70 backdrop-blur"
               value={tecnicoFilter}
               onChange={(e) => setTecnicoFilter(e.target.value)}
             >
@@ -175,7 +175,7 @@ export default function ListaOrdensPage() {
             </select>
             <button
               onClick={() => router.push('/nova-os')}
-              className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm shadow hover:bg-blue-700 transition"
+              className="bg-[#cffb6d] text-black px-5 py-2 rounded-lg text-sm shadow hover:bg-lime-400 transition"
             >
               + Nova OS
             </button>
@@ -241,8 +241,8 @@ export default function ListaOrdensPage() {
               key={i}
               onClick={() => setCurrentPage(i + 1)}
               className={`px-3 py-1 rounded-md text-sm font-medium border ${
-                currentPage === i + 1 ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'
-              } hover:bg-blue-500 hover:text-white transition`}
+                currentPage === i + 1 ? 'bg-[#cffb6d] text-black' : 'bg-white text-gray-700'
+              } hover:bg-lime-400 hover:text-black transition`}
             >
               {i + 1}
             </button>

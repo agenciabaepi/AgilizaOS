@@ -502,7 +502,7 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
       <p className="text-lg text-gray-600 mt-1">{user?.nome}</p>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-[#1860fa] text-white p-4 rounded-xl shadow">
+        <div className="bg-[#cffb6d] text-black p-4 rounded-xl shadow">
           <p className="text-sm">OS em aberto</p>
           <p className="text-2xl font-bold">12</p>
         </div>
@@ -520,7 +520,7 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
         </div>
       </div>
 
-      <div className="bg-yellow-50 border border-yellow-300 rounded-xl shadow p-4 mb-6">
+      <div className="bg-[#f9ffe0] border border-[#cffb6d] rounded-xl shadow p-4 mb-6">
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <FiBook className="text-yellow-500" />
           Anotações Fixas
@@ -537,7 +537,7 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
                   <SortableColunaCard
                     key={`coluna-${coluna}`}
                     id={`coluna-${coluna}`}
-                    className="min-w-[250px] bg-white border border-yellow-400 rounded-md shadow-sm p-3 flex flex-col gap-3"
+                    className="min-w-[250px] bg-[#fffff8] border border-[#cffb6d] rounded-md shadow-sm p-3 flex flex-col gap-3"
                   >
                     {(params) => {
                       const { attributes, listeners, setColunasOrdenadas } = params;
@@ -576,7 +576,7 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
                                 .map((n) => n.id)}
                               strategy={verticalListSortingStrategy}
                             >
-                              <div className="flex flex-col gap-3 bg-yellow-50 rounded-md">
+                              <div className="flex flex-col gap-3 bg-[#f9ffe0] rounded-md">
                                 {notes
                                   .filter((note) => note.coluna === coluna)
                                   .sort((a, b) => a.pos_x - b.pos_x)
@@ -645,7 +645,7 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
                               setNotaEditando(null);
                               setShowModal(true);
                             }}
-                            className="bg-gray-50 border border-dashed rounded-lg p-3 text-center text-sm text-gray-500 hover:bg-gray-100 cursor-pointer"
+                            className="bg-[#cffb6d] text-black font-semibold border border-black hover:bg-lime-300 transition-colors text-sm px-2 py-1 rounded-md"
                           >
                             + Nova anotação
                           </button>
@@ -683,7 +683,7 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
                         salvarColunasNoBanco(novas);
                       }
                     }}
-                    className="bg-white border border-dashed rounded-lg w-full h-full p-4 text-center text-sm text-gray-500 hover:bg-gray-100"
+                    className="bg-[#f9ffe0] border border-dashed border-[#cffb6d] text-black hover:bg-[#cffb6d] w-full h-full p-4 text-center text-sm rounded-lg"
                   >
                     + Nova coluna
                   </button>
@@ -715,7 +715,7 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
       <div className="bg-white p-4 rounded-xl shadow mb-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold">Últimas 5 Ordens de Serviço</h2>
-          <button className="bg-[#1860fa] text-white px-4 py-2 rounded-lg text-sm">Nova OS</button>
+          <button className="bg-[#cffb6d] text-black px-4 py-2 rounded-lg text-sm hover:bg-lime-300">Nova OS</button>
         </div>
 
         <div className="grid grid-cols-11 items-center gap-4 text-sm font-semibold text-gray-500 px-4 mb-2">
@@ -808,12 +808,12 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-xl shadow">
-          <h2 className="text-base font-semibold mb-2">OS por Mês</h2>
+        <div className="bg-[#fffff8] p-4 rounded-xl border border-[#cffb6d] shadow">
+          <h2 className="text-base font-semibold mb-2 text-[#000000]">OS por Mês</h2>
           <Line options={options} data={data} />
         </div>
-        <div className="bg-white p-4 rounded-xl shadow">
-          <h2 className="text-base font-semibold mb-2">Entradas Financeiras</h2>
+        <div className="bg-[#fffff8] p-4 rounded-xl border border-[#cffb6d] shadow">
+          <h2 className="text-base font-semibold mb-2 text-[#000000]">Entradas Financeiras</h2>
           <Line
             options={options}
             data={{
@@ -828,8 +828,8 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
             }}
           />
         </div>
-        <div className="bg-white p-4 rounded-xl shadow">
-          <h2 className="text-base font-semibold mb-2">Comissões Técnicas</h2>
+        <div className="bg-[#fffff8] p-4 rounded-xl border border-[#cffb6d] shadow">
+          <h2 className="text-base font-semibold mb-2 text-[#000000]">Comissões Técnicas</h2>
           <Line
             options={options}
             data={{
@@ -951,7 +951,7 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-sm rounded bg-black text-white hover:bg-red-700"
+                  className="px-4 py-2 text-sm rounded bg-[#cffb6d] text-black hover:bg-lime-400"
                 >
                   Excluir
                 </button>
