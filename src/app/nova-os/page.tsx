@@ -431,13 +431,13 @@ export default function NovaOSPage() {
     <MenuLayout>
       {/* Título principal fora do container */}
       <div className="w-full">
-        <h1 className="text-3xl font-bold text-blue-600 text-center mb-8">
+        <h1 className="text-4xl font-extrabold tracking-tight text-blue-700 drop-shadow-sm text-center mb-10">
           Nova Ordem de Serviço
         </h1>
       </div>
       {/* Mini-resumo moderno logo abaixo do título */}
       <div className="flex justify-center mb-4">
-        <div className="flex items-center space-x-4 bg-white shadow-md rounded-full px-6 py-2">
+        <div className="flex items-center space-x-4 bg-white/80 backdrop-blur shadow-xl rounded-full px-8 py-3">
           <div className="text-sm text-gray-600 font-medium">Etapa: <span className="text-blue-600 font-semibold">{etapaAtual + 1} de 6</span></div>
           <div className="w-2 h-2 rounded-full bg-blue-600"></div>
           <div className="text-sm text-gray-600 font-medium">
@@ -448,10 +448,10 @@ export default function NovaOSPage() {
           </div>
         </div>
       </div>
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-0">
-        <div className="w-full max-w-6xl bg-white dark:bg-gray-800 text-black dark:text-white rounded-xl shadow-lg p-8 mx-auto mt-2">
+      <div className="min-h-screen w-full bg-gradient-to-br from-white to-slate-100 px-4 py-10">
+        <div className="w-full bg-white/80 dark:bg-gray-800/80 backdrop-blur text-black dark:text-white rounded-2xl shadow-xl p-10">
         <ThemeSwitcher />
-        <div className="w-full space-y-8 gap-8">
+        <div className="w-full space-y-10 gap-10">
         <BarraDeProgresso etapaAtual={etapaAtual} total={6} />
         {/* Botão Voltar acima do título principal */}
         <button
@@ -461,22 +461,22 @@ export default function NovaOSPage() {
           ← Voltar
         </button>
         <div className="mt-2">
-          <div className="flex items-center justify-between w-full mb-4">
+          <div className="flex items-center justify-between w-full mb-4 gap-6">
             {[1, 2, 3, 4, 5, 6].map((etapa) => (
-              <div key={etapa} className="flex flex-col items-center">
-                <div className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-300 ${
-                  etapaAtual > etapa ? 'bg-green-500 text-white' : etapaAtual === etapa ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-500'
+              <div key={etapa} className="flex flex-col items-center transition-transform hover:scale-[1.02] active:scale-95">
+                <div className={`flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300 shadow-lg ${
+                  etapaAtual > etapa ? 'bg-green-500 text-white' : etapaAtual === etapa ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'
                 }`}>
                   {etapaAtual > etapa ? '✔️' : 
-                    (etapa === 1 && <UserCircle size={16} />) ||
-                    (etapa === 2 && <DeviceMobileCamera size={16} />) ||
-                    (etapa === 3 && <UsersThree size={16} />) ||
-                    (etapa === 4 && <ClipboardText size={16} />) ||
-                    (etapa === 5 && <NotePencil size={16} />) ||
-                    (etapa === 6 && <IconImage size={16} />)
+                    (etapa === 1 && <UserCircle size={18} />) ||
+                    (etapa === 2 && <DeviceMobileCamera size={18} />) ||
+                    (etapa === 3 && <UsersThree size={18} />) ||
+                    (etapa === 4 && <ClipboardText size={18} />) ||
+                    (etapa === 5 && <NotePencil size={18} />) ||
+                    (etapa === 6 && <IconImage size={18} />)
                   }
                 </div>
-                <span className="text-xs mt-1 text-center">
+                <span className="text-xs mt-2 text-center font-medium">
                   {etapa === 1 && 'Cliente'}
                   {etapa === 2 && 'Aparelho'}
                   {etapa === 3 && 'Responsáveis'}
@@ -488,10 +488,10 @@ export default function NovaOSPage() {
             ))}
           </div>
           <form onSubmit={handleSubmit} className="text-center mt-4">
-            <div className="space-y-6 gap-6">
+            <div className="space-y-10 gap-10 transition-all duration-500 ease-in-out">
               {/* Etapa 1: Informações do Cliente */}
               {etapaAtual === 1 && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4 gap-4 bg-white rounded-lg shadow-md p-4 border border-gray-200">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6 gap-6 bg-white/80 rounded-2xl shadow-xl p-8 border border-gray-100 transition-all duration-500 ease-in-out">
                   <div className="flex items-center gap-4">
                     <div className="flex-1 relative">
                       {isLoading ? (
@@ -551,7 +551,7 @@ export default function NovaOSPage() {
                     <button
                       type="button"
                       onClick={() => setShowModal(true)}
-                      className="p-3 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition"
+                      className="p-3 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg hover:brightness-110 transition hover:scale-[1.02] active:scale-95"
                     >
                       <UserPlus size={20} />
                     </button>
@@ -566,7 +566,7 @@ export default function NovaOSPage() {
                         }
                         setEtapaAtual(etapaAtual + 1);
                       }}
-                      className="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 mx-auto"
+                      className="px-6 py-3 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95 mx-auto"
                     >
                       Próximo
                     </button>
@@ -576,7 +576,7 @@ export default function NovaOSPage() {
 
               {/* Etapa 2: Informações do Aparelho */}
               {etapaAtual === 2 && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4 gap-4 bg-white rounded-lg shadow-md p-4 border border-gray-200">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6 gap-6 bg-white/80 rounded-2xl shadow-xl p-8 border border-gray-100 transition-all duration-500 ease-in-out">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Categoria */}
                     <div className="relative flex items-center">
@@ -643,7 +643,7 @@ export default function NovaOSPage() {
                     <button
                       type="button"
                       onClick={() => setEtapaAtual(etapaAtual - 1)}
-                      className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 mx-auto"
+                      className="px-6 py-3 rounded-xl text-base font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition hover:scale-[1.02] active:scale-95 mx-auto"
                     >
                       Voltar
                     </button>
@@ -656,7 +656,7 @@ export default function NovaOSPage() {
                         }
                         setEtapaAtual(etapaAtual + 1);
                       }}
-                      className="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 mx-auto"
+                      className="px-6 py-3 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95 mx-auto"
                     >
                       Próximo
                     </button>
@@ -666,7 +666,7 @@ export default function NovaOSPage() {
 
               {/* Etapa 3: Responsáveis */}
               {etapaAtual === 3 && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4 gap-4 bg-white rounded-lg shadow-md p-4 border border-gray-200">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6 gap-6 bg-white/80 rounded-2xl shadow-xl p-8 border border-gray-100 transition-all duration-500 ease-in-out">
                   <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-4">
                     {/* Técnico */}
                     <div className="relative flex items-center">
@@ -760,7 +760,7 @@ export default function NovaOSPage() {
                     <button
                       type="button"
                       onClick={() => setEtapaAtual(etapaAtual - 1)}
-                      className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 mx-auto"
+                      className="px-6 py-3 rounded-xl text-base font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition hover:scale-[1.02] active:scale-95 mx-auto"
                     >
                       Voltar
                     </button>
@@ -773,7 +773,7 @@ export default function NovaOSPage() {
                         }
                         setEtapaAtual(etapaAtual + 1);
                       }}
-                      className="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 mx-auto"
+                      className="px-6 py-3 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95 mx-auto"
                     >
                       Próximo
                     </button>
@@ -783,7 +783,7 @@ export default function NovaOSPage() {
 
               {/* Etapa 4: Status e Aplicações */}
               {etapaAtual === 4 && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4 gap-4 bg-white rounded-lg shadow-md p-4 border border-gray-200">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6 gap-6 bg-white/80 rounded-2xl shadow-xl p-8 border border-gray-100 transition-all duration-500 ease-in-out">
                   {/* Status Select */}
                   <div className="relative flex items-center">
                     <Select
@@ -840,7 +840,7 @@ export default function NovaOSPage() {
                         {/* Nova organização estilo card com totais */}
                         <div className="space-y-8">
                           {/* Seleção de Serviços */}
-                          <div className="shadow-sm border rounded-lg p-4 bg-white">
+                          <div className="shadow-lg border rounded-2xl p-6 bg-white/90">
                             <div className="space-y-4">
                               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Serviços</label>
                               <div className="grid grid-cols-4 gap-2 items-center">
@@ -877,7 +877,7 @@ export default function NovaOSPage() {
                                   <button
                                     type="button"
                                     onClick={handleAdicionarServico}
-                                    className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm"
+                                    className="w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95"
                                   >
                                     Adicionar
                                   </button>
@@ -915,7 +915,7 @@ export default function NovaOSPage() {
                                       <button
                                         type="button"
                                         onClick={() => handleRemoverServico(index)}
-                                        className="text-red-500 hover:text-red-700 text-base"
+                                        className="text-red-500 hover:text-red-700 text-base transition hover:scale-[1.02] active:scale-95"
                                         title="Remover serviço"
                                       >
                                         ❌
@@ -928,7 +928,7 @@ export default function NovaOSPage() {
                           </div>
 
                           {/* Adicionar Peça */}
-                          <div className="shadow-sm border rounded-lg p-4 bg-white">
+                          <div className="shadow-lg border rounded-2xl p-6 bg-white/90">
                             <h3 className="text-base font-semibold text-gray-700 mb-4 flex items-center gap-2">
                               📦 Peças Utilizadas
                             </h3>
@@ -957,7 +957,7 @@ export default function NovaOSPage() {
                                   <button
                                     type="button"
                                     onClick={handleAdicionarPeca}
-                                    className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm"
+                                    className="w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95"
                                   >
                                     ➕ Adicionar
                                   </button>
@@ -999,7 +999,7 @@ export default function NovaOSPage() {
                                     </div>
                                     <button
                                       type="button"
-                                      className="text-red-500 hover:text-red-700 text-base"
+                                      className="text-red-500 hover:text-red-700 text-base transition hover:scale-[1.02] active:scale-95"
                                       title="Remover produto"
                                       onClick={() => handleRemoverProduto(index)}
                                     >
@@ -1014,7 +1014,7 @@ export default function NovaOSPage() {
                           </div>
 
                           {/* Totais */}
-                          <div className="shadow-sm border rounded-lg p-4 bg-white">
+                          <div className="shadow-lg border rounded-2xl p-6 bg-white/90">
                             <h3 className="text-base font-semibold text-gray-700 mb-4 flex items-center gap-2">
                               🧾 Totais
                             </h3>
@@ -1068,7 +1068,7 @@ export default function NovaOSPage() {
                     <button
                       type="button"
                       onClick={() => setEtapaAtual(etapaAtual - 1)}
-                      className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 mx-auto"
+                      className="px-6 py-3 rounded-xl text-base font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition hover:scale-[1.02] active:scale-95 mx-auto"
                     >
                       Voltar
                     </button>
@@ -1084,7 +1084,7 @@ export default function NovaOSPage() {
                         }
                         setEtapaAtual(etapaAtual + 1);
                       }}
-                      className="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 mx-auto"
+                      className="px-6 py-3 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95 mx-auto"
                     >
                       Próximo
                     </button>
@@ -1094,7 +1094,7 @@ export default function NovaOSPage() {
 
               {/* Etapa 5: Observações */}
               {etapaAtual === 5 && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4 gap-4 bg-white rounded-lg shadow-md p-4 border border-gray-200">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6 gap-6 bg-white/80 rounded-2xl shadow-xl p-8 border border-gray-100 transition-all duration-500 ease-in-out">
                   {/* Relato do cliente */}
                   <div className="relative flex items-center">
                     <textarea
@@ -1119,14 +1119,14 @@ export default function NovaOSPage() {
                     <button
                       type="button"
                       onClick={() => setEtapaAtual(etapaAtual - 1)}
-                      className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 mx-auto"
+                      className="px-6 py-3 rounded-xl text-base font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition hover:scale-[1.02] active:scale-95 mx-auto"
                     >
                       Voltar
                     </button>
                     <button
                       type="button"
                       onClick={() => setEtapaAtual(etapaAtual + 1)}
-                      className="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 mx-auto"
+                      className="px-6 py-3 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95 mx-auto"
                     >
                       Próximo
                     </button>
@@ -1136,7 +1136,7 @@ export default function NovaOSPage() {
 
               {/* Etapa 6: Imagens */}
               {etapaAtual === 6 && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4 gap-4 bg-white rounded-lg shadow-md p-4 border border-gray-200">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6 gap-6 bg-white/80 rounded-2xl shadow-xl p-8 border border-gray-100 transition-all duration-500 ease-in-out">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-semibold text-gray-700 mb-2">Imagem de Entrada</label>
@@ -1167,7 +1167,7 @@ export default function NovaOSPage() {
                       )}
                     </div>
                   </div>
-                  <div className="p-6 bg-gray-100 rounded-lg mt-6 text-base">
+                  <div className="p-6 bg-white/80 backdrop-blur rounded-2xl mt-6 text-base shadow-lg">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <p><strong>Cliente:</strong> {clienteSelecionado?.nome}</p>
                       <p><strong>Aparelho:</strong> {categoriasEquip.find(c => c.id === categoriaEquip)?.nome || categoriaEquip} - {modelo} {cor && `- ${cor}`}</p>
@@ -1180,14 +1180,14 @@ export default function NovaOSPage() {
                     <button
                       type="button"
                       onClick={() => setEtapaAtual(etapaAtual - 1)}
-                      className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 mx-auto"
+                      className="px-6 py-3 rounded-xl text-base font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition hover:scale-[1.02] active:scale-95 mx-auto"
                     >
                       Voltar
                     </button>
                     <div className="flex flex-col md:flex-row gap-2">
                       <button
                         type="submit"
-                        className="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 mx-auto"
+                        className="px-6 py-3 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95 mx-auto"
                         disabled={isLoading}
                       >
                         {isLoading ? 'Salvando...' : 'Salvar'}
@@ -1195,7 +1195,7 @@ export default function NovaOSPage() {
                       <button
                         type="button"
                         onClick={() => setShowResumoModal(true)}
-                        className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-500 text-white hover:bg-gray-600 mx-auto"
+                        className="px-6 py-3 rounded-xl text-base font-semibold bg-gradient-to-r from-slate-400 to-gray-500 text-white shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95 mx-auto"
                       >
                         Visualizar Resumo
                       </button>
@@ -1210,8 +1210,8 @@ export default function NovaOSPage() {
         {/* Modal para cadastrar novo cliente */}
         {showModal && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg w-full max-w-2xl p-6 relative">
-              <h2 className="text-2xl font-semibold text-gray-800 dark:text-white mb-6 text-center">Cadastro Rápido</h2>
+            <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur rounded-2xl shadow-xl w-full max-w-2xl p-8 relative">
+              <h2 className="text-2xl font-extrabold text-blue-700 drop-shadow-sm mb-6 text-center">Cadastro Rápido</h2>
               <FastRegisterForm
                 onClose={() => setShowModal(false)}
                 onSubmit={handleFastRegister}
@@ -1219,7 +1219,7 @@ export default function NovaOSPage() {
               />
               <button
                 onClick={() => setShowModal(false)}
-                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition hover:scale-[1.02] active:scale-95"
               >
                 ×
               </button>
@@ -1227,92 +1227,79 @@ export default function NovaOSPage() {
           </div>
         )}
 
-        {/* Modal de Resumo da Ordem de Serviço */}
+        {/* Resumo da Ordem de Serviço em div fixa (não modal) */}
         {showResumoModal && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg w-full max-w-2xl p-6 relative">
-              <h2 className="text-2xl font-semibold text-gray-800 dark:text-white mb-6 text-center">Resumo da Ordem de Serviço</h2>
-              {/* Novo layout minimalista e organizado */}
-              <div className="p-6 bg-white rounded-lg mt-6 text-base space-y-6 border border-gray-200">
-                {/* Dados do Cliente */}
-                <div>
-                  <h2 className="text-xl font-semibold text-blue-600 mb-2">Dados do Cliente</h2>
-                  <p><strong>Nome:</strong> {clienteSelecionado?.nome}</p>
-                  <p><strong>Telefone:</strong> {clienteSelecionado?.telefone}</p>
-                </div>
-
-                {/* Dados do Aparelho */}
-                <div>
-                  <h2 className="text-xl font-semibold text-blue-600 mb-2">Aparelho</h2>
-                  <p><strong>Categoria:</strong> {categoriasEquip.find(c => c.id === categoriaEquip)?.nome || categoriaEquip}</p>
-                  <p><strong>Modelo:</strong> {modelo}</p>
-                  <p><strong>Cor:</strong> {cor}</p>
-                  <p><strong>Número de série:</strong> {numeroSerie}</p>
-                </div>
-
-                {/* Descrição do Serviço */}
-                <div>
-                  <h2 className="text-xl font-semibold text-blue-600 mb-2">Serviço</h2>
-                  {/* <p><strong>Descrição:</strong> {relatorio}</p> */}
-                  <p><strong>Relato do cliente:</strong> {relato}</p>
-                  <p><strong>Observações internas:</strong> {observacao}</p>
-                </div>
-
-                {/* Lista de Serviços */}
-                <div>
-                  <h2 className="text-xl font-semibold text-blue-600 mb-2">Serviços Adicionados</h2>
-                  {servicosAdicionados.length > 0 ? (
-                    <ul className="list-disc ml-6 space-y-1">
-                      {servicosAdicionados.map((s, index) => (
-                        <li key={index}>
-                          {s.nome} (x{s.quantidade}) — R$ {(s.valor * s.quantidade).toFixed(2)}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-gray-500">Nenhum serviço adicionado.</p>
-                  )}
-                </div>
-
-                {/* Lista de Peças */}
-                <div>
-                  <h2 className="text-xl font-semibold text-blue-600 mt-6 mb-2">Peças Utilizadas</h2>
-                  {pecasAdicionadas.length > 0 ? (
-                    <ul className="list-disc ml-6 space-y-1">
-                      {pecasAdicionadas.map((p, index) => (
-                        <li key={index}>
-                          {pecas[p.id]?.nome || p.id} (x{p.quantidade}) — R$ {(pecas[p.id]?.preco * p.quantidade).toFixed(2)}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-gray-500">Nenhuma peça adicionada.</p>
-                  )}
-                </div>
+          <div className="w-full mt-6 bg-white/80 backdrop-blur-lg p-6 rounded-2xl shadow-lg transition-all">
+            <h2 className="text-2xl font-extrabold text-blue-700 drop-shadow-sm mb-6 text-center">Resumo da Ordem de Serviço</h2>
+            {/* Novo layout minimalista e organizado */}
+            <div className="p-8 bg-white/80 rounded-2xl mt-6 text-base space-y-10 border border-gray-200 shadow-lg">
+              {/* Dados do Cliente */}
+              <div>
+                <h2 className="text-xl font-semibold text-blue-600 mb-2">Dados do Cliente</h2>
+                <p><strong>Nome:</strong> {clienteSelecionado?.nome}</p>
+                <p><strong>Telefone:</strong> {clienteSelecionado?.telefone}</p>
               </div>
-              <div className="flex justify-between mt-6">
-                <button
-                  onClick={() => setShowResumoModal(false)}
-                  className="border border-gray-300 text-gray-700 rounded-lg px-4 py-2 hover:bg-gray-200"
-                >
-                  Voltar e Editar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700"
-                  onClick={() => {
-                    setShowResumoModal(false);
-                    document.querySelector('form')?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-                  }}
-                >
-                  Confirmar e Cadastrar
-                </button>
+              {/* Dados do Aparelho */}
+              <div>
+                <h2 className="text-xl font-semibold text-blue-600 mb-2">Aparelho</h2>
+                <p><strong>Categoria:</strong> {categoriasEquip.find(c => c.id === categoriaEquip)?.nome || categoriaEquip}</p>
+                <p><strong>Modelo:</strong> {modelo}</p>
+                <p><strong>Cor:</strong> {cor}</p>
+                <p><strong>Número de série:</strong> {numeroSerie}</p>
               </div>
+              {/* Descrição do Serviço */}
+              <div>
+                <h2 className="text-xl font-semibold text-blue-600 mb-2">Serviço</h2>
+                <p><strong>Relato do cliente:</strong> {relato}</p>
+                <p><strong>Observações internas:</strong> {observacao}</p>
+              </div>
+              {/* Lista de Serviços */}
+              <div>
+                <h2 className="text-xl font-semibold text-blue-600 mb-2">Serviços Adicionados</h2>
+                {servicosAdicionados.length > 0 ? (
+                  <ul className="list-disc ml-6 space-y-1">
+                    {servicosAdicionados.map((s, index) => (
+                      <li key={index}>
+                        {s.nome} (x{s.quantidade}) — R$ {(s.valor * s.quantidade).toFixed(2)}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-gray-500">Nenhum serviço adicionado.</p>
+                )}
+              </div>
+              {/* Lista de Peças */}
+              <div>
+                <h2 className="text-xl font-semibold text-blue-600 mt-6 mb-2">Peças Utilizadas</h2>
+                {pecasAdicionadas.length > 0 ? (
+                  <ul className="list-disc ml-6 space-y-1">
+                    {pecasAdicionadas.map((p, index) => (
+                      <li key={index}>
+                        {pecas[p.id]?.nome || p.id} (x{p.quantidade}) — R$ {(pecas[p.id]?.preco * p.quantidade).toFixed(2)}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-gray-500">Nenhuma peça adicionada.</p>
+                )}
+              </div>
+            </div>
+            <div className="flex justify-between mt-8">
               <button
                 onClick={() => setShowResumoModal(false)}
-                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                className="border border-gray-300 text-gray-700 rounded-xl px-6 py-3 font-semibold hover:bg-gray-200 transition hover:scale-[1.02] active:scale-95"
               >
-                ×
+                Voltar e Editar
+              </button>
+              <button
+                type="submit"
+                className="px-6 py-3 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95"
+                onClick={() => {
+                  setShowResumoModal(false);
+                  document.querySelector('form')?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+                }}
+              >
+                Confirmar e Cadastrar
               </button>
             </div>
           </div>
