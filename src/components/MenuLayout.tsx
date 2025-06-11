@@ -71,51 +71,53 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
         </div>
       </div>
 
-      {/* Sidebar */}
-      <aside
-        className={`bg-white border-r border-[#000000]/10 pt-16 px-2 flex flex-col h-screen fixed top-0 left-0 z-50 transition-all duration-300 ${menuExpandido ? 'w-64' : 'w-16'}`}
-      >
-        <div className="mb-6 h-10" />
-        <nav className="space-y-2">
-          {isTecnico ? (
-            <>
-              <SidebarButton path="/dashboard/bancada" icon={<FiTool size={20} />} label="Bancada" menuExpandido={menuExpandido} />
-            </>
-          ) : (
-            <>
-              <SidebarButton path="/dashboard/admin" icon={<FiHome size={20} />} label="Dashboard" menuExpandido={menuExpandido} />
-              <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" menuExpandido={menuExpandido} />
-              <SidebarButton path="/clientes" icon={<FiUsers size={20} />} label="Clientes" menuExpandido={menuExpandido} />
-              <SidebarButton path="/tecnicos" icon={<FiUserCheck size={20} />} label="Técnicos" menuExpandido={menuExpandido} />
-              <SidebarButton path="/equipamentos" icon={<FiBox size={20} />} label="Produtos/Serviços" menuExpandido={menuExpandido} />
-              <SidebarButton path="/financeiro" icon={<FiDollarSign size={20} />} label="Financeiro" menuExpandido={menuExpandido} />
-              <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" menuExpandido={menuExpandido} />
-              <SidebarButton path="/termos" icon={<FiFileText size={20} />} label="Termos" menuExpandido={menuExpandido} />
-              <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" menuExpandido={menuExpandido} />
-            </>
-          )}
-          <button
-            onClick={() => {
-              auth?.signOut();
-              router.push('/login');
-            }}
-            className="group flex items-center w-full text-left px-3 py-2 text-[#cffb6d] hover:text-white mt-4"
-          >
-            <div className="min-w-[20px]">
-              <FiLogOut size={20} />
-            </div>
-            <span className="ml-2 whitespace-nowrap transition-all duration-300 ease-in-out opacity-100 scale-100">Sair</span>
-          </button>
-        </nav>
-        <div className="mt-auto text-center text-xs text-[#cffb6d] pb-4">
-          v1.0.0
-        </div>
-      </aside>
+      {/* Sidebar e Conteúdo principal em wrapper responsivo */}
+      <div className="flex w-full">
+        <aside
+          className={`hidden md:flex bg-white border-r border-[#000000]/10 pt-16 px-2 flex-col h-screen fixed top-0 left-0 z-50 transition-all duration-300 ${menuExpandido ? 'w-64' : 'w-16'}`}
+        >
+          <div className="mb-6 h-10" />
+          <nav className="space-y-2">
+            {isTecnico ? (
+              <>
+                <SidebarButton path="/dashboard/bancada" icon={<FiTool size={20} />} label="Bancada" menuExpandido={menuExpandido} />
+              </>
+            ) : (
+              <>
+                <SidebarButton path="/dashboard/admin" icon={<FiHome size={20} />} label="Dashboard" menuExpandido={menuExpandido} />
+                <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" menuExpandido={menuExpandido} />
+                <SidebarButton path="/clientes" icon={<FiUsers size={20} />} label="Clientes" menuExpandido={menuExpandido} />
+                <SidebarButton path="/tecnicos" icon={<FiUserCheck size={20} />} label="Técnicos" menuExpandido={menuExpandido} />
+                <SidebarButton path="/equipamentos" icon={<FiBox size={20} />} label="Produtos/Serviços" menuExpandido={menuExpandido} />
+                <SidebarButton path="/financeiro" icon={<FiDollarSign size={20} />} label="Financeiro" menuExpandido={menuExpandido} />
+                <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" menuExpandido={menuExpandido} />
+                <SidebarButton path="/termos" icon={<FiFileText size={20} />} label="Termos" menuExpandido={menuExpandido} />
+                <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" menuExpandido={menuExpandido} />
+              </>
+            )}
+            <button
+              onClick={() => {
+                auth?.signOut();
+                router.push('/login');
+              }}
+              className="group flex items-center w-full text-left px-3 py-2 text-[#cffb6d] hover:text-white mt-4"
+            >
+              <div className="min-w-[20px]">
+                <FiLogOut size={20} />
+              </div>
+              <span className="ml-2 whitespace-nowrap transition-all duration-300 ease-in-out opacity-100 scale-100">Sair</span>
+            </button>
+          </nav>
+          <div className="mt-auto text-center text-xs text-[#cffb6d] pb-4">
+            v1.0.0
+          </div>
+        </aside>
 
-      {/* Conteúdo principal */}
-      <main className={`transition-all duration-300 bg-white text-[#000000] p-6 ${menuExpandido ? 'pl-64' : 'pl-16'} z-0 relative overflow-x-auto w-full mt-16`}>
-        {children}
-      </main>
+        {/* Conteúdo principal */}
+        <main className={`transition-all duration-300 bg-white text-[#000000] p-6 ${menuExpandido ? 'md:pl-64' : 'md:pl-16'} pl-4 z-0 relative overflow-x-auto w-full mt-16`}>
+          {children}
+        </main>
+      </div>
 
       <Toaster
         position="top-center"
