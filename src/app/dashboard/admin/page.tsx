@@ -484,15 +484,7 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
   }
 
   // Checagem de carregamento e autenticação
-  if (carregando) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-black">
-        <p className="text-[#cffb6d] text-xl font-light tracking-wide">
-          Carregando dashboard...
-        </p>
-      </div>
-    );
-  }
+  if (carregando) return null;
 
   if (!carregando && (!user || !empresaId)) {
     localStorage.removeItem('user');

@@ -40,16 +40,12 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
 
   const isTecnico = auth?.user?.nivel === 'tecnico';
 
-  if (!isReady) {
-    return (
-      <div className="w-full h-screen flex items-center justify-center bg-white">
-        <span className="text-[#cffb6d]">Carregando...</span>
-      </div>
-    );
-  }
+if (!isReady) {
+  return null;
+}
 
   return (
-    <div className="flex min-h-screen relative z-0 overflow-x-hidden w-full">
+    <div className="flex min-h-screen bg-transparent relative z-0 overflow-x-hidden w-full">
       {/* Topbar */}
       <div className="fixed top-0 left-0 w-full z-60 h-14 bg-white text-[#000000] flex items-center justify-between px-4 border-b border-[#000000]/10">
         <div className="flex items-center gap-3">
