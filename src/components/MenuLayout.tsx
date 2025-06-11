@@ -74,7 +74,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
       {/* Sidebar e Conteúdo principal em wrapper responsivo */}
       <div className="flex w-full">
         <aside
-          className={`hidden md:flex bg-white border-r border-[#000000]/10 pt-16 px-2 flex-col h-screen fixed top-0 left-0 z-50 transition-all duration-300 ${menuExpandido ? 'w-64' : 'w-16'}`}
+          className={`flex bg-white border-r border-[#000000]/10 pt-16 px-2 flex-col h-screen fixed top-0 left-0 z-50 transition-all duration-300 ${
+            menuExpandido ? 'w-64' : 'w-0 md:w-16'
+          } ${menuExpandido ? 'opacity-100' : 'opacity-0 md:opacity-100'} ${menuExpandido ? 'visible' : 'invisible md:visible'}`}
         >
           <div className="mb-6 h-10" />
           <nav className="space-y-2">
