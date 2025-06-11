@@ -1,5 +1,7 @@
 'use client';
 
+import MenuLayout from "@/components/MenuLayout";
+
 import Image from 'next/image';
 
 function BarraDeProgresso({ etapaAtual, total }: { etapaAtual: number; total: number }) {
@@ -426,7 +428,7 @@ export default function NovaOSPage() {
     ? { nome: tecnico.charAt(0).toUpperCase() + tecnico.slice(1) }
     : null;
   return (
-    <>
+    <MenuLayout>
       {/* Título principal fora do container */}
       <div className="w-full">
         <h1 className="text-3xl font-bold text-blue-600 text-center mb-8">
@@ -1318,7 +1320,7 @@ export default function NovaOSPage() {
         </div>
       </div>
       </div>
-    </>
+    </MenuLayout>
   );
 }
 // Componente para o formulário da modal de cadastro rápido de cliente

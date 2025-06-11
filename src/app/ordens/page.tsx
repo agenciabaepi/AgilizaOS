@@ -174,7 +174,7 @@ export default function ListaOrdensPage() {
               <option value="Fernanda">Fernanda</option>
             </select>
             <button
-              onClick={() => router.push('/dashboard/nova-os')}
+              onClick={() => router.push('/nova-os')}
               className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm shadow hover:bg-blue-700 transition"
             >
               + Nova OS
