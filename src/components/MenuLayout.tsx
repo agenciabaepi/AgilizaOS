@@ -102,12 +102,20 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                 auth?.signOut();
                 router.push('/login');
               }}
-              className="group flex items-center w-full text-left px-3 py-2 text-[#cffb6d] hover:text-white mt-4"
+              className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${
+                menuExpandido ? 'text-[#cffb6d] hover:text-white' : 'justify-center text-[#cffb6d]'
+              }`}
             >
               <div className="min-w-[20px]">
                 <FiLogOut size={20} />
               </div>
-              <span className="ml-2 whitespace-nowrap transition-all duration-300 ease-in-out opacity-100 scale-100">Sair</span>
+              <span
+                className={`ml-2 transition-all duration-300 ease-in-out whitespace-nowrap ${
+                  menuExpandido ? 'opacity-100 scale-100 max-w-[200px]' : 'opacity-0 scale-95 max-w-0 overflow-hidden'
+                }`}
+              >
+                Sair
+              </span>
             </button>
           </nav>
           <div className="mt-auto text-center text-xs text-[#cffb6d] pb-4">
@@ -116,7 +124,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
         </aside>
 
         {/* Conteúdo principal */}
-        <main className={`transition-all duration-300 bg-white text-[#000000] p-6 ${menuExpandido ? 'md:pl-64' : 'md:pl-16'} pl-4 z-0 relative overflow-x-auto w-full mt-16`}>
+        <main className={`transition-all duration-300 bg-white text-[#000000] p-6 ${menuExpandido ? 'md:ml-64' : 'md:ml-16'} ml-0 z-0 relative overflow-x-auto w-full mt-16`}>
           {children}
         </main>
       </div>

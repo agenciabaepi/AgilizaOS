@@ -1,6 +1,6 @@
 'use client';
 
-import Menu from '@/components/MenuLayout';
+import MenuLayout from '@/components/MenuLayout';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { FiEye, FiEdit, FiPrinter, FiUsers } from 'react-icons/fi';
@@ -107,11 +107,9 @@ export default function ListaOrdensPage() {
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
 
   return (
-    <div className="flex">
-      <div className="w-64 min-h-screen fixed left-0 top-0 bg-white z-50 shadow">
-        <Menu />
-      </div>
-      <div className="ml-64 flex-1 p-6 pt-20">
+    <MenuLayout>
+      <div className="pt-20 px-6 w-full">
+        {/* Cards de técnicos */}
         <div className="bg-white p-6 rounded-xl shadow mb-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <FiUsers className="text-blue-600" />
@@ -132,7 +130,9 @@ export default function ListaOrdensPage() {
             </div>
           </div>
         </div>
-        <div className="flex justify-between items-center mb-4">
+
+        {/* Filtros e busca */}
+        <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
           <h1 className="text-2xl font-bold">Ordens de Serviço</h1>
           <div className="flex flex-wrap gap-4 items-center">
             <input
@@ -164,7 +164,6 @@ export default function ListaOrdensPage() {
               <option value="Samsung">Celulares</option>
               <option value="Notebook">Computadores</option>
             </select>
-
             <select
               className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm"
               value={tecnicoFilter}
@@ -182,6 +181,8 @@ export default function ListaOrdensPage() {
             </button>
           </div>
         </div>
+
+        {/* Tabela */}
         <div className="overflow-x-auto rounded-lg shadow-md bg-white p-4">
           <table className="min-w-full divide-y divide-gray-200 text-sm text-left text-gray-700">
             <thead className="bg-gray-100 text-xs uppercase text-gray-700">
@@ -232,6 +233,8 @@ export default function ListaOrdensPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Paginação */}
         <div className="mt-6 flex justify-center gap-2">
           {Array.from({ length: totalPages }, (_, i) => (
             <button
@@ -246,6 +249,6 @@ export default function ListaOrdensPage() {
           ))}
         </div>
       </div>
-    </div>
+    </MenuLayout>
   );
 }
