@@ -27,6 +27,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const pathname = usePathname();
 
   const [isReady, setIsReady] = useState(false);
+  const [menuExpandido, setMenuExpandido] = useState(true);
 
   useEffect(() => {
     if (auth?.user === undefined) return;
@@ -42,7 +43,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   if (!isReady) {
     return (
       <div className="w-full h-screen flex items-center justify-center bg-white">
-        <span className="text-gray-400">Carregando...</span>
+        <span className="text-[#cffb6d]">Carregando...</span>
       </div>
     );
   }
@@ -50,49 +51,47 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="flex min-h-screen relative z-0 overflow-x-hidden w-full">
       {/* Topbar */}
-      <div className="fixed top-0 left-0 w-full z-60 h-10 bg-[#1e3bef] text-white flex items-center justify-end px-4">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 bg-white/10 px-3 py-1 rounded-md">
-            <FiSearch className="text-white" size={16} />
-            <input
-              type="text"
-              placeholder="Buscar..."
-              className="bg-transparent placeholder-white/80 text-white text-sm focus:outline-none"
-            />
-          </div>
-          <FiBell className="text-white hover:text-gray-200 cursor-pointer" size={18} />
-          <FiCheckCircle className="text-green-400" size={16} />
-          <span className="text-white/80 text-sm">Licença ativa</span>
-          <button className="text-white/80 text-sm hover:text-white flex items-center gap-1">
-            <FiHelpCircle size={16} />
-            Suporte
+      <div className="fixed top-0 left-0 w-full z-60 h-14 bg-white text-[#000000] flex items-center justify-between px-4 border-b border-[#000000]/10">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setMenuExpandido(!menuExpandido)} className="text-[#000000]">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
           </button>
+          <Image src={logo} alt="Logo Agiliza" className="h-8 object-contain" />
+        </div>
+        <div className="flex items-center gap-4">
+          <FiSearch className="text-[#000000]" size={16} />
+          <input
+            type="text"
+            placeholder="Buscar..."
+            className="bg-transparent border-b border-black/10 placeholder-[#000000]/50 text-[#000000] text-sm focus:outline-none"
+          />
+          <FiBell className="text-[#000000] hover:text-[#000000]/80 cursor-pointer" size={18} />
         </div>
       </div>
 
       {/* Sidebar */}
       <aside
-        className="bg-white shadow-md pt-16 px-2 flex flex-col h-screen fixed top-0 left-0 z-50 w-64"
+        className={`bg-white border-r border-[#000000]/10 pt-16 px-2 flex flex-col h-screen fixed top-0 left-0 z-50 transition-all duration-300 ${menuExpandido ? 'w-64' : 'w-16'}`}
       >
-        <div className="flex items-center justify-center mb-6">
-          <Image src={logo} alt="Logo Agiliza" className="h-10 object-contain" />
-        </div>
+        <div className="mb-6 h-10" />
         <nav className="space-y-2">
           {isTecnico ? (
             <>
-              <SidebarButton path="/dashboard/bancada" icon={<FiTool size={20} />} label="Bancada" />
+              <SidebarButton path="/dashboard/bancada" icon={<FiTool size={20} />} label="Bancada" menuExpandido={menuExpandido} />
             </>
           ) : (
             <>
-              <SidebarButton path="/dashboard/admin" icon={<FiHome size={20} />} label="Dashboard" />
-              <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" />
-              <SidebarButton path="/clientes" icon={<FiUsers size={20} />} label="Clientes" />
-              <SidebarButton path="/tecnicos" icon={<FiUserCheck size={20} />} label="Técnicos" />
-              <SidebarButton path="/equipamentos" icon={<FiBox size={20} />} label="Produtos/Serviços" />
-              <SidebarButton path="/financeiro" icon={<FiDollarSign size={20} />} label="Financeiro" />
-              <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" />
-              <SidebarButton path="/termos" icon={<FiFileText size={20} />} label="Termos" />
-              <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" />
+              <SidebarButton path="/dashboard/admin" icon={<FiHome size={20} />} label="Dashboard" menuExpandido={menuExpandido} />
+              <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" menuExpandido={menuExpandido} />
+              <SidebarButton path="/clientes" icon={<FiUsers size={20} />} label="Clientes" menuExpandido={menuExpandido} />
+              <SidebarButton path="/tecnicos" icon={<FiUserCheck size={20} />} label="Técnicos" menuExpandido={menuExpandido} />
+              <SidebarButton path="/equipamentos" icon={<FiBox size={20} />} label="Produtos/Serviços" menuExpandido={menuExpandido} />
+              <SidebarButton path="/financeiro" icon={<FiDollarSign size={20} />} label="Financeiro" menuExpandido={menuExpandido} />
+              <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" menuExpandido={menuExpandido} />
+              <SidebarButton path="/termos" icon={<FiFileText size={20} />} label="Termos" menuExpandido={menuExpandido} />
+              <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" menuExpandido={menuExpandido} />
             </>
           )}
           <button
@@ -100,7 +99,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               auth?.signOut();
               router.push('/login');
             }}
-            className="group flex items-center w-full text-left px-3 py-2 text-red-600 hover:text-red-800 mt-4"
+            className="group flex items-center w-full text-left px-3 py-2 text-[#cffb6d] hover:text-white mt-4"
           >
             <div className="min-w-[20px]">
               <FiLogOut size={20} />
@@ -108,13 +107,13 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             <span className="ml-2 whitespace-nowrap transition-all duration-300 ease-in-out opacity-100 scale-100">Sair</span>
           </button>
         </nav>
-        <div className="mt-auto text-center text-xs text-gray-400 pb-4">
+        <div className="mt-auto text-center text-xs text-[#cffb6d] pb-4">
           v1.0.0
         </div>
       </aside>
 
       {/* Conteúdo principal */}
-      <main className="transition-all duration-300 bg-gray-50 p-6 pl-64 z-0 relative overflow-x-auto w-full mt-16">
+      <main className={`transition-all duration-300 bg-white text-[#000000] p-6 ${menuExpandido ? 'pl-64' : 'pl-16'} z-0 relative overflow-x-auto w-full mt-16`}>
         {children}
       </main>
 
@@ -133,7 +132,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   );
 }
 
-function SidebarButton({ path, icon, label }: { path: string; icon: React.ReactNode; label: string }) {
+function SidebarButton({ path, icon, label, menuExpandido }: { path: string; icon: React.ReactNode; label: string; menuExpandido: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
 
@@ -141,12 +140,14 @@ function SidebarButton({ path, icon, label }: { path: string; icon: React.ReactN
     <button
       onClick={() => router.push(path)}
       className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${
-        pathname === path ? 'bg-[#1e3bef] text-white font-semibold' : 'hover:bg-[#1e3bef]/10 hover:text-[#1e3bef]'
+        pathname === path ? 'bg-[#cffb6d] text-[#000000]' : 'hover:bg-[#cffb6d]/20 text-[#000000] hover:text-[#000000]'
       }`}
     >
       <div className="min-w-[20px]">{icon}</div>
       <span
-        className="ml-2 whitespace-nowrap transition-all duration-300 ease-in-out opacity-100 scale-100"
+        className={`transition-all duration-300 ease-in-out whitespace-nowrap ml-2 ${
+          menuExpandido ? 'opacity-100 scale-100 max-w-[200px]' : 'opacity-0 scale-95 max-w-0 overflow-hidden'
+        }`}
       >
         {label}
       </span>
