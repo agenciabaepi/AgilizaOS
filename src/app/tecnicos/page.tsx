@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabaseClient';
 // Função de cadastro de técnico via API backend
 async function cadastrarTecnico({ nome, email, senha, empresa_id }: { nome: string, email: string, senha: string, empresa_id: string }) {
   try {
-    const response = await fetch('/api/cadastrarTecnico', {
+    const response = await fetch('/api/tecnicos/cadastrarTecnico', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nome, email, senha, empresa_id }),

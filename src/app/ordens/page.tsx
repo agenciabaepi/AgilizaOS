@@ -4,15 +4,10 @@ import MenuLayout from '@/components/MenuLayout';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { FiEye, FiEdit, FiPrinter, FiUsers } from 'react-icons/fi';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function ListaOrdensPage() {
   const router = useRouter();
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
 
   function formatDate(date: string) {
     return date ? new Date(date).toLocaleDateString('pt-BR') : '';
@@ -29,13 +24,16 @@ export default function ListaOrdensPage() {
 
   useEffect(() => {
     const fetchOrdens = async () => {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: userError
+      } = await supabase.auth.getUser();
       if (userError) {
         console.error('Erro ao obter usuário autenticado:', userError);
         return;
       }
 
-      const userId = userData?.user?.id;
+      const userId = user?.id;
       const { data: empresaData, error: empresaError } = await supabase
         .from("empresas")
         .select("id")
@@ -52,7 +50,7 @@ export default function ListaOrdensPage() {
       const { data, error } = await supabase
         .from('ordens_servico')
         .select(`
-          id, numero_os, servico, status, created_at, tecnico, atendente, data_entrega, vencimento_garantia, valor_peca, valor_servico, desconto, valor_faturado,
+          id, numero_os, servico, status, created_at, tecnico_id ( nome ), atendente, data_entrega, vencimento_garantia, valor_peca, valor_servico, desconto, valor_faturado,
           categoria, modelo, marca, cor,
           cliente_id ( nome )
         `)
@@ -73,7 +71,7 @@ export default function ListaOrdensPage() {
               servico: item.servico || '',
               statusOS: item.status || '',
               entrada: item.created_at || '',
-              tecnico: item.tecnico || '',
+              tecnico: item.tecnico_id?.nome || '',
               atendente: item.atendente || '',
               entrega: item.data_entrega || '',
               garantia: item.vencimento_garantia || '',
@@ -217,10 +215,11 @@ export default function ListaOrdensPage() {
                   </td>
                   <td className="px-3 py-2 text-right">
                     <div className="flex justify-end gap-2">
-                      <button onClick={() => router.push(`/dashboard/ordens/${os.id}`)} className="text-blue-600 hover:text-blue-800">
+                      {console.log('Visualizar OS ID:', os.id)}
+                      <button onClick={() => router.push(`/ordens/${os.id}`)} className="text-blue-600 hover:text-blue-800">
                         <FiEye size={18} />
                       </button>
-                      <button onClick={() => router.push(`/dashboard/ordens/${os.id}/editar`)} className="text-yellow-600 hover:text-yellow-800">
+                      <button onClick={() => router.push(`/ordens/editar/${os.id}`)} className="text-yellow-600 hover:text-yellow-800">
                         <FiEdit size={18} />
                       </button>
                       <button onClick={() => console.log('Imprimir', os.id)} className="text-gray-600 hover:text-gray-800">

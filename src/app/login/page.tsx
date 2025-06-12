@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
-import logo from '@/assets/imagens/logoagiliza.png';
+import logo from '@/assets/imagens/logopreto.png';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('lucas@hotmail.com');
@@ -93,7 +93,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-100 via-white to-purple-100">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-[#cffb6d] to-[#e0ffe3]">
       <form
         onSubmit={handleLogin}
         className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-sm border border-gray-200"
@@ -124,7 +124,7 @@ export default function LoginPage() {
 
         <button
           type="submit"
-          className="w-full bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition flex justify-center items-center mb-2"
+          className="w-full bg-[#000000] text-white font-semibold py-3 rounded-lg hover:opacity-90 transition flex justify-center items-center mb-2"
           disabled={isSubmitting}
         >
           {isSubmitting ? 'Entrando...' : 'Entrar'}
@@ -132,7 +132,7 @@ export default function LoginPage() {
 
         <button
           type="button"
-          className="w-full bg-gray-200 text-gray-700 font-semibold py-3 rounded-lg hover:bg-gray-300 transition"
+          className="w-full bg-white text-black font-semibold py-3 rounded-lg hover:bg-gray-100 transition"
           onClick={handlePasswordReset}
           disabled={isRecovering}
         >
