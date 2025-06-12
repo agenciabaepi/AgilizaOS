@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import MenuLayout from '@/components/MenuLayout';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
+import { PencilIcon, PrinterIcon, ReceiptPercentIcon, ChatBubbleOvalLeftEllipsisIcon } from '@heroicons/react/24/outline';
 
 const VisualizarOrdemServicoPage = () => {
   const router = useRouter();
@@ -60,6 +61,24 @@ const VisualizarOrdemServicoPage = () => {
         >
           ← Voltar para Ordens de Serviço
         </button>
+        <div className="flex flex-wrap justify-end gap-3 mb-8">
+          <button className="flex items-center gap-2 px-4 py-2 border rounded-md text-sm hover:bg-gray-100">
+            <PencilIcon className="h-5 w-5" />
+            Editar
+          </button>
+          <button className="flex items-center gap-2 px-4 py-2 border rounded-md text-sm hover:bg-gray-100">
+            <PrinterIcon className="h-5 w-5" />
+            Imprimir A4
+          </button>
+          <button className="flex items-center gap-2 px-4 py-2 border rounded-md text-sm hover:bg-gray-100">
+            <ReceiptPercentIcon className="h-5 w-5" />
+            Cupom
+          </button>
+          <button className="flex items-center gap-2 px-4 py-2 border rounded-md text-sm text-green-600 border-green-500 hover:bg-green-50">
+            <ChatBubbleOvalLeftEllipsisIcon className="h-5 w-5" />
+            WhatsApp
+          </button>
+        </div>
 
         <div className="mb-10">
           <h1 className="text-4xl font-extrabold text-blue-700 mb-2">
@@ -107,18 +126,21 @@ const VisualizarOrdemServicoPage = () => {
           <section className="bg-white p-6 rounded-lg border border-gray-200 col-span-1 md:col-span-2 lg:col-span-3">
             <h2 className="text-xl font-semibold text-gray-700 mb-6">Valores</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              <div className="rounded-xl bg-gradient-to-br from-green-100 to-green-200 p-5 shadow-inner flex flex-col items-center text-center">
-                <h3 className="text-sm text-gray-600 mb-1">Peças</h3>
-                <p className="text-2xl font-bold text-green-800">R$ {ordem.valor_peca?.toFixed(2) || '0,00'}</p>
-              </div>
-              <div className="rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 p-5 shadow-inner flex flex-col items-center text-center">
-                <h3 className="text-sm text-gray-600 mb-1">Serviços</h3>
-                <p className="text-2xl font-bold text-blue-800">R$ {ordem.valor_servico?.toFixed(2) || '0,00'}</p>
-              </div>
-              <div className="rounded-xl bg-gradient-to-br from-yellow-100 to-yellow-200 p-5 shadow-inner flex flex-col items-center text-center">
-                <h3 className="text-sm text-gray-600 mb-1">Total Faturado</h3>
-                <p className="text-2xl font-bold text-yellow-800">R$ {ordem.valor_faturado?.toFixed(2) || '0,00'}</p>
-              </div>
+              {[
+                { label: 'Peças', value: ordem.valor_peca },
+                { label: 'Serviços', value: ordem.valor_servico },
+                { label: 'Total Faturado', value: ordem.valor_faturado },
+              ].map(({ label, value }) => (
+                <div
+                  key={label}
+                  className="rounded-lg p-6 border border-gray-200 bg-white hover:shadow transition duration-200"
+                >
+                  <h3 className="text-sm text-gray-500 font-medium mb-1">{label}</h3>
+                  <p className="text-3xl font-bold text-gray-800">
+                    R$ {(value ?? 0).toFixed(2)}
+                  </p>
+                </div>
+              ))}
             </div>
           </section>
         </div>
