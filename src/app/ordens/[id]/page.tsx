@@ -26,11 +26,6 @@ const VisualizarOrdemServicoPage = () => {
           ),
           tecnico:tecnico_id (
             nome
-          ),
-          aparelho:aparelho_id (
-            modelo,
-            cor,
-            imei
           )
         `)
         .eq('id', String(id))
@@ -84,9 +79,11 @@ const VisualizarOrdemServicoPage = () => {
 
           <section className="bg-white p-6 rounded-lg border border-gray-200">
             <h2 className="text-xl font-semibold text-gray-700 mb-4">Aparelho</h2>
-            <p className="text-gray-900 font-medium">{ordem.aparelho?.modelo}</p>
-            <p className="text-gray-600 text-sm">Cor: {ordem.aparelho?.cor}</p>
-            <p className="text-gray-600 text-sm">IMEI: {ordem.aparelho?.imei}</p>
+            <p className="text-gray-600 text-sm">Categoria: {ordem.categoria}</p>
+            <p className="text-gray-900 font-medium">Modelo: {ordem.modelo}</p>
+            <p className="text-gray-600 text-sm">Cor: {ordem.cor}</p>
+            <p className="text-gray-600 text-sm">Marca: {ordem.marca}</p>
+            <p className="text-gray-600 text-sm">Número de Série: {ordem.numero_serie}</p>
           </section>
 
           <section className="bg-white p-6 rounded-lg border border-gray-200">
@@ -99,12 +96,30 @@ const VisualizarOrdemServicoPage = () => {
 
           <section className="bg-white p-6 rounded-lg border border-gray-200 col-span-1 md:col-span-2 lg:col-span-3">
             <h2 className="text-xl font-semibold text-gray-700 mb-4">Relato do Cliente</h2>
-            <p className="text-gray-700 text-sm">{ordem.relato_cliente}</p>
+            <p className="text-gray-700 text-sm whitespace-pre-line">{ordem.relato || 'Nenhum relato fornecido.'}</p>
           </section>
 
           <section className="bg-white p-6 rounded-lg border border-gray-200 col-span-1 md:col-span-2 lg:col-span-3">
-            <h2 className="text-xl font-semibold text-gray-700 mb-4">Observações Internas</h2>
-            <p className="text-gray-700 text-sm">{ordem.observacoes_internas}</p>
+            <h2 className="text-xl font-semibold text-gray-700 mb-4">Observações </h2>
+            <p className="text-gray-700 text-sm whitespace-pre-line">{ordem.observacao || 'Nenhuma observação interna registrada.'}</p>
+          </section>
+
+          <section className="bg-white p-6 rounded-lg border border-gray-200 col-span-1 md:col-span-2 lg:col-span-3">
+            <h2 className="text-xl font-semibold text-gray-700 mb-6">Valores</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              <div className="rounded-xl bg-gradient-to-br from-green-100 to-green-200 p-5 shadow-inner flex flex-col items-center text-center">
+                <h3 className="text-sm text-gray-600 mb-1">Peças</h3>
+                <p className="text-2xl font-bold text-green-800">R$ {ordem.valor_peca?.toFixed(2) || '0,00'}</p>
+              </div>
+              <div className="rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 p-5 shadow-inner flex flex-col items-center text-center">
+                <h3 className="text-sm text-gray-600 mb-1">Serviços</h3>
+                <p className="text-2xl font-bold text-blue-800">R$ {ordem.valor_servico?.toFixed(2) || '0,00'}</p>
+              </div>
+              <div className="rounded-xl bg-gradient-to-br from-yellow-100 to-yellow-200 p-5 shadow-inner flex flex-col items-center text-center">
+                <h3 className="text-sm text-gray-600 mb-1">Total Faturado</h3>
+                <p className="text-2xl font-bold text-yellow-800">R$ {ordem.valor_faturado?.toFixed(2) || '0,00'}</p>
+              </div>
+            </div>
           </section>
         </div>
       </main>
