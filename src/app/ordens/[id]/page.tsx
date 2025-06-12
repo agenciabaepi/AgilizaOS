@@ -54,22 +54,27 @@ const VisualizarOrdemServicoPage = () => {
 
   return (
     <MenuLayout>
-      <main className="min-h-screen bg-gradient-to-br from-white to-slate-100 px-6 py-10 text-black">
+      <main className="min-h-screen bg-gradient-to-br from-white to-slate-100 px-6 py-10 text-black print-area">
         <button
           onClick={() => router.push('/ordens')}
           className="mb-4 text-sm text-blue-600 hover:underline"
         >
           ← Voltar para Ordens de Serviço
         </button>
-        <div className="flex flex-wrap justify-end gap-3 mb-8">
+        <div className="no-print flex flex-wrap justify-end gap-3 mb-8">
           <button className="flex items-center gap-2 px-4 py-2 border rounded-md text-sm hover:bg-gray-100">
             <PencilIcon className="h-5 w-5" />
             Editar
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 border rounded-md text-sm hover:bg-gray-100">
+          <a
+            href={`/ordens/${id}/imprimir`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2 border rounded-md text-sm hover:bg-gray-100"
+          >
             <PrinterIcon className="h-5 w-5" />
             Imprimir A4
-          </button>
+          </a>
           <button className="flex items-center gap-2 px-4 py-2 border rounded-md text-sm hover:bg-gray-100">
             <ReceiptPercentIcon className="h-5 w-5" />
             Cupom
@@ -127,18 +132,33 @@ const VisualizarOrdemServicoPage = () => {
             <h2 className="text-xl font-semibold text-gray-700 mb-6">Valores</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               {[
-                { label: 'Peças', value: ordem.valor_peca },
-                { label: 'Serviços', value: ordem.valor_servico },
-                { label: 'Total Faturado', value: ordem.valor_faturado },
-              ].map(({ label, value }) => (
+                {
+                  label: 'Peças',
+                  value: ordem.valor_peca,
+                  descricao: ordem.qtd_peca && ordem.peca ? `${ordem.qtd_peca}x ${ordem.peca}` : 'Sem descrição da peça.',
+                },
+                {
+                  label: 'Serviços',
+                  value: ordem.valor_servico,
+                  descricao: ordem.qtd_servico && ordem.servico ? `${ordem.qtd_servico}x ${ordem.servico}` : 'Sem descrição do serviço.',
+                },
+                {
+                  label: 'Total Faturado',
+                  value: ordem.valor_faturado,
+                  descricao: '',
+                },
+              ].map(({ label, value, descricao }) => (
                 <div
                   key={label}
                   className="rounded-lg p-6 border border-gray-200 bg-white hover:shadow transition duration-200"
                 >
                   <h3 className="text-sm text-gray-500 font-medium mb-1">{label}</h3>
-                  <p className="text-3xl font-bold text-gray-800">
+                  <p className="text-3xl font-bold text-gray-800 mb-1">
                     R$ {(value ?? 0).toFixed(2)}
                   </p>
+                  {descricao && (
+                    <p className="text-sm text-gray-500">{descricao}</p>
+                  )}
                 </div>
               ))}
             </div>
