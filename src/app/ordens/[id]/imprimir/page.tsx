@@ -31,23 +31,28 @@ export default function ImprimirOrdemServico() {
   if (!ordem) return <div>Carregando...</div>;
 
   return (
-    <div style={{ fontFamily: 'Helvetica', fontSize: '12px', padding: '40px', backgroundColor: '#fff', color: '#000' }}>
-      <div style={{ borderBottom: '1px solid #ccc', paddingBottom: '10px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between' }}>
-        <div>
-          <img src={ordem.empresas?.logo_url || '/logo.png'} alt="Logo" style={{ height: '40px', marginBottom: '10px' }} />
-          <p><strong>{ordem.empresas?.nome}</strong></p>
-          <p>{ordem.empresas?.endereco}</p>
-          <p>Telefone: {ordem.empresas?.telefone}</p>
-          <p>Email: {ordem.empresas?.email}</p>
+    <div style={{ fontFamily: 'Helvetica', fontSize: '12px', padding: '24px', backgroundColor: '#fff', color: '#000' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+          <img src={ordem.empresas?.logo_url || '/logo.png'} alt="Logo" style={{ height: '64px' }} />
+          <div>
+            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>{ordem.empresas?.nome}</h1>
+            <p style={{ margin: 0, fontSize: '12px' }}><strong>CNPJ:</strong> {ordem.empresas?.cnpj}</p>
+            <p style={{ margin: 0, fontSize: '12px' }}>{ordem.empresas?.endereco}</p>
+            <p style={{ margin: 0, fontSize: '12px' }}>{ordem.empresas?.telefone} - {ordem.empresas?.email}</p>
+          </div>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <p><strong>Ordem de Serviço Nº {ordem.numero_os}</strong></p>
-          <p>Data: {new Date().toLocaleDateString()}</p>
+        <div style={{ textAlign: 'right', fontSize: '14px', lineHeight: '1.6' }}>
+          <p style={{ margin: '2px 0' }}><strong>Número da OS:</strong> {ordem.numero_os || ordem.id}</p>
+          <p style={{ margin: '2px 0' }}><strong>Data de Entrada:</strong> {ordem.created_at ? new Date(ordem.created_at).toLocaleDateString() : '---'}</p>
+          <p style={{ margin: '2px 0' }}><strong>Data de Saída:</strong> {ordem.data_saida ? new Date(ordem.data_saida).toLocaleDateString() : '---'}</p>
+          <p style={{ margin: '2px 0' }}><strong>Status:</strong> {ordem.status}</p>
+          <p style={{ margin: '2px 0' }}><strong>Garantia:</strong> {ordem.tempo_garantia || '---'}</p>
         </div>
       </div>
 
       <h3 style={{ borderBottom: '1px solid #000', paddingBottom: '4px' }}>Dados do Cliente</h3>
-      <table style={{ width: '100%', marginBottom: '20px', borderCollapse: 'collapse', border: '1px solid #ccc', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderRadius: '4px' }}>
+      <table style={{ width: '100%', marginBottom: '12px', borderCollapse: 'collapse', border: '1px solid #ccc', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderRadius: '4px' }}>
         <tbody>
           <tr>
             <td style={{ border: '1px solid #ddd', padding: '8px' }}><strong>Nome:</strong> {ordem.clientes?.nome}</td>
@@ -61,7 +66,7 @@ export default function ImprimirOrdemServico() {
       </table>
 
       <h3 style={{ borderBottom: '1px solid #000', paddingBottom: '4px' }}>Aparelho</h3>
-      <table style={{ width: '100%', marginBottom: '20px', borderCollapse: 'collapse', border: '1px solid #ccc', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderRadius: '4px' }}>
+      <table style={{ width: '100%', marginBottom: '12px', borderCollapse: 'collapse', border: '1px solid #ccc', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderRadius: '4px' }}>
         <tbody>
           <tr>
             <td style={{ border: '1px solid #ddd', padding: '8px' }}><strong>Categoria:</strong> {ordem.categoria}</td>
@@ -78,7 +83,7 @@ export default function ImprimirOrdemServico() {
       </table>
 
       <h3 style={{ borderBottom: '1px solid #000', paddingBottom: '4px' }}>Serviços</h3>
-      <table style={{ width: '100%', marginBottom: '20px', borderCollapse: 'collapse', border: '1px solid #ccc', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderRadius: '4px' }}>
+      <table style={{ width: '100%', marginBottom: '12px', borderCollapse: 'collapse', border: '1px solid #ccc', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderRadius: '4px' }}>
         <thead>
           <tr style={{ backgroundColor: '#f9f9f9' }}>
             <th style={{ textAlign: 'left', padding: '8px', border: '1px solid #ddd' }}>Serviço</th>
@@ -98,7 +103,7 @@ export default function ImprimirOrdemServico() {
       </table>
 
       <h3 style={{ borderBottom: '1px solid #000', paddingBottom: '4px' }}>Peças</h3>
-      <table style={{ width: '100%', marginBottom: '20px', borderCollapse: 'collapse', border: '1px solid #ccc', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderRadius: '4px' }}>
+      <table style={{ width: '100%', marginBottom: '12px', borderCollapse: 'collapse', border: '1px solid #ccc', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderRadius: '4px' }}>
         <thead>
           <tr style={{ backgroundColor: '#f9f9f9' }}>
             <th style={{ textAlign: 'left', padding: '8px', border: '1px solid #ddd' }}>Peça</th>
@@ -118,7 +123,7 @@ export default function ImprimirOrdemServico() {
       </table>
 
       <h3 style={{ borderBottom: '1px solid #000', paddingBottom: '4px' }}>Resumo</h3>
-      <table style={{ width: '100%', marginBottom: '20px', borderCollapse: 'collapse', border: '1px solid #ccc', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderRadius: '4px' }}>
+      <table style={{ width: '100%', marginBottom: '12px', borderCollapse: 'collapse', border: '1px solid #ccc', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderRadius: '4px' }}>
         <tbody>
           <tr>
             <td style={{ border: '1px solid #ddd', padding: '8px' }}><strong>Total Faturado:</strong></td>
@@ -128,15 +133,31 @@ export default function ImprimirOrdemServico() {
       </table>
 
       <h3 style={{ marginBottom: '6px' }}>Relato do Cliente</h3>
-      <p style={{ marginBottom: '20px' }}>{ordem.relato}</p>
+      <p style={{ marginBottom: '12px' }}>{ordem.relato}</p>
 
       <h3 style={{ marginBottom: '6px' }}>Observações Internas</h3>
-      <p style={{ marginBottom: '40px' }}>{ordem.observacao}</p>
+      <p style={{ marginBottom: '20px' }}>{ordem.observacao}</p>
 
-      <div style={{ textAlign: 'center', marginTop: '40px' }}>
-        <p style={{ borderTop: '1px solid #000', width: '300px', margin: '0 auto' }}></p>
-        <p style={{ marginTop: '4px' }}>Assinatura do Cliente</p>
+      <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '40px' }}>
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ borderTop: '1px solid #000', width: '240px', margin: '0 auto' }}></p>
+          <p style={{ marginTop: '4px' }}>Assinatura do Cliente</p>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ borderTop: '1px solid #000', width: '240px', margin: '0 auto' }}></p>
+          <p style={{ marginTop: '4px' }}>Assinatura da Empresa</p>
+        </div>
       </div>
+      <style>{`
+        @media print {
+          @page {
+            margin: 0;
+          }
+          body {
+            margin: 0;
+          }
+        }
+      `}</style>
     </div>
   );
 }
