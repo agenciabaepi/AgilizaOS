@@ -61,14 +61,14 @@ export default function CadastroEmpresa() {
         <p className="text-center text-green-700 font-medium text-sm mb-4">
           Experimente gratuitamente por 15 dias. Sem cartão de crédito!
         </p>
-        <div className="w-full p-8 bg-white rounded-2xl shadow-lg">
+        <div className="w-full p-8 bg-white rounded-[32px] shadow-xl overflow-visible min-h-[760px]">
           <div className="relative mb-6 h-2 bg-gray-200 rounded-full overflow-hidden">
             <div
               className="absolute top-0 left-0 h-full bg-[#000] transition-all"
               style={{ width: `${progress}%` }}
             />
           </div>
-          <div className="min-h-[560px] h-[560px] overflow-hidden relative transition-all">
+          <div className="h-auto min-h-[560px] overflow-visible relative transition-all">
             {step === 1 && (
               <div
                 key={`step3-${step}`}
@@ -79,75 +79,111 @@ export default function CadastroEmpresa() {
                   {/* Básico */}
                   <div
                     onClick={() => handlePlanoSelect('basico')}
-                    className={`group cursor-pointer border-2 ${
+                    className={`group cursor-pointer z-20 border-2 ${
                       form.plano === 'basico' ? 'border-green-600' : 'border-gray-300'
-                    } bg-white p-0 shadow-md rounded-xl transition-all duration-300 ease-in-out`}
+                    } bg-green-50 p-4 shadow-md rounded-2xl transition-all duration-300 ease-in-out hover:scale-[1.02] ring-1 ring-transparent hover:ring-green-400 relative`}
                   >
-                    <div className="flex flex-col items-center justify-center w-full h-full bg-white rounded-xl p-5 transition-all duration-300 ease-in-out">
-                      <FaUserFriends className="text-4xl text-black mb-4 group-hover:text-green-600 transition-all duration-300 ease-in-out" />
-                      <div className="text-center flex flex-col gap-3">
-                        <p className="font-semibold text-lg">Básico</p>
-                        <p className="text-green-600 font-bold text-sm">R$ 29/mês</p>
-                        <p className="text-sm text-gray-500">Até 2 usuários</p>
-                        <ul className="text-xs text-gray-400 mt-2 space-y-1 text-left">
-                          <li>• Cadastro de OS</li>
-                          <li>• Histórico do cliente</li>
-                          <li>• Geração de PDF simples</li>
-                        </ul>
-                        {form.plano === 'basico' && (
-                          <p className="text-xs font-bold text-green-600 mt-1">Selecionado</p>
-                        )}
+                    <div className="flex flex-col items-center justify-center w-full min-h-[440px] rounded-2xl p-4 transition-all duration-300 ease-in-out">
+                      <FaUserFriends className="text-4xl text-green-600 mb-4 group-hover:text-green-700 transition-all duration-300 ease-in-out" />
+                      <div className="flex flex-col items-center text-center gap-1">
+                        <p className="font-bold text-xl text-black">Básico</p>
+                        <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-medium">Ideal para assistências iniciantes</span>
+                        <p className="text-sm text-gray-500 mt-1">Ideal para assistências iniciantes</p>
+                        <p className="text-green-600 font-extrabold text-lg mt-2">R$ 29/mês</p>
+                        <p className="text-xs text-gray-400">Até 2 usuários</p>
                       </div>
+                      <div className="text-xs text-gray-500 mt-3 space-y-1 text-left">
+                        <div className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 bg-green-600 rounded-full" />
+                          <span>Cadastro de OS</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 bg-green-600 rounded-full" />
+                          <span>Histórico do cliente</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 bg-green-600 rounded-full" />
+                          <span>Geração de PDF simples</span>
+                        </div>
+                      </div>
+                      {form.plano === 'basico' && (
+                        <p className="text-xs font-bold text-green-600 mt-1">Selecionado</p>
+                      )}
                     </div>
                   </div>
 
                   {/* Pro */}
                   <div
                     onClick={() => handlePlanoSelect('pro')}
-                    className={`group cursor-pointer border-2 ${
+                    className={`group cursor-pointer z-20 border-2 ${
                       form.plano === 'pro' ? 'border-green-600' : 'border-gray-300'
-                    } bg-white p-0 shadow-md rounded-xl transition-all duration-300 ease-in-out`}
+                    } bg-green-50 p-4 shadow-md rounded-2xl transition-all duration-300 ease-in-out hover:scale-[1.02] ring-1 ring-transparent hover:ring-green-400 relative`}
                   >
-                    <div className="flex flex-col items-center justify-center w-full h-full bg-white rounded-xl p-5 transition-all duration-300 ease-in-out">
-                      <FaBriefcase className="text-4xl text-black mb-4 group-hover:text-green-600 transition-all duration-300 ease-in-out" />
-                      <div className="text-center flex flex-col gap-3">
-                        <p className="font-semibold text-lg">Pro</p>
-                        <p className="text-green-600 font-bold text-sm">R$ 59/mês</p>
-                        <p className="text-sm text-gray-500">Até 5 usuários + financeiro</p>
-                        <ul className="text-xs text-gray-400 mt-2 space-y-1 text-left">
-                          <li>• Tudo do plano Básico</li>
-                          <li>• Financeiro integrado</li>
-                          <li>• Estoque de peças</li>
-                        </ul>
-                        {form.plano === 'pro' && (
-                          <p className="text-xs font-bold text-green-600 mt-1">Selecionado</p>
-                        )}
+                    <div className="absolute top-2 right-2 bg-black text-white text-[10px] px-2 py-1 rounded-full uppercase tracking-wide">
+                      Popular
+                    </div>
+                    <div className="flex flex-col items-center justify-center w-full min-h-[440px] rounded-2xl p-4 transition-all duration-300 ease-in-out">
+                      <FaBriefcase className="text-4xl text-green-600 mb-4 group-hover:text-green-700 transition-all duration-300 ease-in-out" />
+                      <div className="flex flex-col items-center text-center gap-1">
+                        <p className="font-bold text-xl text-black">Pro</p>
+                        <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-medium">Perfeito para equipes com controle financeiro</span>
+                        <p className="text-sm text-gray-500 mt-1">Perfeito para equipes com controle financeiro</p>
+                        <p className="text-green-600 font-extrabold text-lg mt-2">R$ 59/mês</p>
+                        <p className="text-xs text-gray-400">Até 5 usuários + financeiro</p>
                       </div>
+                      <div className="text-xs text-gray-500 mt-3 space-y-1 text-left">
+                        <div className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 bg-green-600 rounded-full" />
+                          <span>Tudo do plano Básico</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 bg-green-600 rounded-full" />
+                          <span>Financeiro integrado</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 bg-green-600 rounded-full" />
+                          <span>Estoque de peças</span>
+                        </div>
+                      </div>
+                      {form.plano === 'pro' && (
+                        <p className="text-xs font-bold text-green-600 mt-1">Selecionado</p>
+                      )}
                     </div>
                   </div>
 
                   {/* Avançado */}
                   <div
                     onClick={() => handlePlanoSelect('avancado')}
-                    className={`group cursor-pointer border-2 ${
+                    className={`group cursor-pointer z-20 border-2 ${
                       form.plano === 'avancado' ? 'border-green-600' : 'border-gray-300'
-                    } bg-white p-0 shadow-md rounded-xl transition-all duration-300 ease-in-out`}
+                    } bg-green-50 p-4 shadow-md rounded-2xl transition-all duration-300 ease-in-out hover:scale-[1.02] ring-1 ring-transparent hover:ring-green-400 relative`}
                   >
-                    <div className="flex flex-col items-center justify-center w-full h-full bg-white rounded-xl p-5 transition-all duration-300 ease-in-out">
-                      <FaRocket className="text-4xl text-black mb-4 group-hover:text-green-600 transition-all duration-300 ease-in-out" />
-                      <div className="text-center flex flex-col gap-3">
-                        <p className="font-semibold text-lg">Avançado</p>
-                        <p className="text-green-600 font-bold text-sm">R$ 89/mês</p>
-                        <p className="text-sm text-gray-500">Até 10 usuários + WhatsApp</p>
-                        <ul className="text-xs text-gray-400 mt-2 space-y-1 text-left">
-                          <li>• Tudo do plano Pro</li>
-                          <li>• Relatórios de comissão</li>
-                          <li>• Integração com WhatsApp</li>
-                        </ul>
-                        {form.plano === 'avancado' && (
-                          <p className="text-xs font-bold text-green-600 mt-1">Selecionado</p>
-                        )}
+                    <div className="flex flex-col items-center justify-center w-full min-h-[440px] rounded-2xl p-4 transition-all duration-300 ease-in-out">
+                      <FaRocket className="text-4xl text-green-600 mb-4 group-hover:text-green-700 transition-all duration-300 ease-in-out" />
+                      <div className="flex flex-col items-center text-center gap-1">
+                        <p className="font-bold text-xl text-black">Avançado</p>
+                        <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-medium">Tudo incluso + automações via WhatsApp</span>
+                        <p className="text-sm text-gray-500 mt-1">Tudo incluso + automações via WhatsApp</p>
+                        <p className="text-green-600 font-extrabold text-lg mt-2">R$ 89/mês</p>
+                        <p className="text-xs text-gray-400">Até 10 usuários + WhatsApp</p>
                       </div>
+                      <div className="text-xs text-gray-500 mt-3 space-y-1 text-left">
+                        <div className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 bg-green-600 rounded-full" />
+                          <span>Tudo do plano Pro</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 bg-green-600 rounded-full" />
+                          <span>Relatórios de comissão</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 bg-green-600 rounded-full" />
+                          <span>Integração com WhatsApp</span>
+                        </div>
+                      </div>
+                      {form.plano === 'avancado' && (
+                        <p className="text-xs font-bold text-green-600 mt-1">Selecionado</p>
+                      )}
                     </div>
                   </div>
                 </div>
