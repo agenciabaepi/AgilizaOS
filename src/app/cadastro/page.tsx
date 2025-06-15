@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import logo from '@/assets/imagens/logobranco.png';
 import Image from 'next/image';
-import { FaUserFriends, FaBriefcase, FaRocket } from 'react-icons/fa';
+import { FaUserFriends, FaBriefcase, FaRocket, FaUser, FaBoxOpen, FaTools, FaDollarSign, FaChartLine, FaFileInvoice, FaUserShield, FaProjectDiagram, FaMobileAlt, FaWhatsapp } from 'react-icons/fa';
 
 export default function CadastroEmpresa() {
   const [step, setStep] = useState(1);
@@ -83,32 +83,34 @@ export default function CadastroEmpresa() {
                       form.plano === 'basico' ? 'border-green-600' : 'border-gray-300'
                     } bg-green-50 p-4 shadow-md rounded-2xl transition-all duration-300 ease-in-out hover:scale-[1.02] ring-1 ring-transparent hover:ring-green-400 relative`}
                   >
-                    <div className="flex flex-col items-center justify-center w-full min-h-[440px] rounded-2xl p-4 transition-all duration-300 ease-in-out">
-                      <FaUserFriends className="text-4xl text-green-600 mb-4 group-hover:text-green-700 transition-all duration-300 ease-in-out" />
-                      <div className="flex flex-col items-center text-center gap-1">
-                        <p className="font-bold text-xl text-black">Básico</p>
-                        <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-medium">Ideal para assistências iniciantes</span>
-                        <p className="text-sm text-gray-500 mt-1">Ideal para assistências iniciantes</p>
-                        <p className="text-green-600 font-extrabold text-lg mt-2">R$ 29/mês</p>
-                        <p className="text-xs text-gray-400">Até 2 usuários</p>
+                    <div className="flex flex-row items-center justify-center w-full max-w-[360px] rounded-2xl p-4 transition-all duration-300 ease-in-out">
+                      <div className="flex flex-col items-center justify-center">
+                        <FaUserFriends className="text-4xl text-green-600 mb-4 group-hover:text-green-700 transition-all duration-300 ease-in-out" />
+                        <div className="flex flex-col items-center text-center gap-1">
+                          <p className="font-bold text-xl text-black">Básico</p>
+                          <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-medium">Sistema completo para começar</span>
+                          <p className="text-sm text-gray-500 mt-1">1 usuário, 1 técnico, sistema de OS completo</p>
+                          <p className="text-green-600 font-extrabold text-lg mt-2">R$ 129,90/mês</p>
+                          <p className="text-xs text-gray-400">Inclui:</p>
+                          <ul className="text-xs text-gray-500 mt-3 space-y-1 text-left">
+                            <li className="flex items-center gap-2">
+                              <FaUser className="text-green-600" />
+                              <span>Cadastro de clientes</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <FaBoxOpen className="text-green-600" />
+                              <span>Cadastro de produtos e serviços</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <FaTools className="text-green-600" />
+                              <span>Sistema de OS completo</span>
+                            </li>
+                          </ul>
+                        </div>
+                        {form.plano === 'basico' && (
+                          <p className="text-xs font-bold text-green-600 mt-1">Selecionado</p>
+                        )}
                       </div>
-                      <div className="text-xs text-gray-500 mt-3 space-y-1 text-left">
-                        <div className="flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 bg-green-600 rounded-full" />
-                          <span>Cadastro de OS</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 bg-green-600 rounded-full" />
-                          <span>Histórico do cliente</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 bg-green-600 rounded-full" />
-                          <span>Geração de PDF simples</span>
-                        </div>
-                      </div>
-                      {form.plano === 'basico' && (
-                        <p className="text-xs font-bold text-green-600 mt-1">Selecionado</p>
-                      )}
                     </div>
                   </div>
 
@@ -122,32 +124,38 @@ export default function CadastroEmpresa() {
                     <div className="absolute top-2 right-2 bg-black text-white text-[10px] px-2 py-1 rounded-full uppercase tracking-wide">
                       Popular
                     </div>
-                    <div className="flex flex-col items-center justify-center w-full min-h-[440px] rounded-2xl p-4 transition-all duration-300 ease-in-out">
-                      <FaBriefcase className="text-4xl text-green-600 mb-4 group-hover:text-green-700 transition-all duration-300 ease-in-out" />
-                      <div className="flex flex-col items-center text-center gap-1">
-                        <p className="font-bold text-xl text-black">Pro</p>
-                        <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-medium">Perfeito para equipes com controle financeiro</span>
-                        <p className="text-sm text-gray-500 mt-1">Perfeito para equipes com controle financeiro</p>
-                        <p className="text-green-600 font-extrabold text-lg mt-2">R$ 59/mês</p>
-                        <p className="text-xs text-gray-400">Até 5 usuários + financeiro</p>
+                    <div className="flex flex-row items-center justify-center w-full max-w-[360px] rounded-2xl p-4 transition-all duration-300 ease-in-out">
+                      <div className="flex flex-col items-center justify-center">
+                        <FaBriefcase className="text-4xl text-green-600 mb-4 group-hover:text-green-700 transition-all duration-300 ease-in-out" />
+                        <div className="flex flex-col items-center text-center gap-1">
+                          <p className="font-bold text-xl text-black">Pro</p>
+                          <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-medium">Plano completo para equipes</span>
+                          <p className="text-sm text-gray-500 mt-1">5 usuários, 5 técnicos e muito mais</p>
+                          <p className="text-green-600 font-extrabold text-lg mt-2">R$ 189,90/mês</p>
+                          <p className="text-xs text-gray-400">Inclui:</p>
+                          <ul className="text-xs text-gray-500 mt-3 space-y-1 text-left">
+                            <li className="flex items-center gap-2">
+                              <FaDollarSign className="text-green-600" />
+                              <span>Controle financeiro</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <FaChartLine className="text-green-600" />
+                              <span>Comissão por técnico</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <FaFileInvoice className="text-green-600" />
+                              <span>Emissão de nota fiscal</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <FaUserShield className="text-green-600" />
+                              <span>Controle de permissões</span>
+                            </li>
+                          </ul>
+                        </div>
+                        {form.plano === 'pro' && (
+                          <p className="text-xs font-bold text-green-600 mt-1">Selecionado</p>
+                        )}
                       </div>
-                      <div className="text-xs text-gray-500 mt-3 space-y-1 text-left">
-                        <div className="flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 bg-green-600 rounded-full" />
-                          <span>Tudo do plano Básico</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 bg-green-600 rounded-full" />
-                          <span>Financeiro integrado</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 bg-green-600 rounded-full" />
-                          <span>Estoque de peças</span>
-                        </div>
-                      </div>
-                      {form.plano === 'pro' && (
-                        <p className="text-xs font-bold text-green-600 mt-1">Selecionado</p>
-                      )}
                     </div>
                   </div>
 
@@ -158,32 +166,34 @@ export default function CadastroEmpresa() {
                       form.plano === 'avancado' ? 'border-green-600' : 'border-gray-300'
                     } bg-green-50 p-4 shadow-md rounded-2xl transition-all duration-300 ease-in-out hover:scale-[1.02] ring-1 ring-transparent hover:ring-green-400 relative`}
                   >
-                    <div className="flex flex-col items-center justify-center w-full min-h-[440px] rounded-2xl p-4 transition-all duration-300 ease-in-out">
-                      <FaRocket className="text-4xl text-green-600 mb-4 group-hover:text-green-700 transition-all duration-300 ease-in-out" />
-                      <div className="flex flex-col items-center text-center gap-1">
-                        <p className="font-bold text-xl text-black">Avançado</p>
-                        <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-medium">Tudo incluso + automações via WhatsApp</span>
-                        <p className="text-sm text-gray-500 mt-1">Tudo incluso + automações via WhatsApp</p>
-                        <p className="text-green-600 font-extrabold text-lg mt-2">R$ 89/mês</p>
-                        <p className="text-xs text-gray-400">Até 10 usuários + WhatsApp</p>
+                    <div className="flex flex-row items-center justify-center w-full max-w-[360px] rounded-2xl p-4 transition-all duration-300 ease-in-out">
+                      <div className="flex flex-col items-center justify-center">
+                        <FaRocket className="text-4xl text-green-600 mb-4 group-hover:text-green-700 transition-all duration-300 ease-in-out" />
+                        <div className="flex flex-col items-center text-center gap-1">
+                          <p className="font-bold text-xl text-black">Avançado</p>
+                          <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-medium">Experiência completa + automações</span>
+                          <p className="text-sm text-gray-500 mt-1">10 usuários, 10 técnicos, app e automações</p>
+                          <p className="text-green-600 font-extrabold text-lg mt-2">R$ 279,90/mês</p>
+                          <p className="text-xs text-gray-400">Inclui:</p>
+                          <ul className="text-xs text-gray-500 mt-3 space-y-1 text-left">
+                            <li className="flex items-center gap-2">
+                              <FaProjectDiagram className="text-green-600" />
+                              <span>Kanban para OS</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <FaMobileAlt className="text-green-600" />
+                              <span>App do técnico com notificações</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <FaWhatsapp className="text-green-600" />
+                              <span>Integração WhatsApp</span>
+                            </li>
+                          </ul>
+                        </div>
+                        {form.plano === 'avancado' && (
+                          <p className="text-xs font-bold text-green-600 mt-1">Selecionado</p>
+                        )}
                       </div>
-                      <div className="text-xs text-gray-500 mt-3 space-y-1 text-left">
-                        <div className="flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 bg-green-600 rounded-full" />
-                          <span>Tudo do plano Pro</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 bg-green-600 rounded-full" />
-                          <span>Relatórios de comissão</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 bg-green-600 rounded-full" />
-                          <span>Integração com WhatsApp</span>
-                        </div>
-                      </div>
-                      {form.plano === 'avancado' && (
-                        <p className="text-xs font-bold text-green-600 mt-1">Selecionado</p>
-                      )}
                     </div>
                   </div>
                 </div>
