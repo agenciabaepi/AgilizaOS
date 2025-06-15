@@ -52,8 +52,9 @@ export default function CadastroEmpresa() {
 
   return (
     <div className="min-h-screen relative overflow-hidden flex flex-col items-center justify-center px-4">
-      <div className="absolute inset-0 bg-gradient-to-br from-[#cffb6d] to-white animate-backgroundBlur z-0" />
-      <div className="relative z-10 w-full max-w-3xl space-y-6">
+      <div className="absolute top-0 left-0 w-full h-[320px] bg-black z-10 [clip-path:ellipse(140%_100%_at_50%_0%)]" />
+      <div className="absolute top-[0px] left-0 w-full h-full bg-gradient-to-br from-[#cffb6d] to-white z-0" />
+      <div className="relative z-20 w-full max-w-3xl space-y-6">
         <div className="flex justify-center mb-6">
           <Image src={logo} alt="" width={200} height={60} priority className="mx-auto" />
         </div>
@@ -61,7 +62,7 @@ export default function CadastroEmpresa() {
         <p className="text-center text-green-700 font-medium text-sm mb-4">
           Experimente gratuitamente por 15 dias. Sem cartão de crédito!
         </p>
-        <div className="w-full p-8 bg-white rounded-[32px] shadow-xl overflow-visible min-h-[760px]">
+        <div className="w-full max-w-7xl mx-auto p-8 bg-white rounded-[32px] shadow-xl overflow-visible min-h-[760px]">
           <div className="relative mb-6 h-2 bg-gray-200 rounded-full overflow-hidden">
             <div
               className="absolute top-0 left-0 h-full bg-[#000] transition-all"
@@ -75,7 +76,7 @@ export default function CadastroEmpresa() {
                 className="w-full gap-3 flex flex-col transition-opacity duration-200"
               >
                 <h2 className="text-xl font-bold mb-4">Escolha seu plano</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
                   {/* Básico */}
                   <div
                     onClick={() => handlePlanoSelect('basico')}
@@ -83,7 +84,7 @@ export default function CadastroEmpresa() {
                       form.plano === 'basico' ? 'border-green-600' : 'border-gray-300'
                     } bg-green-50 p-4 shadow-md rounded-2xl transition-all duration-300 ease-in-out hover:scale-[1.02] ring-1 ring-transparent hover:ring-green-400 relative`}
                   >
-                    <div className="flex flex-row items-center justify-center w-full max-w-[360px] rounded-2xl p-4 transition-all duration-300 ease-in-out">
+                    <div className="flex flex-row items-center justify-center w-full max-w-[400px] rounded-2xl p-4 transition-all duration-300 ease-in-out">
                       <div className="flex flex-col items-center justify-center">
                         <FaUserFriends className="text-4xl text-green-600 mb-4 group-hover:text-green-700 transition-all duration-300 ease-in-out" />
                         <div className="flex flex-col items-center text-center gap-1">
@@ -105,6 +106,14 @@ export default function CadastroEmpresa() {
                               <FaTools className="text-green-600" />
                               <span>Sistema de OS completo</span>
                             </li>
+                            <li className="flex items-center gap-2">
+                              <FaChartLine className="text-green-600" />
+                              <span>Relatórios simples de atendimento</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <FaUserShield className="text-green-600" />
+                              <span>Segurança de dados na nuvem</span>
+                            </li>
                           </ul>
                         </div>
                         {form.plano === 'basico' && (
@@ -124,7 +133,7 @@ export default function CadastroEmpresa() {
                     <div className="absolute top-2 right-2 bg-black text-white text-[10px] px-2 py-1 rounded-full uppercase tracking-wide">
                       Popular
                     </div>
-                    <div className="flex flex-row items-center justify-center w-full max-w-[360px] rounded-2xl p-4 transition-all duration-300 ease-in-out">
+                    <div className="flex flex-row items-center justify-center w-full max-w-[400px] rounded-2xl p-4 transition-all duration-300 ease-in-out">
                       <div className="flex flex-col items-center justify-center">
                         <FaBriefcase className="text-4xl text-green-600 mb-4 group-hover:text-green-700 transition-all duration-300 ease-in-out" />
                         <div className="flex flex-col items-center text-center gap-1">
@@ -150,6 +159,14 @@ export default function CadastroEmpresa() {
                               <FaUserShield className="text-green-600" />
                               <span>Controle de permissões</span>
                             </li>
+                            <li className="flex items-center gap-2">
+                              <FaBoxOpen className="text-green-600" />
+                              <span>Controle de estoque detalhado</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <FaUserFriends className="text-green-600" />
+                              <span>Gestão de equipe por permissões</span>
+                            </li>
                           </ul>
                         </div>
                         {form.plano === 'pro' && (
@@ -166,7 +183,7 @@ export default function CadastroEmpresa() {
                       form.plano === 'avancado' ? 'border-green-600' : 'border-gray-300'
                     } bg-green-50 p-4 shadow-md rounded-2xl transition-all duration-300 ease-in-out hover:scale-[1.02] ring-1 ring-transparent hover:ring-green-400 relative`}
                   >
-                    <div className="flex flex-row items-center justify-center w-full max-w-[360px] rounded-2xl p-4 transition-all duration-300 ease-in-out">
+                    <div className="flex flex-row items-center justify-center w-full max-w-[400px] rounded-2xl p-4 transition-all duration-300 ease-in-out">
                       <div className="flex flex-col items-center justify-center">
                         <FaRocket className="text-4xl text-green-600 mb-4 group-hover:text-green-700 transition-all duration-300 ease-in-out" />
                         <div className="flex flex-col items-center text-center gap-1">
@@ -187,6 +204,14 @@ export default function CadastroEmpresa() {
                             <li className="flex items-center gap-2">
                               <FaWhatsapp className="text-green-600" />
                               <span>Integração WhatsApp</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <FaChartLine className="text-green-600" />
+                              <span>Dashboard de performance</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <FaFileInvoice className="text-green-600" />
+                              <span>Geração de relatórios personalizados</span>
                             </li>
                           </ul>
                         </div>
