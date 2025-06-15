@@ -62,7 +62,10 @@ const VisualizarOrdemServicoPage = () => {
           ← Voltar para Ordens de Serviço
         </button>
         <div className="no-print flex flex-wrap justify-end gap-3 mb-8">
-          <button className="flex items-center gap-2 px-4 py-2 border rounded-md text-sm hover:bg-gray-100">
+          <button
+            onClick={() => router.push(`/ordens/${id}/editar`)}
+            className="flex items-center gap-2 px-4 py-2 border rounded-md text-sm hover:bg-gray-100"
+          >
             <PencilIcon className="h-5 w-5" />
             Editar
           </button>

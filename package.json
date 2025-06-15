@@ -24,7 +24,7 @@
     "cleave.js": "^1.6.0",
     "cpf-cnpj-validator": "^1.0.3",
     "firebase": "^11.7.1",
-    "framer-motion": "^12.14.0",
+    "framer-motion": "^12.18.1",
     "lottie-react": "^2.4.1",
     "next": "15.3.2",
     "phosphor-react": "^1.4.1",

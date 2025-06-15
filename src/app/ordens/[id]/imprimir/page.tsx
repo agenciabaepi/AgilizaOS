@@ -94,12 +94,12 @@ const styles = StyleSheet.create({
   table: {
     width: '100%',
     marginBottom: 4,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderStyle: 'solid',
-    borderRadius: 4,
     overflow: 'hidden',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+    // borderWidth: 1,
+    // borderColor: '#ccc',
+    // borderStyle: 'solid',
+    // borderRadius: 4,
+    // boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
   },
   tableRow: {
     flexDirection: 'row',
