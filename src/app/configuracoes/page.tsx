@@ -252,7 +252,30 @@ export default function ConfigEmpresa() {
         {/* Upload da Logo */}
         <div className="flex flex-col">
           <label className="mb-1 font-medium">Upload da Logo</label>
-          <input type="file" accept="image/*" onChange={handleLogoUpload} disabled={!isEditing} />
+          <div className={`relative flex items-center justify-center border-2 border-dashed rounded-lg p-4 transition hover:border-blue-500 ${!isEditing ? 'bg-gray-100 opacity-60 cursor-not-allowed' : 'bg-white'}`}>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleLogoUpload}
+              disabled={!isEditing}
+              className="absolute inset-0 opacity-0 cursor-pointer"
+            />
+            <span className="text-sm text-gray-500">{form.logoUrl ? 'Clique para trocar a logo' : 'Clique para enviar uma imagem'}</span>
+          </div>
+          {form.logoUrl && (
+            <div className="mt-4 flex items-center space-x-4">
+              <img src={form.logoUrl} alt="Logo atual" className="h-20 rounded shadow" />
+              {isEditing && (
+                <button
+                  type="button"
+                  onClick={handleDeleteLogo}
+                  className="text-red-500 hover:underline text-sm"
+                >
+                  Remover Logo
+                </button>
+              )}
+            </div>
+          )}
         </div>
         <div className="pt-2 border-t mt-6 flex justify-end">
           <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded" disabled={!isEditing}>
