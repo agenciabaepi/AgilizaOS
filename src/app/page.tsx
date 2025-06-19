@@ -17,21 +17,7 @@ export default function Home() {
         return;
       }
 
-      const { data: perfil, error } = await supabase
-        .from('usuarios')
-        .select('tipo')
-        .eq('id', session.user.id)
-        .single();
-
-      if (error || !perfil) {
-        router.replace('/login');
-        return;
-      }
-
-      // Redirecionar uma única vez para o dashboard correto
-      router.replace(perfil.tipo === 'tecnico'
-        ? '/dashboard/tecnico'
-        : '/dashboard/admin');
+      router.replace('/dashboard');
     };
 
     redirecionar();

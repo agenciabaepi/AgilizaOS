@@ -1,13 +1,7 @@
 import './globals.css';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { ClientWrapper } from '@/components/ClientWrapper'
-
-// Removido o export da metadata conforme exigência do Next.js para arquivos com "use client"
-const metadata = {
-  title: "AgilizaOS",
-  description: "Sistema de ordem de serviço",
-};
+import { ClientWrapper } from '@/components/ClientWrapper';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

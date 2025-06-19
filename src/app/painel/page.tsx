@@ -1,17 +1,33 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
 import { useRouter } from 'next/navigation';
 
 export default function PainelMaster() {
   const [empresas, setEmpresas] = useState<any[]>([]);
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = createPagesBrowserClient();
 
   useEffect(() => {
     const fetchEmpresas = async () => {
-      const { data: userData } = await supabase.auth.getUser();
-      if (userData?.user?.email !== 'lucas@hotmail.com') {
+      const {
+        data: { session },
+        error: sessionError
+      } = await supabase.auth.getSession();
+
+      console.log('Sessão:', session, sessionError);
+
+      if (!session || !session.user) {
+        console.log('Sem sessão, redirecionando...');
+        router.push('/painel');
+        return;
+      }
+
+      const email = session.user.email?.toLowerCase().trim();
+      console.log('Email autenticado:', email);
+
+      if (email !== 'lucas@hotmail.com') {
+        console.log('Email não autorizado, redirecionando...');
         router.push('/acesso-bloqueado');
         return;
       }

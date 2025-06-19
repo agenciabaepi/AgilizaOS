@@ -29,11 +29,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (session?.user) {
         setUser(session.user);
         localStorage.setItem("user", JSON.stringify(session.user));
-      } else {
-        const storedUser = localStorage.getItem("user");
-        if (storedUser) {
-          setUser(JSON.parse(storedUser));
-        }
       }
       setLoading(false);
     };
@@ -63,11 +58,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.error('Erro no login:', error.message);
       throw new Error(error.message);
     }
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      localStorage.setItem("user", JSON.stringify(user));
-      setUser(user);
-    }
+    // O estado será atualizado automaticamente pelo onAuthStateChange
   };
 
   const signUp = async (email: string, password: string) => {

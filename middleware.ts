@@ -8,36 +8,30 @@ export async function middleware(req: NextRequest) {
   const supabase = createMiddlewareSupabaseClient({ req, res });
 
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  if (!user) {
-    return NextResponse.redirect(new URL('/login', req.url));
+  if (!session) {
+    // Permite que o app carregue e sincronize a sessão no cliente
+    return res;
   }
 
-  // Busca a empresa associada ao usuário
+  const user = session.user;
+
   const { data: empresa } = await supabase
     .from('empresas')
     .select('*')
     .eq('email', user.email)
     .single();
 
-  // Verifica se a empresa existe
-  if (!empresa) {
+  if (!empresa || empresa.status === 'cancelado' || empresa.status === 'vencido') {
     return NextResponse.redirect(new URL('/acesso-bloqueado', req.url));
   }
 
-  // Verifica se a empresa está ativa
-  if (empresa.status === 'cancelado' || empresa.status === 'vencido') {
-    return NextResponse.redirect(new URL('/acesso-bloqueado', req.url));
-  }
-
-  // Se a empresa estiver em período de teste, verifica os 15 dias
   if (empresa.status === 'teste') {
     const hoje = new Date();
     const dataCriacao = new Date(empresa.created_at);
-    const diffEmMs = hoje.getTime() - dataCriacao.getTime();
-    const diffEmDias = diffEmMs / (1000 * 60 * 60 * 24);
+    const diffEmDias = (hoje.getTime() - dataCriacao.getTime()) / (1000 * 60 * 60 * 24);
 
     if (diffEmDias > 15) {
       return NextResponse.redirect(new URL('/acesso-bloqueado', req.url));
@@ -49,5 +43,5 @@ export async function middleware(req: NextRequest) {
 
 // Aplicar middleware só em rotas protegidas
 export const config = {
-  matcher: ['/dashboard/:path*', '/clientes/:path*', '/ordens/:path*'], // ajuste conforme suas rotas
+  matcher: ['/clientes/:path*', '/ordens/:path*'], // ajuste conforme suas rotas
 };
