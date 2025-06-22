@@ -8,34 +8,23 @@ export async function middleware(req: NextRequest) {
   const supabase = createMiddlewareSupabaseClient({ req, res });
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!session) {
-    // Permite que o app carregue e sincronize a sessão no cliente
-    return res;
+  if (!user) {
+    return NextResponse.redirect(new URL('/login', req.url));
   }
 
-  const user = session.user;
-
+  // Busca a empresa associada ao usuário
   const { data: empresa } = await supabase
     .from('empresas')
     .select('*')
     .eq('email', user.email)
     .single();
 
-  if (!empresa || empresa.status === 'cancelado' || empresa.status === 'vencido') {
+  // Verifica o status da empresa
+  if (!empresa || empresa.status !== 'ativo') {
     return NextResponse.redirect(new URL('/acesso-bloqueado', req.url));
-  }
-
-  if (empresa.status === 'teste') {
-    const hoje = new Date();
-    const dataCriacao = new Date(empresa.created_at);
-    const diffEmDias = (hoje.getTime() - dataCriacao.getTime()) / (1000 * 60 * 60 * 24);
-
-    if (diffEmDias > 15) {
-      return NextResponse.redirect(new URL('/acesso-bloqueado', req.url));
-    }
   }
 
   return res;
@@ -43,5 +32,5 @@ export async function middleware(req: NextRequest) {
 
 // Aplicar middleware só em rotas protegidas
 export const config = {
-  matcher: ['/clientes/:path*', '/ordens/:path*'], // ajuste conforme suas rotas
+  matcher: ['/dashboard/:path*', '/clientes/:path*', '/ordens/:path*'], // ajuste conforme suas rotas
 };

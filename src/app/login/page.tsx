@@ -75,13 +75,37 @@ export default function LoginPage() {
       .single();
 
     if (perfil) {
+      const { data: usuario } = await supabase
+        .from('usuarios')
+        .select('empresa_id')
+        .eq('auth_user_id', userId)
+        .single();
+
+      if (!usuario) {
+        alert('Usuário sem empresa vinculada.');
+        return;
+      }
+
+      const { data: empresa } = await supabase
+        .from('empresas')
+        .select('status, motivoBloqueio')
+        .eq('id', usuario.empresa_id)
+        .single();
+
+      if (empresa?.status === 'bloqueado') {
+        alert(`Acesso bloqueado: ${empresa.motivoBloqueio || 'entre em contato com o suporte.'}`);
+        return;
+      }
+
       localStorage.setItem("user", JSON.stringify({
         id: userId,
         email,
         nivel: perfil.nivel
       }));
 
-      router.replace('/dashboard');
+      setTimeout(() => {
+        router.replace('/dashboard');
+      }, 500);
     }
   };
 

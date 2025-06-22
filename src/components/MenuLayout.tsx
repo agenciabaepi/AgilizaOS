@@ -1,6 +1,4 @@
 'use client';
-
-import { useAuth } from '@/context/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
@@ -23,29 +21,14 @@ import {
 import { Toaster } from 'react-hot-toast';
 
 export default function MenuLayout({ children }: { children: React.ReactNode }) {
-  const auth = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
-  const [isReady, setIsReady] = useState(false);
+
+
   const [menuExpandido, setMenuExpandido] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
-
-  useEffect(() => {
-    if (auth?.user === undefined) return;
-    if (!auth?.user) {
-      router.push('/login');
-    } else {
-      setIsReady(true);
-    }
-  }, [auth?.user]);
-
-  const isTecnico = auth?.user?.nivel === 'tecnico';
-
-if (!isReady) {
-  return null;
-}
-
+  const [isTecnico, setIsTecnico] = useState(false);
   return (
     <div className="flex min-h-screen bg-transparent relative z-0 overflow-x-hidden w-full">
       {/* Topbar */}
@@ -115,7 +98,7 @@ if (!isReady) {
             )}
             <button
               onClick={() => {
-                auth?.signOut();
+                // TODO: adicionar lógica de logout
                 router.push('/login');
               }}
               className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out hover:bg-red-100 ${

@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 
 
 import React, { useEffect, useState, useId } from 'react';
+import MenuLayout from '@/components/MenuLayout';
 import { format } from 'date-fns';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -35,91 +36,63 @@ import {
 import { Line } from 'react-chartjs-2';
 import { FiEye, FiEdit, FiPrinter, FiTrash2, FiBook } from 'react-icons/fi';
 import { supabase } from '@/lib/supabaseClient';
+import { useUser } from '@supabase/auth-helpers-react';
 import ClientOnly from '@/components/ClientOnly';
 import { v4 as uuidv4 } from 'uuid';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 export default function DashboardPage() {
-  // Estado para empresaId, user e notas
+  // Use useUser para autenticação
+  const user = useUser();
+  // Estado para empresaId, notas e colunas
   const [empresaId, setEmpresaId] = useState<string | null>(null);
-  const [user, setUser] = useState<any | null>(null);
   const [notes, setNotes] = useState<any[]>([]);
   const [notaParaExcluir, setNotaParaExcluir] = useState<any | null>(null);
   // Estado dinâmico das colunas
   const [colunas, setColunas] = useState<string[]>(['compras', 'avisos', 'lembretes']);
   const [carregando, setCarregando] = useState(true);
-  // Recuperar usuário logado e setar empresaId (client-side)
-  useEffect(() => {
-    console.log('Verificando sessão...');
-    const getSessionAndEmpresa = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const user = session?.user;
-      if (user) {
-        localStorage.setItem('user', JSON.stringify(user));
-        setUser(user);
-      }
 
+  // Buscar empresaId e nome do usuário quando user estiver disponível
+  useEffect(() => {
+    const fetchEmpresaId = async () => {
       if (!user) {
-        console.warn('Usuário não logado');
-        localStorage.removeItem('user');
-        setUser(null);
-        setEmpresaId(null);
-        window.location.href = '/login';
+        setCarregando(false);
         return;
       }
-
       const { data: usuario, error } = await supabase
         .from('usuarios')
         .select('empresa_id, nome')
         .eq('auth_user_id', user.id)
         .maybeSingle();
-
       if (error || !usuario) {
-        console.warn('Empresa ID não encontrado.');
         setCarregando(false);
         return;
       }
-
       setEmpresaId(usuario.empresa_id);
-      setUser({ ...user, nome: usuario.nome });
+      // Armazena nome e empresa_id no localStorage para uso futuro se necessário
       localStorage.setItem('user', JSON.stringify({ ...user, nome: usuario.nome, empresa_id: usuario.empresa_id }));
-      console.log('Usuário logado:', { ...user, nome: usuario.nome });
-      console.log('Empresa ID:', usuario.empresa_id);
       setCarregando(false);
     };
+    fetchEmpresaId();
+  }, [user]);
 
-    getSessionAndEmpresa();
-  }, []);
-
-  // Buscar colunas salvas do banco ao carregar user
+  // Buscar colunas salvas do banco ao carregar empresaId
   useEffect(() => {
     const fetchColunas = async () => {
-      try {
-        console.log('Usuário logado:', user);
-        const empresaId = user?.empresa_id || user?.user_metadata?.empresa_id;
-        console.log('Empresa ID:', empresaId);
-
-        if (!empresaId) {
-          console.warn('Empresa ID não encontrado.');
-          return;
-        }
-
-        const q = query(
-          collection(FIRESTORE_DB, 'colunas'),
-          where('empresa_id', '==', empresaId)
-        );
-        const querySnapshot = await getDocs(q);
-        const colunasData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        console.log('Colunas carregadas:', colunasData);
-        setColunas(colunasData);
-      } catch (error) {
-        console.error('Erro ao buscar colunas:', error);
+      if (!empresaId) return;
+      // Busca colunas_dashboard do supabase
+      const { data, error } = await supabase
+        .from('colunas_dashboard')
+        .select('nome')
+        .eq('empresa_id', empresaId)
+        .order('posicao', { ascending: true });
+      if (!error && data && data.length > 0) {
+        setColunas(data.map((c) => c.nome));
       }
     };
-
     fetchColunas();
-  }, [user]);
+  }, [empresaId]);
 
   // Buscar notas do banco assim que empresaId estiver disponível
   useEffect(() => {
@@ -129,11 +102,8 @@ export default function DashboardPage() {
         .from("notas_dashboard")
         .select("*")
         .eq("empresa_id", empresaId);
-
-      if (error) {
-        console.error("Erro ao buscar notas:", error);
-      } else {
-        setNotes(data || []);
+      if (!error && data) {
+        setNotes(data);
       }
     };
     fetchNotas();
@@ -484,12 +454,29 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
   }
 
   // Checagem de carregamento e autenticação
-  if (carregando) return null;
+  if (carregando || !user) {
+    return <div className="p-4">Carregando...</div>;
+  }
 
   return (
-    <div className="w-full px-6 py-4">
+    <MenuLayout>
+      <div className="w-full px-6 py-4">
       <h1 className="text-2xl font-bold tracking-tight">Dashboard Admin</h1>
-      <p className="text-lg text-gray-600 mt-1">{user?.nome}</p>
+      <p className="text-lg text-gray-600 mt-1">
+        {(() => {
+          try {
+            // Tenta pegar nome do localStorage (setado acima) ou dos metadados do user
+            const stored = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+            if (stored) {
+              const parsed = JSON.parse(stored);
+              return parsed.nome || parsed.user_metadata?.nome || 'usuário';
+            }
+            return user?.user_metadata?.nome || 'usuário';
+          } catch {
+            return user?.user_metadata?.nome || 'usuário';
+          }
+        })()}
+      </p>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-[#cffb6d] text-black p-4 rounded-xl shadow">
@@ -963,6 +950,7 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
         pauseOnHover
         theme="colored"
       />
-    </div>
+      </div>
+    </MenuLayout>
   );
 }

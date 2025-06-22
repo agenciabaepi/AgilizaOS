@@ -1,5 +1,7 @@
 "use client";
 
+// AuthContext revisado para centralizar a lógica de sessão
+
 // src/context/AuthContext.tsx
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabase } from '../lib/supabaseClient';
@@ -24,13 +26,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const fetchSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      if (session?.user) {
-        setUser(session.user);
-        localStorage.setItem("user", JSON.stringify(session.user));
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        if (session?.user) {
+          setUser(session.user);
+          localStorage.setItem("user", JSON.stringify(session.user));
+        }
+      } catch (error) {
+        console.error('Erro ao obter sessão:', error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchSession();
@@ -44,7 +51,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         localStorage.removeItem("user");
       }
       setSession(session);
-      setLoading(false);
+      setTimeout(() => setLoading(false), 0);
     });
 
     return () => {

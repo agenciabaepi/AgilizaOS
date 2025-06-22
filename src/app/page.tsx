@@ -2,26 +2,19 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { useAuth } from '@/context/AuthContext';
 
 export default function Home() {
   const router = useRouter();
-  const supabase = createClientComponentClient();
+  const { user } = useAuth();
 
   useEffect(() => {
-    const redirecionar = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session) {
-        router.replace('/login');
-        return;
-      }
-
-      router.replace('/dashboard');
-    };
-
-    redirecionar();
-  }, []);
+    if (user) {
+      router.push('/dashboard');
+    } else {
+      router.push('/login');
+    }
+  }, [user]);
 
   return null;
 }
