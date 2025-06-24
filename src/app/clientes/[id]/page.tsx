@@ -3,7 +3,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { FiArrowLeft, FiEdit2 } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit2, FiEye, FiPrinter } from 'react-icons/fi';
 import React from 'react';
 import { Cliente } from '@/types/cliente';
 import MenuLayout from '@/components/MenuLayout';
@@ -13,6 +13,7 @@ export default function VisualizarClientePage() {
   const router = useRouter();
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [abaAtiva, setAbaAtiva] = useState<'dados' | 'os' | 'equipamentos' | 'vendas' | 'lancamentos'>('dados');
+  const [ordensServico, setOrdensServico] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchCliente = async () => {
@@ -32,11 +33,48 @@ export default function VisualizarClientePage() {
     fetchCliente();
   }, [params?.id]);
 
+  useEffect(() => {
+    const fetchOrdensServico = async () => {
+      if (!cliente?.id) return;
+      console.log('Buscando OS para cliente.id =', cliente.id);
+      const { data, error } = await supabase
+        .from('ordens_servico')
+        .select(`
+          id,
+          modelo,
+          marca,
+          cor,
+          numero_serie,
+          servico,
+          peca,
+          valor_peca,
+          valor_servico,
+          data_entrega,
+          termo_garantia,
+          status,
+          tecnico_id,
+          tecnicos ( nome ),
+          numero_os
+        `)
+        .eq('cliente_id', cliente.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Erro ao buscar ordens de serviço:', JSON.stringify(error, null, 2));
+        console.log('Cliente usado na query:', cliente);
+      } else {
+        setOrdensServico(data);
+      }
+    };
+
+    fetchOrdensServico();
+  }, [cliente]);
+
   if (!cliente) return <p>Carregando...</p>;
 
   return (
     <MenuLayout>
-      <div className="max-w-5xl w-full mx-auto flex-1 flex flex-col px-4 py-8">
+      <div className="w-full max-w-screen-xl mx-auto flex-1 flex flex-col px-6 py-8">
         <div className="flex items-center justify-between mb-6">
           <button
             type="button"
@@ -97,8 +135,71 @@ export default function VisualizarClientePage() {
         )}
 
         {abaAtiva === 'os' && (
-          <div className="bg-white rounded-md shadow-md border border-gray-100 px-8 py-8">
-            <p>Aqui listaremos as Ordens de Serviço do cliente...</p>
+          <div className="overflow-x-auto bg-white border border-gray-200 rounded-md">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="bg-gray-50">
+                <tr className="text-gray-700 font-semibold">
+                  <th className="px-4 py-2 text-left">#</th>
+                  <th className="px-4 py-2 text-left">Aparelho</th>
+                  <th className="px-4 py-2 text-left">Serviço</th>
+                  <th className="px-4 py-2 text-left">Peça</th>
+                  <th className="px-4 py-2 text-left">Entrega</th>
+                  <th className="px-4 py-2 text-left">Garantia</th>
+                  <th className="px-4 py-2 text-left">Total</th>
+                  <th className="px-4 py-2 text-left">Status</th>
+                  <th className="px-4 py-2 text-left">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {ordensServico.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} className="px-4 py-3 text-center text-gray-500">
+                      Nenhuma ordem de serviço encontrada para este cliente.
+                    </td>
+                  </tr>
+                ) : (
+                  ordensServico.map((os, index) => (
+                    <tr key={os.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-2 text-gray-500 font-medium">#{os.numero_os}</td>
+                      <td className="px-4 py-2">{os.marca} {os.modelo} {os.cor}</td>
+                      <td className="px-4 py-2">
+                        {os.servico
+                          ? `${os.servico} (R$ ${Number(os.valor_servico || 0).toFixed(2)})`
+                          : '-'}
+                      </td>
+                      <td className="px-4 py-2">
+                        {os.peca
+                          ? `${os.peca} (R$ ${Number(os.valor_peca || 0).toFixed(2)})`
+                          : '-'}
+                      </td>
+                      <td className="px-4 py-2">
+                        {os.data_entrega ? new Date(os.data_entrega).toLocaleDateString('pt-BR') : '-'}
+                      </td>
+                      <td className="px-4 py-2">{os.termo_garantia || '-'}</td>
+                      <td className="px-4 py-2 font-semibold">
+                        {`R$ ${(Number(os.valor_servico || 0) + Number(os.valor_peca || 0)).toFixed(2)}`}
+                      </td>
+                      <td className="px-4 py-2">
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                          {os.status || '-'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2">
+                        <div className="flex items-center">
+                          <a
+                            href={`/ordens/${os.id}`}
+                            title="Visualizar"
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            <FiEye />
+                          </a>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         )}
 

@@ -1,6 +1,6 @@
 'use client';
-import { useRouter, usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import Image from 'next/image';
 import logobranco from '@/assets/imagens/logobranco.png';
 import logopreto from '@/assets/imagens/logopreto.png';
@@ -12,8 +12,6 @@ import {
   FiDollarSign,
   FiFileText,
   FiLogOut,
-  FiCheckCircle,
-  FiHelpCircle,
   FiUserCheck,
   FiSearch,
   FiBell,
@@ -22,13 +20,9 @@ import { Toaster } from 'react-hot-toast';
 
 export default function MenuLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname();
-
-
 
   const [menuExpandido, setMenuExpandido] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [isTecnico, setIsTecnico] = useState(false);
   return (
     <div className="flex min-h-screen bg-transparent relative z-0 overflow-x-hidden w-full">
       {/* Topbar */}
@@ -79,23 +73,15 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
         >
           <div className="mb-6 h-10" />
           <nav className="space-y-2">
-            {isTecnico ? (
-              <>
-                <SidebarButton path="/dashboard/bancada" icon={<FiTool size={20} />} label="Bancada" menuExpandido={menuExpandido} />
-              </>
-            ) : (
-              <>
-                <SidebarButton path="/dashboard/admin" icon={<FiHome size={20} />} label="Dashboard" menuExpandido={menuExpandido} />
-                <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" menuExpandido={menuExpandido} />
-                <SidebarButton path="/clientes" icon={<FiUsers size={20} />} label="Clientes" menuExpandido={menuExpandido} />
-                <SidebarButton path="/tecnicos" icon={<FiUserCheck size={20} />} label="Técnicos" menuExpandido={menuExpandido} />
-                <SidebarButton path="/equipamentos" icon={<FiBox size={20} />} label="Produtos/Serviços" menuExpandido={menuExpandido} />
-                <SidebarButton path="/financeiro" icon={<FiDollarSign size={20} />} label="Financeiro" menuExpandido={menuExpandido} />
-                <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" menuExpandido={menuExpandido} />
-                <SidebarButton path="/termos" icon={<FiFileText size={20} />} label="Termos" menuExpandido={menuExpandido} />
-                <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" menuExpandido={menuExpandido} />
-              </>
-            )}
+            <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" menuExpandido={menuExpandido} />
+            <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" menuExpandido={menuExpandido} />
+            <SidebarButton path="/clientes" icon={<FiUsers size={20} />} label="Clientes" menuExpandido={menuExpandido} />
+            <SidebarButton path="/tecnicos" icon={<FiUserCheck size={20} />} label="Técnicos" menuExpandido={menuExpandido} />
+            <SidebarButton path="/equipamentos" icon={<FiBox size={20} />} label="Produtos/Serviços" menuExpandido={menuExpandido} />
+            <SidebarButton path="#" icon={<FiDollarSign size={20} />} label="Financeiro" menuExpandido={menuExpandido} />
+            <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" menuExpandido={menuExpandido} />
+            <SidebarButton path="#" icon={<FiFileText size={20} />} label="Termos" menuExpandido={menuExpandido} />
+            <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" menuExpandido={menuExpandido} />
             <button
               onClick={() => {
                 // TODO: adicionar lógica de logout
@@ -145,8 +131,8 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
 
 function SidebarButton({ path, icon, label, menuExpandido }: { path: string; icon: React.ReactNode; label: string; menuExpandido: boolean }) {
   const router = useRouter();
-  const pathname = usePathname();
-  const isActive = pathname === path || pathname.startsWith(path + '/') || path === '/ordens' && pathname.startsWith('/nova-os');
+  const pathname = useRouter().pathname || '';
+  const isActive = pathname === path || pathname.startsWith(path + '/') || (path === '/ordens' && pathname.startsWith('/nova-os'));
 
   return (
     <button

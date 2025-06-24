@@ -15,11 +15,18 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL('/login', req.url));
   }
 
-  // Busca a empresa associada ao usuário
+  // Busca o usuário logado na tabela usuarios
+  const { data: usuario } = await supabase
+    .from('usuarios')
+    .select('empresa_id')
+    .eq('auth_user_id', user.id)
+    .single();
+
+  // Busca a empresa vinculada ao usuário
   const { data: empresa } = await supabase
     .from('empresas')
     .select('*')
-    .eq('email', user.email)
+    .eq('id', usuario?.empresa_id)
     .single();
 
   // Verifica o status da empresa

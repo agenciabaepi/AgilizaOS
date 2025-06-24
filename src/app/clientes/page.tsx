@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 
-import { useSession } from '@supabase/auth-helpers-react';
+import { useAuth } from '@/context/AuthContext';
 
 const Chart = dynamic(() => import('react-apexcharts'), { ssr: false });
 import { Cliente } from '@/types/cliente';
@@ -176,57 +176,38 @@ export default function ClientesPage() {
 
   const router = useRouter();
 
-  const session = useSession();
+  const { empresaData, usuario } = useAuth();
+
+  if (!empresaData?.id) return <div>Carregando...</div>;
 
   useEffect(() => {
     const fetchClientes = async () => {
-      setCarregando(true);
-      const from = (paginaAtual - 1) * limite;
-      const to = from + limite - 1;
+      if (!empresaData?.id) return;
 
-      const { data, error, count } = await supabase
+      // --- Adicionado: mostrar sessão e UID no console
+      const sessionResult = await supabase.auth.getSession();
+      const session = sessionResult.data.session;
+      console.log('🧪 SESSION:', session);
+      console.log('🔐 USER ID:', session?.user?.id);
+      // ---
+
+      const { data, error } = await supabase
         .from('clientes')
-        .select('*', { count: 'exact' })
-        .order('numero_cliente', { ascending: false })
-        .range(from, to);
+        .select('*')
+        .eq('empresa_id', empresaData.id)
+        .order('numero_cliente', { ascending: false });
 
       if (error) {
-        console.error('Erro ao buscar clientes:', error);
+        console.error("Erro ao buscar clientes:", error);
       } else {
-        setClientes(data || []);
-        setTotalPaginas(Math.ceil((count || 0) / limite));
-        setTotalClientes(count || 0);
-
-        const agora = new Date();
-        const inicioDoMes = new Date(agora.getFullYear(), agora.getMonth(), 1).toISOString();
-        const seteDiasAtras = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-
-        const { count: countMes, error: errorMes } = await supabase
-          .from('clientes')
-          .select('*', { count: 'exact', head: true })
-          .gte('created_at', inicioDoMes);
-
-        if (errorMes) {
-          console.error('Erro ao contar clientes do mês:', errorMes);
-        } else {
-          setClientesMesAtual(countMes || 0);
-        }
-
-        const { count: count7Dias, error: error7Dias } = await supabase
-          .from('clientes')
-          .select('*', { count: 'exact', head: true })
-          .gte('created_at', seteDiasAtras);
-
-        if (error7Dias) {
-          console.error('Erro ao contar clientes dos últimos 7 dias:', error7Dias);
-        } else {
-          setClientesUltimos7Dias(count7Dias || 0);
-        }
+        setClientes(data);
+        console.log("Total de clientes encontrados:", data.length);
       }
       setCarregando(false);
     };
+
     fetchClientes();
-  }, [paginaAtual]);
+  }, [empresaData?.id]);
 
   const solicitarExclusao = (cliente: Cliente) => {
     setClienteParaExcluir(cliente);
@@ -286,7 +267,7 @@ export default function ClientesPage() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-semibold text-gray-800">Clientes</h1>
         <Link
-          href={`/dashboard/clientes/novo?atendente=${session?.user?.user_metadata?.nome || ''}`}
+          href={`/dashboard/clientes/novo?atendente=${usuario?.nome || ''}`}
           className="flex items-center gap-2 bg-[#cffb6d] text-black shadow-lg px-4 py-2 rounded-md hover:bg-[#e5ffa1] backdrop-blur-md"
         >
           <FiPlus className="w-6 h-6" />

@@ -4,12 +4,27 @@
 
 // src/context/AuthContext.tsx
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { supabase } from '../lib/supabaseClient';
+// import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { createBrowserSupabaseClient } from '@supabase/auth-helpers-nextjs';
 import { Session, User } from '@supabase/supabase-js';
+
+interface UsuarioData {
+  empresa_id: string;
+  nome: string;
+  email: string;
+}
+
+interface EmpresaData {
+  id: string;
+  nome: string;
+  plano: string;
+}
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
+  usuarioData: UsuarioData | null;
+  empresaData: EmpresaData | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
@@ -20,42 +35,89 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const supabase = createBrowserSupabaseClient();
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [usuarioData, setUsuarioData] = useState<UsuarioData | null>(null);
+  const [empresaData, setEmpresaData] = useState<EmpresaData | null>(null);
+
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setSession(session);
-        if (session?.user) {
-          setUser(session.user);
-          localStorage.setItem("user", JSON.stringify(session.user));
-        }
-      } catch (error) {
-        console.error('Erro ao obter sessão:', error);
-      } finally {
-        setLoading(false);
+    const checkSession = async () => {
+      const {
+        data: { session },
+        error
+      } = await supabase.auth.getSession();
+
+      if (error) {
+        console.error("Erro ao obter sessão:", error.message);
       }
+
+      if (session) {
+        setSession(session);
+        setUser(session.user);
+
+        const { data: profileData, error: profileError } = await supabase
+          .from('usuarios')
+          .select('empresa_id, nome, email')
+          .eq('auth_user_id', session.user.id)
+          .maybeSingle();
+
+        console.log("🔍 Usuario:", profileData);
+
+        if (profileError || !profileData) {
+          setUsuarioData(null);
+          setEmpresaData(null);
+          localStorage.removeItem("user");
+          setLoading(false);
+          return;
+        }
+
+        setUsuarioData(profileData);
+        localStorage.setItem("user", JSON.stringify({ ...session.user, ...profileData }));
+
+        if (!profileData.empresa_id) {
+          console.warn("⚠️ Sem empresa_id");
+          setEmpresaData(null);
+          setLoading(false);
+          return;
+        }
+
+        console.log("✅ Empresa ID detectado:", profileData.empresa_id);
+
+        const { data: empresaInfo, error: empresaError } = await supabase
+          .from("empresas")
+          .select("id, nome, plano")
+          .eq("id", profileData.empresa_id)
+          .single();
+
+        console.log("🏢 Dados da empresa:", empresaInfo);
+
+        if (empresaError || !empresaInfo) {
+          console.error("Erro ao buscar empresa:", empresaError);
+          setEmpresaData(null);
+        } else {
+          setEmpresaData(empresaInfo);
+        }
+
+      } else {
+        console.log('⚠️ Sessão ausente. Usuário não autenticado.');
+      }
+
+      setLoading(false);
     };
 
-    fetchSession();
+    checkSession();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      const loggedUser = session?.user ?? null;
-      setUser(loggedUser);
-      if (loggedUser) {
-        localStorage.setItem("user", JSON.stringify(loggedUser));
-      } else {
-        localStorage.removeItem("user");
-      }
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
       setSession(session);
-      setTimeout(() => setLoading(false), 0);
+      checkSession(); // Recarrega usuário e empresa
     });
 
     return () => {
-      authListener.subscription.unsubscribe();
+      listener.subscription.unsubscribe();
     };
   }, []);
 
@@ -69,10 +131,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password });
-    if (error) {
-      console.error('Erro no cadastro:', error.message);
-      throw new Error(error.message);
+    const { data, error } = await supabase.auth.signUp({ email, password });
+
+    if (error || !data.user) {
+      console.error('Erro no cadastro:', error?.message);
+      throw new Error(error?.message || 'Erro desconhecido ao cadastrar.');
+    }
+
+    // Criação bem-sucedida no Supabase Auth, agora salvar na tabela 'usuarios'
+    const { error: insertError } = await supabase.from('usuarios').insert([
+      {
+        auth_user_id: data.user.id,
+        email: email,
+        nome: 'Novo usuário',
+        empresa_id: null, // será vinculada depois
+      },
+    ]);
+
+    if (insertError) {
+      console.error('Erro ao inserir na tabela usuarios:', insertError.message);
+      throw new Error(insertError.message);
     }
   };
 
@@ -97,7 +175,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut, resetPassword }}>
+    <AuthContext.Provider value={{ user, session, usuarioData, empresaData, loading, signIn, signUp, signOut, resetPassword }}>
       {children}
     </AuthContext.Provider>
   );

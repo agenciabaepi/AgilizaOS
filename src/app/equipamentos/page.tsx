@@ -4,6 +4,7 @@ import MenuLayout from '@/components/MenuLayout';
 import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { ArrowDownTrayIcon, TagIcon, CubeIcon } from '@heroicons/react/24/outline';
+import { useAuth } from '@/context/AuthContext';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -24,6 +25,7 @@ interface ProdutoServico {
 }
 
 export default function ProdutosServicosPage() {
+  const { session, empresaId } = useAuth();
   const [lista, setLista] = useState<ProdutoServico[]>([]);
   const [nome, setNome] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -34,52 +36,35 @@ export default function ProdutosServicosPage() {
   const [unidade, setUnidade] = useState('un');
 
   useEffect(() => {
-    buscar();
-  }, []);
+    if (empresaId) {
+      buscar();
+    }
+  }, [empresaId]);
 
   const buscar = async () => {
-    const user = await supabase.auth.getUser();
-    const userId = user.data.user?.id;
-
-    const { data: usuario, error: errorUsuario } = await supabase
-      .from('usuarios')
-      .select('empresa_id')
-      .eq('auth_user_id', userId)
-      .single();
-
-    if (!usuario || !usuario.empresa_id) {
+    if (!empresaId) {
       console.warn('Empresa não encontrada para o usuário');
       return;
     }
 
-    const empresa_id = usuario.empresa_id;
-
     const { data, error } = await supabase
       .from('produtos_servicos')
-      .select('*')
-      .eq('empresa_id', empresa_id)
+      .select('id, nome, descricao, tipo, preco, custo, estoque_atual, unidade')
+      .eq('empresa_id', empresaId)
       .order('nome', { ascending: true });
 
     if (!error && data) setLista(data);
+    if (!error && data) console.log('Itens carregados:', data);
   };
 
   const salvar = async () => {
     if (!nome || !preco) return;
-    const user = await supabase.auth.getUser();
-    const userId = user.data.user?.id;
 
-    const { data: usuario, error: errorUsuario } = await supabase
-      .from('usuarios')
-      .select('empresa_id')
-      .eq('auth_user_id', userId)
-      .single();
-
-    if (!usuario || !usuario.empresa_id) {
-      alert('ID da empresa não encontrado no banco.');
+    if (!empresaId) {
+      alert('ID da empresa não encontrado no contexto.');
       return;
     }
 
-    const empresa_id = usuario.empresa_id;
     const payload = {
       nome,
       descricao,
@@ -88,7 +73,7 @@ export default function ProdutosServicosPage() {
       custo: custo ? parseFloat(custo) : null,
       estoque_atual: tipo === 'produto' ? parseInt(estoque || '0') : null,
       unidade,
-      empresa_id,
+      empresa_id: empresaId,
     };
     const { error } = await supabase.from('produtos_servicos').insert(payload);
     if (!error) {
@@ -98,7 +83,7 @@ export default function ProdutosServicosPage() {
       setCusto('');
       setEstoque('');
       setUnidade('un');
-      console.log('Item salvo com empresa_id:', empresa_id);
+      console.log('Item salvo com empresa_id:', empresaId);
       buscar();
     }
   };
@@ -173,7 +158,10 @@ export default function ProdutosServicosPage() {
               )}
               <button
                 onClick={salvar}
-                className="inline-flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition"
+                disabled={!empresaId}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded transition ${
+                  empresaId ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
               >
                 <ArrowDownTrayIcon className="h-5 w-5" /> Salvar
               </button>
@@ -200,7 +188,10 @@ export default function ProdutosServicosPage() {
                 <tbody>
                   {lista.map((item) => (
                     <tr key={item.id} className="border-t">
-                      <td className="px-4 py-2">{item.nome}</td>
+                      <td className="px-4 py-2">
+                        <div className="font-semibold">{item.nome}</div>
+                        {item.descricao && <div className="text-xs text-gray-500">{item.descricao}</div>}
+                      </td>
                       <td className="px-4 py-2 capitalize">{item.tipo}</td>
                       <td className="px-4 py-2">R$ {item.preco.toFixed(2)}</td>
                       <td className="px-4 py-2">{item.custo !== null ? `R$ ${item.custo.toFixed(2)}` : '-'}</td>

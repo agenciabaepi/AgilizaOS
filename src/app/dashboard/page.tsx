@@ -35,90 +35,74 @@ import {
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { FiEye, FiEdit, FiPrinter, FiTrash2, FiBook } from 'react-icons/fi';
-import { supabase } from '@/lib/supabaseClient';
-import { useUser } from '@supabase/auth-helpers-react';
+import { useSupabase } from '@/context/AuthContext';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { useAuth } from '@/context/AuthContext';
 import ClientOnly from '@/components/ClientOnly';
 import { v4 as uuidv4 } from 'uuid';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 export default function DashboardPage() {
-  // Use useUser para autenticação
-  const user = useUser();
-  // Estado para empresaId, notas e colunas
-  const [empresaId, setEmpresaId] = useState<string | null>(null);
+  // Use o contexto de autenticação
+  const { session, user, usuarioData, empresaData } = useAuth();
+  const supabase = useSupabaseClient();
+  // Estado para notas e colunas
   const [notes, setNotes] = useState<any[]>([]);
   const [notaParaExcluir, setNotaParaExcluir] = useState<any | null>(null);
   // Estado dinâmico das colunas
   const [colunas, setColunas] = useState<string[]>(['compras', 'avisos', 'lembretes']);
   const [carregando, setCarregando] = useState(true);
 
-  // Buscar empresaId e nome do usuário quando user estiver disponível
+  // empresa_id vem de empresaData
+  const empresa_id = empresaData?.id;
+  // Carregando depende de usuarioData
   useEffect(() => {
-    const fetchEmpresaId = async () => {
-      if (!user) {
-        setCarregando(false);
-        return;
-      }
-      const { data: usuario, error } = await supabase
-        .from('usuarios')
-        .select('empresa_id, nome')
-        .eq('auth_user_id', user.id)
-        .maybeSingle();
-      if (error || !usuario) {
-        setCarregando(false);
-        return;
-      }
-      setEmpresaId(usuario.empresa_id);
-      // Armazena nome e empresa_id no localStorage para uso futuro se necessário
-      localStorage.setItem('user', JSON.stringify({ ...user, nome: usuario.nome, empresa_id: usuario.empresa_id }));
-      setCarregando(false);
-    };
-    fetchEmpresaId();
-  }, [user]);
+    if (usuarioData !== undefined) setCarregando(false);
+  }, [usuarioData]);
 
-  // Buscar colunas salvas do banco ao carregar empresaId
+  // Buscar colunas salvas do banco ao carregar empresa_id
   useEffect(() => {
     const fetchColunas = async () => {
-      if (!empresaId) return;
+      if (!empresa_id) return;
       // Busca colunas_dashboard do supabase
       const { data, error } = await supabase
         .from('colunas_dashboard')
         .select('nome')
-        .eq('empresa_id', empresaId)
+        .eq('empresa_id', empresa_id)
         .order('posicao', { ascending: true });
       if (!error && data && data.length > 0) {
         setColunas(data.map((c) => c.nome));
       }
     };
     fetchColunas();
-  }, [empresaId]);
+  }, [empresa_id, supabase]);
 
-  // Buscar notas do banco assim que empresaId estiver disponível
+  // Buscar notas do banco assim que empresa_id estiver disponível
   useEffect(() => {
     const fetchNotas = async () => {
-      if (!empresaId) return;
+      if (!empresa_id) return;
       const { data, error } = await supabase
         .from("notas_dashboard")
         .select("*")
-        .eq("empresa_id", empresaId);
+        .eq("empresa_id", empresa_id);
       if (!error && data) {
         setNotes(data);
       }
     };
     fetchNotas();
-  }, [empresaId]);
+  }, [empresa_id, supabase]);
 
   // Salvar colunas no banco
   const salvarColunasNoBanco = async (colunas: string[]) => {
-    if (!empresaId) return;
+    if (!empresa_id) return;
     const colunasParaSalvar = colunas.map((nome, index) => ({
       nome,
       posicao: index,
-      empresa_id: empresaId,
+      empresa_id: empresa_id,
     }));
     // Limpa colunas antigas e insere as novas
-    await supabase.from('colunas_dashboard').delete().eq('empresa_id', empresaId);
+    await supabase.from('colunas_dashboard').delete().eq('empresa_id', empresa_id);
     await supabase.from('colunas_dashboard').insert(colunasParaSalvar);
   };
 
@@ -135,12 +119,12 @@ export default function DashboardPage() {
   const salvarTituloColuna = async (index: number) => {
     // Buscar o nome antigo e o id da coluna no banco
     const nomeAntigo = colunas[index];
-    if (!empresaId) return;
+    if (!empresa_id) return;
     // Busca o id da coluna pelo nome antigo e empresa_id
     const { data, error } = await supabase
       .from('colunas_dashboard')
       .select('id')
-      .eq('empresa_id', empresaId)
+      .eq('empresa_id', empresa_id)
       .eq('posicao', index)
       .maybeSingle();
     if (data && data.id) {
@@ -195,12 +179,12 @@ const editarColuna = async (colunaId: string, novoNome: string, nomeAntigo: stri
 const atualizarNomeColuna = async (index: number, novoNome: string) => {
   // Buscar o nome antigo e o id da coluna no banco
   const nomeAntigo = colunas[index];
-  if (!empresaId) return;
+  if (!empresa_id) return;
   // Busca o id da coluna pelo nome antigo e empresa_id
   const { data, error } = await supabase
     .from('colunas_dashboard')
     .select('id')
-    .eq('empresa_id', empresaId)
+    .eq('empresa_id', empresa_id)
     .eq('nome', nomeAntigo)
     .maybeSingle();
   if (data && data.id) {
@@ -218,7 +202,7 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
   const [showModal, setShowModal] = useState(false);
   const [novaNota, setNovaNota] = useState({
     titulo: '',
-    texto: '',
+    descricao: '',
     cor: 'bg-yellow-500',
     coluna: 'lembretes',
     prioridade: 'Média',
@@ -228,58 +212,90 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
 
   // Função para criar ou atualizar nota
   const salvarOuAtualizarNota = async () => {
+    // Adiciona empresaId do contexto de autenticação
+    const empresaId = empresaData?.id;
     if (!empresaId || !novaNota.titulo.trim()) return;
 
+    const idNota = notaEditando?.id;
+
     if (notaEditando) {
+      // Atualização: use nomes corretos de colunas
       const { error } = await supabase
         .from('notas_dashboard')
         .update({
           titulo: novaNota.titulo,
-          texto: novaNota.texto,
+          texto: novaNota.descricao, // Troca descricao por texto
           cor: novaNota.cor,
+          prioridade: novaNota.prioridade,
           coluna: novaNota.coluna,
-          prioridade: novaNota.prioridade
         })
-        .eq('id', notaEditando.id);
+        .eq('id', idNota);
 
       if (error) {
-        console.error('Erro ao inserir nota:', error);
+        console.error('Erro ao atualizar nota:', error);
         toast.error('Erro ao atualizar nota.');
         return;
       }
 
       setNotes((prev) =>
-        prev.map((n) => (n.id === notaEditando.id ? { ...n, ...novaNota } : n))
+        prev.map((n) =>
+          n.id === idNota
+            ? {
+                ...n,
+                titulo: novaNota.titulo,
+                texto: novaNota.descricao,
+                cor: novaNota.cor,
+                prioridade: novaNota.prioridade,
+                coluna: novaNota.coluna,
+              }
+            : n
+        )
       );
       toast.success('Nota atualizada com sucesso!');
     } else {
-      const nota = {
+      // Inserção com nomes exatos das colunas conforme schema
+      const { error } = await supabase.from('notas_dashboard').insert([{
         id: uuidv4(),
         titulo: novaNota.titulo,
-        texto: novaNota.texto,
-        responsavel: '',
+        texto: novaNota.descricao,
         cor: novaNota.cor,
-        coluna: novaNota.coluna,
         prioridade: novaNota.prioridade,
+        coluna: novaNota.coluna,
         empresa_id: empresaId,
+        responsavel: session?.user?.email ?? '',
+        data_criacao: new Date().toISOString(),
         pos_x: 0,
-        pos_y: 0,
-        data_criacao: new Date().toISOString()
-      };
+        pos_y: 0
+      }]);
 
-      const { error } = await supabase.from('notas_dashboard').insert([nota]);
       if (error) {
-        console.error('Erro ao inserir nota:', error);
+        console.error("Erro detalhado do Supabase:", error);
         toast.error('Erro ao salvar nota.');
         return;
       }
 
-      setNotes((prev) => [nota, ...prev]);
+      // Adiciona a nota localmente para atualização imediata na UI
+      setNotes((prev) => [
+        {
+          id: '', // será atualizado no fetch, mas adiciona um placeholder
+          titulo: novaNota.titulo,
+          texto: novaNota.descricao,
+          cor: novaNota.cor,
+          prioridade: novaNota.prioridade,
+          coluna: novaNota.coluna,
+          empresa_id: empresaId,
+          responsavel: session?.user?.email ?? '',
+          data_criacao: new Date().toISOString(),
+          pos_x: 0,
+          pos_y: 0
+        },
+        ...prev,
+      ]);
       toast.success('Nota adicionada com sucesso!');
     }
 
     setShowModal(false);
-    setNovaNota({ titulo: '', texto: '', cor: 'bg-yellow-500', coluna: 'lembretes', prioridade: 'Média' });
+    setNovaNota({ titulo: '', descricao: '', cor: 'bg-yellow-500', coluna: 'lembretes', prioridade: 'Média' });
     setNotaEditando(null);
   };
 
@@ -454,29 +470,34 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
   }
 
   // Checagem de carregamento e autenticação
-  if (carregando || !user) {
+  if (carregando || !session?.user) {
     return <div className="p-4">Carregando...</div>;
+  }
+
+  // Definir usuarioNome de forma robusta
+  let usuarioNome: string = 'usuário';
+  try {
+    // Prioriza usuarioData.nome (não userData)
+    if (usuarioData?.nome) usuarioNome = usuarioData.nome;
+    else {
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        usuarioNome = parsed.nome || parsed.user_metadata?.nome || 'usuário';
+      } else {
+        usuarioNome = session?.user?.user_metadata?.nome || 'usuário';
+      }
+    }
+  } catch {
+    usuarioNome = session?.user?.user_metadata?.nome || 'usuário';
   }
 
   return (
     <MenuLayout>
       <div className="w-full px-6 py-4">
-      <h1 className="text-2xl font-bold tracking-tight">Dashboard Admin</h1>
-      <p className="text-lg text-gray-600 mt-1">
-        {(() => {
-          try {
-            // Tenta pegar nome do localStorage (setado acima) ou dos metadados do user
-            const stored = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-            if (stored) {
-              const parsed = JSON.parse(stored);
-              return parsed.nome || parsed.user_metadata?.nome || 'usuário';
-            }
-            return user?.user_metadata?.nome || 'usuário';
-          } catch {
-            return user?.user_metadata?.nome || 'usuário';
-          }
-        })()}
-      </p>
+        <h1 className="text-2xl font-bold tracking-tight">Dashboard Admin</h1>
+        {/* Bem-vindo, nome do usuário */}
+        <h2 className="text-lg font-semibold text-neutral-700 mb-4">Bem-vindo, {usuarioNome}</h2>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-[#cffb6d] text-black p-4 rounded-xl shadow">
@@ -630,6 +651,8 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
                           <button
                             type="button"
                             onMouseDown={async () => {
+                              // Garante que empresaId está definido antes de usar
+                              const empresaId = session?.user?.user_metadata?.empresa_id;
                               const confirmacao = window.confirm(`Tem certeza que deseja excluir a coluna "${coluna}"?`);
                               if (confirmacao) {
                                 const novas = colunas.filter((_, i) => i !== index);
@@ -837,9 +860,9 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
               className="w-full border rounded p-2 text-sm"
             />
             <textarea
-              placeholder="Texto"
-              value={novaNota.texto}
-              onChange={(e) => setNovaNota({ ...novaNota, texto: e.target.value })}
+              placeholder="Descrição"
+              value={novaNota.descricao}
+              onChange={(e) => setNovaNota({ ...novaNota, descricao: e.target.value })}
               className="w-full border rounded p-2 text-sm"
             />
             <div className="flex gap-2">

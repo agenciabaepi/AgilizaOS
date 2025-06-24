@@ -5,9 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { FiEye, FiEdit, FiPrinter, FiUsers } from 'react-icons/fi';
 import { supabase } from '@/lib/supabaseClient';
+import { useAuth } from '@/context/AuthContext';
 
 export default function ListaOrdensPage() {
   const router = useRouter();
+  const { usuarioData, empresaData } = useAuth();
+  const empresa_id = empresaData?.id;
 
   function formatDate(date: string) {
     return date ? new Date(date).toLocaleDateString('pt-BR') : '';
@@ -24,72 +27,71 @@ export default function ListaOrdensPage() {
 
   useEffect(() => {
     const fetchOrdens = async () => {
-      const {
-        data: { user },
-        error: userError
-      } = await supabase.auth.getUser();
-      if (userError) {
-        console.error('Erro ao obter usuário autenticado:', userError);
+      if (!empresa_id) {
+        console.log('Empresa ainda não carregada');
         return;
       }
 
-      const userId = user?.id;
-      const { data: empresaData, error: empresaError } = await supabase
-        .from("empresas")
-        .select("id")
-        .eq("user_id", userId)
-        .single();
-
-      if (empresaError) {
-        console.error('Erro ao obter dados da empresa:', empresaError);
-        return;
-      }
-
-      const empresa_id = empresaData?.id;
-
-      const { data, error } = await supabase
+      const { data: ordensData, error: ordensError } = await supabase
         .from('ordens_servico')
         .select(`
-          id, numero_os, servico, status, created_at, tecnico_id ( nome ), atendente, data_entrega, vencimento_garantia, valor_peca, valor_servico, desconto, valor_faturado,
-          categoria, modelo, marca, cor,
-          cliente_id ( nome )
+          id,
+          numero_os,
+          servico,
+          status,
+          created_at,
+          tecnico_id ( nome ),
+          atendente,
+          data_entrega,
+          vencimento_garantia,
+          valor_peca,
+          valor_servico,
+          desconto,
+          valor_faturado,
+          categoria,
+          modelo,
+          marca,
+          cor,
+          cliente_id,
+          clientes:cliente_id (
+            id,
+            nome,
+            telefone,
+            email
+          )
         `)
         .eq('empresa_id', empresa_id);
 
-      if (error) {
-        console.error('Erro ao carregar OS:', JSON.stringify(error, null, 2));
-      } else {
-        if (data) {
-          console.log('DATA RECEBIDA:', data);
-          const mapped = data.map((item: any) => {
-            console.log('ITEM:', item);
-            return {
-              id: item.id,
-              numero: item.numero_os,
-              cliente: item.cliente_id?.nome || 'Sem nome',
-              aparelho: [item.categoria, item.marca, item.modelo, item.cor].filter(Boolean).join(' ') || '',
-              servico: item.servico || '',
-              statusOS: item.status || '',
-              entrada: item.created_at || '',
-              tecnico: item.tecnico_id?.nome || '',
-              atendente: item.atendente || '',
-              entrega: item.data_entrega || '',
-              garantia: item.vencimento_garantia || '',
-              valorPeca: item.valor_peca || 0,
-              valorServico: item.valor_servico || 0,
-              desconto: item.desconto || 0,
-              valorTotal: (item.valor_peca || 0) + (item.valor_servico || 0),
-              valorComDesconto: ((item.valor_peca || 0) + (item.valor_servico || 0)) - (item.desconto || 0),
-              valorFaturado: item.valor_faturado || 0,
-            };
-          });
-          setOrdens(mapped);
-        }
+      if (ordensError) {
+        console.error('Erro ao carregar OS:', JSON.stringify(ordensError, null, 2));
+      } else if (ordensData) {
+        const mapped = ordensData.map((item: any) => ({
+          id: item.id,
+          numero: item.numero_os,
+          cliente: item.clientes?.nome || 'Sem nome',
+          clienteTelefone: item.clientes?.telefone || '',
+          clienteEmail: item.clientes?.email || '',
+          aparelho: [item.categoria, item.marca, item.modelo, item.cor].filter(Boolean).join(' ') || '',
+          servico: item.servico || '',
+          statusOS: item.status || '',
+          entrada: item.created_at || '',
+          tecnico: item.tecnico_id?.nome || '',
+          atendente: item.atendente || '',
+          entrega: item.data_entrega || '',
+          garantia: item.vencimento_garantia || '',
+          valorPeca: item.valor_peca || 0,
+          valorServico: item.valor_servico || 0,
+          desconto: item.desconto || 0,
+          valorTotal: (item.valor_peca || 0) + (item.valor_servico || 0),
+          valorComDesconto: ((item.valor_peca || 0) + (item.valor_servico || 0)) - (item.desconto || 0),
+          valorFaturado: item.valor_faturado || 0,
+        }));
+        setOrdens(mapped);
       }
     };
 
     fetchOrdens();
-  }, []);
+  }, [empresaData]);
 
   const filtered = ordens.filter((os) => {
     const matchesSearch = os.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -103,6 +105,10 @@ export default function ListaOrdensPage() {
 
   const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
+
+  if (!empresa_id) {
+    return <div className="p-6">Carregando ordens de serviço...</div>;
+  }
 
   return (
     <MenuLayout>
@@ -187,6 +193,7 @@ export default function ListaOrdensPage() {
               <tr>
                 <th className="px-3 py-2">#</th>
                 <th className="px-3 py-2">Cliente</th>
+                <th className="px-3 py-2">Telefone</th>
                 <th className="px-3 py-2">Aparelho</th>
                 <th className="px-3 py-2">Serviço</th>
                 <th className="px-3 py-2">Entrega</th>
@@ -203,6 +210,7 @@ export default function ListaOrdensPage() {
                 <tr key={os.id} className="hover:bg-gray-50 transition">
                   <td className="px-3 py-2 font-medium">#{os.numero}</td>
                   <td className="px-3 py-2">{os.cliente}</td>
+                  <td className="px-3 py-2">{os.clienteTelefone}</td>
                   <td className="px-3 py-2">{os.aparelho}</td>
                   <td className="px-3 py-2">{os.servico}</td>
                   <td className="px-3 py-2">{formatDate(os.entrega)}</td>
