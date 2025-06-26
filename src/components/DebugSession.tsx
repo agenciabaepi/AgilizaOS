@@ -10,8 +10,24 @@ export default function DebugSession() {
 
   useEffect(() => {
     const fetchSession = async () => {
-      const { data, error } = await supabase.auth.getSession();
-      setUserInfo(data.session?.user || error);
+      const { data: { session }, error } = await supabase.auth.getSession();
+
+      if (session) {
+        const { data: usuarioData, error: userError } = await supabase
+          .from('usuarios')
+          .select('empresa_id, id, nome, auth_user_id')
+          .eq('auth_user_id', session.user.id)
+          .single();
+
+        setUserInfo({
+          authUser: session.user,
+          empresa_id: usuarioData?.empresa_id,
+          usuario: usuarioData,
+          erro: userError,
+        });
+      } else {
+        setUserInfo({ erro: error });
+      }
     };
 
     fetchSession();
