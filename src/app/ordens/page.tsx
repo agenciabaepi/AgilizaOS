@@ -192,51 +192,58 @@ export default function ListaOrdensPage() {
         </div>
 
         {/* Tabela */}
-        <div className="overflow-x-auto rounded-lg shadow-md bg-white p-4">
-          <table className="min-w-full divide-y divide-gray-200 text-sm text-left text-gray-700">
-            <thead className="bg-gray-100 text-xs uppercase text-gray-700">
+        <div className="overflow-auto rounded-lg border border-gray-200 mt-4">
+          <table className="min-w-full divide-y divide-gray-200 bg-white text-sm">
+            <thead className="bg-gray-100 text-left text-xs font-semibold text-gray-700 border-b border-gray-300">
               <tr>
-                <th className="px-3 py-2">#</th>
-                <th className="px-3 py-2">Cliente</th>
-                <th className="px-3 py-2">Telefone</th>
-                <th className="px-3 py-2">Aparelho</th>
-                <th className="px-3 py-2">Serviço</th>
-                <th className="px-3 py-2">Entrega</th>
-                <th className="px-3 py-2">Responsável</th>
-                <th className="px-3 py-2">Garantia</th>
-                <th className="px-3 py-2">Total</th>
-                <th className="px-3 py-2">Técnico</th>
-                <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2 text-right">Ações</th>
+                <th className="px-3 py-2 border-r border-gray-200">#</th>
+                <th className="px-3 py-2 border-r border-gray-200">Cliente</th>
+                <th className="px-3 py-2 border-r border-gray-200">Telefone</th>
+                <th className="px-3 py-2 border-r border-gray-200">Aparelho</th>
+                <th className="px-3 py-2 border-r border-gray-200">Serviço</th>
+                <th className="px-3 py-2 border-r border-gray-200">Entrega</th>
+                <th className="px-3 py-2 border-r border-gray-200">Responsável</th>
+                <th className="px-3 py-2 border-r border-gray-200">Garantia</th>
+                <th className="px-3 py-2 border-r border-gray-200">Total</th>
+                <th className="px-3 py-2 border-r border-gray-200">Técnico</th>
+                <th className="px-3 py-2 border-r border-gray-200">Status</th>
+                <th className="px-3 py-2">Ações</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="text-gray-700 divide-y divide-gray-200">
               {paginated.map((os) => (
-                <tr key={os.id} className="hover:bg-gray-50 transition">
-                  <td className="px-3 py-2 font-medium">#{os.numero}</td>
-                  <td className="px-3 py-2">{os.cliente}</td>
-                  <td className="px-3 py-2">{os.clienteTelefone}</td>
-                  <td className="px-3 py-2">{os.aparelho}</td>
-                  <td className="px-3 py-2">{os.servico}</td>
-                  <td className="px-3 py-2">{formatDate(os.entrega)}</td>
-                  <td className="px-3 py-2">{os.atendente}</td>
-                  <td className="px-3 py-2">{formatDate(os.garantia)}</td>
-                  <td className="px-3 py-2 font-semibold text-gray-800">R$ {os.valorTotal?.toFixed(2)}</td>
-                  <td className="px-3 py-2">{os.tecnico}</td>
-                  <td className="px-3 py-2">
-                    <span className="bg-gray-100 px-2 py-1 rounded-full text-xs">{os.statusOS}</span>
+                <tr key={os.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm font-medium text-gray-900">#{os.numero}</td>
+                  <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm">{os.cliente}</td>
+                  <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm">{os.clienteTelefone}</td>
+                  <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm">{os.aparelho}</td>
+                  <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm">{os.servico}</td>
+                  <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm">{formatDate(os.entrega)}</td>
+                  <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm">{os.atendente}</td>
+                  <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm">{formatDate(os.garantia)}</td>
+                  <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm text-left font-bold text-green-700">R$ {os.valorTotal?.toFixed(2)}</td>
+                  <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm">{os.tecnico}</td>
+                  <td className="px-3 py-2 align-middle text-left text-sm">
+                    <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
+                      os.statusOS === 'Finalizada' ? 'bg-green-100 text-green-700' :
+                      os.statusOS === 'Aguardando aprovação' ? 'bg-yellow-100 text-yellow-700' :
+                      os.statusOS === 'Não aprovada' ? 'bg-red-100 text-red-700' :
+                      os.statusOS === 'Pronta para retirada' ? 'bg-blue-100 text-blue-700' :
+                      'bg-gray-100 text-gray-600'
+                    }`}>
+                      {os.statusOS}
+                    </span>
                   </td>
-                  <td className="px-3 py-2 text-right">
+                  <td className="px-3 py-2 align-middle border-r border-gray-100 text-left text-sm">
                     <div className="flex justify-end gap-2">
-                      {console.log('Visualizar OS ID:', os.id)}
-                      <button onClick={() => router.push(`/ordens/${os.id}`)} className="text-blue-600 hover:text-blue-800">
-                        <FiEye size={18} />
+                      <button onClick={() => router.push(`/ordens/${os.id}`)} className="p-2 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 transition">
+                        <FiEye size={16} />
                       </button>
-                      <button onClick={() => router.push(`/ordens/editar/${os.id}`)} className="text-yellow-600 hover:text-yellow-800">
-                        <FiEdit size={18} />
+                      <button onClick={() => router.push(`/ordens/editar/${os.id}`)} className="p-2 rounded-full bg-yellow-100 text-yellow-600 hover:bg-yellow-200 transition">
+                        <FiEdit size={16} />
                       </button>
-                      <button onClick={() => console.log('Imprimir', os.id)} className="text-gray-600 hover:text-gray-800">
-                        <FiPrinter size={18} />
+                      <button onClick={() => console.log('Imprimir', os.id)} className="p-2 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition">
+                        <FiPrinter size={16} />
                       </button>
                     </div>
                   </td>
