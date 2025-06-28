@@ -10,7 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 export default function ListaOrdensPage() {
   const router = useRouter();
   const { usuarioData, empresaData } = useAuth();
-  const empresa_id = empresaData?.id;
+  const empresaId = empresaData?.id;
 
   function formatDate(date: string) {
     return date ? new Date(date).toLocaleDateString('pt-BR') : '';
@@ -26,47 +26,45 @@ export default function ListaOrdensPage() {
   const [tecnicoFilter, setTecnicoFilter] = useState('');
 
   useEffect(() => {
-    if (!empresa_id) return;
+    if (!empresaId) return;
     const fetchOrdens = async () => {
-      if (!empresa_id) {
-        console.warn('[ListaOrdensPage] empresa_id não definido, abortando fetch');
+      console.log('🟢 Iniciando fetchOrdens');
+      console.log('🟡 empresaId recebido:', empresaId);
+
+      if (!empresaId) {
+        console.warn('[ListaOrdensPage] empresaId não definido, abortando fetch');
         return;
       }
 
-      const { data: ordensData, error: ordensError } = await supabase
-        .from('ordens_servico')
-        .select(`
-          id,
-          numero_os,
-          servico,
-          status,
-          created_at,
-          tecnico_id ( nome ),
-          atendente,
-          data_entrega,
-          vencimento_garantia,
-          valor_peca,
-          valor_servico,
-          desconto,
-          valor_faturado,
-          categoria,
-          modelo,
-          marca,
-          cor,
-          cliente_id,
-          clientes:cliente_id (
-            id,
-            nome,
-            telefone,
-            email
-          )
-        `)
-        .eq('empresa_id', empresa_id);
+      const empresaUuid = empresaId as `${string}-${string}-${string}-${string}-${string}`;
 
-      if (ordensError) {
-        console.error('Erro ao carregar OS:', JSON.stringify(ordensError, null, 2));
-      } else if (ordensData) {
-        const mapped = ordensData.map((item: any) => ({
+      const session = await supabase.auth.getSession();
+      console.log('🟠 SESSION:', session);
+      console.log('🔵 USER ID:', session.data.session?.user?.id);
+
+      console.log("🟢 SESSION:", session.data.session);
+
+      const user = session.data.session?.user;
+      console.log("🟡 USER UID:", user?.id);
+
+      console.log("🔵 EMPRESA ID usada na query:", empresaUuid);
+
+      const { data, error } = await supabase
+        .from("ordens_servico")
+        .select(`
+          *,
+          clientes:cliente_id(nome, telefone, email),
+          tecnico_id(nome)
+        `)
+        .eq("empresa_id", empresaUuid);
+
+      console.log('🟣 Dados retornados:', data);
+      console.log('🔴 Erro na query:', error);
+
+      if (error) {
+        console.error('Erro ao carregar OS:', JSON.stringify(error, null, 2));
+      } else if (data) {
+        const mapped = data.map((item: any) => ({
           id: item.id,
           numero: item.numero_os,
           cliente: item.clientes?.nome || 'Sem nome',
@@ -92,7 +90,7 @@ export default function ListaOrdensPage() {
     };
 
     fetchOrdens();
-  }, [empresa_id]);
+  }, [empresaId]);
 
   const filtered = ordens.filter((os) => {
     const matchesSearch = os.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -107,7 +105,7 @@ export default function ListaOrdensPage() {
   const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
 
-  if (!empresa_id) {
+  if (!empresaId) {
     return (
       <div className="p-6 text-center text-gray-500 animate-pulse">
         Carregando ordens de serviço...
@@ -183,8 +181,10 @@ export default function ListaOrdensPage() {
               <option value="Fernanda">Fernanda</option>
             </select>
             <button
-              onClick={() => router.push('/nova-os')}
-              className="bg-[#cffb6d] text-black px-5 py-2 rounded-lg text-sm shadow hover:bg-lime-400 transition"
+              onClick={() => {
+                router.push("/nova-os");
+              }}
+              className="rounded-md bg-lime-400 px-4 py-2 text-black font-medium hover:bg-lime-300 transition-all"
             >
               + Nova OS
             </button>
