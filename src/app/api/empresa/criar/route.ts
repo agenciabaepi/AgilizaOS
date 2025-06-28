@@ -8,7 +8,7 @@ export async function POST(request: Request) {
   let {
     nome,
     email,
-    senha,
+    // senha, // Não precisamos mais da senha aqui
     nomeEmpresa,
     cidade,
     cnpj,
@@ -60,19 +60,12 @@ export async function POST(request: Request) {
     }
   }
 
-  // 1. Criar usuário no Auth
-  const { data: authUser, error: authError } = await supabase.auth.signUp({
-    email,
-    password: senha
-  });
-
-  if (authError || !authUser.user) {
-    console.error('Erro Supabase Auth:', authError);
-    return NextResponse.json({ error: 'Erro ao criar usuário', details: authError }, { status: 500 });
+  // Obter usuário autenticado
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
+    return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 });
   }
-  console.log('Usuário criado no Auth:', authUser.user.id);
-
-  const user_id = authUser.user.id;
+  const user_id = user.id;
 
   // 2. Criar empresa
   const { data: empresa, error: empresaError } = await supabase

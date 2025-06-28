@@ -7,8 +7,8 @@ export async function POST(req: Request) {
   const rawCpf = cpf.replace(/\D/g, '');
 
   const { data, error } = await supabase
-    .from('empresas')
-    .select('cpf')
+    .from('usuarios')
+    .select('id')
     .eq('cpf', rawCpf)
     .maybeSingle()
 

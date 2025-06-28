@@ -24,157 +24,30 @@ import {
 import { mask as masker } from 'remask';
 
 export default function CadastroEmpresa() {
-  const [tipoPessoa, setTipoPessoa] = useState<'fisica' | 'juridica'>('fisica');
-  // Novos estados para existência de CPF/CNPJ
-  const [cpfError, setCpfError] = useState("");
-  const [isCpfDuplicado, setIsCpfDuplicado] = useState(false);
-  // Novo controle para CNPJ do bloco solicitado
-  const [cnpj, setCnpj] = useState('');
-  const [cnpjError, setCnpjError] = useState('');
-  const [cnpjVerificado, setCnpjVerificado] = useState(false);
-  const timeoutRef = useRef<any>(null);
-  // Mantém para CPF legado
-  const [cnpjExistente, setCnpjExistente] = useState(false);
-  // Toast control for legacy logic (mantido)
-  const [cpfToastExibido, setCpfToastExibido] = useState(false);
-  const [cnpjToastExibido, setCnpjToastExibido] = useState(false);
   const [step, setStep] = useState(1);
   const router = useRouter();
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [form, setForm] = useState({
     nome: '',
     email: '',
     senha: '',
     confirmarSenha: '',
-    nomeEmpresa: '',
-    cidade: '',
-    cnpj: '',
-    cpf: '',
-    endereco: '',
     whatsapp: '',
-    website: '',
     plano: 'pro',
+    cpf: '', // novo campo
   });
-  // Estado para erro de CNPJ/CPF
-  const [erroCnpj, setErroCnpj] = useState('');
-
   const [emailValido, setEmailValido] = useState(true);
   const [senhasIguais, setSenhasIguais] = useState(true);
   const [emailError, setEmailError] = useState('');
-  async function verificarEmail(email: string) {
-    const res = await fetch('/api/verificar/email', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-      headers: { 'Content-Type': 'application/json' }
-    });
-    const result = await res.json();
-    setEmailError(result.exists ? 'Este e-mail já está em uso.' : '');
-  }
-
-  // Estado para existência de CPF/CNPJ (legado, pode ser removido se não usado)
-  const [cpfCnpjExiste, setCpfCnpjExiste] = useState(false);
-  const [cpfCnpjError, setCpfCnpjError] = useState('');
-  // Novos estados separados para CPF e CNPJ já cadastrados (legado, pode ser removido se não usado)
-  const [cpfCadastrado, setCpfCadastrado] = useState(false);
-  const [cnpjCadastrado, setCnpjCadastrado] = useState(false);
-
-  // Função utilitária para detectar CNPJ
-  function isCNPJ(value: string) {
-    const numeric = value.replace(/\D/g, "");
-    return numeric.length > 11;
-  }
-
-  // Verificação de email já existente
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(async () => {
-      if (form.email && form.email.length > 5) {
-        await verificarEmail(form.email);
-      }
-    }, 500);
-    return () => clearTimeout(delayDebounceFn);
-  }, [form.email]);
-
-  // Verificação em tempo real de CPF
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(async () => {
-      const raw = (form.cpf || '').replace(/\D/g, '');
-      if (raw && raw.length === 11) {
-        try {
-          const response = await fetch("/api/verificar/cpf", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ cpf: raw }),
-          });
-
-          if (!response.ok) {
-            throw new Error("Erro na verificação do CPF.");
-          }
-
-          const data = await response.json();
-          if (data.exists) {
-            setCpfError("Este CPF já está cadastrado.");
-            setIsCpfDuplicado(true);
-          } else {
-            setCpfError("");
-            setIsCpfDuplicado(false);
-          }
-        } catch (error) {
-          console.error("Erro ao verificar CPF:", error);
-          setCpfError("Erro ao verificar CPF.");
-          setIsCpfDuplicado(true);
-        }
-      } else {
-        setCpfError("");
-        setIsCpfDuplicado(false);
-      }
-    }, 500);
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [form.cpf]);
-
-  // Verificação em tempo real de CNPJ
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(async () => {
-      const raw = (form.cnpj || '').replace(/\D/g, '');
-      if (raw && raw.length === 14) {
-        const res = await fetch("/api/verificar/cnpj", {
-          method: "POST",
-          body: JSON.stringify({ cnpj: raw }),
-          headers: { 'Content-Type': 'application/json' }
-        });
-        const data = await res.json();
-        if (data.exists) {
-          toast.error("CNPJ já cadastrado.");
-          setCnpjExistente(true);
-        } else {
-          setCnpjExistente(false);
-        }
-      } else {
-        setCnpjExistente(false);
-      }
-    }, 500);
-    return () => clearTimeout(delayDebounceFn);
-  }, [form.cnpj]);
-
-  // Novo estado para erro de submissão
+  const [cpfError, setCpfError] = useState('');
   const [submitError, setSubmitError] = useState('');
-
-  // Estados para controle de visibilidade das senhas
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [mostrarConfirmarSenha, setMostrarConfirmarSenha] = useState(false);
-
-  const progress = (step / 3) * 100;
+  const progress = (step / 2) * 100;
 
   const handleNext = () => setStep((s) => s + 1);
   const handleBack = () => setStep((s) => s - 1);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.name === 'cnpj') {
-      const raw = e.target.value.replace(/\D/g, '');
-      const mask = raw.length <= 11 ? '999.999.999-99' : '99.999.999/9999-99';
-      setForm({ ...form, [e.target.name]: masker(raw, [mask]) });
-      return;
-    }
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
@@ -182,12 +55,58 @@ export default function CadastroEmpresa() {
     setForm({ ...form, plano });
   };
 
+  async function verificarEmail(email: string) {
+    const res = await fetch('/api/verificar/email', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const result = await res.json();
+    return result.exists;
+  }
+
+  async function verificarCPF(cpf: string) {
+    const res = await fetch('/api/verificar/cpf', {
+      method: 'POST',
+      body: JSON.stringify({ cpf }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const result = await res.json();
+    return result.exists;
+  }
+
   useEffect(() => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     setEmailValido(emailRegex.test(form.email));
-
     setSenhasIguais(form.senha === form.confirmarSenha);
   }, [form.email, form.senha, form.confirmarSenha]);
+
+  // Verificação de email já existente
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      if (form.email && form.email.length > 5) {
+        const exists = await verificarEmail(form.email);
+        setEmailError(exists ? 'Este e-mail já está em uso.' : '');
+      } else {
+        setEmailError('');
+      }
+    }, 500);
+    return () => clearTimeout(delayDebounceFn);
+  }, [form.email]);
+
+  // Verificação de CPF já existente com debounce
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      const raw = form.cpf.replace(/\D/g, '');
+      if (raw.length === 11) {
+        const exists = await verificarCPF(raw);
+        setCpfError(exists ? 'Este CPF já está em uso.' : '');
+      } else {
+        setCpfError('');
+      }
+    }, 500);
+    return () => clearTimeout(delayDebounceFn);
+  }, [form.cpf]);
 
   const validarFormulario = () => {
     if (
@@ -195,62 +114,71 @@ export default function CadastroEmpresa() {
       !form.email ||
       !form.senha ||
       !form.confirmarSenha ||
-      !form.nomeEmpresa ||
-      !form.cidade ||
-      (tipoPessoa === 'fisica' && !form.cpf)
+      !form.whatsapp
     ) {
       alert("Preencha todos os campos obrigatórios.");
       return false;
     }
-
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(form.email)) {
       alert("Informe um e-mail válido.");
       return false;
     }
-
     if (form.senha.length < 6) {
       alert("A senha deve ter pelo menos 6 caracteres.");
       return false;
     }
-
     if (form.senha !== form.confirmarSenha) {
       alert("As senhas não coincidem.");
       return false;
     }
-
     return true;
   };
 
   const handleSubmit = async () => {
     setSubmitError('');
-    // Adiciona verificação de erro de CNPJ/CPF
-    if (erroCnpj) {
-      toast.error('Corrija os erros antes de continuar');
-      return;
-    }
     if (!validarFormulario()) return;
+    // Remove máscara do CPF antes de enviar
+    const cpfLimpo = form.cpf.replace(/\D/g, '');
+    // Prepara o corpo da requisição, garantindo campos sem máscara
+    const payload = {
+      nome: form.nome,
+      email: form.email,
+      senha: form.senha,
+      whatsapp: form.whatsapp,
+      plano: form.plano,
+      cpf: cpfLimpo,
+    };
     try {
-      const res = await fetch('/api/empresa/criar', {
+      console.log("Enviando payload:", payload);
+      const res = await fetch('/api/usuarios/cadastrar', {
         method: 'POST',
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
       });
+      const text = await res.text();
+      let result;
 
-      const result = await res.json();
-
+      try {
+        result = JSON.parse(text);
+      } catch (e) {
+        console.error('Resposta não é um JSON válido:', text);
+        toast.error('Erro inesperado no servidor.');
+        return;
+      }
       if (!res.ok) {
-        if (result.error === 'Email já cadastrado') {
+        if (result.error?.toLowerCase().includes('e-mail já cadastrado')) {
+          setEmailError('Este e-mail já está em uso.');
           toast.error('Este e-mail já está em uso.');
-        } else if (result.error === 'CPF já cadastrado') {
+        } else if (result.error?.toLowerCase().includes('cpf já cadastrado')) {
+          setCpfError('Este CPF já está em uso.');
           toast.error('Este CPF já está em uso.');
-        } else if (result.error === 'CNPJ já cadastrado') {
-          toast.error('Este CNPJ já está em uso.');
         } else {
           toast.error('Erro ao cadastrar. Tente novamente.');
         }
         return;
       }
-
       toast.success('Cadastro realizado com sucesso!');
       router.push('/login');
     } catch (error: any) {
@@ -468,19 +396,17 @@ export default function CadastroEmpresa() {
                   value={form.nome}
                   onChange={handleChange}
                 />
-                <label className={`text-sm ${emailValido ? 'text-gray-600' : 'text-red-500'}`}>
-                  {emailValido ? 'Informe um e-mail válido.' : 'E-mail inválido.'}
+                <label className={`text-sm ${(emailError || !emailValido) ? 'text-red-500' : 'text-gray-600'}`}>
+                  {emailError || (!emailValido ? 'E-mail inválido.' : 'Informe um e-mail válido.')}
                 </label>
                 <input
                   type="email"
                   name="email"
                   placeholder="E-mail"
-                  className={`w-full px-4 py-3 rounded-md border ${emailValido ? 'border-gray-300' : 'border-red-500'} focus:outline-none focus:ring-2 focus:ring-black transition`}
+                  className={`w-full px-4 py-3 rounded-md border ${(emailError || !emailValido) ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-black transition`}
                   value={form.email}
                   onChange={handleChange}
-                  onBlur={() => verificarEmail(form.email)}
                 />
-                {emailError && <p className="text-red-500 text-sm mt-1">{emailError}</p>}
                 {/* Campo de senha com visibilidade */}
                 <label className="text-sm text-gray-600">Crie uma senha segura.</label>
                 <div className="relative">
@@ -519,6 +445,34 @@ export default function CadastroEmpresa() {
                     {mostrarConfirmarSenha ? <FaEyeSlash /> : <FaEye />}
                   </div>
                 </div>
+                {/* Campo CPF */}
+                <label className={`text-sm ${cpfError ? 'text-red-500' : 'text-gray-600'}`}>
+                  {cpfError || 'Informe seu CPF (somente números).'}
+                </label>
+                <input
+                  type="text"
+                  name="cpf"
+                  placeholder="000.000.000-00"
+                  className={`w-full px-4 py-3 rounded-md border ${cpfError ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-black transition`}
+                  value={form.cpf}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/\D/g, '');
+                    setForm({ ...form, cpf: masker(raw, ['999.999.999-99']) });
+                  }}
+                />
+
+                <label className="text-sm text-gray-600">WhatsApp</label>
+                <input
+                  type="text"
+                  name="whatsapp"
+                  placeholder="(99) 99999-9999"
+                  className="w-full px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-black transition"
+                  value={form.whatsapp}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/\D/g, '');
+                    setForm({ ...form, whatsapp: masker(raw, ['(99) 99999-9999']) });
+                  }}
+                />
                 {/* Exibição de erro de submissão */}
                 {submitError && (
                   <p className="text-red-500 text-sm mb-4">{submitError}</p>
@@ -531,14 +485,18 @@ export default function CadastroEmpresa() {
                     Voltar
                   </button>
                   <button
-                    onClick={handleNext}
+                    type="submit"
+                    onClick={handleSubmit}
                     disabled={
                       !form.nome ||
                       !form.email ||
                       !form.senha ||
                       !form.confirmarSenha ||
                       emailError !== '' ||
-                      form.senha !== form.confirmarSenha
+                      form.senha !== form.confirmarSenha ||
+                      !form.whatsapp ||
+                      !form.cpf ||
+                      cpfError !== ''
                     }
                     className={`bg-black text-white px-4 py-2 rounded transition ${
                       !form.nome ||
@@ -546,187 +504,12 @@ export default function CadastroEmpresa() {
                       !form.senha ||
                       !form.confirmarSenha ||
                       emailError !== '' ||
-                      form.senha !== form.confirmarSenha
+                      form.senha !== form.confirmarSenha ||
+                      !form.whatsapp ||
+                      !form.cpf ||
+                      cpfError !== ''
                         ? 'opacity-50 cursor-not-allowed'
                         : 'hover:bg-gray-900'
-                    }`}
-                  >
-                    Próximo
-                  </button>
-                </div>
-              </div>
-            )}
-            {step === 3 && (
-              <div
-                key={`step2-${step}`}
-                className="w-full gap-3 flex flex-col transition-opacity duration-200"
-              >
-                <h2 className="text-xl font-bold mb-4">Dados da empresa</h2>
-                <label className="text-sm text-gray-600">Nome oficial da sua empresa.</label>
-                <input
-                  type="text"
-                  name="nomeEmpresa"
-                  placeholder="Nome da empresa"
-                  className="w-full px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-black transition"
-                  value={form.nomeEmpresa}
-                  onChange={handleChange}
-                />
-                <label className="text-sm text-gray-600">Cidade onde sua empresa está localizada.</label>
-                <input
-                  type="text"
-                  name="cidade"
-                  placeholder="Cidade"
-                  className="w-full px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-black transition"
-                  value={form.cidade}
-                  onChange={handleChange}
-                />
-                {/* Tipo de cadastro e CPF/CNPJ */}
-                <label className="text-sm text-gray-600 mb-1">Tipo de cadastro:</label>
-                <div className="flex gap-4 mb-4">
-                  <button
-                    type="button"
-                    className={`px-4 py-2 rounded ${
-                      tipoPessoa === 'fisica' ? 'bg-black text-white' : 'bg-gray-200'
-                    }`}
-                    onClick={() => setTipoPessoa('fisica')}
-                  >
-                    Pessoa Física
-                  </button>
-                  <button
-                    type="button"
-                    className={`px-4 py-2 rounded ${
-                      tipoPessoa === 'juridica' ? 'bg-black text-white' : 'bg-gray-200'
-                    }`}
-                    onClick={() => setTipoPessoa('juridica')}
-                  >
-                    Pessoa Jurídica
-                  </button>
-                </div>
-
-                {tipoPessoa === 'fisica' && (
-                  <>
-                    <label className="text-sm text-gray-600">CPF</label>
-                  <input
-                    type="text"
-                    name="cpf"
-                    placeholder="CPF"
-                    className={`w-full px-4 py-3 rounded-md border ${
-                      isCpfDuplicado ? 'border-red-500' : 'border-gray-300'
-                    } focus:outline-none focus:ring-2 focus:ring-black transition`}
-                    value={form.cpf || ''}
-                    onChange={(e) => {
-                      const raw = e.target.value.replace(/\D/g, '');
-                      setForm({ ...form, cpf: masker(raw, ['999.999.999-99']) });
-                    }}
-                  />
-                  {cpfError && <p className="text-red-500 text-sm mt-1">{cpfError}</p>}
-                  </>
-                )}
-
-                {tipoPessoa === 'juridica' && (
-                  <div className="mb-4">
-                    <label htmlFor="cnpj" className="text-sm text-gray-600">
-                      CNPJ
-                    </label>
-                    <input
-                      type="text"
-                      id="cnpj"
-                      name="cnpj"
-                      placeholder="CNPJ"
-                      className={`w-full px-4 py-3 rounded-md border ${
-                        cnpjError ? 'border-red-500' : 'border-gray-300'
-                      } focus:outline-none focus:ring-2 focus:ring-black transition`}
-                      value={cnpj}
-                      onChange={(e) => {
-                        const raw = e.target.value.replace(/\D/g, '');
-                        const masked = masker(raw, ['99.999.999/9999-99']);
-                        setCnpj(masked);
-                        setCnpjVerificado(false);
-                        setCnpjError('');
-                        clearTimeout(timeoutRef.current);
-                        timeoutRef.current = setTimeout(async () => {
-                          if (raw.length === 14) {
-                            const response = await fetch('/api/verificar/cnpj', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ cnpj: raw }),
-                            });
-                            const data = await response.json();
-                            if (data.existe) {
-                              setCnpjError('Já existe uma empresa cadastrada com este CNPJ');
-                              setCnpjVerificado(false);
-                            } else {
-                              setCnpjVerificado(true);
-                              setCnpjError('');
-                            }
-                          }
-                        }, 500);
-                      }}
-                    />
-                    {cnpjError && (
-                      <p className="mt-1 text-sm text-red-600">{cnpjError}</p>
-                    )}
-                  </div>
-                )}
-
-                <label className="text-sm text-gray-600">Endereço completo da empresa.</label>
-                <input
-                  type="text"
-                  name="endereco"
-                  placeholder="Endereço"
-                  className="w-full px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-black transition"
-                  value={form.endereco}
-                  onChange={handleChange}
-                />
-                <label className="text-sm text-gray-600">WhatsApp da empresa</label>
-                <input
-                  type="text"
-                  name="whatsapp"
-                  placeholder="(99) 99999-9999"
-                  className="w-full px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-black transition"
-                  value={form.whatsapp}
-                  onChange={(e) => {
-                    const raw = e.target.value.replace(/\D/g, '');
-                    setForm({ ...form, whatsapp: masker(raw, ['(99) 99999-9999']) });
-                  }}
-                />
-                <label className="text-sm text-gray-600">Site institucional ou link de rede social.</label>
-                <input
-                  type="text"
-                  name="website"
-                  placeholder="Website (opcional)"
-                  className="w-full px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-black transition"
-                  value={form.website}
-                  onChange={handleChange}
-                />
-
-                <div className="flex justify-between mt-6">
-                  <button
-                    onClick={handleBack}
-                    className="bg-gray-200 text-black px-4 py-2 rounded hover:bg-gray-300 transition"
-                  >
-                    Voltar
-                  </button>
-                  <button
-                    type="submit"
-                    onClick={handleSubmit}
-                    disabled={
-                      !form.nomeEmpresa ||
-                      !form.cidade ||
-                      !form.endereco ||
-                      !form.whatsapp ||
-                      (tipoPessoa === 'fisica' && (form.cpf.replace(/\D/g, '').length !== 11 || isCpfDuplicado)) ||
-                      (tipoPessoa === 'juridica' && (!cnpj || cnpjError || !cnpjVerificado))
-                    }
-                    className={`px-6 py-3 rounded-md font-medium transition ${
-                      !form.nomeEmpresa ||
-                      !form.cidade ||
-                      !form.endereco ||
-                      !form.whatsapp ||
-                      (tipoPessoa === 'fisica' && (form.cpf.replace(/\D/g, '').length !== 11 || isCpfDuplicado)) ||
-                      (tipoPessoa === 'juridica' && (!cnpj || cnpjError || !cnpjVerificado))
-                        ? 'bg-gray-400 cursor-not-allowed'
-                        : 'bg-black text-white hover:bg-gray-900'
                     }`}
                   >
                     Finalizar Cadastro

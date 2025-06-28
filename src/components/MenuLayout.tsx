@@ -17,9 +17,11 @@ import {
   FiBell,
 } from 'react-icons/fi';
 import { Toaster } from 'react-hot-toast';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 export default function MenuLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const supabase = createClientComponentClient();
 
   const [menuExpandido, setMenuExpandido] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -83,8 +85,8 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             <SidebarButton path="#" icon={<FiFileText size={20} />} label="Termos" menuExpandido={menuExpandido} />
             <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" menuExpandido={menuExpandido} />
             <button
-              onClick={() => {
-                // TODO: adicionar lógica de logout
+              onClick={async () => {
+                await supabase.auth.signOut();
                 router.push('/login');
               }}
               className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out hover:bg-red-100 ${

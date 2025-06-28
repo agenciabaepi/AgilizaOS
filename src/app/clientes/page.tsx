@@ -178,7 +178,6 @@ export default function ClientesPage() {
 
   const { empresaData, usuario } = useAuth();
 
-  if (!empresaData?.id) return <div>Carregando...</div>;
 
   useEffect(() => {
     const fetchClientes = async () => {

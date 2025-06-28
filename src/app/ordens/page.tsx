@@ -26,9 +26,10 @@ export default function ListaOrdensPage() {
   const [tecnicoFilter, setTecnicoFilter] = useState('');
 
   useEffect(() => {
+    if (!empresa_id) return;
     const fetchOrdens = async () => {
       if (!empresa_id) {
-        console.log('Empresa ainda não carregada');
+        console.warn('[ListaOrdensPage] empresa_id não definido, abortando fetch');
         return;
       }
 
@@ -91,7 +92,7 @@ export default function ListaOrdensPage() {
     };
 
     fetchOrdens();
-  }, [empresaData]);
+  }, [empresa_id]);
 
   const filtered = ordens.filter((os) => {
     const matchesSearch = os.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -107,7 +108,11 @@ export default function ListaOrdensPage() {
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
 
   if (!empresa_id) {
-    return <div className="p-6">Carregando ordens de serviço...</div>;
+    return (
+      <div className="p-6 text-center text-gray-500 animate-pulse">
+        Carregando ordens de serviço...
+      </div>
+    );
   }
 
   return (

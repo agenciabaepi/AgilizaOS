@@ -10,8 +10,8 @@ import DebugSession from '@/components/DebugSession';
 const supabase = createPagesBrowserClient();
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('lucas@hotmail.com');
-  const [password, setPassword] = useState('123456');
+  const [email, setEmail] = useState('pedro@gmail.com');
+  const [password, setPassword] = useState('123123');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
   const router = useRouter();
@@ -81,8 +81,8 @@ export default function LoginPage() {
         .eq('auth_user_id', userId)
         .single();
 
-      if (!usuario) {
-        alert('Usuário sem empresa vinculada.');
+      if (!usuario || !usuario.empresa_id) {
+        router.replace('/criar-empresa');
         return;
       }
 

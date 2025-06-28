@@ -50,6 +50,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } = await supabase.auth.getSession();
 
       if (error) {
+        console.error('Erro ao buscar sessão:', error.message);
+        setLoading(false);
+        return;
       }
 
       if (session) {
@@ -71,15 +74,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
 
-        setUsuarioData(profileData);
-        localStorage.setItem("user", JSON.stringify({ ...session.user, ...profileData }));
-
         if (!profileData.empresa_id) {
+          setUsuarioData(profileData);
           setEmpresaData(null);
           setLoading(false);
           return;
         }
 
+        setUsuarioData(profileData);
+        localStorage.setItem("user", JSON.stringify({ ...session.user, ...profileData }));
 
         const metadataEmpresaId = session.user.user_metadata?.empresa_id;
         if (!metadataEmpresaId || metadataEmpresaId !== profileData.empresa_id) {
@@ -119,9 +122,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 
       } else {
+        setLoading(false);
+        return;
       }
-
-      setLoading(false);
     };
 
     checkSession();
@@ -195,9 +198,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  if (loading) {
-    return <div className="p-6 text-center">Carregando...</div>;
-  }
 
   return (
     <AuthContext.Provider value={{ user, session, usuarioData, empresaData, loading, signIn, signUp, signOut, resetPassword }}>
@@ -206,10 +206,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
     throw new Error('useAuth deve ser usado dentro de um AuthProvider');
   }
   return context;
+};
+
+export const useUsuario = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useUsuario deve ser usado dentro de um AuthProvider');
+  }
+  return { usuario: context.usuarioData, empresa: context.empresaData, loading: context.loading };
 };

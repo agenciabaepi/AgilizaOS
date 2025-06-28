@@ -217,11 +217,10 @@ export default function ProdutosServicosPage() {
       }
     }
 
-    const payload = {
+    const novoRegistro = {
       codigo: novoCodigo,
       nome,
       descricao,
-      tipo,
       preco: parseFloat(preco),
       custo: tipo === 'produto' ? parseFloat(custo || '0') : null,
       estoque_atual: tipo === 'produto' ? parseInt(estoque || '0') : null,
@@ -230,24 +229,24 @@ export default function ProdutosServicosPage() {
       empresa_id: empresaId,
       fornecedor: tipo === 'produto' ? fornecedor || null : null,
       codigo_barras: tipo === 'produto' ? codigoBarras || null : null,
-      ativo,
     };
-    const { error } = await supabase.from('produtos_servicos').insert(payload);
-    if (!error) {
-      setNome('');
-      setDescricao('');
-      setPreco('');
-      setCusto('');
-      setEstoque('');
-      setEstoqueMinimo('');
-      setUnidade('un');
-      setFornecedor('');
-      setCodigoBarras('');
-      setAtivo(true);
-      buscar();
-      setMensagemSucesso('Item cadastrado com sucesso!');
-      setTimeout(() => setMensagemSucesso(''), 3000);
-    }
+    // Extrai os campos corretamente, incluindo ativo
+    const { descricao: _descricao, preco: _preco, custo: _custo, tipo: _tipo, unidade: _unidade, ativo: _ativo } = { ...novoRegistro, tipo, ativo };
+    // Salva com tipo e ativo garantidos
+    await supabase.from('produtos_servicos').insert([{ ...novoRegistro, tipo, ativo }]);
+    setNome('');
+    setDescricao('');
+    setPreco('');
+    setCusto('');
+    setEstoque('');
+    setEstoqueMinimo('');
+    setUnidade('un');
+    setFornecedor('');
+    setCodigoBarras('');
+    setAtivo(true);
+    buscar();
+    setMensagemSucesso('Item cadastrado com sucesso!');
+    setTimeout(() => setMensagemSucesso(''), 3000);
   };
 
   const excluir = async (id: string) => {

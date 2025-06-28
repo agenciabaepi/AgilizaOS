@@ -6,8 +6,8 @@ export async function POST(req: Request) {
   const { email } = await req.json()
 
   const { data, error } = await supabase
-    .from('empresas')
-    .select('email')
+    .from('usuarios')
+    .select('id')
     .eq('email', email)
     .single()
 
