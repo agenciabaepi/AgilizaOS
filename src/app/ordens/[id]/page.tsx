@@ -57,14 +57,14 @@ const VisualizarOrdemServicoPage = () => {
       <main className="min-h-screen bg-gradient-to-br from-white to-slate-100 px-6 py-10 text-black print-area">
         <button
           onClick={() => router.push('/ordens')}
-          className="mb-4 text-sm text-blue-600 hover:underline"
+          className="mb-4 text-sm text-[#000000] hover:underline"
         >
           ← Voltar para Ordens de Serviço
         </button>
         <div className="no-print flex flex-wrap justify-end gap-3 mb-8">
           <button
             onClick={() => router.push(`/ordens/${id}/editar`)}
-            className="flex items-center gap-2 px-4 py-2 border rounded-md text-sm hover:bg-gray-100"
+            className="flex items-center gap-2 px-4 py-2 border rounded-md text-sm hover:bg-[#cffb6d]/30"
           >
             <PencilIcon className="h-5 w-5" />
             Editar
@@ -73,12 +73,12 @@ const VisualizarOrdemServicoPage = () => {
             href={`/ordens/${id}/imprimir`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 px-4 py-2 border rounded-md text-sm hover:bg-gray-100"
+            className="flex items-center gap-2 px-4 py-2 border rounded-md text-sm hover:bg-[#cffb6d]/30"
           >
             <PrinterIcon className="h-5 w-5" />
             Imprimir A4
           </a>
-          <button className="flex items-center gap-2 px-4 py-2 border rounded-md text-sm hover:bg-gray-100">
+          <button className="flex items-center gap-2 px-4 py-2 border rounded-md text-sm hover:bg-[#cffb6d]/30">
             <ReceiptPercentIcon className="h-5 w-5" />
             Cupom
           </button>
@@ -89,13 +89,13 @@ const VisualizarOrdemServicoPage = () => {
         </div>
 
         <div className="mb-10">
-          <h1 className="text-4xl font-extrabold text-blue-700 mb-2">
+          <h1 className="text-4xl font-extrabold text-[#000000] mb-2">
             Ordem de Serviço #{ordem.numero_os}
           </h1>
           <span className="text-sm text-gray-500">Criada em: {new Date(ordem.created_at).toLocaleDateString()}</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           <section className="bg-white p-6 rounded-lg border border-gray-200">
             <h2 className="text-xl font-semibold text-gray-700 mb-4">Cliente</h2>
             <p className="text-gray-900 font-medium">{ordem.cliente?.nome}</p>
@@ -115,23 +115,43 @@ const VisualizarOrdemServicoPage = () => {
 
           <section className="bg-white p-6 rounded-lg border border-gray-200">
             <h2 className="text-xl font-semibold text-gray-700 mb-4">Status</h2>
-            <span className="inline-block px-3 py-1 text-sm font-medium bg-yellow-200 text-yellow-800 rounded-full">
+            <span className="inline-block px-3 py-1 text-sm font-medium bg-[#cffb6d] text-[#000000] rounded-full">
               {ordem.status}
             </span>
             <p className="text-sm text-gray-500 mt-2">Técnico: {ordem.tecnico?.nome}</p>
           </section>
 
-          <section className="bg-white p-6 rounded-lg border border-gray-200 col-span-1 md:col-span-2 lg:col-span-3">
-            <h2 className="text-xl font-semibold text-gray-700 mb-4">Relato do Cliente</h2>
-            <p className="text-gray-700 text-sm whitespace-pre-line">{ordem.relato || 'Nenhum relato fornecido.'}</p>
-          </section>
+          <section className="bg-white p-6 rounded-lg border border-gray-200">
 
-          <section className="bg-white p-6 rounded-lg border border-gray-200 col-span-1 md:col-span-2 lg:col-span-3">
+        {/* Quebra de linha para evitar espaçamento residual do grid */}
+        <div className="w-full h-0" />
+            <h2 className="text-xl font-semibold text-gray-700 mb-4">Status Técnico</h2>
+            <span className="inline-block px-3 py-1 text-sm font-medium bg-gray-100 text-gray-800 rounded-full">
+              {ordem.status_tecnico || 'Não informado'}
+            </span>
+          </section>
+        </div> {/* fecha grid dos cards superiores */}
+        <div className="grid grid-cols-1 gap-6"> 
+          <section className="bg-white p-6 rounded-lg border border-gray-200">
             <h2 className="text-xl font-semibold text-gray-700 mb-4">Observações </h2>
             <p className="text-gray-700 text-sm whitespace-pre-line">{ordem.observacao || 'Nenhuma observação interna registrada.'}</p>
           </section>
 
-          <section className="bg-white p-6 rounded-lg border border-gray-200 col-span-1 md:col-span-2 lg:col-span-3">
+          <section className="bg-white p-6 rounded-lg border border-gray-200">
+            <h2 className="text-xl font-semibold text-gray-700 mb-4">Peças e Serviços</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <h3 className="font-medium text-gray-600 mb-1">Peças</h3>
+                <p className="text-sm text-gray-800">{ordem.qtd_peca && ordem.peca ? `${ordem.qtd_peca}x ${ordem.peca}` : 'Nenhuma peça registrada.'}</p>
+              </div>
+              <div>
+                <h3 className="font-medium text-gray-600 mb-1">Serviços</h3>
+                <p className="text-sm text-gray-800">{ordem.qtd_servico && ordem.servico ? `${ordem.qtd_servico}x ${ordem.servico}` : 'Nenhum serviço registrado.'}</p>
+              </div>
+            </div>
+          </section>
+
+          <section className="bg-white p-6 rounded-lg border border-gray-200">
             <h2 className="text-xl font-semibold text-gray-700 mb-6">Valores</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               {[

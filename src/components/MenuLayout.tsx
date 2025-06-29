@@ -1,9 +1,9 @@
 'use client';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import logobranco from '@/assets/imagens/logobranco.png';
-import logopreto from '@/assets/imagens/logopreto.png';
 import {
   FiHome,
   FiUsers,
@@ -23,8 +23,45 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const router = useRouter();
   const supabase = createClientComponentClient();
 
-  const [menuExpandido, setMenuExpandido] = useState(true);
+  const [menuExpandido, setMenuExpandido] = useState<boolean | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('menuExpandido') === 'true';
+    setMenuExpandido(stored);
+  }, []);
+
+  const handleMouseEnter = () => {
+    setMenuExpandido(true);
+    if (hoverTimeout.current) {
+      clearTimeout(hoverTimeout.current);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    hoverTimeout.current = setTimeout(() => {
+      setMenuExpandido(false);
+    }, 500); // recolhe 3 segundos após sair com o mouse
+  };
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimeout.current) {
+        clearTimeout(hoverTimeout.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (menuExpandido !== null) {
+      localStorage.setItem('menuExpandido', String(menuExpandido));
+    }
+  }, [menuExpandido]);
+
+  if (menuExpandido === null) return null;
   return (
     <div className="flex min-h-screen bg-transparent relative z-0 overflow-x-hidden w-full">
       {/* Topbar */}
@@ -69,6 +106,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
       {/* Sidebar e Conteúdo principal em wrapper responsivo */}
       <div className="flex w-full">
         <aside
+          ref={menuRef}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
           className={`flex bg-white border-r border-[#000000]/10 pt-16 px-2 flex-col h-screen fixed top-0 left-0 z-50 transition-all duration-300 ${
             menuExpandido ? 'w-64' : 'w-0 md:w-16'
           } ${menuExpandido ? 'opacity-100' : 'opacity-0 md:opacity-100'} ${menuExpandido ? 'visible' : 'invisible md:visible'}`}
@@ -133,7 +173,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
 
 function SidebarButton({ path, icon, label, menuExpandido }: { path: string; icon: React.ReactNode; label: string; menuExpandido: boolean }) {
   const router = useRouter();
-  const pathname = useRouter().pathname || '';
+  const pathname = usePathname() || '';
   const isActive = pathname === path || pathname.startsWith(path + '/') || (path === '/ordens' && pathname.startsWith('/nova-os'));
 
   return (

@@ -48,6 +48,9 @@ export default function EditarOrdemServico() {
           updatedData[el.name] = parseInt(el.value, 10);
         } else {
           updatedData[el.name] = el.value;
+          if (el.name === 'status' && el.value === 'concluido') {
+            updatedData['data_entrega'] = new Date().toISOString();
+          }
         }
       }
     });
@@ -77,6 +80,7 @@ export default function EditarOrdemServico() {
     } else {
       console.log('Atualização confirmada:', check);
       alert('Alterações salvas com sucesso.');
+      window.location.href = `/ordens/${id}`;
       await fetchOrdem();
     }
   };
@@ -86,6 +90,11 @@ export default function EditarOrdemServico() {
   return (
     <MenuLayout>
       <div className="p-6 max-w-4xl mx-auto text-sm text-black">
+        <Link href={`/ordens/${id}`}>
+          <button className="mb-4 px-4 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-100 text-gray-600">
+            ← Voltar
+          </button>
+        </Link>
         <h1 className="text-2xl font-semibold mb-8">Editar Ordem de Serviço</h1>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">

@@ -16,6 +16,15 @@ export default function ListaOrdensPage() {
     return date ? new Date(date).toLocaleDateString('pt-BR') : '';
   }
 
+  function formatPhoneNumber(phone: string) {
+    const cleaned = ('' + phone).replace(/\D/g, '');
+    const match = cleaned.match(/^(\d{2})(\d{5})(\d{4})$/);
+    if (match) {
+      return `(${match[1]}) ${match[2]}-${match[3]}`;
+    }
+    return phone;
+  }
+
   const [ordens, setOrdens] = useState<any[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -64,11 +73,12 @@ export default function ListaOrdensPage() {
       if (error) {
         console.error('Erro ao carregar OS:', JSON.stringify(error, null, 2));
       } else if (data) {
+        data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         const mapped = data.map((item: any) => ({
           id: item.id,
           numero: item.numero_os,
           cliente: item.clientes?.nome || 'Sem nome',
-          clienteTelefone: item.clientes?.telefone || '',
+          clienteTelefone: item.clientes?.telefone ? formatPhoneNumber(item.clientes.telefone) : '',
           clienteEmail: item.clientes?.email || '',
           aparelho: [item.categoria, item.marca, item.modelo, item.cor].filter(Boolean).join(' ') || '',
           servico: item.servico || '',
@@ -77,7 +87,9 @@ export default function ListaOrdensPage() {
           tecnico: item.tecnico_id?.nome || '',
           atendente: item.atendente || '',
           entrega: item.data_entrega || '',
-          garantia: item.vencimento_garantia || '',
+          garantia: item.data_entrega
+            ? new Date(new Date(item.data_entrega).setDate(new Date(item.data_entrega).getDate() + 90)).toISOString()
+            : '',
           valorPeca: item.valor_peca || 0,
           valorServico: item.valor_servico || 0,
           desconto: item.desconto || 0,
@@ -197,12 +209,10 @@ export default function ListaOrdensPage() {
             <thead className="bg-gray-100 text-left text-xs font-semibold text-gray-700 border-b border-gray-300">
               <tr>
                 <th className="px-3 py-2 border-r border-gray-200">#</th>
-                <th className="px-3 py-2 border-r border-gray-200">Cliente</th>
-                <th className="px-3 py-2 border-r border-gray-200">Telefone</th>
                 <th className="px-3 py-2 border-r border-gray-200">Aparelho</th>
                 <th className="px-3 py-2 border-r border-gray-200">Serviço</th>
+                <th className="px-3 py-2 border-r border-gray-200">Entrada</th>
                 <th className="px-3 py-2 border-r border-gray-200">Entrega</th>
-                <th className="px-3 py-2 border-r border-gray-200">Responsável</th>
                 <th className="px-3 py-2 border-r border-gray-200">Garantia</th>
                 <th className="px-3 py-2 border-r border-gray-200">Total</th>
                 <th className="px-3 py-2 border-r border-gray-200">Técnico</th>
@@ -213,17 +223,21 @@ export default function ListaOrdensPage() {
             <tbody className="text-gray-700 divide-y divide-gray-200">
               {paginated.map((os) => (
                 <tr key={os.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm font-medium text-gray-900">#{os.numero}</td>
-                  <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm">{os.cliente}</td>
-                  <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm">{os.clienteTelefone}</td>
+                  <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm font-medium text-gray-900">
+                    <div className="text-sm font-bold text-gray-800">#{os.numero}</div>
+                    <div className="text-sm text-gray-700">{os.cliente}</div>
+                    <div className="text-sm text-gray-500">{os.clienteTelefone}</div>
+                  </td>
                   <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm">{os.aparelho}</td>
                   <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm">{os.servico}</td>
+                  <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm">{formatDate(os.entrada)}</td>
                   <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm">{formatDate(os.entrega)}</td>
-                  <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm">{os.atendente}</td>
-                  <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm">{formatDate(os.garantia)}</td>
+                  <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm text-red-600 font-semibold">
+                    {formatDate(os.garantia)}
+                  </td>
                   <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm text-left font-bold text-green-700">R$ {os.valorTotal?.toFixed(2)}</td>
                   <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm">{os.tecnico}</td>
-                  <td className="px-3 py-2 align-middle text-left text-sm">
+                  <td className="px-3 py-2 align-middle border-r border-gray-100 text-left  text-sm">
                     <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
                       os.statusOS === 'Finalizada' ? 'bg-green-100 text-green-700' :
                       os.statusOS === 'Aguardando aprovação' ? 'bg-yellow-100 text-yellow-700' :
@@ -239,7 +253,7 @@ export default function ListaOrdensPage() {
                       <button onClick={() => router.push(`/ordens/${os.id}`)} className="p-2 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 transition">
                         <FiEye size={16} />
                       </button>
-                      <button onClick={() => router.push(`/ordens/editar/${os.id}`)} className="p-2 rounded-full bg-yellow-100 text-yellow-600 hover:bg-yellow-200 transition">
+                      <button onClick={() => router.push(`/ordens/${os.id}/editar`)} className="p-2 rounded-full bg-yellow-100 text-yellow-600 hover:bg-yellow-200 transition">
                         <FiEdit size={16} />
                       </button>
                       <button onClick={() => console.log('Imprimir', os.id)} className="p-2 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition">
