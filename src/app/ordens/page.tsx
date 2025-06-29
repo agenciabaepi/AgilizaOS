@@ -1,4 +1,53 @@
+
 'use client';
+
+interface OrdemServico {
+  id: string;
+  numero_os: number;
+  clientes?: {
+    nome?: string;
+    telefone?: string;
+    email?: string;
+  };
+  categoria?: string;
+  marca?: string;
+  modelo?: string;
+  cor?: string;
+  servico?: string;
+  status?: string;
+  created_at?: string;
+  tecnico_id?: {
+    nome?: string;
+  };
+  atendente?: string;
+  data_entrega?: string;
+  valor_peca?: number;
+  valor_servico?: number;
+  desconto?: number;
+  valor_faturado?: number;
+}
+
+interface OrdemTransformada {
+  id: string;
+  numero: number;
+  cliente: string;
+  clienteTelefone: string;
+  clienteEmail: string;
+  aparelho: string;
+  servico: string;
+  statusOS: string;
+  entrada: string;
+  tecnico: string;
+  atendente: string;
+  entrega: string;
+  garantia: string;
+  valorPeca: number;
+  valorServico: number;
+  desconto: number;
+  valorTotal: number;
+  valorComDesconto: number;
+  valorFaturado: number;
+}
 
 import MenuLayout from '@/components/MenuLayout';
 import { useRouter } from 'next/navigation';
@@ -7,10 +56,22 @@ import { FiEye, FiEdit, FiPrinter, FiUsers } from 'react-icons/fi';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 
+
 export default function ListaOrdensPage() {
   const router = useRouter();
-  const { usuarioData, empresaData } = useAuth();
+  const { empresaData } = useAuth();
   const empresaId = empresaData?.id;
+
+  // Estados dos cards principais
+  const [totalOS, setTotalOS] = useState(0);
+  const [totalMes, setTotalMes] = useState(0);
+  const [retornosMes, setRetornosMes] = useState(0);
+  const [osConcluidas, setOsConcluidas] = useState(0);
+  const [percentualConcluidas, setPercentualConcluidas] = useState(0);
+  const [percentualRetornos, setPercentualRetornos] = useState(0);
+  // Novos estados para crescimento real semana/mês
+  const [crescimentoSemana, setCrescimentoSemana] = useState(0);
+  const [crescimentoMes, setCrescimentoMes] = useState(0);
 
   function formatDate(date: string) {
     return date ? new Date(date).toLocaleDateString('pt-BR') : '';
@@ -25,7 +86,7 @@ export default function ListaOrdensPage() {
     return phone;
   }
 
-  const [ordens, setOrdens] = useState<any[]>([]);
+  const [ordens, setOrdens] = useState<OrdemTransformada[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -74,7 +135,7 @@ export default function ListaOrdensPage() {
         console.error('Erro ao carregar OS:', JSON.stringify(error, null, 2));
       } else if (data) {
         data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        const mapped = data.map((item: any) => ({
+        const mapped = data.map((item: OrdemServico) => ({
           id: item.id,
           numero: item.numero_os,
           cliente: item.clientes?.nome || 'Sem nome',
@@ -98,6 +159,52 @@ export default function ListaOrdensPage() {
           valorFaturado: item.valor_faturado || 0,
         }));
         setOrdens(mapped);
+
+        // Lógica dos cards principais e crescimento real semana/mês
+        // Datas de corte
+        const agora = new Date();
+        const primeiroDiaMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
+        const primeiroDiaMesAnterior = new Date(agora.getFullYear(), agora.getMonth() - 1, 1);
+        const ultimoDiaMesAnterior = new Date(agora.getFullYear(), agora.getMonth(), 0);
+        const seteDiasAtras = new Date(agora);
+        seteDiasAtras.setDate(agora.getDate() - 7);
+        const quatorzeDiasAtras = new Date(agora);
+        quatorzeDiasAtras.setDate(agora.getDate() - 14);
+
+        // Totais reais
+        const totalMesAtual = data.filter(os => new Date(os.created_at) >= primeiroDiaMes).length;
+        const totalMesAnterior = data.filter(os => {
+          const d = new Date(os.created_at);
+          return d >= primeiroDiaMesAnterior && d <= ultimoDiaMesAnterior;
+        }).length;
+
+        const totalSemanaAtual = data.filter(os => new Date(os.created_at) >= seteDiasAtras).length;
+        const totalSemanaAnterior = data.filter(os => {
+          const d = new Date(os.created_at);
+          return d >= quatorzeDiasAtras && d < seteDiasAtras;
+        }).length;
+
+        const retornos = data.filter(os => os.tipo === 'Retorno' && new Date(os.created_at) >= primeiroDiaMes).length;
+        const concluidas = data.filter(os =>
+          os.status?.toLowerCase() === 'concluido' && new Date(os.created_at) >= primeiroDiaMes
+        ).length;
+
+        const calcPercent = (atual: number, anterior: number) => {
+          if (anterior === 0) return atual > 0 ? 100 : 0;
+          return Math.round(((atual - anterior) / anterior) * 100);
+        };
+
+        const percentualSemana = calcPercent(totalSemanaAtual, totalSemanaAnterior);
+        const percentualMes = calcPercent(totalMesAtual, totalMesAnterior);
+
+        setTotalOS(data.length);
+        setTotalMes(totalMesAtual);
+        setRetornosMes(retornos);
+        setOsConcluidas(concluidas);
+        setPercentualConcluidas(data.length ? Math.round((concluidas / data.length) * 100) : 0);
+        setPercentualRetornos(data.length ? Math.round((retornos / data.length) * 100) : 0);
+        setCrescimentoSemana(percentualSemana);
+        setCrescimentoMes(percentualMes);
       }
     };
 
@@ -128,6 +235,65 @@ export default function ListaOrdensPage() {
   return (
     <MenuLayout>
       <div className="pt-20 px-6 w-full">
+        {/* Cards principais */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          {/* Total de OS */}
+          <div className="bg-white rounded-xl shadow-md p-5 relative overflow-hidden">
+            <h3 className="text-gray-500 text-sm mb-1">Total de OS</h3>
+            <p className="text-3xl font-bold text-black">{totalOS}</p>
+            <div className="text-green-500 text-sm mt-2 flex items-center gap-1">
+              <span>+{crescimentoSemana}%</span>
+              <span className="text-gray-400">na última semana</span>
+            </div>
+            <div className="absolute bottom-2 right-2 opacity-40">
+              <svg width="80" height="24">
+                <polyline fill="none" stroke="#84cc16" strokeWidth="2" points="0,20 10,15 20,17 30,10 40,12 50,8 60,10 70,6" />
+              </svg>
+            </div>
+          </div>
+          {/* OS no Mês */}
+          <div className="bg-white rounded-xl shadow-md p-5 relative overflow-hidden">
+            <h3 className="text-gray-500 text-sm mb-1">OS no Mês</h3>
+            <p className="text-3xl font-bold text-black">{totalMes}</p>
+            <div className="text-green-500 text-sm mt-2 flex items-center gap-1">
+              <span>+{crescimentoMes}%</span>
+              <span className="text-gray-400">em relação ao mês anterior</span>
+            </div>
+            <div className="absolute bottom-2 right-2 opacity-40">
+              <svg width="80" height="24">
+                <polyline fill="none" stroke="#4ade80" strokeWidth="2" points="0,18 10,16 20,14 30,10 40,11 50,9 60,10 70,6" />
+              </svg>
+            </div>
+          </div>
+          {/* Retornos do Mês */}
+          <div className="bg-white rounded-xl shadow-md p-5 relative overflow-hidden">
+            <h3 className="text-gray-500 text-sm mb-1">Retornos do Mês</h3>
+            <p className="text-3xl font-bold text-black">{retornosMes}</p>
+            <div className="text-red-500 text-sm mt-2 flex items-center gap-1">
+              <span>{percentualRetornos}%</span>
+              <span className="text-gray-400">do total</span>
+            </div>
+            <div className="absolute bottom-2 right-2 opacity-40">
+              <svg width="80" height="24">
+                <polyline fill="none" stroke="#f87171" strokeWidth="2" points="0,12 10,14 20,16 30,18 40,20 50,17 60,15 70,16" />
+              </svg>
+            </div>
+          </div>
+          {/* OS Concluídas */}
+          <div className="bg-white rounded-xl shadow-md p-5 relative overflow-hidden">
+            <h3 className="text-gray-500 text-sm mb-1">OS Concluídas</h3>
+            <p className="text-3xl font-bold text-black">{osConcluidas}</p>
+            <div className="text-blue-500 text-sm mt-2 flex items-center gap-1">
+              <span>{percentualConcluidas}%</span>
+              <span className="text-gray-400">do total</span>
+            </div>
+            <div className="absolute bottom-2 right-2 opacity-40">
+              <svg width="80" height="24">
+                <polyline fill="none" stroke="#60a5fa" strokeWidth="2" points="0,20 10,16 20,14 30,10 40,11 50,8 60,6 70,4" />
+              </svg>
+            </div>
+          </div>
+        </div>
         {/* Cards de técnicos */}
         <div className="backdrop-blur-sm bg-white/60 p-6 rounded-xl shadow mb-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -238,11 +404,11 @@ export default function ListaOrdensPage() {
                   <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm text-left font-bold text-green-700">R$ {os.valorTotal?.toFixed(2)}</td>
                   <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm">{os.tecnico}</td>
                   <td className="px-3 py-2 align-middle border-r border-gray-100 text-left  text-sm">
-                    <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
-                      os.statusOS === 'Finalizada' ? 'bg-green-100 text-green-700' :
-                      os.statusOS === 'Aguardando aprovação' ? 'bg-yellow-100 text-yellow-700' :
-                      os.statusOS === 'Não aprovada' ? 'bg-red-100 text-red-700' :
-                      os.statusOS === 'Pronta para retirada' ? 'bg-blue-100 text-blue-700' :
+                    <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full capitalize ${
+                      os.statusOS.toLowerCase() === 'concluido' ? 'bg-green-100 text-green-700' :
+                      os.statusOS.toLowerCase() === 'orcamento' ? 'bg-yellow-100 text-yellow-700' :
+                      os.statusOS.toLowerCase() === 'analise' ? 'bg-blue-100 text-blue-700' :
+                      os.statusOS.toLowerCase() === 'nao aprovado' ? 'bg-red-100 text-red-700' :
                       'bg-gray-100 text-gray-600'
                     }`}>
                       {os.statusOS}
