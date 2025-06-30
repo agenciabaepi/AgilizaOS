@@ -25,6 +25,8 @@ interface OrdemServico {
   valor_servico?: number;
   desconto?: number;
   valor_faturado?: number;
+  qtd_peca?: number;
+  qtd_servico?: number;
 }
 
 interface OrdemTransformada {
@@ -124,7 +126,9 @@ export default function ListaOrdensPage() {
         .select(`
           *,
           clientes:cliente_id(nome, telefone, email),
-          tecnico_id(nome)
+          tecnico_id(nome),
+          qtd_peca,
+          qtd_servico
         `)
         .eq("empresa_id", empresaUuid);
 
@@ -154,8 +158,8 @@ export default function ListaOrdensPage() {
           valorPeca: item.valor_peca || 0,
           valorServico: item.valor_servico || 0,
           desconto: item.desconto || 0,
-          valorTotal: (item.valor_peca || 0) + (item.valor_servico || 0),
-          valorComDesconto: ((item.valor_peca || 0) + (item.valor_servico || 0)) - (item.desconto || 0),
+          valorTotal: ((item.valor_peca || 0) * (item.qtd_peca || 1)) + ((item.valor_servico || 0) * (item.qtd_servico || 1)),
+          valorComDesconto: (((item.valor_peca || 0) * (item.qtd_peca || 1)) + ((item.valor_servico || 0) * (item.qtd_servico || 1))) - (item.desconto || 0),
           valorFaturado: item.valor_faturado || 0,
         }));
         setOrdens(mapped);
@@ -398,8 +402,21 @@ export default function ListaOrdensPage() {
                   <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm">{os.servico}</td>
                   <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm">{formatDate(os.entrada)}</td>
                   <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm">{formatDate(os.entrega)}</td>
-                  <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm text-red-600 font-semibold">
-                    {formatDate(os.garantia)}
+                  <td className={`px-3 py-2 align-middle border-r border-gray-100 text-sm font-semibold ${
+                    os.garantia && new Date(os.garantia) < new Date()
+                      ? 'text-red-400'
+                      : 'text-green-600'
+                  }`}>
+                    <div>{formatDate(os.garantia)}</div>
+                    {os.garantia && (
+                      <div className="text-xs mt-1">
+                        {
+                          new Date(os.garantia).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)
+                            ? 'Expirada'
+                            : `${Math.max(0, Math.ceil((new Date(os.garantia).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / (1000 * 60 * 60 * 24)))} dias restantes`
+                        }
+                      </div>
+                    )}
                   </td>
                   <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm text-left font-bold text-green-700">R$ {os.valorTotal?.toFixed(2)}</td>
                   <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm">{os.tecnico}</td>

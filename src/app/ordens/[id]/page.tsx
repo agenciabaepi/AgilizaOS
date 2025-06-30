@@ -11,6 +11,27 @@ const VisualizarOrdemServicoPage = () => {
   const { id } = useParams();
   const [ordem, setOrdem] = useState<any>(null);
 
+  // Etapas do status da OS e cálculo do índice da etapa atual
+  const statusEtapas = [
+    'orcamento',
+    'aguardando_aprovacao',
+    'aprovado',
+    'em_execucao',
+    'finalizado',
+    'entregue',
+  ];
+
+  const statusLabels: Record<string, string> = {
+    orcamento: 'Orçamento',
+    aguardando_aprovacao: 'Aguardando Aprovação',
+    aprovado: 'Aprovado',
+    em_execucao: 'Em Execução',
+    finalizado: 'Finalizado',
+    entregue: 'Entregue',
+  };
+
+  const statusIndex = statusEtapas.findIndex(etapa => etapa === ordem?.status?.toLowerCase());
+
   useEffect(() => {
     const fetchOrdem = async () => {
       console.log('ID da OS:', id);
@@ -18,7 +39,9 @@ const VisualizarOrdemServicoPage = () => {
       const { data, error } = await supabase
         .from('ordens_servico')
         .select(`
-          *,
+          id,
+          numero_os,
+          created_at,
           cliente:cliente_id (
             nome,
             telefone,
@@ -27,7 +50,22 @@ const VisualizarOrdemServicoPage = () => {
           ),
           tecnico:tecnico_id (
             nome
-          )
+          ),
+          categoria,
+          modelo,
+          cor,
+          marca,
+          numero_serie,
+          status,
+          status_tecnico,
+          observacao,
+          qtd_peca,
+          peca,
+          valor_peca,
+          qtd_servico,
+          servico,
+          valor_servico,
+          valor_faturado
         `)
         .eq('id', String(id))
         .single();
@@ -89,6 +127,59 @@ const VisualizarOrdemServicoPage = () => {
         </div>
 
         <div className="mb-10">
+        {/* Barra de progresso moderna com bolinhas e linhas conectando as etapas */}
+        <div className="mb-6 overflow-x-auto">
+          <div className="flex items-center gap-4">
+            {statusEtapas.map((etapa, index, arr) => {
+              // Ativo: etapa anterior ou igual à etapa atual; Atual: exatamente a etapa atual
+              const ativo = index <= statusIndex;
+              const atual = index === statusIndex;
+              return (
+                <div key={etapa} className="flex items-center">
+                  <div
+                    className={`flex items-center justify-center w-8 h-8 rounded-full border-2 ${
+                      atual
+                        ? 'bg-[#cffb6d] border-black text-black'
+                        : ativo
+                        ? 'bg-[#cffb6d] border-[#cffb6d] text-black'
+                        : 'border-gray-300 text-gray-400 bg-white'
+                    }`}
+                  >
+                    {index + 1}
+                  </div>
+                  <div className="text-xs mt-2 text-center w-20">{statusLabels[etapa]}</div>
+                  {index < arr.length - 1 && (
+                    <div className={`h-1 w-10 ${ativo ? 'bg-[#cffb6d]' : 'bg-gray-200'}`} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mb-10 overflow-x-auto">
+          <div className="flex items-center gap-4">
+            {['Pendente', 'Em Andamento', 'Concluído'].map((etapa, index, arr) => {
+              const ativo = etapa.toLowerCase().replace(/\s/g, '_') === ordem.status_tecnico?.toLowerCase();
+              return (
+                <div key={etapa} className="flex items-center">
+                  <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 ${
+                    ativo
+                      ? 'bg-[#cffb6d] border-black text-black'
+                      : 'border-gray-300 text-gray-400 bg-white'
+                  }`}>
+                    {index + 1}
+                  </div>
+                  <div className="text-xs mt-2 text-center w-20">{etapa}</div>
+                  {index < arr.length - 1 && (
+                    <div className={`h-1 w-10 ${ativo ? 'bg-[#cffb6d]' : 'bg-gray-200'}`} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
           <h1 className="text-4xl font-extrabold text-[#000000] mb-2">
             Ordem de Serviço #{ordem.numero_os}
           </h1>
