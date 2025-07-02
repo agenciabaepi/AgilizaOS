@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Listbox, Transition } from '@headlessui/react';
+import { Fragment } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import MenuLayout from '@/components/MenuLayout';
@@ -8,6 +10,37 @@ import Link from 'next/link';
 import { Combobox } from '@headlessui/react';
 
 export default function EditarOrdemServico() {
+  const [statusOS, setStatusOS] = useState<any[]>([]);
+  const [statusSelecionado, setStatusSelecionado] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchStatusOS = async () => {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData.user) return;
+  
+      const empresaId = userData.user.user_metadata?.empresa_id;
+  
+      // Busca status da empresa
+      const { data: statusEmpresa, error: erroEmpresa } = await supabase
+        .from('status')
+        .select('*')
+        .eq('tipo', 'os')
+        .eq('empresa_id', empresaId);
+  
+      // Busca status fixos do sistema
+      const { data: statusFixos, error: erroFixos } = await supabase
+        .from('status_fixo')
+        .select('*')
+        .eq('tipo', 'os');
+  
+      if (!erroEmpresa && !erroFixos) {
+        const todosStatus = [...(statusFixos || []), ...(statusEmpresa || [])];
+        setStatusOS(todosStatus);
+      }
+    };
+  
+    fetchStatusOS();
+  }, []);
   const { id } = useParams();
   const [ordem, setOrdem] = useState<any>(null);
   const [servicos, setServicos] = useState([]);
@@ -75,6 +108,12 @@ export default function EditarOrdemServico() {
         const pecaEncontrada = pecas.find((p: any) => p.nome === data.peca);
         setPecaSelecionada(pecaEncontrada || null);
       }
+      // Set initial selected status
+      // statusOS pode não estar carregado ainda, então buscamos nos status fixos e empresa
+      const statusFixos = statusOS.filter((s: any) => s.tipo === 'os' && !s.empresa_id);
+      const statusEmpresa = statusOS.filter((s: any) => s.tipo === 'os' && s.empresa_id);
+      const statusInicial = (statusFixos || []).concat(statusEmpresa || []).find(s => s.nome === data.status);
+      setStatusSelecionado(statusInicial || null);
     } else console.error('Erro ao buscar ordem:', error);
   }
 
@@ -105,12 +144,15 @@ export default function EditarOrdemServico() {
           updatedData[el.name] = parseInt(el.value, 10);
         } else {
           updatedData[el.name] = el.value;
-          if (el.name === 'status' && el.value === 'concluido') {
+          if (el.name === 'status' && statusSelecionado?.nome === 'FINALIZADO') {
             updatedData['data_entrega'] = new Date().toISOString();
           }
         }
       }
     });
+
+    // Substitui valor do status pelo selecionado no Listbox
+    updatedData['status'] = statusSelecionado?.nome || '';
 
     // Add servico and peca from selected comboboxes
     if (servicoSelecionado) {
@@ -285,35 +327,40 @@ export default function EditarOrdemServico() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <label className="block text-xs font-medium text-gray-500 mb-1">
                 Status da OS
-                <select
-                  name="status"
-                  defaultValue={ordem.status}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm"
-                >
-                  <option value="orcamento">Orçamento</option>
-                  <option value="aguardando_aprovacao">Aguardando aprovação</option>
-                  <option value="nao_aprovado">Não aprovado</option>
-                  <option value="aprovado">Aprovado</option>
-                  <option value="aguardando_retirada">Aguardando retirada</option>
-                  <option value="concluido">Concluído</option>
-                </select>
-              </label>
-
-              <label className="block text-xs font-medium text-gray-500 mb-1">
-                Status Técnico
-                <select
-                  name="status_tecnico"
-                  defaultValue={ordem.status_tecnico}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm"
-                >
-                  <option value="iniciada">Iniciada</option>
-                  <option value="em_andamento">Em andamento</option>
-                  <option value="orcamento_finalizado">Orçamento finalizado</option>
-                  <option value="aguardando_peca">Aguardando peça</option>
-                  <option value="testes_finais">Testes finais</option>
-                  <option value="sem_conserto">Sem conserto</option>
-                  <option value="finalizado">Finalizado</option>
-                </select>
+                <Listbox value={statusSelecionado} onChange={setStatusSelecionado}>
+                  <div className="relative mt-1">
+                    <Listbox.Button className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm bg-white text-left">
+                      <span className="flex items-center gap-2">
+                        <span
+                          className="inline-block w-3 h-3 rounded-full"
+                          style={{ backgroundColor: statusSelecionado?.cor || 'black' }}
+                        ></span>
+                        {statusSelecionado?.nome || 'Selecione...'}
+                      </span>
+                    </Listbox.Button>
+                    <Transition as={Fragment} leave="transition ease-in duration-100" leaveFrom="opacity-100" leaveTo="opacity-0">
+                      <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto bg-white border border-gray-200 rounded-md shadow-lg text-sm">
+                        {statusOS.map((status) => (
+                          <Listbox.Option
+                            key={status.id}
+                            value={status}
+                            className={({ active }) =>
+                              `cursor-pointer select-none px-3 py-2 flex items-center gap-2 ${
+                                active ? 'bg-indigo-600 text-white' : 'text-gray-900'
+                              }`
+                            }
+                          >
+                            <span
+                              className="inline-block w-3 h-3 rounded-full"
+                              style={{ backgroundColor: status.cor || 'black' }}
+                            ></span>
+                            {status.nome}
+                          </Listbox.Option>
+                        ))}
+                      </Listbox.Options>
+                    </Transition>
+                  </div>
+                </Listbox>
               </label>
             </div>
             <div className="grid grid-cols-1 gap-4 mt-4">

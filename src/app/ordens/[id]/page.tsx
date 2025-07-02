@@ -10,32 +10,10 @@ const VisualizarOrdemServicoPage = () => {
   const router = useRouter();
   const { id } = useParams();
   const [ordem, setOrdem] = useState<any>(null);
-
-  // Etapas do status da OS e cálculo do índice da etapa atual
-  const statusEtapas = [
-    'orcamento',
-    'aguardando_aprovacao',
-    'aprovado',
-    'em_execucao',
-    'finalizado',
-    'entregue',
-  ];
-
-  const statusLabels: Record<string, string> = {
-    orcamento: 'Orçamento',
-    aguardando_aprovacao: 'Aguardando Aprovação',
-    aprovado: 'Aprovado',
-    em_execucao: 'Em Execução',
-    finalizado: 'Finalizado',
-    entregue: 'Entregue',
-  };
-
-  const statusIndex = statusEtapas.findIndex(etapa => etapa === ordem?.status?.toLowerCase());
+  const [statusEtapas, setStatusEtapas] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchOrdem = async () => {
-      console.log('ID da OS:', id);
-
       const { data, error } = await supabase
         .from('ordens_servico')
         .select(`
@@ -65,16 +43,27 @@ const VisualizarOrdemServicoPage = () => {
           qtd_servico,
           servico,
           valor_servico,
-          valor_faturado
+          valor_faturado,
+          empresa_id
         `)
         .eq('id', String(id))
         .single();
 
-      if (error || !data) {
-        console.error('Erro ao buscar OS:', error || 'OS não encontrada');
-      } else {
-        setOrdem(data);
-      }
+      const { data: statusFixos } = await supabase
+        .from('status_fixo')
+        .select('*')
+        .eq('tipo', 'os');
+
+      const { data: statusPersonalizados } = await supabase
+        .from('status')
+        .select('*')
+        .eq('empresa_id', data?.empresa_id)
+        .eq('tipo', 'os');
+
+      const todosStatus = [...(statusFixos || []), ...(statusPersonalizados || [])].sort((a, b) => a.ordem - b.ordem);
+      
+      setStatusEtapas(todosStatus);
+      setOrdem(data);
     };
 
     if (id) fetchOrdem();
@@ -127,58 +116,38 @@ const VisualizarOrdemServicoPage = () => {
         </div>
 
         <div className="mb-10">
-        {/* Barra de progresso moderna com bolinhas e linhas conectando as etapas */}
-        <div className="mb-6 overflow-x-auto">
-          <div className="flex items-center gap-4">
-            {statusEtapas.map((etapa, index, arr) => {
-              // Ativo: etapa anterior ou igual à etapa atual; Atual: exatamente a etapa atual
-              const ativo = index <= statusIndex;
-              const atual = index === statusIndex;
-              return (
-                <div key={etapa} className="flex items-center">
-                  <div
-                    className={`flex items-center justify-center w-8 h-8 rounded-full border-2 ${
-                      atual
-                        ? 'bg-[#cffb6d] border-black text-black'
-                        : ativo
-                        ? 'bg-[#cffb6d] border-[#cffb6d] text-black'
-                        : 'border-gray-300 text-gray-400 bg-white'
-                    }`}
-                  >
-                    {index + 1}
+          {/* Barra de progresso moderna com bolinhas e linhas conectando as etapas */}
+          <div className="mb-6 overflow-x-auto">
+            <div className="flex items-center space-x-4">
+              {statusEtapas.map((etapa, index) => {
+                const ativo = etapa.nome?.toLowerCase() === ordem?.status?.toLowerCase();
+                const proximo = index < statusEtapas.length - 1;
+                return (
+                  <div key={etapa.id} className="flex items-center">
+                    <div className="flex flex-col items-center">
+                      <div
+                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-colors`}
+                        style={{
+                          backgroundColor: ativo ? etapa.cor : '#fff',
+                          borderColor: etapa.cor,
+                          color: ativo ? '#000' : etapa.cor,
+                        }}
+                      >
+                        {index + 1}
+                      </div>
+                      <span className="text-[10px] text-center mt-1 w-16 truncate">{etapa.nome}</span>
+                    </div>
+                    {proximo && (
+                      <div
+                        className="h-1 w-8 mx-1 transition-colors"
+                        style={{ backgroundColor: etapa.cor }}
+                      />
+                    )}
                   </div>
-                  <div className="text-xs mt-2 text-center w-20">{statusLabels[etapa]}</div>
-                  {index < arr.length - 1 && (
-                    <div className={`h-1 w-10 ${ativo ? 'bg-[#cffb6d]' : 'bg-gray-200'}`} />
-                  )}
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
-
-        <div className="mb-10 overflow-x-auto">
-          <div className="flex items-center gap-4">
-            {['Pendente', 'Em Andamento', 'Concluído'].map((etapa, index, arr) => {
-              const ativo = etapa.toLowerCase().replace(/\s/g, '_') === ordem.status_tecnico?.toLowerCase();
-              return (
-                <div key={etapa} className="flex items-center">
-                  <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 ${
-                    ativo
-                      ? 'bg-[#cffb6d] border-black text-black'
-                      : 'border-gray-300 text-gray-400 bg-white'
-                  }`}>
-                    {index + 1}
-                  </div>
-                  <div className="text-xs mt-2 text-center w-20">{etapa}</div>
-                  {index < arr.length - 1 && (
-                    <div className={`h-1 w-10 ${ativo ? 'bg-[#cffb6d]' : 'bg-gray-200'}`} />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
 
           <h1 className="text-4xl font-extrabold text-[#000000] mb-2">
             Ordem de Serviço #{ordem.numero_os}
@@ -214,8 +183,8 @@ const VisualizarOrdemServicoPage = () => {
 
           <section className="bg-white p-6 rounded-lg border border-gray-200">
 
-        {/* Quebra de linha para evitar espaçamento residual do grid */}
-        <div className="w-full h-0" />
+            {/* Quebra de linha para evitar espaçamento residual do grid */}
+            <div className="w-full h-0" />
             <h2 className="text-xl font-semibold text-gray-700 mb-4">Status Técnico</h2>
             <span className="inline-block px-3 py-1 text-sm font-medium bg-gray-100 text-gray-800 rounded-full">
               {ordem.status_tecnico || 'Não informado'}
