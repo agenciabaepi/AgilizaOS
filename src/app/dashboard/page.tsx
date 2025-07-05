@@ -511,7 +511,7 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
                   <SortableColunaCard
                     key={`coluna-${coluna}`}
                     id={`coluna-${coluna}`}
-                    className="min-w-[250px] bg-[#fffff8] border border-[#cffb6d] rounded-md shadow-sm p-3 flex flex-col gap-3"
+                    className="min-w-[250px] max-h-[80vh] overflow-y-auto bg-[#fffff8] border border-[#cffb6d] rounded-md shadow-sm p-3 flex flex-col gap-3"
                   >
                     {(params) => {
                       const { attributes, listeners, setColunasOrdenadas } = params;
