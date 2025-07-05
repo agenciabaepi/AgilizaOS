@@ -494,30 +494,6 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
 
   return (
     <MenuLayout>
-      <div className="w-full px-6 py-4">
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard Admin</h1>
-        {/* Bem-vindo, nome do usuário */}
-        <h2 className="text-lg font-semibold text-neutral-700 mb-4">Bem-vindo, {usuarioNome}</h2>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-[#cffb6d] text-black p-4 rounded-xl shadow">
-          <p className="text-sm">OS em aberto</p>
-          <p className="text-2xl font-bold">12</p>
-        </div>
-        <div className="bg-white p-4 rounded-xl shadow">
-          <p className="text-sm text-gray-500">OS concluídas</p>
-          <p className="text-2xl font-bold">28</p>
-        </div>
-        <div className="bg-white p-4 rounded-xl shadow">
-          <p className="text-sm text-gray-500">Total do mês</p>
-          <p className="text-2xl font-bold">R$ 456.890,00</p>
-        </div>
-        <div className="bg-white p-4 rounded-xl shadow">
-          <p className="text-sm text-gray-500">Técnicos ativos</p>
-          <p className="text-2xl font-bold">5</p>
-        </div>
-      </div>
-
       <div className="bg-[#f9ffe0] border border-[#cffb6d] rounded-xl shadow p-4 mb-6">
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <FiBook className="text-yellow-500" />
@@ -692,287 +668,134 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
             </SortableContext>
           </DndContext>
         </ClientOnly>
-      </div>
-
-      <div className="bg-white p-6 rounded-xl shadow mb-6">
-        <h2 className="text-lg font-semibold mb-4">📱 Aparelhos por Técnico</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className="bg-gray-50 p-4 rounded-lg border hover:shadow">
-            <h3 className="font-semibold text-gray-800">Carlos</h3>
-            <p className="text-sm text-gray-600">3 aparelhos em andamento</p>
-          </div>
-          <div className="bg-gray-50 p-4 rounded-lg border hover:shadow">
-            <h3 className="font-semibold text-gray-800">Fernanda</h3>
-            <p className="text-sm text-gray-600">5 aparelhos em andamento</p>
-          </div>
-          <div className="bg-gray-50 p-4 rounded-lg border hover:shadow">
-            <h3 className="font-semibold text-gray-800">Eduardo</h3>
-            <p className="text-sm text-gray-600">2 aparelhos em andamento</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white p-4 rounded-xl shadow mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold">Últimas 5 Ordens de Serviço</h2>
-          <button className="bg-[#cffb6d] text-black px-4 py-2 rounded-lg text-sm hover:bg-lime-300">Nova OS</button>
-        </div>
-
-        <div className="grid grid-cols-11 items-center gap-4 text-sm font-semibold text-gray-500 px-4 mb-2">
-          <div>Cliente</div>
-          <div>Aparelho</div>
-          <div>Serviço</div>
-          <div>Status</div>
-          <div>Entrada</div>
-          <div>Entrega</div>
-          <div>Peça</div>
-          <div>Serviço</div>
-          <div>Total</div>
-          <div>Técnico</div>
-          <div className="text-right">Ações</div>
-        </div>
-
-        <div className="space-y-2">
-          <div className="grid grid-cols-11 items-center gap-4 bg-green-50 p-4 rounded-xl">
-            <div>João Silva</div>
-            <div>iPhone 11</div>
-            <div>Troca de Tela</div>
-            <div className="text-green-700">Concluída</div>
-            <div>10/05/2025</div>
-            <div>12/05/2025</div>
-            <div>R$ 200,00</div>
-            <div>R$ 150,00</div>
-            <div>R$ 350,00</div>
-            <div>Carlos</div>
-            <div className="flex justify-end gap-2 text-xs">
-              <button className="text-blue-600 hover:text-blue-800">
-                <FiEye size={16} />
-              </button>
-              <button className="text-yellow-600 hover:text-yellow-800">
-                <FiEdit size={16} />
-              </button>
-              <button className="text-gray-600 hover:text-gray-800">
-                <FiPrinter size={16} />
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-11 items-center gap-4 bg-yellow-50 p-4 rounded-xl">
-            <div>Maria Souza</div>
-            <div>Samsung A32</div>
-            <div>Formatação</div>
-            <div className="text-yellow-700">Aguardando aprovação</div>
-            <div>13/05/2025</div>
-            <div>15/05/2025</div>
-            <div>R$ 0,00</div>
-            <div>R$ 80,00</div>
-            <div>R$ 80,00</div>
-            <div>Fernanda</div>
-            <div className="flex justify-end gap-2 text-xs">
-              <button className="text-blue-600 hover:text-blue-800">
-                <FiEye size={16} />
-              </button>
-              <button className="text-yellow-600 hover:text-yellow-800">
-                <FiEdit size={16} />
-              </button>
-              <button className="text-gray-600 hover:text-gray-800">
-                <FiPrinter size={16} />
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-11 items-center gap-4 bg-blue-50 p-4 rounded-xl">
-            <div>Lucas Souza</div>
-            <div>Iphone 13 Pro Max</div>
-            <div>Formatação</div>
-            <div className="text-blue-700">Orçamento</div>
-            <div>13/05/2025</div>
-            <div>15/05/2025</div>
-            <div>R$ 0,00</div>
-            <div>R$ 0,00</div>
-            <div>R$ 0,00</div>
-            <div>Fernanda</div>
-            <div className="flex justify-end gap-2 text-xs">
-              <button className="text-blue-600 hover:text-blue-800">
-                <FiEye size={16} />
-              </button>
-              <button className="text-yellow-600 hover:text-yellow-800">
-                <FiEdit size={16} />
-              </button>
-              <button className="text-gray-600 hover:text-gray-800">
-                <FiPrinter size={16} />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-[#fffff8] p-4 rounded-xl border border-[#cffb6d] shadow">
-          <h2 className="text-base font-semibold mb-2 text-[#000000]">OS por Mês</h2>
-          <Line options={options} data={data} />
-        </div>
-        <div className="bg-[#fffff8] p-4 rounded-xl border border-[#cffb6d] shadow">
-          <h2 className="text-base font-semibold mb-2 text-[#000000]">Entradas Financeiras</h2>
-          <Line
-            options={options}
-            data={{
-              ...data,
-              datasets: [
-                {
-                  ...data.datasets[0],
-                  label: 'R$',
-                  data: [2000, 2500, 1800, 2200, 2600, 3000],
-                },
-              ],
-            }}
-          />
-        </div>
-        <div className="bg-[#fffff8] p-4 rounded-xl border border-[#cffb6d] shadow">
-          <h2 className="text-base font-semibold mb-2 text-[#000000]">Comissões Técnicas</h2>
-          <Line
-            options={options}
-            data={{
-              ...data,
-              datasets: [
-                {
-                  ...data.datasets[0],
-                  label: '% Comissão',
-                  data: [400, 480, 500, 600, 720, 800],
-                },
-              ],
-            }}
-          />
-        </div>
-      </div>
-      {/* Modal Nova Anotação / Editar Anotação */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md space-y-4">
-            <h2 className="text-lg font-semibold">
-              {notaEditando ? 'Editar Anotação' : 'Nova Anotação'}
-            </h2>
-            <input
-              type="text"
-              placeholder="Título"
-              value={novaNota.titulo}
-              onChange={(e) => setNovaNota({ ...novaNota, titulo: e.target.value })}
-              className="w-full border rounded p-2 text-sm"
-            />
-            <textarea
-              placeholder="Descrição"
-              value={novaNota.descricao}
-              onChange={(e) => setNovaNota({ ...novaNota, descricao: e.target.value })}
-              className="w-full border rounded p-2 text-sm"
-            />
-            <div className="flex gap-2">
-              {[
-                { cor: 'bg-yellow-500' },
-                { cor: 'bg-green-500' },
-                { cor: 'bg-blue-500' },
-                { cor: 'bg-purple-500' },
-                { cor: 'bg-orange-500' }
-              ].map((opcao) => (
-                <div
-                  key={opcao.cor}
-                  onClick={() => setNovaNota({ ...novaNota, cor: opcao.cor })}
-                  className={`w-6 h-6 rounded-full ${opcao.cor} ${novaNota.cor === opcao.cor ? 'ring-2 ring-black' : ''} cursor-pointer`}
-                />
-              ))}
-            </div>
-            {/* Seleção de prioridade */}
-            <div className="flex gap-2 text-xs items-center">
-              <span className="font-semibold">Prioridade:</span>
-              {['Alta', 'Média', 'Baixa'].map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setNovaNota({ ...novaNota, prioridade: p })}
-                  className={`px-2 py-1 rounded-full border text-xs font-semibold
-                    ${novaNota.prioridade === p
-                      ? (
-                        p === 'Alta'
-                          ? 'bg-red-100 text-red-600 border-red-200'
-                          : p === 'Média'
-                            ? 'bg-yellow-100 text-yellow-600 border-yellow-200'
-                            : 'bg-green-100 text-green-600 border-green-200'
-                        )
-                      : 'bg-gray-100 text-gray-500 border-gray-200'
-                    }
-                  `}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setShowModal(false);
-                  setNotaEditando(null);
-                }}
-                className="px-4 py-2 text-sm rounded bg-gray-200 hover:bg-gray-300"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={salvarOuAtualizarNota}
-                className="px-4 py-2 text-sm rounded bg-[#1860fa] text-white hover:bg-blue-700"
-              >
-                {notaEditando ? 'Atualizar' : 'Salvar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* Modal de confirmação de exclusão */}
-      {notaParaExcluir && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl space-y-4">
-            <h2 className="text-xl font-bold">Confirmar Exclusão</h2>
-            <p className="text-gray-600">
-              Tem certeza que deseja excluir a anotação <strong>{notaParaExcluir.titulo}</strong>?
-            </p>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                excluirNota(notaParaExcluir.id).then(() => {
-                  setNotaParaExcluir(null);
-                });
-              }}
-            >
+        {/* Modal Nova Anotação / Editar Anotação */}
+        {showModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md space-y-4">
+              <h2 className="text-lg font-semibold">
+                {notaEditando ? 'Editar Anotação' : 'Nova Anotação'}
+              </h2>
+              <input
+                type="text"
+                placeholder="Título"
+                value={novaNota.titulo}
+                onChange={(e) => setNovaNota({ ...novaNota, titulo: e.target.value })}
+                className="w-full border rounded p-2 text-sm"
+              />
+              <textarea
+                placeholder="Descrição"
+                value={novaNota.descricao}
+                onChange={(e) => setNovaNota({ ...novaNota, descricao: e.target.value })}
+                className="w-full border rounded p-2 text-sm"
+              />
+              <div className="flex gap-2">
+                {[
+                  { cor: 'bg-yellow-500' },
+                  { cor: 'bg-green-500' },
+                  { cor: 'bg-blue-500' },
+                  { cor: 'bg-purple-500' },
+                  { cor: 'bg-orange-500' }
+                ].map((opcao) => (
+                  <div
+                    key={opcao.cor}
+                    onClick={() => setNovaNota({ ...novaNota, cor: opcao.cor })}
+                    className={`w-6 h-6 rounded-full ${opcao.cor} ${novaNota.cor === opcao.cor ? 'ring-2 ring-black' : ''} cursor-pointer`}
+                  />
+                ))}
+              </div>
+              {/* Seleção de prioridade */}
+              <div className="flex gap-2 text-xs items-center">
+                <span className="font-semibold">Prioridade:</span>
+                {['Alta', 'Média', 'Baixa'].map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setNovaNota({ ...novaNota, prioridade: p })}
+                    className={`px-2 py-1 rounded-full border text-xs font-semibold
+                      ${novaNota.prioridade === p
+                        ? (
+                          p === 'Alta'
+                            ? 'bg-red-100 text-red-600 border-red-200'
+                            : p === 'Média'
+                              ? 'bg-yellow-100 text-yellow-600 border-yellow-200'
+                              : 'bg-green-100 text-green-600 border-green-200'
+                          )
+                        : 'bg-gray-100 text-gray-500 border-gray-200'
+                      }
+                    `}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
               <div className="flex justify-end gap-2">
                 <button
-                  type="button"
-                  onClick={() => setNotaParaExcluir(null)}
+                  onClick={() => {
+                    setShowModal(false);
+                    setNotaEditando(null);
+                  }}
                   className="px-4 py-2 text-sm rounded bg-gray-200 hover:bg-gray-300"
                 >
                   Cancelar
                 </button>
                 <button
-                  type="submit"
-                  className="px-4 py-2 text-sm rounded bg-[#cffb6d] text-black hover:bg-lime-400"
+                  onClick={salvarOuAtualizarNota}
+                  className="px-4 py-2 text-sm rounded bg-[#1860fa] text-white hover:bg-blue-700"
                 >
-                  Excluir
+                  {notaEditando ? 'Atualizar' : 'Salvar'}
                 </button>
               </div>
-            </form>
+            </div>
           </div>
-        </div>
-      )}
-      {/* ToastContainer para notificações */}
-      <ToastContainer
-        position="bottom-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="colored"
-      />
+        )}
+        {/* Modal de confirmação de exclusão */}
+        {notaParaExcluir && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl space-y-4">
+              <h2 className="text-xl font-bold">Confirmar Exclusão</h2>
+              <p className="text-gray-600">
+                Tem certeza que deseja excluir a anotação <strong>{notaParaExcluir.titulo}</strong>?
+              </p>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  excluirNota(notaParaExcluir.id).then(() => {
+                    setNotaParaExcluir(null);
+                  });
+                }}
+              >
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setNotaParaExcluir(null)}
+                    className="px-4 py-2 text-sm rounded bg-gray-200 hover:bg-gray-300"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 text-sm rounded bg-[#cffb6d] text-black hover:bg-lime-400"
+                  >
+                    Excluir
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+        {/* ToastContainer para notificações */}
+        <ToastContainer
+          position="bottom-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="colored"
+        />
       </div>
     </MenuLayout>
   );
