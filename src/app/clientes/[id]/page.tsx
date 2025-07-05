@@ -53,7 +53,7 @@ export default function VisualizarClientePage() {
           termo_garantia,
           status,
           tecnico_id,
-          tecnicos ( nome ),
+          usuarios!tecnico_id ( nome ),
           numero_os
         `)
         .eq('cliente_id', cliente.id)

@@ -93,7 +93,7 @@ export default function EditarOrdemServico() {
   async function fetchOrdem() {
     const { data, error } = await supabase
       .from('ordens_servico')
-      .select('*, clientes(*), tecnicos(*)')
+      .select('*, clientes(*), usuarios!tecnico_id ( nome )')
       .eq('id', id as string)
       .single();
 

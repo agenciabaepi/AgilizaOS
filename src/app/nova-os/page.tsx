@@ -1,5 +1,6 @@
 'use client';
 
+import Select from 'react-select';
 import MenuLayout from "@/components/MenuLayout";
 
 import Image from 'next/image';
@@ -26,7 +27,7 @@ import { supabase } from "@/lib/supabaseClient";
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Select from 'react-select';
+import ReactSelect from 'react-select';
 import { components, SingleValue } from 'react-select';
 import { SingleValueProps } from 'react-select';
 import { toast } from 'react-hot-toast';
@@ -87,7 +88,9 @@ export default function NovaOSPage() {
   const [previewEntrada, setPreviewEntrada] = useState<string | null>(null);
   const [previewSaida, setPreviewSaida] = useState<string | null>(null);
   // Técnicos
-  const [tecnicos, setTecnicos] = useState<{ id: string; nome: string }[]>([]);
+  const [tecnicos, setTecnicos] = useState<any[]>([]);
+  // Usuário logado (session)
+  const [session, setSession] = useState<any>(null);
   // Serviços adicionados
   const [servicosAdicionados, setServicosAdicionados] = useState<
     { id: string; nome: string; valor: number; quantidade: number }[]
@@ -122,13 +125,38 @@ export default function NovaOSPage() {
       if (marcasData) setMarcasEquip(marcasData);
       if (modelosData) setModelosEquip(modelosData);
     }
-    async function fetchTecnicos() {
-      const { data } = await supabase.from("tecnicos").select("id, nome");
-      if (data) setTecnicos(data);
-    }
     fetchClientes();
     fetchEquipamentos();
-    fetchTecnicos();
+  }, []);
+
+  // Buscar técnicos da tabela usuarios (com filtro de empresa e nivel)
+  useEffect(() => {
+    async function fetchSessionAndTecnicos() {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData?.user) return;
+      setSession({ user: userData.user });
+      // Buscar empresa_id do usuário autenticado
+      const { data: empresaData, error: empresaError } = await supabase
+        .from("empresas")
+        .select("id")
+        .eq("user_id", userData.user.id)
+        .single();
+      if (!empresaData || empresaError) return;
+      // Buscar técnicos na tabela usuarios
+      const { data: tecnicosData, error: tecnicosError } = await supabase
+        .from("usuarios")
+        .select("id, nome")
+        .eq("empresa_id", empresaData.id)
+        .eq("nivel", "tecnico")
+        .order("nome", { ascending: true });
+      if (tecnicosError) {
+        console.error("Erro ao buscar técnicos:", tecnicosError);
+        setTecnicos([]);
+      } else {
+        setTecnicos(tecnicosData || []);
+      }
+    }
+    fetchSessionAndTecnicos();
   }, []);
 
   // Função para validar UUID
@@ -151,25 +179,28 @@ export default function NovaOSPage() {
     try {
       // Nova lógica: busca usuário autenticado e empresa, faz insert amarrando empresa_id
       const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError) {
-        console.error("Erro ao obter usuário:", userError);
+      const user = userData?.user;
+
+      if (userError || !user) {
+        console.error("Erro ao obter usuário ou usuário não autenticado:", userError);
+        toast.error("Sessão expirada. Faça login novamente.");
         setIsLoading(false);
         return;
       }
 
-      const { data: empresaData, error: empresaError } = await supabase
-        .from("empresas")
-        .select("id")
-        .eq("user_id", userData?.user?.id)
+      const { data: usuarioData, error: usuarioError } = await supabase
+        .from("usuarios")
+        .select("id, nivel, empresa_id")
+        .eq("auth_user_id", user.id)
         .single();
 
-      if (empresaError || !empresaData) {
-        console.error("Erro ao buscar empresa:", empresaError);
+      if (usuarioError || !usuarioData) {
+        console.error("Erro ao buscar usuário:", usuarioError);
         setIsLoading(false);
         return;
       }
 
-      const empresa_id = empresaData.id;
+      const empresa_id = usuarioData.empresa_id;
       // Variáveis de estado adicionais
       // Definições para garantir que os campos estejam definidos
       // Para campos de serviço e peça, vamos considerar apenas o primeiro serviço/peça adicionado para simplificação (ajuste conforme sua lógica)
@@ -197,14 +228,26 @@ export default function NovaOSPage() {
       const vencimentoGarantia = null;
 
       // Adicione console.log para depuração dos valores enviados
+      // Determinar tecnico_id automaticamente se usuário for técnico
+      let tecnico_id = tecnico || null;
+      if (usuarioData.nivel === "tecnico") {
+        tecnico_id = usuarioData.id;
+      }
+      // Garantir que tecnico_id é um UUID válido e existe na tabela usuarios
+      if (tecnico_id && !isValidUUID(tecnico_id)) {
+        toast.error("Técnico selecionado inválido.");
+        setIsLoading(false);
+        return;
+      }
+      // Opcional: poderia verificar se tecnico_id existe na lista de técnicos, mas já filtramos pelo select
+
       console.log('Valores enviados para OS:', {
         empresa_id,
         cliente_id: clienteSelecionado?.id,
-        tecnico_id: tecnico || null,
+        tecnico_id: tecnico_id,
         status: status || "pendente",
         aparelho,
-        atendente: atendente || null,
-        tecnico: tecnico || null,
+        tecnico: tecnico_id,
         categoria,
         marca,
         modelo: modeloAparelho,
@@ -231,10 +274,9 @@ export default function NovaOSPage() {
         {
           empresa_id,
           cliente_id: clienteSelecionado?.id,
-          tecnico_id: tecnico || null,
+          tecnico_id: tecnico_id,
           status: status || "pendente",
-          atendente: atendente || null,
-          tecnico: tecnico || null,
+          tecnico: tecnico_id,
           categoria,
           marca,
           modelo: modeloAparelho,
@@ -497,7 +539,7 @@ export default function NovaOSPage() {
                       {isLoading ? (
                         <Skeleton count={1} height={44} />
                       ) : (
-                      <Select
+                      <ReactSelect
                         options={clientes.map((c) => ({ value: c.id, label: c.nome }))}
                         placeholder="Selecionar cliente"
                         className="w-full rounded-md"
@@ -669,94 +711,25 @@ export default function NovaOSPage() {
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6 gap-6 bg-white/80 rounded-2xl shadow-xl p-8 border border-gray-100 transition-all duration-500 ease-in-out">
                   <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-4">
                     {/* Técnico */}
-                    <div className="relative flex items-center">
+                    <div className="relative flex items-center w-full">
                       <Select
-                        options={tecnicos.map((t) => ({ value: t.id, label: t.nome }))}
-                        placeholder="Selecionar técnico"
-                        className="w-full rounded-md"
-                        value={tecnico ? { value: tecnico, label: tecnicos.find(t => t.id === tecnico)?.nome || "" } : null}
+                        options={tecnicos.map((t: any) => ({
+                          value: t.id,
+                          label: t.nome,
+                        }))}
+                        placeholder="Selecione um técnico"
+                        className="w-full"
+                        value={tecnico ? tecnicos.map((t: any) => ({ value: t.id, label: t.nome })).find((t: any) => t.value === tecnico) : null}
                         onChange={(newValue, _actionMeta) => {
                           if (!newValue || Array.isArray(newValue)) return;
                           setTecnico(newValue.value);
                         }}
-                        components={{ SingleValue: CustomSingleValue }}
-                        styles={{
-                          control: (provided: any) => ({
-                            ...provided,
-                            borderRadius: '0.375rem',
-                            borderColor: '#e5e7eb',
-                            backgroundColor: 'white',
-                            boxShadow: 'none',
-                            ':hover': { borderColor: '#3b82f6' }
-                          }),
-                          option: (provided: any, state: any) => ({
-                            ...provided,
-                            backgroundColor: state.isSelected
-                              ? '#3b82f6'
-                              : state.isFocused
-                              ? '#e0f2fe'
-                              : 'white',
-                            color: state.isSelected ? 'white' : '#111827',
-                            padding: '0.75rem 1rem',
-                            fontSize: '0.875rem',
-                          }),
-                          singleValue: (provided: any) => ({
-                            ...provided,
-                            fontSize: '0.875rem',
-                            lineHeight: '1.25rem',
-                          }),
-                        }}
+                        isSearchable
+                        isDisabled={session && session.user && session.user.id && tecnicos.some((t: any) => t.id === session.user.id && session.user.nivel === "tecnico")}
                       />
                     </div>
-                    {/* Atendente */}
-                    <div className="relative flex items-center">
-                      <Select
-                        options={[
-                          { value: 'camila', label: 'Camila' },
-                          { value: 'joao', label: 'João' },
-                        ]}
-                        placeholder="Selecionar atendente"
-                        className="w-full rounded-md"
-                        value={atendente ? { value: atendente, label: atendente.charAt(0).toUpperCase() + atendente.slice(1) } : null}
-                        onChange={(newValue, _actionMeta) => {
-                          if (!newValue || Array.isArray(newValue)) return;
-                          setAtendente(newValue.value);
-                        }}
-                        components={{ SingleValue: CustomSingleValue }}
-                        styles={{
-                          control: (provided: any) => ({
-                            ...provided,
-                            borderRadius: '0.375rem',
-                            borderColor: '#e5e7eb',
-                            backgroundColor: 'white',
-                            boxShadow: 'none',
-                            ':hover': { borderColor: '#3b82f6' }
-                          }),
-                          option: (provided: any, state: any) => ({
-                            ...provided,
-                            backgroundColor: state.isSelected
-                              ? '#3b82f6'
-                              : state.isFocused
-                              ? '#e0f2fe'
-                              : 'white',
-                            color: state.isSelected ? 'white' : '#111827',
-                            padding: '0.75rem 1rem',
-                            fontSize: '0.875rem',
-                          }),
-                          singleValue: (provided: any) => ({
-                            ...provided,
-                            fontSize: '0.875rem',
-                            lineHeight: '1.25rem',
-                          }),
-                        }}
-                      />
-                    </div>
-                    <input
-                      type="date"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20"
-                    />
                   </div>
-                    <div className="flex justify-between mt-4 gap-4">
+                  <div className="flex justify-between mt-4 gap-4">
                     <button
                       type="button"
                       onClick={() => setEtapaAtual(etapaAtual - 1)}
@@ -767,8 +740,8 @@ export default function NovaOSPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        if (!tecnico || !atendente) {
-                          toast.error("Selecione técnico e atendente!");
+                        if (!tecnico && !(session && session.user && session.user.nivel === "tecnico")) {
+                          toast.error("Selecione um técnico!");
                           return;
                         }
                         setEtapaAtual(etapaAtual + 1);
@@ -786,7 +759,7 @@ export default function NovaOSPage() {
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6 gap-6 bg-white/80 rounded-2xl shadow-xl p-8 border border-gray-100 transition-all duration-500 ease-in-out">
                   {/* Status Select */}
                   <div className="relative flex items-center">
-                    <Select
+                    <ReactSelect
                       options={[
                         { value: 'orcamento', label: 'Orçamento' },
                         { value: 'aprovado', label: 'Aprovado' },
@@ -845,7 +818,7 @@ export default function NovaOSPage() {
                               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Serviços</label>
                               <div className="grid grid-cols-4 gap-2 items-center">
                                 <div className="col-span-2">
-                                  <Select
+                                  <ReactSelect
                                     options={Object.entries(servicos).map(([id, servico]) => ({
                                       value: id,
                                       label: `${servico.nome} - R$ ${servico.preco.toFixed(2)}`,
@@ -936,7 +909,7 @@ export default function NovaOSPage() {
                               <h4 className="text-sm font-semibold text-gray-600 mb-2">Adicionar peça</h4>
                               <div className="grid grid-cols-3 gap-2 items-center">
                                 <div className="col-span-2">
-                                  <Select
+                                  <ReactSelect
                                     options={Object.entries(pecas).map(([id, peca]) => ({
                                       value: id,
                                       label: `${peca.nome} - R$ ${peca.preco}`
@@ -1441,7 +1414,7 @@ function FastRegisterForm({ onClose, onSubmit, isLoading }: { onClose: () => voi
         )}
       </div>
       <div className="relative flex items-center">
-        <Select
+        <ReactSelect
           name="origem"
           options={[
             { value: 'indicacao', label: 'Indicação' },
@@ -1489,7 +1462,7 @@ function FastRegisterForm({ onClose, onSubmit, isLoading }: { onClose: () => voi
         )}
       </div>
       <div className="relative flex items-center">
-        <Select
+        <ReactSelect
           name="cadastradoPor"
           options={[
             { value: 'computadores', label: 'Computadores Geral' },

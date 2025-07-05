@@ -118,7 +118,6 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" menuExpandido={menuExpandido} />
             <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" menuExpandido={menuExpandido} />
             <SidebarButton path="/clientes" icon={<FiUsers size={20} />} label="Clientes" menuExpandido={menuExpandido} />
-            <SidebarButton path="/tecnicos" icon={<FiUserCheck size={20} />} label="Técnicos" menuExpandido={menuExpandido} />
             <SidebarButton path="/equipamentos" icon={<FiBox size={20} />} label="Produtos/Serviços" menuExpandido={menuExpandido} />
             <SidebarButton path="#" icon={<FiDollarSign size={20} />} label="Financeiro" menuExpandido={menuExpandido} />
             <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" menuExpandido={menuExpandido} />
