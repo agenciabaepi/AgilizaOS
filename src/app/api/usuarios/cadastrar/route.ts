@@ -1,3 +1,5 @@
+'use server'
+
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -10,7 +12,13 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     console.log('Payload recebido no backend:', body);
-    const { nome, email, senha, plano, whatsapp, cpf } = body;
+    const { nome, email, senha, cpf, nivel, empresa_id, whatsapp } = body;
+    console.log('empresa_id recebido:', empresa_id);
+
+    if (!empresa_id) {
+      console.error('empresa_id não foi enviado');
+      return NextResponse.json({ error: 'Empresa não identificada' }, { status: 400 });
+    }
 
     // Verifica se já existe um usuário com esse e-mail
     const { data: existingUser, error: checkError } = await supabaseAdmin
@@ -36,8 +44,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'CPF já cadastrado.' }, { status: 409 });
     }
 
-    if (!nome || !email || !senha || !plano || !whatsapp || !cpf) {
-      console.error('Campos obrigatórios ausentes:', { nome, email, senha, plano, whatsapp, cpf });
+    if (!nome || !email || !senha || !cpf) {
+      console.error('Campos obrigatórios ausentes:', { nome, email, senha, cpf });
       return NextResponse.json({ error: 'Campos obrigatórios ausentes' }, { status: 400 });
     }
 
@@ -51,7 +59,7 @@ export async function POST(request: Request) {
     console.log('authUser:', authUser);
 
     if (authError) {
-      console.error('Erro ao criar usuário:', authError);
+      console.error('Erro ao criar usuário no Auth:', JSON.stringify(authError));
       return NextResponse.json({ error: authError.message }, { status: 400 });
     }
 
@@ -60,34 +68,44 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Falha ao obter ID do usuário' }, { status: 400 });
     }
 
-    console.log('Dados para inserção:', {
-      nome, email, auth_user_id: authUser.user.id, plano, whatsapp
+    console.log('Enviando dados para o banco:', {
+      nome,
+      email,
+      auth_user_id: authUser.user?.id,
+      cpf,
+      tipo: 'principal',
+      nivel,
+      empresa_id,
+      whatsapp,
     });
 
-    // Sanitiza o campo whatsapp
-    const whatsappFormatado = whatsapp.replace(/\D/g, '');
-
-    // Salva o usuário na tabela `usuarios`
     const { error: dbError } = await supabaseAdmin.from('usuarios').insert([
       {
         nome,
         email,
         auth_user_id: authUser.user?.id,
-        plano,
-        whatsapp: whatsappFormatado,
         cpf,
-        tipo: 'principal', // valor padrão
+        tipo: 'principal',
+        nivel,
+        empresa_id,
+        whatsapp,
       },
     ]);
 
     if (dbError) {
-      console.error('Erro ao salvar usuário:', dbError);
-      return NextResponse.json({ error: dbError.message }, { status: 400 });
+      console.error('Erro ao salvar usuário no banco de dados:', dbError);
+      return NextResponse.json(
+        { error: dbError.message || JSON.stringify(dbError) || 'Erro ao salvar usuário no banco de dados' },
+        { status: 400 }
+      );
     }
 
     return NextResponse.json({ success: true });
   } catch (e: any) {
-    console.error('Erro inesperado:', e?.message || e);
-    return NextResponse.json({ error: e?.message || 'Erro desconhecido' }, { status: 500 });
+    console.error('Erro inesperado no try/catch:', e?.message || JSON.stringify(e));
+    return NextResponse.json(
+      { error: e?.message || JSON.stringify(e) || 'Erro desconhecido' },
+      { status: 500 }
+    );
   }
 }
