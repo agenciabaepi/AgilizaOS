@@ -4,6 +4,8 @@ export const dynamic = 'force-dynamic';
 
 
 import React, { useEffect, useState, useId } from 'react';
+import { useRouter } from "next/navigation";
+import clsx from "clsx";
 import MenuLayout from '@/components/MenuLayout';
 import { format } from 'date-fns';
 import { toast, ToastContainer } from 'react-toastify';
@@ -34,7 +36,15 @@ import {
   Legend,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
-import { FiEye, FiEdit, FiPrinter, FiTrash2, FiBook } from 'react-icons/fi';
+import { Book, Pencil, AlertTriangle, Circle, CheckCircle } from 'lucide-react';
+  // Função para formatar data (pode ser ajustada conforme necessidade)
+  function formatarData(data: string) {
+    try {
+      return format(new Date(data), 'dd/MM/yyyy');
+    } catch {
+      return '';
+    }
+  }
 import { useSupabase } from '@/context/AuthContext';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useAuth } from '@/context/AuthContext';
@@ -47,6 +57,22 @@ export default function DashboardPage() {
   // Use o contexto de autenticação
   const { session, user, usuarioData, empresaData } = useAuth();
   const supabase = useSupabaseClient();
+  const router = useRouter();
+  // Função para marcar nota como concluída
+  const marcarComoConcluido = async (id: string, valor: boolean) => {
+    console.log("Atualizando:", { id, valor });
+
+    const { error } = await supabase
+      .from('notas_dashboard')
+      .update({ concluido: valor })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Erro ao marcar como concluído:', error.message);
+    } else {
+      router.refresh();
+    }
+  };
   // Estado para notas e colunas
   const [notes, setNotes] = useState<any[]>([]);
   const [notaParaExcluir, setNotaParaExcluir] = useState<any | null>(null);
@@ -137,66 +163,66 @@ export default function DashboardPage() {
   };
 
 // Função dedicada para atualizar o nome da coluna e salvar no banco, atualizando também as notas
-const editarColuna = async (colunaId: string, novoNome: string, nomeAntigo: string) => {
-  // Atualiza o nome da coluna
-  const { error: colunaError } = await supabase
-    .from('colunas_dashboard')
-    .update({ nome: novoNome })
-    .eq('id', colunaId);
+  const editarColuna = async (colunaId: string, novoNome: string, nomeAntigo: string) => {
+    // Atualiza o nome da coluna
+    const { error: colunaError } = await supabase
+      .from('colunas_dashboard')
+      .update({ nome: novoNome })
+      .eq('id', colunaId);
 
-  if (colunaError) {
-    toast.error('Erro ao renomear a coluna');
-    return;
-  }
-
-  // Atualiza o nome da coluna em todas as notas relacionadas
-  const { error: notasError } = await supabase
-    .from('notas_dashboard')
-    .update({ coluna: novoNome })
-    .eq('coluna', nomeAntigo);
-
-  if (notasError) {
-    toast.error('Erro ao atualizar as notas');
-    return;
-  }
-
-  toast.success('Coluna e notas atualizadas com sucesso!');
-  // Atualiza localmente
-  setColunas((prev) => {
-    const atualizado = [...prev];
-    const idx = atualizado.findIndex((c) => c === nomeAntigo);
-    if (idx !== -1) {
-      atualizado[idx] = novoNome;
+    if (colunaError) {
+      toast.error('Erro ao renomear a coluna');
+      return;
     }
-    return atualizado;
-  });
-  setNotes((prev) =>
-    prev.map((n) => n.coluna === nomeAntigo ? { ...n, coluna: novoNome } : n)
-  );
-};
+
+    // Atualiza o nome da coluna em todas as notas_dashboard relacionadas
+    const { error: notasError } = await supabase
+      .from('notas_dashboard')
+      .update({ coluna: novoNome })
+      .eq('coluna', nomeAntigo);
+
+    if (notasError) {
+      toast.error('Erro ao atualizar as notas');
+      return;
+    }
+
+    toast.success('Coluna e notas atualizadas com sucesso!');
+    // Atualiza localmente
+    setColunas((prev) => {
+      const atualizado = [...prev];
+      const idx = atualizado.findIndex((c) => c === nomeAntigo);
+      if (idx !== -1) {
+        atualizado[idx] = novoNome;
+      }
+      return atualizado;
+    });
+    setNotes((prev) =>
+      prev.map((n) => n.coluna === nomeAntigo ? { ...n, coluna: novoNome } : n)
+    );
+  };
 
 // Função antiga para compatibilidade e uso no EditableColunaNome
-const atualizarNomeColuna = async (index: number, novoNome: string) => {
-  // Buscar o nome antigo e o id da coluna no banco
-  const nomeAntigo = colunas[index];
-  if (!empresa_id) return;
-  // Busca o id da coluna pelo nome antigo e empresa_id
-  const { data, error } = await supabase
-    .from('colunas_dashboard')
-    .select('id')
-    .eq('empresa_id', empresa_id)
-    .eq('nome', nomeAntigo)
-    .maybeSingle();
-  if (data && data.id) {
-    await editarColuna(data.id, novoNome, nomeAntigo);
-    // Salva colunas no banco após alteração
-    const novasColunas = [...colunas];
-    novasColunas[index] = novoNome;
-    salvarColunasNoBanco(novasColunas);
-  } else {
-    toast.error('Coluna não encontrada para renomear');
-  }
-};
+  const atualizarNomeColuna = async (index: number, novoNome: string) => {
+    // Buscar o nome antigo e o id da coluna no banco
+    const nomeAntigo = colunas[index];
+    if (!empresa_id) return;
+    // Busca o id da coluna pelo nome antigo e empresa_id
+    const { data, error } = await supabase
+      .from('colunas_dashboard')
+      .select('id')
+      .eq('empresa_id', empresa_id)
+      .eq('nome', nomeAntigo)
+      .maybeSingle();
+    if (data && data.id) {
+      await editarColuna(data.id, novoNome, nomeAntigo);
+      // Salva colunas no banco após alteração
+      const novasColunas = [...colunas];
+      novasColunas[index] = novoNome;
+      salvarColunasNoBanco(novasColunas);
+    } else {
+      toast.error('Coluna não encontrada para renomear');
+    }
+  };
 
   // Modal de nova nota/edição de nota
   const [showModal, setShowModal] = useState(false);
@@ -224,10 +250,11 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
         .from('notas_dashboard')
         .update({
           titulo: novaNota.titulo,
-          texto: novaNota.descricao, // Troca descricao por texto
-          cor: novaNota.cor,
+          descricao: novaNota.descricao,
           prioridade: novaNota.prioridade,
-          coluna: novaNota.coluna,
+          cor: novaNota.cor,
+          concluido: notaEditando.concluido ?? false,
+          data: notaEditando.data ?? notaEditando.data_criacao,
         })
         .eq('id', idNota);
 
@@ -247,6 +274,8 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
                 cor: novaNota.cor,
                 prioridade: novaNota.prioridade,
                 coluna: novaNota.coluna,
+                concluido: notaEditando.concluido ?? false,
+                data: notaEditando.data ?? notaEditando.data_criacao,
               }
             : n
         )
@@ -494,35 +523,34 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
 
   return (
     <MenuLayout>
-      <div className="bg-[#f9ffe0] border border-[#cffb6d] rounded-xl shadow p-4 mb-6">
+      <div className="p-6 rounded-lg border bg-white">
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <FiBook className="text-yellow-500" />
+          <Book className="text-yellow-500 w-5 h-5" />
           Anotações Fixas
         </h2>
         <ClientOnly>
-          {/* Envolva a lógica de DndContext, SortableContext, colunas e notas aqui */}
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext
               items={colunas.map((coluna) => `coluna-${coluna}`)}
               strategy={horizontalListSortingStrategy}
             >
-              <div className="flex gap-6 overflow-x-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 px-4 py-6">
                 {colunas.map((coluna, index) => (
                   <SortableColunaCard
                     key={`coluna-${coluna}`}
                     id={`coluna-${coluna}`}
-                    className="min-w-[250px] max-h-[80vh] overflow-y-auto bg-[#fffff8] border border-[#cffb6d] rounded-md shadow-sm p-3 flex flex-col gap-3"
+                    className="bg-white border border-zinc-200 rounded-xl shadow-md flex flex-col transition-all"
                   >
                     {(params) => {
                       const { attributes, listeners, setColunasOrdenadas } = params;
                       return (
                         <>
                           <div
-                            className="flex justify-between items-center cursor-move"
+                            className="px-4 py-3 border-b border-zinc-100 font-semibold text-zinc-800 flex justify-between items-center cursor-move"
                             {...attributes}
                             {...listeners}
                           >
-                            <span className="font-semibold text-lg w-full truncate">{colunas[index]}</span>
+                            <span>{colunas[index]}</span>
                           </div>
 
                           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(event: any) => {
@@ -533,14 +561,12 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
                               const activeIndex = colunas.findIndex((c) => `coluna-${c}` === active.id);
                               const overIndex = colunas.findIndex((c) => `coluna-${c}` === over.id);
                               if (activeIndex !== -1 && overIndex !== -1) {
-                                // CHAMAR salvarColunasNoBanco após atualizar
                                 const novas = arrayMove(colunas, activeIndex, overIndex);
                                 setColunas(novas);
                                 salvarColunasNoBanco(novas);
                               }
                               return;
                             }
-                            // fallback para handleDragEnd original para notas
                             handleDragEnd(event);
                           }}>
                             <SortableContext
@@ -550,59 +576,75 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
                                 .map((n) => n.id)}
                               strategy={verticalListSortingStrategy}
                             >
-                              <div className="flex flex-col gap-3 bg-[#f9ffe0] rounded-md">
+                              <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
                                 {notes
-                                  .filter((note) => note.coluna === coluna)
+                                  .filter((nota) => nota.coluna === coluna)
                                   .sort((a, b) => a.pos_x - b.pos_x)
-                                  .map((note) => (
-                                    <SortableNoteCard key={note.id} id={note.id}>
-                                      <div className="bg-white rounded-lg shadow-md w-60 h-44 border border-gray-200 overflow-hidden flex flex-col">
-                                        <div className={`px-3 py-2 ${note.cor} text-white font-bold text-sm flex items-center justify-between`}>
-                                          <span>{note.titulo}</span>
-                                          {note.prioridade && (
-                                            <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                                              note.prioridade === 'Alta' ? 'bg-red-100 text-red-600' :
-                                              note.prioridade === 'Média' ? 'bg-yellow-100 text-yellow-600' :
-                                              'bg-green-100 text-green-600'
-                                            }`}>
-                                              {note.prioridade}
-                                            </span>
-                                          )}
-                                        </div>
-                                        <div className="p-3 flex flex-col justify-between flex-1">
-                                          <div className="text-xs text-gray-700 line-clamp-3">{note.texto}</div>
-                                          <div className="flex justify-end mt-2 gap-2">
+                                  .map((nota) => (
+                                    <SortableNoteCard key={nota.id} id={nota.id}>
+                                      <div className="flex rounded-lg shadow-md hover:shadow-lg bg-white transition-shadow duration-200 overflow-hidden cursor-pointer">
+                                        <div className={`w-1 ${nota.cor}`} />
+                                        <div className="flex-1 p-4">
+                                          <div className="flex items-start justify-between">
+                                            <p className="text-base font-semibold">{nota.titulo}</p>
                                             <button
+                                              className="text-gray-400 hover:text-primary transition-colors duration-150"
                                               type="button"
                                               onMouseDown={() => {
                                                 setNovaNota({
-                                                  titulo: note.titulo,
-                                                  texto: note.texto,
-                                                  cor: note.cor,
-                                                  coluna: note.coluna,
-                                                  prioridade: note.prioridade || 'Média'
+                                                  titulo: nota.titulo,
+                                                  descricao: nota.texto, // Aqui texto vira descricao
+                                                  cor: nota.cor,
+                                                  coluna: nota.coluna,
+                                                  prioridade: nota.prioridade || 'Média',
                                                 });
-                                                setNotaEditando(note);
+                                                setNotaEditando(nota);
                                                 setShowModal(true);
                                               }}
-                                              className="text-yellow-600 hover:text-yellow-800 transition-colors"
                                             >
-                                              <FiEdit size={16} />
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onMouseDown={() => {
-                                                setNotaParaExcluir(note);
-                                              }}
-                                              className="text-red-600 hover:text-red-800 transition-colors"
-                                            >
-                                              <FiTrash2 size={16} />
+                                              <Pencil size={16} />
                                             </button>
                                           </div>
-                                          <div className="text-[10px] text-gray-400 text-right mt-2">
-                                            {note.data_criacao
-                                              ? format(new Date(note.data_criacao), 'dd/MM/yyyy')
-                                              : (note.created_at ? format(new Date(note.created_at), 'dd/MM/yyyy') : '')}
+                                          <p className="text-sm text-gray-600 mt-1 line-clamp-3">{nota.texto}</p>
+                                          {/* Checkbox de concluído */}
+                                          <div className="flex items-center gap-2 mt-3">
+                                            <input
+                                              type="checkbox"
+                                              checked={!!nota.concluido}
+                                              onChange={async (e) => {
+                                                const novoValor = e.target.checked;
+                                                await supabase
+                                                  .from('notas_dashboard')
+                                                  .update({ concluido: novoValor })
+                                                  .eq('id', nota.id);
+                                                router.refresh();
+                                              }}
+                                              className="h-4 w-4 text-primary border-gray-300 rounded"
+                                            />
+                                            <span className={clsx("text-sm", { "line-through text-gray-400": nota.concluido })}>
+                                              {nota.concluido ? "Concluído" : "Marcar como concluído"}
+                                            </span>
+                                          </div>
+                                          {/* Data e prioridade */}
+                                          <div className="flex justify-between items-end mt-4">
+                                            <span className="text-xs text-gray-500">
+                                              {formatarData(nota.data_criacao)}
+                                            </span>
+                                            {nota.prioridade === "Alta" && (
+                                              <span className="text-red-500 text-xs font-medium flex items-center gap-1">
+                                                <AlertTriangle size={12} /> Alta
+                                              </span>
+                                            )}
+                                            {nota.prioridade === "Média" && (
+                                              <span className="text-yellow-500 text-xs font-medium flex items-center gap-1">
+                                                <Circle size={12} /> Média
+                                              </span>
+                                            )}
+                                            {nota.prioridade === "Baixa" && (
+                                              <span className="text-green-500 text-xs font-medium flex items-center gap-1">
+                                                <CheckCircle size={12} /> Baixa
+                                              </span>
+                                            )}
                                           </div>
                                         </div>
                                       </div>
@@ -612,38 +654,37 @@ const atualizarNomeColuna = async (index: number, novoNome: string) => {
                             </SortableContext>
                           </DndContext>
 
-                          <button
-                            type="button"
-                            onMouseDown={() => {
-                              setNovaNota({ titulo: '', texto: '', cor: 'bg-yellow-500', coluna });
-                              setNotaEditando(null);
-                              setShowModal(true);
-                            }}
-                            className="bg-[#cffb6d] text-black font-semibold border border-black hover:bg-lime-300 transition-colors text-sm px-2 py-1 rounded-md"
-                          >
-                            + Nova anotação
-                          </button>
-
-                          <button
-                            type="button"
-                            onMouseDown={async () => {
-                              // Garante que empresaId está definido antes de usar
-                              const empresaId = session?.user?.user_metadata?.empresa_id;
-                              const confirmacao = window.confirm(`Tem certeza que deseja excluir a coluna "${coluna}"?`);
-                              if (confirmacao) {
-                                const novas = colunas.filter((_, i) => i !== index);
-                                setColunas(novas);
-                                await supabase.from('colunas_dashboard').delete().eq('empresa_id', empresaId).eq('nome', coluna);
-                                salvarColunasNoBanco(novas);
-                                setNotes((prev) => prev.filter((n) => n.coluna !== coluna));
-                              }
-                            }}
-                            className="mt-2 text-sm text-red-500 hover:text-red-700 flex items-center justify-center"
-                            title="Excluir coluna"
-                          >
-                            <FiTrash2 size={16} className="mr-1" />
-                            Excluir coluna
-                          </button>
+                          <div className="border-t border-zinc-100 px-4 py-2 flex justify-between items-center">
+                            <button
+                              type="button"
+                              className="text-xs text-zinc-600 hover:text-zinc-900 transition"
+                              onMouseDown={() => {
+                                setNovaNota({ titulo: '', texto: '', cor: 'bg-yellow-500', coluna });
+                                setNotaEditando(null);
+                                setShowModal(true);
+                              }}
+                            >
+                              + Nova anotação
+                            </button>
+                            <button
+                              type="button"
+                              className="text-xs text-rose-500 hover:text-rose-700 transition"
+                              title="Excluir coluna"
+                              onMouseDown={async () => {
+                                const empresaId = session?.user?.user_metadata?.empresa_id;
+                                const confirmacao = window.confirm(`Tem certeza que deseja excluir a coluna "${coluna}"?`);
+                                if (confirmacao) {
+                                  const novas = colunas.filter((_, i) => i !== index);
+                                  setColunas(novas);
+                                  await supabase.from('colunas_dashboard').delete().eq('empresa_id', empresaId).eq('nome', coluna);
+                                  salvarColunasNoBanco(novas);
+                                  setNotes((prev) => prev.filter((n) => n.coluna !== coluna));
+                                }
+                              }}
+                            >
+                              Excluir coluna
+                            </button>
+                          </div>
                         </>
                       );
                     }}
