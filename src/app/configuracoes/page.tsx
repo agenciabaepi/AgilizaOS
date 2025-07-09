@@ -1,15 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { Tab } from '@headlessui/react'
+import { Suspense } from 'react'
 import MenuLayout from '@/components/MenuLayout'
 import EmpresaPage from './empresa/page'
 import UsuariosPage from './usuarios/page'
 import TermosPage from './termos/page'
 import StatusPage from './status/page'
+import { Tab } from '@headlessui/react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
-export default function ConfiguracoesPage() {
+function ConfiguracoesInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [tabIndex, setTabIndex] = useState(0)
@@ -27,7 +28,6 @@ export default function ConfiguracoesPage() {
   }
 
   const chave = searchParams.get('chave')
-
   if (chave) {
     return (
       <div className="p-10">
@@ -70,3 +70,13 @@ export default function ConfiguracoesPage() {
     </MenuLayout>
   )
 }
+
+export default function ConfiguracoesPage() {
+  return (
+    <Suspense fallback={<div className="p-8">Carregando configurações...</div>}>
+      <ConfiguracoesInner />
+    </Suspense>
+  )
+}
+
+export const dynamic = 'force-dynamic'
