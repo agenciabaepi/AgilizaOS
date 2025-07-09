@@ -9,6 +9,11 @@ import clsx from "clsx";
 import MenuLayout from '@/components/MenuLayout';
 import { format } from 'date-fns';
 import { toast, ToastContainer } from 'react-toastify';
+// Função para criar uma nova coluna
+// Precisa de acesso ao user, então será definida dentro do componente DashboardPage
+
+// Função para remover uma coluna
+// Também depende de empresa_id, então será definida dentro do componente DashboardPage
 import 'react-toastify/dist/ReactToastify.css';
 import {
   DndContext,
@@ -36,7 +41,8 @@ import {
   Legend,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
-import { Book, Pencil, AlertTriangle, Circle, CheckCircle } from 'lucide-react';
+import { Book, Pencil, AlertTriangle, Circle, CheckCircle, Trash } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
   // Função para formatar data (pode ser ajustada conforme necessidade)
   function formatarData(data: string) {
     try {
@@ -56,8 +62,61 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 export default function DashboardPage() {
   // Use o contexto de autenticação
   const { session, user, usuarioData, empresaData } = useAuth();
+  const empresa_id = empresaData?.id;
   const supabase = useSupabaseClient();
   const router = useRouter();
+
+  // Função para criar uma nova coluna (agora dentro do componente, com acesso ao user)
+  const criarColuna = async (titulo: string, cor: string = "#cffb6d") => {
+    // Obter empresa_id do usuário autenticado
+    const empresa_id_local = user?.user_metadata?.empresa_id;
+    if (!empresa_id_local) {
+      toast.error("Erro: empresa não identificada.");
+      return;
+    }
+    if (!titulo) return;
+    try {
+      const { data, error } = await supabase
+        .from("colunas_dashboard")
+        .insert([
+          {
+            titulo,
+            cor,
+            empresa_id,
+            criado_por: user?.id || null,
+          },
+        ]);
+
+      if (error) {
+        // erro silencioso
+        // toast.error('Erro ao criar coluna: ' + JSON.stringify(error));
+      } else {
+        toast.success("Coluna criada com sucesso!");
+        // setTitulo(""); // Se você tiver esse estado, descomente
+        // setCor("#cffb6d"); // Se você tiver esse estado, descomente
+        await fetchColunas();
+      }
+    } catch (err: any) {
+      // erro silencioso
+      // console.error("Erro inesperado ao criar coluna:", err?.message || err);
+      // toast.error("Erro inesperado ao criar coluna.");
+    }
+  };
+
+  // Função para remover uma coluna
+  const removerColuna = async (coluna: string) => {
+    if (!empresa_id || !coluna) return;
+    const { error } = await supabase
+      .from('colunas_dashboard')
+      .delete()
+      .eq('empresa_id', empresa_id)
+      .eq('nome', coluna);
+    if (!error) {
+      toast.success("Coluna excluída com sucesso!");
+    } else {
+      toast.error("Erro ao excluir coluna.");
+    }
+  };
   // Função para marcar nota como concluída
   const marcarComoConcluido = async (id: string, valor: boolean) => {
     console.log("Atualizando:", { id, valor });
@@ -80,8 +139,6 @@ export default function DashboardPage() {
   const [colunas, setColunas] = useState<string[]>(['compras', 'avisos', 'lembretes']);
   const [carregando, setCarregando] = useState(true);
 
-  // empresa_id vem de empresaData
-  const empresa_id = empresaData?.id;
   // Carregando depende de usuarioData
   useEffect(() => {
     if (usuarioData !== undefined) setCarregando(false);
@@ -228,7 +285,7 @@ export default function DashboardPage() {
   const [showModal, setShowModal] = useState(false);
   const [novaNota, setNovaNota] = useState({
     titulo: '',
-    descricao: '',
+    texto: '',
     cor: 'bg-yellow-500',
     coluna: 'lembretes',
     prioridade: 'Média',
@@ -236,95 +293,135 @@ export default function DashboardPage() {
   // Estado para nota em edição
   const [notaEditando, setNotaEditando] = useState<any | null>(null);
 
+  // --- Modal de edição de nota (exemplo de integração de "EditarNotaModal") ---
+  // Estados para modal de edição e nota selecionada
+  const [showEditarModal, setShowEditarModal] = useState(false);
+  const [notaSelecionada, setNotaSelecionada] = useState<any | null>(null);
+
+  // Nova função handleDeleteNota conforme solicitado
+  const handleDeleteNota = async () => {
+    if (!notaSelecionada) return
+
+    try {
+      await deleteNota(notaSelecionada.id)
+      setNotaSelecionada(null)
+      setShowEditModal(false)
+      toast.dismiss()
+      toast.success("Nota excluída com sucesso!")
+    } catch (error) {
+      console.error("Erro ao excluir nota:", error)
+      toast.error("Erro ao excluir nota.")
+    }
+  };
+
   // Função para criar ou atualizar nota
   const salvarOuAtualizarNota = async () => {
     // Adiciona empresaId do contexto de autenticação
     const empresaId = empresaData?.id;
     if (!empresaId || !novaNota.titulo.trim()) return;
 
-    const idNota = notaEditando?.id;
+    const nota = notaEditando;
 
-    if (notaEditando) {
-      // Atualização: use nomes corretos de colunas
-      const { error } = await supabase
-        .from('notas_dashboard')
-        .update({
-          titulo: novaNota.titulo,
-          descricao: novaNota.descricao,
-          prioridade: novaNota.prioridade,
-          cor: novaNota.cor,
-          concluido: notaEditando.concluido ?? false,
-          data: notaEditando.data ?? notaEditando.data_criacao,
-        })
-        .eq('id', idNota);
-
-      if (error) {
-        console.error('Erro ao atualizar nota:', error);
-        toast.error('Erro ao atualizar nota.');
-        return;
-      }
-
-      setNotes((prev) =>
-        prev.map((n) =>
-          n.id === idNota
-            ? {
-                ...n,
-                titulo: novaNota.titulo,
-                texto: novaNota.descricao,
-                cor: novaNota.cor,
-                prioridade: novaNota.prioridade,
-                coluna: novaNota.coluna,
-                concluido: notaEditando.concluido ?? false,
-                data: notaEditando.data ?? notaEditando.data_criacao,
-              }
-            : n
-        )
-      );
-      toast.success('Nota atualizada com sucesso!');
-    } else {
-      // Inserção com nomes exatos das colunas conforme schema
-      const { error } = await supabase.from('notas_dashboard').insert([{
-        id: uuidv4(),
-        titulo: novaNota.titulo,
-        texto: novaNota.descricao,
-        cor: novaNota.cor,
-        prioridade: novaNota.prioridade,
-        coluna: novaNota.coluna,
+    if (!nota || !nota.id) {
+      // Criar nova nota
+      const novaNotaObj = {
+        ...novaNota,
+        id: uuidv4(), // Certifique-se de importar uuid
         empresa_id: empresaId,
         responsavel: session?.user?.email ?? '',
         data_criacao: new Date().toISOString(),
         pos_x: 0,
-        pos_y: 0
-      }]);
-
-      if (error) {
-        console.error("Erro detalhado do Supabase:", error);
-        toast.error('Erro ao salvar nota.');
-        return;
+        pos_y: 0,
+      };
+      // Adiciona o console.log antes do insert
+      console.log('Dados a serem salvos:', novaNotaObj);
+      // Salve a nova nota aqui usando a lógica apropriada
+      try {
+        const { error: erroNota } = await supabase.from('notas_dashboard').insert([{
+          ...novaNotaObj,
+          texto: novaNotaObj.texto,
+        }]);
+        if (erroNota) {
+          console.error('Erro ao salvar nota:', erroNota.message, erroNota.details, erroNota.hint);
+          toast.error('Erro ao salvar nota.');
+          return;
+        }
+        // Adiciona a nota localmente para atualização imediata na UI
+        setNotes((prev) => [
+          {
+            ...novaNotaObj,
+            texto: novaNotaObj.texto,
+          },
+          ...prev,
+        ]);
+        toast.success("Nota criada com sucesso!");
+      } catch (err) {
+        console.error("Erro ao criar nota:", err);
+        toast.error('Erro ao criar nota.');
       }
+      setShowModal(false);
+      setNovaNota({ titulo: '', texto: '', cor: 'bg-yellow-500', coluna: 'lembretes', prioridade: 'Média' });
+      setNotaEditando(null);
+      return;
+    }
 
-      // Adiciona a nota localmente para atualização imediata na UI
-      setNotes((prev) => [
-        {
-          id: '', // será atualizado no fetch, mas adiciona um placeholder
-          titulo: novaNota.titulo,
-          texto: novaNota.descricao,
-          cor: novaNota.cor,
-          prioridade: novaNota.prioridade,
-          coluna: novaNota.coluna,
-          empresa_id: empresaId,
-          responsavel: session?.user?.email ?? '',
-          data_criacao: new Date().toISOString(),
-          pos_x: 0,
-          pos_y: 0
-        },
-        ...prev,
-      ]);
-      toast.success('Nota adicionada com sucesso!');
+    // Atualização usando o padrão requisitado
+    const notaAtual = {
+      id: notaEditando.id,
+      titulo: novaNota.titulo,
+      texto: novaNota.texto,
+      prioridade: novaNota.prioridade,
+      cor: novaNota.cor,
+      concluido: notaEditando.concluido ?? false,
+      data: notaEditando.data ?? notaEditando.data_criacao,
+      coluna: novaNota.coluna,
+    };
+    const { id, data, ...dadosNota } = notaAtual;
+    if (!id) {
+      // Nunca deve ocorrer aqui, mas por segurança
+      console.error("ID da nota está ausente. Impossível atualizar.");
+      return;
+    }
+
+    // Adiciona o console.log antes do update
+    console.log('Dados a serem salvos:', dadosNota);
+    try {
+      const { error: erroNota } = await supabase
+        .from("notas_dashboard")
+        .update(dadosNota)
+        .eq("id", id)
+        .throwOnError();
+
+      if (erroNota) {
+        console.error('Erro ao salvar nota:', erroNota.message, erroNota.details, erroNota.hint);
+        toast.error('Erro ao atualizar nota.');
+      } else {
+        console.log("Nota atualizada com sucesso!");
+        toast.success("Nota atualizada com sucesso!");
+        setNotes((prev) =>
+          prev.map((n) =>
+            n.id === id
+              ? {
+                  ...n,
+                  titulo: novaNota.titulo,
+                  texto: novaNota.texto,
+                  cor: novaNota.cor,
+                  prioridade: novaNota.prioridade,
+                  coluna: novaNota.coluna,
+                  concluido: notaEditando.concluido ?? false,
+                  data: notaEditando.data ?? notaEditando.data_criacao,
+                }
+              : n
+          )
+        );
+      }
+    } catch (err) {
+      console.error("Erro ao atualizar nota:", err);
+      toast.error('Erro ao atualizar nota.');
     }
 
     setShowModal(false);
-    setNovaNota({ titulo: '', descricao: '', cor: 'bg-yellow-500', coluna: 'lembretes', prioridade: 'Média' });
+    setNovaNota({ titulo: '', texto: '', cor: 'bg-yellow-500', coluna: 'lembretes', prioridade: 'Média' });
     setNotaEditando(null);
   };
 
@@ -427,22 +524,38 @@ export default function DashboardPage() {
       return;
     }
   };
-  const excluirNota = async (id: string) => {
-    console.log('Excluindo nota com ID:', id); // linha adicionada para debug
-    await supabase.from('notas_dashboard').delete().eq('id', id);
-    setNotes((prev) => prev.filter((n) => n.id !== id));
-    toast.success('Nota excluída com sucesso!');
-  };
-
-  const handleExcluirNota = async (id: string) => {
-    const confirmacao = confirm('Tem certeza que deseja excluir esta anotação?');
-    if (confirmacao) {
-      await excluirNota(id);
+  // Função para excluir nota individual com feedback e atualização
+  const excluirNota = async (idNota: string) => {
+    try {
+      const { error } = await supabase.from("notas_dashboard").delete().eq("id", idNota);
+      if (error) throw error;
+      // Atualiza a lista localmente para refletir imediatamente
+      setNotes((prev) => prev.filter((n) => n.id !== idNota));
+    } catch (error) {
+      console.error("Erro ao excluir nota:", error);
+      throw error;
     }
   };
 
-  function SortableNoteCard({ id, children }: { id: string; children: React.ReactNode }) {
-    const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
+  // Modal de exclusão de nota
+  const [exibirExcluirNotaModal, setExibirExcluirNotaModal] = useState(false);
+
+  // Função para confirmar exclusão da nota selecionada (chamada pela modal)
+  const handleConfirmarExcluirNota = async (nota: any) => {
+    if (!nota) return;
+    try {
+      await excluirNota(nota.id);
+      setExibirExcluirNotaModal(false);
+      setNotaSelecionada(null);
+      toast.dismiss();
+      toast.success("Nota excluída com sucesso!");
+    } catch (error) {
+      toast.error("Erro ao excluir nota.");
+    }
+  };
+
+  function SortableNoteCard({ id, children }: { id: string; children: (opts: { isDragging: boolean, attributes: any, listeners: any }) => React.ReactNode }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
     const describedById = useId();
     const style = {
       transform: CSS.Transform.toString(transform),
@@ -451,7 +564,7 @@ export default function DashboardPage() {
     return (
       <div ref={setNodeRef} style={style}>
         <div {...attributes} {...listeners} aria-describedby={describedById} id={describedById}>
-          {children}
+          {children({ isDragging, attributes, listeners })}
         </div>
       </div>
     );
@@ -577,89 +690,160 @@ export default function DashboardPage() {
                               strategy={verticalListSortingStrategy}
                             >
                               <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-                                {notes
-                                  .filter((nota) => nota.coluna === coluna)
-                                  .sort((a, b) => a.pos_x - b.pos_x)
-                                  .map((nota) => (
-                                    <SortableNoteCard key={nota.id} id={nota.id}>
-                                      <div className="flex rounded-lg shadow-md hover:shadow-lg bg-white transition-shadow duration-200 overflow-hidden cursor-pointer">
-                                        <div className={`w-1 ${nota.cor}`} />
-                                        <div className="flex-1 p-4">
-                                          <div className="flex items-start justify-between">
-                                            <p className="text-base font-semibold">{nota.titulo}</p>
-                                            <button
-                                              className="text-gray-400 hover:text-primary transition-colors duration-150"
-                                              type="button"
-                                              onMouseDown={() => {
-                                                setNovaNota({
-                                                  titulo: nota.titulo,
-                                                  descricao: nota.texto, // Aqui texto vira descricao
-                                                  cor: nota.cor,
-                                                  coluna: nota.coluna,
-                                                  prioridade: nota.prioridade || 'Média',
-                                                });
-                                                setNotaEditando(nota);
-                                                setShowModal(true);
+                                <AnimatePresence>
+                                  {notes
+                                    .filter((nota) => nota.coluna === coluna)
+                                    .sort((a, b) => a.pos_x - b.pos_x)
+                                    .map((nota, index) => (
+                                      <SortableNoteCard key={nota.id || `nota-${index}`} id={nota.id}>
+                                        {({ isDragging }) =>
+                                          isDragging ? (
+                                            <motion.div
+                                              layout
+                                              initial={false}
+                                              animate={{ opacity: 1, scale: 1 }}
+                                              exit={{ opacity: 0 }}
+                                              whileTap={{ scale: 1.02 }}
+                                              transition={{
+                                                duration: 0.15,
+                                                ease: 'easeOut',
                                               }}
                                             >
-                                              <Pencil size={16} />
-                                            </button>
-                                          </div>
-                                          <p className="text-sm text-gray-600 mt-1 line-clamp-3">{nota.texto}</p>
-                                          {/* Checkbox de concluído */}
-                                          <div className="flex items-center gap-2 mt-3">
-                                            <input
-                                              type="checkbox"
-                                              checked={!!nota.concluido}
-                                              onChange={async (e) => {
-                                                const novoValor = e.target.checked;
-                                                await supabase
-                                                  .from('notas_dashboard')
-                                                  .update({ concluido: novoValor })
-                                                  .eq('id', nota.id);
-                                                router.refresh();
-                                              }}
-                                              className="h-4 w-4 text-primary border-gray-300 rounded"
-                                            />
-                                            <span className={clsx("text-sm", { "line-through text-gray-400": nota.concluido })}>
-                                              {nota.concluido ? "Concluído" : "Marcar como concluído"}
-                                            </span>
-                                          </div>
-                                          {/* Data e prioridade */}
-                                          <div className="flex justify-between items-end mt-4">
-                                            <span className="text-xs text-gray-500">
-                                              {formatarData(nota.data_criacao)}
-                                            </span>
-                                            {nota.prioridade === "Alta" && (
-                                              <span className="text-red-500 text-xs font-medium flex items-center gap-1">
-                                                <AlertTriangle size={12} /> Alta
-                                              </span>
-                                            )}
-                                            {nota.prioridade === "Média" && (
-                                              <span className="text-yellow-500 text-xs font-medium flex items-center gap-1">
-                                                <Circle size={12} /> Média
-                                              </span>
-                                            )}
-                                            {nota.prioridade === "Baixa" && (
-                                              <span className="text-green-500 text-xs font-medium flex items-center gap-1">
-                                                <CheckCircle size={12} /> Baixa
-                                              </span>
-                                            )}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </SortableNoteCard>
-                                  ))}
+                                              <div className="flex rounded-lg shadow-md hover:shadow-lg bg-white transition-shadow duration-200 overflow-hidden cursor-pointer relative">
+                                                <div className={`w-1 ${nota.cor}`} />
+                                                <div className="flex-1 p-4">
+                                                  <div className="flex items-start justify-between">
+                                                    <p className="text-base font-semibold">{nota.titulo}</p>
+                                                    {/* Ícones de editar e excluir alinhados à direita */}
+                                                    <div className="flex gap-2 ml-2">
+                                                      <button
+                                                        className="text-gray-400 hover:text-primary transition-colors duration-150"
+                                                        type="button"
+                                                        onMouseDown={() => {
+                                                          setNovaNota({
+                                                            titulo: nota.titulo,
+                                                            texto: nota.texto,
+                                                            cor: nota.cor,
+                                                            coluna: nota.coluna,
+                                                            prioridade: nota.prioridade || 'Média',
+                                                          });
+                                                          setNotaEditando(nota);
+                                                          setShowModal(true);
+                                                        }}
+                                                      >
+                                                        <Pencil size={16} />
+                                                      </button>
+                                                      {/* Botão de excluir nota removido da listagem */}
+                                                    </div>
+                                                  </div>
+                                                  <p className="text-sm text-gray-600 mt-1 line-clamp-3">{nota.texto}</p>
+                                                  {/* Checkbox de concluído */}
+                                                  <div className="flex items-center gap-2 mt-3">
+                                                    <input
+                                                      type="checkbox"
+                                                      checked={!!nota.concluida}
+                                                      onChange={() => toggleNotaConcluida(nota)}
+                                                      className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                                                    />
+                                                    <span className={clsx("text-sm", { "line-through text-gray-400": nota.concluida })}>
+                                                      {nota.concluida ? "Concluída" : "Marcar como concluída"}
+                                                    </span>
+                                                  </div>
+                                                  {/* Data e prioridade */}
+                                                  <div className="flex justify-between items-end mt-4">
+                                                    <span className="text-xs text-gray-500">
+                                                      {formatarData(nota.data_criacao)}
+                                                    </span>
+                                                    <span
+                                                      className={`text-xs font-semibold px-2 py-1 rounded ${
+                                                        nota.prioridade?.toLowerCase() === 'alta'
+                                                          ? 'bg-red-100 text-red-600'
+                                                          : nota.prioridade?.toLowerCase() === 'média'
+                                                          ? 'bg-yellow-100 text-yellow-600'
+                                                          : 'bg-green-100 text-green-600'
+                                                      }`}
+                                                    >
+                                                      {nota.prioridade}
+                                                    </span>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            </motion.div>
+                                          ) : (
+                                            <div className="flex rounded-lg shadow-md hover:shadow-lg bg-white transition-shadow duration-200 overflow-hidden cursor-pointer relative">
+                                              <div className={`w-1 ${nota.cor}`} />
+                                              <div className="flex-1 p-4">
+                                                <div className="flex items-start justify-between">
+                                                  <p className="text-base font-semibold">{nota.titulo}</p>
+                                                  {/* Ícones de editar e excluir alinhados à direita */}
+                                                  <div className="flex gap-2 ml-2">
+                                                    <button
+                                                      className="text-gray-400 hover:text-primary transition-colors duration-150"
+                                                      type="button"
+                                                      onMouseDown={() => {
+                                                        setNovaNota({
+                                                          titulo: nota.titulo,
+                                                          texto: nota.texto,
+                                                          cor: nota.cor,
+                                                          coluna: nota.coluna,
+                                                          prioridade: nota.prioridade || 'Média',
+                                                        });
+                                                        setNotaEditando(nota);
+                                                        setShowModal(true);
+                                                      }}
+                                                    >
+                                                      <Pencil size={16} />
+                                                    </button>
+                                                    {/* Botão de excluir nota removido da listagem */}
+                                                  </div>
+                                                </div>
+                                                <p className="text-sm text-gray-600 mt-1 line-clamp-3">{nota.texto}</p>
+                                                {/* Checkbox de concluído */}
+                                                <div className="flex items-center gap-2 mt-3">
+                                                  <input
+                                                    type="checkbox"
+                                                    checked={!!nota.concluida}
+                                                    onChange={() => toggleNotaConcluida(nota)}
+                                                    className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                                                  />
+                                                  <span className={clsx("text-sm", { "line-through text-gray-400": nota.concluida })}>
+                                                    {nota.concluida ? "Concluída" : "Marcar como concluída"}
+                                                  </span>
+                                                </div>
+                                                {/* Data e prioridade */}
+                                                <div className="flex justify-between items-end mt-4">
+                                                  <span className="text-xs text-gray-500">
+                                                    {formatarData(nota.data_criacao)}
+                                                  </span>
+                                                  <span
+                                                    className={`text-xs font-semibold px-2 py-1 rounded ${
+                                                      nota.prioridade?.toLowerCase() === 'alta'
+                                                        ? 'bg-red-100 text-red-600'
+                                                        : nota.prioridade?.toLowerCase() === 'média'
+                                                        ? 'bg-yellow-100 text-yellow-600'
+                                                        : 'bg-green-100 text-green-600'
+                                                    }`}
+                                                  >
+                                                    {nota.prioridade}
+                                                  </span>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          )
+                                        }
+                                      </SortableNoteCard>
+                                    ))}
+                                </AnimatePresence>
                               </div>
                             </SortableContext>
                           </DndContext>
 
-                          <div className="border-t border-zinc-100 px-4 py-2 flex justify-between items-center">
+                          <div className="border-t border-zinc-100 px-4 py-2 flex items-center justify-end gap-2">
                             <button
                               type="button"
                               className="text-xs text-zinc-600 hover:text-zinc-900 transition"
                               onMouseDown={() => {
-                                setNovaNota({ titulo: '', texto: '', cor: 'bg-yellow-500', coluna });
+                                setNovaNota({ titulo: '', texto: '', cor: 'bg-yellow-500', coluna, prioridade: 'Média' });
                                 setNotaEditando(null);
                                 setShowModal(true);
                               }}
@@ -671,12 +855,11 @@ export default function DashboardPage() {
                               className="text-xs text-rose-500 hover:text-rose-700 transition"
                               title="Excluir coluna"
                               onMouseDown={async () => {
-                                const empresaId = session?.user?.user_metadata?.empresa_id;
                                 const confirmacao = window.confirm(`Tem certeza que deseja excluir a coluna "${coluna}"?`);
                                 if (confirmacao) {
                                   const novas = colunas.filter((_, i) => i !== index);
                                   setColunas(novas);
-                                  await supabase.from('colunas_dashboard').delete().eq('empresa_id', empresaId).eq('nome', coluna);
+                                  await removerColuna(coluna);
                                   salvarColunasNoBanco(novas);
                                   setNotes((prev) => prev.filter((n) => n.coluna !== coluna));
                                 }
@@ -692,11 +875,12 @@ export default function DashboardPage() {
                 ))}
                 <div className="min-w-[250px]">
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       const nova = prompt('Nome da nova coluna');
                       if (nova && !colunas.includes(nova)) {
                         const novas = [...colunas, nova.toLowerCase()];
                         setColunas(novas);
+                        await criarColuna(nova.toLowerCase());
                         salvarColunasNoBanco(novas);
                       }
                     }}
@@ -711,123 +895,28 @@ export default function DashboardPage() {
         </ClientOnly>
         {/* Modal Nova Anotação / Editar Anotação */}
         {showModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md space-y-4">
-              <h2 className="text-lg font-semibold">
-                {notaEditando ? 'Editar Anotação' : 'Nova Anotação'}
-              </h2>
-              <input
-                type="text"
-                placeholder="Título"
-                value={novaNota.titulo}
-                onChange={(e) => setNovaNota({ ...novaNota, titulo: e.target.value })}
-                className="w-full border rounded p-2 text-sm"
-              />
-              <textarea
-                placeholder="Descrição"
-                value={novaNota.descricao}
-                onChange={(e) => setNovaNota({ ...novaNota, descricao: e.target.value })}
-                className="w-full border rounded p-2 text-sm"
-              />
-              <div className="flex gap-2">
-                {[
-                  { cor: 'bg-yellow-500' },
-                  { cor: 'bg-green-500' },
-                  { cor: 'bg-blue-500' },
-                  { cor: 'bg-purple-500' },
-                  { cor: 'bg-orange-500' }
-                ].map((opcao) => (
-                  <div
-                    key={opcao.cor}
-                    onClick={() => setNovaNota({ ...novaNota, cor: opcao.cor })}
-                    className={`w-6 h-6 rounded-full ${opcao.cor} ${novaNota.cor === opcao.cor ? 'ring-2 ring-black' : ''} cursor-pointer`}
-                  />
-                ))}
-              </div>
-              {/* Seleção de prioridade */}
-              <div className="flex gap-2 text-xs items-center">
-                <span className="font-semibold">Prioridade:</span>
-                {['Alta', 'Média', 'Baixa'].map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setNovaNota({ ...novaNota, prioridade: p })}
-                    className={`px-2 py-1 rounded-full border text-xs font-semibold
-                      ${novaNota.prioridade === p
-                        ? (
-                          p === 'Alta'
-                            ? 'bg-red-100 text-red-600 border-red-200'
-                            : p === 'Média'
-                              ? 'bg-yellow-100 text-yellow-600 border-yellow-200'
-                              : 'bg-green-100 text-green-600 border-green-200'
-                          )
-                        : 'bg-gray-100 text-gray-500 border-gray-200'
-                      }
-                    `}
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={() => {
-                    setShowModal(false);
-                    setNotaEditando(null);
-                  }}
-                  className="px-4 py-2 text-sm rounded bg-gray-200 hover:bg-gray-300"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={salvarOuAtualizarNota}
-                  className="px-4 py-2 text-sm rounded bg-[#1860fa] text-white hover:bg-blue-700"
-                >
-                  {notaEditando ? 'Atualizar' : 'Salvar'}
-                </button>
-              </div>
-            </div>
-          </div>
+          <EditarNotaModal
+            notaEditando={notaEditando}
+            novaNota={novaNota}
+            setNovaNota={setNovaNota}
+            setShowModal={setShowModal}
+            salvarOuAtualizarNota={salvarOuAtualizarNota}
+            onClose={() => setShowModal(false)}
+            setExibirExcluirNotaModal={setExibirExcluirNotaModal}
+            setNotaSelecionada={setNotaSelecionada}
+            notaSelecionada={notaSelecionada}
+          />
         )}
         {/* Modal de confirmação de exclusão */}
-        {notaParaExcluir && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl space-y-4">
-              <h2 className="text-xl font-bold">Confirmar Exclusão</h2>
-              <p className="text-gray-600">
-                Tem certeza que deseja excluir a anotação <strong>{notaParaExcluir.titulo}</strong>?
-              </p>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  excluirNota(notaParaExcluir.id).then(() => {
-                    setNotaParaExcluir(null);
-                  });
-                }}
-              >
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setNotaParaExcluir(null)}
-                    className="px-4 py-2 text-sm rounded bg-gray-200 hover:bg-gray-300"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 text-sm rounded bg-[#cffb6d] text-black hover:bg-lime-400"
-                  >
-                    Excluir
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+        <ExcluirNotaModal
+          isOpen={exibirExcluirNotaModal}
+          onClose={() => setExibirExcluirNotaModal(false)}
+          onConfirm={() => handleConfirmarExcluirNota(notaSelecionada)}
+        />
         {/* ToastContainer para notificações */}
         <ToastContainer
           position="bottom-right"
-          autoClose={3000}
+          autoClose={5000}
           hideProgressBar={false}
           newestOnTop
           closeOnClick
@@ -841,3 +930,173 @@ export default function DashboardPage() {
     </MenuLayout>
   );
 }
+// Modal de edição de nota extraído para facilitar lógica do botão de confirmação
+function EditarNotaModal({
+  notaEditando,
+  novaNota,
+  setNovaNota,
+  setShowModal,
+  salvarOuAtualizarNota,
+  onClose,
+  setExibirExcluirNotaModal,
+  setNotaSelecionada,
+  notaSelecionada,
+}: {
+  notaEditando: any;
+  novaNota: any;
+  setNovaNota: (v: any) => void;
+  setShowModal: (v: boolean) => void;
+  salvarOuAtualizarNota: () => void;
+  onClose: () => void;
+  setExibirExcluirNotaModal: (v: boolean) => void;
+  setNotaSelecionada: (v: any) => void;
+  notaSelecionada: any;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md space-y-4">
+        <h2 className="text-lg font-semibold">
+          {notaEditando ? 'Editar Anotação' : 'Nova Anotação'}
+        </h2>
+        <input
+          type="text"
+          placeholder="Título"
+          value={novaNota.titulo}
+          onChange={(e) => setNovaNota({ ...novaNota, titulo: e.target.value })}
+          className="w-full border rounded p-2 text-sm"
+        />
+        <textarea
+          placeholder="Descrição"
+          value={novaNota.texto}
+          onChange={(e) => setNovaNota({ ...novaNota, texto: e.target.value })}
+          className="w-full border rounded p-2 text-sm"
+        />
+        <div className="flex gap-2">
+          {[
+            { cor: 'bg-yellow-500' },
+            { cor: 'bg-green-500' },
+            { cor: 'bg-blue-500' },
+            { cor: 'bg-purple-500' },
+            { cor: 'bg-orange-500' }
+          ].map((opcao) => (
+            <div
+              key={opcao.cor}
+              onClick={() => setNovaNota({ ...novaNota, cor: opcao.cor })}
+              className={`w-6 h-6 rounded-full ${opcao.cor} ${novaNota.cor === opcao.cor ? 'ring-2 ring-black' : ''} cursor-pointer`}
+            />
+          ))}
+        </div>
+        {/* Seleção de prioridade */}
+        <div className="flex gap-2 text-xs items-center">
+          <span className="font-semibold">Prioridade:</span>
+          {['Alta', 'Média', 'Baixa'].map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setNovaNota({ ...novaNota, prioridade: p })}
+              className={`px-2 py-1 rounded-full border text-xs font-semibold
+                ${novaNota.prioridade === p
+                  ? (
+                    p === 'Alta'
+                      ? 'bg-red-100 text-red-600 border-red-200'
+                      : p === 'Média'
+                        ? 'bg-yellow-100 text-yellow-600 border-yellow-200'
+                        : 'bg-green-100 text-green-600 border-green-200'
+                    )
+                  : 'bg-gray-100 text-gray-500 border-gray-200'
+                }
+              `}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={() => {
+              setShowModal(false);
+              // @ts-ignore
+              if (typeof setNovaNota === "function") setNovaNota(null);
+            }}
+            className="px-4 py-2 text-sm rounded bg-gray-200 hover:bg-gray-300"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={salvarOuAtualizarNota}
+            className="px-4 py-2 text-sm rounded bg-[#1860fa] text-white hover:bg-blue-700"
+          >
+            {notaEditando ? 'Atualizar' : 'Salvar'}
+          </button>
+        </div>
+        {/* Botão de exclusão visível dentro da modal de edição */}
+        {notaEditando && (
+          <button
+            className="bg-red-500 text-white px-4 py-2 rounded mt-4"
+            onClick={() => {
+              onClose();
+              setNotaSelecionada(notaEditando);
+              setTimeout(() => {
+                setExibirExcluirNotaModal(true);
+              }, 200);
+            }}
+          >
+            Excluir Nota
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Modal de confirmação de exclusão de nota
+function ExcluirNotaModal({
+  isOpen,
+  onClose,
+  onConfirm,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-lg p-6 w-full max-w-xs shadow-lg">
+        <h2 className="text-lg font-semibold mb-4">Confirmar Exclusão</h2>
+        <p className="text-base text-gray-800 mb-4">Tem certeza que deseja excluir esta nota?</p>
+        <div className="flex gap-2 mt-4 justify-end">
+          <button
+            className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 text-sm"
+            onClick={onClose}
+          >
+            Cancelar
+          </button>
+          <button
+            className="px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700 text-sm"
+            onClick={onConfirm}
+          >
+            Confirmar Exclusão
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+  // Função para alternar o status de concluída da nota
+  const toggleNotaConcluida = async (nota: any) => {
+    const novoValor = !nota.concluida;
+    try {
+      await supabase
+        .from('notas_dashboard')
+        .update({ concluida: novoValor })
+        .eq('id', nota.id);
+      setNotes((prev) =>
+        prev.map((n) =>
+          n.id === nota.id ? { ...n, concluida: novoValor } : n
+        )
+      );
+    } catch (error) {
+      toast.error('Erro ao atualizar status da nota.');
+    }
+  };
