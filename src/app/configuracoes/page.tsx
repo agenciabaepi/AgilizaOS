@@ -26,6 +26,16 @@ export default function ConfiguracoesPage() {
     router.replace(`?${params.toString()}`)
   }
 
+  const chave = searchParams.get('chave')
+
+  if (chave) {
+    return (
+      <div className="p-10">
+        <h1 className="text-xl font-bold">Chave recebida: {chave}</h1>
+      </div>
+    )
+  }
+
   return (
     <MenuLayout>
       <div className="p-8">
