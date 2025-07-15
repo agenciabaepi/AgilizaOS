@@ -2,7 +2,9 @@
 // NOVO SISTEMA DE PRODUTOS E SERVIÇOS
 'use client';
 import Select from 'react-select';
+import Link from 'next/link';
 import MenuLayout from '@/components/MenuLayout';
+import { Button } from '@/components/Button';
 import React, { useEffect, useState } from 'react';
 import { Chart, ArcElement, Tooltip, Legend } from 'chart.js';
 import {
@@ -129,6 +131,8 @@ export default function ProdutosServicosPage() {
 
   const graficoRef = useRef<HTMLCanvasElement | null>(null);
 
+  // useEffect responsável pelos gráficos de produtos e serviços
+  /*
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const { Chart, registerables } = require('chart.js');
@@ -188,6 +192,7 @@ export default function ProdutosServicosPage() {
       }
     }
   }, [lista]);
+  */
 
   // useEffect para buscar fornecedores removido, pois a busca foi incorporada à nova função buscar
 
@@ -318,7 +323,12 @@ export default function ProdutosServicosPage() {
         </div>
       )}
       <div className="py-10 px-6 bg-gray-50 min-h-screen">
-        <h1 className="text-2xl font-bold mb-6">Cadastro de Produtos e Serviços</h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Cadastro de Produtos e Serviços</h1>
+          <Link href="/equipamentos/novo">
+            <Button>+ Novo Produto</Button>
+          </Link>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="bg-white shadow rounded-lg p-4 border border-gray-200">
@@ -343,187 +353,18 @@ export default function ProdutosServicosPage() {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-          <section className="bg-white p-5 rounded-lg shadow-md border border-gray-200">
-            <div className="flex items-center mb-4 space-x-2">
-              <CubeIcon className="h-6 w-6 text-indigo-500" />
-              <h2 className="text-lg font-semibold">Novo Item</h2>
-            </div>
-
-            <div className="space-y-3">
-              <input
-                type="text"
-                value={nome}
-                onChange={(e) => setNome(e.target.value)}
-                placeholder="Nome"
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              />
-              <textarea
-                value={descricao}
-                onChange={(e) => setDescricao(e.target.value)}
-                placeholder="Descrição"
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              />
-              <select
-                value={tipo}
-                onChange={(e) => setTipo(e.target.value as Tipo)}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              >
-                <option value="produto">Produto</option>
-                <option value="servico">Serviço</option>
-              </select>
-              <div className="flex items-center justify-between">
-                <label htmlFor="ativo" className="text-sm font-medium text-gray-700">
-                  Produto Ativo
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setAtivo(!ativo)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    ativo ? 'bg-green-500' : 'bg-gray-300'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      ativo ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-              {tipo === 'produto' && (
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={controleEstoque}
-                    onChange={(e) => setControleEstoque(e.target.checked)}
-                    id="controleEstoque"
-                    className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
-                  />
-                  <label htmlFor="controleEstoque" className="text-sm text-gray-700">Gerenciar Estoque</label>
-                </div>
-              )}
-              <input
-                type="number"
-                step="0.01"
-                value={preco}
-                onChange={(e) => setPreco(e.target.value)}
-                placeholder="Preço (R$)"
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              />
-              {tipo === 'produto' && (
-                <input
-                  type="number"
-                  step="0.01"
-                  value={custo}
-                  onChange={(e) => setCusto(e.target.value)}
-                  placeholder="Custo (R$)"
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                />
-              )}
-              {tipo === 'produto' && controleEstoque && (
-                <>
-                  <input
-                    type="number"
-                    value={estoque}
-                    onChange={(e) => setEstoque(e.target.value)}
-                    placeholder="Estoque Atual"
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="number"
-                    value={estoqueMinimo}
-                    onChange={(e) => setEstoqueMinimo(e.target.value)}
-                    placeholder="Estoque Mínimo"
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                  />
-                  <select
-                    value={unidade}
-                    onChange={(e) => setUnidade(e.target.value)}
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                  >
-                    <option value="un">Unidade (un)</option>
-                    <option value="kg">Quilo (kg)</option>
-                    <option value="g">Grama (g)</option>
-                    <option value="m">Metro (m)</option>
-                    <option value="cm">Centímetro (cm)</option>
-                    <option value="l">Litro (l)</option>
-                    <option value="ml">Mililitro (ml)</option>
-                    <option value="par">Par</option>
-                    <option value="cx">Caixa</option>
-                    <option value="pct">Pacote</option>
-                    <option value="rolo">Rolo</option>
-                  </select>
-                  <div className="relative">
-                    <Select
-                      options={(listaFornecedores || []).map(f => ({ value: f.id, label: f.nome }))}
-                      onChange={(opcaoSelecionada) => setFornecedor(opcaoSelecionada?.value || '')}
-                      value={
-                        (listaFornecedores || [])
-                          .map(f => ({ value: f.id, label: f.nome }))
-                          .find(op => op.value === fornecedor) || null
-                      }
-                      placeholder="Pesquisar fornecedor..."
-                      className="text-sm"
-                      isSearchable
-                      isLoading={buscandoFornecedor}
-                      loadingMessage={() => "Carregando fornecedores..."}
-                      noOptionsMessage={() =>
-                        (listaFornecedores || []).length === 0
-                          ? "Nenhum fornecedor encontrado"
-                          : "Digite para pesquisar"
-                      }
-                      onInputChange={(inputValue) => {
-                        setBuscandoFornecedor(true);
-                        setTimeout(() => setBuscandoFornecedor(false), 500);
-                        return inputValue;
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setMostrarModalFornecedor(true)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#cffb6d] hover:brightness-95 text-black rounded-full p-1 shadow transition"
-                      title="Adicionar Fornecedor"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                    </button>
-                  </div>
-                  <input
-                    type="text"
-                    value={codigoBarras}
-                    onChange={(e) => setCodigoBarras(e.target.value)}
-                    placeholder="Código de Barras"
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                  />
-                </>
-              )}
-              <button
-                onClick={editandoId ? atualizar : salvar}
-                disabled={!empresaId}
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded transition font-semibold ${
-                  empresaId
-                    ? 'bg-[#cffb6d] text-black hover:opacity-90'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                <ArrowDownTrayIcon className="h-5 w-5" />
-                {editandoId ? 'Atualizar' : 'Salvar'}
-              </button>
-            </div>
-          </section>
+          {/* 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-            {/* Gráfico de Produtos */}
             <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200">
               <h2 className="text-sm font-semibold mb-2">Distribuição de Produtos</h2>
               <canvas id="graficoProdutos" width="200" height="200"></canvas>
             </div>
-
-            {/* Gráfico de Serviços */}
             <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200">
               <h2 className="text-sm font-semibold mb-2">Distribuição de Serviços</h2>
               <canvas id="graficoServicos" width="200" height="200"></canvas>
             </div>
           </div>
+          */}
 
           <section className="col-span-1 md:col-span-2 bg-white p-5 rounded-lg shadow-md border border-gray-200">
             <div className="flex items-center mb-4 space-x-2">
@@ -532,22 +373,22 @@ export default function ProdutosServicosPage() {
             </div>
 
             <div className="flex flex-wrap items-center justify-between mb-4 gap-4">
-              <div className="flex space-x-2">
+              <div className="inline-flex space-x-2 bg-gray-100 rounded-full p-1 mb-6">
                 <button
-                  className={`px-4 py-2 rounded font-medium transition ${
+                  className={`px-5 py-2 text-sm font-medium rounded-full transition-all ${
                     abaSelecionada === 'produto'
-                      ? 'bg-[#cffb6d] text-black'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      ? 'bg-black text-white shadow'
+                      : 'text-gray-600 hover:text-black'
                   }`}
                   onClick={() => setAbaSelecionada('produto')}
                 >
                   Produtos
                 </button>
                 <button
-                  className={`px-4 py-2 rounded font-medium transition ${
+                  className={`px-5 py-2 text-sm font-medium rounded-full transition-all ${
                     abaSelecionada === 'servico'
-                      ? 'bg-[#cffb6d] text-black'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      ? 'bg-black text-white shadow'
+                      : 'text-gray-600 hover:text-black'
                   }`}
                   onClick={() => setAbaSelecionada('servico')}
                 >
@@ -754,20 +595,16 @@ export default function ProdutosServicosPage() {
               {/* Removido campo "Cadastrado por" */}
             </div>
             <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setMostrarModalFornecedor(false)}
-                className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
-              >
+              <Button variant="secundario" onClick={() => setMostrarModalFornecedor(false)}>
                 Cancelar
-              </button>
-              <button
+              </Button>
+              <Button
+                icone
                 onClick={async () => {
                   if (!novoFornecedor || !empresaId) {
                     setMensagemAviso('Preencha o nome do fornecedor e verifique o ID da empresa.');
                     return;
                   }
-
-
                   const { error } = await supabase.from('fornecedores').insert({
                     nome: novoFornecedor,
                     empresa_id: empresaId,
@@ -777,7 +614,6 @@ export default function ProdutosServicosPage() {
                     cnpj_cpf: (document.querySelector('input[placeholder="CNPJ/CPF (opcional)"]') as HTMLInputElement)?.value || null,
                     cep: (document.querySelector('input[placeholder="CEP (opcional)"]') as HTMLInputElement)?.value || null,
                   });
-
                   if (error) {
                     setMensagemAviso('Erro ao cadastrar fornecedor: ' + (error.message || 'Erro desconhecido'));
                   } else {
@@ -788,13 +624,12 @@ export default function ProdutosServicosPage() {
                     setTimeout(() => setMensagemSucesso(''), 3000);
                   }
                 }}
-                className="px-4 py-2 text-sm bg-[#cffb6d] text-black rounded-md hover:brightness-95 flex items-center gap-2 font-medium"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-4 4a4 4 0 110-8 4 4 0 010 8zm0 0v1a4 4 0 01-4 4H6a4 4 0 01-4-4v-1a4 4 0 014-4h4a4 4 0 014 4z" />
                 </svg>
                 Adicionar
-              </button>
+              </Button>
             </div>
           </div>
         </div>

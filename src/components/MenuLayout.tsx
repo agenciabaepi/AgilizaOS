@@ -12,7 +12,6 @@ import {
   FiDollarSign,
   FiFileText,
   FiLogOut,
-  FiUserCheck,
   FiSearch,
   FiBell,
 } from 'react-icons/fi';
