@@ -401,16 +401,20 @@ export default function ProdutosServicosPage() {
                   placeholder="Pesquisar item..."
                   className="w-full border border-gray-300 rounded-full px-4 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[#cffb6d]"
                   onChange={(e) => {
-                    const termo = e.target.value.toLowerCase();
-                    if (termo.trim() === '') {
+                    const search = e.target.value;
+                    if ((search ?? '').trim() === '') {
                       buscar(); // Recarrega todos os itens se o campo estiver vazio
                     } else {
-                      setLista((anterior) =>
-                        anterior.filter((item) =>
-                          item.nome.toLowerCase().includes(termo) ||
-                          item.descricao.toLowerCase().includes(termo)
-                        )
-                      );
+                      setLista((produtos) => {
+                        const filtered = produtos.filter(
+                          (prod) =>
+                            (prod.nome ?? '').toLowerCase().includes((search ?? '').toLowerCase()) ||
+                            (prod.categoria ?? '').toLowerCase().includes((search ?? '').toLowerCase()) ||
+                            (prod.codigo_barras ?? '').toLowerCase().includes((search ?? '').toLowerCase()) ||
+                            (prod.marca ?? '').toLowerCase().includes((search ?? '').toLowerCase())
+                        );
+                        return filtered;
+                      });
                     }
                   }}
                 />

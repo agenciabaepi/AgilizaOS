@@ -1,50 +1,24 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
 import logo from '@/assets/imagens/logopreto.png';
-import DebugSession from '@/components/DebugSession';
 
 const supabase = createPagesBrowserClient();
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('pedro@gmail.com');
+  const [email, setEmail] = useState('lucas@hotmail.com');
   const [password, setPassword] = useState('123123');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
   const router = useRouter();
 
   const auth = useAuth();
-  const { user, loading } = auth || {};
+  const user = auth?.user;
+  const loading = auth?.loading;
 
-  /*
-  useEffect(() => {
-    async function checkSessionAndRedirect() {
-      let currentUser = user;
-      if (!currentUser) {
-        const { data: sessionData } = await supabase.auth.getSession();
-        currentUser = sessionData.session?.user || null;
-      }
-      if (typeof window !== 'undefined' && !loading && currentUser) {
-        const userData = localStorage.getItem('user');
-        try {
-          const { nivel } = userData ? JSON.parse(userData) : {};
-          if (nivel === 'tecnico') {
-            router.replace('/dashboard/tecnico');
-          } else {
-            router.replace('/dashboard/admin');
-          }
-        } catch (e) {
-          console.error('Erro ao ler user do localStorage:', e);
-          localStorage.removeItem('user');
-        }
-      }
-    }
-    checkSessionAndRedirect();
-  }, [user, loading]);
-  */
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -102,6 +76,7 @@ export default function LoginPage() {
         email,
         nivel: perfil.nivel
       }));
+      localStorage.setItem("empresa_id", usuario.empresa_id);
 
       setTimeout(() => {
         router.replace('/dashboard');
@@ -173,7 +148,6 @@ export default function LoginPage() {
           {isRecovering ? 'Enviando...' : 'Esqueci minha senha'}
         </button>
       </form>
-      <DebugSession />
     </div>
   );
 }
