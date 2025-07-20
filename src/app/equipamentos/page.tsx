@@ -3,6 +3,7 @@
 'use client';
 import Select from 'react-select';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import MenuLayout from '@/components/MenuLayout';
 import { Button } from '@/components/Button';
 import React, { useEffect, useState } from 'react';
@@ -16,6 +17,7 @@ import {
   DoughnutController,
 } from 'chart.js';
 import Image from 'next/image';
+import { DataTable, Column } from '@/components/DataTable';
 
 ChartJS.register(ArcElement2, Tooltip2, Legend2, DoughnutController);
 import { useRef } from 'react';
@@ -23,6 +25,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createBrowserSupabaseClient } from '@supabase/auth-helpers-nextjs';
 import { ArrowDownTrayIcon, TagIcon, CubeIcon, PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '@/context/AuthContext';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 const supabase = createBrowserSupabaseClient();
 
@@ -75,6 +78,8 @@ export default function ProdutosServicosPage() {
   const [ativo, setAtivo] = useState(true);
 
   const { addToast } = useToast();
+  const confirm = useConfirm();
+  const router = useRouter();
 
   Chart.register(ArcElement, Tooltip, Legend);
 
@@ -265,7 +270,8 @@ export default function ProdutosServicosPage() {
   };
 
   const excluir = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir este item?')) return;
+    const ok = await confirm({ message: 'Tem certeza que deseja excluir este item?' });
+    if (!ok) return;
     await supabase.from('produtos_servicos').delete().eq('id', id);
     buscar();
     addToast('success', 'Item excluído com sucesso!');
@@ -327,6 +333,98 @@ export default function ProdutosServicosPage() {
   const totalPages = Math.ceil(filtered.length / pageSize) || 1;
   const startIndex = (page - 1) * pageSize;
   const paginated = filtered.slice(startIndex, startIndex + pageSize);
+
+  // DataTable columns definition
+  const columns: Column<ProdutoServico>[] = [
+    { key: 'codigo', header: 'Código', width: 'w-16' },
+    ...(abaSelecionada === 'produto'
+      ? [{
+          key: 'imagens_url',
+          header: 'Imagem',
+          render: (row: any) =>
+            row.imagens_url?.[0]
+              ? <Image src={row.imagens_url[0]} alt={row.nome} width={40} height={40} className="object-cover rounded" />
+              : '-'
+        }]
+      : []),
+    {
+      key: 'nome',
+      header: 'Nome',
+      render: row => (
+        <div>
+          <div className="font-semibold">{row.nome}</div>
+          {row.descricao && <div className="text-xs text-gray-500">{row.descricao}</div>}
+        </div>
+      )
+    },
+    {
+      key: 'tipo',
+      header: 'Tipo',
+      render: row => <span className="capitalize">{row.tipo}</span>
+    },
+    {
+      key: 'situacao',
+      header: 'Status',
+      render: row => (
+        <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
+          row.situacao === 'Ativo' ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-500'
+        }`}>{row.situacao || '-'}</span>
+      )
+    },
+    {
+      key: 'preco',
+      header: 'Preço',
+      render: row => `R$ ${row.preco.toFixed(2)}`
+    },
+    ...(abaSelecionada === 'produto'
+      ? [
+          {
+            key: 'estoque_atual',
+            header: 'Estoque',
+            render: row => (
+              <span>
+                {row.tipo === 'produto' ? (
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={
+                        "font-semibold " +
+                        (
+                          row.estoque_atual !== null && row.estoque_minimo !== null
+                            ? row.estoque_atual < row.estoque_minimo
+                              ? 'text-red-600'
+                              : row.estoque_atual <= row.estoque_minimo * 1.2
+                                ? 'text-yellow-600'
+                                : 'text-green-600'
+                            : ''
+                        )
+                      }
+                    >
+                      {row.estoque_atual}
+                    </span>
+                    {row.estoque_atual !== null && row.estoque_minimo !== null && (
+                      <>
+                        {row.estoque_atual < row.estoque_minimo && (
+                          <span className="text-xs text-red-800 bg-red-100 px-2 py-0.5 rounded-full">Estoque baixo</span>
+                        )}
+                        {row.estoque_atual >= row.estoque_minimo && row.estoque_atual <= row.estoque_minimo * 1.2 && (
+                          <span className="text-xs text-yellow-800 bg-yellow-100 px-2 py-0.5 rounded-full">Estoque próximo</span>
+                        )}
+                        {row.estoque_atual > row.estoque_minimo * 1.2 && (
+                          <span className="text-xs text-green-800 bg-green-100 px-2 py-0.5 rounded-full">Estoque OK</span>
+                        )}
+                      </>
+                    )}
+                  </div>
+                ) : '-'}
+              </span>
+            )
+          },
+          { key: 'unidade', header: 'Unidade' },
+          { key: 'fornecedor', header: 'Fornecedor' },
+          { key: 'codigo_barras', header: 'Código Barras' },
+        ]
+      : []),
+  ];
 
   return (
     <ToastProvider>
@@ -448,174 +546,13 @@ export default function ProdutosServicosPage() {
             
 
             <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-100 text-left">
-                    <th className="px-4 py-2 font-medium text-gray-700">Código</th>
-                    {abaSelecionada === 'produto' && (
-                      <th className="px-4 py-2 font-medium text-gray-700">Imagem</th>
-                    )}
-                    <th className="px-4 py-2 font-medium text-gray-700">Nome</th>
-                    <th className="px-4 py-2 font-medium text-gray-700">Tipo</th>
-                    <th className="px-4 py-2 font-medium text-gray-700">Status</th>
-                    <th className="px-4 py-2 font-medium text-gray-700">Preço</th>
-                    {abaSelecionada === 'produto' && (
-                      <>
-                        <th className="px-4 py-2 font-medium text-gray-700">Estoque</th>
-                        <th className="px-4 py-2 font-medium text-gray-700">Unidade</th>
-                      </>
-                    )}
-                    {abaSelecionada === 'produto' && (
-                      <th className="px-4 py-2 font-medium text-gray-700">Fornecedor</th>
-                    )}
-                    {abaSelecionada === 'produto' && (
-                      <th className="px-4 py-2 font-medium text-gray-700">Código Barras</th>
-                    )}
-                    <th className="px-4 py-2 font-medium text-gray-700">Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginated.map((item) => (
-                    <tr key={item.id} className="border-t">
-                      <td className="px-4 py-2 text-xs text-gray-700">{item.codigo}</td>
-                      {abaSelecionada === 'produto' && (
-                        <td className="px-4 py-2">
-                          {item.imagens_url && item.imagens_url.length > 0 ? (
-                            <Image
-                              src={item.imagens_url[0]}
-                              alt={`Imagem de ${item.nome}`}
-                              width={40}
-                              height={40}
-                              className="object-cover rounded"
-                              priority
-                            />
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </td>
-                      )}
-                      <td className="px-4 py-2">
-                        <div className="font-semibold">{item.nome}</div>
-                        {item.descricao && <div className="text-xs text-gray-500">{item.descricao}</div>}
-                      </td>
-                      <td className="px-4 py-2 capitalize">{item.tipo}</td>
-                      <td className="px-4 py-2">
-                        <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                          item.situacao === 'Ativo' ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-500'
-                        }`}>
-                          {item.situacao || '-'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2">R$ {item.preco.toFixed(2)}</td>
-                      {abaSelecionada === 'produto' && (
-                        <>
-                          <td className="px-4 py-2">
-                            {item.tipo === 'produto' ? (
-                              <div className="flex items-center gap-2">
-                                <span
-                                  className={`
-                                    font-semibold
-                                    ${
-                                      item.estoque_atual !== null && item.estoque_minimo !== null
-                                        ? item.estoque_atual < item.estoque_minimo
-                                          ? 'text-red-600'
-                                          : item.estoque_atual <= item.estoque_minimo * 1.2
-                                            ? 'text-yellow-600'
-                                            : 'text-green-600'
-                                        : ''
-                                    }
-                                  `}
-                                >
-                                  {item.estoque_atual}
-                                </span>
-                                {item.estoque_atual !== null && item.estoque_minimo !== null && (
-                                  <>
-                                    {item.estoque_atual < item.estoque_minimo && (
-                                      <span className="text-xs text-red-800 bg-red-100 px-2 py-0.5 rounded-full">Estoque baixo</span>
-                                    )}
-                                    {item.estoque_atual >= item.estoque_minimo && item.estoque_atual <= item.estoque_minimo * 1.2 && (
-                                      <span className="text-xs text-yellow-800 bg-yellow-100 px-2 py-0.5 rounded-full">Estoque próximo</span>
-                                    )}
-                                    {item.estoque_atual > item.estoque_minimo * 1.2 && (
-                                      <span className="text-xs text-green-800 bg-green-100 px-2 py-0.5 rounded-full">Estoque OK</span>
-                                    )}
-                                  </>
-                                )}
-                              </div>
-                            ) : '-'}
-                          </td>
-                          <td className="px-4 py-2">{item.tipo === 'produto' ? item.unidade : '-'}</td>
-                        </>
-                      )}
-                      {abaSelecionada === 'produto' && (
-                        <td className="px-4 py-2">
-                          {item.fornecedor || '-'}
-                        </td>
-                      )}
-                      {abaSelecionada === 'produto' && (
-                        <td className="px-4 py-2">{item.codigo_barras ?? '-'}</td>
-                      )}
-                      <td className="px-4 py-2">
-                        <div className="flex gap-2">
-                          <Link
-                            href={`/equipamentos/novo?id=${item.id}`}
-                            className="group p-1 rounded hover:bg-[#cffb6d]/20 transition"
-                            title="Editar"
-                          >
-                            <PencilSquareIcon className="h-4 w-4 text-black group-hover:text-black" />
-                          </Link>
-                          <button
-                            onClick={() => excluir(item.id)}
-                            className="group p-1 rounded hover:bg-red-100 transition"
-                            title="Excluir"
-                          >
-                            <TrashIcon className="h-4 w-4 text-black group-hover:text-red-600" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={abaSelecionada === 'produto' ? 10 : 7} className="px-4 py-4 text-center text-gray-400 italic">
-                      Nenhum item cadastrado.
-                    </td>
-                  </tr>
-                  )}
-                </tbody>
-              </table>
-              <div className="flex items-center justify-between mb-4 mt-4">
-                <div>
-                  Mostrar{' '}
-                  <select
-                    value={pageSize}
-                    onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}
-                    className="border rounded px-2 py-1 text-sm"
-                  >
-                    {[10, 20, 50, 100].map(n => (
-                      <option key={n} value={n}>{n}</option>
-                    ))}
-                  </select>{' '}
-                  por página
-                </div>
-                <div className="space-x-2">
-                  <button
-                    onClick={() => setPage(p => Math.max(p - 1, 1))}
-                    disabled={page === 1}
-                    className="px-2 py-1 border rounded disabled:opacity-50 text-sm"
-                  >
-                    Anterior
-                  </button>
-                  <span className="text-sm">Página {page} de {totalPages}</span>
-                  <button
-                    onClick={() => setPage(p => Math.min(p + 1, totalPages))}
-                    disabled={page === totalPages}
-                    className="px-2 py-1 border rounded disabled:opacity-50 text-sm"
-                  >
-                    Próxima
-                  </button>
-                </div>
-              </div>
+            <DataTable
+  columns={columns}
+  data={paginated}
+  rowKey="id"
+  onEdit={row => router.push(`/equipamentos/novo?produtoId=${row.id}`)}
+  onDelete={row => excluir(row.id)}
+/>
             </div>
           </section>
         </div>

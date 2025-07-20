@@ -1,8 +1,7 @@
 'use client';
-
+import { createBrowserSupabaseClient } from '@supabase/auth-helpers-nextjs';
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabaseClient';
 import { Tab } from '@headlessui/react';
 import { Input } from '@/components/Input';
 import { Label } from '@/components/label';
@@ -10,6 +9,8 @@ import { Textarea } from '@/components/textarea';
 import MenuLayout from '@/components/MenuLayout';
 import { Button } from '@/components/Button';
 import { Select } from '@/components/Select';
+import { useToast } from '@/components/Toast';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 export default function NovoProdutoPage() {
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
@@ -45,7 +46,10 @@ export default function NovoProdutoPage() {
 
   const searchParams = useSearchParams();
   const router = useRouter();
-  const produtoId = searchParams.get('id');
+  const produtoId = searchParams.get('produtoId');
+  const supabase = createBrowserSupabaseClient();
+  const { addToast } = useToast();
+  const confirm = useConfirm();
 
   useEffect(() => {
     if (produtoId) {
@@ -94,7 +98,7 @@ export default function NovoProdutoPage() {
     // Gerar código sequencial por empresa, somente se não estiver editando (novo produto)
     const empresa_id = localStorage.getItem('empresa_id');
     if (!empresa_id) {
-      alert('Erro: empresa_id não encontrado. Faça login novamente.');
+      addToast('error', 'Erro: empresa_id não encontrado. Faça login novamente.');
       return;
     }
 
@@ -118,7 +122,7 @@ export default function NovoProdutoPage() {
 
     // Checagem dos campos obrigatórios: apenas Nome e Preço de Venda
     if (!formData.nome || !formData.preco) {
-      alert('Por favor, preencha os campos obrigatórios: Nome e Preço de Venda.');
+      addToast('error', 'Por favor, preencha os campos obrigatórios: Nome e Preço de Venda.');
       return;
     }
 
@@ -141,7 +145,7 @@ export default function NovoProdutoPage() {
         .upload(filePath, file, { upsert: false });
       if (uploadError) {
         console.error('Erro ao fazer upload da imagem:', uploadError);
-        alert(`Erro ao fazer upload da imagem ${file.name}: ${uploadError.message}`);
+        addToast('error', `Erro ao fazer upload da imagem ${file.name}: ${uploadError.message}`);
         continue;
       }
       const { data } = supabase
@@ -198,10 +202,10 @@ export default function NovoProdutoPage() {
         .eq('id', produtoId);
       if (error) {
         console.error('Erro ao atualizar produto:', error);
-        alert('Erro ao atualizar produto: ' + error.message);
+        addToast('error', 'Erro ao atualizar produto: ' + error.message);
         return;
       }
-      alert('Produto atualizado com sucesso!');
+      addToast('success', 'Produto atualizado com sucesso!');
       router.push('/equipamentos');
       return;
     }
@@ -224,15 +228,15 @@ export default function NovoProdutoPage() {
           console.error('Erro não-JSON da API:', text);
           msg = text || 'Erro desconhecido';
         }
-        alert(`Erro ao cadastrar produto: ${msg}`);
+        addToast('error', `Erro ao cadastrar produto: ${msg}`);
         return;
       }
 
-      alert('Produto cadastrado com sucesso!');
+      addToast('success', 'Produto cadastrado com sucesso!');
       router.push('/equipamentos');
     } catch (error) {
       console.error(error);
-      alert('Erro ao cadastrar produto');
+      addToast('error', 'Erro ao cadastrar produto');
     }
   };
 
@@ -637,7 +641,14 @@ export default function NovoProdutoPage() {
             <Button
               type="button"
               variant="secondary"
-              onClick={() => window.history.back()}
+              onClick={async () => {
+                const ok = await confirm({
+                  message: 'Tem certeza que deseja cancelar? As alterações serão perdidas.',
+                  confirmText: 'Sim, cancelar',
+                  cancelText: 'Continuar editando',
+                });
+                if (ok) router.back();
+              }}
             >
               Cancelar
             </Button>

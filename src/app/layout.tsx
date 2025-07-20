@@ -1,12 +1,12 @@
 'use client'
 
 import './globals.css';
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 import { SessionContextProvider } from '@supabase/auth-helpers-react';
 import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
 import { useState } from 'react';
 import { AuthProvider } from '@/context/AuthContext';
+import { ToastProvider } from '@/components/Toast';
+import { ConfirmProvider } from '@/components/ConfirmDialog';
 
 // Removido o export da metadata conforme exigência do Next.js para arquivos com "use client"
 const metadata = {
@@ -22,18 +22,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body suppressHydrationWarning={true}>
         <SessionContextProvider supabaseClient={supabaseClient}>
           <AuthProvider>
-            {children}
+            <ToastProvider>
+              <ConfirmProvider>
+                {children}
+              </ConfirmProvider>
+            </ToastProvider>
           </AuthProvider>
-          <ToastContainer 
-            position="bottom-right" 
-            autoClose={3000}
-            hideProgressBar={false}
-            newestOnTop={false}
-            closeOnClick
-            pauseOnHover
-            draggable
-            theme="light"
-          />
         </SessionContextProvider>
       </body>
     </html>

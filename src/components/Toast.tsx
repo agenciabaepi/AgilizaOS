@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
-import { XIcon } from '@heroicons/react/24/outline';
-
+import { XMarkIcon } from '@heroicons/react/24/outline';
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
 interface ToastMessage {
@@ -44,7 +43,7 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           >
             <span className="flex-1 text-sm">{content}</span>
             <button onClick={() => setToasts(prev => prev.filter(t => t.id !== id))}>
-              <XIcon className="h-4 w-4" />
+              <XMarkIcon className="h-4 w-4" />
             </button>
           </div>
         ))}
