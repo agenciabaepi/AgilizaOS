@@ -1,6 +1,6 @@
-'use client';
-
 export const dynamic = 'force-dynamic';
+export const runtime = 'edge';
+'use client';
 import { createBrowserSupabaseClient } from '@supabase/auth-helpers-nextjs';
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
