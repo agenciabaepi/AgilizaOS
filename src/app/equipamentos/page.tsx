@@ -6,6 +6,7 @@ import Link from 'next/link';
 import MenuLayout from '@/components/MenuLayout';
 import { Button } from '@/components/Button';
 import React, { useEffect, useState } from 'react';
+import { useToast, ToastProvider } from '@/components/Toast';
 import { Chart, ArcElement, Tooltip, Legend } from 'chart.js';
 import {
   Chart as ChartJS,
@@ -62,7 +63,6 @@ export default function ProdutosServicosPage() {
   const [codigoBarras, setCodigoBarras] = useState('');
   const [abaSelecionada, setAbaSelecionada] = useState<'produto' | 'servico'>('produto');
   const [mensagemAviso, setMensagemAviso] = useState('');
-  const [mensagemSucesso, setMensagemSucesso] = useState('');
   const [carregando, setCarregando] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -73,6 +73,8 @@ export default function ProdutosServicosPage() {
   const [listaFornecedores, setListaFornecedores] = useState<{ id: string; nome: string }[]>([]);
   const [buscandoFornecedor, setBuscandoFornecedor] = useState(false);
   const [ativo, setAtivo] = useState(true);
+
+  const { addToast } = useToast();
 
   Chart.register(ArcElement, Tooltip, Legend);
 
@@ -259,16 +261,14 @@ export default function ProdutosServicosPage() {
     setCodigoBarras('');
     setAtivo(true);
     buscar();
-    setMensagemSucesso('Item cadastrado com sucesso!');
-    setTimeout(() => setMensagemSucesso(''), 3000);
+    addToast('success', 'Item cadastrado com sucesso!');
   };
 
   const excluir = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir este item?')) return;
     await supabase.from('produtos_servicos').delete().eq('id', id);
     buscar();
-    setMensagemSucesso('Item excluído com sucesso!');
-    setTimeout(() => setMensagemSucesso(''), 3000);
+    addToast('success', 'Item excluído com sucesso!');
   };
 
   const iniciarEdicao = (item: ProdutoServico) => {
@@ -318,8 +318,7 @@ export default function ProdutosServicosPage() {
       setCodigoBarras('');
       setAtivo(true);
       buscar();
-      setMensagemSucesso('Item atualizado com sucesso!');
-      setTimeout(() => setMensagemSucesso(''), 3000);
+      addToast('success', 'Item atualizado com sucesso!');
     }
   };
 
@@ -330,7 +329,8 @@ export default function ProdutosServicosPage() {
   const paginated = filtered.slice(startIndex, startIndex + pageSize);
 
   return (
-    <MenuLayout>
+    <ToastProvider>
+      <MenuLayout>
       {/* Mensagem de erro de log, se houver */}
       {logErro && (
         <div className="bg-red-100 text-red-700 p-4 rounded mb-6 font-mono text-xs whitespace-pre-wrap">
@@ -340,9 +340,6 @@ export default function ProdutosServicosPage() {
       <div className="py-10 px-6 bg-gray-50 min-h-screen">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">Cadastro de Produtos e Serviços</h1>
-          <Link href="/equipamentos/novo">
-            <Button>+ Novo Produto</Button>
-          </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -359,11 +356,6 @@ export default function ProdutosServicosPage() {
         {mensagemAviso && (
           <div className="mb-4 p-3 text-sm text-black bg-[#cffb6d] rounded">
             {mensagemAviso}
-          </div>
-        )}
-        {mensagemSucesso && (
-          <div className="mb-4 p-3 text-sm text-green-800 bg-green-100 rounded border border-green-300">
-            {mensagemSucesso}
           </div>
         )}
 
@@ -410,6 +402,14 @@ export default function ProdutosServicosPage() {
                   Serviços
                 </button>
               </div>
+
+              {/* Novo Produto button above search */}
+              <div className="flex-1 flex justify-end mb-2">
+                <Link href="/equipamentos/novo">
+                  <Button>+ Novo Produto</Button>
+                </Link>
+              </div>
+
               <div className="relative w-full md:w-72">
                 <input
                   type="text"
@@ -445,65 +445,40 @@ export default function ProdutosServicosPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                Mostrar{' '}
-                <select
-                  value={pageSize}
-                  onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}
-                  className="border rounded px-2 py-1 text-sm"
-                >
-                  {[10, 20, 50, 100].map(n => (
-                    <option key={n} value={n}>{n}</option>
-                  ))}
-                </select>{' '}
-                por página
-              </div>
-              <div className="space-x-2">
-                <button
-                  onClick={() => setPage(p => Math.max(p - 1, 1))}
-                  disabled={page === 1}
-                  className="px-2 py-1 border rounded disabled:opacity-50 text-sm"
-                >
-                  Anterior
-                </button>
-                <span className="text-sm">Página {page} de {totalPages}</span>
-                <button
-                  onClick={() => setPage(p => Math.min(p + 1, totalPages))}
-                  disabled={page === totalPages}
-                  className="px-2 py-1 border rounded disabled:opacity-50 text-sm"
-                >
-                  Próxima
-                </button>
-              </div>
-            </div>
+            
 
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="bg-gray-100 text-left">
                     <th className="px-4 py-2 font-medium text-gray-700">Código</th>
-                    <th className="px-4 py-2 font-medium text-gray-700">Imagem</th>
+                    {abaSelecionada === 'produto' && (
+                      <th className="px-4 py-2 font-medium text-gray-700">Imagem</th>
+                    )}
                     <th className="px-4 py-2 font-medium text-gray-700">Nome</th>
                     <th className="px-4 py-2 font-medium text-gray-700">Tipo</th>
                     <th className="px-4 py-2 font-medium text-gray-700">Status</th>
                     <th className="px-4 py-2 font-medium text-gray-700">Preço</th>
-                    <th className="px-4 py-2 font-medium text-gray-700">Custo</th>
                     {abaSelecionada === 'produto' && (
                       <>
                         <th className="px-4 py-2 font-medium text-gray-700">Estoque</th>
                         <th className="px-4 py-2 font-medium text-gray-700">Unidade</th>
                       </>
                     )}
-                    <th className="px-4 py-2 font-medium text-gray-700">Fornecedor</th>
-                    <th className="px-4 py-2 font-medium text-gray-700">Código Barras</th>
+                    {abaSelecionada === 'produto' && (
+                      <th className="px-4 py-2 font-medium text-gray-700">Fornecedor</th>
+                    )}
+                    {abaSelecionada === 'produto' && (
+                      <th className="px-4 py-2 font-medium text-gray-700">Código Barras</th>
+                    )}
                     <th className="px-4 py-2 font-medium text-gray-700">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginated.map((item) => (
-                      <tr key={item.id} className="border-t">
-                        <td className="px-4 py-2 text-xs text-gray-700">{item.codigo}</td>
+                    <tr key={item.id} className="border-t">
+                      <td className="px-4 py-2 text-xs text-gray-700">{item.codigo}</td>
+                      {abaSelecionada === 'produto' && (
                         <td className="px-4 py-2">
                           {item.imagens_url && item.imagens_url.length > 0 ? (
                             <Image
@@ -518,95 +493,129 @@ export default function ProdutosServicosPage() {
                             <span className="text-gray-400">-</span>
                           )}
                         </td>
+                      )}
+                      <td className="px-4 py-2">
+                        <div className="font-semibold">{item.nome}</div>
+                        {item.descricao && <div className="text-xs text-gray-500">{item.descricao}</div>}
+                      </td>
+                      <td className="px-4 py-2 capitalize">{item.tipo}</td>
+                      <td className="px-4 py-2">
+                        <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                          item.situacao === 'Ativo' ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-500'
+                        }`}>
+                          {item.situacao || '-'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2">R$ {item.preco.toFixed(2)}</td>
+                      {abaSelecionada === 'produto' && (
+                        <>
+                          <td className="px-4 py-2">
+                            {item.tipo === 'produto' ? (
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`
+                                    font-semibold
+                                    ${
+                                      item.estoque_atual !== null && item.estoque_minimo !== null
+                                        ? item.estoque_atual < item.estoque_minimo
+                                          ? 'text-red-600'
+                                          : item.estoque_atual <= item.estoque_minimo * 1.2
+                                            ? 'text-yellow-600'
+                                            : 'text-green-600'
+                                        : ''
+                                    }
+                                  `}
+                                >
+                                  {item.estoque_atual}
+                                </span>
+                                {item.estoque_atual !== null && item.estoque_minimo !== null && (
+                                  <>
+                                    {item.estoque_atual < item.estoque_minimo && (
+                                      <span className="text-xs text-red-800 bg-red-100 px-2 py-0.5 rounded-full">Estoque baixo</span>
+                                    )}
+                                    {item.estoque_atual >= item.estoque_minimo && item.estoque_atual <= item.estoque_minimo * 1.2 && (
+                                      <span className="text-xs text-yellow-800 bg-yellow-100 px-2 py-0.5 rounded-full">Estoque próximo</span>
+                                    )}
+                                    {item.estoque_atual > item.estoque_minimo * 1.2 && (
+                                      <span className="text-xs text-green-800 bg-green-100 px-2 py-0.5 rounded-full">Estoque OK</span>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            ) : '-'}
+                          </td>
+                          <td className="px-4 py-2">{item.tipo === 'produto' ? item.unidade : '-'}</td>
+                        </>
+                      )}
+                      {abaSelecionada === 'produto' && (
                         <td className="px-4 py-2">
-                          <div className="font-semibold">{item.nome}</div>
-                          {item.descricao && <div className="text-xs text-gray-500">{item.descricao}</div>}
+                          {item.fornecedor || '-'}
                         </td>
-                        <td className="px-4 py-2 capitalize">{item.tipo}</td>
-                        <td className="px-4 py-2">
-                          <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                            item.situacao === 'Ativo' ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-500'
-                          }`}>
-                            {item.situacao || '-'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2">R$ {item.preco.toFixed(2)}</td>
-                        <td className="px-4 py-2">R$ {item.custo?.toFixed(2) ?? '-'}</td>
-                        {abaSelecionada === 'produto' && (
-                          <>
-                            <td className="px-4 py-2">
-                              {item.tipo === 'produto' ? (
-                                <div className="flex items-center gap-2">
-                                  <span
-                                    className={`
-                                      font-semibold
-                                      ${
-                                        item.estoque_atual !== null && item.estoque_minimo !== null
-                                          ? item.estoque_atual < item.estoque_minimo
-                                            ? 'text-red-600'
-                                            : item.estoque_atual <= item.estoque_minimo * 1.2
-                                              ? 'text-yellow-600'
-                                              : 'text-green-600'
-                                          : ''
-                                      }
-                                    `}
-                                  >
-                                    {item.estoque_atual}
-                                  </span>
-                                  {item.estoque_atual !== null && item.estoque_minimo !== null && (
-                                    <>
-                                      {item.estoque_atual < item.estoque_minimo && (
-                                        <span className="text-xs text-red-800 bg-red-100 px-2 py-0.5 rounded-full">Estoque baixo</span>
-                                      )}
-                                      {item.estoque_atual >= item.estoque_minimo && item.estoque_atual <= item.estoque_minimo * 1.2 && (
-                                        <span className="text-xs text-yellow-800 bg-yellow-100 px-2 py-0.5 rounded-full">Estoque próximo</span>
-                                      )}
-                                      {item.estoque_atual > item.estoque_minimo * 1.2 && (
-                                        <span className="text-xs text-green-800 bg-green-100 px-2 py-0.5 rounded-full">Estoque OK</span>
-                                      )}
-                                    </>
-                                  )}
-                                </div>
-                              ) : '-'}
-                            </td>
-                            <td className="px-4 py-2">{item.tipo === 'produto' ? item.unidade : '-'}</td>
-                          </>
-                        )}
-                        <td className="px-4 py-2">
-                          {item.tipo === 'produto'
-                            ? item.fornecedor || '-'
-                            : '-'}
-                        </td>
-                        <td className="px-4 py-2">{item.tipo === 'produto' ? item.codigo_barras ?? '-' : '-'}</td>
-                        <td className="px-4 py-2">
-                          <div className="flex gap-2">
-                            <Link
-                              href={`/equipamentos/novo?id=${item.id}`}
-                              className="group p-1 rounded hover:bg-[#cffb6d]/20 transition"
-                              title="Editar"
-                            >
-                              <PencilSquareIcon className="h-4 w-4 text-black group-hover:text-[#cffb6d]" />
-                            </Link>
-                            <button
-                              onClick={() => excluir(item.id)}
-                              className="group p-1 rounded hover:bg-red-100 transition"
-                              title="Excluir"
-                            >
-                              <TrashIcon className="h-4 w-4 text-black group-hover:text-red-600" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                      )}
+                      {abaSelecionada === 'produto' && (
+                        <td className="px-4 py-2">{item.codigo_barras ?? '-'}</td>
+                      )}
+                      <td className="px-4 py-2">
+                        <div className="flex gap-2">
+                          <Link
+                            href={`/equipamentos/novo?id=${item.id}`}
+                            className="group p-1 rounded hover:bg-[#cffb6d]/20 transition"
+                            title="Editar"
+                          >
+                            <PencilSquareIcon className="h-4 w-4 text-black group-hover:text-black" />
+                          </Link>
+                          <button
+                            onClick={() => excluir(item.id)}
+                            className="group p-1 rounded hover:bg-red-100 transition"
+                            title="Excluir"
+                          >
+                            <TrashIcon className="h-4 w-4 text-black group-hover:text-red-600" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
                   {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={abaSelecionada === 'produto' ? 11 : 8} className="px-4 py-4 text-center text-gray-400 italic">
+                    <td colSpan={abaSelecionada === 'produto' ? 10 : 7} className="px-4 py-4 text-center text-gray-400 italic">
                       Nenhum item cadastrado.
                     </td>
                   </tr>
                   )}
                 </tbody>
               </table>
+              <div className="flex items-center justify-between mb-4 mt-4">
+                <div>
+                  Mostrar{' '}
+                  <select
+                    value={pageSize}
+                    onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}
+                    className="border rounded px-2 py-1 text-sm"
+                  >
+                    {[10, 20, 50, 100].map(n => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>{' '}
+                  por página
+                </div>
+                <div className="space-x-2">
+                  <button
+                    onClick={() => setPage(p => Math.max(p - 1, 1))}
+                    disabled={page === 1}
+                    className="px-2 py-1 border rounded disabled:opacity-50 text-sm"
+                  >
+                    Anterior
+                  </button>
+                  <span className="text-sm">Página {page} de {totalPages}</span>
+                  <button
+                    onClick={() => setPage(p => Math.min(p + 1, totalPages))}
+                    disabled={page === totalPages}
+                    className="px-2 py-1 border rounded disabled:opacity-50 text-sm"
+                  >
+                    Próxima
+                  </button>
+                </div>
+              </div>
             </div>
           </section>
         </div>
@@ -683,8 +692,7 @@ export default function ProdutosServicosPage() {
                     setFornecedor(novoFornecedor);
                     setNovoFornecedor('');
                     setMostrarModalFornecedor(false);
-                    setMensagemSucesso('Fornecedor cadastrado com sucesso!');
-                    setTimeout(() => setMensagemSucesso(''), 3000);
+                    addToast('success', 'Fornecedor cadastrado com sucesso!');
                   }
                 }}
               >
@@ -697,6 +705,7 @@ export default function ProdutosServicosPage() {
           </div>
         </div>
       )}
-    </MenuLayout>
+      </MenuLayout>
+    </ToastProvider>
   );
 }
