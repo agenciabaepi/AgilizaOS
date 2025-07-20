@@ -12,6 +12,7 @@ interface UsuarioData {
   empresa_id: string;
   nome: string;
   email: string;
+  nivel: string;
 }
 interface EmpresaData {
   id: string;
@@ -44,6 +45,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const checkSession = async () => {
+      console.log('AuthContext: Iniciando checkSession')
       const {
         data: { session },
         error
@@ -56,12 +58,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (session) {
+        console.log('AuthContext: Sessão encontrada, usuário:', session.user.email)
         setSession(session);
         setUser(session.user);
 
         const { data: profileData, error: profileError } = await supabase
           .from('usuarios')
-          .select('empresa_id, nome, email')
+          .select('empresa_id, nome, email, nivel')
           .eq('auth_user_id', session.user.id)
           .maybeSingle();
 
@@ -120,8 +123,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setEmpresaData(empresaInfo);
         }
 
-
+        console.log('AuthContext: Carregamento concluído com sucesso')
+        setLoading(false);
       } else {
+        console.log('AuthContext: Nenhuma sessão encontrada')
         setLoading(false);
         return;
       }
@@ -183,6 +188,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
+    // Limpa o estado imediatamente para evitar flash
+    setUser(null);
+    setSession(null);
+    setUsuarioData(null);
+    setEmpresaData(null);
+    localStorage.removeItem("user");
+    
+    // Executa o logout do Supabase
     const { error } = await supabase.auth.signOut();
     if (error) {
       console.error('Erro ao sair:', error.message);

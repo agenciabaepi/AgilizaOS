@@ -19,71 +19,10 @@ import { ToastContainer } from 'react-toastify';
 import { Slide } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-import { Dialog, Transition } from '@headlessui/react';
-import { Fragment, useState as useStateFragment } from 'react';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 import MenuLayout from '@/components/MenuLayout';
 
-function ConfirmModal({ isOpen, onClose, onConfirm, clienteNome }) {
-  return (
-    <Transition appear show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={onClose}>
-        <Transition.Child
-          as="div"
-          enter="ease-out duration-300"
-          enterFrom="opacity-0"
-          enterTo="opacity-100"
-          leave="ease-in duration-200"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0"
-        >
-          {/* Fundo removido */}
-        </Transition.Child>
-
-        <div className="fixed inset-0 overflow-y-auto">
-          <div className="flex min-h-full items-center justify-center p-4">
-            <Transition.Child
-              as={Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0 scale-95"
-              enterTo="opacity-100 scale-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100 scale-100"
-              leaveTo="opacity-0 scale-95"
-            >
-              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-lg bg-white p-6 text-left shadow-xl transition-all">
-                <Dialog.Title className="text-lg font-medium text-gray-900">
-                  Confirmar Exclusão
-                </Dialog.Title>
-                <div className="mt-2">
-                  <p className="text-sm text-gray-500">
-                    Tem certeza que deseja excluir o cliente <span className="font-semibold">{clienteNome}</span>?
-                  </p>
-                </div>
-                <div className="mt-4 flex justify-end gap-2">
-                  <button
-                    type="button"
-                    className="inline-flex justify-center rounded-md border border-transparent bg-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-400"
-                    onClick={onClose}
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    className="inline-flex justify-center rounded-md border border-transparent bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-                    onClick={onConfirm}
-                  >
-                    Excluir
-                  </button>
-                </div>
-              </Dialog.Panel>
-            </Transition.Child>
-          </div>
-        </div>
-      </Dialog>
-    </Transition>
-  );
-}
 
 export default function ClientesPage() {
   const [busca, setBusca] = useState('');
@@ -102,7 +41,6 @@ export default function ClientesPage() {
   const limite = 10; // Número de clientes por página
   const [totalPaginas, setTotalPaginas] = useState(1);
 
-  const [modalOpen, setModalOpen] = useState(false);
   const [totalClientes, setTotalClientes] = useState(0);
   const [clientesMesAtual, setClientesMesAtual] = useState(0);
   const [clientesUltimos7Dias, setClientesUltimos7Dias] = useState(0);
@@ -168,7 +106,7 @@ export default function ClientesPage() {
       }
     }]
   };
-  const [clienteParaExcluir, setClienteParaExcluir] = useState<Cliente | null>(null);
+  const confirm = useConfirm();
 
   // Novos estados para modal de exclusão em massa
   const [modalExclusaoMassaOpen, setModalExclusaoMassaOpen] = useState(false);
@@ -208,22 +146,21 @@ export default function ClientesPage() {
     fetchClientes();
   }, [empresaData?.id]);
 
-  const solicitarExclusao = (cliente: Cliente) => {
-    setClienteParaExcluir(cliente);
-    setModalOpen(true);
-  };
-
-  const confirmarExclusao = async () => {
-    if (!clienteParaExcluir) return;
-
-    const { error } = await supabase.from('clientes').delete().eq('id', clienteParaExcluir.id);
+  const excluir = async (id: string, nome: string) => {
+    const ok = await confirm({
+      title: 'Confirmar Exclusão',
+      message: `Tem certeza que deseja excluir o cliente ${nome}?`,
+      confirmText: 'Excluir',
+      cancelText: 'Cancelar'
+    });
+    if (!ok) return;
+    const { error } = await supabase.from('clientes').delete().eq('id', id);
     if (error) {
       toast.error('Erro ao excluir cliente: ' + error.message);
     } else {
       toast.success('Cliente excluído com sucesso!');
-      setClientes(clientes.filter(c => c.id !== clienteParaExcluir.id));
+      setClientes(clientes.filter(c => c.id !== id));
     }
-    setModalOpen(false);
   };
 
   const clientesFiltrados = clientes.filter((c) =>
@@ -266,7 +203,7 @@ export default function ClientesPage() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-semibold text-gray-800">Clientes</h1>
         <Link
-          href={`/dashboard/clientes/novo?atendente=${usuario?.nome || ''}`}
+          href={`/clientes/novo?atendente=${usuario?.nome || ''}`}
           className="flex items-center gap-2 bg-[#cffb6d] text-black shadow-lg px-4 py-2 rounded-md hover:bg-[#e5ffa1] backdrop-blur-md"
         >
           <FiPlus className="w-6 h-6" />
@@ -446,7 +383,7 @@ export default function ClientesPage() {
                     </Link>
                     <button
                       className="text-red-600 hover:scale-110 transform transition"
-                      onClick={() => solicitarExclusao(c)}
+                      onClick={() => excluir(c.id, c.nome)}
                       title="Excluir cliente"
                     >
                       <FiTrash2 className="w-5 h-5 hover:text-gray-700" />
@@ -561,32 +498,8 @@ export default function ClientesPage() {
           transition={Slide}
           theme="colored"
         />
-        <ConfirmModal 
-          isOpen={modalOpen}
-          onClose={() => setModalOpen(false)}
-          onConfirm={confirmarExclusao}
-          clienteNome={clienteParaExcluir?.nome || ''}
-        />
+        
         {/* Modal para exclusão em massa */}
-        <ConfirmModal 
-          isOpen={modalExclusaoMassaOpen}
-          onClose={() => setModalExclusaoMassaOpen(false)}
-          onConfirm={async () => {
-            const { error } = await supabase
-              .from('clientes')
-              .delete()
-              .in('id', selecionados);
-            if (error) {
-              toast.error('Erro ao excluir clientes selecionados: ' + error.message);
-            } else {
-              toast.success('Clientes excluídos com sucesso!');
-              setClientes(clientes.filter(c => !selecionados.includes(c.id)));
-              setSelecionados([]);
-            }
-            setModalExclusaoMassaOpen(false);
-          }}
-          clienteNome={`${selecionados.length} cliente(s) selecionado(s)`}
-        />
       </div>
     </MenuLayout>
   );

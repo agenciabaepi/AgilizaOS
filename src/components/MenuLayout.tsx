@@ -2,6 +2,7 @@
 import { useRouter } from 'next/navigation';
 import { usePathname } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
+
 import Image from 'next/image';
 import logobranco from '@/assets/imagens/logobranco.png';
 import {
@@ -17,16 +18,39 @@ import {
 } from 'react-icons/fi';
 import { Toaster } from 'react-hot-toast';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { useAuth } from '@/context/AuthContext';
 
 export default function MenuLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const supabase = createClientComponentClient();
+  const { signOut } = useAuth();
 
+  const [userName, setUserName] = useState<string>('');
+  const [userLevel, setUserLevel] = useState<string>('');
   const [menuExpandido, setMenuExpandido] = useState<boolean | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const name = (user.user_metadata as { full_name?: string })?.full_name || user.email || '';
+        setUserName(name);
+        // fetch user level
+        const { data: profile } = await supabase
+          .from('usuarios')
+          .select('nivel')
+          .eq('id', user.id)
+          .single();
+        if (profile?.nivel) {
+          setUserLevel(profile.nivel);
+        }
+      }
+    })();
+  }, [supabase]);
 
   useEffect(() => {
     const stored = localStorage.getItem('menuExpandido') === 'true';
@@ -80,6 +104,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             placeholder="Buscar..."
             className="bg-transparent placeholder-white/60 text-white text-sm focus:outline-none w-36 sm:w-60"
           />
+          <span className="text-white text-sm ml-4">{userName}</span>
           <div className="relative">
             <FiBell
               className="text-white hover:text-[#cffb6d] cursor-pointer transition-colors"
@@ -121,11 +146,17 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             <SidebarButton path="#" icon={<FiDollarSign size={20} />} label="Financeiro" menuExpandido={menuExpandido} />
             <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" menuExpandido={menuExpandido} />
             <SidebarButton path="#" icon={<FiFileText size={20} />} label="Termos" menuExpandido={menuExpandido} />
-            <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" menuExpandido={menuExpandido} />
+            {userLevel !== 'atendente' && (
+              <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" menuExpandido={menuExpandido} />
+            )}
             <button
               onClick={async () => {
-                await supabase.auth.signOut();
-                router.push('/login');
+                try {
+                  await signOut();
+                  router.push('/login');
+                } catch (error) {
+                  console.error('Erro ao fazer logout:', error);
+                }
               }}
               className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out hover:bg-red-100 ${
                 menuExpandido ? '' : 'justify-center'

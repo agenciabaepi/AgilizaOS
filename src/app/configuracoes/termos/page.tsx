@@ -1,7 +1,7 @@
 'use client'
 
 import MenuLayout from '@/components/MenuLayout'
-import { DndContext, closestCenter } from '@dnd-kit/core'
+import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core'
 import {
   arrayMove,
   SortableContext,
@@ -10,7 +10,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useState } from 'react'
-import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
+import ProtectedRoute from '@/components/ProtectedRoute'
 
 const SortableItem = ({ id }: { id: string }) => {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id })
@@ -37,7 +37,7 @@ const termosIniciais = ['Padrão 90 dias', 'Extendido 6 meses', 'Sem garantia']
 export default function TermosPage() {
   const [termos, setTermos] = useState(termosIniciais)
 
-  function handleDragEnd(event: any) {
+  function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
     if (!over) return
 
@@ -46,32 +46,34 @@ export default function TermosPage() {
 
     if (active.id !== over.id) {
       setTermos((items) => {
-        const oldIndex = items.indexOf(active.id)
-        const newIndex = items.indexOf(over.id)
+        const oldIndex = items.indexOf(String(active.id))
+        const newIndex = items.indexOf(String(over.id))
         return arrayMove(items, oldIndex, newIndex)
       })
     }
   }
 
   return (
-    <MenuLayout>
-      <div className="px-6 py-8">
-        <h1 className="text-2xl font-bold text-gray-800">Termos de Garantia</h1>
-        <p className="mt-2 text-gray-600">Arraste para organizar a ordem de exibição dos termos:</p>
-        <div className="mt-6 max-w-xl">
-          <DndContext
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-            // modifiers={[restrictToVerticalAxis]}
-          >
-            <SortableContext items={termos} strategy={verticalListSortingStrategy}>
-              {termos.map((termo) => (
-                <SortableItem key={termo} id={termo} />
-              ))}
-            </SortableContext>
-          </DndContext>
+    <ProtectedRoute allowedLevels={['admin', 'tecnico', 'financeiro']}>
+      <MenuLayout>
+        <div className="px-6 py-8">
+          <h1 className="text-2xl font-bold text-gray-800">Termos de Garantia</h1>
+          <p className="mt-2 text-gray-600">Arraste para organizar a ordem de exibição dos termos:</p>
+          <div className="mt-6 max-w-xl">
+            <DndContext
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+              // modifiers={[restrictToVerticalAxis]}
+            >
+              <SortableContext items={termos} strategy={verticalListSortingStrategy}>
+                {termos.map((termo) => (
+                  <SortableItem key={termo} id={termo} />
+                ))}
+              </SortableContext>
+            </DndContext>
+          </div>
         </div>
-      </div>
-    </MenuLayout>
+      </MenuLayout>
+    </ProtectedRoute>
   )
 }

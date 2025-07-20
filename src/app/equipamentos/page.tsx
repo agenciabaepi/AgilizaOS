@@ -1,11 +1,12 @@
 // NOVO SISTEMA DE PRODUTOS E SERVIÇOS
 // NOVO SISTEMA DE PRODUTOS E SERVIÇOS
 'use client';
-import Select from 'react-select';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import MenuLayout from '@/components/MenuLayout';
 import { Button } from '@/components/Button';
 import React, { useEffect, useState } from 'react';
+import { useToast, ToastProvider } from '@/components/Toast';
 import { Chart, ArcElement, Tooltip, Legend } from 'chart.js';
 import {
   Chart as ChartJS,
@@ -14,13 +15,15 @@ import {
   Legend as Legend2,
   DoughnutController,
 } from 'chart.js';
+import Image from 'next/image';
+import { DataTable, Column } from '@/components/DataTable';
 
 ChartJS.register(ArcElement2, Tooltip2, Legend2, DoughnutController);
 import { useRef } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import { createBrowserSupabaseClient } from '@supabase/auth-helpers-nextjs';
-import { ArrowDownTrayIcon, TagIcon, CubeIcon, PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { TagIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '@/context/AuthContext';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 const supabase = createBrowserSupabaseClient();
 
@@ -61,8 +64,9 @@ export default function ProdutosServicosPage() {
   const [codigoBarras, setCodigoBarras] = useState('');
   const [abaSelecionada, setAbaSelecionada] = useState<'produto' | 'servico'>('produto');
   const [mensagemAviso, setMensagemAviso] = useState('');
-  const [mensagemSucesso, setMensagemSucesso] = useState('');
   const [carregando, setCarregando] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   // Novo estado para modal de fornecedor
   const [mostrarModalFornecedor, setMostrarModalFornecedor] = useState(false);
   const [novoFornecedor, setNovoFornecedor] = useState('');
@@ -70,6 +74,10 @@ export default function ProdutosServicosPage() {
   const [listaFornecedores, setListaFornecedores] = useState<{ id: string; nome: string }[]>([]);
   const [buscandoFornecedor, setBuscandoFornecedor] = useState(false);
   const [ativo, setAtivo] = useState(true);
+
+  const { addToast } = useToast();
+  const confirm = useConfirm();
+  const router = useRouter();
 
   Chart.register(ArcElement, Tooltip, Legend);
 
@@ -117,7 +125,13 @@ export default function ProdutosServicosPage() {
         .select("*")
         .eq("empresa_id", empresaId);
 
-      setLista(produtosServicosData || []);
+      // Sort by criado_em descending (newest first)
+      const sortedData = (produtosServicosData || []).slice().sort((a, b) => {
+        const aTime = new Date((b as any).criado_em).getTime();
+        const bTime = new Date((a as any).criado_em).getTime();
+        return aTime - bTime;
+      });
+      setLista(sortedData);
 
     } catch (erro) {
     } finally {
@@ -250,16 +264,15 @@ export default function ProdutosServicosPage() {
     setCodigoBarras('');
     setAtivo(true);
     buscar();
-    setMensagemSucesso('Item cadastrado com sucesso!');
-    setTimeout(() => setMensagemSucesso(''), 3000);
+    addToast('success', 'Item cadastrado com sucesso!');
   };
 
   const excluir = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir este item?')) return;
+    const ok = await confirm({ message: 'Tem certeza que deseja excluir este item?' });
+    if (!ok) return;
     await supabase.from('produtos_servicos').delete().eq('id', id);
     buscar();
-    setMensagemSucesso('Item excluído com sucesso!');
-    setTimeout(() => setMensagemSucesso(''), 3000);
+    addToast('success', 'Item excluído com sucesso!');
   };
 
   const iniciarEdicao = (item: ProdutoServico) => {
@@ -309,13 +322,127 @@ export default function ProdutosServicosPage() {
       setCodigoBarras('');
       setAtivo(true);
       buscar();
-      setMensagemSucesso('Item atualizado com sucesso!');
-      setTimeout(() => setMensagemSucesso(''), 3000);
+      addToast('success', 'Item atualizado com sucesso!');
     }
   };
 
+  // Filtro e paginação
+  const filtered = lista.filter(item => item.tipo === abaSelecionada);
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+  const startIndex = (page - 1) * pageSize;
+  const paginated = filtered.slice(startIndex, startIndex + pageSize);
+
+  // DataTable columns definition
+  const columns: Column<ProdutoServico>[] = [
+    { key: 'codigo', header: 'Código', width: 'w-16' },
+            ...(abaSelecionada === 'produto'
+      ? [{
+          key: 'imagens_url',
+          header: 'Imagem',
+          render: (row: any) =>
+            row.imagens_url?.[0]
+              ? (
+                <div className="w-10 h-10 rounded overflow-hidden">
+                  <Image 
+                    src={row.imagens_url[0]} 
+                    alt={row.nome} 
+                    width={40} 
+                    height={40} 
+                    className="object-cover w-full h-full"
+                    onError={(e) => {
+                      // Fallback para imagem quebrada
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      target.parentElement!.innerHTML = '<div class="w-10 h-10 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500">IMG</div>';
+                    }}
+                  />
+                </div>
+              )
+              : '-'
+        }]
+      : []),
+    {
+      key: 'nome',
+      header: 'Nome',
+      render: row => (
+        <div>
+          <div className="font-semibold">{row.nome}</div>
+          {row.descricao && <div className="text-xs text-gray-500">{row.descricao}</div>}
+        </div>
+      )
+    },
+    {
+      key: 'tipo',
+      header: 'Tipo',
+      render: row => <span className="capitalize">{row.tipo}</span>
+    },
+    {
+      key: 'situacao',
+      header: 'Status',
+      render: row => (
+        <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
+          row.situacao === 'Ativo' ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-500'
+        }`}>{row.situacao || '-'}</span>
+      )
+    },
+    {
+      key: 'preco',
+      header: 'Preço',
+      render: row => `R$ ${row.preco.toFixed(2)}`
+    },
+    ...(abaSelecionada === 'produto'
+      ? [
+          {
+            key: 'estoque_atual',
+            header: 'Estoque',
+            render: row => (
+              <span>
+                {row.tipo === 'produto' ? (
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={
+                        "font-semibold " +
+                        (
+                          row.estoque_atual !== null && row.estoque_minimo !== null
+                            ? row.estoque_atual < row.estoque_minimo
+                              ? 'text-red-600'
+                              : row.estoque_atual <= row.estoque_minimo * 1.2
+                                ? 'text-yellow-600'
+                                : 'text-green-600'
+                            : ''
+                        )
+                      }
+                    >
+                      {row.estoque_atual}
+                    </span>
+                    {row.estoque_atual !== null && row.estoque_minimo !== null && (
+                      <>
+                        {row.estoque_atual < row.estoque_minimo && (
+                          <span className="text-xs text-red-800 bg-red-100 px-2 py-0.5 rounded-full">Estoque baixo</span>
+                        )}
+                        {row.estoque_atual >= row.estoque_minimo && row.estoque_atual <= row.estoque_minimo * 1.2 && (
+                          <span className="text-xs text-yellow-800 bg-yellow-100 px-2 py-0.5 rounded-full">Estoque próximo</span>
+                        )}
+                        {row.estoque_atual > row.estoque_minimo * 1.2 && (
+                          <span className="text-xs text-green-800 bg-green-100 px-2 py-0.5 rounded-full">Estoque OK</span>
+                        )}
+                      </>
+                    )}
+                  </div>
+                ) : '-'}
+              </span>
+            )
+          },
+          { key: 'unidade', header: 'Unidade' },
+          { key: 'fornecedor', header: 'Fornecedor' },
+          { key: 'codigo_barras', header: 'Código Barras' },
+        ]
+      : []),
+  ];
+
   return (
-    <MenuLayout>
+    <ToastProvider>
+      <MenuLayout>
       {/* Mensagem de erro de log, se houver */}
       {logErro && (
         <div className="bg-red-100 text-red-700 p-4 rounded mb-6 font-mono text-xs whitespace-pre-wrap">
@@ -325,9 +452,6 @@ export default function ProdutosServicosPage() {
       <div className="py-10 px-6 bg-gray-50 min-h-screen">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">Cadastro de Produtos e Serviços</h1>
-          <Link href="/equipamentos/novo">
-            <Button>+ Novo Produto</Button>
-          </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -344,11 +468,6 @@ export default function ProdutosServicosPage() {
         {mensagemAviso && (
           <div className="mb-4 p-3 text-sm text-black bg-[#cffb6d] rounded">
             {mensagemAviso}
-          </div>
-        )}
-        {mensagemSucesso && (
-          <div className="mb-4 p-3 text-sm text-green-800 bg-green-100 rounded border border-green-300">
-            {mensagemSucesso}
           </div>
         )}
 
@@ -395,22 +514,34 @@ export default function ProdutosServicosPage() {
                   Serviços
                 </button>
               </div>
+
+              {/* Novo Produto button above search */}
+              <div className="flex-1 flex justify-end mb-2">
+                <Link href="/equipamentos/novo">
+                  <Button>+ Novo Produto</Button>
+                </Link>
+              </div>
+
               <div className="relative w-full md:w-72">
                 <input
                   type="text"
                   placeholder="Pesquisar item..."
                   className="w-full border border-gray-300 rounded-full px-4 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[#cffb6d]"
                   onChange={(e) => {
-                    const termo = e.target.value.toLowerCase();
-                    if (termo.trim() === '') {
+                    const search = e.target.value;
+                    if ((search ?? '').trim() === '') {
                       buscar(); // Recarrega todos os itens se o campo estiver vazio
                     } else {
-                      setLista((anterior) =>
-                        anterior.filter((item) =>
-                          item.nome.toLowerCase().includes(termo) ||
-                          item.descricao.toLowerCase().includes(termo)
-                        )
-                      );
+                      setLista((produtos) => {
+                        const filtered = produtos.filter(
+                          (prod) =>
+                            (prod.nome ?? '').toLowerCase().includes((search ?? '').toLowerCase()) ||
+                            (prod.categoria ?? '').toLowerCase().includes((search ?? '').toLowerCase()) ||
+                            (prod.codigo_barras ?? '').toLowerCase().includes((search ?? '').toLowerCase()) ||
+                            (prod.marca ?? '').toLowerCase().includes((search ?? '').toLowerCase())
+                        );
+                        return filtered;
+                      });
                     }
                   }}
                 />
@@ -426,124 +557,16 @@ export default function ProdutosServicosPage() {
               </div>
             </div>
 
+            
+
             <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-100 text-left">
-                    <th className="px-4 py-2 font-medium text-gray-700">Código</th>
-                    <th className="px-4 py-2 font-medium text-gray-700">Nome</th>
-                    <th className="px-4 py-2 font-medium text-gray-700">Tipo</th>
-                    <th className="px-4 py-2 font-medium text-gray-700">Status</th>
-                    <th className="px-4 py-2 font-medium text-gray-700">Preço</th>
-                    <th className="px-4 py-2 font-medium text-gray-700">Custo</th>
-                    {abaSelecionada === 'produto' && (
-                      <>
-                        <th className="px-4 py-2 font-medium text-gray-700">Estoque</th>
-                        <th className="px-4 py-2 font-medium text-gray-700">Est. Mín.</th>
-                        <th className="px-4 py-2 font-medium text-gray-700">Unidade</th>
-                      </>
-                    )}
-                    <th className="px-4 py-2 font-medium text-gray-700">Fornecedor</th>
-                    <th className="px-4 py-2 font-medium text-gray-700">Código Barras</th>
-                    <th className="px-4 py-2 font-medium text-gray-700">Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lista
-                    .filter(item => item.tipo === abaSelecionada)
-                    .map((item) => (
-                      <tr key={item.id} className="border-t">
-                        <td className="px-4 py-2 text-xs text-gray-700">{item.codigo}</td>
-                        <td className="px-4 py-2">
-                          <div className="font-semibold">{item.nome}</div>
-                          {item.descricao && <div className="text-xs text-gray-500">{item.descricao}</div>}
-                        </td>
-                        <td className="px-4 py-2 capitalize">{item.tipo}</td>
-                        <td className="px-4 py-2">
-                          <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                            item.ativo ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-500'
-                          }`}>
-                            {item.ativo ? 'Ativo' : 'Inativo'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2">R$ {item.preco.toFixed(2)}</td>
-                        <td className="px-4 py-2">R$ {item.custo?.toFixed(2) ?? '-'}</td>
-                        {abaSelecionada === 'produto' && (
-                          <>
-                            <td className="px-4 py-2">
-                              {item.tipo === 'produto' ? (
-                                <div className="flex items-center gap-2">
-                                  <span
-                                    className={`
-                                      font-semibold
-                                      ${
-                                        item.estoque_atual !== null && item.estoque_minimo !== null
-                                          ? item.estoque_atual < item.estoque_minimo
-                                            ? 'text-red-600'
-                                            : item.estoque_atual <= item.estoque_minimo * 1.2
-                                              ? 'text-yellow-600'
-                                              : 'text-green-600'
-                                          : ''
-                                      }
-                                    `}
-                                  >
-                                    {item.estoque_atual}
-                                  </span>
-                                  {item.estoque_atual !== null && item.estoque_minimo !== null && (
-                                    <>
-                                      {item.estoque_atual < item.estoque_minimo && (
-                                        <span className="text-xs text-red-800 bg-red-100 px-2 py-0.5 rounded-full">Estoque baixo</span>
-                                      )}
-                                      {item.estoque_atual >= item.estoque_minimo && item.estoque_atual <= item.estoque_minimo * 1.2 && (
-                                        <span className="text-xs text-yellow-800 bg-yellow-100 px-2 py-0.5 rounded-full">Estoque próximo</span>
-                                      )}
-                                      {item.estoque_atual > item.estoque_minimo * 1.2 && (
-                                        <span className="text-xs text-green-800 bg-green-100 px-2 py-0.5 rounded-full">Estoque OK</span>
-                                      )}
-                                    </>
-                                  )}
-                                </div>
-                              ) : '-'}
-                            </td>
-                            <td className="px-4 py-2">{item.tipo === 'produto' ? item.estoque_minimo : '-'}</td>
-                            <td className="px-4 py-2">{item.tipo === 'produto' ? item.unidade : '-'}</td>
-                          </>
-                        )}
-                        <td className="px-4 py-2">
-                          {item.tipo === 'produto'
-                            ? listaFornecedores.find((f) => f.id === item.fornecedor)?.nome || '-'
-                            : '-'}
-                        </td>
-                        <td className="px-4 py-2">{item.tipo === 'produto' ? item.codigo_barras ?? '-' : '-'}</td>
-                        <td className="px-4 py-2">
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => iniciarEdicao(item)}
-                              className="group p-1 rounded hover:bg-[#cffb6d]/20 transition"
-                              title="Editar"
-                            >
-                              <PencilSquareIcon className="h-4 w-4 text-black group-hover:text-[#cffb6d]" />
-                            </button>
-                            <button
-                              onClick={() => excluir(item.id)}
-                              className="group p-1 rounded hover:bg-red-100 transition"
-                              title="Excluir"
-                            >
-                              <TrashIcon className="h-4 w-4 text-black group-hover:text-red-600" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  {lista.filter(item => item.tipo === abaSelecionada).length === 0 && (
-                  <tr>
-                    <td colSpan={abaSelecionada === 'produto' ? 12 : 8} className="px-4 py-4 text-center text-gray-400 italic">
-                      Nenhum item cadastrado.
-                    </td>
-                  </tr>
-                  )}
-                </tbody>
-              </table>
+            <DataTable
+  columns={columns}
+  data={paginated}
+  rowKey="id"
+  onEdit={row => router.push(`/equipamentos/novo?produtoId=${row.id}`)}
+  onDelete={row => excluir(row.id)}
+/>
             </div>
           </section>
         </div>
@@ -620,8 +643,7 @@ export default function ProdutosServicosPage() {
                     setFornecedor(novoFornecedor);
                     setNovoFornecedor('');
                     setMostrarModalFornecedor(false);
-                    setMensagemSucesso('Fornecedor cadastrado com sucesso!');
-                    setTimeout(() => setMensagemSucesso(''), 3000);
+                    addToast('success', 'Fornecedor cadastrado com sucesso!');
                   }
                 }}
               >
@@ -634,6 +656,7 @@ export default function ProdutosServicosPage() {
           </div>
         </div>
       )}
-    </MenuLayout>
+      </MenuLayout>
+    </ToastProvider>
   );
 }

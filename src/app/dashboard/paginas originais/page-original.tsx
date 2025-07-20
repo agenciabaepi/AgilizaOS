@@ -2,18 +2,25 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
+
 import React, { useEffect, useState, useId } from 'react';
+import { useRouter } from "next/navigation";
+import clsx from "clsx";
 import MenuLayout from '@/components/MenuLayout';
 import { format } from 'date-fns';
 import { toast, ToastContainer } from 'react-toastify';
+// Função para criar uma nova coluna
+// Precisa de acesso ao user, então será definida dentro do componente DashboardPage
+
+// Função para remover uma coluna
+// Também depende de empresa_id, então será definida dentro do componente DashboardPage
 import 'react-toastify/dist/ReactToastify.css';
 import {
   DndContext,
   closestCenter,
   PointerSensor,
   useSensor,
-  useSensors,
-  DragEndEvent
+  useSensors
 } from '@dnd-kit/core';
 import {
   arrayMove,
@@ -23,124 +30,76 @@ import {
   horizontalListSortingStrategy
 } from '@dnd-kit/sortable';
 import {CSS} from '@dnd-kit/utilities';
-import { Book, Pencil, Move } from 'lucide-react';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { Line } from 'react-chartjs-2';
+import { Book, Pencil, AlertTriangle, Circle, CheckCircle, Trash } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+  // Função para formatar data (pode ser ajustada conforme necessidade)
+  function formatarData(data: string) {
+    try {
+      return format(new Date(data), 'dd/MM/yyyy');
+    } catch {
+      return '';
+    }
+  }
+import { useSupabase } from '@/context/AuthContext';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useAuth } from '@/context/AuthContext';
 import ClientOnly from '@/components/ClientOnly';
 import { v4 as uuidv4 } from 'uuid';
 
-// Função para formatar data (pode ser ajustada conforme necessidade)
-function formatarData(data: string) {
-  try {
-    return format(new Date(data), 'dd/MM/yyyy');
-  } catch {
-    return '';
-  }
-}
-
-// Tipo para nota
-interface Nota {
-  id: string;
-  titulo: string;
-  texto: string;
-  cor: string;
-  coluna: string;
-  prioridade: string;
-  data_criacao: string;
-  pos_x: number;
-  pos_y: number;
-  empresa_id: string;
-  responsavel: string;
-}
-
-// Tipo para nota em edição
-interface NotaEditando {
-  id: string;
-  titulo: string;
-  texto: string;
-  cor: string;
-  coluna: string;
-  prioridade: string;
-  data: string;
-  data_criacao: string;
-}
-
-// Tipo para nota selecionada
-interface NotaSelecionada {
-  id: string;
-  titulo: string;
-  texto: string;
-  cor: string;
-  coluna: string;
-  prioridade: string;
-}
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 export default function DashboardPage() {
   // Use o contexto de autenticação
   const { session, user, usuarioData, empresaData } = useAuth();
   const empresa_id = empresaData?.id;
   const supabase = useSupabaseClient();
-
-  // Função para buscar colunas do banco
-  const fetchColunas = async () => {
-    if (!empresa_id) return;
-    const { data, error } = await supabase
-      .from('colunas_dashboard')
-      .select('nome')
-      .eq('empresa_id', empresa_id)
-      .order('posicao', { ascending: true });
-    if (!error && data && data.length > 0) {
-      setColunas(data.map((c) => c.nome));
-    }
-  };
+  const router = useRouter();
 
   // Função para criar uma nova coluna (agora dentro do componente, com acesso ao user)
-  const criarColuna = async (titulo: string) => {
-    // Usar empresa_id do contexto de autenticação
-    if (!empresa_id) {
+  const criarColuna = async (titulo: string, cor: string = "#cffb6d") => {
+    // Obter empresa_id do usuário autenticado
+    const empresa_id_local = user?.user_metadata?.empresa_id;
+    if (!empresa_id_local) {
       toast.error("Erro: empresa não identificada.");
       return;
     }
     if (!titulo) return;
-    
-    const colunaData = {
-      nome: titulo,
-      empresa_id: empresa_id,
-      posicao: colunas.length, // Adiciona a nova coluna no final
-    };
-    
-    console.log('Tentando criar coluna com dados:', colunaData);
-    console.log('Empresa ID:', empresa_id);
-    console.log('User ID:', user?.id);
-    
     try {
       const { data, error } = await supabase
         .from("colunas_dashboard")
-        .insert([colunaData])
-        .select();
+        .insert([
+          {
+            titulo,
+            cor,
+            empresa_id,
+            criado_por: user?.id || null,
+          },
+        ]);
 
       if (error) {
-        console.error('Erro ao criar coluna:', error);
-        console.error('Tipo do erro:', typeof error);
-        console.error('String do erro:', JSON.stringify(error, null, 2));
-        console.error('Detalhes do erro:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-        toast.error(`Erro ao criar coluna: ${error.message || 'Erro desconhecido'}`);
+        // erro silencioso
+        // toast.error('Erro ao criar coluna: ' + JSON.stringify(error));
       } else {
-        console.log('Coluna criada com sucesso:', data);
         toast.success("Coluna criada com sucesso!");
+        // setTitulo(""); // Se você tiver esse estado, descomente
+        // setCor("#cffb6d"); // Se você tiver esse estado, descomente
         await fetchColunas();
       }
-    } catch (err) {
-      console.error("Erro inesperado ao criar coluna:", err);
-      console.error("Tipo do erro:", typeof err);
-      console.error("String do erro:", JSON.stringify(err, null, 2));
-      toast.error(`Erro inesperado ao criar coluna: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+    } catch (err: any) {
+      // erro silencioso
+      // console.error("Erro inesperado ao criar coluna:", err?.message || err);
+      // toast.error("Erro inesperado ao criar coluna.");
     }
   };
 
@@ -158,14 +117,27 @@ export default function DashboardPage() {
       toast.error("Erro ao excluir coluna.");
     }
   };
+  // Função para marcar nota como concluída
+  const marcarComoConcluido = async (id: string, valor: boolean) => {
+    console.log("Atualizando:", { id, valor });
 
+    const { error } = await supabase
+      .from('notas_dashboard')
+      .update({ concluido: valor })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Erro ao marcar como concluído:', error.message);
+    } else {
+      router.refresh();
+    }
+  };
   // Estado para notas e colunas
-  const [notes, setNotes] = useState<Nota[]>([]);
+  const [notes, setNotes] = useState<any[]>([]);
+  const [notaParaExcluir, setNotaParaExcluir] = useState<any | null>(null);
   // Estado dinâmico das colunas
-  const [colunas, setColunas] = useState<string[]>([]);
+  const [colunas, setColunas] = useState<string[]>(['compras', 'avisos', 'lembretes']);
   const [carregando, setCarregando] = useState(true);
-  // Estado para modal de edição de coluna
-  const [modalColunaAberta, setModalColunaAberta] = useState<null | { index: number, valor: string }>(null);
 
   // Carregando depende de usuarioData
   useEffect(() => {
@@ -174,6 +146,18 @@ export default function DashboardPage() {
 
   // Buscar colunas salvas do banco ao carregar empresa_id
   useEffect(() => {
+    const fetchColunas = async () => {
+      if (!empresa_id) return;
+      // Busca colunas_dashboard do supabase
+      const { data, error } = await supabase
+        .from('colunas_dashboard')
+        .select('nome')
+        .eq('empresa_id', empresa_id)
+        .order('posicao', { ascending: true });
+      if (!error && data && data.length > 0) {
+        setColunas(data.map((c) => c.nome));
+      }
+    };
     fetchColunas();
   }, [empresa_id, supabase]);
 
@@ -195,46 +179,14 @@ export default function DashboardPage() {
   // Salvar colunas no banco
   const salvarColunasNoBanco = async (colunas: string[]) => {
     if (!empresa_id) return;
-    
-    console.log('Salvando colunas no banco:', colunas);
-    
-    try {
-      // Primeiro, busca as colunas existentes
-      const { data: colunasExistentes, error: erroBusca } = await supabase
-        .from('colunas_dashboard')
-        .select('id, nome')
-        .eq('empresa_id', empresa_id);
-        
-      if (erroBusca) {
-        console.error('Erro ao buscar colunas existentes:', erroBusca);
-        toast.error('Erro ao atualizar ordem das colunas');
-        return;
-      }
-      
-      // Atualiza a posição de cada coluna
-      for (let i = 0; i < colunas.length; i++) {
-        const nomeColuna = colunas[i];
-        const colunaExistente = colunasExistentes?.find(c => c.nome === nomeColuna);
-        
-        if (colunaExistente) {
-          const { error: erroUpdate } = await supabase
-            .from('colunas_dashboard')
-            .update({ posicao: i })
-            .eq('id', colunaExistente.id);
-            
-          if (erroUpdate) {
-            console.error('Erro ao atualizar posição da coluna:', erroUpdate);
-            toast.error('Erro ao atualizar ordem das colunas');
-            return;
-          }
-        }
-      }
-      
-      console.log('Ordem das colunas atualizada com sucesso');
-    } catch (err) {
-      console.error('Erro inesperado ao salvar colunas:', err);
-      toast.error('Erro ao atualizar ordem das colunas');
-    }
+    const colunasParaSalvar = colunas.map((nome, index) => ({
+      nome,
+      posicao: index,
+      empresa_id: empresa_id,
+    }));
+    // Limpa colunas antigas e insere as novas
+    await supabase.from('colunas_dashboard').delete().eq('empresa_id', empresa_id);
+    await supabase.from('colunas_dashboard').insert(colunasParaSalvar);
   };
 
   // Função para atualizar o título da coluna localmente (chamada no onChange do input)
@@ -247,46 +199,28 @@ export default function DashboardPage() {
   };
 
   // Função para salvar o título da coluna no banco (chamada no onBlur do input)
-  const salvarTituloColuna = async (index: number, novoNome: string) => {
+  const salvarTituloColuna = async (index: number) => {
+    // Buscar o nome antigo e o id da coluna no banco
+    const nomeAntigo = colunas[index];
     if (!empresa_id) return;
-    
-    const nomeAtual = colunas[index];
-    
-    console.log('Salvando título da coluna:', { index, nomeAtual, novoNome, empresa_id });
-    
-    // Busca o id da coluna pelo nome atual e empresa_id
+    // Busca o id da coluna pelo nome antigo e empresa_id
     const { data, error } = await supabase
       .from('colunas_dashboard')
-      .select('id, nome')
+      .select('id')
       .eq('empresa_id', empresa_id)
-      .eq('nome', nomeAtual)
+      .eq('posicao', index)
       .maybeSingle();
-      
-    console.log('Resultado da busca:', { data, error });
-      
     if (data && data.id) {
-      const nomeAntigo = data.nome;
-      console.log('Coluna encontrada:', { id: data.id, nomeAntigo, novoNome });
-      await editarColuna(data.id, novoNome, nomeAntigo);
+      await editarColuna(data.id, colunas[index], nomeAntigo);
+      // Salva colunas no banco após alteração
+      salvarColunasNoBanco(colunas);
     } else {
-      console.error('Coluna não encontrada para renomear:', { nomeAtual, empresa_id, data, error });
-      
-      // Vamos tentar buscar todas as colunas para debug
-      const { data: todasColunas, error: erroTodas } = await supabase
-        .from('colunas_dashboard')
-        .select('id, nome, empresa_id')
-        .eq('empresa_id', empresa_id);
-        
-      console.log('Todas as colunas da empresa:', { todasColunas, erroTodas });
-      
       toast.error('Coluna não encontrada para renomear');
     }
   };
 
-  // Função dedicada para atualizar o nome da coluna e salvar no banco, atualizando também as notas
+// Função dedicada para atualizar o nome da coluna e salvar no banco, atualizando também as notas
   const editarColuna = async (colunaId: string, novoNome: string, nomeAntigo: string) => {
-    console.log('Editando coluna:', { colunaId, novoNome, nomeAntigo });
-    
     // Atualiza o nome da coluna
     const { error: colunaError } = await supabase
       .from('colunas_dashboard')
@@ -294,12 +228,9 @@ export default function DashboardPage() {
       .eq('id', colunaId);
 
     if (colunaError) {
-      console.error('Erro ao renomear a coluna:', colunaError);
-      toast.error(`Erro ao renomear a coluna: ${colunaError.message}`);
+      toast.error('Erro ao renomear a coluna');
       return;
     }
-
-    console.log('Nome da coluna atualizado com sucesso');
 
     // Atualiza o nome da coluna em todas as notas_dashboard relacionadas
     const { error: notasError } = await supabase
@@ -308,14 +239,11 @@ export default function DashboardPage() {
       .eq('coluna', nomeAntigo);
 
     if (notasError) {
-      console.error('Erro ao atualizar as notas:', notasError);
-      toast.error(`Erro ao atualizar as notas: ${notasError.message}`);
+      toast.error('Erro ao atualizar as notas');
       return;
     }
 
-    console.log('Notas atualizadas com sucesso');
     toast.success('Coluna e notas atualizadas com sucesso!');
-    
     // Atualiza localmente
     setColunas((prev) => {
       const atualizado = [...prev];
@@ -330,6 +258,29 @@ export default function DashboardPage() {
     );
   };
 
+// Função antiga para compatibilidade e uso no EditableColunaNome
+  const atualizarNomeColuna = async (index: number, novoNome: string) => {
+    // Buscar o nome antigo e o id da coluna no banco
+    const nomeAntigo = colunas[index];
+    if (!empresa_id) return;
+    // Busca o id da coluna pelo nome antigo e empresa_id
+    const { data, error } = await supabase
+      .from('colunas_dashboard')
+      .select('id')
+      .eq('empresa_id', empresa_id)
+      .eq('nome', nomeAntigo)
+      .maybeSingle();
+    if (data && data.id) {
+      await editarColuna(data.id, novoNome, nomeAntigo);
+      // Salva colunas no banco após alteração
+      const novasColunas = [...colunas];
+      novasColunas[index] = novoNome;
+      salvarColunasNoBanco(novasColunas);
+    } else {
+      toast.error('Coluna não encontrada para renomear');
+    }
+  };
+
   // Modal de nova nota/edição de nota
   const [showModal, setShowModal] = useState(false);
   const [novaNota, setNovaNota] = useState({
@@ -340,10 +291,28 @@ export default function DashboardPage() {
     prioridade: 'Média',
   });
   // Estado para nota em edição
-  const [notaEditando, setNotaEditando] = useState<NotaEditando | null>(null);
+  const [notaEditando, setNotaEditando] = useState<any | null>(null);
 
+  // --- Modal de edição de nota (exemplo de integração de "EditarNotaModal") ---
   // Estados para modal de edição e nota selecionada
-  const [notaSelecionada, setNotaSelecionada] = useState<NotaSelecionada | null>(null);
+  const [showEditarModal, setShowEditarModal] = useState(false);
+  const [notaSelecionada, setNotaSelecionada] = useState<any | null>(null);
+
+  // Nova função handleDeleteNota conforme solicitado
+  const handleDeleteNota = async () => {
+    if (!notaSelecionada) return
+
+    try {
+      await deleteNota(notaSelecionada.id)
+      setNotaSelecionada(null)
+      setShowEditModal(false)
+      toast.dismiss()
+      toast.success("Nota excluída com sucesso!")
+    } catch (error) {
+      console.error("Erro ao excluir nota:", error)
+      toast.error("Erro ao excluir nota.")
+    }
+  };
 
   // Função para criar ou atualizar nota
   const salvarOuAtualizarNota = async () => {
@@ -356,53 +325,39 @@ export default function DashboardPage() {
     if (!nota || !nota.id) {
       // Criar nova nota
       const novaNotaObj = {
-        id: uuidv4(),
-        titulo: novaNota.titulo,
-        texto: novaNota.texto,
-        cor: novaNota.cor,
-        coluna: novaNota.coluna,
-        prioridade: novaNota.prioridade,
+        ...novaNota,
+        id: uuidv4(), // Certifique-se de importar uuid
         empresa_id: empresaId,
         responsavel: session?.user?.email ?? '',
         data_criacao: new Date().toISOString(),
         pos_x: 0,
         pos_y: 0,
       };
-      
-      console.log('Tentando criar nota com dados:', novaNotaObj);
-      console.log('Empresa ID:', empresaId);
-      console.log('Session user:', session?.user);
-      
+      // Adiciona o console.log antes do insert
+      console.log('Dados a serem salvos:', novaNotaObj);
+      // Salve a nova nota aqui usando a lógica apropriada
       try {
-        const { data, error: erroNota } = await supabase
-          .from('notas_dashboard')
-          .insert([novaNotaObj])
-          .select();
-          
+        const { error: erroNota } = await supabase.from('notas_dashboard').insert([{
+          ...novaNotaObj,
+          texto: novaNotaObj.texto,
+        }]);
         if (erroNota) {
-          console.error('Erro ao salvar nota:', erroNota);
-          console.error('Tipo do erro:', typeof erroNota);
-          console.error('String do erro:', JSON.stringify(erroNota, null, 2));
-          console.error('Detalhes do erro:', {
-            message: erroNota.message,
-            details: erroNota.details,
-            hint: erroNota.hint,
-            code: erroNota.code
-          });
-          toast.error(`Erro ao salvar nota: ${erroNota.message || 'Erro desconhecido'}`);
+          console.error('Erro ao salvar nota:', erroNota.message, erroNota.details, erroNota.hint);
+          toast.error('Erro ao salvar nota.');
           return;
         }
-        
-        console.log('Nota criada com sucesso:', data);
-        
         // Adiciona a nota localmente para atualização imediata na UI
-        setNotes((prev) => [novaNotaObj as Nota, ...prev]);
+        setNotes((prev) => [
+          {
+            ...novaNotaObj,
+            texto: novaNotaObj.texto,
+          },
+          ...prev,
+        ]);
         toast.success("Nota criada com sucesso!");
       } catch (err) {
         console.error("Erro ao criar nota:", err);
-        console.error("Tipo do erro:", typeof err);
-        console.error("String do erro:", JSON.stringify(err, null, 2));
-        toast.error(`Erro ao criar nota: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+        toast.error('Erro ao criar nota.');
       }
       setShowModal(false);
       setNovaNota({ titulo: '', texto: '', cor: 'bg-yellow-500', coluna: 'lembretes', prioridade: 'Média' });
@@ -411,41 +366,41 @@ export default function DashboardPage() {
     }
 
     // Atualização usando o padrão requisitado
-    const dadosNota = {
+    const notaAtual = {
+      id: notaEditando.id,
       titulo: novaNota.titulo,
       texto: novaNota.texto,
       prioridade: novaNota.prioridade,
       cor: novaNota.cor,
+      concluido: notaEditando.concluido ?? false,
+      data: notaEditando.data ?? notaEditando.data_criacao,
       coluna: novaNota.coluna,
     };
+    const { id, data, ...dadosNota } = notaAtual;
+    if (!id) {
+      // Nunca deve ocorrer aqui, mas por segurança
+      console.error("ID da nota está ausente. Impossível atualizar.");
+      return;
+    }
 
-    console.log('Tentando atualizar nota com dados:', dadosNota);
-    console.log('ID da nota:', notaEditando.id);
-
+    // Adiciona o console.log antes do update
+    console.log('Dados a serem salvos:', dadosNota);
     try {
-      const { data, error: erroNota } = await supabase
+      const { error: erroNota } = await supabase
         .from("notas_dashboard")
         .update(dadosNota)
-        .eq("id", notaEditando.id)
-        .select();
+        .eq("id", id)
+        .throwOnError();
 
       if (erroNota) {
-        console.error('Erro ao salvar nota:', erroNota);
-        console.error('Tipo do erro:', typeof erroNota);
-        console.error('String do erro:', JSON.stringify(erroNota, null, 2));
-        console.error('Detalhes do erro:', {
-          message: erroNota.message,
-          details: erroNota.details,
-          hint: erroNota.hint,
-          code: erroNota.code
-        });
-        toast.error(`Erro ao atualizar nota: ${erroNota.message || 'Erro desconhecido'}`);
+        console.error('Erro ao salvar nota:', erroNota.message, erroNota.details, erroNota.hint);
+        toast.error('Erro ao atualizar nota.');
       } else {
-        console.log("Nota atualizada com sucesso:", data);
+        console.log("Nota atualizada com sucesso!");
         toast.success("Nota atualizada com sucesso!");
         setNotes((prev) =>
           prev.map((n) =>
-            n.id === notaEditando.id
+            n.id === id
               ? {
                   ...n,
                   titulo: novaNota.titulo,
@@ -453,7 +408,8 @@ export default function DashboardPage() {
                   cor: novaNota.cor,
                   prioridade: novaNota.prioridade,
                   coluna: novaNota.coluna,
-
+                  concluido: notaEditando.concluido ?? false,
+                  data: notaEditando.data ?? notaEditando.data_criacao,
                 }
               : n
           )
@@ -461,9 +417,7 @@ export default function DashboardPage() {
       }
     } catch (err) {
       console.error("Erro ao atualizar nota:", err);
-      console.error("Tipo do erro:", typeof err);
-      console.error("String do erro:", JSON.stringify(err, null, 2));
-      toast.error(`Erro ao atualizar nota: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+      toast.error('Erro ao atualizar nota.');
     }
 
     setShowModal(false);
@@ -471,63 +425,81 @@ export default function DashboardPage() {
     setNotaEditando(null);
   };
 
+
+  const data = {
+    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+    datasets: [
+      {
+        label: 'OS Criadas',
+        data: [12, 15, 18, 16, 20, 24],
+        borderColor: '#1860fa',
+        backgroundColor: 'rgba(24, 96, 250, 0.2)',
+      },
+    ],
+  };
+
+  const options = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'top' as const,
+      },
+      title: {
+        display: false,
+      },
+    },
+  };
+
+  // Notas fixas para drag and drop
+
   const sensors = useSensors(useSensor(PointerSensor));
 
   // Função para lidar com o fim do drag and drop (localizada)
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const handleDragEnd = async (event: any) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-
-    console.log('Drag end - Active:', active.id, 'Over:', over.id);
 
     const isColuna = (id: string) => String(id).startsWith('coluna-');
 
     // Mover coluna
-    if (isColuna(String(active.id)) && isColuna(String(over.id))) {
-      console.log('Movendo coluna');
-      const activeIndex = colunas.findIndex((c) => `coluna-${c}` === String(active.id));
-      const overIndex = colunas.findIndex((c) => `coluna-${c}` === String(over.id));
-      
-      console.log('Índices - Active:', activeIndex, 'Over:', overIndex);
-      
+    if (isColuna(active.id) && isColuna(over.id)) {
+      const activeIndex = colunas.findIndex((c) => `coluna-${c}` === active.id);
+      const overIndex = colunas.findIndex((c) => `coluna-${c}` === over.id);
       if (activeIndex !== -1 && overIndex !== -1) {
         const novasColunas = arrayMove(colunas, activeIndex, overIndex);
-        console.log('Nova ordem das colunas:', novasColunas);
         setColunas(novasColunas);
-        await salvarColunasNoBanco(novasColunas);
-      } else {
-        console.error('Índices inválidos para mover coluna');
+        salvarColunasNoBanco(novasColunas);
       }
       return;
     }
 
     // Novo bloco: tratar movimentação entre colunas explicitamente
-    if (!isColuna(String(active.id)) && !isColuna(String(over.id))) {
-      const notaMovida = notes.find((n) => n.id === String(active.id));
-      const notaAlvo = notes.find((n) => n.id === String(over.id));
+    if (!isColuna(active.id) && !isColuna(over.id)) {
+      const notaMovida = notes.find((n) => n.id === active.id);
+      const notaAlvo = notes.find((n) => n.id === over.id);
 
       if (!notaMovida || !notaAlvo) return;
 
       const novaColuna = notaAlvo.coluna;
 
       // Atualiza a coluna da nota movida (caso tenha mudado)
-      const novaNotaMovida = { ...notaMovida, coluna: novaColuna };
+      let novaNotaMovida = { ...notaMovida, coluna: novaColuna };
 
       // Atualiza lista temporária com a nota movida atualizada
-      const notasTemp = notes.map((n) => (n.id === notaMovida.id ? novaNotaMovida : n));
+      let notasTemp = notes.map((n) => (n.id === notaMovida.id ? novaNotaMovida : n));
 
       // Filtra as notas da nova coluna
-      const notasNaColuna = notasTemp
+      let notasNaColuna = notasTemp
         .filter((n) => n.coluna === novaColuna)
         .sort((a, b) => a.pos_x - b.pos_x);
 
       // Garante que a nota movida está na lista
-      if (!notasNaColuna.find((n) => n.id === String(active.id))) {
+      if (!notasNaColuna.find((n) => n.id === active.id)) {
         notasNaColuna.push(novaNotaMovida);
       }
 
-      const activeIndex = notasNaColuna.findIndex((n) => n.id === String(active.id));
-      const overIndex = notasNaColuna.findIndex((n) => n.id === String(over.id));
+      const activeIndex = notasNaColuna.findIndex((n) => n.id === active.id);
+      const overIndex = notasNaColuna.findIndex((n) => n.id === over.id);
       if (activeIndex === -1 || overIndex === -1) return;
 
       const notasReordenadas = arrayMove(notasNaColuna, activeIndex, overIndex).map(
@@ -552,7 +524,6 @@ export default function DashboardPage() {
       return;
     }
   };
-
   // Função para excluir nota individual com feedback e atualização
   const excluirNota = async (idNota: string) => {
     try {
@@ -570,7 +541,7 @@ export default function DashboardPage() {
   const [exibirExcluirNotaModal, setExibirExcluirNotaModal] = useState(false);
 
   // Função para confirmar exclusão da nota selecionada (chamada pela modal)
-  const handleConfirmarExcluirNota = async (nota: NotaSelecionada | null) => {
+  const handleConfirmarExcluirNota = async (nota: any) => {
     if (!nota) return;
     try {
       await excluirNota(nota.id);
@@ -578,12 +549,11 @@ export default function DashboardPage() {
       setNotaSelecionada(null);
       toast.dismiss();
       toast.success("Nota excluída com sucesso!");
-    } catch {
+    } catch (error) {
       toast.error("Erro ao excluir nota.");
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function SortableNoteCard({ id, children }: { id: string; children: (opts: { isDragging: boolean, attributes: any, listeners: any }) => React.ReactNode }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
     const describedById = useId();
@@ -607,7 +577,7 @@ export default function DashboardPage() {
     className = '',
   }: {
     id: string;
-    children: (opts: { attributes: any, listeners: any }) => React.ReactNode;
+    children: React.ReactNode;
     className?: string;
   }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
@@ -617,25 +587,51 @@ export default function DashboardPage() {
       transition,
       opacity: isDragging ? 0.5 : 1,
     };
+
+    // Refatoração da função de reordenação das colunas
+    const setColunasOrdenadas = (activeIndex: number, overIndex: number) => {
+      const novas = arrayMove(colunas, activeIndex, overIndex);
+      setColunas(novas);
+      salvarColunasNoBanco(novas);
+    };
+
     return (
       <div
         ref={setNodeRef}
         style={style}
         className={className}
+        aria-describedby={describedById}
         id={describedById}
       >
-        {children({ attributes, listeners })}
+        {/* children pode acessar setColunasOrdenadas se necessário */}
+        {typeof children === "function"
+          ? children({ attributes, listeners, setColunasOrdenadas })
+          : children}
       </div>
     );
   }
 
-
-
-
-
   // Checagem de carregamento e autenticação
   if (carregando || !session?.user) {
     return <div className="p-4">Carregando...</div>;
+  }
+
+  // Definir usuarioNome de forma robusta
+  let usuarioNome: string = 'usuário';
+  try {
+    // Prioriza usuarioData.nome (não userData)
+    if (usuarioData?.nome) usuarioNome = usuarioData.nome;
+    else {
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        usuarioNome = parsed.nome || parsed.user_metadata?.nome || 'usuário';
+      } else {
+        usuarioNome = session?.user?.user_metadata?.nome || 'usuário';
+      }
+    }
+  } catch {
+    usuarioNome = session?.user?.user_metadata?.nome || 'usuário';
   }
 
   return (
@@ -652,70 +648,31 @@ export default function DashboardPage() {
               strategy={horizontalListSortingStrategy}
             >
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 px-4 py-6">
-                {colunas.map((coluna, index) => {
-                  // Porcentagem demonstrativa para progresso
-                  const percentualConcluido = 50;
-                  const notasDaColuna = notes.filter((n) => n.coluna === coluna);
-                  return (
-                    <SortableColunaCard
-                      key={`coluna-${coluna}`}
-                      id={`coluna-${coluna}`}
-                      className="bg-white border border-zinc-200 rounded-xl shadow-md flex flex-col transition-all"
-                    >
-                      {({ attributes, listeners }) => (
+                {colunas.map((coluna, index) => (
+                  <SortableColunaCard
+                    key={`coluna-${coluna}`}
+                    id={`coluna-${coluna}`}
+                    className="bg-white border border-zinc-200 rounded-xl shadow-md flex flex-col transition-all"
+                  >
+                    {(params) => {
+                      const { attributes, listeners, setColunasOrdenadas } = params;
+                      return (
                         <>
                           <div
-                            className="px-4 py-3 border-b border-zinc-100 font-semibold text-zinc-800 flex justify-between items-center"
+                            className="px-4 py-3 border-b border-zinc-100 font-semibold text-zinc-800 flex justify-between items-center cursor-move"
+                            {...attributes}
+                            {...listeners}
                           >
-                            <div className="flex items-center gap-2">
-                              <span>{colunas[index]}</span>
-                              <button
-                                type="button"
-                                onClick={e => {
-                                  e.stopPropagation();
-                                  setModalColunaAberta({ index, valor: colunas[index] });
-                                }}
-                                className="text-gray-400 hover:text-gray-600 transition p-1 rounded hover:bg-gray-100"
-                                aria-label="Editar título da coluna"
-                              >
-                                <Pencil size={14} />
-                              </button>
-                            </div>
-                          </div>
-                          {/* Drag handle aprimorado */}
-                          <div className="flex justify-center my-2">
-                            <button
-                              {...attributes}
-                              {...listeners}
-                              className="flex items-center gap-2 px-3 py-1 border border-gray-300 rounded-md bg-gray-100 hover:bg-gray-200 cursor-grab transition"
-                              aria-label="Arraste para mover a coluna"
-                            >
-                              <Move size={16} className="text-gray-500" />
-                              <span className="text-xs font-medium text-gray-600 select-none">
-                                Segure e arraste
-                              </span>
-                            </button>
-                          </div>
-                          {/* Barra de progresso da coluna */}
-                          <div className="w-full px-4 mb-2">
-                            <div className="text-xs text-gray-600 mb-1 text-center">
-                              {Math.round(percentualConcluido)}% concluído
-                            </div>
-                            <div className="w-full h-2 bg-gray-200 rounded-full">
-                              <div
-                                className="h-2 bg-green-500 rounded-full transition-all duration-300"
-                                style={{ width: `${percentualConcluido}%` }}
-                              />
-                            </div>
+                            <span>{colunas[index]}</span>
                           </div>
 
-                          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(event: DragEndEvent) => {
+                          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(event: any) => {
                             const { active, over } = event;
                             if (!over || active.id === over.id) return;
                             const isColuna = (id: string) => String(id).startsWith('coluna-');
-                            if (isColuna(String(active.id)) && isColuna(String(over.id))) {
-                              const activeIndex = colunas.findIndex((c) => `coluna-${c}` === String(active.id));
-                              const overIndex = colunas.findIndex((c) => `coluna-${c}` === String(over.id));
+                            if (isColuna(active.id) && isColuna(over.id)) {
+                              const activeIndex = colunas.findIndex((c) => `coluna-${c}` === active.id);
+                              const overIndex = colunas.findIndex((c) => `coluna-${c}` === over.id);
                               if (activeIndex !== -1 && overIndex !== -1) {
                                 const novas = arrayMove(colunas, activeIndex, overIndex);
                                 setColunas(novas);
@@ -726,14 +683,16 @@ export default function DashboardPage() {
                             handleDragEnd(event);
                           }}>
                             <SortableContext
-                              items={notasDaColuna
+                              items={notes
+                                .filter((n) => n.coluna === coluna)
                                 .sort((a, b) => a.pos_x - b.pos_x)
                                 .map((n) => n.id)}
                               strategy={verticalListSortingStrategy}
                             >
                               <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
                                 <AnimatePresence>
-                                  {notasDaColuna
+                                  {notes
+                                    .filter((nota) => nota.coluna === coluna)
                                     .sort((a, b) => a.pos_x - b.pos_x)
                                     .map((nota, index) => (
                                       <SortableNoteCard key={nota.id || `nota-${index}`} id={nota.id}>
@@ -760,9 +719,7 @@ export default function DashboardPage() {
                                                       <button
                                                         className="text-gray-400 hover:text-primary transition-colors duration-150"
                                                         type="button"
-                                                        onPointerDown={e => {
-                                                          e.stopPropagation();
-                                                          e.preventDefault();
+                                                        onMouseDown={() => {
                                                           setNovaNota({
                                                             titulo: nota.titulo,
                                                             texto: nota.texto,
@@ -770,25 +727,28 @@ export default function DashboardPage() {
                                                             coluna: nota.coluna,
                                                             prioridade: nota.prioridade || 'Média',
                                                           });
-                                                          setNotaEditando({
-                                                            id: nota.id,
-                                                            titulo: nota.titulo,
-                                                            texto: nota.texto,
-                                                            cor: nota.cor,
-                                                            coluna: nota.coluna,
-                                                            prioridade: nota.prioridade,
-                                                            data: nota.data_criacao,
-                                                            data_criacao: nota.data_criacao,
-                                                          });
+                                                          setNotaEditando(nota);
                                                           setShowModal(true);
                                                         }}
                                                       >
                                                         <Pencil size={16} />
                                                       </button>
+                                                      {/* Botão de excluir nota removido da listagem */}
                                                     </div>
                                                   </div>
                                                   <p className="text-sm text-gray-600 mt-1 line-clamp-3">{nota.texto}</p>
-
+                                                  {/* Checkbox de concluído */}
+                                                  <div className="flex items-center gap-2 mt-3">
+                                                    <input
+                                                      type="checkbox"
+                                                      checked={!!nota.concluida}
+                                                      onChange={() => toggleNotaConcluida(nota)}
+                                                      className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                                                    />
+                                                    <span className={clsx("text-sm", { "line-through text-gray-400": nota.concluida })}>
+                                                      {nota.concluida ? "Concluída" : "Marcar como concluída"}
+                                                    </span>
+                                                  </div>
                                                   {/* Data e prioridade */}
                                                   <div className="flex justify-between items-end mt-4">
                                                     <span className="text-xs text-gray-500">
@@ -820,9 +780,7 @@ export default function DashboardPage() {
                                                     <button
                                                       className="text-gray-400 hover:text-primary transition-colors duration-150"
                                                       type="button"
-                                                      onPointerDown={e => {
-                                                        e.stopPropagation();
-                                                        e.preventDefault();
+                                                      onMouseDown={() => {
                                                         setNovaNota({
                                                           titulo: nota.titulo,
                                                           texto: nota.texto,
@@ -830,25 +788,28 @@ export default function DashboardPage() {
                                                           coluna: nota.coluna,
                                                           prioridade: nota.prioridade || 'Média',
                                                         });
-                                                        setNotaEditando({
-                                                          id: nota.id,
-                                                          titulo: nota.titulo,
-                                                          texto: nota.texto,
-                                                          cor: nota.cor,
-                                                          coluna: nota.coluna,
-                                                          prioridade: nota.prioridade,
-                                                          data: nota.data_criacao,
-                                                          data_criacao: nota.data_criacao,
-                                                        });
+                                                        setNotaEditando(nota);
                                                         setShowModal(true);
                                                       }}
                                                     >
                                                       <Pencil size={16} />
                                                     </button>
+                                                    {/* Botão de excluir nota removido da listagem */}
                                                   </div>
                                                 </div>
                                                 <p className="text-sm text-gray-600 mt-1 line-clamp-3">{nota.texto}</p>
-
+                                                {/* Checkbox de concluído */}
+                                                <div className="flex items-center gap-2 mt-3">
+                                                  <input
+                                                    type="checkbox"
+                                                    checked={!!nota.concluida}
+                                                    onChange={() => toggleNotaConcluida(nota)}
+                                                    className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                                                  />
+                                                  <span className={clsx("text-sm", { "line-through text-gray-400": nota.concluida })}>
+                                                    {nota.concluida ? "Concluída" : "Marcar como concluída"}
+                                                  </span>
+                                                </div>
                                                 {/* Data e prioridade */}
                                                 <div className="flex justify-between items-end mt-4">
                                                   <span className="text-xs text-gray-500">
@@ -908,10 +869,10 @@ export default function DashboardPage() {
                             </button>
                           </div>
                         </>
-                      )}
-                    </SortableColunaCard>
-                  );
-                })}
+                      );
+                    }}
+                  </SortableColunaCard>
+                ))}
                 <div className="min-w-[250px]">
                   <button
                     onClick={async () => {
@@ -943,43 +904,8 @@ export default function DashboardPage() {
             onClose={() => setShowModal(false)}
             setExibirExcluirNotaModal={setExibirExcluirNotaModal}
             setNotaSelecionada={setNotaSelecionada}
+            notaSelecionada={notaSelecionada}
           />
-        )}
-        {/* Modal para editar título da coluna */}
-        {modalColunaAberta && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-            <div className="bg-white rounded-lg p-6 w-full max-w-xs shadow-lg flex flex-col gap-4">
-              <h2 className="text-lg font-semibold">Editar título da coluna</h2>
-              <input
-                type="text"
-                value={modalColunaAberta.valor}
-                onChange={e => setModalColunaAberta(m => m ? { ...m, valor: e.target.value } : m)}
-                className="border rounded p-2 text-sm"
-                autoFocus
-              />
-              <div className="flex gap-2 justify-end">
-                <button
-                  className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 text-sm"
-                  onClick={() => setModalColunaAberta(null)}
-                >
-                  Cancelar
-                </button>
-                <button
-                  className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 text-sm"
-                  onClick={async () => {
-                    const { index, valor } = modalColunaAberta;
-                    if (valor.trim() && valor !== colunas[index]) {
-                      handleColunaTituloChange(index, valor);
-                      await salvarTituloColuna(index, valor);
-                    }
-                    setModalColunaAberta(null);
-                  }}
-                >
-                  Salvar
-                </button>
-              </div>
-            </div>
-          </div>
         )}
         {/* Modal de confirmação de exclusão */}
         <ExcluirNotaModal
@@ -1004,7 +930,6 @@ export default function DashboardPage() {
     </MenuLayout>
   );
 }
-
 // Modal de edição de nota extraído para facilitar lógica do botão de confirmação
 function EditarNotaModal({
   notaEditando,
@@ -1015,27 +940,17 @@ function EditarNotaModal({
   onClose,
   setExibirExcluirNotaModal,
   setNotaSelecionada,
+  notaSelecionada,
 }: {
-  notaEditando: NotaEditando | null;
-  novaNota: {
-    titulo: string;
-    texto: string;
-    cor: string;
-    coluna: string;
-    prioridade: string;
-  };
-  setNovaNota: (v: {
-    titulo: string;
-    texto: string;
-    cor: string;
-    coluna: string;
-    prioridade: string;
-  }) => void;
+  notaEditando: any;
+  novaNota: any;
+  setNovaNota: (v: any) => void;
   setShowModal: (v: boolean) => void;
   salvarOuAtualizarNota: () => void;
   onClose: () => void;
   setExibirExcluirNotaModal: (v: boolean) => void;
-  setNotaSelecionada: (v: NotaSelecionada | null) => void;
+  setNotaSelecionada: (v: any) => void;
+  notaSelecionada: any;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -1100,13 +1015,8 @@ function EditarNotaModal({
           <button
             onClick={() => {
               setShowModal(false);
-              if (typeof setNovaNota === "function") setNovaNota({
-                titulo: '',
-                texto: '',
-                cor: 'bg-yellow-500',
-                coluna: 'lembretes',
-                prioridade: 'Média',
-              });
+              // @ts-ignore
+              if (typeof setNovaNota === "function") setNovaNota(null);
             }}
             className="px-4 py-2 text-sm rounded bg-gray-200 hover:bg-gray-300"
           >
@@ -1125,14 +1035,7 @@ function EditarNotaModal({
             className="bg-red-500 text-white px-4 py-2 rounded mt-4"
             onClick={() => {
               onClose();
-              setNotaSelecionada({
-                id: notaEditando.id,
-                titulo: notaEditando.titulo,
-                texto: notaEditando.texto,
-                cor: notaEditando.cor,
-                coluna: notaEditando.coluna,
-                prioridade: notaEditando.prioridade,
-              });
+              setNotaSelecionada(notaEditando);
               setTimeout(() => {
                 setExibirExcluirNotaModal(true);
               }, 200);
@@ -1180,3 +1083,20 @@ function ExcluirNotaModal({
     </div>
   );
 }
+  // Função para alternar o status de concluída da nota
+  const toggleNotaConcluida = async (nota: any) => {
+    const novoValor = !nota.concluida;
+    try {
+      await supabase
+        .from('notas_dashboard')
+        .update({ concluida: novoValor })
+        .eq('id', nota.id);
+      setNotes((prev) =>
+        prev.map((n) =>
+          n.id === nota.id ? { ...n, concluida: novoValor } : n
+        )
+      );
+    } catch (error) {
+      toast.error('Erro ao atualizar status da nota.');
+    }
+  };

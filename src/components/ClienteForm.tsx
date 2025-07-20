@@ -104,17 +104,14 @@ export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
     setLoading(true);
 
     const { data: userData } = await supabase.auth.getUser();
-    const primeiroNome = userData?.user?.user_metadata?.nome?.split(' ')[0];
-    const emailUsuario = userData?.user?.email;
-    const nomeUsuario = primeiroNome || emailUsuario || 'Desconhecido';
-    const { data: empresaData, error: empresaError } = await supabase
-      .from('empresas')
-      .select('id')
-      .eq('user_id', userData?.user?.id)
+    // Busca o empresa_id do usuário logado
+    const { data: usuarioData, error: usuarioError } = await supabase
+      .from('usuarios')
+      .select('empresa_id')
+      .eq('auth_user_id', userData?.user?.id)
       .single();
 
-
-    if (empresaError || !empresaData?.id) {
+    if (usuarioError || !usuarioData?.empresa_id) {
       setShowError(true);
       setTimeout(() => setShowError(false), 2000);
       alert("Empresa ID não encontrado para este usuário.");
@@ -122,26 +119,28 @@ export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
       return;
     }
 
-    const empresaId = empresaData.id;
+    const empresaId = usuarioData.empresa_id;
 
     console.log("Empresa encontrada:", empresaId);
 
-    if (!form.documento) {
-      alert("O campo Documento é obrigatório.");
-      setLoading(false);
-      return;
-    }
+    // Remover obrigatoriedade do campo documento
+    // if (!form.documento) {
+    //   alert("O campo Documento é obrigatório.");
+    //   setLoading(false);
+    //   return;
+    // }
 
-    if (form.tipo === 'pf' && !cpf.isValid(form.documento)) {
-      alert("CPF inválido!");
-      setLoading(false);
-      return;
-    }
-
-    if (form.tipo === 'pj' && !cnpj.isValid(form.documento)) {
-      alert("CNPJ inválido!");
-      setLoading(false);
-      return;
+    if (form.documento) {
+      if (form.tipo === 'pf' && !cpf.isValid(form.documento)) {
+        alert("CPF inválido!");
+        setLoading(false);
+        return;
+      }
+      if (form.tipo === 'pj' && !cnpj.isValid(form.documento)) {
+        alert("CNPJ inválido!");
+        setLoading(false);
+        return;
+      }
     }
 
     // Buscar o maior numero_cliente atual para a empresa e calcular o próximo, preservando ao editar
@@ -177,13 +176,13 @@ export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
       cidade: form.cidade,
       estado: form.estado,
       origem: form.origem,
-      aniversario: form.aniversario,
+      aniversario: form.aniversario && form.aniversario.trim() !== '' ? form.aniversario : null,
       cpf: form.documento,
       endereco: `${form.rua}, ${form.numero}, ${form.bairro}, ${form.cidade} - ${form.estado}`,
       data_cadastro: new Date().toISOString(),
       numero_cliente: numeroCliente,
       status: form.status,
-      cadastrado_por: nomeUsuario,
+      cadastrado_por: userData?.user?.user_metadata?.nome?.split(' ')[0] || userData?.user?.email || 'Desconhecido',
     };
 
     console.log("Cliente payload:", clientePayload);
@@ -224,7 +223,7 @@ export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
     setShowSuccess(true);
     setTimeout(() => {
       setShowSuccess(false);
-      router.push('/dashboard/clientes');
+      router.push('/clientes');
     }, 1500);
   };
 

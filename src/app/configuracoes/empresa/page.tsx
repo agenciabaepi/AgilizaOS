@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import MenuLayout from '@/components/MenuLayout';
+import ProtectedRoute from '@/components/ProtectedRoute';
 
 interface SupabaseError {
   message: string;
@@ -46,6 +46,12 @@ export default function ConfigEmpresa() {
       try {
         const { data: { user }, error: userError } = await supabase.auth.getUser() as { data: { user: SupabaseUser }, error: SupabaseError | null };
         if (userError) throw new Error('Erro ao obter usuário: ' + userError.message);
+        
+        if (!user) {
+          console.log('Usuário não autenticado, pulando busca da empresa');
+          setLoading(false);
+          return;
+        }
 
         const { data, error } = await supabase
           .from('empresas')
@@ -70,9 +76,9 @@ export default function ConfigEmpresa() {
           });
           setEmpresaId(data.id);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Erro geral ao buscar empresa:', err);
-        setError(err.message || 'Erro ao buscar dados');
+        setError(err instanceof Error ? err.message : 'Erro ao buscar dados');
       } finally {
         setLoading(false);
       }
@@ -142,9 +148,9 @@ export default function ConfigEmpresa() {
         alert('Configurações salvas com sucesso!');
         setIsEditing(false);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Erro geral:', err);
-      setError(err.message || 'Erro desconhecido');
+      setError(err instanceof Error ? err.message : 'Erro desconhecido');
     } finally {
       setLoading(false);
     }
@@ -192,7 +198,8 @@ export default function ConfigEmpresa() {
   };
 
   return (
-    <div className="w-full px-6 pt-1 pb-6">
+    <ProtectedRoute allowedLevels={['admin', 'tecnico', 'financeiro']}>
+      <div className="w-full px-6 pt-1 pb-6">
         <h1 className="text-2xl font-semibold mb-6 text-black text-center">Configurações da Empresa</h1>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white rounded-xl shadow p-5 space-y-2">
@@ -278,5 +285,6 @@ export default function ConfigEmpresa() {
           </div>
         </div>
       </div>
+    </ProtectedRoute>
   );
 }
