@@ -22,6 +22,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { useConfirm } from '@/components/ConfirmDialog';
 
 import MenuLayout from '@/components/MenuLayout';
+import ProtectedArea from '@/components/ProtectedArea';
 
 
 export default function ClientesPage() {
@@ -199,7 +200,8 @@ export default function ClientesPage() {
 
   return (
     <MenuLayout>
-      <div className="px-6 py-8">
+      <ProtectedArea area="clientes">
+        <div className="px-6 py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-semibold text-gray-800">Clientes</h1>
         <Link
@@ -501,6 +503,7 @@ export default function ClientesPage() {
         
         {/* Modal para exclusão em massa */}
       </div>
+    </ProtectedArea>
     </MenuLayout>
   );
 }

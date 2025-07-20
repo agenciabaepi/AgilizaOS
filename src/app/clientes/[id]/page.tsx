@@ -115,13 +115,13 @@ export default function VisualizarClientePage() {
           ))}
         </div>
 
-        {abaAtiva === 'dados' && (
+        {abaAtiva === 'dados' && cliente && (
           <div className="bg-white rounded-md shadow-md border border-gray-100 px-8 py-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div><strong>Número do Cliente:</strong> {cliente.numero_cliente || '-'}</div>
               <div><strong>Nome:</strong> {cliente.nome}</div>
               <div><strong>Documento:</strong> {cliente.documento}</div>
               <div><strong>Telefone:</strong> {cliente.telefone}</div>
-              <div><strong>Celular:</strong> {cliente.celular}</div>
               <div><strong>Email:</strong> {cliente.email}</div>
               <div><strong>Responsável:</strong> {cliente.responsavel}</div>
               <div><strong>Tipo:</strong> {cliente.tipo}</div>

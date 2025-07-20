@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
+import ProtectedArea from '@/components/ProtectedArea';
 
 const styles = StyleSheet.create({
   loadingText: {
@@ -265,7 +266,7 @@ function OrdemPDF({ ordem }: { ordem: any }) {
   );
 }
 
-export default function ImprimirOrdemServico() {
+export default function ImprimirOrdemPage() {
   const { id } = useParams();
   const [ordem, setOrdem] = useState<any>(null);
   const [PDFViewer, setPDFViewer] = useState<any>(null);
@@ -303,8 +304,10 @@ export default function ImprimirOrdemServico() {
   }
 
   return (
-    <PDFViewer style={{ width: '100vw', height: '100vh' }}>
-      <OrdemPDF ordem={ordem} />
-    </PDFViewer>
+    <ProtectedArea area="ordens">
+      <PDFViewer style={{ width: '100vw', height: '100vh' }}>
+        <OrdemPDF ordem={ordem} />
+      </PDFViewer>
+    </ProtectedArea>
   );
 }

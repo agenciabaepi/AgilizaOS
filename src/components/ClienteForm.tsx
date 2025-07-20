@@ -10,6 +10,9 @@ import { cpf, cnpj } from 'cpf-cnpj-validator';
 import Lottie from 'lottie-react';
 import checkmarkAnimation from '@/assets/animations/checkmark.json';
 import errorAnimation from '@/assets/animations/error.json';
+import { Input } from './Input';
+import { Select } from './Select';
+import { Button } from './Button';
 
 interface Cliente {
   id: string;
@@ -31,13 +34,14 @@ interface Cliente {
   estado: string;
   origem: string;
   aniversario: string;
+  status?: string;
+  numero_cliente?: number;
 }
 
 export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
     const [form, setForm] = useState({
         nome: '',
         telefone: '',
-        celular: '',
         email: '',
         documento: '',
         tipo: 'pf',
@@ -146,7 +150,7 @@ export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
     // Buscar o maior numero_cliente atual para a empresa e calcular o próximo, preservando ao editar
     let numeroCliente = cliente?.numero_cliente;
     if (!numeroCliente) {
-      const { data: maxResult, error: maxError } = await supabase
+      const { data: maxResult } = await supabase
         .from('clientes')
         .select('numero_cliente')
         .eq('empresa_id', empresaId)
@@ -161,7 +165,6 @@ export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
       empresa_id: empresaId,
       nome: form.nome,
       telefone: form.telefone,
-      celular: form.celular,
       email: form.email,
       documento: form.documento,
       tipo: form.tipo,
@@ -251,10 +254,10 @@ export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
 
       <form onSubmit={handleSubmit} className="max-w-4xl mx-auto p-6 bg-white rounded shadow space-y-8">
         <div className="flex items-center justify-between mb-6">
-          <button type="button" onClick={() => router.back()} className="flex items-center gap-2 text-gray-600 hover:text-gray-900">
+          <Button type="button" onClick={() => router.back()} variant="secondary">
             <FiArrowLeft size={20} />
             Voltar
-          </button>
+          </Button>
           <h2 className="text-2xl font-semibold flex items-center gap-2">
             <FiUserPlus size={24} />
             {cliente ? 'Editar Cliente' : 'Novo Cliente'}
@@ -288,13 +291,12 @@ export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
         </div>
           <h3 className="mb-4 text-base font-semibold text-gray-700">Informações Pessoais</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <input
+            <Input
               type="text"
               name="nome"
               value={form.nome}
               onChange={handleChange}
               placeholder="Nome"
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
             <div className="relative">
@@ -326,38 +328,27 @@ export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
                 />
               )}
             </div>
-            <select
+            <Select
               name="tipo"
               value={form.tipo}
               onChange={handleChange}
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="pf">Pessoa Física</option>
               <option value="pj">Pessoa Jurídica</option>
-            </select>
-            <input
+            </Select>
+            <Input
               type="email"
               name="email"
               value={form.email}
               onChange={handleChange}
               placeholder="Email"
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <input
+            <Input
               type="text"
               name="telefone"
               value={form.telefone}
               onChange={handleChange}
               placeholder="Telefone"
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <input
-              type="text"
-              name="celular"
-              value={form.celular}
-              onChange={handleChange}
-              placeholder="Celular"
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </section>
@@ -378,53 +369,47 @@ export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
                 className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            <input
+            <Input
               type="text"
               name="rua"
               value={form.rua}
               onChange={handleChange}
               placeholder="Rua"
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <input
+            <Input
               type="text"
               name="numero"
               value={form.numero}
               onChange={handleChange}
               placeholder="Número"
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <input
+            <Input
               type="text"
               name="complemento"
               value={form.complemento}
               onChange={handleChange}
               placeholder="Complemento"
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <input
+            <Input
               type="text"
               name="bairro"
               value={form.bairro}
               onChange={handleChange}
               placeholder="Bairro"
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <input
+            <Input
               type="text"
               name="cidade"
               value={form.cidade}
               onChange={handleChange}
               placeholder="Cidade"
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <input
+            <Input
               type="text"
               name="estado"
               value={form.estado}
               onChange={handleChange}
               placeholder="Estado"
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </section>
@@ -432,36 +417,33 @@ export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
         <section>
           <h3 className="mb-4 text-base font-semibold text-gray-700">Detalhes Extras</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <input
+            <Input
               type="text"
               name="responsavel"
               value={form.responsavel}
               onChange={handleChange}
               placeholder="Responsável"
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <input
+            <Input
               type="password"
               name="senha"
               value={form.senha}
               onChange={handleChange}
               placeholder="Senha"
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <input
+            <Input
               type="date"
               name="aniversario"
               value={form.aniversario}
               onChange={handleChange}
               className="rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <input
+            <Input
               type="text"
               name="origem"
               value={form.origem}
               onChange={handleChange}
               placeholder="Origem"
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <textarea
               name="observacoes"
@@ -474,21 +456,21 @@ export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
         </section>
 
         <div className="flex justify-end gap-4">
-          <button
+          <Button
             type="button"
             onClick={() => router.back()}
-            className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-700"
+            variant="secondary"
             disabled={loading}
           >
             Cancelar
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
-            className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white"
+            variant="default"
             disabled={loading}
           >
             {loading ? (cliente ? "Atualizando..." : "Salvando...") : (cliente ? "Atualizar" : "Salvar")}
-          </button>
+          </Button>
         </div>
       </form>
     </>

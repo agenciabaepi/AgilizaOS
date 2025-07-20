@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabaseClient';
 import MenuLayout from '@/components/MenuLayout';
 import Link from 'next/link';
 import { Combobox } from '@headlessui/react';
+import ProtectedArea from '@/components/ProtectedArea';
 
 export default function EditarOrdemServico() {
   const [statusOS, setStatusOS] = useState<any[]>([]);
@@ -211,306 +212,308 @@ export default function EditarOrdemServico() {
   if (!ordem) return <div className="p-6 text-gray-600">Carregando...</div>;
 
   return (
-    <MenuLayout>
-      <div className="p-6 max-w-4xl mx-auto text-sm text-black">
-        <Link href={`/ordens/${id}`}>
-          <button className="mb-4 px-4 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-100 text-gray-600">
-            ← Voltar
-          </button>
-        </Link>
-        <h1 className="text-2xl font-semibold mb-8">Editar Ordem de Serviço</h1>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-          <label className="block text-xs font-medium text-gray-500 mb-1">
-            Número da OS
-            <input
-              readOnly
-              name="numero_os"
-              defaultValue={ordem.numero_os}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed"
-            />
-          </label>
-          <label className="block text-xs font-medium text-gray-500 mb-1">
-            Data de Entrada
-            <input
-              readOnly
-              name="data_entrada"
-              defaultValue={ordem.data_entrada?.slice(0, 10)}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed"
-            />
-          </label>
-        </div>
-
-        <div className="space-y-8">
-          <section>
-            <h2 className="text-lg font-semibold text-gray-700 mb-3 border-b border-gray-300 pb-1">Dados do Cliente</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <label className="block text-xs font-medium text-gray-500 mb-1">
-                Nome
-                <input
-                  readOnly
-                  name="nome_cliente"
-                  defaultValue={ordem.clientes?.nome}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed"
-                />
-              </label>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
-                Telefone
-                <input
-                  readOnly
-                  name="telefone_cliente"
-                  defaultValue={ordem.clientes?.telefone}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed"
-                />
-              </label>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
-                CPF
-                <input
-                  readOnly
-                  name="cpf_cliente"
-                  defaultValue={ordem.clientes?.cpf}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed"
-                />
-              </label>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
-                Endereço
-                <input
-                  readOnly
-                  name="endereco_cliente"
-                  defaultValue={ordem.clientes?.endereco}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed"
-                />
-              </label>
-            </div>
-          </section>
-
-          <section>
-            <h2 className="text-lg font-semibold text-gray-700 mb-3 border-b border-gray-300 pb-1">Informações do Aparelho</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <label className="block text-xs font-medium text-gray-500 mb-1">
-                Marca
-                <input
-                  name="marca"
-                  defaultValue={ordem.marca}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm"
-                />
-              </label>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
-                Modelo
-                <input
-                  name="modelo"
-                  defaultValue={ordem.modelo}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm"
-                />
-              </label>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
-                Cor
-                <input
-                  name="cor"
-                  defaultValue={ordem.cor}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm"
-                />
-              </label>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
-                Número de Série
-                <input
-                  name="numero_serie"
-                  defaultValue={ordem.numero_serie}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm"
-                />
-              </label>
-            </div>
-          </section>
-
-          <section>
-            <h2 className="text-lg font-semibold text-gray-700 mb-3 border-b border-gray-300 pb-1">Situação e Relatos</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <label className="block text-xs font-medium text-gray-500 mb-1">
-                Status da OS
-                <Listbox value={statusSelecionado} onChange={setStatusSelecionado}>
-                  <div className="relative mt-1">
-                    <Listbox.Button className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm bg-white text-left">
-                      <span className="flex items-center gap-2">
-                        <span
-                          className="inline-block w-3 h-3 rounded-full"
-                          style={{ backgroundColor: statusSelecionado?.cor || 'black' }}
-                        ></span>
-                        {statusSelecionado?.nome || 'Selecione...'}
-                      </span>
-                    </Listbox.Button>
-                    <Transition as={Fragment} leave="transition ease-in duration-100" leaveFrom="opacity-100" leaveTo="opacity-0">
-                      <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto bg-white border border-gray-200 rounded-md shadow-lg text-sm">
-                        {statusOS.map((status) => (
-                          <Listbox.Option
-                            key={status.id}
-                            value={status}
-                            className={({ active }) =>
-                              `cursor-pointer select-none px-3 py-2 flex items-center gap-2 ${
-                                active ? 'bg-indigo-600 text-white' : 'text-gray-900'
-                              }`
-                            }
-                          >
-                            <span
-                              className="inline-block w-3 h-3 rounded-full"
-                              style={{ backgroundColor: status.cor || 'black' }}
-                            ></span>
-                            {status.nome}
-                          </Listbox.Option>
-                        ))}
-                      </Listbox.Options>
-                    </Transition>
-                  </div>
-                </Listbox>
-              </label>
-            </div>
-            <div className="grid grid-cols-1 gap-4 mt-4">
-              <label className="block text-xs font-medium text-gray-500 mb-1">
-                Relato do Cliente
-                <textarea
-                  name="relato"
-                  defaultValue={ordem.relato}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm resize-none h-20"
-                />
-              </label>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
-                Observações Internas
-                <textarea
-                  name="observacao"
-                  defaultValue={ordem.observacao}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm resize-none h-20"
-                />
-              </label>
-            </div>
-          </section>
-
-          <section>
-            <h2 className="text-lg font-semibold text-gray-700 mb-3 border-b border-gray-300 pb-1">Produtos e Serviços</h2>
-            <div className="grid grid-cols-1 gap-6">
-
-              <div className="grid md:grid-cols-3 gap-4">
-                <label className="block text-xs font-medium text-gray-500 mb-1">
-                  Serviço
-                  <Combobox value={servicoSelecionado} onChange={setServicoSelecionado}>
-                    <div className="relative">
-                      <Combobox.Input
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm"
-                        onFocus={() => setQueryServico('')}
-                        onChange={(e) => setQueryServico(e.target.value)}
-                        displayValue={(s) => s?.nome ? `${s.nome} - R$ ${s.preco?.toFixed(2)}` : ''}
-                        placeholder="Buscar serviço..."
-                        autoComplete="off"
-                      />
-                      <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto bg-white border border-gray-200 rounded-md shadow-lg">
-                        {servicosFiltrados.length === 0 && (
-                          <div className="px-3 py-2 text-gray-500">Nenhum serviço encontrado.</div>
-                        )}
-                        {servicosFiltrados.map((s) => (
-                          <Combobox.Option
-                            key={s.id}
-                            value={s}
-                            className={({ active }) =>
-                              `cursor-pointer select-none px-3 py-2 ${
-                                active ? 'bg-indigo-600 text-white' : 'text-gray-900'
-                              }`
-                            }
-                          >
-                            {s.nome} – R$ {s.preco?.toFixed(2)}
-                          </Combobox.Option>
-                        ))}
-                      </Combobox.Options>
-                    </div>
-                  </Combobox>
-                </label>
-
-                <label className="block text-xs font-medium text-gray-500 mb-1">
-                  Qtd Serviço
-                  <input
-                    type="number"
-                    name="qtd_servico"
-                    defaultValue={ordem.qtd_servico}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm"
-                  />
-                </label>
-              </div>
-
-              <div className="grid md:grid-cols-3 gap-4">
-                <label className="block text-xs font-medium text-gray-500 mb-1">
-                  Peça
-                  <Combobox value={pecaSelecionada} onChange={setPecaSelecionada}>
-                    <div className="relative">
-                      <Combobox.Input
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm"
-                        onFocus={() => setQueryPeca('')}
-                        onChange={(e) => setQueryPeca(e.target.value)}
-                        displayValue={(p) => p?.nome ? `${p.nome} - R$ ${p.preco?.toFixed(2)}` : ''}
-                        placeholder="Buscar peça..."
-                        autoComplete="off"
-                      />
-                      <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto bg-white border border-gray-200 rounded-md shadow-lg">
-                        {pecasFiltradas.length === 0 && (
-                          <div className="px-3 py-2 text-gray-500">Nenhuma peça encontrada.</div>
-                        )}
-                        {pecasFiltradas.map((p) => (
-                          <Combobox.Option
-                            key={p.id}
-                            value={p}
-                            className={({ active }) =>
-                              `cursor-pointer select-none px-3 py-2 ${
-                                active ? 'bg-indigo-600 text-white' : 'text-gray-900'
-                              }`
-                            }
-                          >
-                            {p.nome} – R$ {p.preco?.toFixed(2)}
-                          </Combobox.Option>
-                        ))}
-                      </Combobox.Options>
-                    </div>
-                  </Combobox>
-                </label>
-
-                <label className="block text-xs font-medium text-gray-500 mb-1">
-                  Qtd Peça
-                  <input
-                    type="number"
-                    name="qtd_peca"
-                    defaultValue={ordem.qtd_peca}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm"
-                  />
-                </label>
-              </div>
-
-              <div className="text-right text-sm text-gray-700 font-semibold border-t border-gray-200 pt-4">
-                {(() => {
-                  const qtdServico = ordem.qtd_servico || 0;
-                  const qtdPeca = ordem.qtd_peca || 0;
-                  const precoServico = servicoSelecionado?.preco || 0;
-                  const precoPeca = pecaSelecionada?.preco || 0;
-                  const total = qtdServico * precoServico + qtdPeca * precoPeca;
-                  return (
-                    <>
-                      Valor estimado: <span className="text-black font-bold">R$ {total.toFixed(2)}</span>
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
-          </section>
-        </div>
-
-        <div className="mt-10 flex gap-4">
-          <button
-            onClick={handleSalvar}
-            className="px-5 py-2 rounded-md text-sm transition-colors bg-[#cffb6d] hover:bg-[#b9e457] text-black font-semibold shadow"
-          >
-            Salvar Alterações
-          </button>
+    <ProtectedArea area="ordens">
+      <MenuLayout>
+        <div className="p-6 max-w-4xl mx-auto text-sm text-black">
           <Link href={`/ordens/${id}`}>
-            <button className="px-5 py-2 rounded-md text-sm transition-colors bg-white hover:bg-gray-100 border border-gray-300 text-gray-800 font-semibold shadow">
-              Cancelar
+            <button className="mb-4 px-4 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-100 text-gray-600">
+              ← Voltar
             </button>
           </Link>
+          <h1 className="text-2xl font-semibold mb-8">Editar Ordem de Serviço</h1>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Número da OS
+              <input
+                readOnly
+                name="numero_os"
+                defaultValue={ordem.numero_os}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed"
+              />
+            </label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Data de Entrada
+              <input
+                readOnly
+                name="data_entrada"
+                defaultValue={ordem.data_entrada?.slice(0, 10)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed"
+              />
+            </label>
+          </div>
+
+          <div className="space-y-8">
+            <section>
+              <h2 className="text-lg font-semibold text-gray-700 mb-3 border-b border-gray-300 pb-1">Dados do Cliente</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <label className="block text-xs font-medium text-gray-500 mb-1">
+                  Nome
+                  <input
+                    readOnly
+                    name="nome_cliente"
+                    defaultValue={ordem.clientes?.nome}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed"
+                  />
+                </label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">
+                  Telefone
+                  <input
+                    readOnly
+                    name="telefone_cliente"
+                    defaultValue={ordem.clientes?.telefone}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed"
+                  />
+                </label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">
+                  CPF
+                  <input
+                    readOnly
+                    name="cpf_cliente"
+                    defaultValue={ordem.clientes?.cpf}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed"
+                  />
+                </label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">
+                  Endereço
+                  <input
+                    readOnly
+                    name="endereco_cliente"
+                    defaultValue={ordem.clientes?.endereco}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed"
+                  />
+                </label>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-gray-700 mb-3 border-b border-gray-300 pb-1">Informações do Aparelho</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <label className="block text-xs font-medium text-gray-500 mb-1">
+                  Marca
+                  <input
+                    name="marca"
+                    defaultValue={ordem.marca}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm"
+                  />
+                </label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">
+                  Modelo
+                  <input
+                    name="modelo"
+                    defaultValue={ordem.modelo}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm"
+                  />
+                </label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">
+                  Cor
+                  <input
+                    name="cor"
+                    defaultValue={ordem.cor}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm"
+                  />
+                </label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">
+                  Número de Série
+                  <input
+                    name="numero_serie"
+                    defaultValue={ordem.numero_serie}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm"
+                  />
+                </label>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-gray-700 mb-3 border-b border-gray-300 pb-1">Situação e Relatos</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label className="block text-xs font-medium text-gray-500 mb-1">
+                  Status da OS
+                  <Listbox value={statusSelecionado} onChange={setStatusSelecionado}>
+                    <div className="relative mt-1">
+                      <Listbox.Button className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm bg-white text-left">
+                        <span className="flex items-center gap-2">
+                          <span
+                            className="inline-block w-3 h-3 rounded-full"
+                            style={{ backgroundColor: statusSelecionado?.cor || 'black' }}
+                          ></span>
+                          {statusSelecionado?.nome || 'Selecione...'}
+                        </span>
+                      </Listbox.Button>
+                      <Transition as={Fragment} leave="transition ease-in duration-100" leaveFrom="opacity-100" leaveTo="opacity-0">
+                        <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto bg-white border border-gray-200 rounded-md shadow-lg text-sm">
+                          {statusOS.map((status) => (
+                            <Listbox.Option
+                              key={status.id}
+                              value={status}
+                              className={({ active }) =>
+                                `cursor-pointer select-none px-3 py-2 flex items-center gap-2 ${
+                                  active ? 'bg-indigo-600 text-white' : 'text-gray-900'
+                                }`
+                              }
+                            >
+                              <span
+                                className="inline-block w-3 h-3 rounded-full"
+                                style={{ backgroundColor: status.cor || 'black' }}
+                              ></span>
+                              {status.nome}
+                            </Listbox.Option>
+                          ))}
+                        </Listbox.Options>
+                      </Transition>
+                    </div>
+                  </Listbox>
+                </label>
+              </div>
+              <div className="grid grid-cols-1 gap-4 mt-4">
+                <label className="block text-xs font-medium text-gray-500 mb-1">
+                  Relato do Cliente
+                  <textarea
+                    name="relato"
+                    defaultValue={ordem.relato}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm resize-none h-20"
+                  />
+                </label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">
+                  Observações Internas
+                  <textarea
+                    name="observacao"
+                    defaultValue={ordem.observacao}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm resize-none h-20"
+                  />
+                </label>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-gray-700 mb-3 border-b border-gray-300 pb-1">Produtos e Serviços</h2>
+              <div className="grid grid-cols-1 gap-6">
+
+                <div className="grid md:grid-cols-3 gap-4">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                    Serviço
+                    <Combobox value={servicoSelecionado} onChange={setServicoSelecionado}>
+                      <div className="relative">
+                        <Combobox.Input
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm"
+                          onFocus={() => setQueryServico('')}
+                          onChange={(e) => setQueryServico(e.target.value)}
+                          displayValue={(s) => s?.nome ? `${s.nome} - R$ ${s.preco?.toFixed(2)}` : ''}
+                          placeholder="Buscar serviço..."
+                          autoComplete="off"
+                        />
+                        <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto bg-white border border-gray-200 rounded-md shadow-lg">
+                          {servicosFiltrados.length === 0 && (
+                            <div className="px-3 py-2 text-gray-500">Nenhum serviço encontrado.</div>
+                          )}
+                          {servicosFiltrados.map((s) => (
+                            <Combobox.Option
+                              key={s.id}
+                              value={s}
+                              className={({ active }) =>
+                                `cursor-pointer select-none px-3 py-2 ${
+                                  active ? 'bg-indigo-600 text-white' : 'text-gray-900'
+                                }`
+                              }
+                            >
+                              {s.nome} – R$ {s.preco?.toFixed(2)}
+                            </Combobox.Option>
+                          ))}
+                        </Combobox.Options>
+                      </div>
+                    </Combobox>
+                  </label>
+
+                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                    Qtd Serviço
+                    <input
+                      type="number"
+                      name="qtd_servico"
+                      defaultValue={ordem.qtd_servico}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm"
+                    />
+                  </label>
+                </div>
+
+                <div className="grid md:grid-cols-3 gap-4">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                    Peça
+                    <Combobox value={pecaSelecionada} onChange={setPecaSelecionada}>
+                      <div className="relative">
+                        <Combobox.Input
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm"
+                          onFocus={() => setQueryPeca('')}
+                          onChange={(e) => setQueryPeca(e.target.value)}
+                          displayValue={(p) => p?.nome ? `${p.nome} - R$ ${p.preco?.toFixed(2)}` : ''}
+                          placeholder="Buscar peça..."
+                          autoComplete="off"
+                        />
+                        <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto bg-white border border-gray-200 rounded-md shadow-lg">
+                          {pecasFiltradas.length === 0 && (
+                            <div className="px-3 py-2 text-gray-500">Nenhuma peça encontrada.</div>
+                          )}
+                          {pecasFiltradas.map((p) => (
+                            <Combobox.Option
+                              key={p.id}
+                              value={p}
+                              className={({ active }) =>
+                                `cursor-pointer select-none px-3 py-2 ${
+                                  active ? 'bg-indigo-600 text-white' : 'text-gray-900'
+                                }`
+                              }
+                            >
+                              {p.nome} – R$ {p.preco?.toFixed(2)}
+                            </Combobox.Option>
+                          ))}
+                        </Combobox.Options>
+                      </div>
+                    </Combobox>
+                  </label>
+
+                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                    Qtd Peça
+                    <input
+                      type="number"
+                      name="qtd_peca"
+                      defaultValue={ordem.qtd_peca}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm"
+                    />
+                  </label>
+                </div>
+
+                <div className="text-right text-sm text-gray-700 font-semibold border-t border-gray-200 pt-4">
+                  {(() => {
+                    const qtdServico = ordem.qtd_servico || 0;
+                    const qtdPeca = ordem.qtd_peca || 0;
+                    const precoServico = servicoSelecionado?.preco || 0;
+                    const precoPeca = pecaSelecionada?.preco || 0;
+                    const total = qtdServico * precoServico + qtdPeca * precoPeca;
+                    return (
+                      <>
+                        Valor estimado: <span className="text-black font-bold">R$ {total.toFixed(2)}</span>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <div className="mt-10 flex gap-4">
+            <button
+              onClick={handleSalvar}
+              className="px-5 py-2 rounded-md text-sm transition-colors bg-[#cffb6d] hover:bg-[#b9e457] text-black font-semibold shadow"
+            >
+              Salvar Alterações
+            </button>
+            <Link href={`/ordens/${id}`}>
+              <button className="px-5 py-2 rounded-md text-sm transition-colors bg-white hover:bg-gray-100 border border-gray-300 text-gray-800 font-semibold shadow">
+                Cancelar
+              </button>
+            </Link>
+          </div>
         </div>
-      </div>
-    </MenuLayout>
+      </MenuLayout>
+    </ProtectedArea>
   );
 }

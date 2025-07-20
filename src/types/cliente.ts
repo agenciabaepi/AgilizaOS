@@ -4,7 +4,6 @@ export interface Cliente {
     nome: string;
     documento: string;
     telefone: string;
-    celular: string;
     email: string;
     responsavel: string;
     tipo: string;

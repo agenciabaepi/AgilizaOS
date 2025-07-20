@@ -5,6 +5,7 @@ import MenuLayout from '@/components/MenuLayout'
 import { Tab } from '@headlessui/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
+import ProtectedArea from '@/components/ProtectedArea';
 
 
 // Lazy loading das páginas para melhor performance
@@ -12,7 +13,7 @@ const EmpresaPage = lazy(() => import('./empresa/page'))
 const UsuariosPage = lazy(() => import('./usuarios/page'))
 const TermosPage = lazy(() => import('./termos/page'))
 const StatusPage = lazy(() => import('./status/page'))
-const PerfilPage = lazy(() => import('./perfil/page'))
+// Remover importação de PerfilPage
 
 // Componente de loading para as páginas filhas
 const PageLoader = () => (
@@ -131,12 +132,6 @@ function ConfiguracoesInner() {
 
   console.log('Renderizando página de configurações:', { userLevel, user: !!user })
 
-  // Se o usuário é atendente, mostra apenas a aba de perfil
-  if (userLevel === 'atendente') {
-    console.log('Usuário é atendente, mostrando apenas perfil')
-    return <PerfilPage />
-  }
-
   // Para outros níveis, mostra todas as abas
   console.log('Usuário não é atendente, mostrando todas as abas')
   const tabs = [
@@ -144,7 +139,6 @@ function ConfiguracoesInner() {
     { name: 'Usuários', component: <UsuariosPage /> },
     { name: 'Termos de Garantia', component: <TermosPage /> },
     { name: 'Status', component: <StatusPage /> },
-    { name: 'Meu Perfil', component: <PerfilPage /> }
   ]
 
   return (
@@ -187,9 +181,11 @@ function ConfiguracoesInner() {
 
 export default function ConfiguracoesPage() {
   return (
-    <Suspense fallback={<div className="p-8">Carregando configurações...</div>}>
-      <ConfiguracoesInner />
-    </Suspense>
+    <ProtectedArea area="configuracoes">
+      <Suspense fallback={<div className="p-8">Carregando configurações...</div>}>
+        <ConfiguracoesInner />
+      </Suspense>
+    </ProtectedArea>
   )
 }
 

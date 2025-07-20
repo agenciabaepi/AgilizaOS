@@ -13,6 +13,7 @@ interface UsuarioData {
   nome: string;
   email: string;
   nivel: string;
+  permissoes?: string[];
 }
 interface EmpresaData {
   id: string;
@@ -64,7 +65,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         const { data: profileData, error: profileError } = await supabase
           .from('usuarios')
-          .select('empresa_id, nome, email, nivel')
+          .select('empresa_id, nome, email, nivel, permissoes')
           .eq('auth_user_id', session.user.id)
           .maybeSingle();
 

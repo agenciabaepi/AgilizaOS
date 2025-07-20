@@ -17,6 +17,7 @@ import {
 } from 'chart.js';
 import Image from 'next/image';
 import { DataTable, Column } from '@/components/DataTable';
+import ProtectedArea from '@/components/ProtectedArea';
 
 ChartJS.register(ArcElement2, Tooltip2, Legend2, DoughnutController);
 import { useRef } from 'react';
@@ -441,222 +442,224 @@ export default function ProdutosServicosPage() {
   ];
 
   return (
-    <ToastProvider>
-      <MenuLayout>
-      {/* Mensagem de erro de log, se houver */}
-      {logErro && (
-        <div className="bg-red-100 text-red-700 p-4 rounded mb-6 font-mono text-xs whitespace-pre-wrap">
-          {logErro}
-        </div>
-      )}
-      <div className="py-10 px-6 bg-gray-50 min-h-screen">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Cadastro de Produtos e Serviços</h1>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white shadow rounded-lg p-4 border border-gray-200">
-            <h3 className="text-sm text-gray-500">Produtos Cadastrados</h3>
-            <p className="text-2xl font-bold text-gray-800">{lista.filter(item => item.tipo === 'produto').length}</p>
-          </div>
-          <div className="bg-white shadow rounded-lg p-4 border border-gray-200">
-            <h3 className="text-sm text-gray-500">Serviços Cadastrados</h3>
-            <p className="text-2xl font-bold text-gray-800">{lista.filter(item => item.tipo === 'servico').length}</p>
-          </div>
-        </div>
-
-        {mensagemAviso && (
-          <div className="mb-4 p-3 text-sm text-black bg-[#cffb6d] rounded">
-            {mensagemAviso}
+    <ProtectedArea area="equipamentos">
+      <ToastProvider>
+        <MenuLayout>
+        {/* Mensagem de erro de log, se houver */}
+        {logErro && (
+          <div className="bg-red-100 text-red-700 p-4 rounded mb-6 font-mono text-xs whitespace-pre-wrap">
+            {logErro}
           </div>
         )}
+        <div className="py-10 px-6 bg-gray-50 min-h-screen">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-bold">Cadastro de Produtos e Serviços</h1>
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-          {/* 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-            <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200">
-              <h2 className="text-sm font-semibold mb-2">Distribuição de Produtos</h2>
-              <canvas id="graficoProdutos" width="200" height="200"></canvas>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="bg-white shadow rounded-lg p-4 border border-gray-200">
+              <h3 className="text-sm text-gray-500">Produtos Cadastrados</h3>
+              <p className="text-2xl font-bold text-gray-800">{lista.filter(item => item.tipo === 'produto').length}</p>
             </div>
-            <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200">
-              <h2 className="text-sm font-semibold mb-2">Distribuição de Serviços</h2>
-              <canvas id="graficoServicos" width="200" height="200"></canvas>
+            <div className="bg-white shadow rounded-lg p-4 border border-gray-200">
+              <h3 className="text-sm text-gray-500">Serviços Cadastrados</h3>
+              <p className="text-2xl font-bold text-gray-800">{lista.filter(item => item.tipo === 'servico').length}</p>
             </div>
           </div>
-          */}
 
-          <section className="col-span-1 md:col-span-2 bg-white p-5 rounded-lg shadow-md border border-gray-200">
-            <div className="flex items-center mb-4 space-x-2">
-              <TagIcon className="h-6 w-6 text-indigo-500" />
-              <h2 className="text-lg font-semibold">Produtos e Serviços Cadastrados</h2>
+          {mensagemAviso && (
+            <div className="mb-4 p-3 text-sm text-black bg-[#cffb6d] rounded">
+              {mensagemAviso}
             </div>
+          )}
 
-            <div className="flex flex-wrap items-center justify-between mb-4 gap-4">
-              <div className="inline-flex space-x-2 bg-gray-100 rounded-full p-1 mb-6">
-                <button
-                  className={`px-5 py-2 text-sm font-medium rounded-full transition-all ${
-                    abaSelecionada === 'produto'
-                      ? 'bg-black text-white shadow'
-                      : 'text-gray-600 hover:text-black'
-                  }`}
-                  onClick={() => setAbaSelecionada('produto')}
-                >
-                  Produtos
-                </button>
-                <button
-                  className={`px-5 py-2 text-sm font-medium rounded-full transition-all ${
-                    abaSelecionada === 'servico'
-                      ? 'bg-black text-white shadow'
-                      : 'text-gray-600 hover:text-black'
-                  }`}
-                  onClick={() => setAbaSelecionada('servico')}
-                >
-                  Serviços
-                </button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+            {/* 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+              <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+                <h2 className="text-sm font-semibold mb-2">Distribuição de Produtos</h2>
+                <canvas id="graficoProdutos" width="200" height="200"></canvas>
               </div>
-
-              {/* Novo Produto button above search */}
-              <div className="flex-1 flex justify-end mb-2">
-                <Link href="/equipamentos/novo">
-                  <Button>+ Novo Produto</Button>
-                </Link>
-              </div>
-
-              <div className="relative w-full md:w-72">
-                <input
-                  type="text"
-                  placeholder="Pesquisar item..."
-                  className="w-full border border-gray-300 rounded-full px-4 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[#cffb6d]"
-                  onChange={(e) => {
-                    const search = e.target.value;
-                    if ((search ?? '').trim() === '') {
-                      buscar(); // Recarrega todos os itens se o campo estiver vazio
-                    } else {
-                      setLista((produtos) => {
-                        const filtered = produtos.filter(
-                          (prod) =>
-                            (prod.nome ?? '').toLowerCase().includes((search ?? '').toLowerCase()) ||
-                            (prod.categoria ?? '').toLowerCase().includes((search ?? '').toLowerCase()) ||
-                            (prod.codigo_barras ?? '').toLowerCase().includes((search ?? '').toLowerCase()) ||
-                            (prod.marca ?? '').toLowerCase().includes((search ?? '').toLowerCase())
-                        );
-                        return filtered;
-                      });
-                    }
-                  }}
-                />
-                <svg
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 pointer-events-none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M16.65 16.65A7.5 7.5 0 1116.65 2a7.5 7.5 0 010 15z" />
-                </svg>
+              <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+                <h2 className="text-sm font-semibold mb-2">Distribuição de Serviços</h2>
+                <canvas id="graficoServicos" width="200" height="200"></canvas>
               </div>
             </div>
+            */}
 
-            
+            <section className="col-span-1 md:col-span-2 bg-white p-5 rounded-lg shadow-md border border-gray-200">
+              <div className="flex items-center mb-4 space-x-2">
+                <TagIcon className="h-6 w-6 text-indigo-500" />
+                <h2 className="text-lg font-semibold">Produtos e Serviços Cadastrados</h2>
+              </div>
 
-            <div className="overflow-x-auto">
-            <DataTable
+              <div className="flex flex-wrap items-center justify-between mb-4 gap-4">
+                <div className="inline-flex space-x-2 bg-gray-100 rounded-full p-1 mb-6">
+                  <button
+                    className={`px-5 py-2 text-sm font-medium rounded-full transition-all ${
+                      abaSelecionada === 'produto'
+                        ? 'bg-black text-white shadow'
+                        : 'text-gray-600 hover:text-black'
+                    }`}
+                    onClick={() => setAbaSelecionada('produto')}
+                  >
+                    Produtos
+                  </button>
+                  <button
+                    className={`px-5 py-2 text-sm font-medium rounded-full transition-all ${
+                      abaSelecionada === 'servico'
+                        ? 'bg-black text-white shadow'
+                        : 'text-gray-600 hover:text-black'
+                    }`}
+                    onClick={() => setAbaSelecionada('servico')}
+                  >
+                    Serviços
+                  </button>
+                </div>
+
+                {/* Novo Produto button above search */}
+                <div className="flex-1 flex justify-end mb-2">
+                  <Link href="/equipamentos/novo">
+                    <Button>+ Novo Produto</Button>
+                  </Link>
+                </div>
+
+                <div className="relative w-full md:w-72">
+                  <input
+                    type="text"
+                    placeholder="Pesquisar item..."
+                    className="w-full border border-gray-300 rounded-full px-4 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[#cffb6d]"
+                    onChange={(e) => {
+                      const search = e.target.value;
+                      if ((search ?? '').trim() === '') {
+                        buscar(); // Recarrega todos os itens se o campo estiver vazio
+                      } else {
+                        setLista((produtos) => {
+                          const filtered = produtos.filter(
+                            (prod) =>
+                              (prod.nome ?? '').toLowerCase().includes((search ?? '').toLowerCase()) ||
+                              (prod.categoria ?? '').toLowerCase().includes((search ?? '').toLowerCase()) ||
+                              (prod.codigo_barras ?? '').toLowerCase().includes((search ?? '').toLowerCase()) ||
+                              (prod.marca ?? '').toLowerCase().includes((search ?? '').toLowerCase())
+                          );
+                          return filtered;
+                        });
+                      }
+                    }}
+                  />
+                  <svg
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 pointer-events-none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M16.65 16.65A7.5 7.5 0 1116.65 2a7.5 7.5 0 010 15z" />
+                  </svg>
+                </div>
+              </div>
+
+              
+
+              <div className="overflow-x-auto">
+              <DataTable
   columns={columns}
   data={paginated}
   rowKey="id"
   onEdit={row => router.push(`/equipamentos/novo?produtoId=${row.id}`)}
   onDelete={row => excluir(row.id)}
 />
-            </div>
-          </section>
-        </div>
-      </div>
-      {/* Modal para novo fornecedor */}
-      {mostrarModalFornecedor && (
-        <div className="fixed inset-0 flex items-center justify-center bg-white/60 backdrop-blur-sm z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Adicionar Fornecedor</h3>
-              <button onClick={() => setMostrarModalFornecedor(false)} className="text-gray-500 hover:text-gray-700">
-                ✕
-              </button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <input
-                type="text"
-                className="border border-gray-300 rounded px-3 py-2 text-sm"
-                placeholder="Nome/Razão Social"
-                value={novoFornecedor}
-                onChange={(e) => setNovoFornecedor(e.target.value)}
-              />
-              <input
-                type="text"
-                className="border border-gray-300 rounded px-3 py-2 text-sm"
-                placeholder="Celular (opcional)"
-              />
-              <input
-                type="text"
-                className="border border-gray-300 rounded px-3 py-2 text-sm"
-                placeholder="Telefone"
-              />
-              <input
-                type="email"
-                className="border border-gray-300 rounded px-3 py-2 text-sm"
-                placeholder="E-mail (opcional)"
-              />
-              <input
-                type="text"
-                className="border border-gray-300 rounded px-3 py-2 text-sm"
-                placeholder="CNPJ/CPF (opcional)"
-              />
-              <input
-                type="text"
-                className="border border-gray-300 rounded px-3 py-2 text-sm"
-                placeholder="CEP (opcional)"
-              />
-              {/* Removido campo "Origem Cliente*" */}
-              {/* Removido campo "Cadastrado por" */}
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="secundario" onClick={() => setMostrarModalFornecedor(false)}>
-                Cancelar
-              </Button>
-              <Button
-                icone
-                onClick={async () => {
-                  if (!novoFornecedor || !empresaId) {
-                    setMensagemAviso('Preencha o nome do fornecedor e verifique o ID da empresa.');
-                    return;
-                  }
-                  const { error } = await supabase.from('fornecedores').insert({
-                    nome: novoFornecedor,
-                    empresa_id: empresaId,
-                    telefone: (document.querySelector('input[placeholder="Telefone"]') as HTMLInputElement)?.value || null,
-                    celular: (document.querySelector('input[placeholder="Celular (opcional)"]') as HTMLInputElement)?.value || null,
-                    email: (document.querySelector('input[placeholder="E-mail (opcional)"]') as HTMLInputElement)?.value || null,
-                    cnpj_cpf: (document.querySelector('input[placeholder="CNPJ/CPF (opcional)"]') as HTMLInputElement)?.value || null,
-                    cep: (document.querySelector('input[placeholder="CEP (opcional)"]') as HTMLInputElement)?.value || null,
-                  });
-                  if (error) {
-                    setMensagemAviso('Erro ao cadastrar fornecedor: ' + (error.message || 'Erro desconhecido'));
-                  } else {
-                    setFornecedor(novoFornecedor);
-                    setNovoFornecedor('');
-                    setMostrarModalFornecedor(false);
-                    addToast('success', 'Fornecedor cadastrado com sucesso!');
-                  }
-                }}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-4 4a4 4 0 110-8 4 4 0 010 8zm0 0v1a4 4 0 01-4 4H6a4 4 0 01-4-4v-1a4 4 0 014-4h4a4 4 0 014 4z" />
-                </svg>
-                Adicionar
-              </Button>
-            </div>
+              </div>
+            </section>
           </div>
         </div>
-      )}
-      </MenuLayout>
-    </ToastProvider>
+        {/* Modal para novo fornecedor */}
+        {mostrarModalFornecedor && (
+          <div className="fixed inset-0 flex items-center justify-center bg-white/60 backdrop-blur-sm z-50">
+            <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">Adicionar Fornecedor</h3>
+                <button onClick={() => setMostrarModalFornecedor(false)} className="text-gray-500 hover:text-gray-700">
+                  ✕
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <input
+                  type="text"
+                  className="border border-gray-300 rounded px-3 py-2 text-sm"
+                  placeholder="Nome/Razão Social"
+                  value={novoFornecedor}
+                  onChange={(e) => setNovoFornecedor(e.target.value)}
+                />
+                <input
+                  type="text"
+                  className="border border-gray-300 rounded px-3 py-2 text-sm"
+                  placeholder="Celular (opcional)"
+                />
+                <input
+                  type="text"
+                  className="border border-gray-300 rounded px-3 py-2 text-sm"
+                  placeholder="Telefone"
+                />
+                <input
+                  type="email"
+                  className="border border-gray-300 rounded px-3 py-2 text-sm"
+                  placeholder="E-mail (opcional)"
+                />
+                <input
+                  type="text"
+                  className="border border-gray-300 rounded px-3 py-2 text-sm"
+                  placeholder="CNPJ/CPF (opcional)"
+                />
+                <input
+                  type="text"
+                  className="border border-gray-300 rounded px-3 py-2 text-sm"
+                  placeholder="CEP (opcional)"
+                />
+                {/* Removido campo "Origem Cliente*" */}
+                {/* Removido campo "Cadastrado por" */}
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="secundario" onClick={() => setMostrarModalFornecedor(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  icone
+                  onClick={async () => {
+                    if (!novoFornecedor || !empresaId) {
+                      setMensagemAviso('Preencha o nome do fornecedor e verifique o ID da empresa.');
+                      return;
+                    }
+                    const { error } = await supabase.from('fornecedores').insert({
+                      nome: novoFornecedor,
+                      empresa_id: empresaId,
+                      telefone: (document.querySelector('input[placeholder="Telefone"]') as HTMLInputElement)?.value || null,
+                      celular: (document.querySelector('input[placeholder="Celular (opcional)"]') as HTMLInputElement)?.value || null,
+                      email: (document.querySelector('input[placeholder="E-mail (opcional)"]') as HTMLInputElement)?.value || null,
+                      cnpj_cpf: (document.querySelector('input[placeholder="CNPJ/CPF (opcional)"]') as HTMLInputElement)?.value || null,
+                      cep: (document.querySelector('input[placeholder="CEP (opcional)"]') as HTMLInputElement)?.value || null,
+                    });
+                    if (error) {
+                      setMensagemAviso('Erro ao cadastrar fornecedor: ' + (error.message || 'Erro desconhecido'));
+                    } else {
+                      setFornecedor(novoFornecedor);
+                      setNovoFornecedor('');
+                      setMostrarModalFornecedor(false);
+                      addToast('success', 'Fornecedor cadastrado com sucesso!');
+                    }
+                  }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-4 4a4 4 0 110-8 4 4 0 010 8zm0 0v1a4 4 0 01-4 4H6a4 4 0 01-4-4v-1a4 4 0 014-4h4a4 4 0 014 4z" />
+                  </svg>
+                  Adicionar
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+        </MenuLayout>
+      </ToastProvider>
+    </ProtectedArea>
   );
 }

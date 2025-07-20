@@ -2,6 +2,7 @@
 
 import Select from 'react-select';
 import MenuLayout from "@/components/MenuLayout";
+import ProtectedArea from '@/components/ProtectedArea';
 
 import Image from 'next/image';
 
@@ -28,11 +29,11 @@ import { supabase } from "@/lib/supabaseClient";
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ReactSelect from 'react-select';
-import { components, SingleValue } from 'react-select';
+import { components } from 'react-select';
 import { SingleValueProps } from 'react-select';
 import { toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
-import { ArrowLeft, UserPlus, UserCircle, DeviceMobileCamera, UsersThree, ClipboardText, NotePencil } from 'phosphor-react';
+import { UserPlus, UserCircle, DeviceMobileCamera, UsersThree, ClipboardText, NotePencil } from 'phosphor-react';
 import { Image as IconImage } from 'phosphor-react';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
@@ -41,7 +42,7 @@ import Lottie from 'lottie-react';
 import checkmarkAnimation from '@/assets/animations/checkmark.json';
 import errorAnimation from '@/assets/animations/error.json';
 // Custom SingleValue for react-select to show animated checkmark at right
-const CustomSingleValue = (props: SingleValueProps<any>) => (
+const CustomSingleValue = (props: SingleValueProps<{ value: string; label: string }>) => (
   <components.SingleValue {...props}>
     <div className="flex items-center justify-between w-full">
       <span>{props.data.label}</span>
@@ -82,30 +83,27 @@ export default function NovaOSPage() {
   const [numeroSerie, setNumeroSerie] = useState("");
   const [cor, setCor] = useState("");
   const [tecnico, setTecnico] = useState("");
-  const [atendente, setAtendente] = useState("");
   const [relato, setRelato] = useState("");
   const [observacao, setObservacao] = useState("");
   const [previewEntrada, setPreviewEntrada] = useState<string | null>(null);
   const [previewSaida, setPreviewSaida] = useState<string | null>(null);
   // Técnicos
-  const [tecnicos, setTecnicos] = useState<any[]>([]);
+  const [tecnicos, setTecnicos] = useState<{ id: string; nome: string }[]>([]);
   // Usuário logado (session)
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<{ user?: { id: string; nivel?: string } } | null>(null);
   // Serviços adicionados
   const [servicosAdicionados, setServicosAdicionados] = useState<
     { id: string; nome: string; valor: number; quantidade: number }[]
   >([]);
   // Peças adicionadas
-  const [pecasAdicionadas, setPecasAdicionadas] = useState<any[]>([]);
+  const [pecasAdicionadas, setPecasAdicionadas] = useState<{ id: string; nome: string; quantidade: number }[]>([]);
   // Termo de Garantia
   const [termoGarantia, setTermoGarantia] = useState('');
 
   // Estados para categorias, marcas e modelos de equipamentos
   const [categoriasEquip, setCategoriasEquip] = useState<{ id: string; nome: string }[]>([]);
   const [categoriaEquip, setCategoriaEquip] = useState('');
-  const [marcasEquip, setMarcasEquip] = useState<{ id: string; nome: string }[]>([]);
   const [marcaSelecionada, setMarcaSelecionada] = useState('');
-  const [modelosEquip, setModelosEquip] = useState<{ id: string; nome: string }[]>([]);
 
   const router = useRouter();
 
@@ -122,8 +120,8 @@ export default function NovaOSPage() {
       const { data: marcasData } = await supabase.from("marcas").select("*");
       const { data: modelosData } = await supabase.from("modelos").select("*");
       if (categoriasData) setCategoriasEquip(categoriasData);
-      if (marcasData) setMarcasEquip(marcasData);
-      if (modelosData) setModelosEquip(modelosData);
+      if (marcasData) setCategoriasEquip(marcasData);
+      if (modelosData) setCategoriasEquip(modelosData);
     }
     fetchClientes();
     fetchEquipamentos();
@@ -310,9 +308,9 @@ export default function NovaOSPage() {
           router.push("/dashboard/ordens");
         }, 1200);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Erro ao inserir OS:", err);
-      toast.error(`Erro ao cadastrar OS: ${err.message}`);
+      toast.error(`Erro ao cadastrar OS: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }
@@ -381,9 +379,9 @@ export default function NovaOSPage() {
       setClientes((prev) => [...prev, insertedCliente]);
       // Define automaticamente como selecionado o cliente recém cadastrado
       setClienteSelecionado(insertedCliente);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error(`Erro ao cadastrar cliente: ${err.message}`);
+      toast.error(`Erro ao cadastrar cliente: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }
@@ -471,95 +469,314 @@ export default function NovaOSPage() {
     : null;
   return (
     <MenuLayout>
-      {/* Título principal fora do container */}
-      <div className="w-full">
-        <h1 className="text-4xl font-extrabold tracking-tight text-blue-700 drop-shadow-sm text-center mb-10">
-          Nova Ordem de Serviço
-        </h1>
-      </div>
-      {/* Mini-resumo moderno logo abaixo do título */}
-      <div className="flex justify-center mb-4">
-        <div className="flex items-center space-x-4 bg-white/80 backdrop-blur shadow-xl rounded-full px-8 py-3">
-          <div className="text-sm text-gray-600 font-medium">Etapa: <span className="text-blue-600 font-semibold">{etapaAtual + 1} de 6</span></div>
-          <div className="w-2 h-2 rounded-full bg-blue-600"></div>
-          <div className="text-sm text-gray-600 font-medium">
-            {etapaAtual === 0 && "Informações do Cliente"}
-            {etapaAtual === 1 && "Informações do Aparelho"}
-            {etapaAtual === 2 && "Serviços e Peças"}
-            {etapaAtual === 3 && "Finalização"}
+      <ProtectedArea area="ordens">
+        {/* Título principal fora do container */}
+        <div className="w-full">
+          <h1 className="text-4xl font-extrabold tracking-tight text-blue-700 drop-shadow-sm text-center mb-10">
+            Nova Ordem de Serviço
+          </h1>
+        </div>
+        {/* Mini-resumo moderno logo abaixo do título */}
+        <div className="flex justify-center mb-4">
+          <div className="flex items-center space-x-4 bg-white/80 backdrop-blur shadow-xl rounded-full px-8 py-3">
+            <div className="text-sm text-gray-600 font-medium">Etapa: <span className="text-blue-600 font-semibold">{etapaAtual + 1} de 6</span></div>
+            <div className="w-2 h-2 rounded-full bg-blue-600"></div>
+            <div className="text-sm text-gray-600 font-medium">
+              {etapaAtual === 0 && "Informações do Cliente"}
+              {etapaAtual === 1 && "Informações do Aparelho"}
+              {etapaAtual === 2 && "Serviços e Peças"}
+              {etapaAtual === 3 && "Finalização"}
+            </div>
           </div>
         </div>
-      </div>
-      <div className="min-h-screen w-full bg-gradient-to-br from-white to-slate-100 px-4 py-10">
-        <div className="w-full bg-white/80 dark:bg-gray-800/80 backdrop-blur text-black dark:text-white rounded-2xl shadow-xl p-10">
-        <ThemeSwitcher />
-        <div className="w-full space-y-10 gap-10">
-        <BarraDeProgresso etapaAtual={etapaAtual} total={6} />
-        {/* Botão Voltar acima do título principal */}
-        <button
-          onClick={() => router.back()}
-          className="mb-4 text-sm text-blue-600 hover:underline"
-        >
-          ← Voltar
-        </button>
-        <div className="mt-2">
-          <div className="flex items-center justify-between w-full mb-4 gap-6">
-            {[1, 2, 3, 4, 5, 6].map((etapa) => (
-              <div key={etapa} className="flex flex-col items-center transition-transform hover:scale-[1.02] active:scale-95">
-                <div className={`flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300 shadow-lg ${
-                  etapaAtual > etapa ? 'bg-green-500 text-white' : etapaAtual === etapa ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'
-                }`}>
-                  {etapaAtual > etapa ? '✔️' : 
-                    (etapa === 1 && <UserCircle size={18} />) ||
-                    (etapa === 2 && <DeviceMobileCamera size={18} />) ||
-                    (etapa === 3 && <UsersThree size={18} />) ||
-                    (etapa === 4 && <ClipboardText size={18} />) ||
-                    (etapa === 5 && <NotePencil size={18} />) ||
-                    (etapa === 6 && <IconImage size={18} />)
-                  }
+        <div className="min-h-screen w-full bg-gradient-to-br from-white to-slate-100 px-4 py-10">
+          <div className="w-full bg-white/80 dark:bg-gray-800/80 backdrop-blur text-black dark:text-white rounded-2xl shadow-xl p-10">
+          <ThemeSwitcher />
+          <div className="w-full space-y-10 gap-10">
+          <BarraDeProgresso etapaAtual={etapaAtual} total={6} />
+          {/* Botão Voltar acima do título principal */}
+          <button
+            onClick={() => router.back()}
+            className="mb-4 text-sm text-blue-600 hover:underline"
+          >
+            ← Voltar
+          </button>
+          <div className="mt-2">
+            <div className="flex items-center justify-between w-full mb-4 gap-6">
+              {[1, 2, 3, 4, 5, 6].map((etapa) => (
+                <div key={etapa} className="flex flex-col items-center transition-transform hover:scale-[1.02] active:scale-95">
+                  <div className={`flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300 shadow-lg ${
+                    etapaAtual > etapa ? 'bg-green-500 text-white' : etapaAtual === etapa ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'
+                  }`}>
+                    {etapaAtual > etapa ? '✔️' : 
+                      (etapa === 1 && <UserCircle size={18} />) ||
+                      (etapa === 2 && <DeviceMobileCamera size={18} />) ||
+                      (etapa === 3 && <UsersThree size={18} />) ||
+                      (etapa === 4 && <ClipboardText size={18} />) ||
+                      (etapa === 5 && <NotePencil size={18} />) ||
+                      (etapa === 6 && <IconImage size={18} />)
+                    }
+                  </div>
+                  <span className="text-xs mt-2 text-center font-medium">
+                    {etapa === 1 && 'Cliente'}
+                    {etapa === 2 && 'Aparelho'}
+                    {etapa === 3 && 'Responsáveis'}
+                    {etapa === 4 && 'Status'}
+                    {etapa === 5 && 'Obs.'}
+                    {etapa === 6 && 'Imagens'}
+                  </span>
                 </div>
-                <span className="text-xs mt-2 text-center font-medium">
-                  {etapa === 1 && 'Cliente'}
-                  {etapa === 2 && 'Aparelho'}
-                  {etapa === 3 && 'Responsáveis'}
-                  {etapa === 4 && 'Status'}
-                  {etapa === 5 && 'Obs.'}
-                  {etapa === 6 && 'Imagens'}
-                </span>
-              </div>
-            ))}
-          </div>
-          <form onSubmit={handleSubmit} className="text-center mt-4">
-            <div className="space-y-10 gap-10 transition-all duration-500 ease-in-out">
-              {/* Etapa 1: Informações do Cliente */}
-              {etapaAtual === 1 && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6 gap-6 bg-white/80 rounded-2xl shadow-xl p-8 border border-gray-100 transition-all duration-500 ease-in-out">
-                  <div className="flex items-center gap-4">
-                    <div className="flex-1 relative">
-                      {isLoading ? (
-                        <Skeleton count={1} height={44} />
-                      ) : (
-                      <ReactSelect
-                        options={clientes.map((c) => ({ value: c.id, label: c.nome }))}
-                        placeholder="Selecionar cliente"
-                        className="w-full rounded-md"
-                        value={clienteSelecionado ? { value: clienteSelecionado.id, label: clienteSelecionado.nome } : null}
-                        onChange={(newValue, _actionMeta) => {
-                          const selectedValue = Array.isArray(newValue)
-                            ? newValue.length > 0 ? newValue[0].value : undefined
-                            : newValue?.value;
+              ))}
+            </div>
+            <form onSubmit={handleSubmit} className="text-center mt-4">
+              <div className="space-y-10 gap-10 transition-all duration-500 ease-in-out">
+                {/* Etapa 1: Informações do Cliente */}
+                {etapaAtual === 1 && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6 gap-6 bg-white/80 rounded-2xl shadow-xl p-8 border border-gray-100 transition-all duration-500 ease-in-out">
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1 relative">
+                        {isLoading ? (
+                          <Skeleton count={1} height={44} />
+                        ) : (
+                        <ReactSelect
+                          options={clientes.map((c) => ({ value: c.id, label: c.nome }))}
+                          placeholder="Selecionar cliente"
+                          className="w-full rounded-md"
+                          value={clienteSelecionado ? { value: clienteSelecionado.id, label: clienteSelecionado.nome } : null}
+                          onChange={(newValue) => {
+                            const selectedValue = Array.isArray(newValue)
+                              ? newValue.length > 0 ? newValue[0].value : undefined
+                              : newValue?.value;
 
-                          if (!selectedValue) return;
+                            if (!selectedValue) return;
 
-                          supabase
-                            .from('clientes')
-                            .select('*')
-                            .eq('id', selectedValue)
-                            .single()
-                            .then(({ data, error }) => {
-                              if (!error && data) setClienteSelecionado(data);
-                            });
+                            supabase
+                              .from('clientes')
+                              .select('*')
+                              .eq('id', selectedValue)
+                              .single()
+                              .then(({ data, error }) => {
+                                if (!error && data) setClienteSelecionado(data);
+                              });
+                          }}
+                          components={{ SingleValue: CustomSingleValue }}
+                          styles={{
+                            control: (provided: any) => ({
+                              ...provided,
+                              borderRadius: '0.375rem',
+                              borderColor: '#e5e7eb',
+                              backgroundColor: 'white',
+                              boxShadow: 'none',
+                              ':hover': { borderColor: '#3b82f6' }
+                            }),
+                            option: (provided: any, state: any) => ({
+                              ...provided,
+                              backgroundColor: state.isSelected
+                                ? '#3b82f6'
+                                : state.isFocused
+                                ? '#e0f2fe'
+                                : 'white',
+                              color: state.isSelected ? 'white' : '#111827',
+                              padding: '0.75rem 1rem',
+                              fontSize: '0.875rem',
+                            }),
+                            singleValue: (provided: any) => ({
+                              ...provided,
+                              fontSize: '0.875rem',
+                              lineHeight: '1.25rem',
+                            }),
+                          }}
+                        />
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowModal(true)}
+                        className="p-3 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg hover:brightness-110 transition hover:scale-[1.02] active:scale-95"
+                      >
+                        <UserPlus size={20} />
+                      </button>
+                    </div>
+                    <div className="flex mt-4 gap-4">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!clienteSelecionado) {
+                            toast.error("Selecione um cliente!");
+                            return;
+                          }
+                          setEtapaAtual(etapaAtual + 1);
                         }}
+                        className="px-6 py-3 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95 mx-auto"
+                      >
+                        Próximo
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Etapa 2: Informações do Aparelho */}
+                {etapaAtual === 2 && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6 gap-6 bg-white/80 rounded-2xl shadow-xl p-8 border border-gray-100 transition-all duration-500 ease-in-out">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Categoria */}
+                      <div className="relative flex items-center">
+                        <input
+                          type="text"
+                          value={categoriaEquip}
+                          onChange={(e) => setCategoriaEquip(e.target.value)}
+                          placeholder="Digite a categoria"
+                          className="input input-bordered w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20"
+                        />
+                      </div>
+                      {/* Marca */}
+                      <div className="relative flex items-center">
+                        <input
+                          type="text"
+                          value={marcaSelecionada}
+                          onChange={(e) => setMarcaSelecionada(e.target.value)}
+                          placeholder="Digite a marca"
+                          className="input input-bordered w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Modelo */}
+                      <div className="relative flex items-center">
+                        <input
+                          type="text"
+                          value={modelo}
+                          onChange={(e) => setModelo(e.target.value)}
+                          placeholder="Digite o modelo"
+                          className="input input-bordered w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20"
+                        />
+                      </div>
+                      {/* Número de Série */}
+                      <div className="relative flex items-center">
+                        <input
+                          type="text"
+                          name="numero_serie"
+                          placeholder="Número de Série ou Referência"
+                          className="w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20"
+                          value={numeroSerie}
+                          onChange={(e) => setNumeroSerie(e.target.value)}
+                        />
+                        {numeroSerie && (
+                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4">
+                            <Lottie animationData={checkmarkAnimation} loop={false} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {/* Cor */}
+                    <div className="flex gap-4 mt-4">
+                      <div className="w-1/2">
+                        <input
+                          type="text"
+                          placeholder="Cor do aparelho"
+                          className="w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20"
+                          value={cor}
+                          onChange={(e) => setCor(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-between mt-4 gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setEtapaAtual(etapaAtual - 1)}
+                        className="px-6 py-3 rounded-xl text-base font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition hover:scale-[1.02] active:scale-95 mx-auto"
+                      >
+                        Voltar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!categoriaEquip || !marcaSelecionada || !modelo || !numeroSerie) {
+                            toast.error("Preencha todas as informações do aparelho!");
+                            return;
+                          }
+                          setEtapaAtual(etapaAtual + 1);
+                        }}
+                        className="px-6 py-3 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95 mx-auto"
+                      >
+                        Próximo
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Etapa 3: Responsáveis */}
+                {etapaAtual === 3 && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6 gap-6 bg-white/80 rounded-2xl shadow-xl p-8 border border-gray-100 transition-all duration-500 ease-in-out">
+                    <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-4">
+                      {/* Técnico */}
+                      <div className="relative flex items-center w-full">
+                        <Select
+                          options={tecnicos.map((t: { id: string; nome: string }) => ({
+                            value: t.id,
+                            label: t.nome,
+                          }))}
+                          placeholder="Selecione um técnico"
+                          className="w-full"
+                          value={tecnico ? tecnicos.map((t: { id: string; nome: string }) => ({ value: t.id, label: t.nome })).find((t) => t.value === tecnico) : null}
+                          onChange={(newValue) => {
+                            if (!newValue || Array.isArray(newValue)) return;
+                            setTecnico((newValue as { value: string; label: string }).value);
+                          }}
+                          isSearchable
+                          isDisabled={session && session.user && session.user.id && tecnicos.some((t: { id: string; nome: string }) => t.id === session.user.id && session.user.nivel === "tecnico")}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-between mt-4 gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setEtapaAtual(etapaAtual - 1)}
+                        className="px-6 py-3 rounded-xl text-base font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition hover:scale-[1.02] active:scale-95 mx-auto"
+                      >
+                        Voltar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!tecnico && !(session && session.user && session.user.nivel === "tecnico")) {
+                            toast.error("Selecione um técnico!");
+                            return;
+                          }
+                          setEtapaAtual(etapaAtual + 1);
+                        }}
+                        className="px-6 py-3 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95 mx-auto"
+                      >
+                        Próximo
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Etapa 4: Status e Aplicações */}
+                {etapaAtual === 4 && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6 gap-6 bg-white/80 rounded-2xl shadow-xl p-8 border border-gray-100 transition-all duration-500 ease-in-out">
+                    {/* Status Select */}
+                    <div className="relative flex items-center">
+                      <ReactSelect
+                        options={[
+                          { value: 'orcamento', label: 'Orçamento' },
+                          { value: 'aprovado', label: 'Aprovado' },
+                        ]}
+                        value={
+                          status
+                            ? [
+                                { value: 'orcamento', label: 'Orçamento' },
+                                { value: 'aprovado', label: 'Aprovado' },
+                              ].find(opt => opt.value === status)
+                            : null
+                        }
+                        onChange={(newValue) => {
+                          if (!newValue || Array.isArray(newValue)) return;
+                          setStatus((newValue as { value: string; label: string }).value);
+                        }}
+                        placeholder="Selecionar status"
+                        className="w-full rounded-md"
                         components={{ SingleValue: CustomSingleValue }}
                         styles={{
                           control: (provided: any) => ({
@@ -588,698 +805,481 @@ export default function NovaOSPage() {
                           }),
                         }}
                       />
-                      )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowModal(true)}
-                      className="p-3 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg hover:brightness-110 transition hover:scale-[1.02] active:scale-95"
-                    >
-                      <UserPlus size={20} />
-                    </button>
-                  </div>
-                  <div className="flex mt-4 gap-4">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!clienteSelecionado) {
-                          toast.error("Selecione um cliente!");
-                          return;
-                        }
-                        setEtapaAtual(etapaAtual + 1);
-                      }}
-                      className="px-6 py-3 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95 mx-auto"
-                    >
-                      Próximo
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Etapa 2: Informações do Aparelho */}
-              {etapaAtual === 2 && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6 gap-6 bg-white/80 rounded-2xl shadow-xl p-8 border border-gray-100 transition-all duration-500 ease-in-out">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Categoria */}
-                    <div className="relative flex items-center">
-                      <input
-                        type="text"
-                        value={categoriaEquip}
-                        onChange={(e) => setCategoriaEquip(e.target.value)}
-                        placeholder="Digite a categoria"
-                        className="input input-bordered w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20"
-                      />
-                    </div>
-                    {/* Marca */}
-                    <div className="relative flex items-center">
-                      <input
-                        type="text"
-                        value={marcaSelecionada}
-                        onChange={(e) => setMarcaSelecionada(e.target.value)}
-                        placeholder="Digite a marca"
-                        className="input input-bordered w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Modelo */}
-                    <div className="relative flex items-center">
-                      <input
-                        type="text"
-                        value={modelo}
-                        onChange={(e) => setModelo(e.target.value)}
-                        placeholder="Digite o modelo"
-                        className="input input-bordered w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20"
-                      />
-                    </div>
-                    {/* Número de Série */}
-                    <div className="relative flex items-center">
-                      <input
-                        type="text"
-                        name="numero_serie"
-                        placeholder="Número de Série ou Referência"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20"
-                        value={numeroSerie}
-                        onChange={(e) => setNumeroSerie(e.target.value)}
-                      />
-                      {numeroSerie && (
-                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4">
-                          <Lottie animationData={checkmarkAnimation} loop={false} />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  {/* Cor */}
-                  <div className="flex gap-4 mt-4">
-                    <div className="w-1/2">
-                      <input
-                        type="text"
-                        placeholder="Cor do aparelho"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20"
-                        value={cor}
-                        onChange={(e) => setCor(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-between mt-4 gap-4">
-                    <button
-                      type="button"
-                      onClick={() => setEtapaAtual(etapaAtual - 1)}
-                      className="px-6 py-3 rounded-xl text-base font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition hover:scale-[1.02] active:scale-95 mx-auto"
-                    >
-                      Voltar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!categoriaEquip || !marcaSelecionada || !modelo || !numeroSerie) {
-                          toast.error("Preencha todas as informações do aparelho!");
-                          return;
-                        }
-                        setEtapaAtual(etapaAtual + 1);
-                      }}
-                      className="px-6 py-3 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95 mx-auto"
-                    >
-                      Próximo
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Etapa 3: Responsáveis */}
-              {etapaAtual === 3 && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6 gap-6 bg-white/80 rounded-2xl shadow-xl p-8 border border-gray-100 transition-all duration-500 ease-in-out">
-                  <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-4">
-                    {/* Técnico */}
-                    <div className="relative flex items-center w-full">
-                      <Select
-                        options={tecnicos.map((t: any) => ({
-                          value: t.id,
-                          label: t.nome,
-                        }))}
-                        placeholder="Selecione um técnico"
-                        className="w-full"
-                        value={tecnico ? tecnicos.map((t: any) => ({ value: t.id, label: t.nome })).find((t: any) => t.value === tecnico) : null}
-                        onChange={(newValue, _actionMeta) => {
-                          if (!newValue || Array.isArray(newValue)) return;
-                          setTecnico(newValue.value);
-                        }}
-                        isSearchable
-                        isDisabled={session && session.user && session.user.id && tecnicos.some((t: any) => t.id === session.user.id && session.user.nivel === "tecnico")}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-between mt-4 gap-4">
-                    <button
-                      type="button"
-                      onClick={() => setEtapaAtual(etapaAtual - 1)}
-                      className="px-6 py-3 rounded-xl text-base font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition hover:scale-[1.02] active:scale-95 mx-auto"
-                    >
-                      Voltar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!tecnico && !(session && session.user && session.user.nivel === "tecnico")) {
-                          toast.error("Selecione um técnico!");
-                          return;
-                        }
-                        setEtapaAtual(etapaAtual + 1);
-                      }}
-                      className="px-6 py-3 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95 mx-auto"
-                    >
-                      Próximo
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Etapa 4: Status e Aplicações */}
-              {etapaAtual === 4 && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6 gap-6 bg-white/80 rounded-2xl shadow-xl p-8 border border-gray-100 transition-all duration-500 ease-in-out">
-                  {/* Status Select */}
-                  <div className="relative flex items-center">
-                    <ReactSelect
-                      options={[
-                        { value: 'orcamento', label: 'Orçamento' },
-                        { value: 'aprovado', label: 'Aprovado' },
-                      ]}
-                      value={
-                        status
-                          ? [
-                              { value: 'orcamento', label: 'Orçamento' },
-                              { value: 'aprovado', label: 'Aprovado' },
-                            ].find(opt => opt.value === status)
-                          : null
-                      }
-                      onChange={(newValue, _actionMeta) => {
-                        if (!newValue || Array.isArray(newValue)) return;
-                        setStatus(newValue.value);
-                      }}
-                      placeholder="Selecionar status"
-                      className="w-full rounded-md"
-                      components={{ SingleValue: CustomSingleValue }}
-                      styles={{
-                        control: (provided: any) => ({
-                          ...provided,
-                          borderRadius: '0.375rem',
-                          borderColor: '#e5e7eb',
-                          backgroundColor: 'white',
-                          boxShadow: 'none',
-                          ':hover': { borderColor: '#3b82f6' }
-                        }),
-                        option: (provided: any, state: any) => ({
-                          ...provided,
-                          backgroundColor: state.isSelected
-                            ? '#3b82f6'
-                            : state.isFocused
-                            ? '#e0f2fe'
-                            : 'white',
-                          color: state.isSelected ? 'white' : '#111827',
-                          padding: '0.75rem 1rem',
-                          fontSize: '0.875rem',
-                        }),
-                        singleValue: (provided: any) => ({
-                          ...provided,
-                          fontSize: '0.875rem',
-                          lineHeight: '1.25rem',
-                        }),
-                      }}
-                    />
-                  </div>
-                  {/* Serviços e Peças (nova visualização estilo tabela, aparece apenas se aprovado) */}
-                  {status === "aprovado" && (
-                    <>
-                        {/* Nova organização estilo card com totais */}
-                        <div className="space-y-8">
-                          {/* Seleção de Serviços */}
-                          <div className="shadow-lg border rounded-2xl p-6 bg-white/90">
-                            <div className="space-y-4">
-                              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Serviços</label>
-                              <div className="grid grid-cols-4 gap-2 items-center">
-                                <div className="col-span-2">
-                                  <ReactSelect
-                                    options={Object.entries(servicos).map(([id, servico]) => ({
-                                      value: id,
-                                      label: `${servico.nome} - R$ ${servico.preco.toFixed(2)}`,
-                                    }))}
-                                    value={
-                                      servicoSelecionado
-                                        ? {
-                                            value: servicoSelecionado,
-                                            label:
-                                              servicos[servicoSelecionado]?.nome +
-                                              " - R$ " +
-                                              (servicos[servicoSelecionado]?.preco?.toFixed(2) ?? "")
-                                          }
-                                        : null
-                                    }
-                                    onChange={(newValue) => {
-                                      if (!newValue || Array.isArray(newValue)) return;
-                                      setServicoSelecionado(newValue.value);
-                                    }}
-                                    className="w-full"
-                                    placeholder="Selecione um serviço"
-                                    isSearchable
-                                  />
+                    {/* Serviços e Peças (nova visualização estilo tabela, aparece apenas se aprovado) */}
+                    {status === "aprovado" && (
+                      <>
+                          {/* Nova organização estilo card com totais */}
+                          <div className="space-y-8">
+                            {/* Seleção de Serviços */}
+                            <div className="shadow-lg border rounded-2xl p-6 bg-white/90">
+                              <div className="space-y-4">
+                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Serviços</label>
+                                <div className="grid grid-cols-4 gap-2 items-center">
+                                  <div className="col-span-2">
+                                    <ReactSelect
+                                      options={Object.entries(servicos).map(([id, servico]) => ({
+                                        value: id,
+                                        label: `${servico.nome} - R$ ${servico.preco.toFixed(2)}`,
+                                      }))}
+                                      value={
+                                        servicoSelecionado
+                                          ? {
+                                              value: servicoSelecionado,
+                                              label:
+                                                servicos[servicoSelecionado]?.nome +
+                                                " - R$ " +
+                                                (servicos[servicoSelecionado]?.preco?.toFixed(2) ?? "")
+                                            }
+                                          : null
+                                      }
+                                      onChange={(newValue) => {
+                                        if (!newValue || Array.isArray(newValue)) return;
+                                        setServicoSelecionado(newValue.value);
+                                      }}
+                                      className="w-full"
+                                      placeholder="Selecione um serviço"
+                                      isSearchable
+                                    />
+                                  </div>
+                                  <div>
+                                    {/* Espaço reservado para futura quantidade, se necessário */}
+                                  </div>
+                                  <div>
+                                    <button
+                                      type="button"
+                                      onClick={handleAdicionarServico}
+                                      className="w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95"
+                                    >
+                                      Adicionar
+                                    </button>
+                                  </div>
                                 </div>
-                                <div>
-                                  {/* Espaço reservado para futura quantidade, se necessário */}
-                                </div>
-                                <div>
-                                  <button
-                                    type="button"
-                                    onClick={handleAdicionarServico}
-                                    className="w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95"
-                                  >
-                                    Adicionar
-                                  </button>
+                                {/* Lista de Serviços Adicionados */}
+                                {servicosAdicionados.length > 0 && (
+                                  <div className="mt-4 space-y-2">
+                                    <div className="grid grid-cols-5 gap-2 items-center text-sm font-semibold text-gray-600 border-b pb-2">
+                                      <div>Serviço</div>
+                                      <div>Qtd</div>
+                                      <div>Valor Unitário</div>
+                                      <div>Subtotal</div>
+                                      <div>Ação</div>
+                                    </div>
+                                    {servicosAdicionados.map((servico, index) => (
+                                      <div
+                                        key={index}
+                                        className="grid grid-cols-5 gap-2 items-center text-sm border-b py-2"
+                                      >
+                                        <div>{servico.nome}</div>
+                                        <div>
+                                          <input
+                                            type="number"
+                                            min={1}
+                                            value={servico.quantidade}
+                                            onChange={e => handleAlterarQuantidadeServico(index, Number(e.target.value))}
+                                            className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-center"
+                                          />
+                                        </div>
+                                        <div>R$ {servico.valor.toFixed(2)}</div>
+                                        <div className="font-semibold">
+                                          R$ {(servico.valor * servico.quantidade).toFixed(2)}
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoverServico(index)}
+                                          className="text-red-500 hover:text-red-700 text-base transition hover:scale-[1.02] active:scale-95"
+                                          title="Remover serviço"
+                                        >
+                                          ❌
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Adicionar Peça */}
+                            <div className="shadow-lg border rounded-2xl p-6 bg-white/90">
+                              <h3 className="text-base font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                📦 Peças Utilizadas
+                              </h3>
+                              <div>
+                                <h4 className="text-sm font-semibold text-gray-600 mb-2">Adicionar peça</h4>
+                                <div className="grid grid-cols-3 gap-2 items-center">
+                                  <div className="col-span-2">
+                                    <ReactSelect
+                                      options={Object.entries(pecas).map(([id, peca]) => ({
+                                        value: id,
+                                        label: `${peca.nome} - R$ ${peca.preco}`
+                                      }))}
+                                      value={pecaSelecionada ? {
+                                        value: pecaSelecionada,
+                                        label: pecas[pecaSelecionada]
+                                          ? `${pecas[pecaSelecionada].nome} - R$ ${pecas[pecaSelecionada].preco}` : ''
+                                      } : null}
+                                      onChange={(selected) => {
+                                        if (!selected || Array.isArray(selected)) return;
+                                        setPecaSelecionada(selected.value);
+                                      }}
+                                      placeholder="Selecionar peça"
+                                    />
+                                  </div>
+                                  <div>
+                                    <button
+                                      type="button"
+                                      onClick={handleAdicionarPeca}
+                                      className="w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95"
+                                    >
+                                      ➕ Adicionar
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
-                              {/* Lista de Serviços Adicionados */}
-                              {servicosAdicionados.length > 0 && (
-                                <div className="mt-4 space-y-2">
+                              {/* Lista de peças adicionadas */}
+                              {pecasAdicionadas.length > 0 ? (
+                                <div className="mt-6" aria-label="Lista de peças adicionadas">
                                   <div className="grid grid-cols-5 gap-2 items-center text-sm font-semibold text-gray-600 border-b pb-2">
-                                    <div>Serviço</div>
+                                    <div>Peça</div>
                                     <div>Qtd</div>
-                                    <div>Valor Unitário</div>
+                                    <div>Preço Unitário</div>
                                     <div>Subtotal</div>
                                     <div>Ação</div>
                                   </div>
-                                  {servicosAdicionados.map((servico, index) => (
-                                    <div
-                                      key={index}
-                                      className="grid grid-cols-5 gap-2 items-center text-sm border-b py-2"
-                                    >
-                                      <div>{servico.nome}</div>
+                                  {pecasAdicionadas.map((peca, index) => (
+                                    <div key={index} className="grid grid-cols-5 gap-2 items-center text-sm border-b py-2">
+                                      <div>{peca.nome}</div>
                                       <div>
                                         <input
                                           type="number"
                                           min={1}
-                                          value={servico.quantidade}
-                                          onChange={e => handleAlterarQuantidadeServico(index, Number(e.target.value))}
+                                          value={peca.quantidade}
+                                          onChange={(e) => {
+                                            const novaQtd = Number(e.target.value);
+                                            setPecasAdicionadas((prev) =>
+                                              prev.map((p, i) =>
+                                                i === index ? { ...p, quantidade: novaQtd < 1 ? 1 : novaQtd } : p
+                                              )
+                                            );
+                                          }}
                                           className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-center"
                                         />
                                       </div>
-                                      <div>R$ {servico.valor.toFixed(2)}</div>
+                                      <div>R$ {pecas[peca.id]?.preco.toFixed(2)}</div>
                                       <div className="font-semibold">
-                                        R$ {(servico.valor * servico.quantidade).toFixed(2)}
+                                        R$ {(pecas[peca.id]?.preco * peca.quantidade).toFixed(2)}
                                       </div>
                                       <button
                                         type="button"
-                                        onClick={() => handleRemoverServico(index)}
                                         className="text-red-500 hover:text-red-700 text-base transition hover:scale-[1.02] active:scale-95"
-                                        title="Remover serviço"
+                                        title="Remover produto"
+                                        onClick={() => handleRemoverProduto(index)}
                                       >
                                         ❌
                                       </button>
                                     </div>
                                   ))}
                                 </div>
+                              ) : (
+                                <p className="text-sm text-gray-500 mt-6" aria-label="Nenhuma peça adicionada">Nenhuma peça adicionada.</p>
                               )}
                             </div>
-                          </div>
 
-                          {/* Adicionar Peça */}
-                          <div className="shadow-lg border rounded-2xl p-6 bg-white/90">
-                            <h3 className="text-base font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                              📦 Peças Utilizadas
-                            </h3>
-                            <div>
-                              <h4 className="text-sm font-semibold text-gray-600 mb-2">Adicionar peça</h4>
-                              <div className="grid grid-cols-3 gap-2 items-center">
-                                <div className="col-span-2">
-                                  <ReactSelect
-                                    options={Object.entries(pecas).map(([id, peca]) => ({
-                                      value: id,
-                                      label: `${peca.nome} - R$ ${peca.preco}`
-                                    }))}
-                                    value={pecaSelecionada ? {
-                                      value: pecaSelecionada,
-                                      label: pecas[pecaSelecionada]
-                                        ? `${pecas[pecaSelecionada].nome} - R$ ${pecas[pecaSelecionada].preco}` : ''
-                                    } : null}
-                                    onChange={(selected) => {
-                                      if (!selected || Array.isArray(selected)) return;
-                                      setPecaSelecionada(selected.value);
-                                    }}
-                                    placeholder="Selecionar peça"
+                            {/* Totais */}
+                            <div className="shadow-lg border rounded-2xl p-6 bg-white/90">
+                              <h3 className="text-base font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                🧾 Totais
+                              </h3>
+                              <div className="grid grid-cols-3 md:grid-cols-5 gap-4 text-sm">
+                                <div>
+                                  <label className="block mb-1 text-gray-600 text-sm">Serviços</label>
+                                  <input
+                                    type="text"
+                                    readOnly
+                                    className="w-full px-3 py-2 border rounded bg-gray-100 text-sm"
+                                    value={`R$ ${servicosAdicionados.reduce((acc, s) => acc + (s.valor * (s.quantidade || 1)), 0).toFixed(2)}`}
                                   />
                                 </div>
                                 <div>
-                                  <button
-                                    type="button"
-                                    onClick={handleAdicionarPeca}
-                                    className="w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95"
-                                  >
-                                    ➕ Adicionar
-                                  </button>
+                                  <label className="block mb-1 text-gray-600 text-sm">Peças</label>
+                                  <input
+                                    type="text"
+                                    readOnly
+                                    className="w-full px-3 py-2 border rounded bg-gray-100 text-sm"
+                                    value={`R$ ${pecasAdicionadas.reduce((acc, peca) => acc + (pecas[peca.id]?.preco * peca.quantidade), 0).toFixed(2)}`}
+                                  />
+                                </div>
+                                <div className="col-span-1 md:col-span-1 flex flex-col items-center justify-center">
+                                  <label className="block mb-1 text-green-700 font-semibold text-sm text-center">Valor Total</label>
+                                  <input
+                                    type="text"
+                                    readOnly
+                                    className="w-full px-3 py-2 border rounded bg-green-100 text-green-800 font-bold text-lg text-center"
+                                    value={`R$ ${(servicosAdicionados.reduce((acc, s) => acc + (s.valor * (s.quantidade || 1)), 0) + pecasAdicionadas.reduce((acc, peca) => acc + (pecas[peca.id]?.preco * peca.quantidade), 0)).toFixed(2)}`}
+                                  />
                                 </div>
                               </div>
                             </div>
-                            {/* Lista de peças adicionadas */}
-                            {pecasAdicionadas.length > 0 ? (
-                              <div className="mt-6" aria-label="Lista de peças adicionadas">
-                                <div className="grid grid-cols-5 gap-2 items-center text-sm font-semibold text-gray-600 border-b pb-2">
-                                  <div>Peça</div>
-                                  <div>Qtd</div>
-                                  <div>Preço Unitário</div>
-                                  <div>Subtotal</div>
-                                  <div>Ação</div>
-                                </div>
-                                {pecasAdicionadas.map((peca, index) => (
-                                  <div key={index} className="grid grid-cols-5 gap-2 items-center text-sm border-b py-2">
-                                    <div>{peca.nome}</div>
-                                    <div>
-                                      <input
-                                        type="number"
-                                        min={1}
-                                        value={peca.quantidade}
-                                        onChange={(e) => {
-                                          const novaQtd = Number(e.target.value);
-                                          setPecasAdicionadas((prev) =>
-                                            prev.map((p, i) =>
-                                              i === index ? { ...p, quantidade: novaQtd < 1 ? 1 : novaQtd } : p
-                                            )
-                                          );
-                                        }}
-                                        className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-center"
-                                      />
-                                    </div>
-                                    <div>R$ {pecas[peca.id]?.preco.toFixed(2)}</div>
-                                    <div className="font-semibold">
-                                      R$ {(pecas[peca.id]?.preco * peca.quantidade).toFixed(2)}
-                                    </div>
-                                    <button
-                                      type="button"
-                                      className="text-red-500 hover:text-red-700 text-base transition hover:scale-[1.02] active:scale-95"
-                                      title="Remover produto"
-                                      onClick={() => handleRemoverProduto(index)}
-                                    >
-                                      ❌
-                                    </button>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="text-sm text-gray-500 mt-6" aria-label="Nenhuma peça adicionada">Nenhuma peça adicionada.</p>
-                            )}
                           </div>
-
-                          {/* Totais */}
-                          <div className="shadow-lg border rounded-2xl p-6 bg-white/90">
-                            <h3 className="text-base font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                              🧾 Totais
-                            </h3>
-                            <div className="grid grid-cols-3 md:grid-cols-5 gap-4 text-sm">
-                              <div>
-                                <label className="block mb-1 text-gray-600 text-sm">Serviços</label>
-                                <input
-                                  type="text"
-                                  readOnly
-                                  className="w-full px-3 py-2 border rounded bg-gray-100 text-sm"
-                                  value={`R$ ${servicosAdicionados.reduce((acc, s) => acc + (s.valor * (s.quantidade || 1)), 0).toFixed(2)}`}
-                                />
-                              </div>
-                              <div>
-                                <label className="block mb-1 text-gray-600 text-sm">Peças</label>
-                                <input
-                                  type="text"
-                                  readOnly
-                                  className="w-full px-3 py-2 border rounded bg-gray-100 text-sm"
-                                  value={`R$ ${pecasAdicionadas.reduce((acc, peca) => acc + (pecas[peca.id]?.preco * peca.quantidade), 0).toFixed(2)}`}
-                                />
-                              </div>
-                              <div className="col-span-1 md:col-span-1 flex flex-col items-center justify-center">
-                                <label className="block mb-1 text-green-700 font-semibold text-sm text-center">Valor Total</label>
-                                <input
-                                  type="text"
-                                  readOnly
-                                  className="w-full px-3 py-2 border rounded bg-green-100 text-green-800 font-bold text-lg text-center"
-                                  value={`R$ ${(servicosAdicionados.reduce((acc, s) => acc + (s.valor * (s.quantidade || 1)), 0) + pecasAdicionadas.reduce((acc, peca) => acc + (pecas[peca.id]?.preco * peca.quantidade), 0)).toFixed(2)}`}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                    </>
-                  )}
-                  {/* Termo de Garantia */}
-                  <div className="space-y-4 gap-4">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-2 text-center">Termo de Garantia</h3>
-                    <div className="relative flex items-center">
-                      <textarea
-                        value={termoGarantia}
-                        onChange={(e) => setTermoGarantia(e.target.value)}
-                        placeholder="Termo de garantia"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20 placeholder-gray-400"
-                        rows={3}
-                      />
+                      </>
+                    )}
+                    {/* Termo de Garantia */}
+                    <div className="space-y-4 gap-4">
+                      <h3 className="text-sm font-semibold text-gray-700 mb-2 text-center">Termo de Garantia</h3>
+                      <div className="relative flex items-center">
+                        <textarea
+                          value={termoGarantia}
+                          onChange={(e) => setTermoGarantia(e.target.value)}
+                          placeholder="Termo de garantia"
+                          className="w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20 placeholder-gray-400"
+                          rows={3}
+                        />
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex justify-between mt-4 gap-4">
-                    <button
-                      type="button"
-                      onClick={() => setEtapaAtual(etapaAtual - 1)}
-                      className="px-6 py-3 rounded-xl text-base font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition hover:scale-[1.02] active:scale-95 mx-auto"
-                    >
-                      Voltar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (
-                          status === 'aprovado' &&
-                          (servicosAdicionados.length === 0 || pecasAdicionadas.length === 0)
-                        ) {
-                          toast.error("Adicione pelo menos um serviço e uma peça!");
-                          return;
-                        }
-                        setEtapaAtual(etapaAtual + 1);
-                      }}
-                      className="px-6 py-3 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95 mx-auto"
-                    >
-                      Próximo
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Etapa 5: Observações */}
-              {etapaAtual === 5 && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6 gap-6 bg-white/80 rounded-2xl shadow-xl p-8 border border-gray-100 transition-all duration-500 ease-in-out">
-                  {/* Relato do cliente */}
-                  <div className="relative flex items-center">
-                    <textarea
-                      placeholder="Relato do cliente"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20 placeholder-gray-400"
-                      rows={3}
-                      value={relato}
-                      onChange={(e) => setRelato(e.target.value)}
-                    />
-                  </div>
-                  {/* Observações internas */}
-                  <div className="relative flex items-center">
-                    <textarea
-                      placeholder="Observações internas"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20 placeholder-gray-400"
-                      rows={3}
-                      value={observacao}
-                      onChange={(e) => setObservacao(e.target.value)}
-                    />
-                  </div>
-                  <div className="flex justify-between mt-4 gap-4">
-                    <button
-                      type="button"
-                      onClick={() => setEtapaAtual(etapaAtual - 1)}
-                      className="px-6 py-3 rounded-xl text-base font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition hover:scale-[1.02] active:scale-95 mx-auto"
-                    >
-                      Voltar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEtapaAtual(etapaAtual + 1)}
-                      className="px-6 py-3 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95 mx-auto"
-                    >
-                      Próximo
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Etapa 6: Imagens */}
-              {etapaAtual === 6 && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6 gap-6 bg-white/80 rounded-2xl shadow-xl p-8 border border-gray-100 transition-all duration-500 ease-in-out">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-semibold text-gray-700 mb-2">Imagem de Entrada</label>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          if (e.target.files && e.target.files[0]) setPreviewEntrada(URL.createObjectURL(e.target.files[0]));
-                        }}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20 cursor-pointer hover:bg-gray-100"
-                      />
-                      {previewEntrada && (
-                        <Image src={previewEntrada} alt="Preview" width={128} height={128} className="w-32 h-32 object-cover rounded-lg mt-2" />
-                      )}
-                    </div>
-                    <div>
-                      <label className="text-sm font-semibold text-gray-700 mb-2">Imagem de Saída</label>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          if (e.target.files && e.target.files[0]) setPreviewSaida(URL.createObjectURL(e.target.files[0]));
-                        }}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20 cursor-pointer hover:bg-gray-100"
-                      />
-                      {previewSaida && (
-                        <Image src={previewSaida} alt="Preview" width={128} height={128} className="w-32 h-32 object-cover rounded-lg mt-2" />
-                      )}
-                    </div>
-                  </div>
-                  <div className="p-6 bg-white/80 backdrop-blur rounded-2xl mt-6 text-base shadow-lg">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <p><strong>Cliente:</strong> {clienteSelecionado?.nome}</p>
-                      <p><strong>Aparelho:</strong> {categoriasEquip.find(c => c.id === categoriaEquip)?.nome || categoriaEquip} - {modelo} {cor && `- ${cor}`}</p>
-                      {/* <p><strong>Descrição do serviço:</strong> {relatorio}</p> */}
-                      <p><strong>Relato do cliente:</strong> {relato}</p>
-                      <p><strong>Observações internas:</strong> {observacao}</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col md:flex-row justify-between mt-4 gap-4">
-                    <button
-                      type="button"
-                      onClick={() => setEtapaAtual(etapaAtual - 1)}
-                      className="px-6 py-3 rounded-xl text-base font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition hover:scale-[1.02] active:scale-95 mx-auto"
-                    >
-                      Voltar
-                    </button>
-                    <div className="flex flex-col md:flex-row gap-2">
+                    <div className="flex justify-between mt-4 gap-4">
                       <button
-                        type="submit"
-                        className="px-6 py-3 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95 mx-auto"
-                        disabled={isLoading}
+                        type="button"
+                        onClick={() => setEtapaAtual(etapaAtual - 1)}
+                        className="px-6 py-3 rounded-xl text-base font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition hover:scale-[1.02] active:scale-95 mx-auto"
                       >
-                        {isLoading ? 'Salvando...' : 'Salvar'}
+                        Voltar
                       </button>
                       <button
                         type="button"
-                        onClick={() => setShowResumoModal(true)}
-                        className="px-6 py-3 rounded-xl text-base font-semibold bg-gradient-to-r from-slate-400 to-gray-500 text-white shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95 mx-auto"
+                        onClick={() => {
+                          if (
+                            status === 'aprovado' &&
+                            (servicosAdicionados.length === 0 || pecasAdicionadas.length === 0)
+                          ) {
+                            toast.error("Adicione pelo menos um serviço e uma peça!");
+                            return;
+                          }
+                          setEtapaAtual(etapaAtual + 1);
+                        }}
+                        className="px-6 py-3 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95 mx-auto"
                       >
-                        Visualizar Resumo
+                        Próximo
                       </button>
                     </div>
-                  </div>
-                </motion.div>
-              )}
-            </div>
-          </form>
-        </div>
+                  </motion.div>
+                )}
 
-        {/* Modal para cadastrar novo cliente */}
-        {showModal && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur rounded-2xl shadow-xl w-full max-w-2xl p-8 relative">
-              <h2 className="text-2xl font-extrabold text-blue-700 drop-shadow-sm mb-6 text-center">Cadastro Rápido</h2>
-              <FastRegisterForm
-                onClose={() => setShowModal(false)}
-                onSubmit={handleFastRegister}
-                isLoading={isLoading}
-              />
-              <button
-                onClick={() => setShowModal(false)}
-                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition hover:scale-[1.02] active:scale-95"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        )}
+                {/* Etapa 5: Observações */}
+                {etapaAtual === 5 && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6 gap-6 bg-white/80 rounded-2xl shadow-xl p-8 border border-gray-100 transition-all duration-500 ease-in-out">
+                    {/* Relato do cliente */}
+                    <div className="relative flex items-center">
+                      <textarea
+                        placeholder="Relato do cliente"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20 placeholder-gray-400"
+                        rows={3}
+                        value={relato}
+                        onChange={(e) => setRelato(e.target.value)}
+                      />
+                    </div>
+                    {/* Observações internas */}
+                    <div className="relative flex items-center">
+                      <textarea
+                        placeholder="Observações internas"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20 placeholder-gray-400"
+                        rows={3}
+                        value={observacao}
+                        onChange={(e) => setObservacao(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex justify-between mt-4 gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setEtapaAtual(etapaAtual - 1)}
+                        className="px-6 py-3 rounded-xl text-base font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition hover:scale-[1.02] active:scale-95 mx-auto"
+                      >
+                        Voltar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEtapaAtual(etapaAtual + 1)}
+                        className="px-6 py-3 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95 mx-auto"
+                      >
+                        Próximo
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
 
-        {/* Resumo da Ordem de Serviço em div fixa (não modal) */}
-        {showResumoModal && (
-          <div className="w-full mt-6 bg-white/80 backdrop-blur-lg p-6 rounded-2xl shadow-lg transition-all">
-            <h2 className="text-2xl font-extrabold text-blue-700 drop-shadow-sm mb-6 text-center">Resumo da Ordem de Serviço</h2>
-            {/* Novo layout minimalista e organizado */}
-            <div className="p-8 bg-white/80 rounded-2xl mt-6 text-base space-y-10 border border-gray-200 shadow-lg">
-              {/* Dados do Cliente */}
-              <div>
-                <h2 className="text-xl font-semibold text-blue-600 mb-2">Dados do Cliente</h2>
-                <p><strong>Nome:</strong> {clienteSelecionado?.nome}</p>
-                <p><strong>Telefone:</strong> {clienteSelecionado?.telefone}</p>
-              </div>
-              {/* Dados do Aparelho */}
-              <div>
-                <h2 className="text-xl font-semibold text-blue-600 mb-2">Aparelho</h2>
-                <p><strong>Categoria:</strong> {categoriasEquip.find(c => c.id === categoriaEquip)?.nome || categoriaEquip}</p>
-                <p><strong>Modelo:</strong> {modelo}</p>
-                <p><strong>Cor:</strong> {cor}</p>
-                <p><strong>Número de série:</strong> {numeroSerie}</p>
-              </div>
-              {/* Descrição do Serviço */}
-              <div>
-                <h2 className="text-xl font-semibold text-blue-600 mb-2">Serviço</h2>
-                <p><strong>Relato do cliente:</strong> {relato}</p>
-                <p><strong>Observações internas:</strong> {observacao}</p>
-              </div>
-              {/* Lista de Serviços */}
-              <div>
-                <h2 className="text-xl font-semibold text-blue-600 mb-2">Serviços Adicionados</h2>
-                {servicosAdicionados.length > 0 ? (
-                  <ul className="list-disc ml-6 space-y-1">
-                    {servicosAdicionados.map((s, index) => (
-                      <li key={index}>
-                        {s.nome} (x{s.quantidade}) — R$ {(s.valor * s.quantidade).toFixed(2)}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-gray-500">Nenhum serviço adicionado.</p>
+                {/* Etapa 6: Imagens */}
+                {etapaAtual === 6 && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6 gap-6 bg-white/80 rounded-2xl shadow-xl p-8 border border-gray-100 transition-all duration-500 ease-in-out">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-semibold text-gray-700 mb-2">Imagem de Entrada</label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) setPreviewEntrada(URL.createObjectURL(e.target.files[0]));
+                          }}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20 cursor-pointer hover:bg-gray-100"
+                        />
+                        {previewEntrada && (
+                          <Image src={previewEntrada} alt="Preview" width={128} height={128} className="w-32 h-32 object-cover rounded-lg mt-2" />
+                        )}
+                      </div>
+                      <div>
+                        <label className="text-sm font-semibold text-gray-700 mb-2">Imagem de Saída</label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) setPreviewSaida(URL.createObjectURL(e.target.files[0]));
+                          }}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-md bg-white text-sm focus:ring focus:ring-blue-500/20 cursor-pointer hover:bg-gray-100"
+                        />
+                        {previewSaida && (
+                          <Image src={previewSaida} alt="Preview" width={128} height={128} className="w-32 h-32 object-cover rounded-lg mt-2" />
+                        )}
+                      </div>
+                    </div>
+                    <div className="p-6 bg-white/80 backdrop-blur rounded-2xl mt-6 text-base shadow-lg">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <p><strong>Cliente:</strong> {clienteSelecionado?.nome}</p>
+                        <p><strong>Aparelho:</strong> {categoriasEquip.find(c => c.id === categoriaEquip)?.nome || categoriaEquip} - {modelo} {cor && `- ${cor}`}</p>
+                        {/* <p><strong>Descrição do serviço:</strong> {relatorio}</p> */}
+                        <p><strong>Relato do cliente:</strong> {relato}</p>
+                        <p><strong>Observações internas:</strong> {observacao}</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col md:flex-row justify-between mt-4 gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setEtapaAtual(etapaAtual - 1)}
+                        className="px-6 py-3 rounded-xl text-base font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition hover:scale-[1.02] active:scale-95 mx-auto"
+                      >
+                        Voltar
+                      </button>
+                      <div className="flex flex-col md:flex-row gap-2">
+                        <button
+                          type="submit"
+                          className="px-6 py-3 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95 mx-auto"
+                          disabled={isLoading}
+                        >
+                          {isLoading ? 'Salvando...' : 'Salvar'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowResumoModal(true)}
+                          className="px-6 py-3 rounded-xl text-base font-semibold bg-gradient-to-r from-slate-400 to-gray-500 text-white shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95 mx-auto"
+                        >
+                          Visualizar Resumo
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
                 )}
               </div>
-              {/* Lista de Peças */}
-              <div>
-                <h2 className="text-xl font-semibold text-blue-600 mt-6 mb-2">Peças Utilizadas</h2>
-                {pecasAdicionadas.length > 0 ? (
-                  <ul className="list-disc ml-6 space-y-1">
-                    {pecasAdicionadas.map((p, index) => (
-                      <li key={index}>
-                        {pecas[p.id]?.nome || p.id} (x{p.quantidade}) — R$ {(pecas[p.id]?.preco * p.quantidade).toFixed(2)}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-gray-500">Nenhuma peça adicionada.</p>
-                )}
+            </form>
+          </div>
+
+          {/* Modal para cadastrar novo cliente */}
+          {showModal && (
+            <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+              <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur rounded-2xl shadow-xl w-full max-w-2xl p-8 relative">
+                <h2 className="text-2xl font-extrabold text-blue-700 drop-shadow-sm mb-6 text-center">Cadastro Rápido</h2>
+                <FastRegisterForm
+                  onClose={() => setShowModal(false)}
+                  onSubmit={handleFastRegister}
+                  isLoading={isLoading}
+                />
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition hover:scale-[1.02] active:scale-95"
+                >
+                  ×
+                </button>
               </div>
             </div>
-            <div className="flex justify-between mt-8">
-              <button
-                onClick={() => setShowResumoModal(false)}
-                className="border border-gray-300 text-gray-700 rounded-xl px-6 py-3 font-semibold hover:bg-gray-200 transition hover:scale-[1.02] active:scale-95"
-              >
-                Voltar e Editar
-              </button>
-              <button
-                type="submit"
-                className="px-6 py-3 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95"
-                onClick={() => {
-                  setShowResumoModal(false);
-                  document.querySelector('form')?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-                }}
-              >
-                Confirmar e Cadastrar
-              </button>
+          )}
+
+          {/* Resumo da Ordem de Serviço em div fixa (não modal) */}
+          {showResumoModal && (
+            <div className="w-full mt-6 bg-white/80 backdrop-blur-lg p-6 rounded-2xl shadow-lg transition-all">
+              <h2 className="text-2xl font-extrabold text-blue-700 drop-shadow-sm mb-6 text-center">Resumo da Ordem de Serviço</h2>
+              {/* Novo layout minimalista e organizado */}
+              <div className="p-8 bg-white/80 rounded-2xl mt-6 text-base space-y-10 border border-gray-200 shadow-lg">
+                {/* Dados do Cliente */}
+                <div>
+                  <h2 className="text-xl font-semibold text-blue-600 mb-2">Dados do Cliente</h2>
+                  <p><strong>Nome:</strong> {clienteSelecionado?.nome}</p>
+                  <p><strong>Telefone:</strong> {clienteSelecionado?.telefone}</p>
+                </div>
+                {/* Dados do Aparelho */}
+                <div>
+                  <h2 className="text-xl font-semibold text-blue-600 mb-2">Aparelho</h2>
+                  <p><strong>Categoria:</strong> {categoriasEquip.find(c => c.id === categoriaEquip)?.nome || categoriaEquip}</p>
+                  <p><strong>Modelo:</strong> {modelo}</p>
+                  <p><strong>Cor:</strong> {cor}</p>
+                  <p><strong>Número de série:</strong> {numeroSerie}</p>
+                </div>
+                {/* Descrição do Serviço */}
+                <div>
+                  <h2 className="text-xl font-semibold text-blue-600 mb-2">Serviço</h2>
+                  <p><strong>Relato do cliente:</strong> {relato}</p>
+                  <p><strong>Observações internas:</strong> {observacao}</p>
+                </div>
+                {/* Lista de Serviços */}
+                <div>
+                  <h2 className="text-xl font-semibold text-blue-600 mb-2">Serviços Adicionados</h2>
+                  {servicosAdicionados.length > 0 ? (
+                    <ul className="list-disc ml-6 space-y-1">
+                      {servicosAdicionados.map((s, index) => (
+                        <li key={index}>
+                          {s.nome} (x{s.quantidade}) — R$ {(s.valor * s.quantidade).toFixed(2)}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-500">Nenhum serviço adicionado.</p>
+                  )}
+                </div>
+                {/* Lista de Peças */}
+                <div>
+                  <h2 className="text-xl font-semibold text-blue-600 mt-6 mb-2">Peças Utilizadas</h2>
+                  {pecasAdicionadas.length > 0 ? (
+                    <ul className="list-disc ml-6 space-y-1">
+                      {pecasAdicionadas.map((p, index) => (
+                        <li key={index}>
+                          {pecas[p.id]?.nome || p.id} (x{p.quantidade}) — R$ {(pecas[p.id]?.preco * p.quantidade).toFixed(2)}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-500">Nenhuma peça adicionada.</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex justify-between mt-8">
+                <button
+                  onClick={() => setShowResumoModal(false)}
+                  className="border border-gray-300 text-gray-700 rounded-xl px-6 py-3 font-semibold hover:bg-gray-200 transition hover:scale-[1.02] active:scale-95"
+                >
+                  Voltar e Editar
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-3 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md hover:brightness-110 transition hover:scale-[1.02] active:scale-95"
+                  onClick={() => {
+                    setShowResumoModal(false);
+                    document.querySelector('form')?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+                  }}
+                >
+                  Confirmar e Cadastrar
+                </button>
+              </div>
             </div>
+          )}
           </div>
-        )}
         </div>
-      </div>
-      </div>
+        </div>
+      </ProtectedArea>
     </MenuLayout>
   );
 }
@@ -1450,7 +1450,7 @@ function FastRegisterForm({ onClose, onSubmit, isLoading }: { onClose: () => voi
               lineHeight: '1.25rem',
             }),
           }}
-          onChange={(newValue, _actionMeta) => {
+          onChange={(newValue) => {
             if (!newValue || Array.isArray(newValue)) return;
             handleSelectChange('origem', newValue);
           }}
@@ -1489,7 +1489,7 @@ function FastRegisterForm({ onClose, onSubmit, isLoading }: { onClose: () => voi
                 : 'white',
               color: state.isSelected ? 'white' : '#111827',
               padding: '0.75rem 1rem',
-              fontSize: '0.875rem', 
+              fontSize: '0.875rem',
             }),
             singleValue: (provided: any) => ({
               ...provided,
@@ -1497,7 +1497,7 @@ function FastRegisterForm({ onClose, onSubmit, isLoading }: { onClose: () => voi
               lineHeight: '1.25rem',
             }),
           }}
-          onChange={(newValue, _actionMeta) => {
+          onChange={(newValue) => {
             if (!newValue || Array.isArray(newValue)) return;
             handleSelectChange('cadastradoPor', newValue);
           }}

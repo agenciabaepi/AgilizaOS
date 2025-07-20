@@ -23,7 +23,7 @@ import { useAuth } from '@/context/AuthContext';
 export default function MenuLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const supabase = createClientComponentClient();
-  const { signOut } = useAuth();
+  const { signOut, usuarioData } = useAuth();
 
   const [userName, setUserName] = useState<string>('');
   const [userLevel, setUserLevel] = useState<string>('');
@@ -84,6 +84,10 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
     }
   }, [menuExpandido]);
 
+  // Função para checar permissão
+  const podeVer = (area: string) =>
+    usuarioData?.nivel === 'admin' || usuarioData?.permissoes?.includes(area);
+
   if (menuExpandido === null) return null;
   return (
     <div className="flex min-h-screen bg-transparent relative z-0 overflow-x-hidden w-full">
@@ -139,14 +143,32 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
         >
           <div className="mb-6 h-10" />
           <nav className="space-y-2">
-            <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" menuExpandido={menuExpandido} />
-            <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" menuExpandido={menuExpandido} />
-            <SidebarButton path="/clientes" icon={<FiUsers size={20} />} label="Clientes" menuExpandido={menuExpandido} />
-            <SidebarButton path="/equipamentos" icon={<FiBox size={20} />} label="Produtos/Serviços" menuExpandido={menuExpandido} />
-            <SidebarButton path="#" icon={<FiDollarSign size={20} />} label="Financeiro" menuExpandido={menuExpandido} />
-            <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" menuExpandido={menuExpandido} />
-            <SidebarButton path="#" icon={<FiFileText size={20} />} label="Termos" menuExpandido={menuExpandido} />
-            {userLevel !== 'atendente' && (
+            {podeVer('dashboard') && (
+              <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" menuExpandido={menuExpandido} />
+            )}
+            {podeVer('lembretes') && (
+              <SidebarButton path="/lembretes" icon={<FiFileText size={20} />} label="Lembretes" menuExpandido={menuExpandido} />
+            )}
+            {podeVer('ordens') && (
+              <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" menuExpandido={menuExpandido} />
+            )}
+            {podeVer('clientes') && (
+              <SidebarButton path="/clientes" icon={<FiUsers size={20} />} label="Clientes" menuExpandido={menuExpandido} />
+            )}
+            {podeVer('equipamentos') && (
+              <SidebarButton path="/equipamentos" icon={<FiBox size={20} />} label="Produtos/Serviços" menuExpandido={menuExpandido} />
+            )}
+            {podeVer('financeiro') && (
+              <SidebarButton path="#" icon={<FiDollarSign size={20} />} label="Financeiro" menuExpandido={menuExpandido} />
+            )}
+            {podeVer('bancada') && (
+              <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" menuExpandido={menuExpandido} />
+            )}
+            {podeVer('termos') && (
+              <SidebarButton path="#" icon={<FiFileText size={20} />} label="Termos" menuExpandido={menuExpandido} />
+            )}
+            <SidebarButton path="/perfil" icon={<FiUsers size={20} />} label="Meu Perfil" menuExpandido={menuExpandido} />
+            {podeVer('configuracoes') && usuarioData?.nivel !== 'atendente' && (
               <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" menuExpandido={menuExpandido} />
             )}
             <button

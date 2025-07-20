@@ -12,9 +12,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useSession } from '@supabase/auth-helpers-react'
 import { Session } from '@supabase/auth-helpers-nextjs'
 import ProtectedRoute from '@/components/ProtectedRoute';
+import { useRouter } from 'next/navigation';
 
 export default function UsuariosPage() {
   const session: Session | null = useSession()
+  const router = useRouter();
 
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
@@ -244,7 +246,7 @@ export default function UsuariosPage() {
                           className={`text-gray-600 transition ${usuario.id === session?.user?.id ? 'opacity-40 cursor-not-allowed' : 'hover:text-blue-600'}`}
                           onClick={() => {
                             if (usuario.id !== session?.user?.id) {
-                              alert('Função de editar ainda não implementada')
+                              router.push(`/configuracoes/usuarios/${usuario.id}/editar`)
                             }
                           }}
                           disabled={usuario.id === session?.user?.id}
