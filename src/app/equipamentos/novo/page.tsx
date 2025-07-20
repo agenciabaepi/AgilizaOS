@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabaseClient';
 import { Tab } from '@headlessui/react';
 import { Input } from '@/components/Input';
 import { Label } from '@/components/label';
@@ -11,62 +13,143 @@ import { Select } from '@/components/Select';
 
 export default function NovoProdutoPage() {
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
   const [formData, setFormData] = useState({
-    nome: 'Produto Teste',
+    nome: '',
     tipo: 'produto',
     codigo: '',
-    grupo: 'Acessórios',
-    categoria: 'Carregadores',
-    subcategoria: 'Turbo',
-    custo: '10',
-    preco: '25',
-    unidade: 'Unidade',
-    fornecedor: 'TechDistribuidora',
-    marca: 'Samsung',
-    estoque_min: '5',
-    estoque_max: '50',
-    estoque_atual: '20',
+    grupo: '',
+    categoria: '',
+    subcategoria: '',
+    custo: '',
+    preco: '',
+    unidade: '',
+    fornecedor: '',
+    marca: '',
+    estoque_min: '',
+    estoque_max: '',
+    estoque_atual: '',
     situacao: 'Ativo',
-    ncm: '8471.80.10',
-    cfop: '5102',
-    cst: '00',
-    cest: '28.038.00',
-    largura_cm: '10',
-    altura_cm: '15',
-    profundidade_cm: '5',
-    peso_g: '250',
-    obs: 'Produto de teste gerado automaticamente.',
+    ncm: '',
+    cfop: '',
+    cst: '',
+    cest: '',
+    largura_cm: '',
+    altura_cm: '',
+    profundidade_cm: '',
+    peso_g: '',
+    obs: '',
     ativo: 'true',
-    codigo_barras: '7894561230001',
+    codigo_barras: '',
   });
 
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const produtoId = searchParams.get('id');
+
+  useEffect(() => {
+    if (produtoId) {
+      supabase
+        .from('produtos_servicos')
+        .select('*')
+        .eq('id', produtoId)
+        .single()
+        .then(({ data, error }) => {
+          if (data && !error) {
+            setFormData({
+              nome: data.nome || '',
+              tipo: data.tipo || '',
+              codigo: data.codigo || '',
+              grupo: data.grupo || '',
+              categoria: data.categoria || '',
+              subcategoria: data.subcategoria || '',
+              custo: data.custo?.toString() || '',
+              preco: data.preco?.toString() || '',
+              unidade: data.unidade || '',
+              fornecedor: data.fornecedor || '',
+              marca: data.marca || '',
+              estoque_min: data.estoque_min?.toString() || '',
+              estoque_max: data.estoque_max?.toString() || '',
+              estoque_atual: data.estoque_atual?.toString() || '',
+              situacao: data.situacao || '',
+              ncm: data.ncm || '',
+              cfop: data.cfop || '',
+              cst: data.cst || '',
+              cest: data.cest || '',
+              largura_cm: data.largura_cm?.toString() || '',
+              altura_cm: data.altura_cm?.toString() || '',
+              profundidade_cm: data.profundidade_cm?.toString() || '',
+              peso_g: data.peso_g?.toString() || '',
+              obs: data.obs || '',
+              ativo: data.ativo ? 'true' : 'false',
+              codigo_barras: data.codigo_barras || '',
+            });
+            setExistingImageUrls(data.imagens_url || []);
+          }
+        });
+    }
+  }, [produtoId]);
+
   const handleSubmit = async () => {
-    // Gerar código sequencial por empresa
+    // Gerar código sequencial por empresa, somente se não estiver editando (novo produto)
     const empresa_id = localStorage.getItem('empresa_id');
     if (!empresa_id) {
       alert('Erro: empresa_id não encontrado. Faça login novamente.');
       return;
     }
 
-    const res = await fetch(`/api/produtos?empresa_id=${empresa_id}`);
-    const json = await res.json();
-    const ultimoCodigo = Number(json?.ultimoCodigo) || 0;
-    const proximoCodigo = ultimoCodigo + 1;
-    formData.codigo = proximoCodigo.toString();
+    if (!produtoId) {
+      let proximoCodigo = 1;
+      try {
+        const res = await fetch(`/api/produtos?empresa_id=${empresa_id}`);
+        if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
+          const json = await res.json();
+          const ultimo = Number(json?.ultimoCodigo) || 0;
+          proximoCodigo = ultimo + 1;
+        } else {
+          const text = await res.text();
+          console.error('Erro GET /api/produtos:', res.status, text);
+        }
+      } catch (err) {
+        console.error('Erro ao buscar último código:', err);
+      }
+      formData.codigo = proximoCodigo.toString();
+    }
 
-    // Checagem dos campos obrigatórios
-    if (
-      !formData.grupo ||
-      !formData.unidade ||
-      !formData.fornecedor
-    ) {
-      alert('Por favor, preencha todos os campos obrigatórios: Grupo, Unidade, Fornecedor.');
+    // Checagem dos campos obrigatórios: apenas Nome e Preço de Venda
+    if (!formData.nome || !formData.preco) {
+      alert('Por favor, preencha os campos obrigatórios: Nome e Preço de Venda.');
       return;
     }
 
-    // Coleta das imagens selecionadas
-    const imagens = selectedImages ? Array.from(selectedImages) : [];
+    // Coleta das imagens selecionadas como arquivos
+    const arquivos = selectedImages ? Array.from(selectedImages) : [];
+    const uploadedImageUrls: string[] = [];
 
+    // Envio de cada arquivo direto ao Supabase Storage
+    for (const file of arquivos) {
+      // Gera nome de arquivo seguro, substituindo caracteres inválidos
+      const timestamp = Date.now();
+      const rawName = file.name;
+      const safeName = rawName.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+      const filePath = `produtos/${empresa_id}/${timestamp}_${safeName}`;
+      // Apaga logo anterior, se quiser comportamento similar ao logo
+      // await handleDeleteLogo? (não aplicável aqui)
+      const { error: uploadError } = await supabase
+        .storage
+        .from('produtos')
+        .upload(filePath, file, { upsert: false });
+      if (uploadError) {
+        console.error('Erro ao fazer upload da imagem:', uploadError);
+        alert(`Erro ao fazer upload da imagem ${file.name}: ${uploadError.message}`);
+        continue;
+      }
+      const { data } = supabase
+        .storage
+        .from('produtos')
+        .getPublicUrl(filePath);
+      uploadedImageUrls.push(data.publicUrl);
+    }
     // Log dos dados enviados
     console.log('Dados enviados:', formData);
 
@@ -100,9 +183,30 @@ export default function NovoProdutoPage() {
       empresa_id,
       ativo: true,
       codigo_barras: formData.codigo_barras,
-      imagens,
+      imagens: [...existingImageUrls, ...uploadedImageUrls], // used in POST, not update
     };
 
+    // Se for edição, atualiza o produto existente
+    if (produtoId) {
+      const updatePayload = {
+        ...data,
+        imagens_url: [...existingImageUrls, ...uploadedImageUrls],
+      };
+      const { error } = await supabase
+        .from('produtos_servicos')
+        .update(updatePayload)
+        .eq('id', produtoId);
+      if (error) {
+        console.error('Erro ao atualizar produto:', error);
+        alert('Erro ao atualizar produto: ' + error.message);
+        return;
+      }
+      alert('Produto atualizado com sucesso!');
+      router.push('/equipamentos');
+      return;
+    }
+
+    // Se não for edição, prossegue com o cadastro (POST)
     try {
       const response = await fetch('/api/produtos', {
         method: 'POST',
@@ -111,12 +215,21 @@ export default function NovoProdutoPage() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Erro detalhado:', errorData);
-        throw new Error(errorData.message || 'Erro ao salvar produto');
+        let msg = '';
+        try {
+          const errJson = await response.json();
+          msg = errJson.error?.message || errJson.message || JSON.stringify(errJson);
+        } catch {
+          const text = await response.text();
+          console.error('Erro não-JSON da API:', text);
+          msg = text || 'Erro desconhecido';
+        }
+        alert(`Erro ao cadastrar produto: ${msg}`);
+        return;
       }
 
       alert('Produto cadastrado com sucesso!');
+      router.push('/equipamentos');
     } catch (error) {
       console.error(error);
       alert('Erro ao cadastrar produto');
@@ -127,11 +240,17 @@ export default function NovoProdutoPage() {
     <MenuLayout>
       <main className="flex flex-col items-center justify-start flex-1 px-4 py-8">
         <div className="w-full max-w-5xl">
-          <h1 className="text-2xl font-bold mb-6">Novo Produto</h1>
+          <h1 className="text-2xl font-bold mb-6">
+            {produtoId ? 'Editar Produto' : 'Novo Produto'}
+          </h1>
 
           <Tab.Group manual defaultIndex={0}>
             <Tab.List className="flex space-x-2 border-b mb-4">
-              {['dados', 'fiscal', 'imagens', 'detalhes', 'outros'].map((tabName) => (
+              {(
+                formData.tipo === 'servico'
+                  ? ['dados', 'outros']
+                  : ['dados', 'fiscal', 'imagens', 'detalhes', 'outros']
+              ).map((tabName) => (
                 <Tab
                   key={tabName}
                   className={({ selected }) =>
@@ -149,6 +268,7 @@ export default function NovoProdutoPage() {
               <Tab.Panel>
                 {/* Conteúdo da aba Dados */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Nome */}
                   <div>
                     <Label htmlFor="nome">Nome do Produto</Label>
                     <Input
@@ -158,6 +278,7 @@ export default function NovoProdutoPage() {
                       placeholder="Ex: Carregador Turbo"
                     />
                   </div>
+                  {/* Tipo */}
                   <div>
                     <Select
                       id="tipo"
@@ -165,30 +286,11 @@ export default function NovoProdutoPage() {
                       value={formData.tipo}
                       onChange={(e) => setFormData({ ...formData, tipo: e.target.value })}
                     >
-                      <option value="">Selecione</option>
                       <option value="produto">Produto</option>
                       <option value="servico">Serviço</option>
                     </Select>
                   </div>
-                  <div>
-                    <Label htmlFor="codigo_barras">Código de barras</Label>
-                    <Input
-                      id="codigo_barras"
-                      value={formData.codigo_barras}
-                      onChange={(e) => setFormData({ ...formData, codigo_barras: e.target.value })}
-                      placeholder="Ex: 7894561230001"
-                    />
-                    <Button
-                      type="button"
-                      className="mt-2"
-                      onClick={() => {
-                        const codigoAleatorio = Math.floor(1000000000000 + Math.random() * 9000000000000).toString();
-                        setFormData({ ...formData, codigo_barras: codigoAleatorio });
-                      }}
-                    >
-                      Gerar Código
-                    </Button>
-                  </div>
+                  {/* Grupo */}
                   <div>
                     <Label htmlFor="grupo">Grupo</Label>
                     <Input
@@ -198,6 +300,7 @@ export default function NovoProdutoPage() {
                       placeholder="Ex: Acessórios"
                     />
                   </div>
+                  {/* Categoria */}
                   <div>
                     <Label htmlFor="categoria">Categoria</Label>
                     <Input
@@ -207,6 +310,7 @@ export default function NovoProdutoPage() {
                       placeholder="Ex: Carregadores"
                     />
                   </div>
+                  {/* Subcategoria */}
                   <div>
                     <Label htmlFor="subcategoria">Subcategoria</Label>
                     <Input
@@ -216,6 +320,7 @@ export default function NovoProdutoPage() {
                       placeholder="Ex: Turbo"
                     />
                   </div>
+                  {/* Preço de Custo */}
                   <div>
                     <Label htmlFor="custo">Preço de Custo</Label>
                     <Input
@@ -226,6 +331,7 @@ export default function NovoProdutoPage() {
                       placeholder="R$ 0,00"
                     />
                   </div>
+                  {/* Preço de Venda */}
                   <div>
                     <Label htmlFor="preco">Preço de Venda</Label>
                     <Input
@@ -236,65 +342,7 @@ export default function NovoProdutoPage() {
                       placeholder="R$ 0,00"
                     />
                   </div>
-                  <div>
-                    <Select
-                      id="unidade"
-                      label="Unidade de Medida"
-                      value={formData.unidade}
-                      onChange={(e) => setFormData({ ...formData, unidade: e.target.value })}
-                    >
-                      <option value="">Selecione</option>
-                      <option value="Unidade">Unidade</option>
-                      <option value="Caixa">Caixa</option>
-                      <option value="Lote">Lote</option>
-                      <option value="Pacote">Pacote</option>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="fornecedor">Fornecedor</Label>
-                    <Input
-                      id="fornecedor"
-                      value={formData.fornecedor}
-                      onChange={(e) => setFormData({ ...formData, fornecedor: e.target.value })}
-                      placeholder="Ex: TechDistribuidora"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="marca">Marca</Label>
-                    <Input
-                      id="marca"
-                      value={formData.marca}
-                      onChange={(e) => setFormData({ ...formData, marca: e.target.value })}
-                      placeholder="Ex: Samsung"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="estoqueMin">Estoque Mínimo</Label>
-                    <Input
-                      id="estoqueMin"
-                      type="number"
-                      value={formData.estoque_min}
-                      onChange={(e) => setFormData({ ...formData, estoque_min: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="estoqueMax">Estoque Máximo</Label>
-                    <Input
-                      id="estoqueMax"
-                      type="number"
-                      value={formData.estoque_max}
-                      onChange={(e) => setFormData({ ...formData, estoque_max: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="estoqueAtual">Estoque Atual</Label>
-                    <Input
-                      id="estoqueAtual"
-                      type="number"
-                      value={formData.estoque_atual}
-                      onChange={(e) => setFormData({ ...formData, estoque_atual: e.target.value })}
-                    />
-                  </div>
+                  {/* Situação */}
                   <div>
                     <Label>Situação</Label>
                     <div className="flex gap-2">
@@ -314,83 +362,190 @@ export default function NovoProdutoPage() {
                       </Button>
                     </div>
                   </div>
+                  {/* Produto-specific fields */}
+                  {formData.tipo !== 'servico' && (
+                    <>
+                      {/* Código de barras */}
+                      <div>
+                        <Label htmlFor="codigo_barras">Código de barras</Label>
+                        <Input
+                          id="codigo_barras"
+                          value={formData.codigo_barras}
+                          onChange={(e) => setFormData({ ...formData, codigo_barras: e.target.value })}
+                          placeholder="Ex: 7894561230001"
+                        />
+                        <Button
+                          type="button"
+                          className="mt-2"
+                          onClick={() => {
+                            const codigoAleatorio = Math.floor(1000000000000 + Math.random() * 9000000000000).toString();
+                            setFormData({ ...formData, codigo_barras: codigoAleatorio });
+                          }}
+                        >
+                          Gerar Código
+                        </Button>
+                      </div>
+                      {/* Unidade de Medida */}
+                      <div>
+                        <Select
+                          id="unidade"
+                          label="Unidade de Medida"
+                          value={formData.unidade}
+                          onChange={(e) => setFormData({ ...formData, unidade: e.target.value })}
+                        >
+                          <option value="">Selecione</option>
+                          <option value="Unidade">Unidade</option>
+                          <option value="Caixa">Caixa</option>
+                          <option value="Lote">Lote</option>
+                          <option value="Pacote">Pacote</option>
+                        </Select>
+                      </div>
+                      {/* Fornecedor */}
+                      <div>
+                        <Label htmlFor="fornecedor">Fornecedor</Label>
+                        <Input
+                          id="fornecedor"
+                          value={formData.fornecedor}
+                          onChange={(e) => setFormData({ ...formData, fornecedor: e.target.value })}
+                          placeholder="Ex: TechDistribuidora"
+                        />
+                      </div>
+                      {/* Marca */}
+                      <div>
+                        <Label htmlFor="marca">Marca</Label>
+                        <Input
+                          id="marca"
+                          value={formData.marca}
+                          onChange={(e) => setFormData({ ...formData, marca: e.target.value })}
+                          placeholder="Ex: Samsung"
+                        />
+                      </div>
+                      {/* Estoque Mínimo */}
+                      <div>
+                        <Label htmlFor="estoqueMin">Estoque Mínimo</Label>
+                        <Input
+                          id="estoqueMin"
+                          type="number"
+                          value={formData.estoque_min}
+                          onChange={(e) => setFormData({ ...formData, estoque_min: e.target.value })}
+                        />
+                      </div>
+                      {/* Estoque Máximo */}
+                      <div>
+                        <Label htmlFor="estoqueMax">Estoque Máximo</Label>
+                        <Input
+                          id="estoqueMax"
+                          type="number"
+                          value={formData.estoque_max}
+                          onChange={(e) => setFormData({ ...formData, estoque_max: e.target.value })}
+                        />
+                      </div>
+                      {/* Estoque Atual */}
+                      <div>
+                        <Label htmlFor="estoqueAtual">Estoque Atual</Label>
+                        <Input
+                          id="estoqueAtual"
+                          type="number"
+                          value={formData.estoque_atual}
+                          onChange={(e) => setFormData({ ...formData, estoque_atual: e.target.value })}
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
               </Tab.Panel>
-
-              <Tab.Panel>
-                {/* Conteúdo da aba Fiscal */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="ncm">NCM</Label>
+              {formData.tipo !== 'servico' && (
+                <>
+                  <Tab.Panel>
+                    {/* Conteúdo da aba Fiscal */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="ncm">NCM</Label>
+                        <Input
+                          id="ncm"
+                          value={formData.ncm}
+                          onChange={(e) => setFormData({ ...formData, ncm: e.target.value })}
+                          placeholder="Ex: 8471.80.10"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="cfop">CFOP</Label>
+                        <Input
+                          id="cfop"
+                          value={formData.cfop}
+                          onChange={(e) => setFormData({ ...formData, cfop: e.target.value })}
+                          placeholder="Ex: 5102"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="cst">CST</Label>
+                        <Input
+                          id="cst"
+                          value={formData.cst}
+                          onChange={(e) => setFormData({ ...formData, cst: e.target.value })}
+                          placeholder="Ex: 00"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="cest">CEST</Label>
+                        <Input
+                          id="cest"
+                          value={formData.cest}
+                          onChange={(e) => setFormData({ ...formData, cest: e.target.value })}
+                          placeholder="Ex: 28.038.00"
+                        />
+                      </div>
+                    </div>
+                  </Tab.Panel>
+                  <Tab.Panel>
+                    {/* Conteúdo da aba Imagens */}
+                    <Label htmlFor="imagens">Upload de Imagens</Label>
                     <Input
-                      id="ncm"
-                      value={formData.ncm}
-                      onChange={(e) => setFormData({ ...formData, ncm: e.target.value })}
-                      placeholder="Ex: 8471.80.10"
+                      id="imagens"
+                      type="file"
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+
+                        const oversized = files.filter((file) => file.size > 3 * 1024 * 1024);
+                        if (oversized.length > 0) {
+                          alert("Algumas imagens excedem 3MB e foram ignoradas.");
+                        }
+
+                        const validFiles = files.filter((file) => file.size <= 3 * 1024 * 1024);
+                        const totalImages = selectedImages.length + validFiles.length;
+
+                        if (totalImages > 5) {
+                          alert("Você pode enviar no máximo 5 imagens de até 3MB cada.");
+                          return;
+                        }
+
+                        setSelectedImages((prev) => [...prev, ...validFiles]);
+                      }}
                     />
-                  </div>
-                  <div>
-                    <Label htmlFor="cfop">CFOP</Label>
-                    <Input
-                      id="cfop"
-                      value={formData.cfop}
-                      onChange={(e) => setFormData({ ...formData, cfop: e.target.value })}
-                      placeholder="Ex: 5102"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="cst">CST</Label>
-                    <Input
-                      id="cst"
-                      value={formData.cst}
-                      onChange={(e) => setFormData({ ...formData, cst: e.target.value })}
-                      placeholder="Ex: 00"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="cest">CEST</Label>
-                    <Input
-                      id="cest"
-                      value={formData.cest}
-                      onChange={(e) => setFormData({ ...formData, cest: e.target.value })}
-                      placeholder="Ex: 28.038.00"
-                    />
-                  </div>
-                </div>
-              </Tab.Panel>
-
-              <Tab.Panel>
-                {/* Conteúdo da aba Imagens */}
-                <Label htmlFor="imagens">Upload de Imagens</Label>
-                <Input
-                  id="imagens"
-                  type="file"
-                  onChange={(e) => {
-                    const files = Array.from(e.target.files || []);
-
-                    const oversized = files.filter((file) => file.size > 3 * 1024 * 1024);
-                    if (oversized.length > 0) {
-                      alert("Algumas imagens excedem 3MB e foram ignoradas.");
-                    }
-
-                    const validFiles = files.filter((file) => file.size <= 3 * 1024 * 1024);
-                    const totalImages = selectedImages.length + validFiles.length;
-
-                    if (totalImages > 5) {
-                      alert("Você pode enviar no máximo 5 imagens de até 3MB cada.");
-                      return;
-                    }
-
-                    setSelectedImages((prev) => [...prev, ...validFiles]);
-                  }}
-                />
-                <p className="text-sm text-muted-foreground mt-2">Adicione fotos para facilitar a identificação visual do produto.</p>
-                {/* Pré-visualização das imagens */}
-                <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {selectedImages.map((file, index) => (
-                    <div key={index} className="border rounded p-2">
-                      {file && (
-                        <>
+                    <p className="text-sm text-muted-foreground mt-2">Adicione fotos para facilitar a identificação visual do produto.</p>
+                    {/* Pré-visualização das imagens */}
+                    <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {existingImageUrls.map((url, index) => (
+                        <div key={`exist-${index}`} className="border rounded p-2">
+                          <img
+                            src={url}
+                            alt={`Existing ${index}`}
+                            className="w-full h-auto object-contain"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="mt-2 text-xs"
+                            onClick={() =>
+                              setExistingImageUrls(prev => prev.filter((_, i) => i !== index))
+                            }
+                          >
+                            Remover
+                          </Button>
+                        </div>
+                      ))}
+                      {selectedImages.map((file, index) => (
+                        <div key={index} className="border rounded p-2">
                           <img
                             src={URL.createObjectURL(file)}
                             alt={`Preview ${index}`}
@@ -402,66 +557,64 @@ export default function NovoProdutoPage() {
                             variant="outline"
                             className="mt-2 text-xs"
                             onClick={() =>
-                              setSelectedImages((prev) => prev.filter((_, i) => i !== index))
+                              setSelectedImages(prev => prev.filter((_, i) => i !== index))
                             }
                           >
                             Remover
                           </Button>
-                        </>
-                      )}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </Tab.Panel>
-
-              <Tab.Panel>
-                {/* Conteúdo da aba Detalhes */}
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <Label htmlFor="largura">Largura (cm)</Label>
-                      <Input
-                        id="largura"
-                        type="number"
-                        value={formData.largura_cm}
-                        onChange={(e) => setFormData({ ...formData, largura_cm: e.target.value })}
-                        placeholder="Ex: 10"
-                      />
+                  </Tab.Panel>
+                  <Tab.Panel>
+                    {/* Conteúdo da aba Detalhes */}
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <Label htmlFor="largura">Largura (cm)</Label>
+                          <Input
+                            id="largura"
+                            type="number"
+                            value={formData.largura_cm}
+                            onChange={(e) => setFormData({ ...formData, largura_cm: e.target.value })}
+                            placeholder="Ex: 10"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="altura">Altura (cm)</Label>
+                          <Input
+                            id="altura"
+                            type="number"
+                            value={formData.altura_cm}
+                            onChange={(e) => setFormData({ ...formData, altura_cm: e.target.value })}
+                            placeholder="Ex: 10"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="profundidade">Profundidade (cm)</Label>
+                          <Input
+                            id="profundidade"
+                            type="number"
+                            value={formData.profundidade_cm}
+                            onChange={(e) => setFormData({ ...formData, profundidade_cm: e.target.value })}
+                            placeholder="Ex: 5"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="peso">Peso (g)</Label>
+                        <Input
+                          id="peso"
+                          type="number"
+                          value={formData.peso_g}
+                          onChange={(e) => setFormData({ ...formData, peso_g: e.target.value })}
+                          placeholder="Ex: 250"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <Label htmlFor="altura">Altura (cm)</Label>
-                      <Input
-                        id="altura"
-                        type="number"
-                        value={formData.altura_cm}
-                        onChange={(e) => setFormData({ ...formData, altura_cm: e.target.value })}
-                        placeholder="Ex: 10"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="profundidade">Profundidade (cm)</Label>
-                      <Input
-                        id="profundidade"
-                        type="number"
-                        value={formData.profundidade_cm}
-                        onChange={(e) => setFormData({ ...formData, profundidade_cm: e.target.value })}
-                        placeholder="Ex: 5"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="peso">Peso (g)</Label>
-                    <Input
-                      id="peso"
-                      type="number"
-                      value={formData.peso_g}
-                      onChange={(e) => setFormData({ ...formData, peso_g: e.target.value })}
-                      placeholder="Ex: 250"
-                    />
-                  </div>
-                </div>
-              </Tab.Panel>
-
+                  </Tab.Panel>
+                </>
+              )}
               <Tab.Panel>
                 {/* Conteúdo da aba Outros */}
                 <div>
@@ -478,7 +631,9 @@ export default function NovoProdutoPage() {
           </Tab.Group>
 
           <div className="mt-6 flex gap-4">
-            <Button type="button" onClick={handleSubmit}>Salvar Produto</Button>
+            <Button type="button" onClick={handleSubmit}>
+              {produtoId ? 'Atualizar Produto' : 'Salvar Produto'}
+            </Button>
             <Button
               type="button"
               variant="secondary"

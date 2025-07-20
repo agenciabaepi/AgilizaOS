@@ -23,7 +23,7 @@ import {
   horizontalListSortingStrategy
 } from '@dnd-kit/sortable';
 import {CSS} from '@dnd-kit/utilities';
-import { Book, Pencil } from 'lucide-react';
+import { Book, Pencil, Move } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useAuth } from '@/context/AuthContext';
@@ -682,19 +682,19 @@ export default function DashboardPage() {
                               </button>
                             </div>
                           </div>
-                          {/* Área de arraste ampla logo abaixo do cabeçalho */}
-                          <div
-                            className="flex justify-center my-2"
-                            {...attributes}
-                            {...listeners}
-                            style={{ cursor: 'grab', minHeight: 28 }}
-                          >
-                            <div
-                              className="h-2 w-20 bg-gray-300 rounded-full flex items-center justify-center"
-                              aria-label="Arrastar coluna"
+                          {/* Drag handle aprimorado */}
+                          <div className="flex justify-center my-2">
+                            <button
+                              {...attributes}
+                              {...listeners}
+                              className="flex items-center gap-2 px-3 py-1 border border-gray-300 rounded-md bg-gray-100 hover:bg-gray-200 cursor-grab transition"
+                              aria-label="Arraste para mover a coluna"
                             >
-                              <span className="text-xs text-gray-500 select-none">Arraste</span>
-                            </div>
+                              <Move size={16} className="text-gray-500" />
+                              <span className="text-xs font-medium text-gray-600 select-none">
+                                Segure e arraste
+                              </span>
+                            </button>
                           </div>
                           {/* Barra de progresso da coluna */}
                           <div className="w-full px-4 mb-2">

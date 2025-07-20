@@ -1,131 +1,100 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-export async function POST(req: Request) {
-  const body = await req.json();
-  console.log('Dados recebidos no POST /api/produtos:', body);
-
-  const {
-    nome,
-    tipo,
-    unidade,
-    custo,
-    preco,
-    estoque_atual,
-    peso_g,
-    altura_cm,
-    largura_cm,
-    profundidade_cm,
-    ativo,
-    codigo_barras,
-    empresa_id,
-    fornecedor,
-    grupo,
-    categoria,
-    subcategoria,
-    marca,
-    estoque_min,
-    estoque_max,
-    situacao,
-    ncm,
-    cfop,
-    cst,
-    cest,
-    obs
-  } = body;
-
-  if (!empresa_id || !nome || !tipo) {
-    return NextResponse.json({ message: 'Campos obrigatórios ausentes.' }, { status: 400 });
-  }
-
-  const { data: ultimo, error: erroUltimo } = await supabase
-    .from('produtos_servicos')
-    .select('codigo')
-    .eq('empresa_id', empresa_id)
-    .order('codigo', { ascending: false })
-    .limit(1)
-    .single();
-
-  if (erroUltimo && erroUltimo.code !== 'PGRST116') {
-    console.error('Erro ao buscar último código:', erroUltimo);
-    return NextResponse.json({
-      message: 'Erro ao buscar último código.',
-      error: erroUltimo.message || erroUltimo.details || erroUltimo,
-    }, { status: 500 });
-  }
-
-  const ultimoCodigoNumerico = parseInt(ultimo?.codigo || '0', 10);
-  const novoCodigo = ultimoCodigoNumerico + 1; // Gera código sequencial exclusivo por empresa
-
-  const { data, error } = await supabase
-    .from('produtos_servicos')
-    .insert([
-      {
-        nome,
-        tipo,
-        unidade,
-        custo,
-        preco,
-        estoque_atual,
-        peso_g,
-        altura_cm,
-        largura_cm,
-        profundidade_cm,
-        ativo,
-        codigo_barras,
-        empresa_id,
-        fornecedor,
-        grupo,
-        categoria,
-        subcategoria,
-        marca,
-        estoque_min,
-        estoque_max,
-        situacao,
-        ncm,
-        cfop,
-        cst,
-        cest,
-        obs,
-        codigo: novoCodigo
-      },
-    ]);
-
-  if (error) {
-    console.error('Erro ao inserir produto:', error);
-    return NextResponse.json({
-      message: 'Erro ao inserir produto.',
-      error: error.message || error.details || error,
-    }, { status: 500 });
-  }
-
-  return NextResponse.json({ message: 'Produto inserido com sucesso!', data }, { status: 200 });
+// Initialize Supabase admin client
+const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error('Supabase URL or Service Role Key is not defined in environment');
 }
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const empresa_id = searchParams.get('empresa_id');
+const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
 
-  if (!empresa_id) {
-    return NextResponse.json({ message: 'empresa_id é obrigatório' }, { status: 400 });
+export async function GET(req: NextRequest) {
+  try {
+    const url = new URL(req.url);
+    const empresa_id = url.searchParams.get('empresa_id');
+    if (!empresa_id) {
+      return NextResponse.json({ error: 'empresa_id is required' }, { status: 400 });
+    }
+    const { data, error } = await supabaseAdmin
+      .from('produtos_servicos')
+      .select('codigo')
+      .eq('empresa_id', empresa_id);
+    if (error) {
+      console.error('Error fetching codes:', error);
+      return NextResponse.json({ ultimoCodigo: 0 }, { status: 200 });
+    }
+    // Parse all codigo as integers and find max
+    const maxCodigo = data
+      .map(item => parseInt(item.codigo, 10))
+      .filter(n => !isNaN(n))
+      .reduce((max, curr) => (curr > max ? curr : max), 0);
+    return NextResponse.json({ ultimoCodigo: maxCodigo }, { status: 200 });
+  } catch (err: any) {
+    console.error('General GET error:', err);
+    return NextResponse.json({ ultimoCodigo: 0 }, { status: 200 });
   }
+}
 
-  const { data, error } = await supabase
-    .from('produtos_servicos')
-    .select('codigo')
-    .eq('empresa_id', empresa_id)
-    .order('codigo', { ascending: false })
-    .limit(1)
-    .single();
+export async function POST(req: NextRequest) {
+  try {
+    const {
+      nome, tipo, grupo, categoria, subcategoria,
+      preco, custo, situacao, empresa_id,
+      fornecedor, unidade, marca,
+      estoque_min, estoque_max, estoque_atual,
+      ncm, cfop, cst, cest, obs, imagens, codigo,
+      codigo_barras, largura_cm, altura_cm, profundidade_cm, peso_g
+    } = await req.json();
 
-  if (error && error.code !== 'PGRST116') {
-    return NextResponse.json({ message: 'Erro ao buscar último código', error: error.message }, { status: 500 });
+    // Validate required fields
+    if (!empresa_id || !nome || !preco) {
+      return NextResponse.json(
+        { error: 'Campos obrigatórios ausentes: empresa_id, nome ou preco' },
+        { status: 400 }
+      );
+    }
+
+    const payload = {
+      nome, tipo, grupo, categoria, subcategoria,
+      preco: parseFloat(preco), custo: parseFloat(custo || '0'),
+      situacao, empresa_id, fornecedor, unidade, marca,
+      estoque_min: parseFloat(estoque_min || '0'),
+      estoque_max: parseFloat(estoque_max || '0'),
+      estoque_atual: parseFloat(estoque_atual || '0'),
+      ncm, cfop, cst, cest, obs,
+      imagens_url: imagens,
+      codigo,
+      codigo_barras,
+      largura_cm: parseFloat(largura_cm || '0'),
+      altura_cm: parseFloat(altura_cm || '0'),
+      profundidade_cm: parseFloat(profundidade_cm || '0'),
+      peso_g: parseFloat(peso_g || '0')
+    };
+
+    const { data, error } = await supabaseAdmin
+      .from('produtos_servicos')
+      .insert(payload);
+
+    if (error) {
+      console.error('Error inserting product:', error);
+      return NextResponse.json(
+        {
+          message: 'Erro ao inserir produto.',
+          error: {
+            message: error.message,
+            code: error.code,
+            details: error.details,
+            hint: error.hint
+          }
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true, data }, { status: 201 });
+  } catch (err: any) {
+    console.error('General POST error:', err);
+    return NextResponse.json({ error: err.message || 'Internal error' }, { status: 500 });
   }
-
-  const ultimoCodigo = data?.codigo || 0;
-  return NextResponse.json({ ultimoCodigo });
 }

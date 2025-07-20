@@ -14,6 +14,7 @@ import {
   Legend as Legend2,
   DoughnutController,
 } from 'chart.js';
+import Image from 'next/image';
 
 ChartJS.register(ArcElement2, Tooltip2, Legend2, DoughnutController);
 import { useRef } from 'react';
@@ -63,6 +64,8 @@ export default function ProdutosServicosPage() {
   const [mensagemAviso, setMensagemAviso] = useState('');
   const [mensagemSucesso, setMensagemSucesso] = useState('');
   const [carregando, setCarregando] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   // Novo estado para modal de fornecedor
   const [mostrarModalFornecedor, setMostrarModalFornecedor] = useState(false);
   const [novoFornecedor, setNovoFornecedor] = useState('');
@@ -117,7 +120,13 @@ export default function ProdutosServicosPage() {
         .select("*")
         .eq("empresa_id", empresaId);
 
-      setLista(produtosServicosData || []);
+      // Sort by criado_em descending (newest first)
+      const sortedData = (produtosServicosData || []).slice().sort((a, b) => {
+        const aTime = new Date((b as any).criado_em).getTime();
+        const bTime = new Date((a as any).criado_em).getTime();
+        return aTime - bTime;
+      });
+      setLista(sortedData);
 
     } catch (erro) {
     } finally {
@@ -314,6 +323,12 @@ export default function ProdutosServicosPage() {
     }
   };
 
+  // Filtro e paginação
+  const filtered = lista.filter(item => item.tipo === abaSelecionada);
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+  const startIndex = (page - 1) * pageSize;
+  const paginated = filtered.slice(startIndex, startIndex + pageSize);
+
   return (
     <MenuLayout>
       {/* Mensagem de erro de log, se houver */}
@@ -430,11 +445,45 @@ export default function ProdutosServicosPage() {
               </div>
             </div>
 
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                Mostrar{' '}
+                <select
+                  value={pageSize}
+                  onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}
+                  className="border rounded px-2 py-1 text-sm"
+                >
+                  {[10, 20, 50, 100].map(n => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>{' '}
+                por página
+              </div>
+              <div className="space-x-2">
+                <button
+                  onClick={() => setPage(p => Math.max(p - 1, 1))}
+                  disabled={page === 1}
+                  className="px-2 py-1 border rounded disabled:opacity-50 text-sm"
+                >
+                  Anterior
+                </button>
+                <span className="text-sm">Página {page} de {totalPages}</span>
+                <button
+                  onClick={() => setPage(p => Math.min(p + 1, totalPages))}
+                  disabled={page === totalPages}
+                  className="px-2 py-1 border rounded disabled:opacity-50 text-sm"
+                >
+                  Próxima
+                </button>
+              </div>
+            </div>
+
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="bg-gray-100 text-left">
                     <th className="px-4 py-2 font-medium text-gray-700">Código</th>
+                    <th className="px-4 py-2 font-medium text-gray-700">Imagem</th>
                     <th className="px-4 py-2 font-medium text-gray-700">Nome</th>
                     <th className="px-4 py-2 font-medium text-gray-700">Tipo</th>
                     <th className="px-4 py-2 font-medium text-gray-700">Status</th>
@@ -443,7 +492,6 @@ export default function ProdutosServicosPage() {
                     {abaSelecionada === 'produto' && (
                       <>
                         <th className="px-4 py-2 font-medium text-gray-700">Estoque</th>
-                        <th className="px-4 py-2 font-medium text-gray-700">Est. Mín.</th>
                         <th className="px-4 py-2 font-medium text-gray-700">Unidade</th>
                       </>
                     )}
@@ -453,11 +501,23 @@ export default function ProdutosServicosPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {lista
-                    .filter(item => item.tipo === abaSelecionada)
-                    .map((item) => (
+                  {paginated.map((item) => (
                       <tr key={item.id} className="border-t">
                         <td className="px-4 py-2 text-xs text-gray-700">{item.codigo}</td>
+                        <td className="px-4 py-2">
+                          {item.imagens_url && item.imagens_url.length > 0 ? (
+                            <Image
+                              src={item.imagens_url[0]}
+                              alt={`Imagem de ${item.nome}`}
+                              width={40}
+                              height={40}
+                              className="object-cover rounded"
+                              priority
+                            />
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
                         <td className="px-4 py-2">
                           <div className="font-semibold">{item.nome}</div>
                           {item.descricao && <div className="text-xs text-gray-500">{item.descricao}</div>}
@@ -465,9 +525,9 @@ export default function ProdutosServicosPage() {
                         <td className="px-4 py-2 capitalize">{item.tipo}</td>
                         <td className="px-4 py-2">
                           <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                            item.ativo ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-500'
+                            item.situacao === 'Ativo' ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-500'
                           }`}>
-                            {item.ativo ? 'Ativo' : 'Inativo'}
+                            {item.situacao || '-'}
                           </span>
                         </td>
                         <td className="px-4 py-2">R$ {item.preco.toFixed(2)}</td>
@@ -509,25 +569,24 @@ export default function ProdutosServicosPage() {
                                 </div>
                               ) : '-'}
                             </td>
-                            <td className="px-4 py-2">{item.tipo === 'produto' ? item.estoque_minimo : '-'}</td>
                             <td className="px-4 py-2">{item.tipo === 'produto' ? item.unidade : '-'}</td>
                           </>
                         )}
                         <td className="px-4 py-2">
                           {item.tipo === 'produto'
-                            ? listaFornecedores.find((f) => f.id === item.fornecedor)?.nome || '-'
+                            ? item.fornecedor || '-'
                             : '-'}
                         </td>
                         <td className="px-4 py-2">{item.tipo === 'produto' ? item.codigo_barras ?? '-' : '-'}</td>
                         <td className="px-4 py-2">
                           <div className="flex gap-2">
-                            <button
-                              onClick={() => iniciarEdicao(item)}
+                            <Link
+                              href={`/equipamentos/novo?id=${item.id}`}
                               className="group p-1 rounded hover:bg-[#cffb6d]/20 transition"
                               title="Editar"
                             >
                               <PencilSquareIcon className="h-4 w-4 text-black group-hover:text-[#cffb6d]" />
-                            </button>
+                            </Link>
                             <button
                               onClick={() => excluir(item.id)}
                               className="group p-1 rounded hover:bg-red-100 transition"
@@ -539,9 +598,9 @@ export default function ProdutosServicosPage() {
                         </td>
                       </tr>
                     ))}
-                  {lista.filter(item => item.tipo === abaSelecionada).length === 0 && (
+                  {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={abaSelecionada === 'produto' ? 12 : 8} className="px-4 py-4 text-center text-gray-400 italic">
+                    <td colSpan={abaSelecionada === 'produto' ? 11 : 8} className="px-4 py-4 text-center text-gray-400 italic">
                       Nenhum item cadastrado.
                     </td>
                   </tr>
