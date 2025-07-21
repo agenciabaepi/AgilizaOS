@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -18,6 +18,13 @@ export default function LoginPage() {
   const auth = useAuth();
   const user = auth?.user;
   const loading = auth?.loading;
+
+  // Redireciona se já estiver logado
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace('/dashboard');
+    }
+  }, [user, loading, router]);
 
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
