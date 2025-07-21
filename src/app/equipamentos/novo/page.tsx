@@ -15,7 +15,6 @@ import { Button } from '@/components/Button';
 import { Select } from '@/components/Select';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
-import ProtectedArea from '@/components/ProtectedArea';
 
 export default function NovoProdutoPage() {
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
@@ -246,17 +245,420 @@ export default function NovoProdutoPage() {
   };
 
   return (
-    <ProtectedArea area="equipamentos">
-      <MenuLayout>
-        <main className="flex flex-col items-center justify-start flex-1 px-4 py-8">
-          <div className="w-full max-w-5xl">
-            <h1 className="text-2xl font-bold mb-6">
-              {produtoId ? 'Editar Produto' : 'Novo Produto'}
-            </h1>
-            {/* TODO: Aqui vai todo o conteúdo das tabs, panels, formulários, botões etc, sem duplicidade e sem marcadores de conflito. */}
+    <MenuLayout>
+      <main className="flex flex-col items-center justify-start flex-1 px-4 py-8">
+        <div className="w-full max-w-5xl">
+          <h1 className="text-2xl font-bold mb-6">
+            {produtoId ? 'Editar Produto' : 'Novo Produto'}
+          </h1>
+
+          <Tab.Group manual defaultIndex={0}>
+            <Tab.List className="flex space-x-2 border-b mb-4">
+              {(
+                formData.tipo === 'servico'
+                  ? ['dados', 'outros']
+                  : ['dados', 'fiscal', 'imagens', 'detalhes', 'outros']
+              ).map((tabName) => (
+                <Tab
+                  key={tabName}
+                  className={({ selected }) =>
+                    `px-4 py-2 text-sm font-medium rounded-t ${
+                      selected ? 'bg-black text-white' : 'bg-muted text-black'
+                    }`
+                  }
+                >
+                  {tabName.charAt(0).toUpperCase() + tabName.slice(1)}
+                </Tab>
+              ))}
+            </Tab.List>
+
+            <Tab.Panels>
+              <Tab.Panel>
+                {/* Conteúdo da aba Dados */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Nome */}
+                  <div>
+                    <Label htmlFor="nome">Nome do Produto</Label>
+                    <Input
+                      id="nome"
+                      value={formData.nome}
+                      onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                      placeholder="Ex: Carregador Turbo"
+                    />
+                  </div>
+                  {/* Tipo */}
+                  <div>
+                    <Select
+                      id="tipo"
+                      label="Tipo"
+                      value={formData.tipo}
+                      onChange={(e) => setFormData({ ...formData, tipo: e.target.value })}
+                    >
+                      <option value="produto">Produto</option>
+                      <option value="servico">Serviço</option>
+                    </Select>
+                  </div>
+                  {/* Grupo */}
+                  <div>
+                    <Label htmlFor="grupo">Grupo</Label>
+                    <Input
+                      id="grupo"
+                      value={formData.grupo}
+                      onChange={(e) => setFormData({ ...formData, grupo: e.target.value })}
+                      placeholder="Ex: Acessórios"
+                    />
+                  </div>
+                  {/* Categoria */}
+                  <div>
+                    <Label htmlFor="categoria">Categoria</Label>
+                    <Input
+                      id="categoria"
+                      value={formData.categoria}
+                      onChange={(e) => setFormData({ ...formData, categoria: e.target.value })}
+                      placeholder="Ex: Carregadores"
+                    />
+                  </div>
+                  {/* Subcategoria */}
+                  <div>
+                    <Label htmlFor="subcategoria">Subcategoria</Label>
+                    <Input
+                      id="subcategoria"
+                      value={formData.subcategoria}
+                      onChange={(e) => setFormData({ ...formData, subcategoria: e.target.value })}
+                      placeholder="Ex: Turbo"
+                    />
+                  </div>
+                  {/* Preço de Custo */}
+                  <div>
+                    <Label htmlFor="custo">Preço de Custo</Label>
+                    <Input
+                      id="custo"
+                      type="number"
+                      value={formData.custo}
+                      onChange={(e) => setFormData({ ...formData, custo: e.target.value })}
+                      placeholder="R$ 0,00"
+                    />
+                  </div>
+                  {/* Preço de Venda */}
+                  <div>
+                    <Label htmlFor="preco">Preço de Venda</Label>
+                    <Input
+                      id="preco"
+                      type="number"
+                      value={formData.preco}
+                      onChange={(e) => setFormData({ ...formData, preco: e.target.value })}
+                      placeholder="R$ 0,00"
+                    />
+                  </div>
+                  {/* Situação */}
+                  <div>
+                    <Label>Situação</Label>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant={formData.situacao === 'Ativo' ? 'default' : 'outline'}
+                        onClick={() => setFormData({ ...formData, situacao: 'Ativo' })}
+                      >
+                        Ativo
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={formData.situacao === 'Inativo' ? 'default' : 'outline'}
+                        onClick={() => setFormData({ ...formData, situacao: 'Inativo' })}
+                      >
+                        Inativo
+                      </Button>
+                    </div>
+                  </div>
+                  {/* Produto-specific fields */}
+                  {formData.tipo !== 'servico' && (
+                    <>
+                      {/* Código de barras */}
+                      <div>
+                        <Label htmlFor="codigo_barras">Código de barras</Label>
+                        <Input
+                          id="codigo_barras"
+                          value={formData.codigo_barras}
+                          onChange={(e) => setFormData({ ...formData, codigo_barras: e.target.value })}
+                          placeholder="Ex: 7894561230001"
+                        />
+                        <Button
+                          type="button"
+                          className="mt-2"
+                          onClick={() => {
+                            const codigoAleatorio = Math.floor(1000000000000 + Math.random() * 9000000000000).toString();
+                            setFormData({ ...formData, codigo_barras: codigoAleatorio });
+                          }}
+                        >
+                          Gerar Código
+                        </Button>
+                      </div>
+                      {/* Unidade de Medida */}
+                      <div>
+                        <Select
+                          id="unidade"
+                          label="Unidade de Medida"
+                          value={formData.unidade}
+                          onChange={(e) => setFormData({ ...formData, unidade: e.target.value })}
+                        >
+                          <option value="">Selecione</option>
+                          <option value="Unidade">Unidade</option>
+                          <option value="Caixa">Caixa</option>
+                          <option value="Lote">Lote</option>
+                          <option value="Pacote">Pacote</option>
+                        </Select>
+                      </div>
+                      {/* Fornecedor */}
+                      <div>
+                        <Label htmlFor="fornecedor">Fornecedor</Label>
+                        <Input
+                          id="fornecedor"
+                          value={formData.fornecedor}
+                          onChange={(e) => setFormData({ ...formData, fornecedor: e.target.value })}
+                          placeholder="Ex: TechDistribuidora"
+                        />
+                      </div>
+                      {/* Marca */}
+                      <div>
+                        <Label htmlFor="marca">Marca</Label>
+                        <Input
+                          id="marca"
+                          value={formData.marca}
+                          onChange={(e) => setFormData({ ...formData, marca: e.target.value })}
+                          placeholder="Ex: Samsung"
+                        />
+                      </div>
+                      {/* Estoque Mínimo */}
+                      <div>
+                        <Label htmlFor="estoqueMin">Estoque Mínimo</Label>
+                        <Input
+                          id="estoqueMin"
+                          type="number"
+                          value={formData.estoque_min}
+                          onChange={(e) => setFormData({ ...formData, estoque_min: e.target.value })}
+                        />
+                      </div>
+                      {/* Estoque Máximo */}
+                      <div>
+                        <Label htmlFor="estoqueMax">Estoque Máximo</Label>
+                        <Input
+                          id="estoqueMax"
+                          type="number"
+                          value={formData.estoque_max}
+                          onChange={(e) => setFormData({ ...formData, estoque_max: e.target.value })}
+                        />
+                      </div>
+                      {/* Estoque Atual */}
+                      <div>
+                        <Label htmlFor="estoqueAtual">Estoque Atual</Label>
+                        <Input
+                          id="estoqueAtual"
+                          type="number"
+                          value={formData.estoque_atual}
+                          onChange={(e) => setFormData({ ...formData, estoque_atual: e.target.value })}
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </Tab.Panel>
+              {formData.tipo !== 'servico' && (
+                <>
+                  <Tab.Panel>
+                    {/* Conteúdo da aba Fiscal */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="ncm">NCM</Label>
+                        <Input
+                          id="ncm"
+                          value={formData.ncm}
+                          onChange={(e) => setFormData({ ...formData, ncm: e.target.value })}
+                          placeholder="Ex: 8471.80.10"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="cfop">CFOP</Label>
+                        <Input
+                          id="cfop"
+                          value={formData.cfop}
+                          onChange={(e) => setFormData({ ...formData, cfop: e.target.value })}
+                          placeholder="Ex: 5102"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="cst">CST</Label>
+                        <Input
+                          id="cst"
+                          value={formData.cst}
+                          onChange={(e) => setFormData({ ...formData, cst: e.target.value })}
+                          placeholder="Ex: 00"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="cest">CEST</Label>
+                        <Input
+                          id="cest"
+                          value={formData.cest}
+                          onChange={(e) => setFormData({ ...formData, cest: e.target.value })}
+                          placeholder="Ex: 28.038.00"
+                        />
+                      </div>
+                    </div>
+                  </Tab.Panel>
+                  <Tab.Panel>
+                    {/* Conteúdo da aba Imagens */}
+                    <Label htmlFor="imagens">Upload de Imagens</Label>
+                    <Input
+                      id="imagens"
+                      type="file"
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+
+                        const oversized = files.filter((file) => file.size > 3 * 1024 * 1024);
+                        if (oversized.length > 0) {
+                          alert("Algumas imagens excedem 3MB e foram ignoradas.");
+                        }
+
+                        const validFiles = files.filter((file) => file.size <= 3 * 1024 * 1024);
+                        const totalImages = selectedImages.length + validFiles.length;
+
+                        if (totalImages > 5) {
+                          alert("Você pode enviar no máximo 5 imagens de até 3MB cada.");
+                          return;
+                        }
+
+                        setSelectedImages((prev) => [...prev, ...validFiles]);
+                      }}
+                    />
+                    <p className="text-sm text-muted-foreground mt-2">Adicione fotos para facilitar a identificação visual do produto.</p>
+                    {/* Pré-visualização das imagens */}
+                    <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {existingImageUrls.map((url, index) => (
+                        <div key={`exist-${index}`} className="border rounded p-2">
+                          <img
+                            src={url}
+                            alt={`Existing ${index}`}
+                            className="w-full h-auto object-contain"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="mt-2 text-xs"
+                            onClick={() =>
+                              setExistingImageUrls(prev => prev.filter((_, i) => i !== index))
+                            }
+                          >
+                            Remover
+                          </Button>
+                        </div>
+                      ))}
+                      {selectedImages.map((file, index) => (
+                        <div key={index} className="border rounded p-2">
+                          <img
+                            src={URL.createObjectURL(file)}
+                            alt={`Preview ${index}`}
+                            className="w-full h-auto object-contain"
+                          />
+                          <p className="text-xs mt-2 break-words">{file.name}</p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="mt-2 text-xs"
+                            onClick={() =>
+                              setSelectedImages(prev => prev.filter((_, i) => i !== index))
+                            }
+                          >
+                            Remover
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </Tab.Panel>
+                  <Tab.Panel>
+                    {/* Conteúdo da aba Detalhes */}
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <Label htmlFor="largura">Largura (cm)</Label>
+                          <Input
+                            id="largura"
+                            type="number"
+                            value={formData.largura_cm}
+                            onChange={(e) => setFormData({ ...formData, largura_cm: e.target.value })}
+                            placeholder="Ex: 10"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="altura">Altura (cm)</Label>
+                          <Input
+                            id="altura"
+                            type="number"
+                            value={formData.altura_cm}
+                            onChange={(e) => setFormData({ ...formData, altura_cm: e.target.value })}
+                            placeholder="Ex: 10"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="profundidade">Profundidade (cm)</Label>
+                          <Input
+                            id="profundidade"
+                            type="number"
+                            value={formData.profundidade_cm}
+                            onChange={(e) => setFormData({ ...formData, profundidade_cm: e.target.value })}
+                            placeholder="Ex: 5"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="peso">Peso (g)</Label>
+                        <Input
+                          id="peso"
+                          type="number"
+                          value={formData.peso_g}
+                          onChange={(e) => setFormData({ ...formData, peso_g: e.target.value })}
+                          placeholder="Ex: 250"
+                        />
+                      </div>
+                    </div>
+                  </Tab.Panel>
+                </>
+              )}
+              <Tab.Panel>
+                {/* Conteúdo da aba Outros */}
+                <div>
+                  <Label htmlFor="obs">Observações</Label>
+                  <Textarea
+                    id="obs"
+                    value={formData.obs}
+                    onChange={(e) => setFormData({ ...formData, obs: e.target.value })}
+                    placeholder="Observações adicionais sobre o produto..."
+                  />
+                </div>
+              </Tab.Panel>
+            </Tab.Panels>
+          </Tab.Group>
+
+          <div className="mt-6 flex gap-4">
+            <Button type="button" onClick={handleSubmit}>
+              {produtoId ? 'Atualizar Produto' : 'Salvar Produto'}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={async () => {
+                const ok = await confirm({
+                  message: 'Tem certeza que deseja cancelar? As alterações serão perdidas.',
+                  confirmText: 'Sim, cancelar',
+                  cancelText: 'Continuar editando',
+                });
+                if (ok) router.back();
+              }}
+            >
+              Cancelar
+            </Button>
           </div>
-        </main>
-      </MenuLayout>
-    </ProtectedArea>
+        </div>
+      </main>
+    </MenuLayout>
   );
 }
