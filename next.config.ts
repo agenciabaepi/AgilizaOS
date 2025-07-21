@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
+<<<<<<< HEAD
     domains: ['nxamrvfusyrtkcshehfm.supabase.co'],
     remotePatterns: [
       {
@@ -16,6 +17,11 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/storage/v1/object/public/**',
       },
+=======
+    domains: [
+      'nxamrvfusyrtkcshehfm.supabase.co',
+      // adicione outros domínios necessários aqui
+>>>>>>> 611510e19cb3e4a0dc2513bb3ba1415e491ada3b
     ],
   },
 };
