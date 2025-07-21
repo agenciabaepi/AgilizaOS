@@ -10,8 +10,10 @@ interface UsuarioPerfil {
   id: string;
   nome: string;
   email: string;
+  usuario: string;
   cpf: string;
   telefone: string;
+  whatsapp: string;
   nivel: string;
 }
 
@@ -26,8 +28,11 @@ export default function PerfilPage() {
   const [form, setForm] = useState({
     nome: '',
     email: '',
+    usuario: '',
     cpf: '',
-    telefone: ''
+    telefone: '',
+    whatsapp: '',
+    senha: '',
   });
 
   useEffect(() => {
@@ -53,15 +58,20 @@ export default function PerfilPage() {
           id: data.id || user.id,
           nome: data.nome || '',
           email: data.email || '',
+          usuario: data.usuario || '',
           cpf: data.cpf || '',
           telefone: data.telefone || '',
+          whatsapp: data.whatsapp || '',
           nivel: data.nivel || 'atendente',
         });
         setForm({
           nome: data.nome || '',
           email: data.email || '',
+          usuario: data.usuario || '',
           cpf: data.cpf || '',
-          telefone: data.telefone || ''
+          telefone: data.telefone || '',
+          whatsapp: data.whatsapp || '',
+          senha: '',
         });
       } catch (err) {
         addToast('error', 'Erro inesperado ao carregar perfil');
@@ -85,13 +95,35 @@ export default function PerfilPage() {
         setSaving(false);
         return;
       }
+      // Padronizar username
+      const usuarioPadronizado = form.usuario.trim().toLowerCase();
+      // Atualizar senha se fornecida
+      if (form.senha) {
+        const response = await fetch('/api/usuarios/editar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: perfil?.id,
+            auth_user_id: user.id,
+            senha: form.senha,
+          }),
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          addToast('error', result.error || 'Erro ao atualizar senha');
+          setSaving(false);
+          return;
+        }
+      }
       const { error } = await supabase
         .from('usuarios')
         .update({
           nome: form.nome,
           email: form.email,
+          usuario: usuarioPadronizado,
           cpf: form.cpf || null,
-          telefone: form.telefone || null
+          telefone: form.telefone || null,
+          whatsapp: form.whatsapp || null,
         })
         .eq('auth_user_id', user.id);
       if (error) {
@@ -99,7 +131,7 @@ export default function PerfilPage() {
         setSaving(false);
         return;
       }
-      setPerfil(prev => prev ? { ...prev, ...form } : null);
+      setPerfil(prev => prev ? { ...prev, ...form, usuario: usuarioPadronizado } : null);
       addToast('success', 'Perfil atualizado com sucesso!');
       setIsEditing(false);
     } catch (err) {
@@ -178,6 +210,60 @@ export default function PerfilPage() {
                         : 'border-gray-200 bg-gray-50 cursor-not-allowed'
                     }`}
                     required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Usuário
+                  </label>
+                  <input
+                    type="text"
+                    name="usuario"
+                    value={form.usuario}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      isEditing 
+                        ? 'border-gray-300 bg-white' 
+                        : 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                    }`}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    WhatsApp
+                  </label>
+                  <input
+                    type="text"
+                    name="whatsapp"
+                    value={form.whatsapp}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      isEditing 
+                        ? 'border-gray-300 bg-white' 
+                        : 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nova Senha (deixe em branco para não alterar)
+                  </label>
+                  <input
+                    type="password"
+                    name="senha"
+                    value={form.senha}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      isEditing 
+                        ? 'border-gray-300 bg-white' 
+                        : 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                    }`}
+                    autoComplete="new-password"
                   />
                 </div>
 
