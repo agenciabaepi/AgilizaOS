@@ -199,7 +199,7 @@ export default function ConfigEmpresa() {
 
   return (
     <ProtectedRoute allowedLevels={['admin', 'tecnico', 'financeiro']}>
-      <div className="w-full px-6 pt-1 pb-6">
+    <div className="w-full px-6 pt-1 pb-6">
         <h1 className="text-2xl font-semibold mb-6 text-black text-center">Configurações da Empresa</h1>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white rounded-xl shadow p-5 space-y-2">

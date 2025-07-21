@@ -55,25 +55,25 @@ export default function TermosPage() {
 
   return (
     <ProtectedRoute allowedLevels={['admin', 'tecnico', 'financeiro']}>
-      <MenuLayout>
-        <div className="px-6 py-8">
-          <h1 className="text-2xl font-bold text-gray-800">Termos de Garantia</h1>
-          <p className="mt-2 text-gray-600">Arraste para organizar a ordem de exibição dos termos:</p>
-          <div className="mt-6 max-w-xl">
-            <DndContext
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-              // modifiers={[restrictToVerticalAxis]}
-            >
-              <SortableContext items={termos} strategy={verticalListSortingStrategy}>
-                {termos.map((termo) => (
-                  <SortableItem key={termo} id={termo} />
-                ))}
-              </SortableContext>
-            </DndContext>
-          </div>
+    <MenuLayout>
+      <div className="px-6 py-8">
+        <h1 className="text-2xl font-bold text-gray-800">Termos de Garantia</h1>
+        <p className="mt-2 text-gray-600">Arraste para organizar a ordem de exibição dos termos:</p>
+        <div className="mt-6 max-w-xl">
+          <DndContext
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+            // modifiers={[restrictToVerticalAxis]}
+          >
+            <SortableContext items={termos} strategy={verticalListSortingStrategy}>
+              {termos.map((termo) => (
+                <SortableItem key={termo} id={termo} />
+              ))}
+            </SortableContext>
+          </DndContext>
         </div>
-      </MenuLayout>
+      </div>
+    </MenuLayout>
     </ProtectedRoute>
   )
 }

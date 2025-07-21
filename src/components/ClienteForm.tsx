@@ -38,7 +38,7 @@ interface Cliente {
   numero_cliente?: number;
 }
 
-export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
+export default function ClienteForm({ cliente, returnToOS }: { cliente?: Cliente; returnToOS?: boolean }) {
     const [form, setForm] = useState({
         nome: '',
         telefone: '',
@@ -59,6 +59,7 @@ export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
         aniversario: '',
         status: 'ativo', // <-- adicionado aqui
       });
+    const [novoClienteId, setNovoClienteId] = useState<string | null>(null);
 
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -220,13 +221,33 @@ export default function ClienteForm({ cliente }: { cliente?: Cliente }) {
       }
 
       console.log("Cliente cadastrado:", data);
+      const novoId = data?.[0]?.id;
+      setNovoClienteId(novoId || null);
+      
+      setLoading(false);
+      setShowSuccess(true);
+      setTimeout(() => {
+        setShowSuccess(false);
+        if (returnToOS && novoId) {
+          // Retorna para a OS com o cliente selecionado
+          router.push('/nova-os2?clienteId=' + novoId);
+        } else {
+          router.push('/clientes');
+        }
+      }, 1500);
+      return; // Retorna aqui para evitar execução dupla
     }
 
     setLoading(false);
     setShowSuccess(true);
     setTimeout(() => {
       setShowSuccess(false);
-      router.push('/clientes');
+      if (returnToOS) {
+        // Retorna para a OS com o cliente selecionado (caso de edição)
+        router.push('/nova-os2?clienteId=' + cliente?.id);
+      } else {
+        router.push('/clientes');
+      }
     }, 1500);
   };
 

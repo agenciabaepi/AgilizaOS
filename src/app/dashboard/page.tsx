@@ -14,11 +14,11 @@ export default function DashboardPage() {
             <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
               <span className="text-3xl font-bold text-green-600">42</span>
               <span className="text-gray-600 mt-2">Ordens de Serviço</span>
-            </div>
+                            </div>
             <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
               <span className="text-3xl font-bold text-blue-600">15</span>
               <span className="text-gray-600 mt-2">Clientes</span>
-            </div>
+                          </div>
             <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
               <span className="text-3xl font-bold text-yellow-600">R$ 12.300</span>
               <span className="text-gray-600 mt-2">Faturamento</span>
@@ -32,7 +32,7 @@ export default function DashboardPage() {
               <li>Correções de segurança e melhorias de UX.</li>
             </ul>
           </div>
-        </div>
+      </div>
       </ProtectedArea>
     </MenuLayout>
   );

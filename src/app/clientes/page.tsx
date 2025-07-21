@@ -391,7 +391,7 @@ export default function ClientesPage() {
                       <FiTrash2 className="w-5 h-5 hover:text-gray-700" />
                     </button>
                     <a
-                      href={`https://wa.me/${c.celular.replace(/\D/g, '')}`}
+                      href={`https://wa.me/${c.celular?.replace(/\D/g, '') || c.telefone?.replace(/\D/g, '') || ''}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-green-600 hover:scale-110 transform transition"
