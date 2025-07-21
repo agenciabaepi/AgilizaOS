@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     console.log('Payload recebido no backend:', body);
-    const { nome, email, senha, cpf, nivel, empresa_id, whatsapp } = body;
+    const { nome, email, senha, cpf, nivel, empresa_id, whatsapp, usuario } = body;
     console.log('empresa_id recebido:', empresa_id);
 
     if (!empresa_id) {
@@ -32,6 +32,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'E-mail já cadastrado.' }, { status: 409 });
     }
 
+    // Verifica se já existe um usuário com esse nome de usuário
+    const { data: existingUsuario, error: usuarioError } = await supabaseAdmin
+      .from('usuarios')
+      .select('id')
+      .eq('usuario', usuario)
+      .single();
+
+    if (existingUsuario) {
+      console.error('Usuário já cadastrado:', usuario);
+      return NextResponse.json({ error: 'Usuário já cadastrado.' }, { status: 409 });
+    }
+
     // Verifica se já existe um usuário com esse CPF
     const { data: existingCPF, error: cpfError } = await supabaseAdmin
       .from('usuarios')
@@ -44,8 +56,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'CPF já cadastrado.' }, { status: 409 });
     }
 
-    if (!nome || !email || !senha || !cpf) {
-      console.error('Campos obrigatórios ausentes:', { nome, email, senha, cpf });
+    if (!nome || !email || !senha || !cpf || !usuario) {
+      console.error('Campos obrigatórios ausentes:', { nome, email, senha, cpf, usuario });
       return NextResponse.json({ error: 'Campos obrigatórios ausentes' }, { status: 400 });
     }
 
@@ -71,6 +83,7 @@ export async function POST(request: Request) {
     console.log('Enviando dados para o banco:', {
       nome,
       email,
+      usuario,
       auth_user_id: authUser.user?.id,
       cpf,
       tipo: 'principal',
@@ -83,6 +96,7 @@ export async function POST(request: Request) {
       {
         nome,
         email,
+        usuario,
         auth_user_id: authUser.user?.id,
         cpf,
         tipo: 'principal',

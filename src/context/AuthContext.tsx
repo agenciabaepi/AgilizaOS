@@ -31,6 +31,8 @@ interface AuthContextType {
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  isLoggingOut: boolean;
+  setIsLoggingOut: (value: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -41,6 +43,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [usuarioData, setUsuarioData] = useState<UsuarioData | null>(null);
   const [empresaData, setEmpresaData] = useState<EmpresaData | null>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const [loading, setLoading] = useState(true);
 
@@ -189,18 +192,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
-    // Limpa o estado imediatamente para evitar flash
-    setUser(null);
-    setSession(null);
-    setUsuarioData(null);
-    setEmpresaData(null);
-    localStorage.removeItem("user");
-    
-    // Executa o logout do Supabase
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error('Erro ao sair:', error.message);
-      throw new Error(error.message);
+    setIsLoggingOut(true);
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Erro ao sair:', error.message);
+        throw new Error(error.message);
+      }
+      setUser(null);
+      setSession(null);
+      setUsuarioData(null);
+      setEmpresaData(null);
+      localStorage.removeItem("user");
+    } finally {
+      setIsLoggingOut(false);
     }
   };
 
@@ -214,7 +219,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 
   return (
-    <AuthContext.Provider value={{ user, session, usuarioData, empresaData, loading, signIn, signUp, signOut, resetPassword }}>
+    <AuthContext.Provider value={{ user, session, usuarioData, empresaData, loading, signIn, signUp, signOut, resetPassword, isLoggingOut, setIsLoggingOut }}>
       {children}
     </AuthContext.Provider>
   );

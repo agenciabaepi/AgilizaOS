@@ -35,6 +35,7 @@ export default function UsuariosPage() {
     auth_user_id: string
   }>>([])
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
+  const [usuario, setUsuario] = useState('')
 
   const fetchUsuarios = async () => {
     try {
@@ -105,6 +106,7 @@ export default function UsuariosPage() {
           whatsapp,
           nivel,
           empresa_id: empresaId,
+          usuario,
         }),
       })
 
@@ -121,6 +123,7 @@ export default function UsuariosPage() {
       setCpf('')
       setWhatsapp('')
       setNivel('tecnico')
+      setUsuario('')
 
       // Atualiza lista
       fetchUsuarios()
@@ -159,6 +162,16 @@ export default function UsuariosPage() {
                         type="text"
                         value={nome}
                         onChange={(e) => setNome(e.target.value)}
+                        className="w-full border px-3 py-2 rounded"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-700">Usuário</label>
+                      <input
+                        type="text"
+                        value={usuario}
+                        onChange={(e) => setUsuario(e.target.value)}
                         className="w-full border px-3 py-2 rounded"
                         required
                       />

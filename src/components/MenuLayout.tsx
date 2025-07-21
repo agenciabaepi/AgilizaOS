@@ -30,6 +30,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const [menuExpandido, setMenuExpandido] = useState<boolean | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
 
@@ -173,16 +174,20 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             )}
             <button
               onClick={async () => {
+                setIsLoggingOut(true);
                 try {
                   await signOut();
-                  router.push('/login');
+                  window.location.href = '/login';
                 } catch (error) {
                   console.error('Erro ao fazer logout:', error);
+                } finally {
+                  setIsLoggingOut(false);
                 }
               }}
               className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out hover:bg-red-100 ${
                 menuExpandido ? '' : 'justify-center'
               }`}
+              disabled={isLoggingOut}
             >
               <div className="min-w-[20px]">
                 <FiLogOut size={20} />
@@ -192,7 +197,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   menuExpandido ? 'opacity-100 scale-100 max-w-[200px]' : 'opacity-0 scale-95 max-w-0 overflow-hidden'
                 }`}
               >
-                Sair
+                {isLoggingOut ? 'Saindo...' : 'Sair'}
               </span>
             </button>
           </nav>

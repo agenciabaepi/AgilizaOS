@@ -4,7 +4,7 @@ import './globals.css';
 import { SessionContextProvider } from '@supabase/auth-helpers-react';
 import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
 import { useState } from 'react';
-import { AuthProvider } from '@/context/AuthContext';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { ToastProvider } from '@/components/Toast';
 import { ConfirmProvider } from '@/components/ConfirmDialog';
 
@@ -13,6 +13,17 @@ const metadata = {
   title: "ConsertOS",
   description: "Sistema de ordem de serviço",
 };
+
+function AuthContent({ children }: { children: React.ReactNode }) {
+  const { isLoggingOut } = useAuth();
+  return isLoggingOut ? (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white' }}>
+      <span style={{ fontSize: 24 }}>Saindo...</span>
+    </div>
+  ) : (
+    <>{children}</>
+  );
+}
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const [supabaseClient] = useState(() => createPagesBrowserClient());
@@ -24,7 +35,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AuthProvider>
             <ToastProvider>
               <ConfirmProvider>
-                {children}
+                <AuthContent>
+                  {children}
+                </AuthContent>
               </ConfirmProvider>
             </ToastProvider>
           </AuthProvider>
