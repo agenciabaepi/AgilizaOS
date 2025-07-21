@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { useForm } from 'react-hook-form';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { Suspense } from 'react';
 
 const etapas = ["Cliente", "Aparelho", "Técnico", "Status", "Obs.", "Imagens"];
 
@@ -51,7 +52,7 @@ interface ProdutoServico {
 
 
 
-export default function NovaOSModernPage() {
+function NovaOS2Content() {
   const [etapaAtual, setEtapaAtual] = useState(1);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clienteSelecionado, setClienteSelecionado] = useState<string | null>(null);
@@ -1018,5 +1019,13 @@ export default function NovaOSModernPage() {
         </div>
       </ProtectedArea>
     </MenuLayout>
+  );
+}
+
+export default function NovaOS2Page() {
+  return (
+    <Suspense fallback={<div>Carregando...</div>}>
+      <NovaOS2Content />
+    </Suspense>
   );
 } 
