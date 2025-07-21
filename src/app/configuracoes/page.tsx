@@ -92,6 +92,11 @@ function ConfiguracoesInner() {
     return null;
   }
 
+  // DEBUG: Exibir nível do usuário na interface
+  if (userLevel) {
+    console.log('Nível do usuário:', userLevel);
+  }
+
   // Se ainda está carregando a autenticação, mostra loading
   if (authLoading) {
     console.log('Ainda carregando autenticação, mostrando loading')
@@ -133,18 +138,32 @@ function ConfiguracoesInner() {
   console.log('Renderizando página de configurações:', { userLevel, user: !!user })
 
   // Para outros níveis, mostra todas as abas
-  console.log('Usuário não é atendente, mostrando todas as abas')
-  const tabs = [
-    { name: 'Empresa', component: <EmpresaPage /> },
-    { name: 'Usuários', component: <UsuariosPage /> },
-    { name: 'Termos de Garantia', component: <TermosPage /> },
-    { name: 'Status', component: <StatusPage /> },
-  ]
+  // Se for admin, sempre mostra todas as abas
+  const isAdmin = userLevel === 'admin';
+  const tabs = isAdmin || !userLevel
+    ? [
+        { name: 'Empresa', component: <EmpresaPage /> },
+        { name: 'Usuários', component: <UsuariosPage /> },
+        { name: 'Termos de Garantia', component: <TermosPage /> },
+        { name: 'Status', component: <StatusPage /> },
+      ]
+    : userLevel === 'atendente'
+    ? [
+        { name: 'Termos de Garantia', component: <TermosPage /> },
+      ]
+    : [
+        { name: 'Empresa', component: <EmpresaPage /> },
+        { name: 'Usuários', component: <UsuariosPage /> },
+        { name: 'Termos de Garantia', component: <TermosPage /> },
+        { name: 'Status', component: <StatusPage /> },
+      ];
 
   return (
     <MenuLayout>
       <div className="p-8">
         <h1 className="text-2xl font-bold mb-6">Configurações Gerais</h1>
+        {/* DEBUG: Exibir nível do usuário na interface */}
+        <div className="mb-4 text-xs text-gray-400">Nível detectado: {userLevel || 'desconhecido'}</div>
 
         <Tab.Group selectedIndex={tabIndex} onChange={handleTabChange}>
           <Tab.List className="flex space-x-2 bg-gray-100 p-1 rounded-lg overflow-x-auto">

@@ -27,9 +27,14 @@ export default function EditarUsuarioPage() {
   const [form, setForm] = useState({
     nome: '',
     email: '',
+    usuario: '',
+    senha: '',
     telefone: '',
+    cpf: '',
+    whatsapp: '',
     nivel: '',
     permissoes: [] as string[],
+    auth_user_id: '',
   });
 
   useEffect(() => {
@@ -37,7 +42,7 @@ export default function EditarUsuarioPage() {
       setLoading(true);
       const { data, error } = await supabase
         .from('usuarios')
-        .select('nome, email, telefone, nivel, permissoes')
+        .select('nome, email, usuario, telefone, cpf, whatsapp, nivel, permissoes, auth_user_id')
         .eq('id', userId)
         .maybeSingle();
       if (error || !data) {
@@ -48,9 +53,14 @@ export default function EditarUsuarioPage() {
       setForm({
         nome: data.nome || '',
         email: data.email || '',
+        usuario: data.usuario || '',
+        senha: '',
         telefone: data.telefone || '',
+        cpf: data.cpf || '',
+        whatsapp: data.whatsapp || '',
         nivel: data.nivel || '',
         permissoes: data.permissoes || [],
+        auth_user_id: data.auth_user_id || '',
       });
       setLoading(false);
     };
@@ -60,6 +70,20 @@ export default function EditarUsuarioPage() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+    // Preencher permissões padrão ao trocar nível
+    if (name === 'nivel') {
+      let permissoesPadrao: string[] = [];
+      if (value === 'tecnico') {
+        permissoesPadrao = ['ordens', 'clientes', 'bancada'];
+      } else if (value === 'financeiro') {
+        permissoesPadrao = ['dashboard', 'lembretes', 'clientes', 'ordens', 'equipamentos', 'financeiro'];
+      } else if (value === 'atendente') {
+        permissoesPadrao = ['lembretes', 'clientes', 'ordens', 'equipamentos', 'dashboard'];
+      } else if (value === 'admin') {
+        permissoesPadrao = AREAS_SISTEMA.map(a => a.key);
+      }
+      setForm((prev) => ({ ...prev, permissoes: permissoesPadrao }));
+    }
   };
 
   const handlePermissaoChange = (key: string) => {
@@ -74,19 +98,31 @@ export default function EditarUsuarioPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    const { error } = await supabase
-      .from('usuarios')
-      .update({
-        nome: form.nome,
-        email: form.email,
-        telefone: form.telefone,
-        nivel: form.nivel,
-        permissoes: form.permissoes,
-      })
-      .eq('id', userId);
+    const updateData: any = {
+      id: userId,
+      nome: form.nome,
+      email: form.email,
+      usuario: form.usuario.trim().toLowerCase(),
+      telefone: form.telefone,
+      cpf: form.cpf,
+      whatsapp: form.whatsapp,
+      nivel: form.nivel,
+      permissoes: form.permissoes,
+      auth_user_id: form.auth_user_id,
+    };
+    if (form.senha) {
+      updateData.senha = form.senha;
+    }
+    // Chama a API de edição
+    const response = await fetch('/api/usuarios/editar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updateData),
+    });
+    const result = await response.json();
     setSaving(false);
-    if (error) {
-      addToast('error', 'Erro ao salvar alterações');
+    if (!response.ok) {
+      addToast('error', result.error || 'Erro ao salvar alterações');
     } else {
       addToast('success', 'Usuário atualizado com sucesso!');
       router.push('/configuracoes/usuarios');
@@ -113,6 +149,17 @@ export default function EditarUsuarioPage() {
               />
             </div>
             <div>
+              <label className="block text-sm font-medium mb-1">Usuário</label>
+              <input
+                type="text"
+                name="usuario"
+                value={form.usuario}
+                onChange={handleChange}
+                className="w-full border rounded px-3 py-2"
+                required
+              />
+            </div>
+            <div>
               <label className="block text-sm font-medium mb-1">E-mail</label>
               <input
                 type="email"
@@ -124,11 +171,42 @@ export default function EditarUsuarioPage() {
               />
             </div>
             <div>
+              <label className="block text-sm font-medium mb-1">Senha (deixe em branco para não alterar)</label>
+              <input
+                type="password"
+                name="senha"
+                value={form.senha}
+                onChange={handleChange}
+                className="w-full border rounded px-3 py-2"
+                autoComplete="new-password"
+              />
+            </div>
+            <div>
               <label className="block text-sm font-medium mb-1">Telefone</label>
               <input
                 type="text"
                 name="telefone"
                 value={form.telefone}
+                onChange={handleChange}
+                className="w-full border rounded px-3 py-2"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">CPF</label>
+              <input
+                type="text"
+                name="cpf"
+                value={form.cpf}
+                onChange={handleChange}
+                className="w-full border rounded px-3 py-2"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">WhatsApp</label>
+              <input
+                type="text"
+                name="whatsapp"
+                value={form.whatsapp}
                 onChange={handleChange}
                 className="w-full border rounded px-3 py-2"
               />

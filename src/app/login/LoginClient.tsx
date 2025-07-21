@@ -23,10 +23,11 @@ export default function LoginClient() {
     let emailToLogin = loginInput;
     // Se não for email, buscar pelo username
     if (!loginInput.includes('@')) {
+      const username = loginInput.trim().toLowerCase();
       const { data: usuario, error } = await supabase
         .from('usuarios')
         .select('email')
-        .eq('usuario', loginInput)
+        .eq('usuario', username)
         .single();
       if (error || !usuario?.email) {
         setIsSubmitting(false);
@@ -92,10 +93,11 @@ export default function LoginClient() {
     }
     let emailToReset = loginInput;
     if (!loginInput.includes('@')) {
+      const username = loginInput.trim().toLowerCase();
       const { data: usuario, error } = await supabase
         .from('usuarios')
         .select('email')
-        .eq('usuario', loginInput)
+        .eq('usuario', username)
         .single();
       if (error || !usuario?.email) {
         alert('Usuário não encontrado.');

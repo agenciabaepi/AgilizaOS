@@ -95,6 +95,7 @@ export default function UsuariosPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
+      const usuarioPadronizado = usuario.trim().toLowerCase();
       const response = await fetch('/api/usuarios/cadastrar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -106,14 +107,20 @@ export default function UsuariosPage() {
           whatsapp,
           nivel,
           empresa_id: empresaId,
-          usuario,
+          usuario: usuarioPadronizado,
         }),
       })
 
-      const data = await response.json()
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { raw: text };
+      }
       if (!response.ok) {
-        console.error('Erro detalhado:', data)
-        throw new Error(data.message || 'Erro ao cadastrar usuário.')
+        console.error('Erro detalhado:', data);
+        throw new Error(data.error || data.message || data.raw || 'Erro ao cadastrar usuário.');
       }
 
       alert('Usuário cadastrado com sucesso!')
@@ -128,7 +135,7 @@ export default function UsuariosPage() {
       // Atualiza lista
       fetchUsuarios()
     } catch (error: unknown) {
-      console.error('Erro ao cadastrar usuário:', error instanceof Error ? error.message : 'Erro desconhecido')
+      alert(error instanceof Error ? error.message : 'Erro desconhecido ao cadastrar usuário.')
     }
   }
 
