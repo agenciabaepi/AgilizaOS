@@ -15,6 +15,7 @@ import {
   FiLogOut,
   FiSearch,
   FiBell,
+  FiChevronDown,
 } from 'react-icons/fi';
 import { Toaster } from 'react-hot-toast';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
@@ -31,6 +32,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const [showNotifications, setShowNotifications] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [showFinanceiroSub, setShowFinanceiroSub] = useState(false);
 
   const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
 
@@ -160,7 +162,23 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               <SidebarButton path="/equipamentos" icon={<FiBox size={20} />} label="Produtos/Serviços" menuExpandido={menuExpandido} />
             )}
             {podeVer('financeiro') && (
-              <SidebarButton path="#" icon={<FiDollarSign size={20} />} label="Financeiro" menuExpandido={menuExpandido} />
+              <div className="relative">
+                <button
+                  onClick={() => setShowFinanceiroSub((v) => !v)}
+                  className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out hover:bg-[#cffb6d]/20 text-[#000000] hover:text-[#000000] ${showFinanceiroSub ? 'bg-[#cffb6d]/40' : ''}`}
+                >
+                  <div className="min-w-[20px]">
+                    <FiDollarSign size={20} />
+                  </div>
+                  <span className={`transition-all duration-300 ease-in-out whitespace-nowrap ml-2 ${menuExpandido ? 'opacity-100 scale-100 max-w-[200px]' : 'opacity-0 scale-95 max-w-0 overflow-hidden'}`}>Financeiro</span>
+                  {menuExpandido && <FiChevronDown className={`ml-auto transition-transform ${showFinanceiroSub ? 'rotate-180' : ''}`} size={16} />}
+                </button>
+                {showFinanceiroSub && menuExpandido && (
+                  <div className="ml-8 mt-1 space-y-1">
+                    <SidebarButton path="/financeiro/contas-a-pagar" icon={<FiFileText size={18} />} label="Contas a Pagar" menuExpandido={true} />
+                  </div>
+                )}
+              </div>
             )}
             {podeVer('bancada') && (
               <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" menuExpandido={menuExpandido} />

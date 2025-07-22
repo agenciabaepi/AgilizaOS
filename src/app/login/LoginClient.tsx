@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
 import logo from '@/assets/imagens/logopreto.png';
+import bgImage from '@/assets/imagens/background-login.png';
 
 const supabase = createPagesBrowserClient();
 
@@ -118,10 +119,20 @@ export default function LoginClient() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-[#cffb6d] to-[#e0ffe3]">
+    <div className="relative flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-[#cffb6d] to-[#e0ffe3] overflow-hidden">
+      {/* Overlay da imagem de fundo */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        <img
+          src={bgImage.src}
+          alt="Background Login"
+          className="w-full h-full object-cover opacity-30"
+          style={{ mixBlendMode: 'overlay' }}
+        />
+      </div>
+      {/* Conteúdo do login */}
       <form
         onSubmit={handleLogin}
-        className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-sm border border-gray-200"
+        className="relative z-10 bg-white p-8 rounded-2xl shadow-xl w-full max-w-sm border border-gray-200"
       >
         <div className="flex justify-center mb-6">
           <Image src={logo} alt="Logo AgilizaOS" width={200} height={200} />
