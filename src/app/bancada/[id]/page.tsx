@@ -3,51 +3,123 @@
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { FiClipboard, FiSave, FiBox, FiTool, FiCamera, FiFileText, FiPlay, FiCheck, FiDollarSign, FiFlag } from 'react-icons/fi';
+import { FiClipboard, FiSave, FiBox, FiTool, FiCamera } from 'react-icons/fi';
 import MenuLayout from '@/components/MenuLayout';
 
 export default function DetalheBancadaPage() {
   const params = useParams();
   const id = params?.id as string;
-  const [os, setOs] = useState<any>(null);
+  interface OrdemServico {
+    id: string;
+    empresa_id: string;
+    cliente_id: string;
+    tecnico_id: string;
+    status: string;
+    created_at: string;
+    atendente: string;
+    tecnico: string;
+    categoria: string;
+    marca: string;
+    modelo: string;
+    cor: string;
+    numero_serie: string;
+    servico: string;
+    qtd_servico: string;
+    peca: string;
+    qtd_peca: string;
+    termo_garantia: string | null;
+    relato: string;
+    observacao: string;
+    data_cadastro: string;
+    numero_os: string;
+    data_entrega: string | null;
+    vencimento_garantia: string | null;
+    valor_peca: string;
+    valor_servico: string;
+    desconto: string | null;
+    valor_faturado: string;
+    status_tecnico: string;
+    acessorios: string;
+    condicoes_equipamento: string;
+    [key: string]: any;
+  }
+  const [os, setOs] = useState<OrdemServico | null>(null);
   const [loading, setLoading] = useState(true);
+  const [statusTecnico, setStatusTecnico] = useState('');
   const [laudo, setLaudo] = useState('');
-  const [status, setStatus] = useState('');
-  const [peca, setPeca] = useState('');
-  const [servico, setServico] = useState('');
-  const [precoPeca, setPrecoPeca] = useState('0.00');
-  const [precoServico, setPrecoServico] = useState('0.00');
+  const [observacoes, setObservacoes] = useState('');
+  const [produtos, setProdutos] = useState<string>('');
+  const [servicos, setServicos] = useState<string>('');
+  // const [imagens, setImagens] = useState<File[]>([]); // Removido pois não está sendo usado
+  const [salvando, setSalvando] = useState(false);
+  const [statusTecnicoOptions, setStatusTecnicoOptions] = useState<{ id: string, nome: string }[]>([]);
 
   useEffect(() => {
     const fetchOS = async () => {
       setLoading(true);
       const { data, error } = await supabase
         .from('ordens_servico')
-        .select(`*, cliente:cliente_id(nome), empresa:empresa_id(nome), usuarios:tecnico_id(nome)`)
+        .select(`*, cliente:cliente_id(nome)`)
         .eq('id', id)
         .single();
       if (!error && data) {
         setOs(data);
-        setStatus(data.status || '');
+        setStatusTecnico(data.status_tecnico || '');
         setLaudo(data.laudo || '');
-        setPeca(data.peca || '');
-        setServico(data.servico || '');
-        setPrecoPeca(data.valor_peca ? String(data.valor_peca) : '0.00');
-        setPrecoServico(data.valor_servico ? String(data.valor_servico) : '0.00');
+        setObservacoes(data.observacao || '');
+        setProdutos(data.peca || '');
+        setServicos(data.servico || '');
       }
       setLoading(false);
     };
     if (id) fetchOS();
   }, [id]);
 
-  const steps = [
-    { label: 'Orçamento', icon: <FiFileText /> },
-    { label: 'Aberto', icon: <FiPlay /> },
-    { label: 'Andamento', icon: <FiTool /> },
-    { label: 'Concluído', icon: <FiCheck /> },
-    { label: 'Faturado', icon: <FiDollarSign /> },
-    { label: 'Finalizado', icon: <FiFlag /> }
-  ];
+  useEffect(() => {
+    async function fetchStatusTecnico() {
+      // Buscar status técnicos personalizados da empresa
+      const { data: statusEmpresa } = await supabase
+        .from('status')
+        .select('id, nome')
+        .eq('tipo', 'tecnico');
+      // Buscar status técnicos fixos do sistema
+      const { data: statusFixos } = await supabase
+        .from('status_fixo')
+        .select('id, nome')
+        .eq('tipo', 'tecnico');
+      setStatusTecnicoOptions([...(statusFixos || []), ...(statusEmpresa || [])]);
+    }
+    fetchStatusTecnico();
+  }, []);
+
+  const handleSalvar = async () => {
+    setSalvando(true);
+    const { error } = await supabase
+      .from('ordens_servico')
+      .update({
+        status_tecnico: statusTecnico,
+        laudo,
+        observacao: observacoes,
+        peca: produtos,
+        servico: servicos,
+      })
+      .eq('id', id);
+    setSalvando(false);
+    if (!error) {
+      alert('Dados salvos com sucesso!');
+    } else {
+      alert('Erro ao salvar: ' + error.message);
+    }
+  };
+
+  // const steps = [
+  //   { label: 'Orçamento', icon: <FiFileText /> },
+  //   { label: 'Aberto', icon: <FiPlay /> },
+  //   { label: 'Andamento', icon: <FiTool /> },
+  //   { label: 'Concluído', icon: <FiCheck /> },
+  //   { label: 'Faturado', icon: <FiDollarSign /> },
+  //   { label: 'Finalizado', icon: <FiFlag /> }
+  // ];
 
   if (loading) {
     return (
@@ -66,8 +138,8 @@ export default function DetalheBancadaPage() {
   }
 
   const aparelho = [os.categoria, os.marca, os.modelo, os.cor].filter(Boolean).join(' ');
-  const entrada = os.created_at ? new Date(os.created_at).toLocaleDateString('pt-BR') : '';
-  const valor = ((os.valor_servico || 0) + (os.valor_peca || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  // const entrada = os.created_at ? new Date(os.created_at).toLocaleDateString('pt-BR') : '';
+  // const valor = ((os.valor_servico || 0) + (os.valor_peca || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   return (
     <MenuLayout>
@@ -125,31 +197,49 @@ export default function DetalheBancadaPage() {
                 <FiClipboard className="text-blue-600" />
                 Status Técnico
               </h2>
-              <p className="text-base text-gray-800">{os.status_tecnico || '---'}</p>
+              <select
+                className="w-full border border-gray-300 px-4 py-2 rounded-lg text-sm focus:ring focus:ring-blue-100"
+                value={statusTecnico}
+                onChange={e => setStatusTecnico(e.target.value)}
+              >
+                <option value="">Selecione o status</option>
+                {statusTecnicoOptions.map(opt => (
+                  <option key={opt.id} value={opt.nome}>{opt.nome}</option>
+                ))}
+              </select>
             </div>
-            {/* Peça utilizada */}
+            {/* Produtos utilizados */}
             <div className="space-y-2">
               <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
                 <FiBox className="text-blue-600" />
-                Peça utilizada
+                Produtos utilizados
               </h2>
-              <p className="text-base text-gray-800">{os.peca || '---'}</p>
-              <p className="text-sm text-gray-600">Preço: <span className="font-semibold text-blue-600">R$ {os.valor_peca?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}</span></p>
+              <input
+                type="text"
+                className="w-full border border-gray-300 px-4 py-2 rounded-lg text-sm focus:ring focus:ring-blue-100"
+                placeholder="Produtos utilizados"
+                value={produtos}
+                onChange={e => setProdutos(e.target.value)}
+              />
             </div>
           </div>
 
-          {/* Serviço realizado */}
+          {/* Serviços realizados */}
           <div className="space-y-2">
             <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
               <FiTool className="text-blue-600" />
-              Serviço realizado
+              Serviços realizados
             </h2>
-            <p className="text-base text-gray-800">{os.servico || '---'}</p>
-            <p className="text-sm text-gray-600">Preço: <span className="font-semibold text-blue-600">R$ {os.valor_servico?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}</span></p>
+            <input
+              type="text"
+              className="w-full border border-gray-300 px-4 py-2 rounded-lg text-sm focus:ring focus:ring-blue-100"
+              placeholder="Serviços realizados"
+              value={servicos}
+              onChange={e => setServicos(e.target.value)}
+            />
           </div>
 
-          {/* Imagens */}
-          {/* Aqui você pode exibir imagens reais se houver campo no banco */}
+          {/* Imagens do aparelho: campo removido para evitar erro de referência */}
 
           {/* Laudo Técnico */}
           <div className="space-y-2">
@@ -157,12 +247,35 @@ export default function DetalheBancadaPage() {
               <FiClipboard className="text-blue-600" />
               Laudo Técnico
             </h2>
-            <p className="text-base text-gray-800">{os.laudo || '---'}</p>
+            <textarea
+              className="w-full border border-gray-300 px-4 py-3 rounded-lg text-sm min-h-[120px] focus:ring focus:ring-blue-100"
+              value={laudo}
+              onChange={e => setLaudo(e.target.value)}
+              placeholder="Descreva o diagnóstico técnico com todos os detalhes relevantes..."
+            />
+          </div>
+
+          {/* Observações técnicas */}
+          <div className="space-y-2">
+            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+              <FiClipboard className="text-blue-600" />
+              Observações técnicas
+            </h2>
+            <textarea
+              className="w-full border border-gray-300 px-4 py-3 rounded-lg text-sm min-h-[80px] focus:ring focus:ring-blue-100"
+              value={observacoes}
+              onChange={e => setObservacoes(e.target.value)}
+              placeholder="Observações do técnico..."
+            />
           </div>
 
           <div className="pt-2">
-            <button className="w-fit inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl text-sm font-medium hover:bg-blue-700 transition">
-              <FiSave /> Salvar Alterações
+            <button
+              className="w-fit inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl text-sm font-medium hover:bg-blue-700 transition"
+              onClick={handleSalvar}
+              disabled={salvando}
+            >
+              <FiSave /> {salvando ? 'Salvando...' : 'Salvar Alterações'}
             </button>
           </div>
         </div>

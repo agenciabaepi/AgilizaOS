@@ -59,7 +59,8 @@ const VisualizarOrdemServicoPage = () => {
           relato,
           desconto,
           acessorios,
-          condicoes_equipamento
+          condicoes_equipamento,
+          laudo
         `)
         .eq('id', String(id))
         .single();
@@ -167,19 +168,33 @@ const VisualizarOrdemServicoPage = () => {
                 <p className="text-gray-600 text-sm">Acessórios: {ordem.acessorios || '---'}</p>
                 <p className="text-gray-600 text-sm">Condições: {ordem.condicoes_equipamento || '---'}</p>
               </section>
-              {/* Observações */}
-              <section className="bg-white p-6 rounded-lg border border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-700 mb-2">Observações Internas</h2>
-                <p className="text-gray-700 text-sm whitespace-pre-line">{ordem.observacao || 'Nenhuma observação interna registrada.'}</p>
-              </section>
               {/* Relato */}
               <section className="bg-white p-6 rounded-lg border border-gray-200">
                 <h2 className="text-xl font-semibold text-gray-700 mb-2">Relato do Cliente</h2>
                 <p className="text-gray-700 text-sm whitespace-pre-line">{ordem.relato || 'Nenhum relato registrado.'}</p>
               </section>
+              {/* Observações Internas */}
+              <section className="bg-white p-6 rounded-lg border border-gray-200">
+                <h2 className="text-xl font-semibold text-gray-700 mb-2">Observações Internas</h2>
+                <p className="text-gray-700 text-sm whitespace-pre-line">{ordem.observacao || 'Nenhuma observação interna registrada.'}</p>
+              </section>
             </div>
             <div className="flex flex-col gap-6">
-              {/* Tabela de Serviços e Peças */}
+              {/* Bloco Técnico: Status, Laudo */}
+              <section className="bg-white p-6 rounded-lg border border-blue-200">
+                <h2 className="text-xl font-semibold text-blue-700 mb-4">Informações Técnicas</h2>
+                <div className="mb-2">
+                  <span className="block text-sm font-medium text-gray-600">Status Técnico:</span>
+                  <span className="inline-block px-3 py-1 text-sm font-medium bg-gray-100 text-gray-800 rounded-full">
+                    {ordem.status_tecnico || 'Não informado'}
+                  </span>
+                </div>
+                <div className="mb-2">
+                  <span className="block text-sm font-medium text-gray-600">Laudo Técnico:</span>
+                  <p className="text-gray-700 text-sm whitespace-pre-line">{ordem.laudo || 'Nenhum laudo registrado.'}</p>
+                </div>
+              </section>
+              {/* Serviços e Peças */}
               <section className="bg-white p-6 rounded-lg border border-gray-200">
                 <h2 className="text-xl font-semibold text-gray-700 mb-2">Serviços e Peças</h2>
                 <div className="overflow-x-auto">
@@ -248,13 +263,6 @@ const VisualizarOrdemServicoPage = () => {
                     <span className="font-bold">R$ {(ordem.valor_faturado ?? 0).toFixed(2)}</span>
                   </div>
                 </div>
-              </section>
-              {/* Status Técnico */}
-              <section className="bg-white p-6 rounded-lg border border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-700 mb-2">Status Técnico</h2>
-                <span className="inline-block px-3 py-1 text-sm font-medium bg-gray-100 text-gray-800 rounded-full">
-                  {ordem.status_tecnico || 'Não informado'}
-                </span>
               </section>
             </div>
           </div>
