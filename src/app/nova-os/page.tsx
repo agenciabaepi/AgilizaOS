@@ -532,7 +532,7 @@ function NovaOS2Content() {
                     </div>
                     <div className="flex gap-2 justify-between mt-2">
                       <Button type="button" variant="secondary" onClick={() => { setShowCadastroCliente(false); reset(); }}>Cancelar</Button>
-                      <Button type="button" variant="ghost" onClick={() => router.push('/clientes/novo')}>Cadastro completo</Button>
+                      <Button type="button" variant="ghost" onClick={() => router.push('/clientes/novo?returnToOS=true')}>Cadastro completo</Button>
                       <Button type="submit" variant="default" disabled={cadastrando}>{cadastrando ? 'Salvando...' : 'Salvar'}</Button>
                     </div>
                   </form>

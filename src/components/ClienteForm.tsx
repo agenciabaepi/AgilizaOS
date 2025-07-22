@@ -230,7 +230,7 @@ export default function ClienteForm({ cliente, returnToOS }: { cliente?: Cliente
         setShowSuccess(false);
         if (returnToOS && novoId) {
           // Retorna para a OS com o cliente selecionado
-          router.push('/nova-os2?clienteId=' + novoId);
+          router.push('/nova-os?clienteId=' + novoId);
         } else {
           router.push('/clientes');
         }
@@ -244,7 +244,7 @@ export default function ClienteForm({ cliente, returnToOS }: { cliente?: Cliente
       setShowSuccess(false);
       if (returnToOS) {
         // Retorna para a OS com o cliente selecionado (caso de edição)
-        router.push('/nova-os2?clienteId=' + cliente?.id);
+        router.push('/nova-os?clienteId=' + cliente?.id);
       } else {
         router.push('/clientes');
       }
