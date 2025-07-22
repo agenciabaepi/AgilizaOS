@@ -140,7 +140,7 @@ const VisualizarOrdemServicoPage = () => {
             <div className="flex flex-col gap-6">
               {/* Dados da OS */}
               <section className="bg-white p-6 rounded-lg border border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-700 mb-2">Dados da OS</h2>
+                <h2 className="text-xl font-semibold text-gray-700 mb-2">Dados da O.S</h2>
                 <div className="flex flex-col gap-1 text-sm">
                   <span>Status: <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#cffb6d] text-[#000000] font-semibold"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2l4-4" /></svg>{ordem.status}</span></span>
                   <span>Técnico: {ordem.tecnico?.nome}</span>
