@@ -444,7 +444,9 @@ export default function ProdutosServicosPage() {
 
   // Dados reais para os cards
   const produtos = lista.filter(item => item.tipo === 'produto');
+  const servicos = lista.filter(item => item.tipo === 'servico');
   const totalProdutos = produtos.length;
+  const totalServicos = servicos.length;
   const produtosEmEstoque = produtos.reduce((acc, p) => acc + (p.estoque_atual || 0), 0);
   const produtosAbaixoMinimo = produtos.filter(p => p.estoque_atual !== null && p.estoque_minimo !== null && p.estoque_atual < p.estoque_minimo!).length;
   const valorTotalEstoque = produtos.reduce((acc, p) => acc + ((p.estoque_atual || 0) * (p.custo || 0)), 0);
@@ -454,7 +456,7 @@ export default function ProdutosServicosPage() {
       <ToastProvider>
         <MenuLayout>
           <div className="pt-20 px-6 w-full">
-            {/* Cards resumo de produtos - dados reais */}
+            {/* Cards resumo de produtos e serviços - dados reais */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <DashboardCard
                 title="Total de Produtos"
@@ -462,6 +464,13 @@ export default function ProdutosServicosPage() {
                 description={'+5 este mês'}
                 descriptionColorClass="text-green-500"
                 svgPolyline={{ color: '#84cc16', points: '0,20 10,15 20,17 30,10 40,12 50,8 60,10 70,6' }}
+              />
+              <DashboardCard
+                title="Total de Serviços"
+                value={totalServicos}
+                description={'+2 este mês'}
+                descriptionColorClass="text-indigo-500"
+                svgPolyline={{ color: '#6366f1', points: '0,18 10,16 20,14 30,10 40,11 50,9 60,10 70,6' }}
               />
               <DashboardCard
                 title="Em Estoque"
@@ -476,13 +485,6 @@ export default function ProdutosServicosPage() {
                 description={'Produtos abaixo do mínimo'}
                 descriptionColorClass="text-red-500"
                 svgPolyline={{ color: '#f87171', points: '0,12 10,14 20,16 30,18 40,20 50,17 60,15 70,16' }}
-              />
-              <DashboardCard
-                title="Valor em Estoque"
-                value={`R$ ${valorTotalEstoque.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                description={'+3% este mês'}
-                descriptionColorClass="text-yellow-500"
-                svgPolyline={{ color: '#facc15', points: '0,18 10,16 20,14 30,10 40,11 50,9 60,10 70,6' }}
               />
             </div>
             {/* Mensagem de erro de log, se houver */}
