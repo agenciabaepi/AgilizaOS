@@ -6,23 +6,25 @@ import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
 import logo from '@/assets/imagens/logopreto.png';
 import bgImage from '@/assets/imagens/background-login.png';
+import { ToastProvider, useToast } from '@/components/Toast';
+import { ConfirmProvider, useConfirm } from '@/components/ConfirmDialog';
 
 const supabase = createPagesBrowserClient();
 
-export default function LoginClient() {
-  const [loginInput, setLoginInput] = useState('lucas@hotmail.com');
-  const [password, setPassword] = useState('123123');
+function LoginClientInner() {
+  const [loginInput, setLoginInput] = useState('');
+  const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
   const router = useRouter();
-
   const auth = useAuth();
+  const { addToast } = useToast();
+  const confirm = useConfirm();
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
     let emailToLogin = loginInput;
-    // Se não for email, buscar pelo username
     if (!loginInput.includes('@')) {
       const username = loginInput.trim().toLowerCase();
       const { data: usuario, error } = await supabase
@@ -32,7 +34,7 @@ export default function LoginClient() {
         .single();
       if (error || !usuario?.email) {
         setIsSubmitting(false);
-        alert('Usuário não encontrado.');
+        addToast('error', 'Usuário não encontrado.');
         return;
       }
       emailToLogin = usuario.email;
@@ -47,7 +49,7 @@ export default function LoginClient() {
     await supabase.auth.getSession();
     setIsSubmitting(false);
     if (error || !session?.user) {
-      alert('Erro ao fazer login.');
+      addToast('error', 'Erro ao fazer login.');
       return;
     }
     const userId = session.user.id;
@@ -72,7 +74,11 @@ export default function LoginClient() {
         .eq('id', usuario.empresa_id)
         .single();
       if (empresa?.status === 'bloqueado') {
-        alert(`Acesso bloqueado: ${empresa.motivoBloqueio || 'entre em contato com o suporte.'}`);
+        await confirm({
+          title: 'Acesso bloqueado',
+          message: empresa.motivoBloqueio || 'Entre em contato com o suporte.',
+          confirmText: 'OK',
+        });
         return;
       }
       localStorage.setItem("user", JSON.stringify({
@@ -89,7 +95,7 @@ export default function LoginClient() {
 
   const handlePasswordReset = async () => {
     if (!loginInput) {
-      alert('Informe seu e-mail ou usuário para recuperar a senha.');
+      addToast('warning', 'Informe seu e-mail ou usuário para recuperar a senha.');
       return;
     }
     let emailToReset = loginInput;
@@ -101,7 +107,7 @@ export default function LoginClient() {
         .eq('usuario', username)
         .single();
       if (error || !usuario?.email) {
-        alert('Usuário não encontrado.');
+        addToast('error', 'Usuário não encontrado.');
         return;
       }
       emailToReset = usuario.email;
@@ -112,9 +118,9 @@ export default function LoginClient() {
     });
     setIsRecovering(false);
     if (error) {
-      alert(error.message);
+      addToast('error', error.message);
     } else {
-      alert('E-mail de recuperação enviado!');
+      addToast('success', 'E-mail de recuperação enviado!');
     }
   };
 
@@ -140,7 +146,6 @@ export default function LoginClient() {
         <p className="text-sm text-gray-500 mb-6 text-center">
           Acesse sua conta para continuar
         </p>
-
         <input
           type="text"
           placeholder="E-mail ou Usuário"
@@ -157,7 +162,6 @@ export default function LoginClient() {
           className="mb-2 w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           required
         />
-
         <button
           type="submit"
           className="w-full bg-[#000000] text-white font-semibold py-3 rounded-lg hover:opacity-90 transition flex justify-center items-center mb-2"
@@ -165,7 +169,6 @@ export default function LoginClient() {
         >
           {isSubmitting ? 'Entrando...' : 'Entrar'}
         </button>
-
         <button
           type="button"
           className="w-full bg-white text-black font-semibold py-3 rounded-lg hover:bg-gray-100 transition"
@@ -176,5 +179,15 @@ export default function LoginClient() {
         </button>
       </form>
     </div>
+  );
+}
+
+export default function LoginClient() {
+  return (
+    <ConfirmProvider>
+      <ToastProvider>
+        <LoginClientInner />
+      </ToastProvider>
+    </ConfirmProvider>
   );
 } 

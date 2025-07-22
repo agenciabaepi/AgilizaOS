@@ -20,11 +20,13 @@ import {
 import { Toaster } from 'react-hot-toast';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/components/Toast';
 
 export default function MenuLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const supabase = createClientComponentClient();
   const { signOut, usuarioData } = useAuth();
+  const { addToast } = useToast();
 
   const [userName, setUserName] = useState<string>('');
   const [userLevel, setUserLevel] = useState<string>('');
@@ -194,9 +196,10 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               onClick={async () => {
                 setIsLoggingOut(true);
                 try {
-                  await signOut();
+                  await signOut((msg) => addToast('error', `Erro ao sair: ${msg}`));
                   window.location.href = '/login';
                 } catch (error) {
+                  addToast('error', 'Erro inesperado ao sair.');
                   console.error('Erro ao fazer logout:', error);
                 } finally {
                   setIsLoggingOut(false);

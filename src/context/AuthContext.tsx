@@ -7,6 +7,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 // import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
 import { Session, User } from '@supabase/supabase-js';
+// import { ToastProvider, useToast } from '@/components/Toast'; // Remover import de useToast/ToastProvider
 
 interface UsuarioData {
   empresa_id: string;
@@ -46,6 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const [loading, setLoading] = useState(true);
+  // Remover const { addToast } = useToast ? useToast() : { addToast: () => {} };
 
   useEffect(() => {
     const checkSession = async () => {
@@ -191,13 +193,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signOut = async () => {
+  const signOut = async (onError?: (msg: string) => void) => {
     setIsLoggingOut(true);
     try {
       const { error } = await supabase.auth.signOut();
-      if (error) {
+      if (error && error.message !== 'Auth session missing!') {
+        if (onError) onError(error.message);
         console.error('Erro ao sair:', error.message);
-        throw new Error(error.message);
       }
       setUser(null);
       setSession(null);
