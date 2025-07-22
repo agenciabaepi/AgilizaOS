@@ -135,8 +135,8 @@ const VisualizarOrdemServicoPage = () => {
             </div>
           </div>
           <h1 className="text-3xl font-extrabold text-[#000000] mb-6">Ordem de Serviço #{ordem.numero_os}</h1>
-          {/* Blocos principais em duas colunas responsivas */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+          {/* PARTE DE CIMA: 2 colunas */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
             <div className="flex flex-col gap-6">
               {/* Dados da OS */}
               <section className="bg-white p-6 rounded-lg border border-gray-200">
@@ -168,6 +168,8 @@ const VisualizarOrdemServicoPage = () => {
                 <p className="text-gray-600 text-sm">Acessórios: {ordem.acessorios || '---'}</p>
                 <p className="text-gray-600 text-sm">Condições: {ordem.condicoes_equipamento || '---'}</p>
               </section>
+            </div>
+            <div className="flex flex-col gap-6">
               {/* Relato */}
               <section className="bg-white p-6 rounded-lg border border-gray-200">
                 <h2 className="text-xl font-semibold text-gray-700 mb-2">Relato do Cliente</h2>
@@ -179,6 +181,10 @@ const VisualizarOrdemServicoPage = () => {
                 <p className="text-gray-700 text-sm whitespace-pre-line">{ordem.observacao || 'Nenhuma observação interna registrada.'}</p>
               </section>
             </div>
+          </div>
+          <hr className="my-8 border-t-2 border-gray-200" />
+          {/* PARTE DE BAIXO: DADOS DO TÉCNICO E VALORES */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="flex flex-col gap-6">
               {/* Bloco Técnico: Status, Laudo */}
               <section className="bg-white p-6 rounded-lg border border-blue-200">
@@ -194,6 +200,8 @@ const VisualizarOrdemServicoPage = () => {
                   <p className="text-gray-700 text-sm whitespace-pre-line">{ordem.laudo || 'Nenhum laudo registrado.'}</p>
                 </div>
               </section>
+            </div>
+            <div className="flex flex-col gap-6">
               {/* Serviços e Peças */}
               <section className="bg-white p-6 rounded-lg border border-gray-200">
                 <h2 className="text-xl font-semibold text-gray-700 mb-2">Serviços e Peças</h2>
