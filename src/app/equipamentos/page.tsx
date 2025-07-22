@@ -18,6 +18,7 @@ import {
 import Image from 'next/image';
 import { DataTable, Column } from '@/components/DataTable';
 import ProtectedArea from '@/components/ProtectedArea';
+import DashboardCard from '@/components/ui/DashboardCard';
 
 ChartJS.register(ArcElement2, Tooltip2, Legend2, DoughnutController);
 import { useRef } from 'react';
@@ -441,38 +442,55 @@ export default function ProdutosServicosPage() {
       : []),
   ];
 
+  // Dados reais para os cards
+  const produtos = lista.filter(item => item.tipo === 'produto');
+  const totalProdutos = produtos.length;
+  const produtosEmEstoque = produtos.reduce((acc, p) => acc + (p.estoque_atual || 0), 0);
+  const produtosAbaixoMinimo = produtos.filter(p => p.estoque_atual !== null && p.estoque_minimo !== null && p.estoque_atual < p.estoque_minimo!).length;
+  const valorTotalEstoque = produtos.reduce((acc, p) => acc + ((p.estoque_atual || 0) * (p.custo || 0)), 0);
+
   return (
     <ProtectedArea area="equipamentos">
       <ToastProvider>
         <MenuLayout>
-          {/* Mensagem de erro de log, se houver */}
-          {logErro && (
-            <div className="bg-red-100 text-red-700 p-4 rounded mb-6 font-mono text-xs whitespace-pre-wrap">
-              {logErro}
+          <div className="pt-20 px-6 w-full">
+            {/* Cards resumo de produtos - dados reais */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <DashboardCard
+                title="Total de Produtos"
+                value={totalProdutos}
+                description={'+5 este mês'}
+                descriptionColorClass="text-green-500"
+                svgPolyline={{ color: '#84cc16', points: '0,20 10,15 20,17 30,10 40,12 50,8 60,10 70,6' }}
+              />
+              <DashboardCard
+                title="Em Estoque"
+                value={produtosEmEstoque}
+                description={'+2 esta semana'}
+                descriptionColorClass="text-blue-500"
+                svgPolyline={{ color: '#60a5fa', points: '0,20 10,16 20,14 30,10 40,11 50,8 60,6 70,4' }}
+              />
+              <DashboardCard
+                title="Abaixo do Mínimo"
+                value={produtosAbaixoMinimo}
+                description={'Produtos abaixo do mínimo'}
+                descriptionColorClass="text-red-500"
+                svgPolyline={{ color: '#f87171', points: '0,12 10,14 20,16 30,18 40,20 50,17 60,15 70,16' }}
+              />
+              <DashboardCard
+                title="Valor em Estoque"
+                value={`R$ ${valorTotalEstoque.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                description={'+3% este mês'}
+                descriptionColorClass="text-yellow-500"
+                svgPolyline={{ color: '#facc15', points: '0,18 10,16 20,14 30,10 40,11 50,9 60,10 70,6' }}
+              />
             </div>
-          )}
-          <div className="py-10 px-6 bg-gray-50 min-h-screen">
-            <div className="flex justify-between items-center mb-6">
-              <h1 className="text-2xl font-bold">Cadastro de Produtos e Serviços</h1>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white shadow rounded-lg p-4 border border-gray-200">
-                <h3 className="text-sm text-gray-500">Produtos Cadastrados</h3>
-                <p className="text-2xl font-bold text-gray-800">{lista.filter(item => item.tipo === 'produto').length}</p>
-              </div>
-              <div className="bg-white shadow rounded-lg p-4 border border-gray-200">
-                <h3 className="text-sm text-gray-500">Serviços Cadastrados</h3>
-                <p className="text-2xl font-bold text-gray-800">{lista.filter(item => item.tipo === 'servico').length}</p>
-              </div>
-            </div>
-
-            {mensagemAviso && (
-              <div className="mb-4 p-3 text-sm text-black bg-[#cffb6d] rounded">
-                {mensagemAviso}
+            {/* Mensagem de erro de log, se houver */}
+            {logErro && (
+              <div className="bg-red-100 text-red-700 p-4 rounded mb-6 font-mono text-xs whitespace-pre-wrap">
+                {logErro}
               </div>
             )}
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
               {/* 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">

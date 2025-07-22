@@ -27,6 +27,9 @@ interface OrdemServico {
   valor_faturado?: number;
   qtd_peca?: number;
   qtd_servico?: number;
+  usuarios?: {
+    nome?: string;
+  }[];
 }
 
 interface OrdemTransformada {
@@ -58,6 +61,7 @@ import { FiEye, FiEdit, FiPrinter, FiUsers } from 'react-icons/fi';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import ProtectedArea from '@/components/ProtectedArea';
+import DashboardCard from '@/components/ui/DashboardCard';
 
 
 export default function ListaOrdensPage() {
@@ -75,7 +79,8 @@ export default function ListaOrdensPage() {
   // Novos estados para crescimento real semana/mês
   const [crescimentoSemana, setCrescimentoSemana] = useState(0);
   const [crescimentoMes, setCrescimentoMes] = useState(0);
-  const [tecnicosDict, setTecnicosDict] = useState<Record<string, string>>({});
+  // Remover tecnicosDict se não está sendo usado
+  // const [tecnicosDict, setTecnicosDict] = useState<Record<string, string>>({});
 
   function formatDate(date: string) {
     return date ? new Date(date).toLocaleDateString('pt-BR') : '';
@@ -151,7 +156,7 @@ export default function ListaOrdensPage() {
           servico: item.servico || '',
           statusOS: item.status || '',
           entrada: item.created_at || '',
-          tecnico: item.tecnico || '',
+          tecnico: item.usuarios?.[0]?.nome || '',
           atendente: item.atendente || '',
           entrega: item.data_entrega || '',
           garantia: item.data_entrega
@@ -231,7 +236,7 @@ export default function ListaOrdensPage() {
         data.forEach((t: { auth_user_id: string, nome: string }) => {
           dict[t.auth_user_id] = t.nome;
         });
-        setTecnicosDict(dict);
+        // setTecnicosDict(dict); // Remover tecnicosDict se não está sendo usado
       }
     };
     fetchTecnicos();
@@ -264,62 +269,34 @@ export default function ListaOrdensPage() {
         <div className="pt-20 px-6 w-full">
           {/* Cards principais */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            {/* Total de OS */}
-            <div className="bg-white rounded-xl shadow-md p-5 relative overflow-hidden">
-              <h3 className="text-gray-500 text-sm mb-1">Total de OS</h3>
-              <p className="text-3xl font-bold text-black">{totalOS}</p>
-              <div className="text-green-500 text-sm mt-2 flex items-center gap-1">
-                <span>+{crescimentoSemana}%</span>
-                <span className="text-gray-400">na última semana</span>
-              </div>
-              <div className="absolute bottom-2 right-2 opacity-40">
-                <svg width="80" height="24">
-                  <polyline fill="none" stroke="#84cc16" strokeWidth="2" points="0,20 10,15 20,17 30,10 40,12 50,8 60,10 70,6" />
-                </svg>
-              </div>
-            </div>
-            {/* OS no Mês */}
-            <div className="bg-white rounded-xl shadow-md p-5 relative overflow-hidden">
-              <h3 className="text-gray-500 text-sm mb-1">OS no Mês</h3>
-              <p className="text-3xl font-bold text-black">{totalMes}</p>
-              <div className="text-green-500 text-sm mt-2 flex items-center gap-1">
-                <span>+{crescimentoMes}%</span>
-                <span className="text-gray-400">em relação ao mês anterior</span>
-              </div>
-              <div className="absolute bottom-2 right-2 opacity-40">
-                <svg width="80" height="24">
-                  <polyline fill="none" stroke="#4ade80" strokeWidth="2" points="0,18 10,16 20,14 30,10 40,11 50,9 60,10 70,6" />
-                </svg>
-              </div>
-            </div>
-            {/* Retornos do Mês */}
-            <div className="bg-white rounded-xl shadow-md p-5 relative overflow-hidden">
-              <h3 className="text-gray-500 text-sm mb-1">Retornos do Mês</h3>
-              <p className="text-3xl font-bold text-black">{retornosMes}</p>
-              <div className="text-red-500 text-sm mt-2 flex items-center gap-1">
-                <span>{percentualRetornos}%</span>
-                <span className="text-gray-400">do total</span>
-              </div>
-              <div className="absolute bottom-2 right-2 opacity-40">
-                <svg width="80" height="24">
-                  <polyline fill="none" stroke="#f87171" strokeWidth="2" points="0,12 10,14 20,16 30,18 40,20 50,17 60,15 70,16" />
-                </svg>
-              </div>
-            </div>
-            {/* OS Concluídas */}
-            <div className="bg-white rounded-xl shadow-md p-5 relative overflow-hidden">
-              <h3 className="text-gray-500 text-sm mb-1">OS Concluídas</h3>
-              <p className="text-3xl font-bold text-black">{osConcluidas}</p>
-              <div className="text-blue-500 text-sm mt-2 flex items-center gap-1">
-                <span>{percentualConcluidas}%</span>
-                <span className="text-gray-400">do total</span>
-              </div>
-              <div className="absolute bottom-2 right-2 opacity-40">
-                <svg width="80" height="24">
-                  <polyline fill="none" stroke="#60a5fa" strokeWidth="2" points="0,20 10,16 20,14 30,10 40,11 50,8 60,6 70,4" />
-                </svg>
-              </div>
-            </div>
+            <DashboardCard
+              title="Total de OS"
+              value={totalOS}
+              description={`+${crescimentoSemana}% na última semana`}
+              descriptionColorClass="text-green-500"
+              svgPolyline={{ color: '#84cc16', points: '0,20 10,15 20,17 30,10 40,12 50,8 60,10 70,6' }}
+            />
+            <DashboardCard
+              title="OS no Mês"
+              value={totalMes}
+              description={`+${crescimentoMes}% em relação ao mês anterior`}
+              descriptionColorClass="text-green-500"
+              svgPolyline={{ color: '#4ade80', points: '0,18 10,16 20,14 30,10 40,11 50,9 60,10 70,6' }}
+            />
+            <DashboardCard
+              title="Retornos do Mês"
+              value={retornosMes}
+              description={`${percentualRetornos}% do total`}
+              descriptionColorClass="text-red-500"
+              svgPolyline={{ color: '#f87171', points: '0,12 10,14 20,16 30,18 40,20 50,17 60,15 70,16' }}
+            />
+            <DashboardCard
+              title="OS Concluídas"
+              value={osConcluidas}
+              description={`${percentualConcluidas}% do total`}
+              descriptionColorClass="text-blue-500"
+              svgPolyline={{ color: '#60a5fa', points: '0,20 10,16 20,14 30,10 40,11 50,8 60,6 70,4' }}
+            />
           </div>
           {/* Cards de técnicos */}
           <div className="backdrop-blur-sm bg-white/60 p-6 rounded-xl shadow mb-6">

@@ -29,14 +29,14 @@ export function DashboardCard({
   className,
 }: DashboardCardProps) {
   return (
-    <div className={cn('bg-white rounded-xl shadow-md p-5 relative overflow-hidden flex flex-col gap-2', bgClass, colorClass, className)}>
-      <h3 className="text-gray-500 text-sm mb-1 font-medium flex items-center gap-2">
+    <div className={cn('bg-white rounded-xl shadow-md p-3 relative overflow-hidden flex flex-col gap-1', bgClass, colorClass, className)}>
+      <h3 className="text-gray-500 text-sm mb-0 font-medium flex items-center gap-2">
         {icon}
         {title}
       </h3>
-      <div className="text-3xl font-bold text-black leading-tight">{value}</div>
+      <div className="text-2xl font-bold text-black leading-tight">{value}</div>
       {description && (
-        <div className={cn('text-sm mt-2 flex items-center gap-1', descriptionColorClass)}>
+        <div className={cn('text-xs mt-1 flex items-center gap-1', descriptionColorClass)}>
           {descriptionIcon}
           <span>{description}</span>
         </div>
