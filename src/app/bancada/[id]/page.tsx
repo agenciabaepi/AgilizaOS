@@ -1,20 +1,44 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabaseClient';
 import { FiClipboard, FiSave, FiBox, FiTool, FiCamera, FiFileText, FiPlay, FiCheck, FiDollarSign, FiFlag } from 'react-icons/fi';
 import MenuLayout from '@/components/MenuLayout';
 
 export default function DetalheBancadaPage() {
   const params = useParams();
   const id = params?.id as string;
+  const [os, setOs] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [laudo, setLaudo] = useState('');
-  const [status, setStatus] = useState('Em análise');
+  const [status, setStatus] = useState('');
   const [peca, setPeca] = useState('');
   const [servico, setServico] = useState('');
   const [precoPeca, setPrecoPeca] = useState('0.00');
   const [precoServico, setPrecoServico] = useState('0.00');
 
+  useEffect(() => {
+    const fetchOS = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('ordens_servico')
+        .select(`*, cliente:cliente_id(nome), empresa:empresa_id(nome), usuarios:tecnico_id(nome)`)
+        .eq('id', id)
+        .single();
+      if (!error && data) {
+        setOs(data);
+        setStatus(data.status || '');
+        setLaudo(data.laudo || '');
+        setPeca(data.peca || '');
+        setServico(data.servico || '');
+        setPrecoPeca(data.valor_peca ? String(data.valor_peca) : '0.00');
+        setPrecoServico(data.valor_servico ? String(data.valor_servico) : '0.00');
+      }
+      setLoading(false);
+    };
+    if (id) fetchOS();
+  }, [id]);
 
   const steps = [
     { label: 'Orçamento', icon: <FiFileText /> },
@@ -24,6 +48,26 @@ export default function DetalheBancadaPage() {
     { label: 'Faturado', icon: <FiDollarSign /> },
     { label: 'Finalizado', icon: <FiFlag /> }
   ];
+
+  if (loading) {
+    return (
+      <MenuLayout>
+        <div className="px-10 py-8 max-w-7xl mx-auto text-center text-gray-500">Carregando OS...</div>
+      </MenuLayout>
+    );
+  }
+
+  if (!os) {
+    return (
+      <MenuLayout>
+        <div className="px-10 py-8 max-w-7xl mx-auto text-center text-red-500">Ordem de serviço não encontrada.</div>
+      </MenuLayout>
+    );
+  }
+
+  const aparelho = [os.categoria, os.marca, os.modelo, os.cor].filter(Boolean).join(' ');
+  const entrada = os.created_at ? new Date(os.created_at).toLocaleDateString('pt-BR') : '';
+  const valor = ((os.valor_servico || 0) + (os.valor_peca || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   return (
     <MenuLayout>
@@ -36,27 +80,11 @@ export default function DetalheBancadaPage() {
         </button>
         <h1 className="text-2xl font-bold flex items-center gap-2 mb-6">
           <FiClipboard className="text-blue-600" />
-          Ordem #{id}
+          Ordem #{os.numero_os || os.id}
         </h1>
 
-        {/* Barra de progresso da OS */}
-        <div className="mb-10">
-          <div className="flex items-center justify-between gap-4">
-            {steps.map((step, index, arr) => (
-              <div key={step.label} className="flex-1 flex flex-col items-center relative">
-                <div className={`z-10 w-10 h-10 rounded-full flex items-center justify-center font-semibold text-white ${index === 2 ? 'bg-blue-600 shadow-lg' : 'bg-gray-300'}`}>
-                  {step.icon}
-                </div>
-                <span className={`mt-2 text-sm ${index === 2 ? 'text-blue-600 font-medium' : 'text-gray-500'}`}>{step.label}</span>
-                {index < arr.length - 1 && (
-                  <div className="absolute top-5 left-1/2 w-full h-1 bg-gray-200 z-0">
-                    <div className={`h-1 ${index < 2 ? 'bg-blue-600' : 'bg-gray-300'} transition-all duration-300`} style={{ width: '100%' }} />
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* Barra de progresso da OS (mock, pode ser melhorada com status reais) */}
+        {/* ... manter steps ou adaptar conforme status reais ... */}
 
         <section className="bg-white border border-gray-200 rounded-2xl p-6 mb-8 shadow-sm">
           <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-4">
@@ -66,25 +94,25 @@ export default function DetalheBancadaPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6 text-sm text-gray-700">
             <div>
               <p className="text-[13px] font-medium text-gray-500 mb-1">Status da OS</p>
-              <p className="text-base text-gray-800">Aguardando técnico</p>
+              <p className="text-base text-gray-800">{os.status || '---'}</p>
             </div>
             <div>
               <p className="text-[13px] font-medium text-gray-500 mb-1">Modelo do Aparelho</p>
-              <p className="text-base text-gray-800">iPhone 11 - Preto - 128GB - IMEI: 123456789012345</p>
+              <p className="text-base text-gray-800">{aparelho || '---'}</p>
             </div>
             <div>
               <p className="text-[13px] font-medium text-gray-500 mb-1">Relato do cliente</p>
               <p className="text-base text-gray-800 leading-snug">
-                Aparelho não liga mesmo após carregamento o dia todo
+                {os.relato || '---'}
               </p>
             </div>
             <div>
               <p className="text-[13px] font-medium text-gray-500 mb-1">Acessórios</p>
-              <p className="text-base text-gray-800">Carregador original e capinha</p>
+              <p className="text-base text-gray-800">{os.acessorios || '---'}</p>
             </div>
             <div className="lg:col-span-3">
               <p className="text-[13px] font-medium text-gray-500 mb-1">Checklist</p>
-              <p className="text-base text-gray-800">Senha informada (1234), sem biometria, conta Google ativa</p>
+              <p className="text-base text-gray-800">{os.condicoes_equipamento || '---'}</p>
             </div>
           </div>
         </section>
@@ -97,16 +125,7 @@ export default function DetalheBancadaPage() {
                 <FiClipboard className="text-blue-600" />
                 Status Técnico
               </h2>
-              <select
-                className="w-full border border-gray-300 px-4 py-2 rounded-lg text-sm focus:ring focus:ring-blue-100"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-              >
-                <option>Em análise</option>
-                <option>Aguardando peça</option>
-                <option>Reparo concluído</option>
-                <option>Sem conserto</option>
-              </select>
+              <p className="text-base text-gray-800">{os.status_tecnico || '---'}</p>
             </div>
             {/* Peça utilizada */}
             <div className="space-y-2">
@@ -114,38 +133,8 @@ export default function DetalheBancadaPage() {
                 <FiBox className="text-blue-600" />
                 Peça utilizada
               </h2>
-              <div className="grid md:grid-cols-2 gap-4">
-                <input
-                  type="text"
-                  className="w-full border border-gray-300 px-4 py-2 rounded-lg text-sm focus:ring focus:ring-blue-100"
-                  placeholder="Buscar peça..."
-                  value={peca}
-                  onChange={(e) => {
-                    setPeca(e.target.value);
-                    if (e.target.value === 'Bateria iPhone 11') setPrecoPeca('150.00');
-                    else if (e.target.value === 'Tela Galaxy A10') setPrecoPeca('200.00');
-                    else if (e.target.value === 'Carregador USB-C') setPrecoPeca('90.00');
-                    else setPrecoPeca('0.00');
-                  }}
-                  list="pecas"
-                />
-                <datalist id="pecas">
-                  <option value="Bateria iPhone 11" />
-                  <option value="Tela Galaxy A10" />
-                  <option value="Carregador USB-C" />
-                </datalist>
-                <div className="flex items-center gap-3 col-span-full">
-                  <span className="text-sm text-gray-600">Preço:</span>
-                  <span className="text-base font-semibold text-blue-600">R$ {precoPeca}</span>
-                  <span className="text-sm text-gray-400 ml-4">Alterar:</span>
-                  <input
-                    type="text"
-                    className="border border-gray-300 px-2 py-1 rounded-md w-24 text-sm"
-                    value={precoPeca}
-                    onChange={(e) => setPrecoPeca(e.target.value)}
-                  />
-                </div>
-              </div>
+              <p className="text-base text-gray-800">{os.peca || '---'}</p>
+              <p className="text-sm text-gray-600">Preço: <span className="font-semibold text-blue-600">R$ {os.valor_peca?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}</span></p>
             </div>
           </div>
 
@@ -155,49 +144,12 @@ export default function DetalheBancadaPage() {
               <FiTool className="text-blue-600" />
               Serviço realizado
             </h2>
-            <div className="grid md:grid-cols-2 gap-4">
-              <input
-                type="text"
-                className="w-full border border-gray-300 px-4 py-2 rounded-lg text-sm focus:ring focus:ring-blue-100"
-                placeholder="Buscar serviço..."
-                value={servico}
-                onChange={(e) => setServico(e.target.value)}
-                list="servicos"
-              />
-              <datalist id="servicos">
-                <option value="Troca de bateria" />
-                <option value="Troca de tela" />
-                <option value="Atualização de sistema" />
-              </datalist>
-              <div className="flex items-center gap-3 col-span-full">
-                <span className="text-sm text-gray-600">Preço:</span>
-                <span className="text-base font-semibold text-blue-600">R$ {precoServico}</span>
-                <span className="text-sm text-gray-400 ml-4">Alterar:</span>
-                <input
-                  type="text"
-                  className="border border-gray-300 px-2 py-1 rounded-md w-24 text-sm"
-                  value={precoServico}
-                  onChange={(e) => setPrecoServico(e.target.value)}
-                />
-              </div>
-            </div>
+            <p className="text-base text-gray-800">{os.servico || '---'}</p>
+            <p className="text-sm text-gray-600">Preço: <span className="font-semibold text-blue-600">R$ {os.valor_servico?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}</span></p>
           </div>
 
           {/* Imagens */}
-          <div className="space-y-2">
-            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-              <FiCamera className="text-blue-600" />
-              Imagens do aparelho
-            </h2>
-            <input
-              type="file"
-              multiple
-              accept="image/*"
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4
-                file:rounded-md file:border-0 file:text-sm file:font-semibold
-                file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-            />
-          </div>
+          {/* Aqui você pode exibir imagens reais se houver campo no banco */}
 
           {/* Laudo Técnico */}
           <div className="space-y-2">
@@ -205,12 +157,7 @@ export default function DetalheBancadaPage() {
               <FiClipboard className="text-blue-600" />
               Laudo Técnico
             </h2>
-            <textarea
-              className="w-full border border-gray-300 px-4 py-3 rounded-lg text-sm min-h-[200px] focus:ring focus:ring-blue-100"
-              value={laudo}
-              onChange={(e) => setLaudo(e.target.value)}
-              placeholder="Descreva o diagnóstico técnico com todos os detalhes relevantes..."
-            />
+            <p className="text-base text-gray-800">{os.laudo || '---'}</p>
           </div>
 
           <div className="pt-2">

@@ -4,27 +4,54 @@ import MenuLayout from '@/components/MenuLayout';
 import ProtectedArea from '@/components/ProtectedArea';
 import { useRouter } from 'next/navigation';
 import { FiCpu, FiPlayCircle } from 'react-icons/fi';
-import { useState } from 'react';
-
-const ordensTecnico = [...Array(5)].map((_, i) => ({
-  id: `${i + 201}`,
-  cliente: `Cliente ${i + 1}`,
-  aparelho: i % 2 === 0 ? 'iPhone 13' : 'Notebook Dell',
-  status: 'Aguardando Início',
-  entrada: '14/05/2025',
-  prazo: '16/05/2025',
-}));
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function BancadaPage() {
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-
+  const [ordens, setOrdens] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('Todos');
 
+  useEffect(() => {
+    const fetchOrdens = async () => {
+      if (!user) return;
+      setLoading(true);
+      console.log('user.id:', user.id);
+      const { data, error } = await supabase
+        .from('ordens_servico')
+        .select(`
+          *,
+          cliente:cliente_id(nome)
+        `)
+        .eq('tecnico_id', user.id);
+      console.log('ordens_servico data:', data, 'error:', error);
+      if (!error && data) {
+        setOrdens(data);
+      }
+      setLoading(false);
+    };
+    if (user && !authLoading) fetchOrdens();
+  }, [user, authLoading]);
+
   const iniciarOrdem = (id: string) => {
-    // Aqui podemos futuramente atualizar o status para "Em análise"
     router.push(`/bancada/${id}`);
   };
+
+  if (loading || authLoading) {
+    return (
+      <ProtectedArea area="bancada">
+        <MenuLayout>
+          <div className="p-6 flex justify-center items-center min-h-[300px]">
+            <span className="text-gray-500">Carregando ordens...</span>
+          </div>
+        </MenuLayout>
+      </ProtectedArea>
+    );
+  }
 
   return (
     <ProtectedArea area="bancada">
@@ -82,40 +109,45 @@ export default function BancadaPage() {
           </div>
 
           <div className="space-y-4">
-            {ordensTecnico
+            {ordens
               .filter((os) =>
-                os.cliente.toLowerCase().includes(searchTerm.toLowerCase())
+                (os.cliente?.nome?.toLowerCase() || '').includes(searchTerm.toLowerCase())
               )
               .filter((os) => {
                 if (filtroStatus === 'Todos') return true;
                 return os.status === filtroStatus;
               })
-              .map((os) => (
-                <div
-                  key={os.id}
-                  className="bg-white p-6 rounded-xl shadow flex items-center justify-between hover:shadow-md transition"
-                >
-                  <div>
-                    <p className="font-medium text-gray-800">
-                      #{os.id} - {os.cliente}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {os.aparelho} | Entrada: {os.entrada} | Prazo: {os.prazo}
-                    </p>
-                    <p className="text-sm font-semibold text-blue-600 mt-1">Valor: R$ 250,00</p>
-                    <span className="inline-block mt-2 text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800">
-                      {os.status}
-                    </span>
-                  </div>
-
-                  <button
-                    onClick={() => iniciarOrdem(os.id)}
-                    className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition"
+              .map((os) => {
+                const aparelho = [os.categoria, os.marca, os.modelo, os.cor].filter(Boolean).join(' ');
+                const entrada = os.created_at ? new Date(os.created_at).toLocaleDateString('pt-BR') : '';
+                const valor = ((os.valor_servico || 0) + (os.valor_peca || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                return (
+                  <div
+                    key={os.id}
+                    className="bg-white p-6 rounded-xl shadow flex items-center justify-between hover:shadow-md transition"
                   >
-                    <FiPlayCircle size={18} /> Iniciar
-                  </button>
-                </div>
-              ))}
+                    <div>
+                      <p className="font-medium text-gray-800">
+                        #{os.numero_os || os.id} - {os.cliente?.nome || 'Sem nome'}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {aparelho} | Entrada: {entrada}
+                      </p>
+                      <p className="text-sm font-semibold text-blue-600 mt-1">Valor: {valor}</p>
+                      <span className="inline-block mt-2 text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800">
+                        {os.status}
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={() => iniciarOrdem(os.id)}
+                      className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition"
+                    >
+                      <FiPlayCircle size={18} /> Iniciar
+                    </button>
+                  </div>
+                );
+              })}
           </div>
         </div>
       </MenuLayout>

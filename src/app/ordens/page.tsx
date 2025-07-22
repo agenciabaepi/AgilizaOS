@@ -75,6 +75,7 @@ export default function ListaOrdensPage() {
   // Novos estados para crescimento real semana/mês
   const [crescimentoSemana, setCrescimentoSemana] = useState(0);
   const [crescimentoMes, setCrescimentoMes] = useState(0);
+  const [tecnicosDict, setTecnicosDict] = useState<Record<string, string>>({});
 
   function formatDate(date: string) {
     return date ? new Date(date).toLocaleDateString('pt-BR') : '';
@@ -127,7 +128,7 @@ export default function ListaOrdensPage() {
         .select(`
           *,
           clientes:cliente_id(nome, telefone, email),
-          tecnico_id(nome),
+          usuarios!tecnico_id ( nome ),
           qtd_peca,
           qtd_servico
         `)
@@ -150,7 +151,7 @@ export default function ListaOrdensPage() {
           servico: item.servico || '',
           statusOS: item.status || '',
           entrada: item.created_at || '',
-          tecnico: item.tecnico_id?.nome || '',
+          tecnico: item.tecnico || '',
           atendente: item.atendente || '',
           entrega: item.data_entrega || '',
           garantia: item.data_entrega
@@ -214,6 +215,26 @@ export default function ListaOrdensPage() {
     };
 
     fetchOrdens();
+  }, [empresaId]);
+
+  // Buscar todos os técnicos da empresa e montar dicionário auth_user_id -> nome
+  useEffect(() => {
+    if (!empresaId) return;
+    const fetchTecnicos = async () => {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('auth_user_id, nome')
+        .eq('empresa_id', empresaId)
+        .eq('nivel', 'tecnico');
+      if (!error && data) {
+        const dict: Record<string, string> = {};
+        data.forEach((t: { auth_user_id: string, nome: string }) => {
+          dict[t.auth_user_id] = t.nome;
+        });
+        setTecnicosDict(dict);
+      }
+    };
+    fetchTecnicos();
   }, [empresaId]);
 
   const filtered = ordens.filter((os) => {
