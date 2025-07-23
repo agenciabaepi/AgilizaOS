@@ -30,6 +30,8 @@ import { useAuth } from '@/context/AuthContext';
 import ClientOnly from '@/components/ClientOnly';
 import { v4 as uuidv4 } from 'uuid';
 import ProtectedArea from '@/components/ProtectedArea';
+import { useToast } from '@/components/Toast';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 // Função para formatar data (pode ser ajustada conforme necessidade)
 function formatarData(data: string) {
@@ -82,6 +84,8 @@ export default function LembretesPage() {
   const { session, user, usuarioData, empresaData } = useAuth();
   const empresa_id = empresaData?.id;
   const supabase = useSupabaseClient();
+  const { addToast } = useToast();
+  const confirm = useConfirm();
 
   // Função para buscar colunas do banco
   const fetchColunas = async () => {
@@ -100,7 +104,7 @@ export default function LembretesPage() {
   const criarColuna = async (titulo: string) => {
     // Usar empresa_id do contexto de autenticação
     if (!empresa_id) {
-      toast.error("Erro: empresa não identificada.");
+      addToast('error', "Erro: empresa não identificada.");
       return;
     }
     if (!titulo) return;
@@ -131,17 +135,17 @@ export default function LembretesPage() {
           hint: error.hint,
           code: error.code
         });
-        toast.error(`Erro ao criar coluna: ${error.message || 'Erro desconhecido'}`);
+        addToast('error', `Erro ao criar coluna: ${error.message || 'Erro desconhecido'}`);
       } else {
         console.log('Coluna criada com sucesso:', data);
-        toast.success("Coluna criada com sucesso!");
+        addToast('success', "Coluna criada com sucesso!");
         await fetchColunas();
       }
     } catch (err) {
       console.error("Erro inesperado ao criar coluna:", err);
       console.error("Tipo do erro:", typeof err);
       console.error("String do erro:", JSON.stringify(err, null, 2));
-      toast.error(`Erro inesperado ao criar coluna: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+      addToast('error', `Erro inesperado ao criar coluna: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
     }
   };
 
@@ -154,9 +158,9 @@ export default function LembretesPage() {
       .eq('empresa_id', empresa_id)
       .eq('nome', coluna);
     if (!error) {
-      toast.success("Coluna excluída com sucesso!");
+      addToast('success', "Coluna excluída com sucesso!");
     } else {
-      toast.error("Erro ao excluir coluna.");
+      addToast('error', "Erro ao excluir coluna.");
     }
   };
 
@@ -208,7 +212,7 @@ export default function LembretesPage() {
         
       if (erroBusca) {
         console.error('Erro ao buscar colunas existentes:', erroBusca);
-        toast.error('Erro ao atualizar ordem das colunas');
+        addToast('error', 'Erro ao atualizar ordem das colunas');
         return;
       }
       
@@ -225,7 +229,7 @@ export default function LembretesPage() {
             
           if (erroUpdate) {
             console.error('Erro ao atualizar posição da coluna:', erroUpdate);
-            toast.error('Erro ao atualizar ordem das colunas');
+            addToast('error', 'Erro ao atualizar ordem das colunas');
             return;
           }
         }
@@ -234,7 +238,7 @@ export default function LembretesPage() {
       console.log('Ordem das colunas atualizada com sucesso');
     } catch (err) {
       console.error('Erro inesperado ao salvar colunas:', err);
-      toast.error('Erro ao atualizar ordem das colunas');
+      addToast('error', 'Erro ao atualizar ordem das colunas');
     }
   };
 
@@ -280,7 +284,7 @@ export default function LembretesPage() {
         
       console.log('Todas as colunas da empresa:', { todasColunas, erroTodas });
       
-      toast.error('Coluna não encontrada para renomear');
+      addToast('error', 'Coluna não encontrada para renomear');
     }
   };
 
@@ -296,7 +300,7 @@ export default function LembretesPage() {
 
     if (colunaError) {
       console.error('Erro ao renomear a coluna:', colunaError);
-      toast.error(`Erro ao renomear a coluna: ${colunaError.message}`);
+      addToast('error', `Erro ao renomear a coluna: ${colunaError.message}`);
       return;
     }
 
@@ -310,12 +314,12 @@ export default function LembretesPage() {
 
     if (notasError) {
       console.error('Erro ao atualizar as notas:', notasError);
-      toast.error(`Erro ao atualizar as notas: ${notasError.message}`);
+      addToast('error', `Erro ao atualizar as notas: ${notasError.message}`);
       return;
     }
 
     console.log('Notas atualizadas com sucesso');
-    toast.success('Coluna e notas atualizadas com sucesso!');
+    addToast('success', 'Coluna e notas atualizadas com sucesso!');
     
     // Atualiza localmente
     setColunas((prev) => {
@@ -390,7 +394,7 @@ export default function LembretesPage() {
             hint: erroNota.hint,
             code: erroNota.code
           });
-          toast.error(`Erro ao salvar nota: ${erroNota.message || 'Erro desconhecido'}`);
+          addToast('error', `Erro ao salvar nota: ${erroNota.message || 'Erro desconhecido'}`);
           return;
         }
         
@@ -398,12 +402,12 @@ export default function LembretesPage() {
         
         // Adiciona a nota localmente para atualização imediata na UI
         setNotes((prev) => [novaNotaObj as Nota, ...prev]);
-        toast.success("Nota criada com sucesso!");
+        addToast('success', "Nota criada com sucesso!");
       } catch (err) {
         console.error("Erro ao criar nota:", err);
         console.error("Tipo do erro:", typeof err);
         console.error("String do erro:", JSON.stringify(err, null, 2));
-        toast.error(`Erro ao criar nota: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+        addToast('error', `Erro ao criar nota: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
       }
       setShowModal(false);
       setNovaNota({ titulo: '', texto: '', cor: 'bg-yellow-500', coluna: 'lembretes', prioridade: 'Média' });
@@ -440,10 +444,10 @@ export default function LembretesPage() {
           hint: erroNota.hint,
           code: erroNota.code
         });
-        toast.error(`Erro ao atualizar nota: ${erroNota.message || 'Erro desconhecido'}`);
+        addToast('error', `Erro ao atualizar nota: ${erroNota.message || 'Erro desconhecido'}`);
       } else {
         console.log("Nota atualizada com sucesso:", data);
-        toast.success("Nota atualizada com sucesso!");
+        addToast('success', "Nota atualizada com sucesso!");
         setNotes((prev) =>
           prev.map((n) =>
             n.id === notaEditando.id
@@ -464,7 +468,7 @@ export default function LembretesPage() {
       console.error("Erro ao atualizar nota:", err);
       console.error("Tipo do erro:", typeof err);
       console.error("String do erro:", JSON.stringify(err, null, 2));
-      toast.error(`Erro ao atualizar nota: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+      addToast('error', `Erro ao atualizar nota: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
     }
 
     setShowModal(false);
@@ -561,6 +565,7 @@ export default function LembretesPage() {
       if (error) throw error;
       // Atualiza a lista localmente para refletir imediatamente
       setNotes((prev) => prev.filter((n) => n.id !== idNota));
+      addToast('success', 'Nota excluída com sucesso!');
     } catch (error) {
       console.error("Erro ao excluir nota:", error);
       throw error;
@@ -577,11 +582,7 @@ export default function LembretesPage() {
       await excluirNota(nota.id);
       setExibirExcluirNotaModal(false);
       setNotaSelecionada(null);
-      toast.dismiss();
-      toast.success("Nota excluída com sucesso!");
-    } catch {
-      toast.error("Erro ao excluir nota.");
-    }
+    } catch {}
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -896,8 +897,13 @@ export default function LembretesPage() {
                                 className="text-xs text-rose-500 hover:text-rose-700 transition"
                                 title="Excluir coluna"
                                 onMouseDown={async () => {
-                                  const confirmacao = window.confirm(`Tem certeza que deseja excluir a coluna "${coluna}"?`);
-                                  if (confirmacao) {
+                                  const confirmed = await confirm({
+                                    title: 'Excluir coluna',
+                                    message: `Tem certeza que deseja excluir a coluna "${coluna}"?`,
+                                    confirmText: 'Excluir',
+                                    cancelText: 'Cancelar',
+                                  });
+                                  if (confirmed) {
                                     const novas = colunas.filter((_, i) => i !== index);
                                     setColunas(novas);
                                     await removerColuna(coluna);
@@ -990,18 +996,7 @@ export default function LembretesPage() {
             onConfirm={() => handleConfirmarExcluirNota(notaSelecionada)}
           />
           {/* ToastContainer para notificações */}
-          <ToastContainer
-            position="bottom-right"
-            autoClose={5000}
-            hideProgressBar={false}
-            newestOnTop
-            closeOnClick
-            rtl={false}
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-            theme="colored"
-          />
+          {/* Remover ToastContainer do react-toastify */}
         </div>
       </MenuLayout>
     </ProtectedArea>

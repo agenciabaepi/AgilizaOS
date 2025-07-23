@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import MenuLayout from '@/components/MenuLayout';
@@ -34,6 +34,9 @@ export default function PerfilPage() {
     whatsapp: '',
     senha: '',
   });
+  const [fotoUrl, setFotoUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const fetchPerfil = async () => {
@@ -73,6 +76,7 @@ export default function PerfilPage() {
           whatsapp: data.whatsapp || '',
           senha: '',
         });
+        if (data?.foto_url) setFotoUrl(data.foto_url);
       } catch (err) {
         addToast('error', 'Erro inesperado ao carregar perfil');
       } finally {
@@ -141,6 +145,25 @@ export default function PerfilPage() {
     }
   };
 
+  const handleUploadFoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !perfil?.id) return;
+    setUploading(true);
+    const filePath = `user-${perfil.id}/${file.name}`;
+    const { data, error } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, file, { upsert: true });
+    if (!error) {
+      const url = supabase.storage.from('avatars').getPublicUrl(filePath).publicUrl;
+      await supabase.from('usuarios').update({ foto_url: url }).eq('id', perfil.id);
+      setFotoUrl(url);
+      addToast('success', 'Foto atualizada!');
+    } else {
+      addToast('error', 'Erro ao fazer upload da foto.');
+    }
+    setUploading(false);
+  };
+
   if (loading || authLoading) {
     return (
       <MenuLayout>
@@ -162,6 +185,37 @@ export default function PerfilPage() {
     <MenuLayout>
       <div className="p-8">
         <div className="max-w-2xl mx-auto">
+          {/* Bloco de avatar e upload */}
+          <div className="flex flex-col items-center mb-8">
+            <div className="relative">
+              <img
+                src={fotoUrl || '/default-avatar.png'}
+                alt="Foto de perfil"
+                className="w-28 h-28 rounded-full border-4 border-lime-400 object-cover shadow-lg"
+              />
+              <button
+                className="absolute bottom-0 right-0 bg-blue-600 text-white rounded-full p-2 shadow hover:bg-blue-700 transition"
+                onClick={() => fileInputRef.current?.click()}
+                title="Trocar foto"
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="white" strokeWidth="4" fill="none" /></svg>
+                ) : (
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 12v6m0 0l-3-3m3 3l3-3m-6-6a4 4 0 118 0 4 4 0 01-8 0z" /></svg>
+                )}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleUploadFoto}
+                disabled={uploading}
+              />
+            </div>
+            <span className="mt-2 text-sm text-gray-600">Clique no ícone para trocar a foto</span>
+          </div>
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold text-gray-900">Meu Perfil</h1>
             <button

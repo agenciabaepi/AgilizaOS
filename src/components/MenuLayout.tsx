@@ -35,6 +35,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const menuRef = useRef<HTMLDivElement>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showFinanceiroSub, setShowFinanceiroSub] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
 
@@ -142,28 +145,60 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           ref={menuRef}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
-          className={`flex bg-white border-r border-[#000000]/10 pt-16 px-2 flex-col h-screen fixed top-0 left-0 z-50 transition-all duration-300 ${
-            menuExpandido ? 'w-64' : 'w-0 md:w-16'
-          } ${menuExpandido ? 'opacity-100' : 'opacity-0 md:opacity-100'} ${menuExpandido ? 'visible' : 'invisible md:visible'}`}
+          className={`flex bg-white border-r border-[#000000]/10 pt-16 px-2 flex-col h-screen fixed top-0 left-0 z-50 shadow-xl rounded-tr-3xl rounded-br-3xl transition-all duration-300
+            ${menuExpandido ? 'w-64' : 'w-0 md:w-20'}
+            ${menuExpandido ? 'opacity-100' : 'opacity-0 md:opacity-100'}
+            ${menuExpandido ? 'visible' : 'invisible md:visible'}
+            overflow-y-auto min-h-screen`}
         >
           <div className="mb-6 h-10" />
+          {menuExpandido && (
+            <div className="flex items-center gap-3 px-4 mb-6">
+              <img
+                src={usuarioData?.foto_url || '/default-avatar.png'}
+                alt="Foto de perfil"
+                className="w-10 h-10 rounded-full border-2 border-lime-400 object-cover"
+              />
+              <div>
+                <div className="font-semibold text-zinc-800 text-base">{userName}</div>
+                <button
+                  className="text-xs text-blue-600 hover:underline"
+                  onClick={() => setShowProfileModal(true)}
+                >
+                  Trocar foto
+                </button>
+              </div>
+            </div>
+          )}
+          {menuExpandido && (
+            <div className="px-2 mb-4 flex items-center gap-2">
+              <FiSearch className="text-zinc-400" size={18} />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                placeholder="Buscar no menu..."
+                className="w-full bg-zinc-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime-400 transition"
+              />
+            </div>
+          )}
           <nav className="space-y-2">
-            {podeVer('dashboard') && (
+            {podeVer('dashboard') && 'dashboard'.includes(searchTerm.toLowerCase()) && (
               <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" menuExpandido={menuExpandido} />
             )}
-            {podeVer('lembretes') && (
+            {podeVer('lembretes') && 'lembretes'.includes(searchTerm.toLowerCase()) && (
               <SidebarButton path="/lembretes" icon={<FiFileText size={20} />} label="Lembretes" menuExpandido={menuExpandido} />
             )}
-            {podeVer('ordens') && (
+            {podeVer('ordens') && ('ordens de serviço'.includes(searchTerm.toLowerCase()) || 'os'.includes(searchTerm.toLowerCase())) && (
               <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" menuExpandido={menuExpandido} />
             )}
-            {podeVer('clientes') && (
+            {podeVer('clientes') && 'clientes'.includes(searchTerm.toLowerCase()) && (
               <SidebarButton path="/clientes" icon={<FiUsers size={20} />} label="Clientes" menuExpandido={menuExpandido} />
             )}
-            {podeVer('equipamentos') && (
+            {podeVer('equipamentos') && ('produtos'.includes(searchTerm.toLowerCase()) || 'serviços'.includes(searchTerm.toLowerCase())) && (
               <SidebarButton path="/equipamentos" icon={<FiBox size={20} />} label="Produtos/Serviços" menuExpandido={menuExpandido} />
             )}
-            {podeVer('financeiro') && (
+            {podeVer('financeiro') && ('financeiro'.includes(searchTerm.toLowerCase()) || 'contas'.includes(searchTerm.toLowerCase())) && (
               <div className="relative">
                 <button
                   onClick={() => setShowFinanceiroSub((v) => !v)}
@@ -177,50 +212,56 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                 </button>
                 {showFinanceiroSub && menuExpandido && (
                   <div className="ml-8 mt-1 space-y-1">
-                    <SidebarButton path="/financeiro/contas-a-pagar" icon={<FiFileText size={18} />} label="Contas a Pagar" menuExpandido={true} />
+                    {'contas a pagar'.includes(searchTerm.toLowerCase()) && (
+                      <SidebarButton path="/financeiro/contas-a-pagar" icon={<FiFileText size={18} />} label="Contas a Pagar" menuExpandido={true} />
+                    )}
                   </div>
                 )}
               </div>
             )}
-            {podeVer('bancada') && (
+            {podeVer('bancada') && 'bancada'.includes(searchTerm.toLowerCase()) && (
               <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" menuExpandido={menuExpandido} />
             )}
-            {podeVer('termos') && (
+            {podeVer('termos') && 'termos'.includes(searchTerm.toLowerCase()) && (
               <SidebarButton path="#" icon={<FiFileText size={20} />} label="Termos" menuExpandido={menuExpandido} />
             )}
-            <SidebarButton path="/perfil" icon={<FiUsers size={20} />} label="Meu Perfil" menuExpandido={menuExpandido} />
-            {podeVer('configuracoes') && usuarioData?.nivel !== 'atendente' && (
+            {'meu perfil'.includes(searchTerm.toLowerCase()) && (
+              <SidebarButton path="/perfil" icon={<FiUsers size={20} />} label="Meu Perfil" menuExpandido={menuExpandido} />
+            )}
+            {podeVer('configuracoes') && usuarioData?.nivel !== 'atendente' && 'configurações'.includes(searchTerm.toLowerCase()) && (
               <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" menuExpandido={menuExpandido} />
             )}
-            <button
-              onClick={async () => {
-                setIsLoggingOut(true);
-                try {
-                  await signOut((msg) => addToast('error', `Erro ao sair: ${msg}`));
-                  window.location.href = '/login';
-                } catch (error) {
-                  addToast('error', 'Erro inesperado ao sair.');
-                  console.error('Erro ao fazer logout:', error);
-                } finally {
-                  setIsLoggingOut(false);
-                }
-              }}
-              className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out hover:bg-red-100 ${
-                menuExpandido ? '' : 'justify-center'
-              }`}
-              disabled={isLoggingOut}
-            >
-              <div className="min-w-[20px]">
-                <FiLogOut size={20} />
-              </div>
-              <span
-                className={`ml-2 transition-all duration-300 ease-in-out whitespace-nowrap text-red-600 font-medium ${
-                  menuExpandido ? 'opacity-100 scale-100 max-w-[200px]' : 'opacity-0 scale-95 max-w-0 overflow-hidden'
+            {'sair'.includes(searchTerm.toLowerCase()) && (
+              <button
+                onClick={async () => {
+                  setIsLoggingOut(true);
+                  try {
+                    await signOut((msg) => addToast('error', `Erro ao sair: ${msg}`));
+                    window.location.href = '/login';
+                  } catch (error) {
+                    addToast('error', 'Erro inesperado ao sair.');
+                    console.error('Erro ao fazer logout:', error);
+                  } finally {
+                    setIsLoggingOut(false);
+                  }
+                }}
+                className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out hover:bg-red-100 ${
+                  menuExpandido ? '' : 'justify-center'
                 }`}
+                disabled={isLoggingOut}
               >
-                {isLoggingOut ? 'Saindo...' : 'Sair'}
-              </span>
-            </button>
+                <div className="min-w-[20px]">
+                  <FiLogOut size={20} />
+                </div>
+                <span
+                  className={`ml-2 transition-all duration-300 ease-in-out whitespace-nowrap text-red-600 font-medium ${
+                    menuExpandido ? 'opacity-100 scale-100 max-w-[200px]' : 'opacity-0 scale-95 max-w-0 overflow-hidden'
+                  }`}
+                >
+                  {isLoggingOut ? 'Saindo...' : 'Sair'}
+                </span>
+              </button>
+            )}
           </nav>
           <div className="mt-auto text-center text-xs text-[#cffb6d] pb-4">
             v1.0.0
@@ -228,10 +269,23 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
         </aside>
 
         {/* Conteúdo principal */}
-        <main className={`transition-all duration-300 bg-white text-[#000000] p-6 ${menuExpandido ? 'md:ml-64' : 'md:ml-16'} ml-0 z-0 relative overflow-x-auto w-full mt-16`}>
+        <main className={`transition-all duration-300 bg-white text-[#000000] p-6 min-h-screen ${menuExpandido ? 'md:ml-64' : 'md:ml-20'} ml-0 z-0 relative overflow-x-auto w-full mt-16`}>
           {children}
         </main>
       </div>
+
+      {/* Modal de upload de foto de perfil */}
+      {showProfileModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg p-6 w-full max-w-xs shadow-lg flex flex-col gap-4">
+            <h2 className="text-lg font-semibold">Trocar foto de perfil</h2>
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleUploadFoto} />
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowProfileModal(false)} className="px-3 py-1 rounded bg-gray-200">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Toaster
         position="top-center"
@@ -249,25 +303,41 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
 }
 
 function SidebarButton({ path, icon, label, menuExpandido }: { path: string; icon: React.ReactNode; label: string; menuExpandido: boolean }) {
-  const router = useRouter();
-  const pathname = usePathname() || '';
-  const isActive = pathname === path || pathname.startsWith(path + '/') || (path === '/ordens' && pathname.startsWith('/nova-os'));
-
+  const pathname = usePathname();
+  const isActive = pathname === path;
   return (
     <button
-      onClick={() => router.push(path)}
-      className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out ${
-        isActive ? 'bg-[#cffb6d] text-[#000000]' : 'hover:bg-[#cffb6d]/20 text-[#000000] hover:text-[#000000]'
-      }`}
+      onClick={() => window.location.href = path}
+      className={`group flex items-center w-full text-left px-3 py-2 rounded-xl transition-all duration-200 font-medium text-base
+        ${isActive ? 'bg-[#cffb6d]/80 text-black shadow-md' : 'hover:bg-[#cffb6d]/30 text-[#222]'}
+        ${menuExpandido ? '' : 'justify-center'}
+      `}
+      style={{ minHeight: 48 }}
     >
-      <div className="min-w-[20px]">{icon}</div>
-      <span
-        className={`transition-all duration-300 ease-in-out whitespace-nowrap ml-2 ${
-          menuExpandido ? 'opacity-100 scale-100 max-w-[200px]' : 'opacity-0 scale-95 max-w-0 overflow-hidden'
-        }`}
-      >
-        {label}
-      </span>
+      <div className="min-w-[24px] flex items-center justify-center">
+        {icon}
+      </div>
+      <span className={`transition-all duration-300 ease-in-out whitespace-nowrap ml-2 ${menuExpandido ? 'opacity-100 scale-100 max-w-[200px]' : 'opacity-0 scale-95 max-w-0 overflow-hidden'}`}>{label}</span>
     </button>
   );
+}
+
+// Função de upload de foto
+async function handleUploadFoto(e: React.ChangeEvent<HTMLInputElement>) {
+  const file = e.target.files?.[0];
+  if (!file || !usuarioData?.id) return;
+  const filePath = `user-${usuarioData.id}/${file.name}`;
+  const { data, error } = await supabase.storage
+    .from('avatars')
+    .upload(filePath, file, { upsert: true });
+  if (!error) {
+    const url = supabase.storage.from('avatars').getPublicUrl(filePath).publicUrl;
+    await supabase.from('usuarios').update({ foto_url: url }).eq('id', usuarioData.id);
+    // Atualize o contexto do usuário se necessário
+    addToast('success', 'Foto atualizada!');
+    setShowProfileModal(false);
+    window.location.reload(); // Força atualização do avatar
+  } else {
+    addToast('error', 'Erro ao fazer upload da foto.');
+  }
 }
