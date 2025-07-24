@@ -5,6 +5,7 @@ import { useState, useRef, useEffect } from 'react';
 
 import Image from 'next/image';
 import logobranco from '@/assets/imagens/logobranco.png';
+import logopreto from '@/assets/imagens/logopreto.png';
 import {
   FiHome,
   FiUsers,
@@ -40,6 +41,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
+  const pathname = usePathname();
 
   useEffect(() => {
     (async () => {
@@ -65,32 +67,8 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
     setMenuExpandido(stored);
   }, []);
 
-  const handleMouseEnter = () => {
-    setMenuExpandido(true);
-    if (hoverTimeout.current) {
-      clearTimeout(hoverTimeout.current);
-    }
-  };
-
-  const handleMouseLeave = () => {
-    hoverTimeout.current = setTimeout(() => {
-      setMenuExpandido(false);
-    }, 500); // recolhe 3 segundos após sair com o mouse
-  };
-
-  useEffect(() => {
-    return () => {
-      if (hoverTimeout.current) {
-        clearTimeout(hoverTimeout.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (menuExpandido !== null) {
-      localStorage.setItem('menuExpandido', String(menuExpandido));
-    }
-  }, [menuExpandido]);
+  // Remover menuExpandido, hoverTimeout, handleMouseEnter, handleMouseLeave, e toda lógica relacionada
+  // Sidebar sempre expandida
 
   // Função para checar permissão
   const podeVer = (area: string) =>
@@ -98,226 +76,133 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
 
   if (menuExpandido === null) return null;
   return (
-    <div className="flex min-h-screen bg-transparent relative z-0 overflow-x-hidden w-full">
-      {/* Topbar */}
-      <div className="fixed top-0 left-0 w-full z-60 h-14 bg-black text-white flex items-center justify-between px-4 border-b border-[#000000]/10">
-        <div className="flex items-center gap-2">
-          <button onClick={() => setMenuExpandido(!menuExpandido)} className="text-white">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
-            </svg>
-          </button>
-          <Image src={logobranco} alt="Logo AgilizaOS" className="h-10 w-auto object-contain transition-all duration-300" />
+    <div className="flex min-h-screen bg-gray-50">
+      {/* Sidebar */}
+      <aside className="w-64 bg-white border-r border-zinc-200 flex flex-col py-8 px-4 min-h-screen hidden md:flex">
+        {/* Logo preto centralizado */}
+        <div className="flex flex-col items-center mb-8">
+          <Image src={logopreto} alt="Logo AgilizaOS" className="h-12 w-auto object-contain" />
         </div>
-        <div className="flex items-center gap-3 px-5 py-2 rounded-full backdrop-blur-lg bg-white/10 border border-white/20 shadow-lg">
-          <FiSearch className="text-white/90 hover:text-[#cffb6d] transition-colors" size={18} />
+        {/* Busca */}
+        <div className="flex items-center gap-2 mb-6">
+          <FiSearch className="text-zinc-400" size={18} />
           <input
             type="text"
-            placeholder="Buscar..."
-            className="bg-transparent placeholder-white/60 text-white text-sm focus:outline-none w-36 sm:w-60"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            placeholder="Buscar no menu..."
+            className="w-full bg-zinc-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime-400 transition"
           />
-          <span className="text-white text-sm ml-4">{userName}</span>
-          <div className="relative">
-            <FiBell
-              className="text-white hover:text-[#cffb6d] cursor-pointer transition-colors"
-              size={20}
-              onClick={() => setShowNotifications(!showNotifications)}
-            />
-            {showNotifications && (
-              <div className="absolute right-0 top-8 w-72 z-50">
-                <div className="bg-white text-black rounded-xl shadow-xl p-4 border border-black/10">
-                  <h4 className="font-semibold text-sm mb-2">Notificações</h4>
-                  <ul className="space-y-2 text-sm">
-                    <li className="border-b border-gray-200 pb-1">🔧 Ordem #324 foi aprovada.</li>
-                    <li className="border-b border-gray-200 pb-1">📦 Novo produto cadastrado.</li>
-                    <li>💰 Entrada no financeiro registrada.</li>
-                  </ul>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
-      </div>
-
-      {/* Sidebar e Conteúdo principal em wrapper responsivo */}
-      <div className="flex w-full">
-        <aside
-          ref={menuRef}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-          className={`flex bg-white border-r border-[#000000]/10 pt-16 px-2 flex-col h-screen fixed top-0 left-0 z-50 shadow-xl rounded-tr-3xl rounded-br-3xl transition-all duration-300
-            ${menuExpandido ? 'w-64' : 'w-0 md:w-20'}
-            ${menuExpandido ? 'opacity-100' : 'opacity-0 md:opacity-100'}
-            ${menuExpandido ? 'visible' : 'invisible md:visible'}
-            overflow-y-auto min-h-screen`}
-        >
-          <div className="mb-6 h-10" />
-          {menuExpandido && (
-            <div className="flex items-center gap-3 px-4 mb-6">
-              <img
-                src={usuarioData?.foto_url || '/default-avatar.png'}
-                alt="Foto de perfil"
-                className="w-10 h-10 rounded-full border-2 border-lime-400 object-cover"
-              />
-              <div>
-                <div className="font-semibold text-zinc-800 text-base">{userName}</div>
-                <button
-                  className="text-xs text-blue-600 hover:underline"
-                  onClick={() => setShowProfileModal(true)}
-                >
-                  Trocar foto
-                </button>
-              </div>
-            </div>
+        {/* Menu */}
+        <nav className="flex flex-col gap-1">
+          {podeVer('dashboard') && (
+            <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard'} />
           )}
-          {menuExpandido && (
-            <div className="px-2 mb-4 flex items-center gap-2">
+          {podeVer('lembretes') && (
+            <SidebarButton path="/lembretes" icon={<FiFileText size={20} />} label="Lembretes" isActive={pathname === '/lembretes'} />
+          )}
+          {podeVer('ordens') && (
+            <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} />
+          )}
+          {podeVer('clientes') && (
+            <SidebarButton path="/clientes" icon={<FiUsers size={20} />} label="Clientes" isActive={pathname === '/clientes'} />
+          )}
+          {podeVer('equipamentos') && (
+            <SidebarButton path="/equipamentos" icon={<FiBox size={20} />} label="Produtos/Serviços" isActive={pathname === '/equipamentos'} />
+          )}
+          {podeVer('financeiro') && (
+            <SidebarButton path="/financeiro/contas-a-pagar" icon={<FiDollarSign size={20} />} label="Financeiro" isActive={pathname.startsWith('/financeiro')} />
+          )}
+          {podeVer('bancada') && (
+            <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" isActive={pathname === '/bancada'} />
+          )}
+          {podeVer('termos') && (
+            <SidebarButton path="#" icon={<FiFileText size={20} />} label="Termos" isActive={pathname === '/termos'} />
+          )}
+          <SidebarButton path="/perfil" icon={<FiUsers size={20} />} label="Meu Perfil" isActive={pathname === '/perfil'} />
+          {podeVer('configuracoes') && usuarioData?.nivel !== 'atendente' && (
+            <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" isActive={pathname === '/configuracoes'} />
+          )}
+          <SidebarButton path="#logout" icon={<FiLogOut size={20} />} label="Sair" isActive={false} onClick={async () => {
+            setIsLoggingOut(true);
+            try {
+              await signOut((msg) => addToast('error', `Erro ao sair: ${msg}`));
+              window.location.href = '/login';
+            } catch (error) {
+              addToast('error', 'Erro inesperado ao sair.');
+              console.error('Erro ao fazer logout:', error);
+            } finally {
+              setIsLoggingOut(false);
+            }
+          }} />
+        </nav>
+        <div className="mt-auto text-center text-xs text-[#cffb6d] pb-4">
+          v1.0.0
+        </div>
+      </aside>
+      {/* Main area with header and content */}
+      <div className="flex-1 flex flex-col min-h-screen">
+        {/* TopHeader */}
+        <header className="w-full h-16 bg-white border-b border-zinc-200 flex items-center justify-between px-6 sticky top-0 z-30">
+          <div />
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 bg-zinc-100 rounded-lg px-3 py-2">
               <FiSearch className="text-zinc-400" size={18} />
               <input
                 type="text"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                placeholder="Buscar no menu..."
-                className="w-full bg-zinc-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime-400 transition"
+                placeholder="Buscar..."
+                className="bg-transparent text-zinc-700 text-sm focus:outline-none w-32 md:w-48"
               />
             </div>
-          )}
-          <nav className="space-y-2">
-            {podeVer('dashboard') && 'dashboard'.includes(searchTerm.toLowerCase()) && (
-              <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" menuExpandido={menuExpandido} />
-            )}
-            {podeVer('lembretes') && 'lembretes'.includes(searchTerm.toLowerCase()) && (
-              <SidebarButton path="/lembretes" icon={<FiFileText size={20} />} label="Lembretes" menuExpandido={menuExpandido} />
-            )}
-            {podeVer('ordens') && ('ordens de serviço'.includes(searchTerm.toLowerCase()) || 'os'.includes(searchTerm.toLowerCase())) && (
-              <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" menuExpandido={menuExpandido} />
-            )}
-            {podeVer('clientes') && 'clientes'.includes(searchTerm.toLowerCase()) && (
-              <SidebarButton path="/clientes" icon={<FiUsers size={20} />} label="Clientes" menuExpandido={menuExpandido} />
-            )}
-            {podeVer('equipamentos') && ('produtos'.includes(searchTerm.toLowerCase()) || 'serviços'.includes(searchTerm.toLowerCase())) && (
-              <SidebarButton path="/equipamentos" icon={<FiBox size={20} />} label="Produtos/Serviços" menuExpandido={menuExpandido} />
-            )}
-            {podeVer('financeiro') && ('financeiro'.includes(searchTerm.toLowerCase()) || 'contas'.includes(searchTerm.toLowerCase())) && (
-              <div className="relative">
-                <button
-                  onClick={() => setShowFinanceiroSub((v) => !v)}
-                  className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out hover:bg-[#cffb6d]/20 text-[#000000] hover:text-[#000000] ${showFinanceiroSub ? 'bg-[#cffb6d]/40' : ''}`}
-                >
-                  <div className="min-w-[20px]">
-                    <FiDollarSign size={20} />
+            <div className="flex items-center gap-2">
+              <img
+                src={usuarioData?.foto_url || '/default-avatar.png'}
+                alt="Foto de perfil"
+                className="rounded-full border-2 border-lime-400 object-cover w-8 h-8"
+              />
+              <span className="text-zinc-700 text-sm font-medium">{usuarioData?.nome || userName}</span>
+            </div>
+            <div className="relative">
+              <FiBell
+                className="text-zinc-500 hover:text-lime-500 cursor-pointer transition-colors"
+                size={20}
+                onClick={() => setShowNotifications(!showNotifications)}
+              />
+              {showNotifications && (
+                <div className="absolute right-0 top-8 w-72 z-50">
+                  <div className="bg-white text-black rounded-xl shadow-xl p-4 border border-black/10">
+                    <h4 className="font-semibold text-sm mb-2">Notificações</h4>
+                    <ul className="space-y-2 text-sm">
+                      <li className="border-b border-gray-200 pb-1">🔧 Ordem #324 foi aprovada.</li>
+                      <li className="border-b border-gray-200 pb-1">📦 Novo produto cadastrado.</li>
+                      <li>💰 Entrada no financeiro registrada.</li>
+                    </ul>
                   </div>
-                  <span className={`transition-all duration-300 ease-in-out whitespace-nowrap ml-2 ${menuExpandido ? 'opacity-100 scale-100 max-w-[200px]' : 'opacity-0 scale-95 max-w-0 overflow-hidden'}`}>Financeiro</span>
-                  {menuExpandido && <FiChevronDown className={`ml-auto transition-transform ${showFinanceiroSub ? 'rotate-180' : ''}`} size={16} />}
-                </button>
-                {showFinanceiroSub && menuExpandido && (
-                  <div className="ml-8 mt-1 space-y-1">
-                    {'contas a pagar'.includes(searchTerm.toLowerCase()) && (
-                      <SidebarButton path="/financeiro/contas-a-pagar" icon={<FiFileText size={18} />} label="Contas a Pagar" menuExpandido={true} />
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-            {podeVer('bancada') && 'bancada'.includes(searchTerm.toLowerCase()) && (
-              <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" menuExpandido={menuExpandido} />
-            )}
-            {podeVer('termos') && 'termos'.includes(searchTerm.toLowerCase()) && (
-              <SidebarButton path="#" icon={<FiFileText size={20} />} label="Termos" menuExpandido={menuExpandido} />
-            )}
-            {'meu perfil'.includes(searchTerm.toLowerCase()) && (
-              <SidebarButton path="/perfil" icon={<FiUsers size={20} />} label="Meu Perfil" menuExpandido={menuExpandido} />
-            )}
-            {podeVer('configuracoes') && usuarioData?.nivel !== 'atendente' && 'configurações'.includes(searchTerm.toLowerCase()) && (
-              <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" menuExpandido={menuExpandido} />
-            )}
-            {'sair'.includes(searchTerm.toLowerCase()) && (
-              <button
-                onClick={async () => {
-                  setIsLoggingOut(true);
-                  try {
-                    await signOut((msg) => addToast('error', `Erro ao sair: ${msg}`));
-                    window.location.href = '/login';
-                  } catch (error) {
-                    addToast('error', 'Erro inesperado ao sair.');
-                    console.error('Erro ao fazer logout:', error);
-                  } finally {
-                    setIsLoggingOut(false);
-                  }
-                }}
-                className={`group flex items-center w-full text-left px-3 py-2 rounded-lg transition-all duration-300 ease-in-out hover:bg-red-100 ${
-                  menuExpandido ? '' : 'justify-center'
-                }`}
-                disabled={isLoggingOut}
-              >
-                <div className="min-w-[20px]">
-                  <FiLogOut size={20} />
                 </div>
-                <span
-                  className={`ml-2 transition-all duration-300 ease-in-out whitespace-nowrap text-red-600 font-medium ${
-                    menuExpandido ? 'opacity-100 scale-100 max-w-[200px]' : 'opacity-0 scale-95 max-w-0 overflow-hidden'
-                  }`}
-                >
-                  {isLoggingOut ? 'Saindo...' : 'Sair'}
-                </span>
-              </button>
-            )}
-          </nav>
-          <div className="mt-auto text-center text-xs text-[#cffb6d] pb-4">
-            v1.0.0
+              )}
+            </div>
           </div>
-        </aside>
-
+        </header>
         {/* Conteúdo principal */}
-        <main className={`transition-all duration-300 bg-white text-[#000000] p-6 min-h-screen ${menuExpandido ? 'md:ml-64' : 'md:ml-20'} ml-0 z-0 relative overflow-x-auto w-full mt-16`}>
+        <main className="flex-1 p-4 md:p-8 w-full max-w-full">
           {children}
         </main>
       </div>
-
-      {/* Modal de upload de foto de perfil */}
-      {showProfileModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-lg p-6 w-full max-w-xs shadow-lg flex flex-col gap-4">
-            <h2 className="text-lg font-semibold">Trocar foto de perfil</h2>
-            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleUploadFoto} />
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowProfileModal(false)} className="px-3 py-1 rounded bg-gray-200">Cancelar</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <Toaster
-        position="top-center"
-        reverseOrder={false}
-        toastOptions={{
-          style: {
-            fontSize: '1rem',
-            padding: '16px 24px',
-            borderRadius: '8px',
-          },
-        }}
-      />
     </div>
   );
 }
 
-function SidebarButton({ path, icon, label, menuExpandido }: { path: string; icon: React.ReactNode; label: string; menuExpandido: boolean }) {
-  const pathname = usePathname();
-  const isActive = pathname === path;
+function SidebarButton({ path, icon, label, isActive, onClick }: { path: string; icon: React.ReactNode; label: string; isActive: boolean; onClick?: () => void }) {
   return (
     <button
-      onClick={() => window.location.href = path}
-      className={`group flex items-center w-full text-left px-3 py-2 rounded-xl transition-all duration-200 font-medium text-base
-        ${isActive ? 'bg-[#cffb6d]/80 text-black shadow-md' : 'hover:bg-[#cffb6d]/30 text-[#222]'}
-        ${menuExpandido ? '' : 'justify-center'}
-      `}
+      onClick={onClick || (() => window.location.href = path)}
+      className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg transition font-medium text-base
+        ${isActive ? 'bg-lime-100 text-black' : 'hover:bg-zinc-100 text-zinc-700'}`}
       style={{ minHeight: 48 }}
     >
-      <div className="min-w-[24px] flex items-center justify-center">
-        {icon}
-      </div>
-      <span className={`transition-all duration-300 ease-in-out whitespace-nowrap ml-2 ${menuExpandido ? 'opacity-100 scale-100 max-w-[200px]' : 'opacity-0 scale-95 max-w-0 overflow-hidden'}`}>{label}</span>
+      <span className="min-w-[24px] flex items-center justify-center">{icon}</span>
+      <span>{label}</span>
     </button>
   );
 }

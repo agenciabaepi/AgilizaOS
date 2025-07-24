@@ -18,7 +18,7 @@ interface UsuarioPerfil {
 }
 
 export default function PerfilPage() {
-  const { user, loading: authLoading, usuarioData } = useAuth();
+  const { user, loading: authLoading, usuarioData, updateUsuarioFoto } = useAuth();
   const { addToast } = useToast();
 
   const [perfil, setPerfil] = useState<UsuarioPerfil | null>(null);
@@ -154,9 +154,11 @@ export default function PerfilPage() {
       .from('avatars')
       .upload(filePath, file, { upsert: true });
     if (!error) {
-      const url = supabase.storage.from('avatars').getPublicUrl(filePath).publicUrl;
+      const { data: publicData } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      const url = publicData.publicUrl;
       await supabase.from('usuarios').update({ foto_url: url }).eq('id', perfil.id);
       setFotoUrl(url);
+      updateUsuarioFoto(url); // Atualiza o contexto do usuário
       addToast('success', 'Foto atualizada!');
     } else {
       addToast('error', 'Erro ao fazer upload da foto.');

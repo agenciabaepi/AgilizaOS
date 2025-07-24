@@ -15,6 +15,7 @@ interface UsuarioData {
   email: string;
   nivel: string;
   permissoes?: string[];
+  foto_url?: string;
 }
 interface EmpresaData {
   id: string;
@@ -34,6 +35,7 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<void>;
   isLoggingOut: boolean;
   setIsLoggingOut: (value: boolean) => void;
+  updateUsuarioFoto: (fotoUrl: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -70,7 +72,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         const { data: profileData, error: profileError } = await supabase
           .from('usuarios')
-          .select('empresa_id, nome, email, nivel, permissoes')
+          .select('empresa_id, nome, email, nivel, permissoes, foto_url')
           .eq('auth_user_id', session.user.id)
           .maybeSingle();
 
@@ -219,9 +221,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const updateUsuarioFoto = (fotoUrl: string) => {
+    setUsuarioData((prev) => prev ? { ...prev, foto_url: fotoUrl } : prev);
+  };
+
 
   return (
-    <AuthContext.Provider value={{ user, session, usuarioData, empresaData, loading, signIn, signUp, signOut, resetPassword, isLoggingOut, setIsLoggingOut }}>
+    <AuthContext.Provider value={{ user, session, usuarioData, empresaData, loading, signIn, signUp, signOut, resetPassword, isLoggingOut, setIsLoggingOut, updateUsuarioFoto }}>
       {children}
     </AuthContext.Provider>
   );
