@@ -17,6 +17,8 @@ import {
   FiSearch,
   FiBell,
   FiChevronDown,
+  FiMenu,
+  FiX,
 } from 'react-icons/fi';
 import { Toaster } from 'react-hot-toast';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
@@ -39,6 +41,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const [searchTerm, setSearchTerm] = useState('');
   const [showProfileModal, setShowProfileModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
   const pathname = usePathname();
@@ -77,7 +80,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   if (menuExpandido === null) return null;
   return (
     <div className="flex min-h-screen bg-gray-50">
-      {/* Sidebar */}
+      {/* Sidebar Desktop */}
       <aside className="w-64 bg-white border-r border-zinc-200 flex flex-col py-8 px-4 min-h-screen hidden md:flex">
         {/* Logo preto centralizado */}
         <div className="flex flex-col items-center mb-8">
@@ -141,11 +144,88 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           v1.0.0
         </div>
       </aside>
+      {/* Sidebar Mobile Drawer */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 flex">
+          {/* Overlay */}
+          <div className="absolute inset-0 bg-black/40" onClick={() => setMobileMenuOpen(false)} />
+          {/* Drawer */}
+          <aside className="relative w-64 bg-white border-r border-zinc-200 flex flex-col py-8 px-4 min-h-screen animate-slide-in">
+            <button className="absolute top-4 right-4 text-zinc-500" onClick={() => setMobileMenuOpen(false)}>
+              <FiX size={28} />
+            </button>
+            <div className="flex flex-col items-center mb-8">
+              <Image src={logopreto} alt="Logo AgilizaOS" className="h-12 w-auto object-contain" />
+            </div>
+            <div className="flex items-center gap-2 mb-6">
+              <FiSearch className="text-zinc-400" size={18} />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                placeholder="Buscar no menu..."
+                className="w-full bg-zinc-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime-400 transition"
+              />
+            </div>
+            <nav className="flex flex-col gap-1">
+              {podeVer('dashboard') && (
+                <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard'} />
+              )}
+              {podeVer('lembretes') && (
+                <SidebarButton path="/lembretes" icon={<FiFileText size={20} />} label="Lembretes" isActive={pathname === '/lembretes'} />
+              )}
+              {podeVer('ordens') && (
+                <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} />
+              )}
+              {podeVer('clientes') && (
+                <SidebarButton path="/clientes" icon={<FiUsers size={20} />} label="Clientes" isActive={pathname === '/clientes'} />
+              )}
+              {podeVer('equipamentos') && (
+                <SidebarButton path="/equipamentos" icon={<FiBox size={20} />} label="Produtos/Serviços" isActive={pathname === '/equipamentos'} />
+              )}
+              {podeVer('financeiro') && (
+                <SidebarButton path="/financeiro/contas-a-pagar" icon={<FiDollarSign size={20} />} label="Financeiro" isActive={pathname.startsWith('/financeiro')} />
+              )}
+              {podeVer('bancada') && (
+                <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" isActive={pathname === '/bancada'} />
+              )}
+              {podeVer('termos') && (
+                <SidebarButton path="#" icon={<FiFileText size={20} />} label="Termos" isActive={pathname === '/termos'} />
+              )}
+              <SidebarButton path="/perfil" icon={<FiUsers size={20} />} label="Meu Perfil" isActive={pathname === '/perfil'} />
+              {podeVer('configuracoes') && usuarioData?.nivel !== 'atendente' && (
+                <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" isActive={pathname === '/configuracoes'} />
+              )}
+              <SidebarButton path="#logout" icon={<FiLogOut size={20} />} label="Sair" isActive={false} onClick={async () => {
+                setIsLoggingOut(true);
+                try {
+                  await signOut((msg) => addToast('error', `Erro ao sair: ${msg}`));
+                  window.location.href = '/login';
+                } catch (error) {
+                  addToast('error', 'Erro inesperado ao sair.');
+                  console.error('Erro ao fazer logout:', error);
+                } finally {
+                  setIsLoggingOut(false);
+                }
+              }} />
+            </nav>
+            <div className="mt-auto text-center text-xs text-[#cffb6d] pb-4">
+              v1.0.0
+            </div>
+          </aside>
+        </div>
+      )}
       {/* Main area with header and content */}
       <div className="flex-1 flex flex-col min-h-screen">
         {/* TopHeader */}
         <header className="w-full h-16 bg-white border-b border-zinc-200 flex items-center justify-between px-6 sticky top-0 z-30">
-          <div />
+          {/* Botão menu mobile */}
+          <div className="md:hidden">
+            <button onClick={() => setMobileMenuOpen(true)} className="text-zinc-700">
+              <FiMenu size={28} />
+            </button>
+          </div>
+          <div className="hidden md:block" />
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 bg-zinc-100 rounded-lg px-3 py-2">
               <FiSearch className="text-zinc-400" size={18} />
