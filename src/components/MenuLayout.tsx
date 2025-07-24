@@ -79,7 +79,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
 
   if (menuExpandido === null) return null;
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-white">
       {/* Sidebar Desktop */}
       <aside className="w-64 bg-white border-r border-zinc-200 flex flex-col py-8 px-4 min-h-screen hidden md:flex">
         {/* Logo preto centralizado com degradê radial sutil de fundo */}

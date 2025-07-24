@@ -3,6 +3,10 @@ import React, { useState, useEffect } from 'react';
 import MenuLayout from '@/components/MenuLayout';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
+import { FiMaximize, FiMinimize, FiUser, FiUserPlus, FiSearch, FiX } from 'react-icons/fi';
+import { Button } from '@/components/Button';
+import { Input } from '@/components/Input';
+import { SearchInput } from '@/components/SearchInput';
 
 interface Produto {
   id: string;
@@ -14,14 +18,127 @@ interface Produto {
   tipo: string;
 }
 
+interface Cliente {
+  id: string;
+  nome: string;
+  telefone: string;
+  celular: string;
+  email: string;
+  documento: string;
+  numero_cliente: string;
+}
+
 export default function CaixaPage() {
   const { usuarioData } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState('Todos');
-  const [cart, setCart] = useState<any[]>([]);
+  const [cart, setCart] = useState<(Produto & { qty: number })[]>([]);
   const [orderType, setOrderType] = useState('Local');
   const [paymentType, setPaymentType] = useState('Dinheiro');
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const pdvRef = React.useRef<HTMLDivElement>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // Estados para seleção de cliente
+  const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
+  const [showClienteDropdown, setShowClienteDropdown] = useState(false);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [searchCliente, setSearchCliente] = useState('');
+  const [loadingClientes, setLoadingClientes] = useState(false);
+  const clienteSearchRef = React.useRef<HTMLDivElement>(null);
+
+  // Fechar dropdown quando clicar fora
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (clienteSearchRef.current && !clienteSearchRef.current.contains(event.target as Node)) {
+        setShowClienteDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Buscar clientes
+  const buscarClientes = async (search = '') => {
+    if (!usuarioData?.empresa_id) return;
+    
+    setLoadingClientes(true);
+    try {
+      const response = await fetch(`/api/clientes?empresaId=${usuarioData.empresa_id}&search=${search}`);
+      const data = await response.json();
+      
+      if (data.clientes) {
+        setClientes(data.clientes);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar clientes:', error);
+    }
+    setLoadingClientes(false);
+  };
+
+  // Selecionar cliente
+  const selecionarCliente = (cliente: Cliente) => {
+    setClienteSelecionado(cliente);
+    setSearchCliente(cliente.nome);
+    setShowClienteDropdown(false);
+  };
+
+  // Remover cliente selecionado
+  const removerCliente = () => {
+    setClienteSelecionado(null);
+    setSearchCliente('');
+  };
+
+  // Buscar clientes quando digitar
+  const handleSearchCliente = (value: string) => {
+    setSearchCliente(value);
+    if (value.length >= 2) {
+      buscarClientes(value);
+      setShowClienteDropdown(true);
+    } else {
+      setShowClienteDropdown(false);
+    }
+  };
+
+  // Função para alternar tela cheia
+  const toggleFullscreen = () => {
+    if (!isFullscreen) {
+      if (pdvRef.current) {
+        if (pdvRef.current.requestFullscreen) {
+          pdvRef.current.requestFullscreen();
+        } else if ((pdvRef.current as any).webkitRequestFullscreen) {
+          (pdvRef.current as any).webkitRequestFullscreen();
+        }
+        setIsFullscreen(true);
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if ((document as any).webkitExitFullscreen) {
+        (document as any).webkitExitFullscreen();
+      }
+      setIsFullscreen(false);
+    }
+  };
+
+  // Listener para sair do fullscreen com ESC
+  React.useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        setIsFullscreen(false);
+      }
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
+  }, []);
 
   // Buscar produtos reais do Supabase
   useEffect(() => {
@@ -65,9 +182,9 @@ export default function CaixaPage() {
 
   const addToCart = (product: Produto) => {
     setCart(prev => {
-      const found = prev.find((item: any) => item.id === product.id);
+      const found = prev.find((item) => item.id === product.id);
       if (found) {
-        return prev.map((item: any) =>
+        return prev.map((item) =>
           item.id === product.id ? { ...item, qty: item.qty + 1 } : item
         );
       }
@@ -91,9 +208,48 @@ export default function CaixaPage() {
   const discount = 0;
   const total = subtotal + discount;
 
+  // Finalizar venda
+  const finalizarVenda = () => {
+    if (cart.length === 0) {
+      alert('Adicione produtos ao carrinho antes de finalizar a venda.');
+      return;
+    }
+    
+    if (!clienteSelecionado) {
+      alert('Selecione um cliente antes de finalizar a venda.');
+      return;
+    }
+
+    // Aqui você pode implementar a lógica de finalização da venda
+    console.log('Finalizando venda:', {
+      cliente: clienteSelecionado,
+      produtos: cart,
+      total,
+      formaPagamento: paymentType,
+      tipoPedido: orderType
+    });
+
+    alert('Venda finalizada com sucesso!');
+    
+    // Limpar carrinho e cliente
+    setCart([]);
+    setClienteSelecionado(null);
+  };
+
   return (
     <MenuLayout>
-      <div className="flex min-h-screen bg-[#f6ffe6]">
+      <div ref={pdvRef} className="flex min-h-screen bg-white relative w-full p-0 m-0">
+        {/* Botão tela cheia */}
+        <Button
+          onClick={toggleFullscreen}
+          variant="secondary"
+          className="absolute top-4 right-8 z-50 flex items-center gap-2"
+          title={isFullscreen ? 'Sair do modo tela cheia' : 'Tela cheia'}
+        >
+          {isFullscreen ? <FiMinimize /> : <FiMaximize />}
+          {isFullscreen ? 'Sair da Tela Cheia' : 'Tela Cheia'}
+        </Button>
+
         {/* Main */}
         <div className="flex-1 p-8">
           <div className="mb-4 flex items-center justify-between">
@@ -101,25 +257,30 @@ export default function CaixaPage() {
               <div className="text-xs text-gray-500">{new Date().toLocaleDateString('pt-BR')}</div>
               <h1 className="text-2xl font-bold text-lime-700">PDV - Caixa</h1>
             </div>
-            <input
-              type="text"
-              placeholder="Buscar produto..."
-              className="border rounded px-3 py-2 w-64 bg-zinc-100 focus:ring-lime-400 focus:border-lime-400"
-            />
+            <div className="w-full max-w-xl ml-8">
+              <SearchInput
+                placeholder="Buscar produto por nome, código ou categoria..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                autoFocus={false}
+              />
+            </div>
           </div>
+
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-700">Escolha o produto</h2>
-            <button className="text-lime-700 font-semibold">Ver todos</button>
+            <Button variant="link" className="text-lime-700 font-semibold p-0 h-auto">Ver todos</Button>
           </div>
           <div className="mb-4 flex gap-2 overflow-x-auto">
             {categoriasUnicas.map(cat => (
-              <button
+              <Button
                 key={cat}
+                variant={selectedCategory === cat ? 'default' : 'secondary'}
                 className={`px-4 py-2 rounded-full border ${selectedCategory === cat ? 'bg-lime-700 text-white' : 'bg-white text-gray-700'}`}
                 onClick={() => setSelectedCategory(cat)}
               >
                 {cat}
-              </button>
+              </Button>
             ))}
           </div>
           {loading ? (
@@ -129,7 +290,7 @@ export default function CaixaPage() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
               {produtosExibidos.map(product => (
-                <div key={product.id} className="bg-white rounded-xl shadow p-4 flex flex-col items-center border border-lime-100">
+                <div key={product.id} className="bg-white rounded-xl shadow p-4 flex flex-col items-center border border-lime-100 w-full">
                   <img 
                     src={product.imagem_url || '/assets/imagens/imagem-produto.jpg'} 
                     alt={product.nome} 
@@ -139,29 +300,116 @@ export default function CaixaPage() {
                   <div className="font-semibold text-lg mb-1 text-gray-800">{product.nome}</div>
                   <div className="text-lime-700 font-bold text-md mb-1">R$ {product.preco.toFixed(2)}</div>
                   <div className="text-xs text-gray-500 mb-2 text-center">{product.descricao}</div>
-                  <button
-                    className="bg-lime-700 text-white px-4 py-1 rounded mt-auto hover:bg-lime-800"
+                  <Button
+                    className="w-full mt-auto"
                     onClick={() => addToCart(product)}
                   >
                     Adicionar ao carrinho
-                  </button>
+                  </Button>
                 </div>
               ))}
             </div>
           )}
         </div>
+
         {/* Sidebar */}
         <div className="w-[400px] bg-white p-6 border-l flex flex-col rounded-none md:rounded-xl md:shadow md:my-8 md:mr-8">
           <h2 className="text-xl font-bold mb-4 text-gray-800">Meu Pedido</h2>
+          
+          {/* Seção de Cliente */}
+          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-gray-700">Cliente</h3>
+              {clienteSelecionado && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={removerCliente}
+                  className="text-xs h-6 px-2"
+                >
+                  <FiX className="w-3 h-3" />
+                </Button>
+              )}
+            </div>
+            
+            {clienteSelecionado ? (
+              <div className="bg-white p-2 rounded border">
+                <div className="flex items-center gap-2">
+                  <FiUser className="text-blue-600 text-sm" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-800 text-sm truncate">{clienteSelecionado.nome}</p>
+                    <p className="text-xs text-gray-600">
+                      {clienteSelecionado.telefone || clienteSelecionado.celular || 'Sem telefone'} | 
+                      #{clienteSelecionado.numero_cliente}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="relative" ref={clienteSearchRef}>
+                <div className="relative">
+                  <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    type="text"
+                    placeholder="Buscar cliente..."
+                    value={searchCliente}
+                    onChange={(e) => handleSearchCliente(e.target.value)}
+                    className="pl-10 pr-8 h-8 text-sm"
+                    onFocus={() => {
+                      if (searchCliente.length >= 2) {
+                        setShowClienteDropdown(true);
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 px-2 text-xs"
+                  >
+                    <FiUserPlus className="w-3 h-3" />
+                  </Button>
+                </div>
+                
+                {/* Dropdown de resultados */}
+                {showClienteDropdown && (
+                  <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
+                    {loadingClientes ? (
+                      <div className="p-3 text-center text-sm text-gray-500">Carregando...</div>
+                    ) : clientes.length === 0 ? (
+                      <div className="p-3 text-center text-sm text-gray-500">Nenhum cliente encontrado</div>
+                    ) : (
+                      <div className="py-1">
+                        {clientes.map((cliente) => (
+                          <div
+                            key={cliente.id}
+                            onClick={() => selecionarCliente(cliente)}
+                            className="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="font-semibold text-sm text-gray-800">{cliente.nome}</div>
+                            <div className="text-xs text-gray-600">
+                              {cliente.telefone || cliente.celular || 'Sem telefone'} | 
+                              Cliente #{cliente.numero_cliente}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="flex gap-2 mb-4">
             {['Local', 'Retirada', 'Entrega'].map(type => (
-              <button
+              <Button
                 key={type}
-                className={`px-3 py-1 rounded-full border ${orderType === type ? 'bg-lime-700 text-white' : 'bg-white text-gray-700'}`}
+                variant={orderType === type ? 'default' : 'secondary'}
+                className="px-3 py-1 rounded-full text-xs"
                 onClick={() => setOrderType(type)}
               >
                 {type}
-              </button>
+              </Button>
             ))}
           </div>
           <div className="flex-1 overflow-y-auto mb-4">
@@ -176,11 +424,11 @@ export default function CaixaPage() {
                     <div className="text-lime-700 font-bold">R$ {item.preco.toFixed(2)}</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => changeQty(item.id, -1)} className="px-2">-</button>
+                    <Button variant="secondary" size="icon" onClick={() => changeQty(item.id, -1)}>-</Button>
                     <span>{item.qty}</span>
-                    <button onClick={() => changeQty(item.id, 1)} className="px-2">+</button>
+                    <Button variant="secondary" size="icon" onClick={() => changeQty(item.id, 1)}>+</Button>
                   </div>
-                  <button onClick={() => removeFromCart(item.id)} className="text-red-500 ml-2">×</button>
+                  <Button variant="destructive" size="icon" onClick={() => removeFromCart(item.id)} className="ml-2">×</Button>
                 </div>
               ))
             )}
@@ -203,17 +451,24 @@ export default function CaixaPage() {
             <div className="font-semibold mb-2">Pagamento</div>
             <div className="flex gap-2 mb-2">
               {['Dinheiro', 'Débito', 'Pix'].map(type => (
-                <button
+                <Button
                   key={type}
-                  className={`px-4 py-1 rounded-full border ${paymentType === type ? 'bg-lime-700 text-white' : 'bg-white text-gray-700'}`}
+                  variant={paymentType === type ? 'default' : 'secondary'}
+                  className="px-4 py-1 rounded-full text-xs"
                   onClick={() => setPaymentType(type)}
                 >
                   {type}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
-          <button className="bg-lime-700 text-white py-3 rounded font-bold text-lg hover:bg-lime-800">Finalizar venda</button>
+          <Button 
+            className="w-full py-3 font-bold text-lg mt-2"
+            onClick={finalizarVenda}
+            disabled={cart.length === 0 || !clienteSelecionado}
+          >
+            Finalizar venda
+          </Button>
         </div>
       </div>
     </MenuLayout>
