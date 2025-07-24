@@ -166,6 +166,27 @@ export default function PerfilPage() {
     setUploading(false);
   };
 
+  // Função para remover foto de perfil
+  const handleRemoverFoto = async () => {
+    if (!perfil?.id || !fotoUrl) return;
+    setUploading(true);
+    try {
+      // Extrai o caminho do arquivo do storage
+      const pathMatch = fotoUrl.match(/user-[^/]+\/[^?]+/);
+      if (pathMatch) {
+        const filePath = pathMatch[0];
+        await supabase.storage.from('avatars').remove([filePath]);
+      }
+      await supabase.from('usuarios').update({ foto_url: null }).eq('id', perfil.id);
+      setFotoUrl(null);
+      updateUsuarioFoto('');
+      addToast('success', 'Foto removida!');
+    } catch (err) {
+      addToast('error', 'Erro ao remover foto.');
+    }
+    setUploading(false);
+  };
+
   if (loading || authLoading) {
     return (
       <MenuLayout>
@@ -190,11 +211,19 @@ export default function PerfilPage() {
           {/* Bloco de avatar e upload */}
           <div className="flex flex-col items-center mb-8">
             <div className="relative">
-              <img
-                src={fotoUrl || '/default-avatar.png'}
-                alt="Foto de perfil"
-                className="w-28 h-28 rounded-full border-4 border-lime-400 object-cover shadow-lg"
-              />
+              {fotoUrl ? (
+                <img
+                  src={fotoUrl}
+                  alt="Foto de perfil"
+                  className="w-28 h-28 rounded-full border-4 border-lime-400 object-cover shadow-lg"
+                />
+              ) : (
+                <div className="w-28 h-28 rounded-full border-4 border-lime-400 bg-lime-200 flex items-center justify-center shadow-lg">
+                  <span className="text-5xl font-bold text-lime-700">
+                    {perfil?.nome?.[0]?.toUpperCase() || 'U'}
+                  </span>
+                </div>
+              )}
               <button
                 className="absolute bottom-0 right-0 bg-blue-600 text-white rounded-full p-2 shadow hover:bg-blue-700 transition"
                 onClick={() => fileInputRef.current?.click()}
@@ -216,6 +245,15 @@ export default function PerfilPage() {
                 disabled={uploading}
               />
             </div>
+            {fotoUrl && (
+              <button
+                className="mt-2 text-xs text-red-600 hover:underline disabled:opacity-50"
+                onClick={handleRemoverFoto}
+                disabled={uploading}
+              >
+                Remover foto
+              </button>
+            )}
             <span className="mt-2 text-sm text-gray-600">Clique no ícone para trocar a foto</span>
           </div>
           <div className="flex justify-between items-center mb-6">

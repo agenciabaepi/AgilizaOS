@@ -82,9 +82,10 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar Desktop */}
       <aside className="w-64 bg-white border-r border-zinc-200 flex flex-col py-8 px-4 min-h-screen hidden md:flex">
-        {/* Logo preto centralizado */}
-        <div className="flex flex-col items-center mb-8">
-          <Image src={logopreto} alt="Logo AgilizaOS" className="h-12 w-auto object-contain" />
+        {/* Logo preto centralizado com degradê radial sutil de fundo */}
+        <div className="flex flex-col items-center mb-8 relative">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 rounded-full pointer-events-none" style={{background: 'radial-gradient(circle, #f6ffe6 0%, transparent 70%)'}} />
+          <Image src={logopreto} alt="Logo AgilizaOS" className="h-12 w-auto object-contain relative z-10" />
         </div>
         {/* Busca */}
         <div className="flex items-center gap-2 mb-6">
@@ -115,7 +116,26 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             <SidebarButton path="/equipamentos" icon={<FiBox size={20} />} label="Produtos/Serviços" isActive={pathname === '/equipamentos'} />
           )}
           {podeVer('financeiro') && (
-            <SidebarButton path="/financeiro/contas-a-pagar" icon={<FiDollarSign size={20} />} label="Financeiro" isActive={pathname.startsWith('/financeiro')} />
+            <div>
+              <button
+                className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg transition font-medium text-base ${pathname.startsWith('/financeiro') ? 'bg-lime-100 text-black' : 'hover:bg-zinc-100 text-zinc-700'}`}
+                onClick={() => setShowFinanceiroSub((v) => !v)}
+              >
+                <span className="min-w-[24px] flex items-center justify-center"><FiDollarSign size={20} /></span>
+                <span>Financeiro</span>
+                <FiChevronDown className={`ml-auto transition-transform ${showFinanceiroSub ? 'rotate-180' : ''}`} size={16} />
+              </button>
+              {showFinanceiroSub && (
+                <div className="ml-8 mt-1 flex flex-col gap-1">
+                  <SidebarButton
+                    path="/financeiro/contas-a-pagar"
+                    icon={<FiFileText size={18} />}
+                    label="Contas a Pagar"
+                    isActive={pathname === '/financeiro/contas-a-pagar'}
+                  />
+                </div>
+              )}
+            </div>
           )}
           {podeVer('bancada') && (
             <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" isActive={pathname === '/bancada'} />
@@ -154,8 +174,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             <button className="absolute top-4 right-4 text-zinc-500" onClick={() => setMobileMenuOpen(false)}>
               <FiX size={28} />
             </button>
-            <div className="flex flex-col items-center mb-8">
-              <Image src={logopreto} alt="Logo AgilizaOS" className="h-12 w-auto object-contain" />
+            <div className="flex flex-col items-center mb-8 relative">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 rounded-full pointer-events-none" style={{background: 'radial-gradient(circle, #f6ffe6 0%, transparent 70%)'}} />
+              <Image src={logopreto} alt="Logo AgilizaOS" className="h-12 w-auto object-contain relative z-10" />
             </div>
             <div className="flex items-center gap-2 mb-6">
               <FiSearch className="text-zinc-400" size={18} />
@@ -184,7 +205,26 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                 <SidebarButton path="/equipamentos" icon={<FiBox size={20} />} label="Produtos/Serviços" isActive={pathname === '/equipamentos'} />
               )}
               {podeVer('financeiro') && (
-                <SidebarButton path="/financeiro/contas-a-pagar" icon={<FiDollarSign size={20} />} label="Financeiro" isActive={pathname.startsWith('/financeiro')} />
+                <div>
+                  <button
+                    className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg transition font-medium text-base ${pathname.startsWith('/financeiro') ? 'bg-lime-100 text-black' : 'hover:bg-zinc-100 text-zinc-700'}`}
+                    onClick={() => setShowFinanceiroSub((v) => !v)}
+                  >
+                    <span className="min-w-[24px] flex items-center justify-center"><FiDollarSign size={20} /></span>
+                    <span>Financeiro</span>
+                    <FiChevronDown className={`ml-auto transition-transform ${showFinanceiroSub ? 'rotate-180' : ''}`} size={16} />
+                  </button>
+                  {showFinanceiroSub && (
+                    <div className="ml-8 mt-1 flex flex-col gap-1">
+                      <SidebarButton
+                        path="/financeiro/contas-a-pagar"
+                        icon={<FiFileText size={18} />}
+                        label="Contas a Pagar"
+                        isActive={pathname === '/financeiro/contas-a-pagar'}
+                      />
+                    </div>
+                  )}
+                </div>
               )}
               {podeVer('bancada') && (
                 <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" isActive={pathname === '/bancada'} />
@@ -236,11 +276,19 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               />
             </div>
             <div className="flex items-center gap-2">
-              <img
-                src={usuarioData?.foto_url || '/default-avatar.png'}
-                alt="Foto de perfil"
-                className="rounded-full border-2 border-lime-400 object-cover w-8 h-8"
-              />
+              {usuarioData?.foto_url ? (
+                <img
+                  src={usuarioData.foto_url}
+                  alt="Foto de perfil"
+                  className="rounded-full border-2 border-lime-400 object-cover w-8 h-8"
+                />
+              ) : (
+                <div className="rounded-full border-2 border-lime-400 bg-lime-200 w-8 h-8 flex items-center justify-center">
+                  <span className="text-base font-bold text-lime-700">
+                    {usuarioData?.nome?.[0]?.toUpperCase() || 'U'}
+                  </span>
+                </div>
+              )}
               <span className="text-zinc-700 text-sm font-medium">{usuarioData?.nome || userName}</span>
             </div>
             <div className="relative">
