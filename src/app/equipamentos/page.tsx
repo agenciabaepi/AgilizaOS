@@ -345,22 +345,27 @@ export default function ProdutosServicosPage() {
             row.imagens_url?.[0]
               ? (
                 <div className="w-10 h-10 rounded overflow-hidden">
-                  <Image 
-                    src={row.imagens_url[0]} 
-                    alt={row.nome} 
-                    width={40} 
-                    height={40} 
+                  <img
+                    src={row.imagens_url[0] || '/assets/imagens/imagem-produto.jpg'}
+                    alt={row.nome}
+                    width={40}
+                    height={40}
                     className="object-cover w-full h-full"
-                    onError={(e) => {
-                      // Fallback para imagem quebrada
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      target.parentElement!.innerHTML = '<div class="w-10 h-10 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500">IMG</div>';
-                    }}
+                    onError={e => { (e.currentTarget as HTMLImageElement).src = '/assets/imagens/imagem-produto.jpg'; }}
                   />
                 </div>
               )
-              : '-'
+              : (
+                <div className="w-10 h-10 rounded overflow-hidden">
+                  <img
+                    src={'/assets/imagens/imagem-produto.jpg'}
+                    alt={row.nome}
+                    width={40}
+                    height={40}
+                    className="object-cover w-full h-full"
+                  />
+                </div>
+              )
         }]
       : []),
     {

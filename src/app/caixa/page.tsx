@@ -130,7 +130,12 @@ export default function CaixaPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
               {produtosExibidos.map(product => (
                 <div key={product.id} className="bg-white rounded-xl shadow p-4 flex flex-col items-center border border-lime-100">
-                  <img src={product.imagem_url || '/icon.png'} alt={product.nome} className="w-24 h-24 object-cover rounded-full mb-2" />
+                  <img 
+                    src={product.imagem_url || '/assets/imagens/imagem-produto.jpg'} 
+                    alt={product.nome} 
+                    className="w-24 h-24 object-cover rounded-full mb-2"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/assets/imagens/imagem-produto.jpg'; }}
+                  />
                   <div className="font-semibold text-lg mb-1 text-gray-800">{product.nome}</div>
                   <div className="text-lime-700 font-bold text-md mb-1">R$ {product.preco.toFixed(2)}</div>
                   <div className="text-xs text-gray-500 mb-2 text-center">{product.descricao}</div>
