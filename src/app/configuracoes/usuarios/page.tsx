@@ -141,174 +141,172 @@ export default function UsuariosPage() {
 
   return (
     <ProtectedRoute allowedLevels={['admin']}>
-      <MenuLayout>
-        <main className="p-4 sm:p-6 md:p-10">
-          <Card>
-            <CardHeader>
-              <CardTitle>Gerenciar Usuários</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-500">
-                Aqui você poderá adicionar, editar e remover usuários vinculados à empresa.
-              </p>
-              <div className="flex justify-between items-center mb-4">
-                <p className="text-sm text-gray-600">Usuários cadastrados na empresa:</p>
+      <main className="p-4 sm:p-6 md:p-10">
+        <Card>
+          <CardHeader>
+            <CardTitle>Gerenciar Usuários</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-500">
+              Aqui você poderá adicionar, editar e remover usuários vinculados à empresa.
+            </p>
+            <div className="flex justify-between items-center mb-4">
+              <p className="text-sm text-gray-600">Usuários cadastrados na empresa:</p>
+              <button
+                onClick={() => setMostrarFormulario(!mostrarFormulario)}
+                className="bg-black text-white text-sm px-4 py-2 rounded hover:bg-gray-800 transition"
+              >
+                {mostrarFormulario ? 'Cancelar' : '+ Adicionar novo usuário'}
+              </button>
+            </div>
+            {mostrarFormulario && (
+              <form className="mt-4 space-y-4 bg-gray-100 p-4 rounded" onSubmit={handleSubmit}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm text-gray-700">Nome</label>
+                    <input
+                      type="text"
+                      value={nome}
+                      onChange={(e) => setNome(e.target.value)}
+                      className="w-full border px-3 py-2 rounded"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-700">Usuário</label>
+                    <input
+                      type="text"
+                      value={usuario}
+                      onChange={(e) => setUsuario(e.target.value)}
+                      className="w-full border px-3 py-2 rounded"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-700">E-mail</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full border px-3 py-2 rounded"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-700">Senha</label>
+                    <input
+                      type="password"
+                      value={senha}
+                      onChange={(e) => setSenha(e.target.value)}
+                      className="w-full border px-3 py-2 rounded"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-700">CPF</label>
+                    <input
+                      type="text"
+                      value={cpf}
+                      onChange={(e) => setCpf(e.target.value)}
+                      className="w-full border px-3 py-2 rounded"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-700">WhatsApp</label>
+                    <input
+                      type="text"
+                      value={whatsapp}
+                      onChange={(e) => setWhatsapp(e.target.value)}
+                      className="w-full border px-3 py-2 rounded"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-700">Nível</label>
+                    <select
+                      value={nivel}
+                      onChange={(e) => setNivel(e.target.value)}
+                      className="w-full border px-3 py-2 rounded"
+                      required
+                    >
+                      <option value="tecnico">Técnico</option>
+                      <option value="atendente">Atendente</option>
+                      <option value="financeiro">Financeiro</option>
+                      <option value="admin">Administrador</option>
+                    </select>
+                  </div>
+                </div>
                 <button
-                  onClick={() => setMostrarFormulario(!mostrarFormulario)}
-                  className="bg-black text-white text-sm px-4 py-2 rounded hover:bg-gray-800 transition"
+                  type="submit"
+                  className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800 transition"
                 >
-                  {mostrarFormulario ? 'Cancelar' : '+ Adicionar novo usuário'}
+                  Cadastrar usuário
                 </button>
-              </div>
-              {mostrarFormulario && (
-                <form className="mt-4 space-y-4 bg-gray-100 p-4 rounded" onSubmit={handleSubmit}>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm text-gray-700">Nome</label>
-                      <input
-                        type="text"
-                        value={nome}
-                        onChange={(e) => setNome(e.target.value)}
-                        className="w-full border px-3 py-2 rounded"
-                        required
-                      />
+              </form>
+            )}
+            {empresaId && (
+              <div className="space-y-2 mt-4">
+                {usuarios.map((usuario) => (
+                  <div key={usuario.id} className="flex items-center justify-between p-4 bg-white rounded shadow hover:shadow-md transition">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center justify-center w-10 h-10 bg-black text-white rounded-full">
+                        {usuario.nome.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">{usuario.nome}</p>
+                        <p className="text-xs text-gray-500">{usuario.email}</p>
+                        <p className="text-xs text-gray-400 capitalize">{usuario.nivel}</p>
+                      </div>
                     </div>
-                    <div>
-                      <label className="text-sm text-gray-700">Usuário</label>
-                      <input
-                        type="text"
-                        value={usuario}
-                        onChange={(e) => setUsuario(e.target.value)}
-                        className="w-full border px-3 py-2 rounded"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm text-gray-700">E-mail</label>
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="w-full border px-3 py-2 rounded"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm text-gray-700">Senha</label>
-                      <input
-                        type="password"
-                        value={senha}
-                        onChange={(e) => setSenha(e.target.value)}
-                        className="w-full border px-3 py-2 rounded"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm text-gray-700">CPF</label>
-                      <input
-                        type="text"
-                        value={cpf}
-                        onChange={(e) => setCpf(e.target.value)}
-                        className="w-full border px-3 py-2 rounded"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm text-gray-700">WhatsApp</label>
-                      <input
-                        type="text"
-                        value={whatsapp}
-                        onChange={(e) => setWhatsapp(e.target.value)}
-                        className="w-full border px-3 py-2 rounded"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm text-gray-700">Nível</label>
-                      <select
-                        value={nivel}
-                        onChange={(e) => setNivel(e.target.value)}
-                        className="w-full border px-3 py-2 rounded"
-                        required
+                    <div className="flex gap-3">
+                      <button
+                        title="Editar"
+                        className={`text-gray-600 transition ${usuario.id === session?.user?.id ? 'opacity-40 cursor-not-allowed' : 'hover:text-blue-600'}`}
+                        onClick={() => {
+                          if (usuario.id !== session?.user?.id) {
+                            router.push(`/configuracoes/usuarios/${usuario.id}/editar`)
+                          }
+                        }}
+                        disabled={usuario.id === session?.user?.id}
                       >
-                        <option value="tecnico">Técnico</option>
-                        <option value="atendente">Atendente</option>
-                        <option value="financeiro">Financeiro</option>
-                        <option value="admin">Administrador</option>
-                      </select>
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      {/* Botões de ativar/desativar e permissões só serão exibidos quando modo de edição estiver implementado */}
+                      {/* <button
+                        title="Ativar/Desativar"
+                        className="text-gray-600 hover:text-yellow-600 transition"
+                        onClick={() => alert('Função de ativar/desativar ainda não implementada')}
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                      </button>
+                      <button
+                        title="Permissões"
+                        className="text-gray-600 hover:text-indigo-600 transition"
+                        onClick={() => alert('Função de permissões ainda não implementada')}
+                      >
+                        <Shield className="w-4 h-4" />
+                      </button> */}
+                      <button
+                        title="Excluir"
+                        className={`text-gray-600 transition ${usuario.id === session?.user?.id ? 'opacity-40 cursor-not-allowed' : 'hover:text-red-600'}`}
+                        onClick={() => {
+                          if (usuario.id !== session?.user?.id) {
+                            handleDeleteUsuario(usuario.id)
+                          }
+                        }}
+                        disabled={usuario.id === session?.user?.id}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
-                  <button
-                    type="submit"
-                    className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800 transition"
-                  >
-                    Cadastrar usuário
-                  </button>
-                </form>
-              )}
-              {empresaId && (
-                <div className="space-y-2 mt-4">
-                  {usuarios.map((usuario) => (
-                    <div key={usuario.id} className="flex items-center justify-between p-4 bg-white rounded shadow hover:shadow-md transition">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center justify-center w-10 h-10 bg-black text-white rounded-full">
-                          {usuario.nome.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-gray-900">{usuario.nome}</p>
-                          <p className="text-xs text-gray-500">{usuario.email}</p>
-                          <p className="text-xs text-gray-400 capitalize">{usuario.nivel}</p>
-                        </div>
-                      </div>
-                      <div className="flex gap-3">
-                        <button
-                          title="Editar"
-                          className={`text-gray-600 transition ${usuario.id === session?.user?.id ? 'opacity-40 cursor-not-allowed' : 'hover:text-blue-600'}`}
-                          onClick={() => {
-                            if (usuario.id !== session?.user?.id) {
-                              router.push(`/configuracoes/usuarios/${usuario.id}/editar`)
-                            }
-                          }}
-                          disabled={usuario.id === session?.user?.id}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        {/* Botões de ativar/desativar e permissões só serão exibidos quando modo de edição estiver implementado */}
-                        {/* <button
-                          title="Ativar/Desativar"
-                          className="text-gray-600 hover:text-yellow-600 transition"
-                          onClick={() => alert('Função de ativar/desativar ainda não implementada')}
-                        >
-                          <RotateCcw className="w-4 h-4" />
-                        </button>
-                        <button
-                          title="Permissões"
-                          className="text-gray-600 hover:text-indigo-600 transition"
-                          onClick={() => alert('Função de permissões ainda não implementada')}
-                        >
-                          <Shield className="w-4 h-4" />
-                        </button> */}
-                        <button
-                          title="Excluir"
-                          className={`text-gray-600 transition ${usuario.id === session?.user?.id ? 'opacity-40 cursor-not-allowed' : 'hover:text-red-600'}`}
-                          onClick={() => {
-                            if (usuario.id !== session?.user?.id) {
-                              handleDeleteUsuario(usuario.id)
-                            }
-                          }}
-                          disabled={usuario.id === session?.user?.id}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </main>
-      </MenuLayout>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </main>
     </ProtectedRoute>
   )
 }

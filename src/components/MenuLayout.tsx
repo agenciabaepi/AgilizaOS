@@ -109,6 +109,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {podeVer('ordens') && (
             <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} />
           )}
+          <SidebarButton path="/caixa" icon={<FiDollarSign size={20} />} label="Caixa" isActive={pathname === '/caixa'} />
           {podeVer('clientes') && (
             <SidebarButton path="/clientes" icon={<FiUsers size={20} />} label="Clientes" isActive={pathname === '/clientes'} />
           )}
@@ -198,6 +199,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               {podeVer('ordens') && (
                 <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} />
               )}
+              <SidebarButton path="/caixa" icon={<FiDollarSign size={20} />} label="Caixa" isActive={pathname === '/caixa'} />
               {podeVer('clientes') && (
                 <SidebarButton path="/clientes" icon={<FiUsers size={20} />} label="Clientes" isActive={pathname === '/clientes'} />
               )}

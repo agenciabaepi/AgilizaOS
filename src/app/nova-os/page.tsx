@@ -83,6 +83,13 @@ function NovaOS2Content() {
   // Estado para etapa 4 - Status
   const [statusOS, setStatusOS] = useState<Status[]>([]);
   const [statusSelecionado, setStatusSelecionado] = useState<string | null>(null);
+  // Estado para retorno de garantia
+  const [isRetornoGarantia, setIsRetornoGarantia] = useState(false);
+  const [tipoEntrada, setTipoEntrada] = useState<'nova' | 'garantia'>('nova');
+  const [osGarantiaBusca, setOsGarantiaBusca] = useState('');
+  const [osGarantiaResultados, setOsGarantiaResultados] = useState<Record<string, unknown>[]>([]);
+  const [osGarantiaSelecionada, setOsGarantiaSelecionada] = useState<Record<string, unknown> | null>(null);
+  const [buscandoOsGarantia, setBuscandoOsGarantia] = useState(false);
   
   // Estado para produtos e serviços aprovados
   const [produtosServicos, setProdutosServicos] = useState<ProdutoServico[]>([]);
@@ -193,6 +200,7 @@ function NovaOS2Content() {
           tipo: 'os',
           empresa_id: undefined
         }
+        // Remover retorno_garantia daqui
       ];
       
       setStatusOS(statusEssenciais);
@@ -345,7 +353,8 @@ function NovaOS2Content() {
         tecnico: tecnicoSelecionado?.nome || 'Técnico Selecionado',
         acessorios: "Carregador original Samsung, cabo USB-C, capa protetora",
         condicoes_equipamento: condicoesEquipamento,
-        data_cadastro: new Date().toISOString()
+        data_cadastro: new Date().toISOString(),
+        os_garantia_id: tipoEntrada === 'garantia' && osGarantiaSelecionada ? osGarantiaSelecionada.id : null
       };
 
       console.log('Salvando OS no banco:', dadosOS);
@@ -454,6 +463,129 @@ function NovaOS2Content() {
           <div className="bg-white rounded-xl border border-gray-200 shadow p-8 mb-8 min-h-[200px] flex flex-col items-center justify-center">
             {etapaAtual === 1 && (
               <div className="w-full max-w-md mx-auto flex flex-col gap-6">
+                {/* Tipo de entrada: Nova ou Retorno Garantia */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Entrada</label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div
+                      className={`p-4 rounded-lg border-2 cursor-pointer transition-all flex items-center gap-3 ${tipoEntrada === 'nova' ? 'border-black bg-gray-50' : 'border-gray-200 hover:border-gray-300'}`}
+                      onClick={() => {
+                        setTipoEntrada('nova');
+                        setOsGarantiaBusca('');
+                        setOsGarantiaResultados([]);
+                        setOsGarantiaSelecionada(null);
+                      }}
+                    >
+                      <span className="font-bold text-lg">Nova OS</span>
+                    </div>
+                    <div
+                      className={`p-4 rounded-lg border-2 cursor-pointer transition-all flex items-center gap-3 ${tipoEntrada === 'garantia' ? 'border-black bg-gray-50' : 'border-gray-200 hover:border-gray-300'}`}
+                      onClick={() => setTipoEntrada('garantia')}
+                    >
+                      <span className="font-bold text-lg">Retorno para Garantia</span>
+                    </div>
+                  </div>
+                </div>
+                {/* Busca OS original para garantia */}
+                {tipoEntrada === 'garantia' && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Buscar OS original</label>
+                    <input
+                      type="text"
+                      className="w-full border border-gray-300 rounded px-3 py-2 mb-2"
+                      placeholder="Digite número da OS, nome do cliente ou modelo..."
+                      value={osGarantiaBusca}
+                      onChange={async (e) => {
+                        setOsGarantiaBusca(e.target.value);
+                        setBuscandoOsGarantia(true);
+                        let resultados: Record<string, unknown>[] = [];
+                        if (e.target.value.length > 0) {
+                          // 1. Buscar clientes pelo nome
+                          const { data: clientesBusca } = await supabase
+                            .from('clientes')
+                            .select('id')
+                            .ilike('nome', `%${e.target.value}%`);
+                          const clienteIds = clientesBusca?.map(c => c.id) || [];
+
+                          // 2. Buscar OS por modelo
+                          const { data: osPorModelo } = await supabase
+                            .from('ordens_servico')
+                            .select('id, numero_os, cliente_id, modelo, numero_serie, marca, categoria, clientes:cliente_id(nome)')
+                            .eq('empresa_id', empresaData?.id)
+                            .ilike('modelo', `%${e.target.value}%`)
+                            .limit(10);
+
+                          // 3. Buscar OS por cliente_id
+                          let osPorCliente: Record<string, unknown>[] = [];
+                          if (clienteIds.length > 0) {
+                            const { data } = await supabase
+                              .from('ordens_servico')
+                              .select('id, numero_os, cliente_id, modelo, numero_serie, marca, categoria, clientes:cliente_id(nome)')
+                              .eq('empresa_id', empresaData?.id)
+                              .in('cliente_id', clienteIds)
+                              .limit(10);
+                            osPorCliente = data || [];
+                          }
+
+                          // 4. Buscar OS por id se termo for UUID válido
+                          let osPorId: Record<string, unknown>[] = [];
+                          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+                          if (uuidRegex.test(e.target.value)) {
+                            const { data } = await supabase
+                              .from('ordens_servico')
+                              .select('id, numero_os, cliente_id, modelo, numero_serie, marca, categoria, clientes:cliente_id(nome)')
+                              .eq('empresa_id', empresaData?.id)
+                              .eq('id', e.target.value)
+                              .limit(1);
+                            osPorId = data || [];
+                          }
+
+                          // Unir resultados e remover duplicados
+                          const todos = [...(osPorModelo || []), ...osPorCliente, ...osPorId];
+                          const vistos = new Set();
+                          resultados = todos.filter(os => {
+                            if (vistos.has(os.id)) return false;
+                            vistos.add(os.id);
+                            return true;
+                          });
+                        }
+                        setOsGarantiaResultados(resultados);
+                        setBuscandoOsGarantia(false);
+                      }}
+                    />
+                    {buscandoOsGarantia && <div className="text-xs text-gray-500">Buscando...</div>}
+                    {osGarantiaResultados.length > 0 && (
+                      <ul className="bg-white border rounded shadow max-h-48 overflow-auto mt-1">
+                        {osGarantiaResultados.map(os => {
+                          const osTyped = os as { id: string; cliente_id: string; modelo: string; numero_serie: string; marca: string; categoria: string; clientes?: { nome?: string } };
+                          return (
+                            <li
+                              key={osTyped.id}
+                              className={`px-4 py-2 cursor-pointer hover:bg-lime-100 ${osGarantiaSelecionada && (osGarantiaSelecionada as { id: string }).id === osTyped.id ? 'bg-lime-200' : ''}`}
+                              onClick={() => {
+                                setOsGarantiaSelecionada(osTyped);
+                                setClienteSelecionado(osTyped.cliente_id);
+                                setDadosEquipamento({
+                                  tipo: osTyped.categoria,
+                                  marca: osTyped.marca,
+                                  modelo: osTyped.modelo,
+                                  numero_serie: osTyped.numero_serie,
+                                  descricao_problema: '',
+                                  observacoes: ''
+                                });
+                              }}
+                            >
+                              <span className="font-semibold">OS #{osTyped.numero_os ?? osTyped.id}</span> — {osTyped.clientes?.nome || 'Cliente'} — {osTyped.modelo}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                    {osGarantiaSelecionada && (
+                      <div className="mt-2 text-xs text-green-700">OS original selecionada: <span className="font-bold">#{(osGarantiaSelecionada as { numero_os?: number; id: string }).numero_os ?? (osGarantiaSelecionada as { id: string }).id}</span></div>
+                    )}
+                  </div>
+                )}
                 <label className="block text-sm font-medium text-gray-700 mb-2">Selecione o cliente</label>
                 <ReactSelect
                   options={clientes.map(c => ({ value: c.id, label: c.nome }))}
@@ -483,6 +615,7 @@ function NovaOS2Content() {
                       fontSize: '1rem',
                     }),
                   }}
+                  isDisabled={tipoEntrada === 'garantia' && !!osGarantiaSelecionada}
                 />
                 <Button variant="secondary" className="w-full" onClick={() => setShowCadastroCliente(true)}>Cadastrar novo cliente</Button>
                 {showCadastroCliente && (
@@ -558,6 +691,7 @@ function NovaOS2Content() {
                         className="w-full border border-gray-300 rounded px-3 py-2"
                         value={dadosEquipamento.tipo}
                         onChange={(e) => setDadosEquipamento(prev => ({ ...prev, tipo: e.target.value }))}
+                        readOnly={tipoEntrada === 'garantia' && !!osGarantiaSelecionada}
                       />
                     </div>
                     <div>
@@ -568,6 +702,7 @@ function NovaOS2Content() {
                         className="w-full border border-gray-300 rounded px-3 py-2"
                         value={dadosEquipamento.marca}
                         onChange={(e) => setDadosEquipamento(prev => ({ ...prev, marca: e.target.value }))}
+                        readOnly={tipoEntrada === 'garantia' && !!osGarantiaSelecionada}
                       />
                     </div>
                     <div>
@@ -578,6 +713,7 @@ function NovaOS2Content() {
                         className="w-full border border-gray-300 rounded px-3 py-2"
                         value={dadosEquipamento.modelo}
                         onChange={(e) => setDadosEquipamento(prev => ({ ...prev, modelo: e.target.value }))}
+                        readOnly={tipoEntrada === 'garantia' && !!osGarantiaSelecionada}
                       />
                     </div>
                     <div>
@@ -588,6 +724,7 @@ function NovaOS2Content() {
                         className="w-full border border-gray-300 rounded px-3 py-2"
                         value={dadosEquipamento.numero_serie}
                         onChange={(e) => setDadosEquipamento(prev => ({ ...prev, numero_serie: e.target.value }))}
+                        readOnly={tipoEntrada === 'garantia' && !!osGarantiaSelecionada}
                       />
                     </div>
                   </div>
@@ -722,7 +859,6 @@ function NovaOS2Content() {
                     {(() => {
                       const status = statusOS.find(s => s.id === statusSelecionado);
                       if (!status) return null;
-                      
                       return (
                         <div className="flex items-center gap-3">
                           <div 
@@ -740,6 +876,62 @@ function NovaOS2Content() {
                         </div>
                       );
                     })()}
+                  </div>
+                )}
+
+                {/* Busca OS original para retorno de garantia */}
+                {statusSelecionado === 'retorno_garantia' && (
+                  <div className="mt-6 w-full max-w-lg mx-auto">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Buscar OS original</label>
+                    <input
+                      type="text"
+                      className="w-full border border-gray-300 rounded px-3 py-2 mb-2"
+                      placeholder="Digite número da OS, nome do cliente ou modelo..."
+                      value={osGarantiaBusca}
+                      onChange={async (e) => {
+                        setOsGarantiaBusca(e.target.value);
+                        setBuscandoOsGarantia(true);
+                        // Buscar OSs que não são de garantia
+                        const { data, error } = await supabase
+                          .from('ordens_servico')
+                          .select('id, numero_os, cliente_id, modelo, numero_serie, cliente:clientes(nome)')
+                          .eq('empresa_id', empresaData?.id)
+                          .neq('status', 'retorno_garantia')
+                          .ilike('id', `%${e.target.value}%`)
+                          .limit(10);
+                        let resultados = data || [];
+                        // Buscar também por nome do cliente e modelo
+                        if (resultados.length === 0 && e.target.value.length > 2) {
+                          const { data: porCliente } = await supabase
+                            .from('ordens_servico')
+                            .select('id, numero_os, cliente_id, modelo, numero_serie, cliente:clientes(nome)')
+                            .eq('empresa_id', empresaData?.id)
+                            .neq('status', 'retorno_garantia')
+                            .ilike('cliente.nome', `%${e.target.value}%`)
+                            .limit(10);
+                          if (porCliente) resultados = porCliente;
+                        }
+                        setOsGarantiaResultados(resultados);
+                        setBuscandoOsGarantia(false);
+                      }}
+                    />
+                    {buscandoOsGarantia && <div className="text-xs text-gray-500">Buscando...</div>}
+                    {osGarantiaResultados.length > 0 && (
+                      <ul className="bg-white border rounded shadow max-h-48 overflow-auto mt-1">
+                        {osGarantiaResultados.map(os => (
+                          <li
+                            key={os.id}
+                            className={`px-4 py-2 cursor-pointer hover:bg-lime-100 ${osGarantiaSelecionada?.id === os.id ? 'bg-lime-200' : ''}`}
+                            onClick={() => setOsGarantiaSelecionada(os)}
+                          >
+                            <span className="font-semibold">OS #{os.numero_os ?? os.id}</span> — {os.cliente?.nome || 'Cliente'} — {os.modelo}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {osGarantiaSelecionada && (
+                      <div className="mt-2 text-xs text-green-700">OS original selecionada: <span className="font-bold">#{osGarantiaSelecionada.numero_os ?? osGarantiaSelecionada.id}</span></div>
+                    )}
                   </div>
                 )}
 

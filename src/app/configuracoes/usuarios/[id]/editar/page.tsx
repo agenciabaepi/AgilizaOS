@@ -130,9 +130,8 @@ export default function EditarUsuarioPage() {
   };
 
   return (
-    <MenuLayout>
-      <div className="max-w-xl mx-auto p-8">
-        <h1 className="text-2xl font-bold mb-6">Editar Usuário</h1>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-6">Editar Usuário</h1>
         {loading ? (
           <div>Carregando...</div>
         ) : (
@@ -251,7 +250,6 @@ export default function EditarUsuarioPage() {
             </button>
           </form>
         )}
-      </div>
-    </MenuLayout>
+    </div>
   );
 } 

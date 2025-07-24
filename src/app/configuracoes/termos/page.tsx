@@ -55,7 +55,6 @@ export default function TermosPage() {
 
   return (
     <ProtectedRoute allowedLevels={['admin', 'tecnico', 'financeiro']}>
-    <MenuLayout>
       <div className="px-6 py-8">
         <h1 className="text-2xl font-bold text-gray-800">Termos de Garantia</h1>
         <p className="mt-2 text-gray-600">Arraste para organizar a ordem de exibição dos termos:</p>
@@ -73,7 +72,6 @@ export default function TermosPage() {
           </DndContext>
         </div>
       </div>
-    </MenuLayout>
     </ProtectedRoute>
   )
 }
