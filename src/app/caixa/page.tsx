@@ -105,41 +105,25 @@ export default function CaixaPage() {
     }
   };
 
-  // Função para alternar tela cheia
+  // Função para alternar tela cheia interna do sistema
   const toggleFullscreen = () => {
-    if (!isFullscreen) {
-      if (pdvRef.current) {
-        if (pdvRef.current.requestFullscreen) {
-          pdvRef.current.requestFullscreen();
-        } else if ((pdvRef.current as any).webkitRequestFullscreen) {
-          (pdvRef.current as any).webkitRequestFullscreen();
-        }
-        setIsFullscreen(true);
-      }
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      } else if ((document as any).webkitExitFullscreen) {
-        (document as any).webkitExitFullscreen();
-      }
-      setIsFullscreen(false);
-    }
+    setIsFullscreen(!isFullscreen);
   };
 
-  // Listener para sair do fullscreen com ESC
-  React.useEffect(() => {
-    const handleFullscreenChange = () => {
-      if (!document.fullscreenElement) {
-        setIsFullscreen(false);
-      }
-    };
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-    return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-    };
-  }, []);
+  // Remover listener do fullscreen do navegador
+  // React.useEffect(() => {
+  //   const handleFullscreenChange = () => {
+  //     if (!document.fullscreenElement) {
+  //       setIsFullscreen(false);
+  //     }
+  //   };
+  //   document.addEventListener('fullscreenchange', handleFullscreenChange);
+  //   document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+  //   return () => {
+  //     document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  //     document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+  //   };
+  // }, []);
 
   // Buscar produtos reais do Supabase
   useEffect(() => {
@@ -315,246 +299,493 @@ export default function CaixaPage() {
 
     alert('Venda finalizada com sucesso!');
     
-    // Limpar carrinho e cliente
+    // Limpar carrinho e cliente, mas manter o modo tela cheia
     setCart([]);
     setClienteSelecionado(null);
+    setSearchTerm('');
+    
+    // Manter o foco no campo de busca para próxima venda
+    const searchInput = document.querySelector('input[placeholder*="Buscar produto"]') as HTMLInputElement;
+    if (searchInput) {
+      searchInput.focus();
+    }
   };
 
   return (
-    <MenuLayout>
-      <div ref={pdvRef} className="flex min-h-screen bg-white relative w-full p-0 m-0">
-        {/* Botão tela cheia */}
-        <Button
-          onClick={toggleFullscreen}
-          variant="secondary"
-          className="absolute top-4 right-8 z-50 flex items-center gap-2"
-          title={isFullscreen ? 'Sair do modo tela cheia' : 'Tela cheia'}
-        >
-          {isFullscreen ? <FiMinimize /> : <FiMaximize />}
-          {isFullscreen ? 'Sair da Tela Cheia' : 'Tela Cheia'}
-        </Button>
+    <>
+      {isFullscreen ? (
+        // Modo tela cheia - sem MenuLayout
+        <div className="fixed inset-0 bg-white z-50 flex">
+          {/* Botão tela cheia */}
+          <Button
+            onClick={toggleFullscreen}
+            variant="secondary"
+            className="absolute top-4 right-8 z-50 flex items-center gap-2"
+            title="Sair do modo tela cheia"
+          >
+            <FiMinimize />
+            Sair da Tela Cheia
+          </Button>
 
-        {/* Main */}
-        <div className="flex-1 p-8">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <div className="text-xs text-gray-500">{new Date().toLocaleDateString('pt-BR')}</div>
-              <h1 className="text-2xl font-bold text-lime-700">PDV - Caixa</h1>
+          {/* Main */}
+          <div className="flex-1 p-8">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <div className="text-xs text-gray-500">{new Date().toLocaleDateString('pt-BR')}</div>
+                <h1 className="text-2xl font-bold text-lime-700">PDV - Caixa</h1>
+              </div>
+              <div className="w-full max-w-xl ml-8">
+                <SearchInput
+                  placeholder="Buscar produto por nome, código ou categoria..."
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  autoFocus={false}
+                />
+              </div>
             </div>
-            <div className="w-full max-w-xl ml-8">
-              <SearchInput
-                placeholder="Buscar produto por nome, código ou categoria..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                autoFocus={false}
-              />
-            </div>
-          </div>
 
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-700">Escolha o produto</h2>
-            <Button variant="link" className="text-lime-700 font-semibold p-0 h-auto">Ver todos</Button>
-          </div>
-          <div className="mb-4 flex gap-2 overflow-x-auto">
-            {categoriasUnicas.map(cat => (
-              <Button
-                key={cat}
-                variant={selectedCategory === cat ? 'default' : 'secondary'}
-                className={`px-4 py-2 rounded-full border ${selectedCategory === cat ? 'bg-lime-700 text-white' : 'bg-white text-gray-700'}`}
-                onClick={() => setSelectedCategory(cat)}
-              >
-                {cat}
-              </Button>
-            ))}
-          </div>
-          {loading ? (
-            <div className="text-center text-gray-500 py-20">Carregando produtos...</div>
-          ) : produtos.length === 0 ? (
-            <div className="text-center text-red-500 py-20">Nenhum produto cadastrado ou erro ao buscar produtos.</div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {produtosExibidos.map(product => (
-                <div key={product.id} className="bg-white rounded-lg shadow p-3 flex flex-col items-center border border-lime-100 w-full">
-                  <img 
-                    src={product.imagem_url || '/assets/imagens/imagem-produto.jpg'} 
-                    alt={product.nome} 
-                    className="w-16 h-16 object-cover rounded-full mb-1"
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/assets/imagens/imagem-produto.jpg'; }}
-                  />
-                  <div className="font-semibold text-base mb-0.5 text-gray-800 text-center truncate w-full">{product.nome}</div>
-                  <div className="text-lime-700 font-bold text-sm mb-0.5">R$ {product.preco.toFixed(2)}</div>
-                  <div className="text-xs text-gray-500 mb-1 text-center line-clamp-2">{product.descricao}</div>
-                  <Button
-                    className="w-full mt-auto text-xs py-1"
-                    onClick={() => addToCart(product)}
-                  >
-                    Adicionar ao carrinho
-                  </Button>
-                </div>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-700">Escolha o produto</h2>
+              <Button variant="link" className="text-lime-700 font-semibold p-0 h-auto">Ver todos</Button>
+            </div>
+            <div className="mb-4 flex gap-2 overflow-x-auto">
+              {categoriasUnicas.map(cat => (
+                <Button
+                  key={cat}
+                  variant={selectedCategory === cat ? 'default' : 'secondary'}
+                  className={`px-4 py-2 rounded-full border ${selectedCategory === cat ? 'bg-lime-700 text-white' : 'bg-white text-gray-700'}`}
+                  onClick={() => setSelectedCategory(cat)}
+                >
+                  {cat}
+                </Button>
               ))}
             </div>
-          )}
-        </div>
-
-        {/* Sidebar */}
-        <div className="w-[400px] bg-white p-6 border-l flex flex-col rounded-none md:rounded-xl md:shadow md:my-8 md:mr-8">
-          <h2 className="text-xl font-bold mb-4 text-gray-800">Meu Pedido</h2>
-          
-          {/* Seção de Cliente */}
-          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-gray-700">Cliente</h3>
-              {clienteSelecionado && (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={removerCliente}
-                  className="text-xs h-6 px-2"
-                >
-                  <FiX className="w-3 h-3" />
-                </Button>
-              )}
-            </div>
-            
-            {clienteSelecionado ? (
-              <div className="bg-white p-2 rounded border">
-                <div className="flex items-center gap-2">
-                  <FiUser className="text-blue-600 text-sm" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-800 text-sm truncate">{clienteSelecionado.nome}</p>
-                    <p className="text-xs text-gray-600">
-                      {clienteSelecionado.telefone || clienteSelecionado.celular || 'Sem telefone'} | 
-                      #{clienteSelecionado.numero_cliente}
-                    </p>
-                  </div>
-                </div>
-              </div>
+            {loading ? (
+              <div className="text-center text-gray-500 py-20">Carregando produtos...</div>
+            ) : produtos.length === 0 ? (
+              <div className="text-center text-red-500 py-20">Nenhum produto cadastrado ou erro ao buscar produtos.</div>
             ) : (
-              <div className="relative" ref={clienteSearchRef}>
-                <div className="relative">
-                  <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    type="text"
-                    placeholder="Buscar cliente..."
-                    value={searchCliente}
-                    onChange={(e) => handleSearchCliente(e.target.value)}
-                    className="pl-10 pr-8 h-8 text-sm"
-                    onFocus={() => {
-                      if (searchCliente.length >= 2) {
-                        setShowClienteDropdown(true);
-                      }
-                    }}
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 px-2 text-xs"
-                  >
-                    <FiUserPlus className="w-3 h-3" />
-                  </Button>
-                </div>
-                
-                {/* Dropdown de resultados */}
-                {showClienteDropdown && (
-                  <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
-                    {loadingClientes ? (
-                      <div className="p-3 text-center text-sm text-gray-500">Carregando...</div>
-                    ) : clientes.length === 0 ? (
-                      <div className="p-3 text-center text-sm text-gray-500">Nenhum cliente encontrado</div>
-                    ) : (
-                      <div className="py-1">
-                        {clientes.map((cliente) => (
-                          <div
-                            key={cliente.id}
-                            onClick={() => selecionarCliente(cliente)}
-                            className="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                          >
-                            <div className="font-semibold text-sm text-gray-800">{cliente.nome}</div>
-                            <div className="text-xs text-gray-600">
-                              {cliente.telefone || cliente.celular || 'Sem telefone'} | 
-                              Cliente #{cliente.numero_cliente}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {produtosExibidos.map(product => (
+                  <div key={product.id} className="bg-white rounded-lg shadow p-3 flex flex-col items-center border border-lime-100 w-full">
+                    <img 
+                      src={product.imagem_url || '/assets/imagens/imagem-produto.jpg'} 
+                      alt={product.nome} 
+                      className="w-16 h-16 object-cover rounded-full mb-1"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/assets/imagens/imagem-produto.jpg'; }}
+                    />
+                    <div className="font-semibold text-base mb-0.5 text-gray-800 text-center truncate w-full">{product.nome}</div>
+                    <div className="text-lime-700 font-bold text-sm mb-0.5">R$ {product.preco.toFixed(2)}</div>
+                    <div className="text-xs text-gray-500 mb-1 text-center line-clamp-2">{product.descricao}</div>
+                    <Button
+                      className="w-full mt-auto text-xs py-1"
+                      onClick={() => addToCart(product)}
+                    >
+                      Adicionar ao carrinho
+                    </Button>
                   </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Sidebar */}
+          <div className="w-[600px] bg-white p-6 border-l flex flex-col rounded-none md:rounded-xl md:shadow md:my-8 md:mr-8">
+            <h2 className="text-xl font-bold mb-4 text-gray-800">Meu Pedido</h2>
+            
+            {/* Seção de Cliente */}
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold text-gray-700">Cliente</h3>
+                {clienteSelecionado && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={removerCliente}
+                    className="text-xs h-6 px-2"
+                  >
+                    <FiX className="w-3 h-3" />
+                  </Button>
                 )}
               </div>
-            )}
-          </div>
-
-          <div className="flex gap-2 mb-4">
-            {['Local', 'Retirada', 'Entrega'].map(type => (
-              <Button
-                key={type}
-                variant={orderType === type ? 'default' : 'secondary'}
-                className="px-3 py-1 rounded-full text-xs"
-                onClick={() => setOrderType(type)}
-              >
-                {type}
-              </Button>
-            ))}
-          </div>
-          <div className="flex-1 overflow-y-auto mb-4">
-            {cart.length === 0 ? (
-              <div className="text-gray-400 text-center mt-10">Carrinho vazio</div>
-            ) : (
-              cart.map(item => (
-                <div key={item.id} className="flex items-center justify-between mb-4 border-b pb-2">
-                  <div>
-                    <div className="font-semibold text-gray-800">{item.nome}</div>
-                    <div className="text-xs text-gray-500">Unidade</div>
-                    <div className="text-lime-700 font-bold">R$ {item.preco.toFixed(2)}</div>
-                  </div>
+              
+              {clienteSelecionado ? (
+                <div className="bg-white p-2 rounded border">
                   <div className="flex items-center gap-2">
-                    <Button variant="secondary" size="icon" onClick={() => changeQty(item.id, -1)}>-</Button>
-                    <span>{item.qty}</span>
-                    <Button variant="secondary" size="icon" onClick={() => changeQty(item.id, 1)}>+</Button>
+                    <FiUser className="text-blue-600 text-sm" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-800 text-sm truncate">{clienteSelecionado.nome}</p>
+                      <p className="text-xs text-gray-600">
+                        {clienteSelecionado.telefone || clienteSelecionado.celular || 'Sem telefone'} | 
+                        #{clienteSelecionado.numero_cliente}
+                      </p>
+                    </div>
                   </div>
-                  <Button variant="destructive" size="icon" onClick={() => removeFromCart(item.id)} className="ml-2">×</Button>
                 </div>
-              ))
-            )}
-          </div>
-          <div className="mb-4">
-            <div className="flex justify-between text-sm mb-1">
-              <span>Itens</span>
-              <span>R$ {subtotal.toFixed(2)}</span>
+              ) : (
+                <div className="relative" ref={clienteSearchRef}>
+                  <div className="relative">
+                    <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Input
+                      type="text"
+                      placeholder="Buscar cliente..."
+                      value={searchCliente}
+                      onChange={(e) => handleSearchCliente(e.target.value)}
+                      className="pl-10 pr-8 h-8 text-sm"
+                      onFocus={() => {
+                        if (searchCliente.length >= 2) {
+                          setShowClienteDropdown(true);
+                        }
+                      }}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 px-2 text-xs"
+                    >
+                      <FiUserPlus className="w-3 h-3" />
+                    </Button>
+                  </div>
+                  
+                  {/* Dropdown de resultados */}
+                  {showClienteDropdown && (
+                    <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
+                      {loadingClientes ? (
+                        <div className="p-3 text-center text-sm text-gray-500">Carregando...</div>
+                      ) : clientes.length === 0 ? (
+                        <div className="p-3 text-center text-sm text-gray-500">Nenhum cliente encontrado</div>
+                      ) : (
+                        <div className="py-1">
+                          {clientes.map((cliente) => (
+                            <div
+                              key={cliente.id}
+                              onClick={() => selecionarCliente(cliente)}
+                              className="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                            >
+                              <div className="font-semibold text-sm text-gray-800">{cliente.nome}</div>
+                              <div className="text-xs text-gray-600">
+                                {cliente.telefone || cliente.celular || 'Sem telefone'} | 
+                                Cliente #{cliente.numero_cliente}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            <div className="flex justify-between text-sm mb-1">
-              <span>Desconto</span>
-              <span className="text-red-500">R$ {discount.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between font-bold text-md">
-              <span>Total</span>
-              <span>R$ {total.toFixed(2)}</span>
-            </div>
-          </div>
-          <div className="mb-4">
-            <div className="font-semibold mb-2">Pagamento</div>
-            <div className="flex gap-2 mb-2">
-              {['Dinheiro', 'Débito', 'Pix'].map(type => (
+
+            <div className="flex gap-2 mb-4">
+              {['Local', 'Retirada', 'Entrega'].map(type => (
                 <Button
                   key={type}
-                  variant={paymentType === type ? 'default' : 'secondary'}
-                  className="px-4 py-1 rounded-full text-xs"
-                  onClick={() => setPaymentType(type)}
+                  variant={orderType === type ? 'default' : 'secondary'}
+                  className="px-3 py-1 rounded-full text-xs"
+                  onClick={() => setOrderType(type)}
                 >
                   {type}
                 </Button>
               ))}
             </div>
+            <div className="flex-1 overflow-y-auto mb-4">
+              {cart.length === 0 ? (
+                <div className="text-gray-400 text-center mt-10">Carrinho vazio</div>
+              ) : (
+                cart.map(item => (
+                  <div key={item.id} className="flex items-center justify-between mb-4 border-b pb-2">
+                    <div>
+                      <div className="font-semibold text-gray-800">{item.nome}</div>
+                      <div className="text-xs text-gray-500">Unidade</div>
+                      <div className="text-lime-700 font-bold">R$ {item.preco.toFixed(2)}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="secondary" size="icon" onClick={() => changeQty(item.id, -1)}>-</Button>
+                      <span>{item.qty}</span>
+                      <Button variant="secondary" size="icon" onClick={() => changeQty(item.id, 1)}>+</Button>
+                    </div>
+                    <Button variant="destructive" size="icon" onClick={() => removeFromCart(item.id)} className="ml-2">×</Button>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="mb-4">
+              <div className="flex justify-between text-sm mb-1">
+                <span>Itens</span>
+                <span>R$ {subtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm mb-1">
+                <span>Desconto</span>
+                <span className="text-red-500">R$ {discount.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between font-bold text-md">
+                <span>Total</span>
+                <span>R$ {total.toFixed(2)}</span>
+              </div>
+            </div>
+            <div className="mb-4">
+              <div className="font-semibold mb-2">Pagamento</div>
+              <div className="flex gap-2 mb-2">
+                {['Dinheiro', 'Débito', 'Pix'].map(type => (
+                  <Button
+                    key={type}
+                    variant={paymentType === type ? 'default' : 'secondary'}
+                    className="px-4 py-1 rounded-full text-xs"
+                    onClick={() => setPaymentType(type)}
+                  >
+                    {type}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <Button 
+              className="w-full py-3 font-bold text-lg mt-2"
+              onClick={finalizarVenda}
+              disabled={cart.length === 0}
+            >
+              Finalizar venda
+            </Button>
           </div>
-          <Button 
-            className="w-full py-3 font-bold text-lg mt-2"
-            onClick={finalizarVenda}
-            disabled={cart.length === 0}
-          >
-            Finalizar venda
-          </Button>
         </div>
-      </div>
-    </MenuLayout>
+      ) : (
+        // Modo normal - com MenuLayout
+        <MenuLayout>
+          <div ref={pdvRef} className="flex min-h-screen bg-white relative w-full p-0 m-0">
+            {/* Botão tela cheia */}
+            <Button
+              onClick={toggleFullscreen}
+              variant="secondary"
+              className="absolute top-4 right-8 z-50 flex items-center gap-2"
+              title="Tela cheia"
+            >
+              <FiMaximize />
+              Tela Cheia
+            </Button>
+
+            {/* Main */}
+            <div className="flex-1 p-8">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-gray-500">{new Date().toLocaleDateString('pt-BR')}</div>
+                  <h1 className="text-2xl font-bold text-lime-700">PDV - Caixa</h1>
+                </div>
+                <div className="w-full max-w-xl ml-8">
+                  <SearchInput
+                    placeholder="Buscar produto por nome, código ou categoria..."
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    autoFocus={false}
+                  />
+                </div>
+              </div>
+
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-700">Escolha o produto</h2>
+                <Button variant="link" className="text-lime-700 font-semibold p-0 h-auto">Ver todos</Button>
+              </div>
+              <div className="mb-4 flex gap-2 overflow-x-auto">
+                {categoriasUnicas.map(cat => (
+                  <Button
+                    key={cat}
+                    variant={selectedCategory === cat ? 'default' : 'secondary'}
+                    className={`px-4 py-2 rounded-full border ${selectedCategory === cat ? 'bg-lime-700 text-white' : 'bg-white text-gray-700'}`}
+                    onClick={() => setSelectedCategory(cat)}
+                  >
+                    {cat}
+                  </Button>
+                ))}
+              </div>
+              {loading ? (
+                <div className="text-center text-gray-500 py-20">Carregando produtos...</div>
+              ) : produtos.length === 0 ? (
+                <div className="text-center text-red-500 py-20">Nenhum produto cadastrado ou erro ao buscar produtos.</div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {produtosExibidos.map(product => (
+                    <div key={product.id} className="bg-white rounded-lg shadow p-3 flex flex-col items-center border border-lime-100 w-full">
+                      <img 
+                        src={product.imagem_url || '/assets/imagens/imagem-produto.jpg'} 
+                        alt={product.nome} 
+                        className="w-16 h-16 object-cover rounded-full mb-1"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/assets/imagens/imagem-produto.jpg'; }}
+                      />
+                      <div className="font-semibold text-base mb-0.5 text-gray-800 text-center truncate w-full">{product.nome}</div>
+                      <div className="text-lime-700 font-bold text-sm mb-0.5">R$ {product.preco.toFixed(2)}</div>
+                      <div className="text-xs text-gray-500 mb-1 text-center line-clamp-2">{product.descricao}</div>
+                      <Button
+                        className="w-full mt-auto text-xs py-1"
+                        onClick={() => addToCart(product)}
+                      >
+                        Adicionar ao carrinho
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Sidebar */}
+            <div className="w-[600px] bg-white p-6 border-l flex flex-col rounded-none md:rounded-xl md:shadow md:my-8 md:mr-8">
+              <h2 className="text-xl font-bold mb-4 text-gray-800">Meu Pedido</h2>
+              
+              {/* Seção de Cliente */}
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-semibold text-gray-700">Cliente</h3>
+                  {clienteSelecionado && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={removerCliente}
+                      className="text-xs h-6 px-2"
+                    >
+                      <FiX className="w-3 h-3" />
+                    </Button>
+                  )}
+                </div>
+                
+                {clienteSelecionado ? (
+                  <div className="bg-white p-2 rounded border">
+                    <div className="flex items-center gap-2">
+                      <FiUser className="text-blue-600 text-sm" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-800 text-sm truncate">{clienteSelecionado.nome}</p>
+                        <p className="text-xs text-gray-600">
+                          {clienteSelecionado.telefone || clienteSelecionado.celular || 'Sem telefone'} | 
+                          #{clienteSelecionado.numero_cliente}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative" ref={clienteSearchRef}>
+                    <div className="relative">
+                      <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      <Input
+                        type="text"
+                        placeholder="Buscar cliente..."
+                        value={searchCliente}
+                        onChange={(e) => handleSearchCliente(e.target.value)}
+                        className="pl-10 pr-8 h-8 text-sm"
+                        onFocus={() => {
+                          if (searchCliente.length >= 2) {
+                            setShowClienteDropdown(true);
+                          }
+                        }}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 px-2 text-xs"
+                      >
+                        <FiUserPlus className="w-3 h-3" />
+                      </Button>
+                    </div>
+                    
+                    {/* Dropdown de resultados */}
+                    {showClienteDropdown && (
+                      <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
+                        {loadingClientes ? (
+                          <div className="p-3 text-center text-sm text-gray-500">Carregando...</div>
+                        ) : clientes.length === 0 ? (
+                          <div className="p-3 text-center text-sm text-gray-500">Nenhum cliente encontrado</div>
+                        ) : (
+                          <div className="py-1">
+                            {clientes.map((cliente) => (
+                              <div
+                                key={cliente.id}
+                                onClick={() => selecionarCliente(cliente)}
+                                className="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                              >
+                                <div className="font-semibold text-sm text-gray-800">{cliente.nome}</div>
+                                <div className="text-xs text-gray-600">
+                                  {cliente.telefone || cliente.celular || 'Sem telefone'} | 
+                                  Cliente #{cliente.numero_cliente}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2 mb-4">
+                {['Local', 'Retirada', 'Entrega'].map(type => (
+                  <Button
+                    key={type}
+                    variant={orderType === type ? 'default' : 'secondary'}
+                    className="px-3 py-1 rounded-full text-xs"
+                    onClick={() => setOrderType(type)}
+                  >
+                    {type}
+                  </Button>
+                ))}
+              </div>
+              <div className="flex-1 overflow-y-auto mb-4">
+                {cart.length === 0 ? (
+                  <div className="text-gray-400 text-center mt-10">Carrinho vazio</div>
+                ) : (
+                  cart.map(item => (
+                    <div key={item.id} className="flex items-center justify-between mb-4 border-b pb-2">
+                      <div>
+                        <div className="font-semibold text-gray-800">{item.nome}</div>
+                        <div className="text-xs text-gray-500">Unidade</div>
+                        <div className="text-lime-700 font-bold">R$ {item.preco.toFixed(2)}</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button variant="secondary" size="icon" onClick={() => changeQty(item.id, -1)}>-</Button>
+                        <span>{item.qty}</span>
+                        <Button variant="secondary" size="icon" onClick={() => changeQty(item.id, 1)}>+</Button>
+                      </div>
+                      <Button variant="destructive" size="icon" onClick={() => removeFromCart(item.id)} className="ml-2">×</Button>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="mb-4">
+                <div className="flex justify-between text-sm mb-1">
+                  <span>Itens</span>
+                  <span>R$ {subtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span>Desconto</span>
+                  <span className="text-red-500">R$ {discount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between font-bold text-md">
+                  <span>Total</span>
+                  <span>R$ {total.toFixed(2)}</span>
+                </div>
+              </div>
+              <div className="mb-4">
+                <div className="font-semibold mb-2">Pagamento</div>
+                <div className="flex gap-2 mb-2">
+                  {['Dinheiro', 'Débito', 'Pix'].map(type => (
+                    <Button
+                      key={type}
+                      variant={paymentType === type ? 'default' : 'secondary'}
+                      className="px-4 py-1 rounded-full text-xs"
+                      onClick={() => setPaymentType(type)}
+                    >
+                      {type}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              <Button 
+                className="w-full py-3 font-bold text-lg mt-2"
+                onClick={finalizarVenda}
+                disabled={cart.length === 0}
+              >
+                Finalizar venda
+              </Button>
+            </div>
+          </div>
+        </MenuLayout>
+      )}
+    </>
   );
 } 
