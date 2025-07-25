@@ -16,6 +16,7 @@ interface Produto {
   categoria?: string;
   imagem_url?: string;
   tipo: string;
+  codigo_barras?: string;
 }
 
 interface Cliente {
@@ -29,7 +30,7 @@ interface Cliente {
 }
 
 export default function CaixaPage() {
-  const { usuarioData } = useAuth();
+  const { user, usuarioData } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState('Todos');
   const [cart, setCart] = useState<(Produto & { qty: number })[]>([]);
   const [orderType, setOrderType] = useState('Local');
@@ -147,7 +148,7 @@ export default function CaixaPage() {
       if (!usuarioData?.empresa_id) return;
       const { data, error } = await supabase
         .from('produtos_servicos')
-        .select('id, nome, preco, obs, categoria, imagens_url, tipo, ativo')
+        .select('id, nome, preco, obs, categoria, imagens_url, tipo, ativo, codigo_barras')
         .eq('empresa_id', usuarioData.empresa_id)
         .eq('ativo', true)
         .eq('tipo', 'produto')
@@ -173,9 +174,46 @@ export default function CaixaPage() {
     ...Array.from(new Set(produtos.map(p => p.categoria).filter(Boolean)))
   ];
 
+  // Filtro de produtos incluindo busca parcial por código de barras
   const filteredProducts = selectedCategory === 'Todos'
-    ? produtos
-    : produtos.filter(p => p.categoria === selectedCategory);
+    ? produtos.filter(p => {
+        const nome = p.nome?.toLowerCase() || '';
+        const categoria = p.categoria?.toLowerCase() || '';
+        const codigoBarras = (p.codigo_barras || '').toString().toLowerCase();
+        const termo = searchTerm.toLowerCase();
+        if (termo) {
+          console.log('DEBUG codigo_barras:', codigoBarras, 'termo:', termo);
+        }
+        return (
+          nome.includes(termo) ||
+          codigoBarras.includes(termo) ||
+          categoria.includes(termo) ||
+          termo === ''
+        );
+      })
+    : produtos.filter(p => {
+        const nome = p.nome?.toLowerCase() || '';
+        const codigoBarras = (p.codigo_barras || '').toString().toLowerCase();
+        const termo = searchTerm.toLowerCase();
+        return (
+          p.categoria === selectedCategory &&
+          (nome.includes(termo) || codigoBarras.includes(termo) || termo === '')
+        );
+      });
+
+  // Se o usuário digitar um código de barras exato e só houver um produto, adicionar automaticamente ao carrinho
+  useEffect(() => {
+    if (searchTerm.length > 4) {
+      const match = produtos.find(
+        p => (p.codigo_barras || '').toString().toLowerCase() === searchTerm.toLowerCase()
+      );
+      if (match) {
+        addToCart(match);
+        setSearchTerm('');
+      }
+    }
+    // eslint-disable-next-line
+  }, [searchTerm]);
 
   // Exibir apenas os 9 primeiros produtos
   const produtosExibidos = filteredProducts.slice(0, 9);
@@ -208,15 +246,57 @@ export default function CaixaPage() {
   const discount = 0;
   const total = subtotal + discount;
 
+  const [usuarioId, setUsuarioId] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchUsuarioId() {
+      if (user?.id) {
+        const { data, error } = await supabase
+          .from('usuarios')
+          .select('id')
+          .eq('auth_user_id', user.id)
+          .maybeSingle();
+        if (data?.id) setUsuarioId(data.id);
+      }
+    }
+    fetchUsuarioId();
+  }, [user]);
+
+  // Função para registrar venda no Supabase
+  async function registrarVendaNoSupabase() {
+    if (!usuarioId || !usuarioData?.empresa_id) return;
+    const payload = {
+      cliente_id: clienteSelecionado?.id || null,
+      usuario_id: usuarioId,
+      produtos: cart.map(item => ({
+        id: item.id,
+        nome: item.nome,
+        preco: item.preco,
+        qtd: item.qty,
+        codigo_barras: item.codigo_barras || null
+      })),
+      total: total,
+      desconto: 0, // ajuste se houver desconto
+      acrescimo: 0, // ajuste se houver acrescimo
+      forma_pagamento: paymentType,
+      tipo_pedido: orderType,
+      status: 'finalizada',
+      observacoes: '',
+      empresa_id: usuarioData.empresa_id,
+      data_venda: new Date().toISOString(),
+    };
+    const { error } = await supabase.from('vendas').insert([payload]);
+    if (error) {
+      alert('Erro ao registrar venda: ' + error.message);
+      return false;
+    }
+    return true;
+  }
+
   // Finalizar venda
-  const finalizarVenda = () => {
+  const finalizarVenda = async () => {
     if (cart.length === 0) {
       alert('Adicione produtos ao carrinho antes de finalizar a venda.');
-      return;
-    }
-    
-    if (!clienteSelecionado) {
-      alert('Selecione um cliente antes de finalizar a venda.');
       return;
     }
 
@@ -228,6 +308,10 @@ export default function CaixaPage() {
       formaPagamento: paymentType,
       tipoPedido: orderType
     });
+
+    // Se houver cliente, registrar venda no cadastro do cliente (agora integrado ao Supabase)
+    const ok = await registrarVendaNoSupabase();
+    if (!ok) return;
 
     alert('Venda finalizada com sucesso!');
     
@@ -288,20 +372,20 @@ export default function CaixaPage() {
           ) : produtos.length === 0 ? (
             <div className="text-center text-red-500 py-20">Nenhum produto cadastrado ou erro ao buscar produtos.</div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {produtosExibidos.map(product => (
-                <div key={product.id} className="bg-white rounded-xl shadow p-4 flex flex-col items-center border border-lime-100 w-full">
+                <div key={product.id} className="bg-white rounded-lg shadow p-3 flex flex-col items-center border border-lime-100 w-full">
                   <img 
                     src={product.imagem_url || '/assets/imagens/imagem-produto.jpg'} 
                     alt={product.nome} 
-                    className="w-24 h-24 object-cover rounded-full mb-2"
+                    className="w-16 h-16 object-cover rounded-full mb-1"
                     onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/assets/imagens/imagem-produto.jpg'; }}
                   />
-                  <div className="font-semibold text-lg mb-1 text-gray-800">{product.nome}</div>
-                  <div className="text-lime-700 font-bold text-md mb-1">R$ {product.preco.toFixed(2)}</div>
-                  <div className="text-xs text-gray-500 mb-2 text-center">{product.descricao}</div>
+                  <div className="font-semibold text-base mb-0.5 text-gray-800 text-center truncate w-full">{product.nome}</div>
+                  <div className="text-lime-700 font-bold text-sm mb-0.5">R$ {product.preco.toFixed(2)}</div>
+                  <div className="text-xs text-gray-500 mb-1 text-center line-clamp-2">{product.descricao}</div>
                   <Button
-                    className="w-full mt-auto"
+                    className="w-full mt-auto text-xs py-1"
                     onClick={() => addToCart(product)}
                   >
                     Adicionar ao carrinho
@@ -465,7 +549,7 @@ export default function CaixaPage() {
           <Button 
             className="w-full py-3 font-bold text-lg mt-2"
             onClick={finalizarVenda}
-            disabled={cart.length === 0 || !clienteSelecionado}
+            disabled={cart.length === 0}
           >
             Finalizar venda
           </Button>
