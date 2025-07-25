@@ -7,7 +7,6 @@ import {
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
-import MenuLayout from '@/components/MenuLayout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useSession } from '@supabase/auth-helpers-react'
 import { Session } from '@supabase/auth-helpers-nextjs'
@@ -140,25 +139,24 @@ export default function UsuariosPage() {
   }
 
   return (
-    <ProtectedRoute allowedLevels={['admin']}>
-      <main className="p-4 sm:p-6 md:p-10">
+    <ProtectedRoute>
+      <main className="p-8">
         <Card>
           <CardHeader>
-            <CardTitle>Gerenciar Usuários</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-500">
-              Aqui você poderá adicionar, editar e remover usuários vinculados à empresa.
-            </p>
-            <div className="flex justify-between items-center mb-4">
-              <p className="text-sm text-gray-600">Usuários cadastrados na empresa:</p>
+            <div className="flex justify-between items-center">
+              <CardTitle>Gerenciar Usuários</CardTitle>
               <button
                 onClick={() => setMostrarFormulario(!mostrarFormulario)}
-                className="bg-black text-white text-sm px-4 py-2 rounded hover:bg-gray-800 transition"
+                className="bg-black text-white px-4 py-2 rounded-md text-sm hover:bg-gray-800 transition"
               >
-                {mostrarFormulario ? 'Cancelar' : '+ Adicionar novo usuário'}
+                + Adicionar novo usuário
               </button>
             </div>
+            <p className="text-gray-600 text-sm">
+              Aqui você poderá adicionar, editar e remover usuários vinculados à empresa.
+            </p>
+          </CardHeader>
+          <CardContent>
             {mostrarFormulario && (
               <form className="mt-4 space-y-4 bg-gray-100 p-4 rounded" onSubmit={handleSubmit}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -5,13 +5,18 @@ import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import MenuLayout from '@/components/MenuLayout';
 import { useToast } from '@/components/Toast';
+import { FiArrowLeft } from 'react-icons/fi';
+import { Button } from '@/components/Button';
 
 const AREAS_SISTEMA = [
   { key: 'dashboard', label: 'Dashboard' },
   { key: 'clientes', label: 'Clientes' },
   { key: 'ordens', label: 'Ordens de Serviço' },
   { key: 'equipamentos', label: 'Equipamentos' },
+  { key: 'bancada', label: 'Bancada' },
+  { key: 'caixa', label: 'Caixa/PDV' },
   { key: 'financeiro', label: 'Financeiro' },
+  { key: 'vendas', label: 'Vendas' },
   { key: 'configuracoes', label: 'Configurações' },
   { key: 'lembretes', label: 'Lembretes' },
 ];
@@ -76,9 +81,9 @@ export default function EditarUsuarioPage() {
       if (value === 'tecnico') {
         permissoesPadrao = ['ordens', 'clientes', 'bancada'];
       } else if (value === 'financeiro') {
-        permissoesPadrao = ['dashboard', 'lembretes', 'clientes', 'ordens', 'equipamentos', 'financeiro'];
+        permissoesPadrao = ['dashboard', 'lembretes', 'clientes', 'ordens', 'equipamentos', 'financeiro', 'vendas'];
       } else if (value === 'atendente') {
-        permissoesPadrao = ['lembretes', 'clientes', 'ordens', 'equipamentos', 'dashboard'];
+        permissoesPadrao = ['lembretes', 'clientes', 'ordens', 'equipamentos', 'dashboard', 'caixa'];
       } else if (value === 'admin') {
         permissoesPadrao = AREAS_SISTEMA.map(a => a.key);
       }
@@ -125,17 +130,29 @@ export default function EditarUsuarioPage() {
       addToast('error', result.error || 'Erro ao salvar alterações');
     } else {
       addToast('success', 'Usuário atualizado com sucesso!');
-      router.push('/configuracoes/usuarios');
+      router.push('/configuracoes?tab=1');
     }
   };
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Editar Usuário</h1>
+    <MenuLayout>
+      <div className="p-8">
+        <div className="flex items-center gap-4 mb-6">
+          <Button
+            variant="secondary"
+            onClick={() => router.back()}
+            className="flex items-center gap-2"
+          >
+            <FiArrowLeft />
+            Voltar
+          </Button>
+          <h1 className="text-2xl font-bold">Editar Usuário</h1>
+        </div>
+        
         {loading ? (
-          <div>Carregando...</div>
+          <div className="text-center py-20">Carregando...</div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="max-w-2xl space-y-4">
             <div>
               <label className="block text-sm font-medium mb-1">Nome</label>
               <input
@@ -241,15 +258,26 @@ export default function EditarUsuarioPage() {
                 ))}
               </div>
             </div>
-            <button
-              type="submit"
-              className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800 transition"
-              disabled={saving}
-            >
-              {saving ? 'Salvando...' : 'Salvar Alterações'}
-            </button>
+            <div className="flex gap-4 pt-4">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => router.push('/configuracoes?tab=1')}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={saving}
+                className="flex-1"
+              >
+                {saving ? 'Salvando...' : 'Salvar Alterações'}
+              </Button>
+            </div>
           </form>
         )}
-    </div>
+      </div>
+    </MenuLayout>
   );
 } 
