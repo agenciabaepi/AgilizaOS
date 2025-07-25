@@ -117,26 +117,14 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             <SidebarButton path="/equipamentos" icon={<FiBox size={20} />} label="Produtos/Serviços" isActive={pathname === '/equipamentos'} />
           )}
           {podeVer('financeiro') && (
-            <div>
-              <button
-                className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg transition font-medium text-base ${pathname.startsWith('/financeiro') ? 'bg-lime-100 text-black' : 'hover:bg-zinc-100 text-zinc-700'}`}
-                onClick={() => setShowFinanceiroSub((v) => !v)}
-              >
-                <span className="min-w-[24px] flex items-center justify-center"><FiDollarSign size={20} /></span>
-                <span>Financeiro</span>
-                <FiChevronDown className={`ml-auto transition-transform ${showFinanceiroSub ? 'rotate-180' : ''}`} size={16} />
-              </button>
-              {showFinanceiroSub && (
-                <div className="ml-8 mt-1 flex flex-col gap-1">
-                  <SidebarButton
-                    path="/financeiro/contas-a-pagar"
-                    icon={<FiFileText size={18} />}
-                    label="Contas a Pagar"
-                    isActive={pathname === '/financeiro/contas-a-pagar'}
-                  />
-                </div>
-              )}
-            </div>
+            <>
+              <SidebarButton path="/financeiro" icon={<FiDollarSign size={20} />} label="Financeiro" isActive={pathname.startsWith('/financeiro')} />
+              <div className="ml-6 flex flex-col gap-1">
+                <SidebarButton path="/financeiro/vendas" icon={<FiFileText size={18} />} label="Vendas" isActive={pathname === '/financeiro/vendas'} />
+                <SidebarButton path="/financeiro/contas-a-pagar" icon={<FiFileText size={18} />} label="Contas a Pagar" isActive={pathname === '/financeiro/contas-a-pagar'} />
+                {/* outros subitens de financeiro aqui */}
+              </div>
+            </>
           )}
           {podeVer('bancada') && (
             <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" isActive={pathname === '/bancada'} />
@@ -207,26 +195,14 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                 <SidebarButton path="/equipamentos" icon={<FiBox size={20} />} label="Produtos/Serviços" isActive={pathname === '/equipamentos'} />
               )}
               {podeVer('financeiro') && (
-                <div>
-                  <button
-                    className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg transition font-medium text-base ${pathname.startsWith('/financeiro') ? 'bg-lime-100 text-black' : 'hover:bg-zinc-100 text-zinc-700'}`}
-                    onClick={() => setShowFinanceiroSub((v) => !v)}
-                  >
-                    <span className="min-w-[24px] flex items-center justify-center"><FiDollarSign size={20} /></span>
-                    <span>Financeiro</span>
-                    <FiChevronDown className={`ml-auto transition-transform ${showFinanceiroSub ? 'rotate-180' : ''}`} size={16} />
-                  </button>
-                  {showFinanceiroSub && (
-                    <div className="ml-8 mt-1 flex flex-col gap-1">
-                      <SidebarButton
-                        path="/financeiro/contas-a-pagar"
-                        icon={<FiFileText size={18} />}
-                        label="Contas a Pagar"
-                        isActive={pathname === '/financeiro/contas-a-pagar'}
-                      />
-                    </div>
-                  )}
-                </div>
+                <>
+                  <SidebarButton path="/financeiro" icon={<FiDollarSign size={20} />} label="Financeiro" isActive={pathname.startsWith('/financeiro')} />
+                  <div className="ml-6 flex flex-col gap-1">
+                    <SidebarButton path="/financeiro/vendas" icon={<FiFileText size={18} />} label="Vendas" isActive={pathname === '/financeiro/vendas'} />
+                    <SidebarButton path="/financeiro/contas-a-pagar" icon={<FiFileText size={18} />} label="Contas a Pagar" isActive={pathname === '/financeiro/contas-a-pagar'} />
+                    {/* outros subitens de financeiro aqui */}
+                  </div>
+                </>
               )}
               {podeVer('bancada') && (
                 <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" isActive={pathname === '/bancada'} />
