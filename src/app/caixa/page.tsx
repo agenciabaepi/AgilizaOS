@@ -9,8 +9,13 @@ import { Input } from '@/components/Input';
 import { SearchInput } from '@/components/SearchInput';
 import { ToastProvider, useToast } from '@/components/Toast';
 import { ConfirmProvider, useConfirm } from '@/components/ConfirmDialog';
-import { Dialog } from '@/components/Dialog';
+import Dialog from '@/components/Dialog';
 import { CupomVenda } from '@/components/CupomVenda';
+import { useCaixa } from '@/hooks/useCaixa';
+import { AbrirCaixaModal } from '@/components/caixa/AbrirCaixaModal';
+import { FecharCaixaModal } from '@/components/caixa/FecharCaixaModal';
+import { FiUnlock, FiLock, FiMinus, FiPlus } from 'react-icons/fi';
+import ProtectedRoute from '@/components/ProtectedRoute';
 
 interface Produto {
   id: string;
@@ -320,6 +325,12 @@ export default function CaixaPage() {
       return;
     }
 
+    if (!turnoAtual) {
+      addToast('error', 'Abra o caixa antes de realizar vendas!');
+      setModalAbrirCaixa(true);
+      return;
+    }
+
     // Aqui você pode implementar a lógica de finalização da venda
     console.log('Finalizando venda:', {
       cliente: clienteSelecionado,
@@ -335,6 +346,10 @@ export default function CaixaPage() {
       addToast('error', 'Erro ao registrar venda!');
       return;
     }
+
+    // Registrar venda no caixa
+    await registrarVenda(numeroVenda.toString(), total - desconto + acrescimo);
+
     addToast('success', 'Venda finalizada com sucesso!');
     setUltimaVenda({
       numeroVenda: numeroVenda,
@@ -360,545 +375,691 @@ export default function CaixaPage() {
     }
   };
 
+  // Funções para movimentações
+  const handleSangria = async () => {
+    if (!turnoAtual) return;
+    
+    const valor = parseFloat(valorMovimentacao.replace(',', '.'));
+    if (isNaN(valor) || valor <= 0) {
+      addToast('error', 'Valor inválido');
+      return;
+    }
+
+    try {
+      await adicionarMovimentacao('sangria', valor, descricaoMovimentacao);
+      addToast('success', 'Sangria realizada com sucesso');
+      setModalSangria(false);
+      setValorMovimentacao('');
+      setDescricaoMovimentacao('');
+    } catch (error) {
+      addToast('error', 'Erro ao realizar sangria');
+    }
+  };
+
+  const handleSuprimento = async () => {
+    if (!turnoAtual) return;
+    
+    const valor = parseFloat(valorMovimentacao.replace(',', '.'));
+    if (isNaN(valor) || valor <= 0) {
+      addToast('error', 'Valor inválido');
+      return;
+    }
+
+    try {
+      await adicionarMovimentacao('suprimento', valor, descricaoMovimentacao);
+      addToast('success', 'Suprimento realizado com sucesso');
+      setModalSuprimento(false);
+      setValorMovimentacao('');
+      setDescricaoMovimentacao('');
+    } catch (error) {
+      addToast('error', 'Erro ao realizar suprimento');
+    }
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
+  };
+
+  const { 
+    turnoAtual, 
+    loading: caixaLoading, 
+    abrirCaixa, 
+    fecharCaixa, 
+    adicionarMovimentacao, 
+    registrarVenda, 
+    calcularSaldoAtual 
+  } = useCaixa();
+  
+  const [modalAbrirCaixa, setModalAbrirCaixa] = useState(false);
+  const [modalFecharCaixa, setModalFecharCaixa] = useState(false);
+  const [modalSangria, setModalSangria] = useState(false);
+  const [modalSuprimento, setModalSuprimento] = useState(false);
+  const [valorMovimentacao, setValorMovimentacao] = useState('');
+  const [descricaoMovimentacao, setDescricaoMovimentacao] = useState('');
+
   return (
     <ToastProvider>
       <ConfirmProvider>
-        {isFullscreen ? (
-          // Modo tela cheia - sem MenuLayout
-          <div className="fixed inset-0 bg-white z-50 flex">
-            {/* Botão tela cheia */}
-            <Button
-              onClick={toggleFullscreen}
-              variant="secondary"
-              className="absolute top-4 right-8 z-50 flex items-center gap-2"
-              title="Sair do modo tela cheia"
-            >
-              <FiMinimize />
-              Sair da Tela Cheia
-            </Button>
-
-            {/* Main */}
-            <div className="flex-1 p-8">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <div className="text-xs text-gray-500">{new Date().toLocaleDateString('pt-BR')}</div>
-                 
-                </div>
-                <div className="w-full max-w-xl ml-8">
-                  <SearchInput
-                    placeholder="Buscar produto por nome, código ou categoria..."
-                    value={searchTerm}
-                    onChange={e => setSearchTerm(e.target.value)}
-                    autoFocus={false}
-                  />
-                </div>
-              </div>
-
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-700">Escolha o produto</h2>
-                <Button variant="link" className="text-lime-700 font-semibold p-0 h-auto">Ver todos</Button>
-              </div>
-              <div className="mb-4 flex gap-2 overflow-x-auto">
-                {categoriasUnicas.map(cat => (
-                  <Button
-                    key={cat}
-                    variant={selectedCategory === cat ? 'default' : 'secondary'}
-                    className={`px-4 py-2 rounded-full border ${selectedCategory === cat ? 'bg-lime-700 text-white' : 'bg-white text-gray-700'}`}
-                    onClick={() => setSelectedCategory(cat)}
-                  >
-                    {cat}
-                  </Button>
-                ))}
-              </div>
-              {loading ? (
-                <div className="text-center text-gray-500 py-20">Carregando produtos...</div>
-              ) : produtos.length === 0 ? (
-                <div className="text-center text-red-500 py-20">Nenhum produto cadastrado ou erro ao buscar produtos.</div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {produtosExibidos.map(product => (
-                    <div key={product.id} className="bg-white rounded-lg shadow p-3 flex flex-col items-center border border-lime-100 w-full">
-                      <img 
-                        src={product.imagem_url || '/assets/imagens/imagem-produto.jpg'} 
-                        alt={product.nome} 
-                        className="w-16 h-16 object-cover rounded-full mb-1"
-                        onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/assets/imagens/imagem-produto.jpg'; }}
-                      />
-                      <div className="font-semibold text-base mb-0.5 text-gray-800 text-center truncate w-full">{product.nome}</div>
-                      <div className="text-lime-700 font-bold text-sm mb-0.5">R$ {product.preco.toFixed(2)}</div>
-                      <div className="text-xs text-gray-500 mb-1 text-center line-clamp-2">{product.descricao}</div>
-                      <Button
-                        className="w-full mt-auto text-xs py-1"
-                        onClick={() => addToCart(product)}
-                      >
-                        Adicionar ao carrinho
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Sidebar */}
-            <div className="w-[600px] bg-white p-6 border-l flex flex-col rounded-none md:rounded-xl md:shadow md:my-8 md:mr-8">
-              <h2 className="text-xl font-bold mb-4 text-gray-800">Meu Pedido</h2>
-              
-              {/* Seção de Cliente */}
-              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-semibold text-gray-700">Cliente</h3>
-                  {clienteSelecionado && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={removerCliente}
-                      className="text-xs h-6 px-2"
-                    >
-                      <FiX className="w-3 h-3" />
-                    </Button>
-                  )}
-                </div>
-                
-                {clienteSelecionado ? (
-                  <div className="bg-white p-2 rounded border">
-                    <div className="flex items-center gap-2">
-                      <FiUser className="text-blue-600 text-sm" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-800 text-sm truncate">{clienteSelecionado.nome}</p>
-                        <p className="text-xs text-gray-600">
-                          {clienteSelecionado.telefone || clienteSelecionado.celular || 'Sem telefone'} | 
-                          #{clienteSelecionado.numero_cliente}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="relative" ref={clienteSearchRef}>
-                    <div className="relative">
-                      <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <Input
-                        type="text"
-                        placeholder="Buscar cliente..."
-                        value={searchCliente}
-                        onChange={(e) => handleSearchCliente(e.target.value)}
-                        className="pl-10 pr-8 h-8 text-sm"
-                        onFocus={() => {
-                          if (searchCliente.length >= 2) {
-                            setShowClienteDropdown(true);
-                          }
-                        }}
-                      />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 px-2 text-xs"
-                      >
-                        <FiUserPlus className="w-3 h-3" />
-                      </Button>
-                    </div>
-                    
-                    {/* Dropdown de resultados */}
-                    {showClienteDropdown && (
-                      <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
-                        {loadingClientes ? (
-                          <div className="p-3 text-center text-sm text-gray-500">Carregando...</div>
-                        ) : clientes.length === 0 ? (
-                          <div className="p-3 text-center text-sm text-gray-500">Nenhum cliente encontrado</div>
-                        ) : (
-                          <div className="py-1">
-                            {clientes.map((cliente) => (
-                              <div
-                                key={cliente.id}
-                                onClick={() => selecionarCliente(cliente)}
-                                className="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                              >
-                                <div className="font-semibold text-sm text-gray-800">{cliente.nome}</div>
-                                <div className="text-xs text-gray-600">
-                                  {cliente.telefone || cliente.celular || 'Sem telefone'} | 
-                                  Cliente #{cliente.numero_cliente}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-2 mb-4">
-                {['Local', 'Retirada', 'Entrega'].map(type => (
-                  <Button
-                    key={type}
-                    variant={orderType === type ? 'default' : 'secondary'}
-                    className="px-3 py-1 rounded-full text-xs"
-                    onClick={() => setOrderType(type)}
-                  >
-                    {type}
-                  </Button>
-                ))}
-              </div>
-              <div className="flex-1 overflow-y-auto mb-4">
-                {cart.length === 0 ? (
-                  <div className="text-gray-400 text-center mt-10">Carrinho vazio</div>
-                ) : (
-                  cart.map(item => (
-                    <div key={item.id} className="flex items-center justify-between mb-4 border-b pb-2">
-                      <div>
-                        <div className="font-semibold text-gray-800">{item.nome}</div>
-                        <div className="text-xs text-gray-500">Unidade</div>
-                        <div className="text-lime-700 font-bold">R$ {item.preco.toFixed(2)}</div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="secondary" size="icon" onClick={() => changeQty(item.id, -1)}>-</Button>
-                        <span>{item.qty}</span>
-                        <Button variant="secondary" size="icon" onClick={() => changeQty(item.id, 1)}>+</Button>
-                      </div>
-                      <Button variant="destructive" size="icon" onClick={() => removeFromCart(item.id)} className="ml-2">×</Button>
-                    </div>
-                  ))
-                )}
-              </div>
-              <div className="mb-4">
-                <div className="flex justify-between text-sm mb-1">
-                  <span>Itens</span>
-                  <span>R$ {subtotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span>Desconto</span>
-                  <span className="text-red-500">R$ {discount.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between font-bold text-md">
-                  <span>Total</span>
-                  <span>R$ {total.toFixed(2)}</span>
-                </div>
-              </div>
-              <Button 
-                className="w-full py-3 font-bold text-lg mt-2"
-                onClick={() => setModalFecharVenda(true)}
-                disabled={cart.length === 0}
-              >
-                Fechar venda
-              </Button>
-            </div>
-          </div>
-        ) : (
-          // Modo normal - com MenuLayout
-          <MenuLayout>
-            <div ref={pdvRef} className="flex min-h-screen bg-white relative w-full p-0 m-0">
-              {/* Botão tela cheia */}
-              <Button
-                onClick={toggleFullscreen}
-                variant="secondary"
-                className="absolute top-4 right-8 z-50 flex items-center gap-2"
-                title="Tela cheia"
-              >
-                <FiMaximize />
-                Tela Cheia
-              </Button>
-
-              {/* Main */}
-              <div className="flex-1 p-8">
-                <div className="mb-4 flex items-center justify-between">
-                  <div>
-                    <div className="text-xs text-gray-500">{new Date().toLocaleDateString('pt-BR')}</div>
-                  
-                  </div>
-                  <div className="w-full max-w-xl ml-8">
-                    <SearchInput
-                      placeholder="Buscar produto por nome, código ou categoria..."
-                      value={searchTerm}
-                      onChange={e => setSearchTerm(e.target.value)}
-                      autoFocus={false}
-                    />
-                  </div>
-                </div>
-
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-gray-700">Escolha o produto</h2>
-                  <Button variant="link" className="text-lime-700 font-semibold p-0 h-auto">Ver todos</Button>
-                </div>
-                <div className="mb-4 flex gap-2 overflow-x-auto">
-                  {categoriasUnicas.map(cat => (
-                    <Button
-                      key={cat}
-                      variant={selectedCategory === cat ? 'default' : 'secondary'}
-                      className={`px-4 py-2 rounded-full border ${selectedCategory === cat ? 'bg-lime-700 text-white' : 'bg-white text-gray-700'}`}
-                      onClick={() => setSelectedCategory(cat)}
-                    >
-                      {cat}
-                    </Button>
-                  ))}
-                </div>
-                {loading ? (
-                  <div className="text-center text-gray-500 py-20">Carregando produtos...</div>
-                ) : produtos.length === 0 ? (
-                  <div className="text-center text-red-500 py-20">Nenhum produto cadastrado ou erro ao buscar produtos.</div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    {produtosExibidos.map(product => (
-                      <div key={product.id} className="bg-white rounded-lg shadow p-3 flex flex-col items-center border border-lime-100 w-full">
-                        <img 
-                          src={product.imagem_url || '/assets/imagens/imagem-produto.jpg'} 
-                          alt={product.nome} 
-                          className="w-16 h-16 object-cover rounded-full mb-1"
-                          onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/assets/imagens/imagem-produto.jpg'; }}
-                        />
-                        <div className="font-semibold text-base mb-0.5 text-gray-800 text-center truncate w-full">{product.nome}</div>
-                        <div className="text-lime-700 font-bold text-sm mb-0.5">R$ {product.preco.toFixed(2)}</div>
-                        <div className="text-xs text-gray-500 mb-1 text-center line-clamp-2">{product.descricao}</div>
-                        <Button
-                          className="w-full mt-auto text-xs py-1"
-                          onClick={() => addToCart(product)}
-                        >
-                          Adicionar ao carrinho
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Sidebar */}
-              <div className="w-[600px] bg-white p-6 border-l flex flex-col rounded-none md:rounded-xl md:shadow md:my-8 md:mr-8">
-                <h2 className="text-xl font-bold mb-4 text-gray-800">Meu Pedido</h2>
-                
-                {/* Seção de Cliente */}
-                <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-semibold text-gray-700">Cliente</h3>
-                    {clienteSelecionado && (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={removerCliente}
-                        className="text-xs h-6 px-2"
-                      >
-                        <FiX className="w-3 h-3" />
-                      </Button>
-                    )}
-                  </div>
-                  
-                  {clienteSelecionado ? (
-                    <div className="bg-white p-2 rounded border">
-                      <div className="flex items-center gap-2">
-                        <FiUser className="text-blue-600 text-sm" />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-gray-800 text-sm truncate">{clienteSelecionado.nome}</p>
-                          <p className="text-xs text-gray-600">
-                            {clienteSelecionado.telefone || clienteSelecionado.celular || 'Sem telefone'} | 
-                            #{clienteSelecionado.numero_cliente}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="relative" ref={clienteSearchRef}>
-                      <div className="relative">
-                        <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                        <Input
-                          type="text"
-                          placeholder="Buscar cliente..."
-                          value={searchCliente}
-                          onChange={(e) => handleSearchCliente(e.target.value)}
-                          className="pl-10 pr-8 h-8 text-sm"
-                          onFocus={() => {
-                            if (searchCliente.length >= 2) {
-                              setShowClienteDropdown(true);
-                            }
-                          }}
-                        />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 px-2 text-xs"
-                        >
-                          <FiUserPlus className="w-3 h-3" />
-                        </Button>
-                      </div>
+        <ProtectedRoute>
+          <div className={`min-h-screen bg-gray-50 ${isFullscreen ? 'h-screen overflow-hidden' : ''}`}>
+            
+            {!isFullscreen ? (
+              <MenuLayout>
+                {/* Layout dividido em duas colunas - 50% cada */}
+                <div className="flex h-[calc(100vh-80px)]">
+                  {/* Produtos - Lado Esquerdo (50%) */}
+                  <div className="flex-1 p-6">
+                    <div className="mb-6">
+                      <h1 className="text-2xl font-bold mb-4">Escolha o produto</h1>
                       
-                      {/* Dropdown de resultados */}
-                      {showClienteDropdown && (
-                        <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
-                          {loadingClientes ? (
-                            <div className="p-3 text-center text-sm text-gray-500">Carregando...</div>
-                          ) : clientes.length === 0 ? (
-                            <div className="p-3 text-center text-sm text-gray-500">Nenhum cliente encontrado</div>
-                          ) : (
-                            <div className="py-1">
-                              {clientes.map((cliente) => (
-                                <div
-                                  key={cliente.id}
-                                  onClick={() => selecionarCliente(cliente)}
-                                  className="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                                >
-                                  <div className="font-semibold text-sm text-gray-800">{cliente.nome}</div>
-                                  <div className="text-xs text-gray-600">
-                                    {cliente.telefone || cliente.celular || 'Sem telefone'} | 
-                                    Cliente #{cliente.numero_cliente}
-                                  </div>
+                      <div className="mb-4">
+                        <SearchInput
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          placeholder="Buscar produto por nome, código ou categoria..."
+                          className="w-full"
+                        />
+                      </div>
+
+                      <div className="flex gap-2 mb-4">
+                        {categoriasUnicas.map(category => (
+                          <Button
+                            key={category}
+                            variant={selectedCategory === category ? 'default' : 'secondary'}
+                            onClick={() => setSelectedCategory(category)}
+                            className="px-4 py-2"
+                          >
+                            {category}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {loading ? (
+                      <div className="text-center text-gray-500 py-20">Carregando produtos...</div>
+                    ) : produtos.length === 0 ? (
+                      <div className="text-center text-red-500 py-20">Nenhum produto cadastrado ou erro ao buscar produtos.</div>
+                    ) : (
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 overflow-auto">
+                        {produtosExibidos.map(produto => (
+                          <div key={produto.id} className="bg-white rounded-lg shadow-sm border p-2">
+                            <div className="aspect-square bg-gray-100 rounded-lg mb-2 flex items-center justify-center">
+                              {produto.imagem_url ? (
+                                <img 
+                                  src={produto.imagem_url} 
+                                  alt={produto.nome}
+                                  className="w-full h-full object-cover rounded-lg"
+                                />
+                              ) : (
+                                <div className="w-12 h-12 bg-gray-300 rounded-full"></div>
+                              )}
+                            </div>
+                            <h3 className="font-semibold text-xs mb-1 line-clamp-2 text-center">{produto.nome}</h3>
+                            <p className="text-sm font-bold text-green-600 mb-2 text-center">
+                              R$ {produto.preco.toFixed(2)}
+                            </p>
+                            <Button
+                              onClick={() => {
+                                if (!turnoAtual) {
+                                  addToast('warning', 'Abra o caixa antes de adicionar produtos!');
+                                  setModalAbrirCaixa(true);
+                                  return;
+                                }
+                                addToCart(produto);
+                              }}
+                              className="w-full py-1 text-xs"
+                            >
+                              Adicionar ao carrinho
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Meu Pedido - Lado Direito (50%) */}
+                  <div className="w-1/2 bg-white border-l shadow-lg flex flex-col">
+                    <div className="p-6 border-b">
+                      <div className="flex items-center justify-between">
+                        <h2 className="text-xl font-bold">Meu Pedido</h2>
+                        <Button
+                          onClick={toggleFullscreen}
+                          variant="secondary"
+                          size="sm"
+                        >
+                          <FiMaximize size={16} />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Cliente */}
+                    <div className="p-4 border-b bg-gray-50">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Cliente</label>
+                      {clienteSelecionado ? (
+                        <div className="bg-white p-3 rounded-lg border flex items-center justify-between">
+                          <div>
+                            <p className="font-medium">{clienteSelecionado.nome}</p>
+                            <p className="text-sm text-gray-500">#{clienteSelecionado.numero_cliente}</p>
+                          </div>
+                          <Button size="sm" variant="secondary" onClick={() => setClienteSelecionado(null)}>
+                            <FiX size={16} />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="relative" ref={clienteSearchRef}>
+                          <SearchInput
+                            value={searchCliente}
+                            onChange={(e) => handleSearchCliente(e.target.value)}
+                            placeholder="Buscar cliente..."
+                            className="w-full"
+                          />
+                          {showClienteDropdown && (
+                            <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-lg shadow-lg z-10 max-h-48 overflow-auto">
+                              {loadingClientes ? (
+                                <div className="p-3 text-center text-sm text-gray-500">Carregando...</div>
+                              ) : clientes.length === 0 ? (
+                                <div className="p-3 text-center text-sm text-gray-500">Nenhum cliente encontrado</div>
+                              ) : (
+                                <div className="py-1">
+                                  {clientes.map((cliente) => (
+                                    <div
+                                      key={cliente.id}
+                                      onClick={() => selecionarCliente(cliente)}
+                                      className="p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
+                                    >
+                                      <p className="font-medium">{cliente.nome}</p>
+                                      <p className="text-sm text-gray-500">Cliente #{cliente.numero_cliente}</p>
+                                    </div>
+                                  ))}
                                 </div>
-                              ))}
+                              )}
                             </div>
                           )}
                         </div>
                       )}
                     </div>
-                  )}
+
+                    {/* Tipo de Pedido */}
+                    <div className="p-4 border-b">
+                      <div className="font-semibold mb-2">Tipo de Pedido</div>
+                      <div className="flex gap-2">
+                        {['Local', 'Retirada', 'Entrega'].map(type => (
+                          <Button
+                            key={type}
+                            variant={orderType === type ? 'default' : 'secondary'}
+                            className="px-3 py-1 text-xs"
+                            onClick={() => setOrderType(type)}
+                          >
+                            {type}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Itens do Carrinho */}
+                    <div className="flex-1 overflow-auto p-4">
+                      {cart.length === 0 ? (
+                        <div className="text-center text-gray-500 py-8">
+                          {!turnoAtual ? (
+                            <div>
+                              <p>Abra o caixa para começar</p>
+                              <Button 
+                                onClick={() => setModalAbrirCaixa(true)}
+                                className="mt-2 bg-green-600 hover:bg-green-700"
+                                size="sm"
+                              >
+                                <FiUnlock size={16} className="mr-2" />
+                                Abrir Caixa
+                              </Button>
+                            </div>
+                          ) : (
+                            <p>Nenhum produto adicionado</p>
+                          )}
+                        </div>
+                      ) : (
+                        cart.map(item => (
+                          <div key={item.id} className="flex items-center justify-between py-3 border-b">
+                            <div className="flex-1">
+                              <p className="font-medium text-sm">{item.nome}</p>
+                              <p className="text-sm text-gray-500">R$ {item.preco.toFixed(2)}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button size="sm" variant="secondary" onClick={() => changeQty(item.id, -1)}>-</Button>
+                              <span className="w-8 text-center font-medium">{item.qty}</span>
+                              <Button size="sm" variant="secondary" onClick={() => changeQty(item.id, 1)}>+</Button>
+                              <Button size="sm" variant="secondary" onClick={() => removeFromCart(item.id)}>
+                                <FiX size={16} />
+                              </Button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    {/* Controles do Caixa (quando caixa aberto) */}
+                    {turnoAtual && (
+                      <div className="p-4 border-t border-b bg-gray-50">
+                        <div className="flex gap-2">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setModalSangria(true)}
+                            className="flex items-center gap-1"
+                          >
+                            <FiMinus size={14} />
+                            Sangria
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setModalSuprimento(true)}
+                            className="flex items-center gap-1"
+                          >
+                            <FiPlus size={14} />
+                            Suprimento
+                          </Button>
+                          <Button
+                            onClick={() => setModalFecharCaixa(true)}
+                            size="sm"
+                            className="bg-red-600 hover:bg-red-700 flex items-center gap-1"
+                          >
+                            <FiLock size={14} />
+                            Fechar Caixa
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Totais e Finalização */}
+                    <div className="p-4 border-t bg-gray-50">
+                      <div className="flex justify-between font-bold text-lg mb-4">
+                        <span>Total</span>
+                        <span>R$ {total.toFixed(2)}</span>
+                      </div>
+                      <Button 
+                        className="w-full py-3 font-bold text-lg"
+                        onClick={() => {
+                          if (!turnoAtual) {
+                            addToast('warning', 'Abra o caixa antes de finalizar vendas!');
+                            setModalAbrirCaixa(true);
+                            return;
+                          }
+                          setModalFecharVenda(true);
+                        }}
+                        disabled={cart.length === 0}
+                      >
+                        Fechar venda
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </MenuLayout>
+            ) : (
+              // Modo Tela Cheia - Layout Original
+              <div ref={pdvRef} className="h-screen bg-gray-50 flex">
+                <div className="flex-1 p-4">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="text-xs text-gray-500">{new Date().toLocaleDateString('pt-BR')}</div>
+                    <div className="flex-1 max-w-xl mx-8">
+                      <SearchInput
+                        placeholder="Buscar produto..."
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                    <Button onClick={toggleFullscreen} size="sm" variant="secondary">
+                      <FiMinimize size={14} />
+                    </Button>
+                  </div>
+
+                  <div className="mb-4 flex gap-2 overflow-x-auto">
+                    {categoriasUnicas.map(cat => (
+                      <Button
+                        key={cat}
+                        variant={selectedCategory === cat ? 'default' : 'secondary'}
+                        className={`px-3 py-1 text-sm ${selectedCategory === cat ? 'bg-lime-700 text-white' : 'bg-white text-gray-700'}`}
+                        onClick={() => setSelectedCategory(cat)}
+                      >
+                        {cat}
+                      </Button>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+                    {produtosExibidos.map(product => (
+                      <div key={product.id} className="bg-white rounded-lg shadow p-2">
+                        <div className="aspect-square bg-gray-100 rounded-lg mb-1 flex items-center justify-center">
+                          <img 
+                            src={product.imagem_url || '/assets/imagens/imagem-produto.jpg'} 
+                            alt={product.nome} 
+                            className="w-full h-full object-cover rounded-lg"
+                          />
+                        </div>
+                        <div className="font-semibold text-xs text-center truncate">{product.nome}</div>
+                        <div className="text-green-600 font-bold text-xs text-center">R$ {product.preco.toFixed(2)}</div>
+                        <Button
+                          className="w-full mt-1 text-xs py-1"
+                          onClick={() => {
+                            if (!turnoAtual) {
+                              addToast('warning', 'Abra o caixa antes de adicionar produtos!');
+                              setModalAbrirCaixa(true);
+                              return;
+                            }
+                            addToCart(product);
+                          }}
+                        >
+                          Adicionar
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="flex gap-2 mb-4">
-                  {['Local', 'Retirada', 'Entrega'].map(type => (
-                    <Button
-                      key={type}
-                      variant={orderType === type ? 'default' : 'secondary'}
-                      className="px-3 py-1 rounded-full text-xs"
-                      onClick={() => setOrderType(type)}
-                    >
-                      {type}
-                    </Button>
-                  ))}
-                </div>
-                <div className="flex-1 overflow-y-auto mb-4">
-                  {cart.length === 0 ? (
-                    <div className="text-gray-400 text-center mt-10">Carrinho vazio</div>
-                  ) : (
-                    cart.map(item => (
-                      <div key={item.id} className="flex items-center justify-between mb-4 border-b pb-2">
+                {/* Sidebar em tela cheia - Original */}
+                <div className="w-96 bg-white border-l flex flex-col p-4">
+                  <h2 className="text-lg font-bold mb-4">Meu Pedido</h2>
+                  
+                  {/* Cliente compacto */}
+                  <div className="mb-3 p-2 bg-gray-50 rounded">
+                    {clienteSelecionado ? (
+                      <div className="flex items-center justify-between">
                         <div>
-                          <div className="font-semibold text-gray-800">{item.nome}</div>
-                          <div className="text-xs text-gray-500">Unidade</div>
-                          <div className="text-lime-700 font-bold">R$ {item.preco.toFixed(2)}</div>
+                          <p className="font-medium text-sm">{clienteSelecionado.nome}</p>
+                          <p className="text-xs text-gray-500">#{clienteSelecionado.numero_cliente}</p>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="secondary" size="icon" onClick={() => changeQty(item.id, -1)}>-</Button>
-                          <span>{item.qty}</span>
-                          <Button variant="secondary" size="icon" onClick={() => changeQty(item.id, 1)}>+</Button>
-                        </div>
-                        <Button variant="destructive" size="icon" onClick={() => removeFromCart(item.id)} className="ml-2">×</Button>
+                        <Button size="sm" onClick={removerCliente}>×</Button>
                       </div>
-                    ))
+                    ) : (
+                      <Input
+                        placeholder="Buscar cliente..."
+                        value={searchCliente}
+                        onChange={(e) => handleSearchCliente(e.target.value)}
+                        className="text-sm"
+                      />
+                    )}
+                  </div>
+
+                  {/* Tipo de pedido compacto */}
+                  <div className="flex gap-1 mb-3">
+                    {['Local', 'Retirada', 'Entrega'].map(type => (
+                      <Button
+                        key={type}
+                        variant={orderType === type ? 'default' : 'secondary'}
+                        className="px-2 py-1 text-xs"
+                        onClick={() => setOrderType(type)}
+                      >
+                        {type}
+                      </Button>
+                    ))}
+                  </div>
+
+                  {/* Carrinho */}
+                  <div className="flex-1 overflow-y-auto mb-3">
+                    {cart.length === 0 ? (
+                      <div className="text-gray-400 text-center mt-10">
+                        {!turnoAtual ? (
+                          <div>
+                            <p className="text-sm">Abra o caixa para começar</p>
+                            <Button 
+                              onClick={() => setModalAbrirCaixa(true)}
+                              className="mt-2 bg-green-600 hover:bg-green-700"
+                              size="sm"
+                            >
+                              Abrir Caixa
+                            </Button>
+                          </div>
+                        ) : (
+                          'Carrinho vazio'
+                        )}
+                      </div>
+                    ) : (
+                      cart.map(item => (
+                        <div key={item.id} className="flex items-center justify-between mb-2 border-b pb-1">
+                          <div className="flex-1">
+                            <p className="font-medium text-sm">{item.nome}</p>
+                            <p className="text-xs text-lime-600">R$ {item.preco.toFixed(2)}</p>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button size="sm" variant="secondary" onClick={() => changeQty(item.id, -1)}>-</Button>
+                            <span className="text-sm w-6 text-center">{item.qty}</span>
+                            <Button size="sm" variant="secondary" onClick={() => changeQty(item.id, 1)}>+</Button>
+                            <Button size="sm" variant="destructive" onClick={() => removeFromCart(item.id)}>×</Button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Controles do caixa em tela cheia */}
+                  {turnoAtual && (
+                    <div className="flex gap-1 mb-2 justify-center">
+                      <Button variant="secondary" size="sm" onClick={() => setModalSangria(true)}>
+                        <FiMinus size={12} />
+                      </Button>
+                      <Button variant="secondary" size="sm" onClick={() => setModalSuprimento(true)}>
+                        <FiPlus size={12} />
+                      </Button>
+                      <Button onClick={() => setModalFecharCaixa(true)} size="sm" className="bg-red-600 hover:bg-red-700">
+                        <FiLock size={12} />
+                      </Button>
+                    </div>
                   )}
+
+                  {/* Total */}
+                  <div className="border-t pt-3">
+                    <div className="flex justify-between font-bold text-lg mb-3">
+                      <span>Total</span>
+                      <span>R$ {total.toFixed(2)}</span>
+                    </div>
+                    <Button 
+                      className="w-full py-2 font-bold"
+                      onClick={() => {
+                        if (!turnoAtual) {
+                          addToast('warning', 'Abra o caixa antes de finalizar vendas!');
+                          setModalAbrirCaixa(true);
+                          return;
+                        }
+                        setModalFecharVenda(true);
+                      }}
+                      disabled={cart.length === 0}
+                    >
+                      Fechar venda
+                    </Button>
+                  </div>
                 </div>
-                <div className="mb-4">
-                  <div className="flex justify-between text-sm mb-1">
-                    <span>Itens</span>
-                    <span>R$ {subtotal.toFixed(2)}</span>
+              </div>
+            )}
+
+            {/* Todos os modais do sistema de caixa */}
+            <AbrirCaixaModal
+              isOpen={modalAbrirCaixa}
+              onClose={() => setModalAbrirCaixa(false)}
+              onConfirm={abrirCaixa}
+              loading={caixaLoading}
+            />
+
+            {turnoAtual && (
+              <FecharCaixaModal
+                isOpen={modalFecharCaixa}
+                onClose={() => setModalFecharCaixa(false)}
+                onConfirm={fecharCaixa}
+                turno={turnoAtual}
+                saldoEsperado={calcularSaldoAtual()}
+                loading={caixaLoading}
+              />
+            )}
+
+            {/* Modal de Sangria */}
+            {modalSangria && (
+              <Dialog onClose={() => setModalSangria(false)}>
+                <div className="p-6 w-full max-w-md">
+                  <h2 className="text-xl font-bold mb-4 text-red-600">Sangria</h2>
+                  <form onSubmit={(e) => { e.preventDefault(); handleSangria(); }}>
+                    <div className="space-y-4">
+                      <Input
+                        type="text"
+                        value={valorMovimentacao}
+                        onChange={(e) => setValorMovimentacao(e.target.value)}
+                        placeholder="Valor"
+                        required
+                        className="text-right"
+                      />
+                      <Input
+                        type="text"
+                        value={descricaoMovimentacao}
+                        onChange={(e) => setDescricaoMovimentacao(e.target.value)}
+                        placeholder="Descrição"
+                        required
+                      />
+                      <div className="flex gap-2">
+                        <Button type="button" variant="secondary" onClick={() => setModalSangria(false)} className="flex-1">
+                          Cancelar
+                        </Button>
+                        <Button type="submit" className="flex-1 bg-red-600 hover:bg-red-700">
+                          Confirmar
+                        </Button>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </Dialog>
+            )}
+
+            {/* Modal de Suprimento */}
+            {modalSuprimento && (
+              <Dialog onClose={() => setModalSuprimento(false)}>
+                <div className="p-6 w-full max-w-md">
+                  <h2 className="text-xl font-bold mb-4 text-blue-600">Suprimento</h2>
+                  <form onSubmit={(e) => { e.preventDefault(); handleSuprimento(); }}>
+                    <div className="space-y-4">
+                      <Input
+                        type="text"
+                        value={valorMovimentacao}
+                        onChange={(e) => setValorMovimentacao(e.target.value)}
+                        placeholder="Valor"
+                        required
+                        className="text-right"
+                      />
+                      <Input
+                        type="text"
+                        value={descricaoMovimentacao}
+                        onChange={(e) => setDescricaoMovimentacao(e.target.value)}
+                        placeholder="Descrição"
+                        required
+                      />
+                      <div className="flex gap-2">
+                        <Button type="button" variant="secondary" onClick={() => setModalSuprimento(false)} className="flex-1">
+                          Cancelar
+                        </Button>
+                        <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700">
+                          Confirmar
+                        </Button>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </Dialog>
+            )}
+
+            {/* Modal de fechamento de venda */}
+            {modalFecharVenda && (
+              <Dialog onClose={() => setModalFecharVenda(false)}>
+                <div className="p-6 max-w-md w-full">
+                  <h2 className="text-xl font-bold mb-4">Finalizar venda</h2>
+                  <div className="mb-4">
+                    <div className="font-semibold mb-2">Resumo dos itens</div>
+                    {cart.map(item => (
+                      <div key={item.id} className="flex justify-between text-sm mb-1">
+                        <span>{item.nome} x{item.qty}</span>
+                        <span>R$ {(item.preco * item.qty).toFixed(2)}</span>
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span>Desconto</span>
-                    <span className="text-red-500">R$ {discount.toFixed(2)}</span>
+                  <div className="mb-4 flex gap-2">
+                    <div className="flex-1">
+                      <label className="block text-xs mb-1">Desconto</label>
+                      <Input type="number" min={0} value={descontoModal} onChange={e => setDescontoModal(Number(e.target.value))} className="w-full" />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs mb-1">Acréscimo</label>
+                      <Input type="number" min={0} value={acrescimoModal} onChange={e => setAcrescimoModal(Number(e.target.value))} className="w-full" />
+                    </div>
                   </div>
-                  <div className="flex justify-between font-bold text-md">
+                  <div className="mb-4">
+                    <div className="font-semibold mb-2">Forma de pagamento</div>
+                    <div className="flex gap-2 mb-2">
+                      {['Dinheiro', 'Débito', 'Pix'].map(type => (
+                        <Button
+                          key={type}
+                          variant={paymentType === type ? 'default' : 'secondary'}
+                          className="px-4 py-1 rounded-full text-xs"
+                          onClick={() => setPaymentType(type)}
+                        >
+                          {type}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex justify-between font-bold text-lg mb-4">
                     <span>Total</span>
-                    <span>R$ {total.toFixed(2)}</span>
+                    <span>R$ {(total - descontoModal + acrescimoModal).toFixed(2)}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button className="flex-1" variant="secondary" onClick={async () => {
+                      const ok = await confirm({
+                        title: 'Cancelar venda',
+                        message: 'Tem certeza que deseja cancelar esta venda? Os produtos permanecerão no carrinho.',
+                        confirmText: 'Sim, cancelar',
+                        cancelText: 'Não, continuar'
+                      });
+                      if (ok) {
+                        setModalFecharVenda(false);
+                      }
+                    }}>Cancelar</Button>
+                    <Button className="flex-1" onClick={async () => {
+                      setModalFecharVenda(false);
+                      await finalizarVenda(descontoModal, acrescimoModal);
+                    }}>Confirmar venda</Button>
                   </div>
                 </div>
-                <Button 
-                  className="w-full py-3 font-bold text-lg mt-2"
-                  onClick={() => setModalFecharVenda(true)}
-                  disabled={cart.length === 0}
-                >
-                  Fechar venda
-                </Button>
-              </div>
-            </div>
-          </MenuLayout>
-        )}
-      </ConfirmProvider>
-      {/* Modal de fechamento de venda */}
-      {modalFecharVenda && (
-        <Dialog onClose={() => setModalFecharVenda(false)}>
-          <div className="p-6 max-w-md w-full">
-            <h2 className="text-xl font-bold mb-4">Finalizar venda</h2>
-            <div className="mb-4">
-              <div className="font-semibold mb-2">Resumo dos itens</div>
-              {cart.map(item => (
-                <div key={item.id} className="flex justify-between text-sm mb-1">
-                  <span>{item.nome} x{item.qty}</span>
-                  <span>R$ {(item.preco * item.qty).toFixed(2)}</span>
+              </Dialog>
+            )}
+
+            {/* Modal de impressão de cupom */}
+            {modalImprimir && ultimaVenda && (
+              <Dialog onClose={() => setModalImprimir(false)}>
+                <div className="p-6 max-w-lg w-full">
+                  <h2 className="text-xl font-bold mb-4 text-center">Cupom da Venda</h2>
+                  
+                  <div className="cupom-impressao">
+                    <CupomVenda
+                      numeroVenda={ultimaVenda.numeroVenda}
+                      cliente={ultimaVenda.cliente}
+                      produtos={ultimaVenda.produtos}
+                      subtotal={ultimaVenda.total - ultimaVenda.acrescimo + ultimaVenda.desconto}
+                      desconto={ultimaVenda.desconto}
+                      acrescimo={ultimaVenda.acrescimo}
+                      total={ultimaVenda.total}
+                      formaPagamento={ultimaVenda.pagamento}
+                      tipoPedido={orderType}
+                      data={ultimaVenda.data}
+                      nomeEmpresa={empresaData?.nome || "AgilizaOS"}
+                    />
+                  </div>
+                  
+                  <div className="flex gap-2 mt-4 no-print">
+                    <Button className="flex-1" variant="secondary" onClick={() => setModalImprimir(false)}>Fechar</Button>
+                    <Button className="flex-1" onClick={() => window.print()}>Imprimir</Button>
+                  </div>
                 </div>
-              ))}
-            </div>
-            <div className="mb-4 flex gap-2">
-              <div className="flex-1">
-                <label className="block text-xs mb-1">Desconto</label>
-                <Input type="number" min={0} value={descontoModal} onChange={e => setDescontoModal(Number(e.target.value))} className="w-full" />
-              </div>
-              <div className="flex-1">
-                <label className="block text-xs mb-1">Acréscimo</label>
-                <Input type="number" min={0} value={acrescimoModal} onChange={e => setAcrescimoModal(Number(e.target.value))} className="w-full" />
-              </div>
-            </div>
-            <div className="mb-4">
-              <div className="font-semibold mb-2">Forma de pagamento</div>
-              <div className="flex gap-2 mb-2">
-                {['Dinheiro', 'Débito', 'Pix'].map(type => (
-                  <Button
-                    key={type}
-                    variant={paymentType === type ? 'default' : 'secondary'}
-                    className="px-4 py-1 rounded-full text-xs"
-                    onClick={() => setPaymentType(type)}
-                  >
-                    {type}
-                  </Button>
-                ))}
-              </div>
-            </div>
-            <div className="flex justify-between font-bold text-lg mb-4">
-              <span>Total</span>
-              <span>R$ {(total - descontoModal + acrescimoModal).toFixed(2)}</span>
-            </div>
-            <div className="flex gap-2">
-              <Button className="flex-1" variant="secondary" onClick={async () => {
-                const ok = await confirm({
-                  title: 'Cancelar venda',
-                  message: 'Tem certeza que deseja cancelar esta venda? Os produtos permanecerão no carrinho.',
-                  confirmText: 'Sim, cancelar',
-                  cancelText: 'Não, continuar'
-                });
-                if (ok) {
-                  setModalFecharVenda(false);
-                }
-              }}>Cancelar</Button>
-              <Button className="flex-1" onClick={async () => {
-                setModalFecharVenda(false);
-                await finalizarVenda(descontoModal, acrescimoModal);
-              }}>Confirmar venda</Button>
-            </div>
+              </Dialog>
+            )}
           </div>
-        </Dialog>
-      )}
-      {/* Modal de impressão de cupom */}
-      {modalImprimir && ultimaVenda && (
-        <Dialog onClose={() => setModalImprimir(false)}>
-          <div className="p-6 max-w-lg w-full">
-            <h2 className="text-xl font-bold mb-4 text-center">Cupom da Venda</h2>
-            
-                          <div className="cupom-impressao">
-                <CupomVenda
-                  numeroVenda={ultimaVenda.numeroVenda}
-                  cliente={ultimaVenda.cliente}
-                  produtos={ultimaVenda.produtos}
-                  subtotal={ultimaVenda.total - ultimaVenda.acrescimo + ultimaVenda.desconto}
-                  desconto={ultimaVenda.desconto}
-                  acrescimo={ultimaVenda.acrescimo}
-                  total={ultimaVenda.total}
-                  formaPagamento={ultimaVenda.pagamento}
-                  tipoPedido={orderType}
-                  data={ultimaVenda.data}
-                  nomeEmpresa={empresaData?.nome || "AgilizaOS"}
-                />
-              </div>
-              
-              <div className="flex gap-2 mt-4 no-print">
-                <Button className="flex-1" variant="secondary" onClick={() => setModalImprimir(false)}>Fechar</Button>
-                <Button className="flex-1" onClick={() => window.print()}>Imprimir</Button>
-              </div>
-          </div>
-        </Dialog>
-      )}
+        </ProtectedRoute>
+      </ConfirmProvider>
     </ToastProvider>
   );
 }

@@ -40,6 +40,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const [showFinanceiroSub, setShowFinanceiroSub] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [financeiroExpanded, setFinanceiroExpanded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -118,12 +119,28 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           )}
           {podeVer('financeiro') && (
             <>
-              <SidebarButton path="/financeiro" icon={<FiDollarSign size={20} />} label="Financeiro" isActive={pathname.startsWith('/financeiro')} />
-              <div className="ml-6 flex flex-col gap-1">
-                <SidebarButton path="/financeiro/vendas" icon={<FiFileText size={18} />} label="Vendas" isActive={pathname === '/financeiro/vendas'} />
-                <SidebarButton path="/financeiro/contas-a-pagar" icon={<FiFileText size={18} />} label="Contas a Pagar" isActive={pathname === '/financeiro/contas-a-pagar'} />
-                {/* outros subitens de financeiro aqui */}
+              <div 
+                className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-zinc-700 hover:bg-zinc-100"
+                onClick={() => setFinanceiroExpanded(!financeiroExpanded)}
+                style={{ minHeight: 48 }}
+              >
+                <div className="flex items-center gap-3">
+                  <FiDollarSign size={20} />
+                  <span>Financeiro</span>
+                </div>
+                <FiChevronDown 
+                  size={16} 
+                  className={`transition-transform ${financeiroExpanded ? 'rotate-180' : ''}`} 
+                />
               </div>
+              
+              {financeiroExpanded && (
+                <div className="ml-6 flex flex-col gap-1 mt-1">
+                  <SidebarButton path="/financeiro/vendas" icon={<FiFileText size={18} />} label="Vendas" isActive={pathname === '/financeiro/vendas'} />
+                  <SidebarButton path="/financeiro/movimentacoes-caixa" icon={<FiDollarSign size={18} />} label="Movimentações Caixa" isActive={pathname === '/financeiro/movimentacoes-caixa'} />
+                  <SidebarButton path="/financeiro/contas-a-pagar" icon={<FiFileText size={18} />} label="Contas a Pagar" isActive={pathname === '/financeiro/contas-a-pagar'} />
+                </div>
+              )}
             </>
           )}
           {podeVer('bancada') && (
@@ -196,12 +213,28 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               )}
               {podeVer('financeiro') && (
                 <>
-                  <SidebarButton path="/financeiro" icon={<FiDollarSign size={20} />} label="Financeiro" isActive={pathname.startsWith('/financeiro')} />
-                  <div className="ml-6 flex flex-col gap-1">
-                    <SidebarButton path="/financeiro/vendas" icon={<FiFileText size={18} />} label="Vendas" isActive={pathname === '/financeiro/vendas'} />
-                    <SidebarButton path="/financeiro/contas-a-pagar" icon={<FiFileText size={18} />} label="Contas a Pagar" isActive={pathname === '/financeiro/contas-a-pagar'} />
-                    {/* outros subitens de financeiro aqui */}
+                  <div 
+                    className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-zinc-700 hover:bg-zinc-100"
+                    onClick={() => setFinanceiroExpanded(!financeiroExpanded)}
+                    style={{ minHeight: 48 }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <FiDollarSign size={20} />
+                      <span>Financeiro</span>
+                    </div>
+                    <FiChevronDown 
+                      size={16} 
+                      className={`transition-transform ${financeiroExpanded ? 'rotate-180' : ''}`} 
+                    />
                   </div>
+                  
+                  {financeiroExpanded && (
+                    <div className="ml-6 flex flex-col gap-1 mt-1">
+                      <SidebarButton path="/financeiro/vendas" icon={<FiFileText size={18} />} label="Vendas" isActive={pathname === '/financeiro/vendas'} />
+                      <SidebarButton path="/financeiro/movimentacoes-caixa" icon={<FiDollarSign size={18} />} label="Movimentações Caixa" isActive={pathname === '/financeiro/movimentacoes-caixa'} />
+                      <SidebarButton path="/financeiro/contas-a-pagar" icon={<FiFileText size={18} />} label="Contas a Pagar" isActive={pathname === '/financeiro/contas-a-pagar'} />
+                    </div>
+                  )}
                 </>
               )}
               {podeVer('bancada') && (
@@ -308,7 +341,7 @@ function SidebarButton({ path, icon, label, isActive, onClick }: { path: string;
       style={{ minHeight: 48 }}
     >
       <span className="min-w-[24px] flex items-center justify-center">{icon}</span>
-      <span>{label}</span>
+      <span className="whitespace-nowrap">{label}</span>
     </button>
   );
 }
