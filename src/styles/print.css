@@ -1,0 +1,32 @@
+@media print {
+  /* Oculta tudo por padrão */
+  body * {
+    visibility: hidden;
+  }
+  
+  /* Mostra apenas o cupom */
+  .cupom-impressao,
+  .cupom-impressao * {
+    visibility: visible;
+  }
+  
+  /* Posiciona o cupom para impressão */
+  .cupom-impressao {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    background: white;
+  }
+  
+  /* Remove margens da página */
+  @page {
+    margin: 0;
+    size: 80mm auto;
+  }
+  
+  /* Remove elementos de interface */
+  .no-print {
+    display: none !important;
+  }
+} 

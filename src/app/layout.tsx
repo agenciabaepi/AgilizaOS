@@ -1,6 +1,7 @@
 'use client'
 
 import './globals.css';
+import '../styles/print.css';
 import { SessionContextProvider } from '@supabase/auth-helpers-react';
 import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
 import { useState } from 'react';

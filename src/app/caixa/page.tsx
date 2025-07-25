@@ -10,6 +10,7 @@ import { SearchInput } from '@/components/SearchInput';
 import { ToastProvider, useToast } from '@/components/Toast';
 import { ConfirmProvider, useConfirm } from '@/components/ConfirmDialog';
 import { Dialog } from '@/components/Dialog';
+import { CupomVenda } from '@/components/CupomVenda';
 
 interface Produto {
   id: string;
@@ -33,7 +34,7 @@ interface Cliente {
 }
 
 export default function CaixaPage() {
-  const { user, usuarioData } = useAuth();
+  const { user, usuarioData, empresaData } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState('Todos');
   const [cart, setCart] = useState<(Produto & { qty: number })[]>([]);
   const [orderType, setOrderType] = useState('Local');
@@ -269,7 +270,22 @@ export default function CaixaPage() {
   // Função para registrar venda no Supabase
   async function registrarVendaNoSupabase(desconto = 0, acrescimo = 0) {
     if (!usuarioId || !usuarioData?.empresa_id) return;
+
+    // Buscar o maior número de venda já existente para gerar o próximo
+    const { data: ultimaVenda } = await supabase
+      .from('vendas')
+      .select('numero_venda')
+      .eq('empresa_id', usuarioData.empresa_id)
+      .order('numero_venda', { ascending: false })
+      .limit(1);
+
+    let proximoNumero = 1;
+    if (ultimaVenda && ultimaVenda.length > 0 && ultimaVenda[0].numero_venda) {
+      proximoNumero = ultimaVenda[0].numero_venda + 1;
+    }
+
     const payload = {
+      numero_venda: proximoNumero,
       cliente_id: clienteSelecionado?.id || null,
       usuario_id: usuarioId,
       produtos: cart.map(item => ({
@@ -294,7 +310,7 @@ export default function CaixaPage() {
       alert('Erro ao registrar venda: ' + error.message);
       return false;
     }
-    return true;
+    return proximoNumero;
   }
 
   // Finalizar venda
@@ -314,13 +330,14 @@ export default function CaixaPage() {
     });
 
     // Se houver cliente, registrar venda no cadastro do cliente (agora integrado ao Supabase)
-    const ok = await registrarVendaNoSupabase(desconto, acrescimo);
-    if (!ok) {
+    const numeroVenda = await registrarVendaNoSupabase(desconto, acrescimo);
+    if (!numeroVenda) {
       addToast('error', 'Erro ao registrar venda!');
       return;
     }
     addToast('success', 'Venda finalizada com sucesso!');
     setUltimaVenda({
+      numeroVenda: numeroVenda,
       cliente: clienteSelecionado,
       produtos: cart,
       total: total - desconto + acrescimo,
@@ -365,7 +382,7 @@ export default function CaixaPage() {
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <div className="text-xs text-gray-500">{new Date().toLocaleDateString('pt-BR')}</div>
-                  <h1 className="text-2xl font-bold text-lime-700">PDV - Caixa</h1>
+                 
                 </div>
                 <div className="w-full max-w-xl ml-8">
                   <SearchInput
@@ -557,21 +574,6 @@ export default function CaixaPage() {
                   <span>R$ {total.toFixed(2)}</span>
                 </div>
               </div>
-              <div className="mb-4">
-                <div className="font-semibold mb-2">Pagamento</div>
-                <div className="flex gap-2 mb-2">
-                  {['Dinheiro', 'Débito', 'Pix'].map(type => (
-                    <Button
-                      key={type}
-                      variant={paymentType === type ? 'default' : 'secondary'}
-                      className="px-4 py-1 rounded-full text-xs"
-                      onClick={() => setPaymentType(type)}
-                    >
-                      {type}
-                    </Button>
-                  ))}
-                </div>
-              </div>
               <Button 
                 className="w-full py-3 font-bold text-lg mt-2"
                 onClick={() => setModalFecharVenda(true)}
@@ -601,7 +603,7 @@ export default function CaixaPage() {
                 <div className="mb-4 flex items-center justify-between">
                   <div>
                     <div className="text-xs text-gray-500">{new Date().toLocaleDateString('pt-BR')}</div>
-                    <h1 className="text-2xl font-bold text-lime-700">PDV - Caixa</h1>
+                  
                   </div>
                   <div className="w-full max-w-xl ml-8">
                     <SearchInput
@@ -793,21 +795,6 @@ export default function CaixaPage() {
                     <span>R$ {total.toFixed(2)}</span>
                   </div>
                 </div>
-                <div className="mb-4">
-                  <div className="font-semibold mb-2">Pagamento</div>
-                  <div className="flex gap-2 mb-2">
-                    {['Dinheiro', 'Débito', 'Pix'].map(type => (
-                      <Button
-                        key={type}
-                        variant={paymentType === type ? 'default' : 'secondary'}
-                        className="px-4 py-1 rounded-full text-xs"
-                        onClick={() => setPaymentType(type)}
-                      >
-                        {type}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
                 <Button 
                   className="w-full py-3 font-bold text-lg mt-2"
                   onClick={() => setModalFecharVenda(true)}
@@ -864,7 +851,17 @@ export default function CaixaPage() {
               <span>R$ {(total - descontoModal + acrescimoModal).toFixed(2)}</span>
             </div>
             <div className="flex gap-2">
-              <Button className="flex-1" variant="secondary" onClick={() => setModalFecharVenda(false)}>Cancelar</Button>
+              <Button className="flex-1" variant="secondary" onClick={async () => {
+                const ok = await confirm({
+                  title: 'Cancelar venda',
+                  message: 'Tem certeza que deseja cancelar esta venda? Os produtos permanecerão no carrinho.',
+                  confirmText: 'Sim, cancelar',
+                  cancelText: 'Não, continuar'
+                });
+                if (ok) {
+                  setModalFecharVenda(false);
+                }
+              }}>Cancelar</Button>
               <Button className="flex-1" onClick={async () => {
                 setModalFecharVenda(false);
                 await finalizarVenda(descontoModal, acrescimoModal);
@@ -876,37 +873,29 @@ export default function CaixaPage() {
       {/* Modal de impressão de cupom */}
       {modalImprimir && ultimaVenda && (
         <Dialog onClose={() => setModalImprimir(false)}>
-          <div className="p-6 max-w-md w-full">
-            <h2 className="text-xl font-bold mb-4">Cupom de Venda</h2>
-            <div className="mb-2 text-sm text-gray-700">{ultimaVenda.data}</div>
-            {ultimaVenda.cliente && (
-              <div className="mb-2 text-sm">Cliente: <span className="font-semibold">{ultimaVenda.cliente.nome}</span></div>
-            )}
-            <div className="mb-4">
-              {ultimaVenda.produtos.map((item: any) => (
-                <div key={item.id} className="flex justify-between text-sm mb-1">
-                  <span>{item.nome} x{item.qty}</span>
-                  <span>R$ {(item.preco * item.qty).toFixed(2)}</span>
-                </div>
-              ))}
-            </div>
-            <div className="mb-2 flex justify-between text-sm">
-              <span>Desconto</span>
-              <span>R$ {ultimaVenda.desconto.toFixed(2)}</span>
-            </div>
-            <div className="mb-2 flex justify-between text-sm">
-              <span>Acréscimo</span>
-              <span>R$ {ultimaVenda.acrescimo.toFixed(2)}</span>
-            </div>
-            <div className="mb-4 flex justify-between font-bold text-lg">
-              <span>Total</span>
-              <span>R$ {ultimaVenda.total.toFixed(2)}</span>
-            </div>
-            <div className="mb-4 text-sm">Pagamento: <span className="font-semibold">{ultimaVenda.pagamento}</span></div>
-            <div className="flex gap-2">
-              <Button className="flex-1" variant="secondary" onClick={() => setModalImprimir(false)}>Fechar</Button>
-              <Button className="flex-1" onClick={() => window.print()}>Imprimir</Button>
-            </div>
+          <div className="p-6 max-w-lg w-full">
+            <h2 className="text-xl font-bold mb-4 text-center">Cupom da Venda</h2>
+            
+                          <div className="cupom-impressao">
+                <CupomVenda
+                  numeroVenda={ultimaVenda.numeroVenda}
+                  cliente={ultimaVenda.cliente}
+                  produtos={ultimaVenda.produtos}
+                  subtotal={ultimaVenda.total - ultimaVenda.acrescimo + ultimaVenda.desconto}
+                  desconto={ultimaVenda.desconto}
+                  acrescimo={ultimaVenda.acrescimo}
+                  total={ultimaVenda.total}
+                  formaPagamento={ultimaVenda.pagamento}
+                  tipoPedido={orderType}
+                  data={ultimaVenda.data}
+                  nomeEmpresa={empresaData?.nome || "AgilizaOS"}
+                />
+              </div>
+              
+              <div className="flex gap-2 mt-4 no-print">
+                <Button className="flex-1" variant="secondary" onClick={() => setModalImprimir(false)}>Fechar</Button>
+                <Button className="flex-1" onClick={() => window.print()}>Imprimir</Button>
+              </div>
           </div>
         </Dialog>
       )}
