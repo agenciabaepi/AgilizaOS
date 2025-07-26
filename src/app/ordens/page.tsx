@@ -54,14 +54,14 @@ interface OrdemTransformada {
   valorFaturado: number;
 }
 
-import MenuLayout from '@/components/MenuLayout';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
 import { FiEye, FiEdit, FiPrinter, FiUsers } from 'react-icons/fi';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import ProtectedArea from '@/components/ProtectedArea';
 import DashboardCard from '@/components/ui/DashboardCard';
+import MenuLayout from '@/components/MenuLayout';
 
 
 export default function ListaOrdensPage() {
@@ -242,18 +242,53 @@ export default function ListaOrdensPage() {
     fetchTecnicos();
   }, [empresaId]);
 
-  const filtered = ordens.filter((os) => {
-    const matchesSearch = os.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      os.aparelho.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      String(os.id).includes(searchTerm);
-    const matchesStatus = statusFilter === '' || os.statusOS === statusFilter;
-    const matchesAparelho = aparelhoFilter === '' || os.aparelho.includes(aparelhoFilter);
-    const matchesTecnico = tecnicoFilter === '' || os.tecnico === tecnicoFilter;
-    return matchesSearch && matchesStatus && matchesAparelho && matchesTecnico;
-  });
+  // Otimização: useMemo para dados filtrados
+  const filtered = useMemo(() => {
+    return ordens.filter((os) => {
+      const matchesSearch = os.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        os.aparelho.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(os.id).includes(searchTerm);
+      const matchesStatus = statusFilter === '' || os.statusOS === statusFilter;
+      const matchesAparelho = aparelhoFilter === '' || os.aparelho.includes(aparelhoFilter);
+      const matchesTecnico = tecnicoFilter === '' || os.tecnico === tecnicoFilter;
+      return matchesSearch && matchesStatus && matchesAparelho && matchesTecnico;
+    });
+  }, [ordens, searchTerm, statusFilter, aparelhoFilter, tecnicoFilter]);
 
-  const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  // Otimização: useMemo para dados paginados
+  const paginated = useMemo(() => {
+    return filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  }, [filtered, currentPage, itemsPerPage]);
+
+  // Otimização: useMemo para total de páginas
+  const totalPages = useMemo(() => {
+    return Math.ceil(filtered.length / itemsPerPage);
+  }, [filtered.length, itemsPerPage]);
+
+  // Otimização: useCallback para handlers
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
+  }, []);
+
+  const handleStatusFilterChange = useCallback((value: string) => {
+    setStatusFilter(value);
+    setCurrentPage(1);
+  }, []);
+
+  const handleAparelhoFilterChange = useCallback((value: string) => {
+    setAparelhoFilter(value);
+    setCurrentPage(1);
+  }, []);
+
+  const handleTecnicoFilterChange = useCallback((value: string) => {
+    setTecnicoFilter(value);
+    setCurrentPage(1);
+  }, []);
+
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page);
+  }, []);
 
   if (!empresaId) {
     return (
@@ -328,13 +363,13 @@ export default function ListaOrdensPage() {
                 type="text"
                 placeholder="Buscar OS..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm bg-white/70 backdrop-blur"
               />
               <select
                 className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm bg-white/70 backdrop-blur"
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(e) => handleStatusFilterChange(e.target.value)}
               >
                 <option value="">Filtrar por Status</option>
                 <option value="Finalizada">Finalizada</option>
@@ -346,7 +381,7 @@ export default function ListaOrdensPage() {
               <select
                 className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm bg-white/70 backdrop-blur"
                 value={aparelhoFilter}
-                onChange={(e) => setAparelhoFilter(e.target.value)}
+                onChange={(e) => handleAparelhoFilterChange(e.target.value)}
               >
                 <option value="">Todos os Tipos</option>
                 <option value="iPhone">Celulares</option>
@@ -356,7 +391,7 @@ export default function ListaOrdensPage() {
               <select
                 className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm bg-white/70 backdrop-blur"
                 value={tecnicoFilter}
-                onChange={(e) => setTecnicoFilter(e.target.value)}
+                onChange={(e) => handleTecnicoFilterChange(e.target.value)}
               >
                 <option value="">Todos os Técnicos</option>
                 <option value="Carlos">Carlos</option>
@@ -455,7 +490,7 @@ export default function ListaOrdensPage() {
             {Array.from({ length: totalPages }, (_, i) => (
               <button
                 key={i}
-                onClick={() => setCurrentPage(i + 1)}
+                onClick={() => handlePageChange(i + 1)}
                 className={`px-3 py-1 rounded-md text-sm font-medium border ${
                   currentPage === i + 1 ? 'bg-[#cffb6d] text-black' : 'bg-white text-gray-700'
                 } hover:bg-lime-400 hover:text-black transition`}

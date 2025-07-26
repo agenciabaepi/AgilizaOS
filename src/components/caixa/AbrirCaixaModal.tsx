@@ -10,6 +10,7 @@ interface AbrirCaixaModalProps {
   onConfirm: (valorAbertura: number, observacoes?: string) => Promise<void>;
   loading?: boolean;
   valorTrocoSugerido?: number;
+  obrigatorio?: boolean; // Não permite fechar sem abrir caixa
 }
 
 export const AbrirCaixaModal: React.FC<AbrirCaixaModalProps> = ({
@@ -17,11 +18,18 @@ export const AbrirCaixaModal: React.FC<AbrirCaixaModalProps> = ({
   onClose,
   onConfirm,
   loading = false,
-  valorTrocoSugerido = 0
+  valorTrocoSugerido = 0,
+  obrigatorio = false
 }) => {
   const [valorAbertura, setValorAbertura] = useState('');
   const [observacoes, setObservacoes] = useState('');
   const [erro, setErro] = useState('');
+
+  useEffect(() => {
+    if (valorTrocoSugerido > 0) {
+      setValorAbertura(valorTrocoSugerido.toString());
+    }
+  }, [valorTrocoSugerido]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,19 +55,37 @@ export const AbrirCaixaModal: React.FC<AbrirCaixaModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <Dialog onClose={onClose}>
+    <Dialog onClose={obrigatorio ? () => {} : onClose}>
       <div className="p-6 w-full max-w-md">
         <div className="flex items-center gap-3 mb-6">
           <div className="p-3 bg-green-100 rounded-full">
             <FiDollarSign className="w-6 h-6 text-green-600" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Abrir Caixa</h2>
-            <p className="text-sm text-gray-500">Informe o valor inicial do caixa</p>
+            <h2 className="text-xl font-bold text-gray-900">
+              {obrigatorio ? 'Caixa Fechado' : 'Abrir Caixa'}
+            </h2>
+            <p className="text-sm text-gray-500">
+              {obrigatorio ? 'É necessário abrir o caixa para continuar' : 'Informe o valor inicial do caixa'}
+            </p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {valorTrocoSugerido > 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <FiInfo className="w-4 h-4 text-blue-600" />
+                <p className="text-sm text-blue-800">
+                  Troco do turno anterior: <strong>R$ {valorTrocoSugerido.toFixed(2)}</strong>
+                </p>
+              </div>
+              <p className="text-xs text-blue-600 mt-1">
+                Este valor foi sugerido automaticamente baseado no fechamento anterior
+              </p>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Valor de Abertura *
@@ -96,18 +122,20 @@ export const AbrirCaixaModal: React.FC<AbrirCaixaModalProps> = ({
           )}
 
           <div className="flex gap-3 pt-4">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={onClose}
-              className="flex-1"
-              disabled={loading}
-            >
-              Cancelar
-            </Button>
+            {!obrigatorio && (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={onClose}
+                className="flex-1"
+                disabled={loading}
+              >
+                Cancelar
+              </Button>
+            )}
             <Button
               type="submit"
-              className="flex-1"
+              className={obrigatorio ? "w-full" : "flex-1"}
               disabled={loading}
             >
               {loading ? 'Abrindo...' : 'Abrir Caixa'}

@@ -1,6 +1,6 @@
 'use client';
+import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
-import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import logo from '@/assets/imagens/logobranco.png';
 import Image from 'next/image';
@@ -75,14 +75,14 @@ export default function CadastroEmpresa() {
     return result.exists;
   }
 
-  useEffect(() => {
+  React.useEffect(() => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     setEmailValido(emailRegex.test(form.email));
     setSenhasIguais(form.senha === form.confirmarSenha);
   }, [form.email, form.senha, form.confirmarSenha]);
 
   // Verificação de email já existente
-  useEffect(() => {
+  React.useEffect(() => {
     const delayDebounceFn = setTimeout(async () => {
       if (form.email && form.email.length > 5) {
         const exists = await verificarEmail(form.email);
@@ -95,7 +95,7 @@ export default function CadastroEmpresa() {
   }, [form.email]);
 
   // Verificação de CPF já existente com debounce
-  useEffect(() => {
+  React.useEffect(() => {
     const delayDebounceFn = setTimeout(async () => {
       const raw = form.cpf.replace(/\D/g, '');
       if (raw.length === 11) {
@@ -181,7 +181,7 @@ export default function CadastroEmpresa() {
       }
       toast.success('Cadastro realizado com sucesso!');
       router.push('/login');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error('Erro ao cadastrar. Tente novamente.');
       console.error(error);
     }

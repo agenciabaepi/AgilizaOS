@@ -430,15 +430,84 @@ export default function CaixaPage() {
     fecharCaixa, 
     adicionarMovimentacao, 
     registrarVenda, 
-    calcularSaldoAtual 
+    calcularSaldoAtual,
+    buscarUltimoValorFechamento
   } = useCaixa();
+
+  // Wrapper para fechar caixa com logs de debug
+  const handleFecharCaixa = async (valorFechamento: number, valorTroco: number, observacoes?: string) => {
+    console.log('Tentando fechar caixa:', { valorFechamento, valorTroco, observacoes });
+    console.log('Turno atual:', turnoAtual);
+    console.log('Saldo esperado:', calcularSaldoAtual());
+    
+    try {
+      await fecharCaixa(valorFechamento, valorTroco, observacoes);
+      console.log('Caixa fechado com sucesso');
+      addToast('success', 'Caixa fechado com sucesso!');
+      setModalFecharCaixa(false);
+      
+      // O caixa foi fechado com sucesso, não precisamos verificar novamente
+      console.log('SUCESSO: Caixa fechou corretamente');
+      
+    } catch (error) {
+      console.error('Erro ao fechar caixa:', error);
+      addToast('error', `Erro ao fechar caixa: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      throw error;
+    }
+  };
   
   const [modalAbrirCaixa, setModalAbrirCaixa] = useState(false);
   const [modalFecharCaixa, setModalFecharCaixa] = useState(false);
   const [modalSangria, setModalSangria] = useState(false);
   const [modalSuprimento, setModalSuprimento] = useState(false);
+  const [modalMovimentacoes, setModalMovimentacoes] = useState(false);
   const [valorMovimentacao, setValorMovimentacao] = useState('');
   const [descricaoMovimentacao, setDescricaoMovimentacao] = useState('');
+  const [valorUltimoFechamento, setValorUltimoFechamento] = useState(0);
+  const [ultimoFechamento, setUltimoFechamento] = useState<{ data: string; usuario: string } | null>(null);
+
+  // Buscar valor do último fechamento quando abrir o modal
+  useEffect(() => {
+    if (modalAbrirCaixa) {
+      buscarUltimoValorFechamento().then(valor => {
+        setValorUltimoFechamento(valor);
+      });
+    }
+  }, [modalAbrirCaixa]);
+
+  // Buscar dados do último fechamento quando o caixa estiver fechado
+  useEffect(() => {
+    if (!turnoAtual && usuarioData?.empresa_id) {
+      buscarUltimoFechamento();
+    }
+  }, [turnoAtual, usuarioData]);
+
+  const buscarUltimoFechamento = async () => {
+    if (!usuarioData?.empresa_id) return;
+
+    try {
+      const { data } = await supabase
+        .from('turnos_caixa')
+        .select(`
+          data_fechamento,
+          usuario:usuario_id(nome)
+        `)
+        .eq('empresa_id', usuarioData.empresa_id)
+        .eq('status', 'fechado')
+        .order('data_fechamento', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (data) {
+        setUltimoFechamento({
+          data: data.data_fechamento,
+          usuario: (data.usuario as any)?.nome || 'N/A'
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao buscar último fechamento:', error);
+    }
+  };
 
   return (
     <ToastProvider>
@@ -448,10 +517,45 @@ export default function CaixaPage() {
             
             {!isFullscreen ? (
               <MenuLayout>
-                {/* Layout dividido em duas colunas - 50% cada */}
-                <div className="flex h-[calc(100vh-80px)]">
+                {/* Tela de bloqueio quando caixa fechado */}
+                {!turnoAtual ? (
+                  <div className="flex items-center justify-center h-[calc(100vh-80px)] bg-gray-50">
+                    <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md">
+                      <div className="mb-6">
+                        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <FiLock className="w-8 h-8 text-red-600" />
+                        </div>
+                        <h1 className="text-2xl font-bold text-gray-800 mb-2">Caixa Fechado</h1>
+                        <p className="text-gray-600 mb-6">
+                          O caixa está fechado. Abra o caixa para começar a realizar vendas.
+                        </p>
+                      </div>
+                      
+                      <Button
+                        onClick={() => setModalAbrirCaixa(true)}
+                        className="w-full py-3 text-lg font-semibold bg-green-600 hover:bg-green-700"
+                      >
+                        <FiUnlock className="w-5 h-5 mr-2" />
+                        Abrir Caixa
+                      </Button>
+                      
+                      <div className="mt-4 text-sm text-gray-500">
+                        {ultimoFechamento ? (
+                          <div>
+                            <div>Último fechamento: {new Date(ultimoFechamento.data).toLocaleString('pt-BR')}</div>
+                            <div>Por: {ultimoFechamento.usuario}</div>
+                          </div>
+                        ) : (
+                          <div>Último fechamento: N/A</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Layout dividido em duas colunas - 50% cada */
+                  <div className="flex h-[calc(100vh-80px)]">
                   {/* Produtos - Lado Esquerdo (50%) */}
-                  <div className="flex-1 p-6">
+                  <div className="w-1/2 p-6">
                     <div className="mb-6">
                       <h1 className="text-2xl font-bold mb-4">Escolha o produto</h1>
                       
@@ -483,22 +587,27 @@ export default function CaixaPage() {
                     ) : produtos.length === 0 ? (
                       <div className="text-center text-red-500 py-20">Nenhum produto cadastrado ou erro ao buscar produtos.</div>
                     ) : (
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 overflow-auto">
+                      <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 overflow-auto">
                         {produtosExibidos.map(produto => (
-                          <div key={produto.id} className="bg-white rounded-lg shadow-sm border p-2">
-                            <div className="aspect-square bg-gray-100 rounded-lg mb-2 flex items-center justify-center">
+                          <div key={produto.id} className="bg-white rounded-lg shadow-sm border p-3 hover:shadow-md transition-shadow">
+                            <div className="aspect-square bg-gray-100 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
                               {produto.imagem_url ? (
                                 <img 
                                   src={produto.imagem_url} 
                                   alt={produto.nome}
                                   className="w-full h-full object-cover rounded-lg"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                  }}
                                 />
-                              ) : (
-                                <div className="w-12 h-12 bg-gray-300 rounded-full"></div>
-                              )}
+                              ) : null}
+                              <div className={`w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-sm font-bold text-gray-600 ${produto.imagem_url ? 'hidden' : ''}`}>
+                                {produto.nome.charAt(0).toUpperCase()}
+                              </div>
                             </div>
-                            <h3 className="font-semibold text-xs mb-1 line-clamp-2 text-center">{produto.nome}</h3>
-                            <p className="text-sm font-bold text-green-600 mb-2 text-center">
+                            <h3 className="font-semibold text-sm mb-2 line-clamp-2 text-center text-gray-800 leading-tight">{produto.nome}</h3>
+                            <p className="text-sm font-bold text-green-600 mb-3 text-center">
                               R$ {produto.preco.toFixed(2)}
                             </p>
                             <Button
@@ -510,9 +619,9 @@ export default function CaixaPage() {
                                 }
                                 addToCart(produto);
                               }}
-                              className="w-full py-1 text-xs"
+                              className="w-full py-2 text-xs font-medium hover:bg-green-600 transition-colors"
                             >
-                              Adicionar ao carrinho
+                              Adicionar
                             </Button>
                           </div>
                         ))}
@@ -521,14 +630,15 @@ export default function CaixaPage() {
                   </div>
 
                   {/* Meu Pedido - Lado Direito (50%) */}
-                  <div className="w-1/2 bg-white border-l shadow-lg flex flex-col">
-                    <div className="p-6 border-b">
+                  <div className="w-1/2 bg-white border-l shadow-lg flex flex-col overflow-hidden">
+                    <div className="p-6 border-b bg-gray-50">
                       <div className="flex items-center justify-between">
-                        <h2 className="text-xl font-bold">Meu Pedido</h2>
+                        <h2 className="text-2xl font-bold text-gray-800">Meu Pedido</h2>
                         <Button
                           onClick={toggleFullscreen}
                           variant="secondary"
                           size="sm"
+                          className="hover:bg-gray-200 transition-colors"
                         >
                           <FiMaximize size={16} />
                         </Button>
@@ -536,15 +646,15 @@ export default function CaixaPage() {
                     </div>
 
                     {/* Cliente */}
-                    <div className="p-4 border-b bg-gray-50">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Cliente</label>
+                    <div className="p-6 border-b bg-white">
+                      <label className="block text-sm font-semibold text-gray-700 mb-3">Cliente</label>
                       {clienteSelecionado ? (
-                        <div className="bg-white p-3 rounded-lg border flex items-center justify-between">
+                        <div className="bg-green-50 p-4 rounded-lg border border-green-200 flex items-center justify-between">
                           <div>
-                            <p className="font-medium">{clienteSelecionado.nome}</p>
-                            <p className="text-sm text-gray-500">#{clienteSelecionado.numero_cliente}</p>
+                            <p className="font-semibold text-green-800">{clienteSelecionado.nome}</p>
+                            <p className="text-sm text-green-600">Cliente #{clienteSelecionado.numero_cliente}</p>
                           </div>
-                          <Button size="sm" variant="secondary" onClick={() => setClienteSelecionado(null)}>
+                          <Button size="sm" variant="secondary" onClick={() => setClienteSelecionado(null)} className="hover:bg-red-100 hover:text-red-600 transition-colors">
                             <FiX size={16} />
                           </Button>
                         </div>
@@ -582,22 +692,26 @@ export default function CaixaPage() {
                       )}
                     </div>
 
-                    {/* Tipo de Pedido */}
-                    <div className="p-4 border-b">
-                      <div className="font-semibold mb-2">Tipo de Pedido</div>
-                      <div className="flex gap-2">
-                        {['Local', 'Retirada', 'Entrega'].map(type => (
-                          <Button
-                            key={type}
-                            variant={orderType === type ? 'default' : 'secondary'}
-                            className="px-3 py-1 text-xs"
-                            onClick={() => setOrderType(type)}
-                          >
-                            {type}
-                          </Button>
-                        ))}
-                      </div>
+                                      {/* Tipo de Pedido */}
+                  <div className="p-6 border-b bg-gray-50">
+                    <div className="font-semibold mb-3 text-gray-700">Tipo de Pedido</div>
+                    <div className="flex gap-2">
+                      {['Local', 'Retirada', 'Entrega'].map(type => (
+                        <Button
+                          key={type}
+                          variant={orderType === type ? 'default' : 'secondary'}
+                          className={`px-4 py-2 text-sm font-medium transition-colors ${
+                            orderType === type 
+                              ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                              : 'bg-white hover:bg-gray-100 text-gray-700 border'
+                          }`}
+                          onClick={() => setOrderType(type)}
+                        >
+                          {type}
+                        </Button>
+                      ))}
                     </div>
+                  </div>
 
                     {/* Itens do Carrinho */}
                     <div className="flex-1 overflow-auto p-4">
@@ -696,11 +810,13 @@ export default function CaixaPage() {
                     </div>
                   </div>
                 </div>
+                )}
               </MenuLayout>
             ) : (
-              // Modo Tela Cheia - Layout Original
+              // Modo Tela Cheia - Layout Igual ao Normal (50/50)
               <div ref={pdvRef} className="h-screen bg-gray-50 flex">
-                <div className="flex-1 p-4">
+                {/* Produtos - Lado Esquerdo (50%) */}
+                <div className="w-1/2 p-4">
                   <div className="mb-4 flex items-center justify-between">
                     <div className="text-xs text-gray-500">{new Date().toLocaleDateString('pt-BR')}</div>
                     <div className="flex-1 max-w-xl mx-8">
@@ -758,8 +874,8 @@ export default function CaixaPage() {
                   </div>
                 </div>
 
-                {/* Sidebar em tela cheia - Original */}
-                <div className="w-96 bg-white border-l flex flex-col p-4">
+                {/* Meu Pedido - Lado Direito (50%) */}
+                <div className="w-1/2 bg-white border-l shadow-lg flex flex-col overflow-hidden">
                   <h2 className="text-lg font-bold mb-4">Meu Pedido</h2>
                   
                   {/* Cliente compacto */}
@@ -879,13 +995,14 @@ export default function CaixaPage() {
               onClose={() => setModalAbrirCaixa(false)}
               onConfirm={abrirCaixa}
               loading={caixaLoading}
+              valorTrocoSugerido={valorUltimoFechamento}
             />
 
             {turnoAtual && (
               <FecharCaixaModal
                 isOpen={modalFecharCaixa}
                 onClose={() => setModalFecharCaixa(false)}
-                onConfirm={fecharCaixa}
+                onConfirm={handleFecharCaixa}
                 turno={turnoAtual}
                 saldoEsperado={calcularSaldoAtual()}
                 loading={caixaLoading}

@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     }
 
     // Verifica se já existe um usuário com esse e-mail
-    const { data: existingUser, error: checkError } = await supabaseAdmin
+    const { data: existingUser } = await supabaseAdmin
       .from('usuarios')
       .select('id')
       .eq('email', email)
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     }
 
     // Verifica se já existe um usuário com esse nome de usuário
-    const { data: existingUsuario, error: usuarioError } = await supabaseAdmin
+    const { data: existingUsuario } = await supabaseAdmin
       .from('usuarios')
       .select('id')
       .eq('usuario', usuario)
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     }
 
     // Verifica se já existe um usuário com esse CPF
-    const { data: existingCPF, error: cpfError } = await supabaseAdmin
+    const { data: existingCPF } = await supabaseAdmin
       .from('usuarios')
       .select('id')
       .eq('cpf', cpf)
@@ -115,10 +115,10 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (e: any) {
-    console.error('Erro inesperado no try/catch:', e?.message || JSON.stringify(e));
+  } catch (error: unknown) {
+    console.error('Erro inesperado no try/catch:', error instanceof Error ? error.message : JSON.stringify(error));
     return NextResponse.json(
-      { error: e?.message || JSON.stringify(e) || 'Erro desconhecido' },
+      { error: error instanceof Error ? error.message : JSON.stringify(error) || 'Erro desconhecido' },
       { status: 500 }
     );
   }

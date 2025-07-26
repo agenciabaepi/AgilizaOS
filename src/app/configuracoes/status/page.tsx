@@ -1,10 +1,12 @@
 
 'use client';
 
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabaseClient'
-import MenuLayout from '@/components/MenuLayout'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabaseClient';
+import { useAuth } from '@/context/AuthContext';
+import { Button } from '@/components/Button';
+import { Input } from '@/components/Input';
+import { Card, CardContent, CardTitle } from '@/components/ui/card';
 
 import {
   DndContext,

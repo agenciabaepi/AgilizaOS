@@ -5,14 +5,14 @@ export async function POST(request: Request) {
   const body = await request.json();
   console.log('DADOS RECEBIDOS NO BACKEND:', body);
 
-  let {
+  const {
     nome,
     email,
     // senha, // Não precisamos mais da senha aqui
     nomeEmpresa,
     cidade,
-    cnpj,
-    cpf,
+    cnpj: cnpjOriginal,
+    cpf: cpfOriginal,
     endereco,
     whatsapp,
     website,
@@ -20,8 +20,8 @@ export async function POST(request: Request) {
   } = body;
 
   // Normalizar cpf e cnpj
-  cpf = cpf?.replace(/\D/g, '') || null;
-  cnpj = cnpj?.replace(/\D/g, '') || null;
+  const cpf = cpfOriginal?.replace(/\D/g, '') || null;
+  const cnpj = cnpjOriginal?.replace(/\D/g, '') || null;
 
   // Verificar se o email já existe
   const { data: emailExistente } = await supabase

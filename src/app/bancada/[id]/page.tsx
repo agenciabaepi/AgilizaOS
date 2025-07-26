@@ -3,7 +3,7 @@
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { FiClipboard, FiSave, FiBox, FiTool, FiCamera } from 'react-icons/fi';
+import { FiClipboard, FiSave, FiBox, FiTool } from 'react-icons/fi';
 import MenuLayout from '@/components/MenuLayout';
 
 export default function DetalheBancadaPage() {
@@ -41,7 +41,7 @@ export default function DetalheBancadaPage() {
     status_tecnico: string;
     acessorios: string;
     condicoes_equipamento: string;
-    [key: string]: any;
+    [key: string]: unknown;
   }
   const [os, setOs] = useState<OrdemServico | null>(null);
   const [loading, setLoading] = useState(true);

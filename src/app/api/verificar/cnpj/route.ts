@@ -6,11 +6,11 @@ export async function POST(req: Request) {
   const { cnpj } = await req.json();
   const rawCnpj = cnpj.replace(/\D/g, '');
 
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from('empresas')
-    .select('cnpj')
+    .select('id')
     .eq('cnpj', rawCnpj)
-    .single();
+    .maybeSingle();
 
   return NextResponse.json({ existe: !!data });
 }

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import Link from 'next/link';
@@ -147,7 +147,53 @@ export default function ClientesPage() {
     fetchClientes();
   }, [empresaData?.id]);
 
-  const excluir = async (id: string, nome: string) => {
+  // Otimização: useMemo para clientes filtrados
+  const clientesFiltrados = useMemo(() => {
+    return clientes.filter((c) =>
+      (statusFiltro ? c.status === statusFiltro : true) &&
+      (cidadeFiltro ? c.cidade === cidadeFiltro : true) &&
+      (
+        dataFiltro
+          ? new Date(c.created_at) >= new Date(Date.now() - Number(dataFiltro) * 24 * 60 * 60 * 1000)
+          : true
+      ) &&
+      (
+        c.nome.toLowerCase().includes(busca.toLowerCase()) ||
+        c.telefone.includes(busca) ||
+        c.celular.includes(busca) ||
+        c.email.toLowerCase().includes(busca.toLowerCase()) ||
+        c.documento.includes(busca)
+      )
+    );
+  }, [clientes, statusFiltro, cidadeFiltro, dataFiltro, busca]);
+
+  // Otimização: useMemo para cidades únicas
+  const cidadesUnicas = useMemo(() => {
+    return [...new Set(clientes.map(c => c.cidade).filter(Boolean))];
+  }, [clientes]);
+
+  // Otimização: useCallback para handlers
+  const handleBuscaChange = useCallback((value: string) => {
+    setBusca(value);
+    setPaginaAtual(1);
+  }, []);
+
+  const handleStatusFiltroChange = useCallback((value: string) => {
+    setStatusFiltro(value);
+    setPaginaAtual(1);
+  }, []);
+
+  const handleCidadeFiltroChange = useCallback((value: string) => {
+    setCidadeFiltro(value);
+    setPaginaAtual(1);
+  }, []);
+
+  const handleDataFiltroChange = useCallback((value: string) => {
+    setDataFiltro(value);
+    setPaginaAtual(1);
+  }, []);
+
+  const handleExcluir = useCallback(async (id: string, nome: string) => {
     const ok = await confirm({
       title: 'Confirmar Exclusão',
       message: `Tem certeza que deseja excluir o cliente ${nome}?`,
@@ -155,6 +201,7 @@ export default function ClientesPage() {
       cancelText: 'Cancelar'
     });
     if (!ok) return;
+    
     const { error } = await supabase.from('clientes').delete().eq('id', id);
     if (error) {
       toast.error('Erro ao excluir cliente: ' + error.message);
@@ -162,24 +209,7 @@ export default function ClientesPage() {
       toast.success('Cliente excluído com sucesso!');
       setClientes(clientes.filter(c => c.id !== id));
     }
-  };
-
-  const clientesFiltrados = clientes.filter((c) =>
-    (statusFiltro ? c.status === statusFiltro : true) &&
-    (cidadeFiltro ? c.cidade === cidadeFiltro : true) &&
-    (
-      dataFiltro
-        ? new Date(c.created_at) >= new Date(Date.now() - Number(dataFiltro) * 24 * 60 * 60 * 1000)
-        : true
-    ) &&
-    (
-      c.nome.toLowerCase().includes(busca.toLowerCase()) ||
-      c.telefone.includes(busca) ||
-      c.celular.includes(busca) ||
-      c.email.toLowerCase().includes(busca.toLowerCase()) ||
-      c.documento.includes(busca)
-    )
-  );
+  }, [clientes, confirm, toast]);
 
   // Função para exportar os clientes filtrados para CSV
   const exportarCSV = () => {
@@ -385,7 +415,7 @@ export default function ClientesPage() {
                     </Link>
                     <button
                       className="text-red-600 hover:scale-110 transform transition"
-                      onClick={() => excluir(c.id, c.nome)}
+                      onClick={() => handleExcluir(c.id, c.nome)}
                       title="Excluir cliente"
                     >
                       <FiTrash2 className="w-5 h-5 hover:text-gray-700" />

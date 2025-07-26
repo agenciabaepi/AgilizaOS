@@ -14,6 +14,7 @@ export interface TurnoCaixa {
   valor_sangrias: number;
   valor_suprimentos: number;
   valor_diferenca: number;
+  valor_troco: number | null;
   status: 'aberto' | 'fechado';
   observacoes: string | null;
   empresa_id: string;
@@ -49,19 +50,22 @@ export const useCaixa = () => {
   const [turnoAtual, setTurnoAtual] = useState<TurnoCaixa | null>(null);
   const [movimentacoes, setMovimentacoes] = useState<MovimentacaoCaixa[]>([]);
   const [loading, setLoading] = useState(false);
+  const [verificacaoInicial, setVerificacaoInicial] = useState(false);
 
-  // Verificar se há turno aberto
+  // Verificar se há turno aberto apenas na inicialização
   useEffect(() => {
-    if (usuarioData?.empresa_id) {
+    if (usuarioData?.empresa_id && !verificacaoInicial) {
       verificarTurnoAberto();
+      setVerificacaoInicial(true);
     }
-  }, [usuarioData]);
+  }, [usuarioData, verificacaoInicial]);
 
   const verificarTurnoAberto = async () => {
     if (!usuarioData?.empresa_id) return;
 
     try {
-      const { data } = await supabase
+      console.log('Verificando turno aberto...');
+      const { data, error } = await supabase
         .from('turnos_caixa')
         .select(`
           *,
@@ -71,6 +75,12 @@ export const useCaixa = () => {
         .eq('status', 'aberto')
         .maybeSingle();
 
+      if (error) {
+        console.error('Erro ao verificar turno:', error);
+        return;
+      }
+
+      console.log('Turno encontrado:', data);
       setTurnoAtual(data);
       if (data) {
         await buscarMovimentacoes(data.id);
@@ -167,36 +177,80 @@ export const useCaixa = () => {
     }
   };
 
-  const fecharCaixa = async (valorFechamento: number, observacoes?: string) => {
+  const fecharCaixa = async (valorFechamento: number, valorTroco: number = 0, observacoes?: string) => {
     if (!turnoAtual) throw new Error('Nenhum turno aberto');
 
     setLoading(true);
     try {
-      const valorDiferenca = valorFechamento - (
-        turnoAtual.valor_abertura + 
+      const saldoEsperado = turnoAtual.valor_abertura + 
         turnoAtual.valor_vendas + 
         turnoAtual.valor_suprimentos - 
-        turnoAtual.valor_sangrias
-      );
+        turnoAtual.valor_sangrias;
+      
+      const valorDiferenca = valorFechamento - saldoEsperado;
 
-      const { data } = await supabase
+      console.log('Cálculos de fechamento:', {
+        valorAbertura: turnoAtual.valor_abertura,
+        valorVendas: turnoAtual.valor_vendas,
+        valorSuprimentos: turnoAtual.valor_suprimentos,
+        valorSangrias: turnoAtual.valor_sangrias,
+        saldoEsperado,
+        valorFechamento,
+        valorDiferenca
+      });
+
+      console.log('Dados para fechamento:', {
+        id: turnoAtual.id,
+        valorFechamento,
+        valorDiferenca,
+        valorTroco,
+        observacoes: observacoes || turnoAtual.observacoes
+      });
+
+      const dadosUpdate = {
+        data_fechamento: new Date().toISOString(),
+        valor_fechamento: valorFechamento,
+        valor_troco: valorTroco,
+        status: 'fechado',
+        observacoes: observacoes || turnoAtual.observacoes || null
+      };
+
+      console.log('Dados de update:', dadosUpdate);
+
+      // Primeiro, tentar apenas o update sem select
+      const { error: updateError } = await supabase
         .from('turnos_caixa')
-        .update({
-          data_fechamento: new Date().toISOString(),
-          valor_fechamento: valorFechamento,
-          valor_diferenca: valorDiferenca,
-          status: 'fechado',
-          observacoes: observacoes || turnoAtual.observacoes
-        })
-        .eq('id', turnoAtual.id)
+        .update(dadosUpdate)
+        .eq('id', turnoAtual.id);
+
+      if (updateError) {
+        console.error('Erro no update:', updateError);
+        throw new Error(`Erro no update: ${updateError.message}`);
+      }
+
+      console.log('Update realizado com sucesso');
+
+      // Depois, buscar os dados atualizados
+      const { data, error: selectError } = await supabase
+        .from('turnos_caixa')
         .select(`
           *,
           usuario:usuario_id(nome)
         `)
+        .eq('id', turnoAtual.id)
         .single();
 
+      if (selectError) {
+        console.error('Erro ao buscar dados atualizados:', selectError);
+        // Não vamos falhar aqui, pois o update já foi feito
+      }
+
+      console.log('Caixa fechado no banco:', data);
+      
+      // Limpar estado local
       setTurnoAtual(null);
       setMovimentacoes([]);
+      
       return data;
     } finally {
       setLoading(false);
@@ -334,6 +388,27 @@ export const useCaixa = () => {
            turnoAtual.valor_sangrias;
   };
 
+  const buscarUltimoValorFechamento = async (): Promise<number> => {
+    if (!usuarioData?.empresa_id) return 0;
+
+    try {
+      const { data } = await supabase
+        .from('turnos_caixa')
+        .select('valor_troco')
+        .eq('empresa_id', usuarioData.empresa_id)
+        .eq('status', 'fechado')
+        .order('data_fechamento', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      console.log('Valor do troco do último fechamento:', data?.valor_troco || 0);
+      return data?.valor_troco || 0;
+    } catch (error) {
+      console.error('Erro ao buscar último valor de fechamento:', error);
+      return 0;
+    }
+  };
+
   return {
     turnoAtual,
     movimentacoes,
@@ -343,6 +418,7 @@ export const useCaixa = () => {
     adicionarMovimentacao,
     registrarVenda,
     calcularSaldoAtual,
-    verificarTurnoAberto
+    verificarTurnoAberto,
+    buscarUltimoValorFechamento
   };
 }; 

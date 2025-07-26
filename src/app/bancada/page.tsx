@@ -11,10 +11,48 @@ import { supabase } from '@/lib/supabaseClient';
 export default function BancadaPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [ordens, setOrdens] = useState<any[]>([]);
+  const [ordens, setOrdens] = useState<OrdemServico[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('Todos');
+
+  interface OrdemServico {
+    id: string;
+    empresa_id: string;
+    cliente_id: string;
+    tecnico_id: string;
+    status: string;
+    created_at: string;
+    atendente: string;
+    tecnico: string;
+    categoria: string;
+    marca: string;
+    modelo: string;
+    cor: string;
+    numero_serie: string;
+    servico: string;
+    qtd_servico: string;
+    peca: string;
+    qtd_peca: string;
+    termo_garantia: string | null;
+    relato: string;
+    observacao: string;
+    data_cadastro: string;
+    numero_os: string;
+    data_entrega: string | null;
+    vencimento_garantia: string | null;
+    valor_peca: string;
+    valor_servico: string;
+    desconto: string | null;
+    valor_faturado: string;
+    status_tecnico: string;
+    acessorios: string;
+    condicoes_equipamento: string;
+    cliente?: {
+      nome: string;
+    };
+    [key: string]: unknown;
+  }
 
   useEffect(() => {
     const fetchOrdens = async () => {
