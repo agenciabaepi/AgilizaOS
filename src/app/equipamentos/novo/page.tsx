@@ -19,6 +19,12 @@ import { useConfirm } from '@/components/ConfirmDialog';
 export default function NovoProdutoPage() {
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
+  
+  // Estados para categorias
+  const [grupos, setGrupos] = useState<Array<{id: string, nome: string}>>([]);
+  const [categorias, setCategorias] = useState<Array<{id: string, nome: string, grupo_id: string}>>([]);
+  const [subcategorias, setSubcategorias] = useState<Array<{id: string, nome: string, categoria_id: string}>>([]);
+  const [loadingCategorias, setLoadingCategorias] = useState(false);
   const [formData, setFormData] = useState({
     nome: '',
     tipo: 'produto',
@@ -55,6 +61,67 @@ export default function NovoProdutoPage() {
   const { addToast } = useToast();
   const confirm = useConfirm();
 
+  // Função para carregar categorias
+  const carregarCategorias = async () => {
+    setLoadingCategorias(true);
+    try {
+      // Carregar grupos
+      const { data: gruposData } = await supabase
+        .from('grupos_produtos')
+        .select('id, nome')
+        .order('nome');
+
+      // Carregar categorias
+      const { data: categoriasData } = await supabase
+        .from('categorias_produtos')
+        .select('id, nome, grupo_id')
+        .order('nome');
+
+      // Carregar subcategorias
+      const { data: subcategoriasData } = await supabase
+        .from('subcategorias_produtos')
+        .select('id, nome, categoria_id')
+        .order('nome');
+
+      setGrupos(gruposData || []);
+      setCategorias(categoriasData || []);
+      setSubcategorias(subcategoriasData || []);
+    } catch (error) {
+      console.error('Erro ao carregar categorias:', error);
+      addToast('error', 'Erro ao carregar categorias');
+    } finally {
+      setLoadingCategorias(false);
+    }
+  };
+
+  // Funções para filtrar categorias baseado na seleção
+  const categoriasDoGrupo = categorias.filter(cat => cat.grupo_id === formData.grupo);
+  const subcategoriasDaCategoria = subcategorias.filter(sub => sub.categoria_id === formData.categoria);
+
+  // Função para limpar categoria quando grupo muda
+  const handleGrupoChange = (grupoId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      grupo: grupoId,
+      categoria: '', // Limpar categoria quando grupo muda
+      subcategoria: '' // Limpar subcategoria quando grupo muda
+    }));
+  };
+
+  // Função para limpar subcategoria quando categoria muda
+  const handleCategoriaChange = (categoriaId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      categoria: categoriaId,
+      subcategoria: '' // Limpar subcategoria quando categoria muda
+    }));
+  };
+
+  // Carregar categorias ao montar o componente
+  useEffect(() => {
+    carregarCategorias();
+  }, []);
+
   useEffect(() => {
     if (produtoId) {
       supabase
@@ -68,9 +135,9 @@ export default function NovoProdutoPage() {
               nome: data.nome || '',
               tipo: data.tipo || '',
               codigo: data.codigo || '',
-              grupo: data.grupo || '',
-              categoria: data.categoria || '',
-              subcategoria: data.subcategoria || '',
+              grupo: data.grupo_id || '',
+              categoria: data.categoria_id || '',
+              subcategoria: data.subcategoria_id || '',
               custo: data.custo?.toString() || '',
               preco: data.preco?.toString() || '',
               unidade: data.unidade || '',
@@ -152,11 +219,11 @@ export default function NovoProdutoPage() {
         addToast('error', `Erro ao fazer upload da imagem ${file.name}: ${uploadError.message}`);
         continue;
       }
-      const { data } = supabase
+      const { data: urlData } = supabase
         .storage
         .from('produtos')
         .getPublicUrl(filePath);
-      uploadedImageUrls.push(data.publicUrl);
+      uploadedImageUrls.push(urlData.publicUrl);
     }
     // Log dos dados enviados
     console.log('Dados enviados:', formData);
@@ -167,9 +234,9 @@ export default function NovoProdutoPage() {
       nome: formData.nome,
       tipo: formData.tipo,
       codigo: formData.codigo,
-      grupo: formData.grupo,
-      categoria: formData.categoria,
-      subcategoria: formData.subcategoria,
+      grupo_id: formData.grupo,
+      categoria_id: formData.categoria,
+      subcategoria_id: formData.subcategoria,
       custo: parseFloat(formData.custo || '0'),
       preco: parseFloat(formData.preco || '0'),
       unidade: formData.unidade,
@@ -193,6 +260,9 @@ export default function NovoProdutoPage() {
       codigo_barras: formData.codigo_barras,
       imagens: [...existingImageUrls, ...uploadedImageUrls], // used in POST, not update
     };
+
+    // Log dos dados para API
+    console.log('Dados para API:', data);
 
     // Se for edição, atualiza o produto existente
     if (produtoId) {
@@ -301,32 +371,47 @@ export default function NovoProdutoPage() {
                   {/* Grupo */}
                   <div>
                     <Label htmlFor="grupo">Grupo</Label>
-                    <Input
+                    <Select
                       id="grupo"
                       value={formData.grupo}
-                      onChange={(e) => setFormData({ ...formData, grupo: e.target.value })}
-                      placeholder="Ex: Acessórios"
-                    />
+                      onChange={(e) => handleGrupoChange(e.target.value)}
+                      disabled={loadingCategorias}
+                    >
+                      <option value="">Selecione um grupo</option>
+                      {grupos.map(grupo => (
+                        <option key={grupo.id} value={grupo.id}>{grupo.nome}</option>
+                      ))}
+                    </Select>
                   </div>
                   {/* Categoria */}
                   <div>
                     <Label htmlFor="categoria">Categoria</Label>
-                    <Input
+                    <Select
                       id="categoria"
                       value={formData.categoria}
-                      onChange={(e) => setFormData({ ...formData, categoria: e.target.value })}
-                      placeholder="Ex: Carregadores"
-                    />
+                      onChange={(e) => handleCategoriaChange(e.target.value)}
+                      disabled={loadingCategorias || !formData.grupo}
+                    >
+                      <option value="">Selecione uma categoria</option>
+                      {categoriasDoGrupo.map(categoria => (
+                        <option key={categoria.id} value={categoria.id}>{categoria.nome}</option>
+                      ))}
+                    </Select>
                   </div>
                   {/* Subcategoria */}
                   <div>
                     <Label htmlFor="subcategoria">Subcategoria</Label>
-                    <Input
+                    <Select
                       id="subcategoria"
                       value={formData.subcategoria}
                       onChange={(e) => setFormData({ ...formData, subcategoria: e.target.value })}
-                      placeholder="Ex: Turbo"
-                    />
+                      disabled={loadingCategorias || !formData.categoria}
+                    >
+                      <option value="">Selecione uma subcategoria</option>
+                      {subcategoriasDaCategoria.map(subcategoria => (
+                        <option key={subcategoria.id} value={subcategoria.id}>{subcategoria.nome}</option>
+                      ))}
+                    </Select>
                   </div>
                   {/* Preço de Custo */}
                   <div>

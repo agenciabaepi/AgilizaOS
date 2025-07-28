@@ -7,7 +7,9 @@ import MenuLayout from '@/components/MenuLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
-import { FiDollarSign, FiTrendingUp, FiTrendingDown, FiLock, FiUnlock, FiDownload } from 'react-icons/fi';
+import { useToast } from '@/components/Toast';
+import { useConfirm } from '@/components/ConfirmDialog';
+import { FiDollarSign, FiTrendingUp, FiTrendingDown, FiLock, FiUnlock, FiDownload, FiTrash2 } from 'react-icons/fi';
 
 interface TurnoCaixa {
   id: string;
@@ -40,6 +42,8 @@ interface MovimentacaoCaixa {
 
 export default function MovimentacaoCaixaPage() {
   const { usuarioData } = useAuth();
+  const { addToast } = useToast();
+  const confirm = useConfirm();
   const [turnos, setTurnos] = useState<TurnoCaixa[]>([]);
   const [movimentacoes, setMovimentacoes] = useState<MovimentacaoCaixa[]>([]);
   const [loading, setLoading] = useState(true);
@@ -193,6 +197,49 @@ export default function MovimentacaoCaixaPage() {
   };
 
   const totais = calcularTotais();
+
+  // Verificar se o usuário é admin
+  const isAdmin = usuarioData?.nivel === 'admin';
+
+  // Função para excluir sangria
+  const excluirSangria = async (movimentacaoId: string) => {
+    if (!isAdmin) {
+      addToast('error', 'Apenas administradores podem excluir sangrias.');
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: 'Confirmar Exclusão',
+      message: 'Tem certeza que deseja excluir esta sangria? Esta ação não pode ser desfeita.',
+      confirmText: 'Excluir',
+      cancelText: 'Cancelar'
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('movimentacoes_caixa')
+        .delete()
+        .eq('id', movimentacaoId)
+        .eq('tipo', 'sangria');
+
+      if (error) {
+        console.error('Erro ao excluir sangria:', error);
+        addToast('error', 'Erro ao excluir sangria. Tente novamente.');
+        return;
+      }
+
+      // Recarregar dados
+      await carregarDados();
+      addToast('success', 'Sangria excluída com sucesso!');
+    } catch (error) {
+      console.error('Erro ao excluir sangria:', error);
+      addToast('error', 'Erro ao excluir sangria. Tente novamente.');
+    }
+  };
 
   return (
     <ProtectedRoute>
@@ -348,6 +395,9 @@ export default function MovimentacaoCaixaPage() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrição</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuário</th>
+                    {isAdmin && (
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -373,6 +423,19 @@ export default function MovimentacaoCaixaPage() {
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                         {mov.usuario?.nome || 'N/A'}
                       </td>
+                      {isAdmin && (
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {mov.tipo === 'sangria' && (
+                            <button
+                              onClick={() => excluirSangria(mov.id)}
+                              className="text-red-600 hover:text-red-800 transition-colors"
+                              title="Excluir sangria"
+                            >
+                              <FiTrash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

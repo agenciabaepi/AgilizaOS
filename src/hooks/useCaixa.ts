@@ -52,6 +52,27 @@ export const useCaixa = () => {
   const [loading, setLoading] = useState(false);
   const [verificacaoInicial, setVerificacaoInicial] = useState(false);
 
+  // Função para obter data/hora no fuso brasileiro
+  const getDataHoraBrasil = () => {
+    const agora = new Date();
+    // Formatar diretamente no fuso brasileiro
+    const dataBrasil = agora.toLocaleString('pt-BR', { 
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+    // Converter para formato ISO
+    const [data, hora] = dataBrasil.split(', ');
+    const [dia, mes, ano] = data.split('/');
+    const [horaStr, minutoStr, segundoStr] = hora.split(':');
+    return `${ano}-${mes}-${dia}T${horaStr}:${minutoStr}:${segundoStr}.000Z`;
+  };
+
   // Verificar se há turno aberto apenas na inicialização
   useEffect(() => {
     if (usuarioData?.empresa_id && !verificacaoInicial) {
@@ -63,6 +84,7 @@ export const useCaixa = () => {
   const verificarTurnoAberto = async () => {
     if (!usuarioData?.empresa_id) return;
 
+    setLoading(true);
     try {
       console.log('Verificando turno aberto...');
       const { data, error } = await supabase
@@ -87,6 +109,8 @@ export const useCaixa = () => {
       }
     } catch (error) {
       console.error('Erro ao verificar turno aberto:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -284,7 +308,8 @@ export const useCaixa = () => {
           valor,
           descricao,
           usuario_id: usuario.id,
-          empresa_id: usuarioData.empresa_id
+          empresa_id: usuarioData.empresa_id,
+          data_movimentacao: getDataHoraBrasil()
         })
         .select(`
           *,
@@ -348,7 +373,8 @@ export const useCaixa = () => {
           descricao: `Venda #${vendaId}`,
           usuario_id: usuario.id,
           venda_id: vendaId,
-          empresa_id: usuarioData.empresa_id
+          empresa_id: usuarioData.empresa_id,
+          data_movimentacao: getDataHoraBrasil()
         });
 
       // Atualizar valor de vendas no turno

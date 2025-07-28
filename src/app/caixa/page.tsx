@@ -14,8 +14,7 @@ import { CupomVenda } from '@/components/CupomVenda';
 import { useCaixa } from '@/hooks/useCaixa';
 import { AbrirCaixaModal } from '@/components/caixa/AbrirCaixaModal';
 import { FecharCaixaModal } from '@/components/caixa/FecharCaixaModal';
-import { FiUnlock, FiLock, FiMinus, FiPlus } from 'react-icons/fi';
-import ProtectedRoute from '@/components/ProtectedRoute';
+import { FiUnlock, FiLock, FiMinus, FiPlus, FiEye } from 'react-icons/fi';
 
 interface Produto {
   id: string;
@@ -40,6 +39,7 @@ interface Cliente {
 
 export default function CaixaPage() {
   const { user, usuarioData, empresaData } = useAuth();
+  const [isInitialized, setIsInitialized] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('Todos');
   const [cart, setCart] = useState<(Produto & { qty: number })[]>([]);
   const [orderType, setOrderType] = useState('Local');
@@ -425,6 +425,7 @@ export default function CaixaPage() {
 
   const { 
     turnoAtual, 
+    movimentacoes,
     loading: caixaLoading, 
     abrirCaixa, 
     fecharCaixa, 
@@ -482,6 +483,17 @@ export default function CaixaPage() {
     }
   }, [turnoAtual, usuarioData]);
 
+  // Controlar inicialização para evitar flash
+  useEffect(() => {
+    if (!caixaLoading && usuarioData && !isInitialized) {
+      // Aguarda um pouco para garantir que tudo carregou
+      const timer = setTimeout(() => {
+        setIsInitialized(true);
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [caixaLoading, usuarioData, isInitialized]);
+
   const buscarUltimoFechamento = async () => {
     if (!usuarioData?.empresa_id) return;
 
@@ -509,15 +521,32 @@ export default function CaixaPage() {
     }
   };
 
+  // Early return para loading - evita qualquer flash
+  if (caixaLoading || !isInitialized || !usuarioData) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md">
+          <div className="mb-6">
+            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-800 mb-2">Carregando...</h1>
+            <p className="text-gray-600 mb-6">
+              Inicializando sistema...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <ToastProvider>
       <ConfirmProvider>
-        <ProtectedRoute>
-          <div className={`min-h-screen bg-gray-50 ${isFullscreen ? 'h-screen overflow-hidden' : ''}`}>
+        <div className={`min-h-screen bg-gray-50 ${isFullscreen ? 'h-screen overflow-hidden' : ''}`}>
             
             {!isFullscreen ? (
               <MenuLayout>
-                {/* Tela de bloqueio quando caixa fechado */}
                 {!turnoAtual ? (
                   <div className="flex items-center justify-center h-[calc(100vh-80px)] bg-gray-50">
                     <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md">
@@ -756,7 +785,7 @@ export default function CaixaPage() {
                     {/* Controles do Caixa (quando caixa aberto) */}
                     {turnoAtual && (
                       <div className="p-4 border-t border-b bg-gray-50">
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
                           <Button
                             variant="secondary"
                             size="sm"
@@ -774,6 +803,15 @@ export default function CaixaPage() {
                           >
                             <FiPlus size={14} />
                             Suprimento
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setModalMovimentacoes(true)}
+                            className="flex items-center gap-1"
+                          >
+                            <FiEye size={14} />
+                            Ver Movimentações
                           </Button>
                           <Button
                             onClick={() => setModalFecharCaixa(true)}
@@ -809,7 +847,7 @@ export default function CaixaPage() {
                       </Button>
                     </div>
                   </div>
-                </div>
+                                  </div>
                 )}
               </MenuLayout>
             ) : (
@@ -1081,6 +1119,184 @@ export default function CaixaPage() {
               </Dialog>
             )}
 
+            {/* Modal de Movimentações do Dia */}
+            {modalMovimentacoes && (
+              <Dialog onClose={() => setModalMovimentacoes(false)}>
+                <div className="p-6 max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold text-gray-900">Movimentações do Dia</h2>
+                    <div className="text-sm text-gray-500">
+                      {new Date().toLocaleDateString('pt-BR')}
+                    </div>
+                  </div>
+                  
+                  <div className="flex-1 overflow-auto">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Sangrias */}
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <FiMinus className="w-5 h-5 text-red-600" />
+                          <h3 className="font-semibold text-red-800">Sangrias</h3>
+                        </div>
+                        <div className="space-y-2">
+                          {movimentacoes.filter(m => m.tipo === 'sangria').length > 0 ? (
+                            movimentacoes
+                              .filter(m => m.tipo === 'sangria')
+                              .map(mov => (
+                                <div key={mov.id} className="bg-white rounded p-3 border border-red-100">
+                                  <div className="flex justify-between items-start">
+                                    <div className="flex-1">
+                                      <div className="font-medium text-red-900">
+                                        R$ {mov.valor.toFixed(2)}
+                                      </div>
+                                      <div className="text-sm text-red-700">
+                                        {mov.descricao || 'Sem descrição'}
+                                      </div>
+                                      <div className="text-xs text-red-500">
+                                        {new Date(mov.data_movimentacao).toLocaleString('pt-BR', {
+                                          day: '2-digit',
+                                          month: '2-digit',
+                                          year: 'numeric',
+                                          hour: '2-digit',
+                                          minute: '2-digit',
+                                          second: '2-digit'
+                                        })}
+                                      </div>
+                                    </div>
+                                    <div className="text-xs text-red-600">
+                                      {mov.usuario?.nome || 'N/A'}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))
+                          ) : (
+                            <div className="text-center text-red-600 py-4">
+                              Nenhuma sangria registrada hoje
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-3 pt-3 border-t border-red-200">
+                          <div className="flex justify-between font-semibold text-red-800">
+                            <span>Total Sangrias:</span>
+                            <span>
+                              R$ {movimentacoes
+                                .filter(m => m.tipo === 'sangria')
+                                .reduce((sum, m) => sum + m.valor, 0)
+                                .toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Suprimentos */}
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <FiPlus className="w-5 h-5 text-blue-600" />
+                          <h3 className="font-semibold text-blue-800">Suprimentos</h3>
+                        </div>
+                        <div className="space-y-2">
+                          {movimentacoes.filter(m => m.tipo === 'suprimento').length > 0 ? (
+                            movimentacoes
+                              .filter(m => m.tipo === 'suprimento')
+                              .map(mov => (
+                                <div key={mov.id} className="bg-white rounded p-3 border border-blue-100">
+                                  <div className="flex justify-between items-start">
+                                    <div className="flex-1">
+                                      <div className="font-medium text-blue-900">
+                                        R$ {mov.valor.toFixed(2)}
+                                      </div>
+                                      <div className="text-sm text-blue-700">
+                                        {mov.descricao || 'Sem descrição'}
+                                      </div>
+                                      <div className="text-xs text-blue-500">
+                                        {new Date(mov.data_movimentacao).toLocaleString('pt-BR', {
+                                          day: '2-digit',
+                                          month: '2-digit',
+                                          year: 'numeric',
+                                          hour: '2-digit',
+                                          minute: '2-digit',
+                                          second: '2-digit'
+                                        })}
+                                      </div>
+                                    </div>
+                                    <div className="text-xs text-blue-600">
+                                      {mov.usuario?.nome || 'N/A'}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))
+                          ) : (
+                            <div className="text-center text-blue-600 py-4">
+                              Nenhum suprimento registrado hoje
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-3 pt-3 border-t border-blue-200">
+                          <div className="flex justify-between font-semibold text-blue-800">
+                            <span>Total Suprimentos:</span>
+                            <span>
+                              R$ {movimentacoes
+                                .filter(m => m.tipo === 'suprimento')
+                                .reduce((sum, m) => sum + m.valor, 0)
+                                .toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Resumo Geral */}
+                    <div className="mt-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
+                      <h3 className="font-semibold text-gray-800 mb-3">Resumo do Turno</h3>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div className="text-center">
+                          <div className="font-medium text-gray-600">Abertura</div>
+                          <div className="text-lg font-bold text-green-600">
+                            R$ {turnoAtual?.valor_abertura.toFixed(2) || '0,00'}
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className="font-medium text-gray-600">Vendas</div>
+                          <div className="text-lg font-bold text-green-600">
+                            R$ {turnoAtual?.valor_vendas.toFixed(2) || '0,00'}
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className="font-medium text-gray-600">Sangrias</div>
+                          <div className="text-lg font-bold text-red-600">
+                            R$ {turnoAtual?.valor_sangrias.toFixed(2) || '0,00'}
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className="font-medium text-gray-600">Suprimentos</div>
+                          <div className="text-lg font-bold text-blue-600">
+                            R$ {turnoAtual?.valor_suprimentos.toFixed(2) || '0,00'}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-4 pt-4 border-t border-gray-200">
+                        <div className="flex justify-between text-lg font-bold">
+                          <span>Saldo Atual:</span>
+                          <span className="text-green-600">
+                            R$ {calcularSaldoAtual().toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <Button 
+                      onClick={() => setModalMovimentacoes(false)}
+                      className="w-full"
+                    >
+                      Fechar
+                    </Button>
+                  </div>
+                </div>
+              </Dialog>
+            )}
+
             {/* Modal de fechamento de venda */}
             {modalFecharVenda && (
               <Dialog onClose={() => setModalFecharVenda(false)}>
@@ -1166,6 +1382,7 @@ export default function CaixaPage() {
                       nomeEmpresa={empresaData?.nome || "AgilizaOS"}
                     />
                   </div>
+                
                   
                   <div className="flex gap-2 mt-4 no-print">
                     <Button className="flex-1" variant="secondary" onClick={() => setModalImprimir(false)}>Fechar</Button>
@@ -1174,9 +1391,8 @@ export default function CaixaPage() {
                 </div>
               </Dialog>
             )}
-          </div>
-        </ProtectedRoute>
-      </ConfirmProvider>
-    </ToastProvider>
-  );
-}
+                            </div>
+              </ConfirmProvider>
+            </ToastProvider>
+          );
+        }

@@ -19,6 +19,7 @@ import {
   FiChevronDown,
   FiMenu,
   FiX,
+  FiGrid,
 } from 'react-icons/fi';
 import { Toaster } from 'react-hot-toast';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
@@ -41,6 +42,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const [searchTerm, setSearchTerm] = useState('');
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [financeiroExpanded, setFinanceiroExpanded] = useState(false);
+  const [equipamentosExpanded, setEquipamentosExpanded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -70,6 +72,31 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
     const stored = localStorage.getItem('menuExpandido') === 'true';
     setMenuExpandido(stored);
   }, []);
+
+  // Inicializar estados de expansão
+  useEffect(() => {
+    // Expandir automaticamente se estiver na página de categorias
+    if (pathname === '/equipamentos/categorias') {
+      setEquipamentosExpanded(true);
+    }
+  }, [pathname]);
+
+
+
+  // Fechar dropdown quando clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (menuExpandido && !target.closest('.menu-dropdown')) {
+        setMenuExpandido(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [menuExpandido]);
 
   // Remover menuExpandido, hoverTimeout, handleMouseEnter, handleMouseLeave, e toda lógica relacionada
   // Sidebar sempre expandida
@@ -115,7 +142,29 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             <SidebarButton path="/clientes" icon={<FiUsers size={20} />} label="Clientes" isActive={pathname === '/clientes'} />
           )}
           {podeVer('equipamentos') && (
-            <SidebarButton path="/equipamentos" icon={<FiBox size={20} />} label="Produtos/Serviços" isActive={pathname === '/equipamentos'} />
+            <>
+              <div 
+                className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-zinc-700 hover:bg-zinc-100"
+                onClick={() => setEquipamentosExpanded(!equipamentosExpanded)}
+                style={{ minHeight: 48 }}
+              >
+                <div className="flex items-center gap-3">
+                  <FiBox size={20} />
+                  <span>Produtos/Serviços</span>
+                </div>
+                <FiChevronDown 
+                  size={16} 
+                  className={`transition-transform ${equipamentosExpanded ? 'rotate-180' : ''}`} 
+                />
+              </div>
+              
+              {equipamentosExpanded && (
+                <div className="ml-6 flex flex-col gap-1 mt-1">
+                  <SidebarButton path="/equipamentos" icon={<FiBox size={18} />} label="Produtos" isActive={pathname === '/equipamentos'} />
+                  <SidebarButton path="/equipamentos/categorias" icon={<FiGrid size={18} />} label="Categorias" isActive={pathname === '/equipamentos/categorias'} />
+                </div>
+              )}
+            </>
           )}
           {podeVer('financeiro') && (
             <>
@@ -170,7 +219,8 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           v1.0.0
         </div>
       </aside>
-      {/* Sidebar Mobile Drawer */}
+      
+      {/* Mobile Menu */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 flex">
           {/* Overlay */}
@@ -208,8 +258,30 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               {podeVer('clientes') && (
                 <SidebarButton path="/clientes" icon={<FiUsers size={20} />} label="Clientes" isActive={pathname === '/clientes'} />
               )}
-              {podeVer('equipamentos') && (
-                <SidebarButton path="/equipamentos" icon={<FiBox size={20} />} label="Produtos/Serviços" isActive={pathname === '/equipamentos'} />
+                            {podeVer('equipamentos') && (
+                <>
+                  <div 
+                    className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-zinc-700 hover:bg-zinc-100"
+                    onClick={() => setEquipamentosExpanded(!equipamentosExpanded)}
+                    style={{ minHeight: 48 }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <FiBox size={20} />
+                      <span>Produtos/Serviços</span>
+                    </div>
+                    <FiChevronDown 
+                      size={16} 
+                      className={`transition-transform ${equipamentosExpanded ? 'rotate-180' : ''}`} 
+                    />
+                  </div>
+                  
+                  {equipamentosExpanded && (
+                    <div className="ml-6 flex flex-col gap-1 mt-1">
+                      <SidebarButton path="/equipamentos" icon={<FiBox size={18} />} label="Produtos" isActive={pathname === '/equipamentos'} />
+                      <SidebarButton path="/equipamentos/categorias" icon={<FiGrid size={18} />} label="Categorias" isActive={pathname === '/equipamentos/categorias'} />
+                    </div>
+                  )}
+                </>
               )}
               {podeVer('financeiro') && (
                 <>
