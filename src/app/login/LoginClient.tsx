@@ -146,6 +146,21 @@ function LoginClientInner() {
         <p className="text-sm text-gray-500 mb-6 text-center">
           Acesse sua conta para continuar
         </p>
+        
+        {/* Informações para novos usuários */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <h3 className="text-sm font-semibold text-blue-800 mb-2">Novo por aqui?</h3>
+          <p className="text-xs text-blue-700 mb-3">
+            Após o cadastro, use o <strong>e-mail</strong> e <strong>senha</strong> que você criou para fazer login.
+          </p>
+          <button
+            type="button"
+            onClick={() => router.push('/cadastro')}
+            className="text-xs text-blue-600 hover:text-blue-800 underline"
+          >
+            Criar nova conta
+          </button>
+        </div>
         <input
           type="text"
           placeholder="E-mail ou Usuário"

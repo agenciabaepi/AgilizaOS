@@ -1,16 +1,24 @@
 import { NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { supabase } from '@/lib/supabaseClient';
 
-export async function POST(req: Request) {
-  const supabase = createServerSupabaseClient();
-  const { cnpj } = await req.json();
-  const rawCnpj = cnpj.replace(/\D/g, '');
+export async function POST(request: Request) {
+  try {
+    const { cnpj } = await request.json();
 
-  const { data } = await supabase
-    .from('empresas')
-    .select('id')
-    .eq('cnpj', rawCnpj)
-    .maybeSingle();
+    if (!cnpj) {
+      return NextResponse.json({ exists: false });
+    }
 
-  return NextResponse.json({ existe: !!data });
+    // Verificar se o CNPJ já existe na tabela empresas
+    const { data: empresaExistente } = await supabase
+      .from('empresas')
+      .select('id')
+      .eq('cnpj', cnpj)
+      .maybeSingle();
+
+    return NextResponse.json({ exists: !!empresaExistente });
+  } catch (error) {
+    console.error('Erro ao verificar CNPJ:', error);
+    return NextResponse.json({ exists: false });
+  }
 }

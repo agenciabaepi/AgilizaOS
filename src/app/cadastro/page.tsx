@@ -19,7 +19,10 @@ import {
   FaMobileAlt,
   FaWhatsapp,
   FaEye,
-  FaEyeSlash
+  FaEyeSlash,
+  FaBuilding,
+  FaMapMarkerAlt,
+  FaGlobe
 } from 'react-icons/fa';
 import { mask as masker } from 'remask';
 
@@ -33,16 +36,23 @@ export default function CadastroEmpresa() {
     confirmarSenha: '',
     whatsapp: '',
     plano: 'pro',
-    cpf: '', // novo campo
+    cpf: '',
+    // Campos da empresa
+    nomeEmpresa: '',
+    cidade: '',
+    endereco: '',
+    website: '',
+    cnpj: ''
   });
   const [emailValido, setEmailValido] = useState(true);
   const [senhasIguais, setSenhasIguais] = useState(true);
   const [emailError, setEmailError] = useState('');
   const [cpfError, setCpfError] = useState('');
+  const [cnpjError, setCnpjError] = useState('');
   const [submitError, setSubmitError] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [mostrarConfirmarSenha, setMostrarConfirmarSenha] = useState(false);
-  const progress = (step / 2) * 100;
+  const progress = (step / 3) * 100; // Agora são 3 passos
 
   const handleNext = () => setStep((s) => s + 1);
   const handleBack = () => setStep((s) => s - 1);
@@ -69,6 +79,16 @@ export default function CadastroEmpresa() {
     const res = await fetch('/api/verificar/cpf', {
       method: 'POST',
       body: JSON.stringify({ cpf }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const result = await res.json();
+    return result.exists;
+  }
+
+  async function verificarCNPJ(cnpj: string) {
+    const res = await fetch('/api/verificar/cnpj', {
+      method: 'POST',
+      body: JSON.stringify({ cnpj }),
       headers: { 'Content-Type': 'application/json' }
     });
     const result = await res.json();
@@ -108,13 +128,30 @@ export default function CadastroEmpresa() {
     return () => clearTimeout(delayDebounceFn);
   }, [form.cpf]);
 
+  // Verificação de CNPJ já existente com debounce
+  React.useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      const raw = form.cnpj.replace(/\D/g, '');
+      if (raw.length === 14) {
+        const exists = await verificarCNPJ(raw);
+        setCnpjError(exists ? 'Este CNPJ já está em uso.' : '');
+      } else {
+        setCnpjError('');
+      }
+    }, 500);
+    return () => clearTimeout(delayDebounceFn);
+  }, [form.cnpj]);
+
   const validarFormulario = () => {
     if (
       !form.nome ||
       !form.email ||
       !form.senha ||
       !form.confirmarSenha ||
-      !form.whatsapp
+      !form.whatsapp ||
+      !form.nomeEmpresa ||
+      !form.cidade ||
+      !form.endereco
     ) {
       alert("Preencha todos os campos obrigatórios.");
       return false;
@@ -138,25 +175,34 @@ export default function CadastroEmpresa() {
   const handleSubmit = async () => {
     setSubmitError('');
     if (!validarFormulario()) return;
-    // Remove máscara do CPF antes de enviar
+    
+    // Remove máscaras antes de enviar
     const cpfLimpo = form.cpf.replace(/\D/g, '');
-    // Prepara o corpo da requisição, garantindo campos sem máscara
+    const cnpjLimpo = form.cnpj.replace(/\D/g, '');
+    
+    // Prepara o corpo da requisição
     const payload = {
       nome: form.nome,
       email: form.email,
       senha: form.senha,
+      nomeEmpresa: form.nomeEmpresa,
       whatsapp: form.whatsapp,
       plano: form.plano,
       cpf: cpfLimpo,
+      cnpj: cnpjLimpo,
+      cidade: form.cidade,
+      endereco: form.endereco,
+      website: form.website,
     };
+    
     try {
-      console.log("Enviando payload:", payload);
-      const res = await fetch('/api/usuarios/cadastrar', {
+      const res = await fetch('/api/empresa/criar', {
         method: 'POST',
         body: JSON.stringify(payload),
         headers: { 'Content-Type': 'application/json' },
         cache: 'no-store',
       });
+      
       const text = await res.text();
       let result;
 
@@ -167,6 +213,7 @@ export default function CadastroEmpresa() {
         toast.error('Erro inesperado no servidor.');
         return;
       }
+      
       if (!res.ok) {
         if (result.error?.toLowerCase().includes('e-mail já cadastrado')) {
           setEmailError('Este e-mail já está em uso.');
@@ -174,16 +221,25 @@ export default function CadastroEmpresa() {
         } else if (result.error?.toLowerCase().includes('cpf já cadastrado')) {
           setCpfError('Este CPF já está em uso.');
           toast.error('Este CPF já está em uso.');
+        } else if (result.error?.toLowerCase().includes('cnpj já cadastrado')) {
+          setCnpjError('Este CNPJ já está em uso.');
+          toast.error('Este CNPJ já está em uso.');
         } else {
-          toast.error('Erro ao cadastrar. Tente novamente.');
+          toast.error(`Erro ao cadastrar: ${result.error || 'Tente novamente.'}`);
         }
         return;
       }
+      
       toast.success('Cadastro realizado com sucesso!');
-      router.push('/login');
+      
+      // Aguarda um pouco antes de redirecionar
+      setTimeout(() => {
+        router.push('/cadastro/sucesso');
+      }, 3000);
+      
     } catch (error: unknown) {
+      console.error('Erro no try/catch:', error);
       toast.error('Erro ao cadastrar. Tente novamente.');
-      console.error(error);
     }
   };
 
@@ -209,7 +265,7 @@ export default function CadastroEmpresa() {
           <div className="h-auto min-h-[560px] overflow-visible relative transition-all">
             {step === 1 && (
               <div
-                key={`step3-${step}`}
+                key={`step1-${step}`}
                 className="w-full gap-3 flex flex-col transition-opacity duration-200"
               >
                 <h2 className="text-xl font-bold mb-4">Escolha seu plano</h2>
@@ -371,9 +427,9 @@ export default function CadastroEmpresa() {
                 <div className="flex justify-end mt-6">
                   <button
                     onClick={handleNext}
-                    disabled={form.plano === '' || !senhasIguais}
+                    disabled={form.plano === ''}
                     className={`bg-black text-white px-4 py-2 rounded transition ${
-                      form.plano === '' || !senhasIguais ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-900'
+                      form.plano === '' ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-900'
                     }`}
                   >
                     Próximo
@@ -381,9 +437,93 @@ export default function CadastroEmpresa() {
                 </div>
               </div>
             )}
+
             {step === 2 && (
               <div
-                key={`step1-${step}`}
+                key={`step2-${step}`}
+                className="w-full gap-3 flex flex-col transition-opacity duration-200"
+              >
+                <h2 className="text-xl font-bold mb-4">Dados da Empresa</h2>
+                
+                <label className="text-sm text-gray-600">Nome da empresa</label>
+                <input
+                  type="text"
+                  name="nomeEmpresa"
+                  placeholder="Nome da sua empresa"
+                  className="w-full px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-black transition"
+                  value={form.nomeEmpresa}
+                  onChange={handleChange}
+                />
+
+                <label className="text-sm text-gray-600">CNPJ (opcional)</label>
+                <input
+                  type="text"
+                  name="cnpj"
+                  placeholder="00.000.000/0000-00"
+                  className={`w-full px-4 py-3 rounded-md border ${cnpjError ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-black transition`}
+                  value={form.cnpj}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/\D/g, '');
+                    setForm({ ...form, cnpj: masker(raw, ['00.000.000/0000-00']) });
+                  }}
+                />
+                {cnpjError && <span className="text-red-500 text-xs">{cnpjError}</span>}
+
+                <label className="text-sm text-gray-600">Cidade</label>
+                <input
+                  type="text"
+                  name="cidade"
+                  placeholder="Cidade"
+                  className="w-full px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-black transition"
+                  value={form.cidade}
+                  onChange={handleChange}
+                />
+
+                <label className="text-sm text-gray-600">Endereço</label>
+                <input
+                  type="text"
+                  name="endereco"
+                  placeholder="Endereço completo"
+                  className="w-full px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-black transition"
+                  value={form.endereco}
+                  onChange={handleChange}
+                />
+
+                <label className="text-sm text-gray-600">Website (opcional)</label>
+                <input
+                  type="text"
+                  name="website"
+                  placeholder="www.suaempresa.com.br"
+                  className="w-full px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-black transition"
+                  value={form.website}
+                  onChange={handleChange}
+                />
+
+                <div className="flex justify-between mt-6">
+                  <button
+                    onClick={handleBack}
+                    className="bg-gray-200 text-black px-4 py-2 rounded hover:bg-gray-300 transition"
+                  >
+                    Voltar
+                  </button>
+                  <button
+                    onClick={handleNext}
+                    disabled={!form.nomeEmpresa || !form.cidade || !form.endereco}
+                    className={`bg-black text-white px-4 py-2 rounded transition ${
+                      !form.nomeEmpresa || !form.cidade || !form.endereco
+                        ? 'opacity-50 cursor-not-allowed'
+                        : 'hover:bg-gray-900'
+                    }`}
+                  >
+                    Próximo
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {step === 3 && (
+              <div
+                key={`step3-${step}`}
                 className="w-full gap-3 flex flex-col transition-opacity duration-200"
               >
                 <h2 className="text-xl font-bold mb-4">Dados do responsável</h2>
@@ -496,7 +636,8 @@ export default function CadastroEmpresa() {
                       form.senha !== form.confirmarSenha ||
                       !form.whatsapp ||
                       !form.cpf ||
-                      cpfError !== ''
+                      cpfError !== '' ||
+                      cnpjError !== ''
                     }
                     className={`bg-black text-white px-4 py-2 rounded transition ${
                       !form.nome ||
@@ -507,7 +648,8 @@ export default function CadastroEmpresa() {
                       form.senha !== form.confirmarSenha ||
                       !form.whatsapp ||
                       !form.cpf ||
-                      cpfError !== ''
+                      cpfError !== '' ||
+                      cnpjError !== ''
                         ? 'opacity-50 cursor-not-allowed'
                         : 'hover:bg-gray-900'
                     }`}

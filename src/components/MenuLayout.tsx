@@ -20,11 +20,14 @@ import {
   FiMenu,
   FiX,
   FiGrid,
+  FiTruck,
+  FiStar,
 } from 'react-icons/fi';
 import { Toaster } from 'react-hot-toast';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/Toast';
+import { SubscriptionStatus } from '@/components/SubscriptionStatus';
 
 export default function MenuLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -43,6 +46,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [financeiroExpanded, setFinanceiroExpanded] = useState(false);
   const [equipamentosExpanded, setEquipamentosExpanded] = useState(false);
+  const [contatosExpanded, setContatosExpanded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -78,6 +82,10 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
     // Expandir automaticamente se estiver na página de categorias
     if (pathname === '/equipamentos/categorias') {
       setEquipamentosExpanded(true);
+    }
+    // Expandir automaticamente se estiver nas páginas de contatos
+    if (pathname === '/clientes' || pathname === '/fornecedores') {
+      setContatosExpanded(true);
     }
   }, [pathname]);
 
@@ -139,7 +147,29 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           )}
           <SidebarButton path="/caixa" icon={<FiDollarSign size={20} />} label="Caixa" isActive={pathname === '/caixa'} />
           {podeVer('clientes') && (
-            <SidebarButton path="/clientes" icon={<FiUsers size={20} />} label="Clientes" isActive={pathname === '/clientes'} />
+            <>
+              <div 
+                className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-zinc-700 hover:bg-zinc-100"
+                onClick={() => setContatosExpanded(!contatosExpanded)}
+                style={{ minHeight: 48 }}
+              >
+                <div className="flex items-center gap-3">
+                  <FiUsers size={20} />
+                  <span>Contatos</span>
+                </div>
+                <FiChevronDown 
+                  size={16} 
+                  className={`transition-transform ${contatosExpanded ? 'rotate-180' : ''}`} 
+                />
+              </div>
+              
+              {contatosExpanded && (
+                <div className="ml-6 flex flex-col gap-1 mt-1">
+                  <SidebarButton path="/clientes" icon={<FiUsers size={18} />} label="Clientes" isActive={pathname === '/clientes'} />
+                  <SidebarButton path="/fornecedores" icon={<FiTruck size={18} />} label="Fornecedores" isActive={pathname === '/fornecedores'} />
+                </div>
+              )}
+            </>
           )}
           {podeVer('equipamentos') && (
             <>
@@ -202,6 +232,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {podeVer('configuracoes') && usuarioData?.nivel !== 'atendente' && (
             <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" isActive={pathname === '/configuracoes'} />
           )}
+          <SidebarButton path="/planos" icon={<FiStar size={20} />} label="Planos" isActive={pathname === '/planos'} />
           <SidebarButton path="#logout" icon={<FiLogOut size={20} />} label="Sair" isActive={false} onClick={async () => {
             setIsLoggingOut(true);
             try {
@@ -256,7 +287,29 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               )}
               <SidebarButton path="/caixa" icon={<FiDollarSign size={20} />} label="Caixa" isActive={pathname === '/caixa'} />
               {podeVer('clientes') && (
-                <SidebarButton path="/clientes" icon={<FiUsers size={20} />} label="Clientes" isActive={pathname === '/clientes'} />
+                <>
+                  <div 
+                    className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-zinc-700 hover:bg-zinc-100"
+                    onClick={() => setContatosExpanded(!contatosExpanded)}
+                    style={{ minHeight: 48 }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <FiUsers size={20} />
+                      <span>Contatos</span>
+                    </div>
+                    <FiChevronDown 
+                      size={16} 
+                      className={`transition-transform ${contatosExpanded ? 'rotate-180' : ''}`} 
+                    />
+                  </div>
+                  
+                  {contatosExpanded && (
+                    <div className="ml-6 flex flex-col gap-1 mt-1">
+                      <SidebarButton path="/clientes" icon={<FiUsers size={18} />} label="Clientes" isActive={pathname === '/clientes'} />
+                      <SidebarButton path="/fornecedores" icon={<FiTruck size={18} />} label="Fornecedores" isActive={pathname === '/fornecedores'} />
+                    </div>
+                  )}
+                </>
               )}
                             {podeVer('equipamentos') && (
                 <>
@@ -282,6 +335,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                     </div>
                   )}
                 </>
+              )}
+              {podeVer('fornecedores') && (
+                <SidebarButton path="/fornecedores" icon={<FiTruck size={20} />} label="Fornecedores" isActive={pathname === '/fornecedores'} />
               )}
               {podeVer('financeiro') && (
                 <>
@@ -319,6 +375,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               {podeVer('configuracoes') && usuarioData?.nivel !== 'atendente' && (
                 <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" isActive={pathname === '/configuracoes'} />
               )}
+              <SidebarButton path="/planos" icon={<FiStar size={20} />} label="Planos" isActive={pathname === '/planos'} />
               <SidebarButton path="#logout" icon={<FiLogOut size={20} />} label="Sair" isActive={false} onClick={async () => {
                 setIsLoggingOut(true);
                 try {
@@ -350,6 +407,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           </div>
           <div className="hidden md:block" />
           <div className="flex items-center gap-4">
+            <SubscriptionStatus />
             <div className="flex items-center gap-2 bg-zinc-100 rounded-lg px-3 py-2">
               <FiSearch className="text-zinc-400" size={18} />
               <input

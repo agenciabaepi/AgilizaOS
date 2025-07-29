@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -8,7 +13,7 @@ export async function POST(request: Request) {
   const {
     nome,
     email,
-    // senha, // Não precisamos mais da senha aqui
+    senha,
     nomeEmpresa,
     cidade,
     cnpj: cnpjOriginal,
@@ -24,7 +29,7 @@ export async function POST(request: Request) {
   const cnpj = cnpjOriginal?.replace(/\D/g, '') || null;
 
   // Verificar se o email já existe
-  const { data: emailExistente } = await supabase
+  const { data: emailExistente } = await supabaseAdmin
     .from('empresas')
     .select('id')
     .eq('email', email)
@@ -36,7 +41,7 @@ export async function POST(request: Request) {
 
   // Verificar se o CPF já existe
   if (cpf) {
-    const { data: cpfExistente } = await supabase
+    const { data: cpfExistente } = await supabaseAdmin
       .from('empresas')
       .select('id')
       .eq('cpf', cpf)
@@ -49,7 +54,7 @@ export async function POST(request: Request) {
 
   // Verificar se o CNPJ já existe
   if (cnpj) {
-    const { data: cnpjExistente } = await supabase
+    const { data: cnpjExistente } = await supabaseAdmin
       .from('empresas')
       .select('id')
       .eq('cnpj', cnpj)
@@ -60,15 +65,27 @@ export async function POST(request: Request) {
     }
   }
 
-  // Obter usuário autenticado
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) {
-    return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 });
+  // Criar usuário no Supabase Auth
+  const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    password: senha,
+    email_confirm: true,
+  });
+
+  if (authError) {
+    console.error('Erro ao criar usuário no Auth:', authError);
+    return NextResponse.json({ error: authError.message }, { status: 400 });
   }
-  const user_id = user.id;
+
+  if (!authUser.user?.id) {
+    console.error('ID do usuário não retornado:', authUser);
+    return NextResponse.json({ error: 'Falha ao obter ID do usuário' }, { status: 400 });
+  }
+
+  const user_id = authUser.user.id;
 
   // 2. Criar empresa
-  const { data: empresa, error: empresaError } = await supabase
+  const { data: empresa, error: empresaError } = await supabaseAdmin
     .from('empresas')
     .insert({
       nome: nomeEmpresa,
@@ -93,13 +110,14 @@ export async function POST(request: Request) {
   console.log('Empresa criada:', empresa);
 
   // 3. Cadastrar usuário na tabela 'usuarios'
-  const { error: usuarioError } = await supabase
+  const { error: usuarioError } = await supabaseAdmin
     .from('usuarios')
     .insert({
       id: user_id,
       auth_user_id: user_id,
       nome,
       email,
+      usuario: email.split('@')[0], // Usar parte do email como usuário
       empresa_id: empresa.id,
       nivel: 'admin',
       tipo: 'principal'
@@ -110,6 +128,44 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Erro ao salvar usuário', details: usuarioError }, { status: 500 });
   }
   console.log('Usuário vinculado à empresa com sucesso');
+
+  // 4. Criar assinatura trial
+  try {
+          // Buscar plano trial
+      const { data: planoTrial } = await supabaseAdmin
+        .from('planos')
+        .select('*')
+        .eq('nome', 'Trial')
+        .single();
+
+      if (planoTrial) {
+        // Calcular data fim do trial (15 dias)
+        const dataInicio = new Date();
+        const dataTrialFim = new Date();
+        dataTrialFim.setDate(dataTrialFim.getDate() + 15);
+
+        const { error: assinaturaError } = await supabaseAdmin
+          .from('assinaturas')
+          .insert({
+            empresa_id: empresa.id,
+            plano_id: planoTrial.id,
+            status: 'trial',
+            data_inicio: dataInicio.toISOString(),
+            data_trial_fim: dataTrialFim.toISOString(),
+            valor: 0
+          });
+
+      if (assinaturaError) {
+        console.error('Erro ao criar assinatura trial:', assinaturaError);
+        // Não falhar a criação da empresa por causa da assinatura
+      } else {
+        console.log('Assinatura trial criada com sucesso');
+      }
+    }
+  } catch (error) {
+    console.error('Erro ao criar assinatura trial:', error);
+    // Não falhar a criação da empresa por causa da assinatura
+  }
 
   return NextResponse.json({ sucesso: true, empresa_id: empresa.id });
 }

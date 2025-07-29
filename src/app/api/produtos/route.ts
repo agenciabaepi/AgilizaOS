@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     const {
       nome, tipo, grupo_id, categoria_id, subcategoria_id,
       preco, custo, situacao, empresa_id,
-      fornecedor, unidade, marca,
+      fornecedor_id, unidade, marca,
       estoque_min, estoque_max, estoque_atual,
       ncm, cfop, cst, cest, obs, imagens, codigo,
       codigo_barras, largura_cm, altura_cm, profundidade_cm, peso_g
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
 
     console.log('Dados recebidos na API:', {
       nome, tipo, grupo_id, categoria_id, subcategoria_id,
-      empresa_id
+      fornecedor_id, empresa_id
     });
 
     // Validate required fields
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
     const payload = {
       nome, tipo, grupo_id, categoria_id, subcategoria_id,
       preco: parseFloat(preco), custo: parseFloat(custo || '0'),
-      situacao, empresa_id, fornecedor, unidade, marca,
+      situacao, empresa_id, fornecedor_id, unidade, marca,
       estoque_min: parseFloat(estoque_min || '0'),
       estoque_max: parseFloat(estoque_max || '0'),
       estoque_atual: parseFloat(estoque_atual || '0'),
