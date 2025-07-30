@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { ToastProvider } from '@/components/Toast';
 import { ConfirmProvider } from '@/components/ConfirmDialog';
+import TrialExpiredGuard from '@/components/TrialExpiredGuard';
 import { Toaster } from 'react-hot-toast';
 
 // Removido o export da metadata conforme exigência do Next.js para arquivos com "use client"
@@ -38,7 +39,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <ToastProvider>
               <ConfirmProvider>
                 <AuthContent>
-                  {children}
+                  <TrialExpiredGuard>
+                    {children}
+                  </TrialExpiredGuard>
                 </AuthContent>
                 <Toaster position="top-right" />
               </ConfirmProvider>

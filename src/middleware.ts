@@ -10,7 +10,7 @@ export async function middleware(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
 
   // Se não está autenticado e não está em páginas públicas, redirecionar para login
-  if (!user && !req.nextUrl.pathname.startsWith('/login') && !req.nextUrl.pathname.startsWith('/criar-empresa') && !req.nextUrl.pathname.startsWith('/cadastro') && req.nextUrl.pathname !== '/' && !req.nextUrl.pathname.startsWith('/assets/')) {
+  if (!user && !req.nextUrl.pathname.startsWith('/login') && !req.nextUrl.pathname.startsWith('/criar-empresa') && !req.nextUrl.pathname.startsWith('/cadastro') && !req.nextUrl.pathname.startsWith('/teste-expirado') && req.nextUrl.pathname !== '/' && !req.nextUrl.pathname.startsWith('/assets/')) {
     return NextResponse.redirect(new URL('/login', req.url));
   }
 
@@ -55,15 +55,28 @@ export async function middleware(req: NextRequest) {
             .limit(1)
             .single();
 
-          // Se não tem assinatura ou está expirada, redirecionar para planos
+          // Se não tem assinatura ou está expirada, redirecionar para teste expirado
           if (!assinatura || 
-              (assinatura.status === 'trial' && assinatura.data_trial_fim && new Date(assinatura.data_trial_fim) < new Date()) ||
               (assinatura.status === 'active' && assinatura.data_fim && new Date(assinatura.data_fim) < new Date())) {
             
-            // Não redirecionar se já está na página de planos
-            if (!req.nextUrl.pathname.startsWith('/planos')) {
-              return NextResponse.redirect(new URL('/planos', req.url));
+            // Não redirecionar se já está na página de teste expirado
+            if (!req.nextUrl.pathname.startsWith('/teste-expirado')) {
+              return NextResponse.redirect(new URL('/teste-expirado', req.url));
             }
+          }
+
+          // Se está no trial e expirou, redirecionar para página de teste expirado
+          if (assinatura.status === 'trial' && assinatura.data_trial_fim && new Date(assinatura.data_trial_fim) < new Date()) {
+            // Não redirecionar se já está na página de teste expirado
+            if (!req.nextUrl.pathname.startsWith('/teste-expirado')) {
+              return NextResponse.redirect(new URL('/teste-expirado', req.url));
+            }
+          }
+
+          // Permitir acesso à página de teste expirado para usuários com trial ativo
+          if (assinatura.status === 'trial' && req.nextUrl.pathname.startsWith('/teste-expirado')) {
+            // Permitir acesso (não redirecionar)
+            return res;
           }
         }
       } catch (error) {

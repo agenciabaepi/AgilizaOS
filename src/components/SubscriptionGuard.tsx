@@ -24,7 +24,7 @@ export const SubscriptionGuard = ({ children, tipo, recurso }: SubscriptionGuard
           <p className="text-gray-600 mb-6">
             Sua assinatura expirou. Renove para continuar usando o sistema.
           </p>
-          <Button onClick={() => router.push('/planos')}>
+          <Button onClick={() => router.push('/teste-expirado')}>
             Ver Planos
           </Button>
         </div>
@@ -42,7 +42,7 @@ export const SubscriptionGuard = ({ children, tipo, recurso }: SubscriptionGuard
           <p className="text-gray-600 mb-6">
             Seu período de teste de 15 dias expirou. Faça upgrade para continuar.
           </p>
-          <Button onClick={() => router.push('/planos')}>
+          <Button onClick={() => router.push('/teste-expirado')}>
             Ver Planos
           </Button>
         </div>
@@ -60,7 +60,7 @@ export const SubscriptionGuard = ({ children, tipo, recurso }: SubscriptionGuard
           <p className="text-gray-600 mb-6">
             Este recurso não está disponível no seu plano atual.
           </p>
-          <Button onClick={() => router.push('/planos')}>
+          <Button onClick={() => router.push('/teste-expirado')}>
             Ver Planos
           </Button>
         </div>
@@ -88,7 +88,7 @@ export const SubscriptionGuard = ({ children, tipo, recurso }: SubscriptionGuard
           <p className="text-gray-600 mb-6">
             Você atingiu o limite de {tipo} do seu plano ({limite}). Faça upgrade para criar mais.
           </p>
-          <Button onClick={() => router.push('/planos')}>
+          <Button onClick={() => router.push('/teste-expirado')}>
             Ver Planos
           </Button>
         </div>
@@ -113,7 +113,7 @@ export const SubscriptionGuard = ({ children, tipo, recurso }: SubscriptionGuard
                 <Button 
                   size="sm" 
                   className="mt-2"
-                  onClick={() => router.push('/planos')}
+                  onClick={() => router.push('/teste-expirado')}
                 >
                   Ver Planos
                 </Button>

@@ -104,7 +104,7 @@ export default function CadastroSucessoPage() {
             </button>
             
             <button
-              onClick={() => router.push('/planos')}
+                              onClick={() => router.push('/teste-expirado')}
               className="flex-1 bg-white text-black px-6 py-3 rounded-lg font-semibold border border-gray-300 hover:bg-gray-50 transition"
             >
               Ver Planos

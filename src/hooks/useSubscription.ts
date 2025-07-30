@@ -117,7 +117,18 @@ export const useSubscription = () => {
     if (!assinatura || assinatura.status !== 'trial') return false;
     if (!assinatura.data_trial_fim) return false;
     
-    return new Date(assinatura.data_trial_fim) < new Date();
+    const agora = new Date();
+    const fimTrial = new Date(assinatura.data_trial_fim);
+    const expirou = fimTrial < agora;
+    
+    console.log('Debug isTrialExpired:', {
+      agora: agora.toISOString(),
+      fimTrial: fimTrial.toISOString(),
+      expirou: expirou,
+      diferencaHoras: (fimTrial.getTime() - agora.getTime()) / (1000 * 60 * 60)
+    });
+    
+    return expirou;
   };
 
   // Verificar se assinatura está ativa
@@ -142,8 +153,11 @@ export const useSubscription = () => {
     const hoje = new Date();
     const fimTrial = new Date(assinatura.data_trial_fim);
     const diffTime = fimTrial.getTime() - hoje.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
+    // Se já expirou, retorna 0
+    if (diffTime <= 0) return 0;
+    
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return Math.max(0, diffDays);
   };
 
