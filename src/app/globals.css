@@ -120,3 +120,47 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Gradientes de texto no estilo Apple */
+.text-gradient-primary {
+  background: linear-gradient(135deg, #ffffff 0%, #D1FE6E 50%, #B8E55A 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-secondary {
+  background: linear-gradient(135deg, #D1FE6E 0%, #B8E55A 50%, #A5D44A 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-accent {
+  background: linear-gradient(135deg, #ffffff 0%, #D1FE6E 30%, #B8E55A 70%, #A5D44A 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Animação de gradiente */
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.text-gradient-animated {
+  background: linear-gradient(135deg, #ffffff 0%, #D1FE6E 25%, #B8E55A 50%, #A5D44A 75%, #ffffff 100%);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradient-shift 3s ease infinite;
+}

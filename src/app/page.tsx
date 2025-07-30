@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -12,6 +12,15 @@ export default function Home() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [scrollY, setScrollY] = useState(0);
   const [animatedElements, setAnimatedElements] = useState<Set<string>>(new Set());
+  // --- Analytics Animation State ---
+  const [showAnalyticsAnimation, setShowAnalyticsAnimation] = useState(false);
+  const [hasAnimated, setHasAnimated] = useState(false);
+  const analyticsRef = useRef<HTMLDivElement | null>(null);
+  // Animated numbers
+  const [revenue, setRevenue] = useState(0);
+  const [reduction, setReduction] = useState(0);
+  const [satisfaction, setSatisfaction] = useState(0);
+  const [numbersAnimated, setNumbersAnimated] = useState(false);
 
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
@@ -63,6 +72,72 @@ export default function Home() {
     };
   }, []);
 
+  // --- Analytics Section Observer (separado) ---
+  useEffect(() => {
+    if (!analyticsRef.current) return;
+    const analyticsObs = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          setShowAnalyticsAnimation(true);
+          // Reset os números apenas se ainda não animou
+          if (!hasAnimated) {
+            setRevenue(0);
+            setReduction(0);
+            setSatisfaction(0);
+          }
+          // Não definir hasAnimated aqui - será definido após a animação dos números
+        } else {
+          // Reset quando sair da tela
+          setShowAnalyticsAnimation(false);
+          setHasAnimated(false); // Permite animar novamente
+          setNumbersAnimated(false);
+        }
+      });
+    }, { threshold: 0.5 }); // 50% da seção deve estar visível
+    analyticsObs.observe(analyticsRef.current);
+    return () => analyticsObs.disconnect();
+  }, []);
+
+  // --- Animated Numbers Effect ---
+  useEffect(() => {
+    if (showAnalyticsAnimation && !hasAnimated) {
+      const endRevenue = 127;
+      const endReduction = 45;
+      const endSatisfaction = 89;
+      let frame = 0;
+      const totalFrames = 60; // Frames para animação mais rápida
+      const duration = 1500; // 1.5 segundos de duração
+      const interval = duration / totalFrames;
+      
+      const animate = () => {
+        frame++;
+        // Função de easing para animação mais natural
+        const progress = frame / totalFrames;
+        const easeOutBack = 1 - Math.pow(1 - progress, 3) * (1 - progress * 0.5);
+        
+        const newRevenue = Math.round(endRevenue * easeOutBack);
+        const newReduction = Math.round(endReduction * easeOutBack);
+        const newSatisfaction = Math.round(endSatisfaction * easeOutBack);
+        
+        setRevenue(newRevenue);
+        setReduction(newReduction);
+        setSatisfaction(newSatisfaction);
+        
+        if (frame < totalFrames) {
+          setTimeout(animate, interval);
+        } else {
+          setRevenue(endRevenue);
+          setReduction(endReduction);
+          setSatisfaction(endSatisfaction);
+          setNumbersAnimated(true);
+          setHasAnimated(true); // Marca que já animou APÓS a animação terminar
+        }
+      };
+      // Delay para começar a animação após as barras aparecerem
+      setTimeout(animate, 800);
+    }
+  }, [showAnalyticsAnimation, hasAnimated]);
+
   return (
     <div className="min-h-screen bg-black">
       {/* Background Pattern */}
@@ -99,8 +174,8 @@ export default function Home() {
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           {/* Logo */}
           <div className="flex items-center justify-center">
-            <Image 
-              src="/assets/imagens/logobranco.png" 
+              <Image 
+                src="/assets/imagens/logobranco.png" 
               alt="Consert Logo" 
               width={160} 
               height={160}
@@ -117,16 +192,10 @@ export default function Home() {
               Soluções
             </button>
             <button 
-              onClick={() => scrollToSection('templates')}
+              onClick={() => scrollToSection('analytics')}
               className="text-white/80 hover:text-white transition-all duration-300 font-light text-lg tracking-wide"
             >
-              Templates
-            </button>
-            <button 
-              onClick={() => scrollToSection('afiliados')}
-              className="text-white/80 hover:text-white transition-all duration-300 font-light text-lg tracking-wide"
-            >
-              Afiliados
+              Analytics
             </button>
             <button 
               onClick={() => scrollToSection('precos')}
@@ -180,16 +249,10 @@ export default function Home() {
                 Soluções
               </button>
               <button 
-                onClick={() => scrollToSection('templates')}
+                onClick={() => scrollToSection('analytics')}
                 className="text-white hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left"
               >
-                Templates
-              </button>
-              <button 
-                onClick={() => scrollToSection('afiliados')}
-                className="text-white hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left"
-              >
-                Afiliados
+                Analytics
               </button>
               <button 
                 onClick={() => scrollToSection('precos')}
@@ -243,12 +306,12 @@ export default function Home() {
           {/* Main Headline */}
           <h1 
             data-animate="headline"
-            className={`text-6xl md:text-8xl font-light text-white mb-16 leading-none tracking-tight transition-all duration-1000 ease-out ${
+            className={`text-6xl md:text-8xl font-light mb-16 leading-none tracking-tight transition-all duration-1000 ease-out text-gradient-primary ${
               animatedElements.has('headline') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
             }`}
           >
             Sua assistência com 
-            <span className="text-[#D1FE6E] block font-medium">gestão inteligente</span>
+            <span className="block font-medium text-gradient-secondary">gestão inteligente</span>
           </h1>
 
           {/* Sub-headline */}
@@ -346,6 +409,8 @@ export default function Home() {
         </div>
       </div>
 
+
+
       {/* Features Section */}
       <div id="recursos" className="relative z-10 px-8 py-32 lg:px-12">
         <div className="mx-auto max-w-6xl">
@@ -355,7 +420,7 @@ export default function Home() {
               animatedElements.has('features-header') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
             }`}
           >
-            <h2 className="text-6xl md:text-7xl font-light text-white mb-12 leading-none tracking-tight">
+            <h2 className="text-6xl md:text-7xl font-light mb-12 leading-none tracking-tight text-gradient-accent">
               Tudo que sua assistência precisa
             </h2>
             <p className="text-white/70 text-xl md:text-2xl max-w-4xl mx-auto leading-relaxed font-light">
@@ -571,6 +636,290 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Analytics Section */}
+      <section id="analytics" ref={analyticsRef} className="relative z-10 px-8 py-32 lg:px-12">
+        <div className="mx-auto max-w-6xl">
+          {/* Section Header */}
+          <div className="text-center mb-24">
+            <h2 
+              data-animate="analytics-headline"
+              className={`text-5xl md:text-7xl font-light mb-8 leading-none tracking-tight transition-all duration-1000 ease-out text-gradient-accent ${
+                animatedElements.has('analytics-headline') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+              }`}
+            >
+              Dados que impulsionam resultados
+            </h2>
+            <p 
+              data-animate="analytics-subheadline"
+              className={`text-xl text-white/70 max-w-3xl mx-auto leading-relaxed font-light transition-all duration-1000 ease-out delay-300 ${
+                animatedElements.has('analytics-subheadline') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+              }`}
+            >
+              Dashboards inteligentes que transformam números em insights acionáveis
+            </p>
+          </div>
+
+          {/* Analytics Grid - Centralized Layout */}
+          <div className="max-w-5xl mx-auto">
+            {/* Charts Container */}
+            <div 
+              data-animate="charts-container"
+              className={`transition-all duration-1000 ease-out delay-200 ${
+                animatedElements.has('charts-container') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+              }`}
+            >
+              <div className="relative">
+                {/* Main Chart */}
+                <div 
+                  className="relative p-8 rounded-3xl mb-8"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%)',
+                    backdropFilter: 'blur(20px)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+                  }}
+                >
+                  {/* Chart Header */}
+                  <div className="flex items-center justify-between mb-8">
+                    <div>
+                      <h3 className="text-2xl font-medium text-white mb-2">Receita Mensal</h3>
+                      <p className="text-white/60 text-sm">Últimos 6 meses</p>
+                      <p className="text-white/40 text-xs mt-1">Crescimento médio de 15% ao mês</p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-[#D1FE6E] rounded-full"></div>
+                      <span className="text-white/80 text-sm">Crescimento</span>
+                      <div className="ml-4 text-right">
+                        <div className="text-white/60 text-xs">Total: R$ 247.5k</div>
+                        <div className="text-[#D1FE6E] text-xs">+23.4% vs período anterior</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Animated Bar Chart */}
+                  <div className="relative h-80 flex items-end justify-between space-x-2 pl-12">
+                    {/* Grid Lines */}
+                    <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                      {[0, 25, 50, 75, 100].map((line) => (
+                        <div key={line} className="border-t border-white/10 h-px"></div>
+                      ))}
+                    </div>
+                    
+                    {/* Y-axis Labels */}
+                    <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-white/40 text-xs pointer-events-none w-12">
+                      <span>R$ 50k</span>
+                      <span>R$ 37.5k</span>
+                      <span>R$ 25k</span>
+                      <span>R$ 12.5k</span>
+                      <span>R$ 0</span>
+                    </div>
+                    
+                    {[65, 78, 82, 91, 88, 95].map((value, index) => (
+                      <div key={index} className="flex-1 relative flex flex-col justify-end">
+                        <div 
+                          className="bg-gradient-to-t from-[#D1FE6E] to-[#B8E55A] rounded-t-lg transition-all duration-1000 ease-out"
+                          style={{
+                            height: `${Math.max(value, 10)}px`,
+                            opacity: showAnalyticsAnimation ? 1 : 0,
+                            transform: showAnalyticsAnimation ? 'scaleY(1)' : 'scaleY(0.3)',
+                            transformOrigin: 'bottom',
+                            transitionDelay: `${index * 150}ms`,
+                            transition: 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)'
+                          }}
+                        ></div>
+                        {/* Value on top of bar */}
+                        <div 
+                          className="absolute -top-8 left-1/2 transform -translate-x-1/2 text-white/80 text-xs font-medium transition-all duration-1000 ease-out"
+                          style={{
+                            opacity: (showAnalyticsAnimation || hasAnimated) ? 1 : 0,
+                            transitionDelay: `${index * 150 + 200}ms`
+                          }}
+                        >
+                          R$ {Math.round((value / 100) * 50)}k
+                        </div>
+                        <div className="text-white/60 text-xs text-center mt-2">
+                          {['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'][index]}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Mini Charts Row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+                  {/* Pie Chart */}
+                  <div 
+                    className="p-6 rounded-2xl"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)',
+                      backdropFilter: 'blur(20px)',
+                      border: '1px solid rgba(255,255,255,0.08)'
+                    }}
+                  >
+                    <h4 className="text-white/80 text-sm mb-4">Distribuição de Serviços</h4>
+                    <div className="relative w-24 h-24 mx-auto">
+                      <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 100 100">
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="40"
+                          fill="none"
+                          stroke="rgba(255,255,255,0.1)"
+                          strokeWidth="8"
+                        />
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="40"
+                          fill="none"
+                          stroke="#D1FE6E"
+                          strokeWidth="8"
+                          strokeDasharray="251.2"
+                          strokeDashoffset="75.36"
+                          className="transition-all duration-1000 ease-out"
+                          style={{
+                            transform: (showAnalyticsAnimation || hasAnimated) ? 'rotate(0deg)' : 'rotate(-90deg)',
+                            transformOrigin: 'center'
+                          }}
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-white font-medium text-lg">{(showAnalyticsAnimation || hasAnimated) ? '70%' : '0%'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Line Chart */}
+                  <div 
+                    className="p-6 rounded-2xl"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)',
+                      backdropFilter: 'blur(20px)',
+                      border: '1px solid rgba(255,255,255,0.08)'
+                    }}
+                  >
+                    <h4 className="text-white/80 text-sm mb-4">Clientes Ativos</h4>
+                    <div className="relative h-24">
+                      <svg className="w-full h-full" viewBox="0 0 100 40">
+                        <path
+                          d="M0,30 L20,25 L40,20 L60,15 L80,10 L100,5"
+                          fill="none"
+                          stroke="#D1FE6E"
+                          strokeWidth="2"
+                          className="transition-all duration-1000 ease-out"
+                          style={{
+                            strokeDasharray: (showAnalyticsAnimation || hasAnimated) ? '200' : '0',
+                            strokeDashoffset: (showAnalyticsAnimation || hasAnimated) ? '0' : '200'
+                          }}
+                        />
+                        {[0, 20, 40, 60, 80, 100].map((x, i) => (
+                          <circle
+                            key={i}
+                            cx={x}
+                            cy={[30, 25, 20, 15, 10, 5][i]}
+                            r="2"
+                            fill="#D1FE6E"
+                            className="transition-all duration-1000 ease-out"
+                            style={{
+                              opacity: (showAnalyticsAnimation || hasAnimated) ? '1' : '0',
+                              animationDelay: `${i * 100}ms`
+                            }}
+                          />
+                        ))}
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Metrics Row */}
+                <div 
+                  data-animate="analytics-content"
+                  className={`grid grid-cols-1 md:grid-cols-3 gap-8 transition-all duration-1000 ease-out delay-400 ${
+                    animatedElements.has('analytics-content') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+                  }`}
+                >
+                  {/* Metric 1 */}
+                  <div className="flex flex-col items-center text-center p-6 rounded-2xl"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)',
+                      backdropFilter: 'blur(20px)',
+                      border: '1px solid rgba(255,255,255,0.08)'
+                    }}
+                  >
+                    <div className="w-16 h-16 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-xl flex items-center justify-center mb-4">
+                      <svg className="w-8 h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                      </svg>
+                    </div>
+                    <h3 className="text-3xl font-medium text-white mb-2 transition-all duration-500">
+                      <span className={`transition-all duration-300 ${numbersAnimated ? 'animate-pulse' : ''}`}>
+                        +{revenue}%
+                      </span>
+                    </h3>
+                    <p className="text-white/70 text-sm">Crescimento na receita média mensal</p>
+                  </div>
+
+                  {/* Metric 2 */}
+                  <div className="flex flex-col items-center text-center p-6 rounded-2xl"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)',
+                      backdropFilter: 'blur(20px)',
+                      border: '1px solid rgba(255,255,255,0.08)'
+                    }}
+                  >
+                    <div className="w-16 h-16 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-xl flex items-center justify-center mb-4">
+                      <svg className="w-8 h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-3xl font-medium text-white mb-2 transition-all duration-500">
+                      <span className={`transition-all duration-300 ${numbersAnimated ? 'animate-pulse' : ''}`}>
+                        -{reduction}%
+                      </span>
+                    </h3>
+                    <p className="text-white/70 text-sm">Redução no tempo de atendimento</p>
+                  </div>
+
+                  {/* Metric 3 */}
+                  <div className="flex flex-col items-center text-center p-6 rounded-2xl"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)',
+                      backdropFilter: 'blur(20px)',
+                      border: '1px solid rgba(255,255,255,0.08)'
+                    }}
+                  >
+                    <div className="w-16 h-16 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-xl flex items-center justify-center mb-4">
+                      <svg className="w-8 h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-3xl font-medium text-white mb-2 transition-all duration-500">
+                      <span className={`transition-all duration-300 ${numbersAnimated ? 'animate-pulse' : ''}`}>
+                        +{satisfaction}%
+                      </span>
+                    </h3>
+                    <p className="text-white/70 text-sm">Aumento na satisfação dos clientes</p>
+                  </div>
+                </div>
+
+                {/* CTA */}
+                <div className="text-center pt-12">
+                  <button 
+                    onClick={() => router.push('/cadastro')}
+                    className="px-8 py-4 bg-gradient-to-r from-[#D1FE6E] to-[#B8E55A] text-black rounded-full font-medium hover:from-[#B8E55A] hover:to-[#A5D44A] transition-all duration-500 transform hover:scale-105"
+                    style={{
+                      boxShadow: '0 4px 20px rgba(209, 254, 110, 0.3)'
+                    }}
+                  >
+                    Ver Dashboard Completo
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* CTA Section */}
       <div id="precos" className="relative z-10 px-8 py-32 lg:px-12">
