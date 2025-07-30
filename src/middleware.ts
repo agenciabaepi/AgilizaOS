@@ -10,7 +10,7 @@ export async function middleware(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
 
   // Se não está autenticado e não está em páginas públicas, redirecionar para login
-  if (!user && !req.nextUrl.pathname.startsWith('/login') && !req.nextUrl.pathname.startsWith('/criar-empresa') && !req.nextUrl.pathname.startsWith('/cadastro')) {
+  if (!user && !req.nextUrl.pathname.startsWith('/login') && !req.nextUrl.pathname.startsWith('/criar-empresa') && !req.nextUrl.pathname.startsWith('/cadastro') && req.nextUrl.pathname !== '/' && !req.nextUrl.pathname.startsWith('/assets/')) {
     return NextResponse.redirect(new URL('/login', req.url));
   }
 
