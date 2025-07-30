@@ -17,11 +17,10 @@ export default function Home() {
   const [hasAnimated, setHasAnimated] = useState(false);
   const analyticsRef = useRef<HTMLDivElement | null>(null);
   // Animated numbers
-  const [revenue, setRevenue] = useState(0);
-  const [reduction, setReduction] = useState(0);
-  const [satisfaction, setSatisfaction] = useState(0);
+  const [revenue, setRevenue] = useState(127);
+  const [reduction, setReduction] = useState(45);
+  const [satisfaction, setSatisfaction] = useState(89);
   const [numbersAnimated, setNumbersAnimated] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
 
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
@@ -76,28 +75,27 @@ export default function Home() {
   // --- Analytics Section Observer (separado) ---
   useEffect(() => {
     if (!analyticsRef.current) return;
+    
     const analyticsObs = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
+          // Reset e inicia animação
+          setRevenue(0);
+          setReduction(0);
+          setSatisfaction(0);
+          setHasAnimated(false);
+          setNumbersAnimated(false);
           setShowAnalyticsAnimation(true);
-          // Reset os números apenas se ainda não animou
-          if (!hasAnimated) {
-            setRevenue(0);
-            setReduction(0);
-            setSatisfaction(0);
-          }
-          // Não definir hasAnimated aqui - será definido após a animação dos números
         } else {
           // Reset quando sair da tela
           setShowAnalyticsAnimation(false);
-          setHasAnimated(false); // Permite animar novamente
-          setNumbersAnimated(false);
         }
       });
     }, { 
-      threshold: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
-      rootMargin: '0px 0px -10% 0px' // Trigger um pouco antes da seção ficar totalmente visível
+      threshold: 0.2, // Trigger quando 20% da seção estiver visível
+      rootMargin: '0px 0px -100px 0px' // Trigger mais cedo
     });
+    
     analyticsObs.observe(analyticsRef.current);
     return () => analyticsObs.disconnect();
   }, []);
@@ -109,8 +107,8 @@ export default function Home() {
       const endReduction = 45;
       const endSatisfaction = 89;
       let frame = 0;
-      const totalFrames = isMobile ? 30 : 40; // Menos frames no mobile
-      const duration = isMobile ? 1000 : 1200; // Duração menor no mobile
+      const totalFrames = 60; // Mais frames para animação mais suave
+      const duration = 1500; // Duração fixa
       const interval = duration / totalFrames;
       
       const animate = () => {
@@ -134,23 +132,14 @@ export default function Home() {
           setReduction(endReduction);
           setSatisfaction(endSatisfaction);
           setNumbersAnimated(true);
-          setHasAnimated(true); // Marca que já animou APÓS a animação terminar
+          setHasAnimated(true);
         }
       };
-      // Delay baseado no dispositivo
-      setTimeout(animate, isMobile ? 400 : 600);
+      
+      // Pequeno delay para garantir que a seção está visível
+      setTimeout(animate, 200);
     }
-  }, [showAnalyticsAnimation, hasAnimated, isMobile]);
-
-  // --- Mobile Detection ---
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+  }, [showAnalyticsAnimation, hasAnimated]);
 
   return (
     <div className="min-h-screen bg-black">
@@ -184,7 +173,7 @@ export default function Home() {
       </div>
 
       {/* Navigation */}
-      <nav className="relative z-10 px-8 py-6 lg:px-12">
+      <nav className="relative z-10 px-8 py-6 lg:px-12 bg-black/80 backdrop-blur-xl border-b border-white/10">
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           {/* Logo */}
           <div className="flex items-center justify-center">
@@ -254,7 +243,7 @@ export default function Home() {
 
         {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden mt-4 bg-gray-800/90 backdrop-blur-sm rounded-xl p-6 border border-[#D1FE6E]/20">
+          <div className="md:hidden mt-4 bg-black/90 backdrop-blur-xl rounded-xl p-6 border border-white/20">
             <div className="flex flex-col space-y-4">
               <button 
                 onClick={() => scrollToSection('solucoes')}
@@ -356,7 +345,7 @@ export default function Home() {
               Falar com Vendas
             </button>
             <button 
-              onClick={() => router.push('/cadastro')}
+              onClick={() => router.push('/cadastro?plano=pro')}
               className="px-12 py-5 text-white border border-white/30 rounded-full font-medium text-lg hover:bg-white/10 hover:border-white/50 transition-all duration-500 backdrop-blur-sm"
               style={{
                 background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
@@ -410,7 +399,7 @@ export default function Home() {
                 Interface intuitiva e completa para gerenciar sua assistência de forma eficiente.
               </p>
               <button 
-                onClick={() => router.push('/cadastro')}
+                onClick={() => router.push('/cadastro?plano=pro')}
                 className="px-10 py-4 bg-[#D1FE6E] text-black rounded-full font-medium hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105"
                 style={{
                   boxShadow: '0 4px 20px rgba(209, 254, 110, 0.3)'
@@ -738,8 +727,8 @@ export default function Home() {
                             opacity: (showAnalyticsAnimation || hasAnimated) ? 1 : 0,
                             transform: (showAnalyticsAnimation || hasAnimated) ? 'scaleY(1)' : 'scaleY(0.3)',
                             transformOrigin: 'bottom',
-                            transitionDelay: `${index * (isMobile ? 50 : 100)}ms`,
-                            transition: `all ${isMobile ? '0.4s' : '0.6s'} cubic-bezier(0.4, 0, 0.2, 1)`,
+                            transitionDelay: `${index * 100}ms`,
+                            transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
                             willChange: 'transform, opacity'
                           }}
                         ></div>
@@ -748,8 +737,8 @@ export default function Home() {
                           className="absolute -top-8 left-1/2 transform -translate-x-1/2 text-white/80 text-xs font-medium"
                           style={{
                             opacity: (showAnalyticsAnimation || hasAnimated) ? 1 : 0,
-                            transitionDelay: `${index * (isMobile ? 50 : 100) + (isMobile ? 200 : 300)}ms`,
-                            transition: `opacity ${isMobile ? '0.3s' : '0.4s'} ease-out`,
+                            transitionDelay: `${index * 100 + 300}ms`,
+                            transition: 'opacity 0.4s ease-out',
                             willChange: 'opacity'
                           }}
                         >
@@ -871,7 +860,7 @@ export default function Home() {
                     </div>
                     <h3 className="text-3xl font-medium text-white mb-2 transition-all duration-500">
                       <span className={`transition-all duration-300 ${numbersAnimated ? 'animate-pulse' : ''}`}>
-                        +{revenue}%
+                        +{showAnalyticsAnimation ? revenue : 127}%
                       </span>
                     </h3>
                     <p className="text-white/70 text-sm">Crescimento na receita média mensal</p>
@@ -892,7 +881,7 @@ export default function Home() {
                     </div>
                     <h3 className="text-3xl font-medium text-white mb-2 transition-all duration-500">
                       <span className={`transition-all duration-300 ${numbersAnimated ? 'animate-pulse' : ''}`}>
-                        -{reduction}%
+                        -{showAnalyticsAnimation ? reduction : 45}%
                       </span>
                     </h3>
                     <p className="text-white/70 text-sm">Redução no tempo de atendimento</p>
@@ -913,7 +902,7 @@ export default function Home() {
                     </div>
                     <h3 className="text-3xl font-medium text-white mb-2 transition-all duration-500">
                       <span className={`transition-all duration-300 ${numbersAnimated ? 'animate-pulse' : ''}`}>
-                        +{satisfaction}%
+                        +{showAnalyticsAnimation ? satisfaction : 89}%
                       </span>
                     </h3>
                     <p className="text-white/70 text-sm">Aumento na satisfação dos clientes</p>
@@ -938,8 +927,392 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA Section */}
+      {/* Pricing Section */}
       <div id="precos" className="relative z-10 px-8 py-32 lg:px-12">
+        <div className="mx-auto max-w-7xl">
+          {/* Section Header */}
+          <div 
+            data-animate="pricing-header"
+            className={`text-center mb-20 transition-all duration-1000 ease-out ${
+              animatedElements.has('pricing-header') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+            }`}
+          >
+            <h2 className="text-6xl md:text-7xl font-light mb-8 leading-none tracking-tight text-gradient-accent">
+              Planos que crescem com você
+            </h2>
+            <p className="text-white/70 text-xl md:text-2xl max-w-4xl mx-auto leading-relaxed font-light">
+              Escolha o plano ideal para o tamanho da sua assistência
+            </p>
+          </div>
+
+          {/* Pricing Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            {/* Plano Básico */}
+            <div 
+              data-animate="pricing-basic"
+              className={`group relative transition-all duration-1000 ease-out ${
+                animatedElements.has('pricing-basic') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+              }`}
+            >
+              <div 
+                className="h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col relative overflow-hidden"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  backdropFilter: 'blur(20px)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+                }}
+              >
+                {/* Subtle gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-br from-[#D1FE6E]/5 to-transparent opacity-50"></div>
+                
+                {/* Icon */}
+                <div className="relative z-10 mb-6">
+                  <div 
+                    className="w-16 h-16 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-2xl flex items-center justify-center shadow-2xl"
+                    style={{
+                      boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)'
+                    }}
+                  >
+                    <svg className="w-8 h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Plan Info */}
+                <div className="relative z-10 flex-grow">
+                  <div className="mb-4">
+                    <span className="inline-block px-3 py-1 bg-[#D1FE6E]/20 text-[#D1FE6E] text-xs font-medium rounded-full mb-3">
+                      Sistema completo para começar
+                    </span>
+                    <h3 className="text-2xl font-light text-white mb-2">Básico</h3>
+                    <p className="text-white/70 text-sm mb-6">1 usuário, 1 técnico, sistema de OS completo</p>
+                  </div>
+
+                  {/* Price */}
+                  <div className="mb-8">
+                    <div className="flex items-baseline">
+                      <span className="text-4xl font-light text-white">R$ 129,90</span>
+                      <span className="text-white/60 text-sm ml-2">/mês</span>
+                    </div>
+                  </div>
+
+                  {/* Features */}
+                  <div className="space-y-4 mb-8">
+                    <div className="flex items-center">
+                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
+                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <span className="text-white/80 text-sm">Cadastro de clientes</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
+                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <span className="text-white/80 text-sm">Cadastro de produtos e serviços</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
+                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <span className="text-white/80 text-sm">Sistema de OS completo</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
+                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <span className="text-white/80 text-sm">Relatórios simples de atendimento</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
+                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <span className="text-white/80 text-sm">Segurança de dados na nuvem</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CTA Button */}
+                <div className="relative z-10 mt-auto">
+                  <button 
+                    onClick={() => router.push('/cadastro?plano=basico')}
+                    className="w-full py-4 bg-[#D1FE6E] text-black rounded-2xl font-medium hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105"
+                    style={{
+                      boxShadow: '0 4px 20px rgba(209, 254, 110, 0.3)'
+                    }}
+                  >
+                    Selecionado
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Plano Pro */}
+            <div 
+              data-animate="pricing-pro"
+              className={`group relative transition-all duration-1000 ease-out delay-100 ${
+                animatedElements.has('pricing-pro') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+              }`}
+            >
+              {/* Popular Badge */}
+              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 z-20">
+                <div className="bg-black text-white px-4 py-2 rounded-full text-xs font-medium">
+                  POPULAR
+                </div>
+              </div>
+
+              <div 
+                className="h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col relative overflow-hidden"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.05) 100%)',
+                  border: '2px solid rgba(209, 254, 110, 0.3)',
+                  backdropFilter: 'blur(20px)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+                }}
+              >
+                {/* Enhanced gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-br from-[#D1FE6E]/10 to-transparent opacity-60"></div>
+                
+                {/* Icon */}
+                <div className="relative z-10 mb-6">
+                  <div 
+                    className="w-16 h-16 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-2xl flex items-center justify-center shadow-2xl"
+                    style={{
+                      boxShadow: '0 8px 32px rgba(209, 254, 110, 0.3)'
+                    }}
+                  >
+                    <svg className="w-8 h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0V6a2 2 0 012 2v6a2 2 0 01-2 2H8a2 2 0 01-2-2V8a2 2 0 012-2h4a2 2 0 012 2v2m-8 0v2a2 2 0 002 2h4a2 2 0 002-2v-2" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Plan Info */}
+                <div className="relative z-10 flex-grow">
+                  <div className="mb-4">
+                    <span className="inline-block px-3 py-1 bg-[#D1FE6E]/20 text-[#D1FE6E] text-xs font-medium rounded-full mb-3">
+                      Plano completo para equipes
+                    </span>
+                    <h3 className="text-2xl font-light text-white mb-2">Pro</h3>
+                    <p className="text-white/70 text-sm mb-6">5 usuários, 5 técnicos e muito mais</p>
+                  </div>
+
+                  {/* Price */}
+                  <div className="mb-8">
+                    <div className="flex items-baseline">
+                      <span className="text-4xl font-light text-white">R$ 189,90</span>
+                      <span className="text-white/60 text-sm ml-2">/mês</span>
+                    </div>
+                  </div>
+
+                  {/* Features */}
+                  <div className="space-y-4 mb-8">
+                    <div className="flex items-center">
+                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
+                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <span className="text-white/80 text-sm">Controle financeiro</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
+                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <span className="text-white/80 text-sm">Comissão por técnico</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
+                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <span className="text-white/80 text-sm">Emissão de nota fiscal</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
+                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <span className="text-white/80 text-sm">Controle de permissões</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
+                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <span className="text-white/80 text-sm">Controle de estoque detalhado</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
+                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <span className="text-white/80 text-sm">Gestão de equipe por permissões</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CTA Button */}
+                <div className="relative z-10 mt-auto">
+                  <button 
+                    onClick={() => router.push('/cadastro?plano=pro')}
+                    className="w-full py-4 bg-[#D1FE6E] text-black rounded-2xl font-medium hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105"
+                    style={{
+                      boxShadow: '0 4px 20px rgba(209, 254, 110, 0.3)'
+                    }}
+                  >
+                    Escolher Pro
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Plano Avançado */}
+            <div 
+              data-animate="pricing-advanced"
+              className={`group relative transition-all duration-1000 ease-out delay-200 ${
+                animatedElements.has('pricing-advanced') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+              }`}
+            >
+              <div 
+                className="h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col relative overflow-hidden"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  backdropFilter: 'blur(20px)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+                }}
+              >
+                {/* Subtle gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-br from-[#D1FE6E]/5 to-transparent opacity-50"></div>
+                
+                {/* Icon */}
+                <div className="relative z-10 mb-6">
+                  <div 
+                    className="w-16 h-16 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-2xl flex items-center justify-center shadow-2xl"
+                    style={{
+                      boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)'
+                    }}
+                  >
+                    <svg className="w-8 h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Plan Info */}
+                <div className="relative z-10 flex-grow">
+                  <div className="mb-4">
+                    <span className="inline-block px-3 py-1 bg-[#D1FE6E]/20 text-[#D1FE6E] text-xs font-medium rounded-full mb-3">
+                      Experiência completa + automações
+                    </span>
+                    <h3 className="text-2xl font-light text-white mb-2">Avançado</h3>
+                    <p className="text-white/70 text-sm mb-6">10 usuários, 10 técnicos, app e automações</p>
+                  </div>
+
+                  {/* Price */}
+                  <div className="mb-8">
+                    <div className="flex items-baseline">
+                      <span className="text-4xl font-light text-white">R$ 279,90</span>
+                      <span className="text-white/60 text-sm ml-2">/mês</span>
+                    </div>
+                  </div>
+
+                  {/* Features */}
+                  <div className="space-y-4 mb-8">
+                    <div className="flex items-center">
+                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
+                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <span className="text-white/80 text-sm">Kanban para OS</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
+                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <span className="text-white/80 text-sm">App do técnico com notificações</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
+                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <span className="text-white/80 text-sm">Integração WhatsApp</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
+                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <span className="text-white/80 text-sm">Dashboard de performance</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
+                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <span className="text-white/80 text-sm">Geração de relatórios personalizados</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CTA Button */}
+                <div className="relative z-10 mt-auto">
+                  <button 
+                    onClick={() => router.push('/cadastro?plano=avancado')}
+                    className="w-full py-4 bg-[#D1FE6E] text-black rounded-2xl font-medium hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105"
+                    style={{
+                      boxShadow: '0 4px 20px rgba(209, 254, 110, 0.3)'
+                    }}
+                  >
+                    Escolher Avançado
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Additional Info */}
+          <div 
+            data-animate="pricing-info"
+            className={`text-center mt-16 transition-all duration-1000 ease-out delay-300 ${
+              animatedElements.has('pricing-info') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+            }`}
+          >
+            <p className="text-white/60 text-sm max-w-2xl mx-auto">
+              Todos os planos incluem suporte por email e chat. Cancelamento a qualquer momento. 
+              Teste grátis por 14 dias em todos os planos.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* CTA Section */}
+      <div className="relative z-10 px-8 py-32 lg:px-12">
         <div className="mx-auto max-w-5xl text-center">
           <div className="bg-white/5 backdrop-blur-sm rounded-3xl p-16 border border-white/10">
             <h2 className="text-6xl md:text-7xl font-light text-white mb-8 leading-none tracking-tight">
@@ -951,7 +1324,7 @@ export default function Home() {
             </p>
             <div className="flex flex-col sm:flex-row gap-8 justify-center items-center">
               <button 
-                onClick={() => router.push('/cadastro')}
+                onClick={() => router.push('/cadastro?plano=pro')}
                 className="px-12 py-5 bg-[#D1FE6E] text-black rounded-full font-medium text-lg hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105"
               >
                 Começar Agora

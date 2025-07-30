@@ -1,41 +1,35 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import logo from '@/assets/imagens/logobranco.png';
 import Image from 'next/image';
 import {
-  FaUserFriends,
-  FaBriefcase,
-  FaRocket,
   FaUser,
-  FaBoxOpen,
-  FaTools,
-  FaDollarSign,
-  FaChartLine,
-  FaFileInvoice,
-  FaUserShield,
-  FaProjectDiagram,
-  FaMobileAlt,
-  FaWhatsapp,
   FaEye,
   FaEyeSlash,
   FaBuilding,
   FaMapMarkerAlt,
-  FaGlobe
+  FaGlobe,
+  FaCheckCircle
 } from 'react-icons/fa';
 import { mask as masker } from 'remask';
 
 export default function CadastroEmpresa() {
   const [step, setStep] = useState(1);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  // Pega o plano da URL ou usa 'pro' como padrão
+  const planoFromUrl = searchParams.get('plano') || 'pro';
+  
   const [form, setForm] = useState({
     nome: '',
     email: '',
     senha: '',
     confirmarSenha: '',
     whatsapp: '',
-    plano: 'pro',
+    plano: planoFromUrl,
     cpf: '',
     // Campos da empresa
     nomeEmpresa: '',
@@ -44,6 +38,12 @@ export default function CadastroEmpresa() {
     website: '',
     cnpj: ''
   });
+
+  // Atualiza o plano quando a URL mudar
+  useEffect(() => {
+    const newPlano = searchParams.get('plano') || 'pro';
+    setForm(prev => ({ ...prev, plano: newPlano }));
+  }, [searchParams]);
   const [emailValido, setEmailValido] = useState(true);
   const [senhasIguais, setSenhasIguais] = useState(true);
   const [emailError, setEmailError] = useState('');
@@ -52,17 +52,13 @@ export default function CadastroEmpresa() {
   const [submitError, setSubmitError] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [mostrarConfirmarSenha, setMostrarConfirmarSenha] = useState(false);
-  const progress = (step / 3) * 100; // Agora são 3 passos
+  const progress = (step / 2) * 100; // Agora são 2 passos
 
   const handleNext = () => setStep((s) => s + 1);
   const handleBack = () => setStep((s) => s - 1);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  const handlePlanoSelect = (plano: string) => {
-    setForm({ ...form, plano });
   };
 
   async function verificarEmail(email: string) {
@@ -268,154 +264,126 @@ export default function CadastroEmpresa() {
                 key={`step1-${step}`}
                 className="w-full gap-3 flex flex-col transition-opacity duration-200"
               >
-                <h2 className="text-xl font-bold mb-4">Escolha seu plano</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-                  {/* Básico */}
-                  <div
-                    onClick={() => handlePlanoSelect('basico')}
-                    className={`group cursor-pointer z-20 border-2 ${
-                      form.plano === 'basico' ? 'border-green-600' : 'border-gray-300'
-                    } bg-green-50 p-4 shadow-md rounded-2xl transition-all duration-300 ease-in-out hover:scale-[1.02] ring-1 ring-transparent hover:ring-green-400 relative`}
-                  >
-                    <div className="flex flex-row items-center justify-center w-full max-w-[400px] rounded-2xl p-4 transition-all duration-300 ease-in-out">
-                      <div className="flex flex-col items-center justify-center">
-                        <FaUserFriends className="text-4xl text-green-600 mb-4 group-hover:text-green-700 transition-all duration-300 ease-in-out" />
-                        <div className="flex flex-col items-center text-center gap-1">
-                          <p className="font-bold text-xl text-black">Básico</p>
-                          <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-medium">Sistema completo para começar</span>
-                          <p className="text-sm text-gray-500 mt-1">1 usuário, 1 técnico, sistema de OS completo</p>
-                          <p className="text-green-600 font-extrabold text-lg mt-2">R$ 129,90/mês</p>
-                          <p className="text-xs text-gray-400">Inclui:</p>
-                          <ul className="text-xs text-gray-500 mt-3 space-y-1 text-left">
+                <h2 className="text-xl font-bold mb-4">Plano Selecionado</h2>
+                
+                {/* Card do plano selecionado */}
+                <div className="w-full max-w-md mx-auto">
+                  <div className="bg-green-50 border-2 border-green-600 p-6 rounded-2xl shadow-md">
+                    <div className="flex flex-col items-center text-center">
+                      <div className="w-16 h-16 bg-green-600 rounded-2xl flex items-center justify-center mb-4">
+                        <FaCheckCircle className="text-white text-2xl" />
+                      </div>
+                      
+                      {form.plano === 'basico' && (
+                        <>
+                          <h3 className="font-bold text-xl text-black mb-2">Plano Básico</h3>
+                          <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-medium mb-2">
+                            Sistema completo para começar
+                          </span>
+                          <p className="text-sm text-gray-500 mb-4">1 usuário, 1 técnico, sistema de OS completo</p>
+                          <p className="text-green-600 font-extrabold text-2xl mb-4">R$ 129,90/mês</p>
+                          <ul className="text-xs text-gray-600 space-y-2 text-left w-full">
                             <li className="flex items-center gap-2">
-                              <FaUser className="text-green-600" />
+                              <FaUser className="text-green-600 text-xs" />
                               <span>Cadastro de clientes</span>
                             </li>
                             <li className="flex items-center gap-2">
-                              <FaBoxOpen className="text-green-600" />
+                              <FaBuilding className="text-green-600 text-xs" />
                               <span>Cadastro de produtos e serviços</span>
                             </li>
                             <li className="flex items-center gap-2">
-                              <FaTools className="text-green-600" />
+                              <FaCheckCircle className="text-green-600 text-xs" />
                               <span>Sistema de OS completo</span>
                             </li>
                             <li className="flex items-center gap-2">
-                              <FaChartLine className="text-green-600" />
+                              <FaCheckCircle className="text-green-600 text-xs" />
                               <span>Relatórios simples de atendimento</span>
                             </li>
                             <li className="flex items-center gap-2">
-                              <FaUserShield className="text-green-600" />
+                              <FaCheckCircle className="text-green-600 text-xs" />
                               <span>Segurança de dados na nuvem</span>
                             </li>
                           </ul>
-                        </div>
-                        {form.plano === 'basico' && (
-                          <p className="text-xs font-bold text-green-600 mt-1">Selecionado</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Pro */}
-                  <div
-                    onClick={() => handlePlanoSelect('pro')}
-                    className={`group cursor-pointer z-20 border-2 ${
-                      form.plano === 'pro' ? 'border-green-600' : 'border-gray-300'
-                    } bg-green-50 p-4 shadow-md rounded-2xl transition-all duration-300 ease-in-out hover:scale-[1.02] ring-1 ring-transparent hover:ring-green-400 relative`}
-                  >
-                    <div className="absolute top-2 right-2 bg-black text-white text-[10px] px-2 py-1 rounded-full uppercase tracking-wide">
-                      Popular
-                    </div>
-                    <div className="flex flex-row items-center justify-center w-full max-w-[400px] rounded-2xl p-4 transition-all duration-300 ease-in-out">
-                      <div className="flex flex-col items-center justify-center">
-                        <FaBriefcase className="text-4xl text-green-600 mb-4 group-hover:text-green-700 transition-all duration-300 ease-in-out" />
-                        <div className="flex flex-col items-center text-center gap-1">
-                          <p className="font-bold text-xl text-black">Pro</p>
-                          <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-medium">Plano completo para equipes</span>
-                          <p className="text-sm text-gray-500 mt-1">5 usuários, 5 técnicos e muito mais</p>
-                          <p className="text-green-600 font-extrabold text-lg mt-2">R$ 189,90/mês</p>
-                          <p className="text-xs text-gray-400">Inclui:</p>
-                          <ul className="text-xs text-gray-500 mt-3 space-y-1 text-left">
+                        </>
+                      )}
+                      
+                      {form.plano === 'pro' && (
+                        <>
+                          <div className="bg-black text-white px-3 py-1 rounded-full text-xs font-medium mb-2">
+                            POPULAR
+                          </div>
+                          <h3 className="font-bold text-xl text-black mb-2">Plano Pro</h3>
+                          <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-medium mb-2">
+                            Plano completo para equipes
+                          </span>
+                          <p className="text-sm text-gray-500 mb-4">5 usuários, 5 técnicos e muito mais</p>
+                          <p className="text-green-600 font-extrabold text-2xl mb-4">R$ 189,90/mês</p>
+                          <ul className="text-xs text-gray-600 space-y-2 text-left w-full">
                             <li className="flex items-center gap-2">
-                              <FaDollarSign className="text-green-600" />
+                              <FaCheckCircle className="text-green-600 text-xs" />
                               <span>Controle financeiro</span>
                             </li>
                             <li className="flex items-center gap-2">
-                              <FaChartLine className="text-green-600" />
+                              <FaCheckCircle className="text-green-600 text-xs" />
                               <span>Comissão por técnico</span>
                             </li>
                             <li className="flex items-center gap-2">
-                              <FaFileInvoice className="text-green-600" />
+                              <FaCheckCircle className="text-green-600 text-xs" />
                               <span>Emissão de nota fiscal</span>
                             </li>
                             <li className="flex items-center gap-2">
-                              <FaUserShield className="text-green-600" />
+                              <FaCheckCircle className="text-green-600 text-xs" />
                               <span>Controle de permissões</span>
                             </li>
                             <li className="flex items-center gap-2">
-                              <FaBoxOpen className="text-green-600" />
+                              <FaCheckCircle className="text-green-600 text-xs" />
                               <span>Controle de estoque detalhado</span>
                             </li>
                             <li className="flex items-center gap-2">
-                              <FaUserFriends className="text-green-600" />
+                              <FaCheckCircle className="text-green-600 text-xs" />
                               <span>Gestão de equipe por permissões</span>
                             </li>
                           </ul>
-                        </div>
-                        {form.plano === 'pro' && (
-                          <p className="text-xs font-bold text-green-600 mt-1">Selecionado</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Avançado */}
-                  <div
-                    onClick={() => handlePlanoSelect('avancado')}
-                    className={`group cursor-pointer z-20 border-2 ${
-                      form.plano === 'avancado' ? 'border-green-600' : 'border-gray-300'
-                    } bg-green-50 p-4 shadow-md rounded-2xl transition-all duration-300 ease-in-out hover:scale-[1.02] ring-1 ring-transparent hover:ring-green-400 relative`}
-                  >
-                    <div className="flex flex-row items-center justify-center w-full max-w-[400px] rounded-2xl p-4 transition-all duration-300 ease-in-out">
-                      <div className="flex flex-col items-center justify-center">
-                        <FaRocket className="text-4xl text-green-600 mb-4 group-hover:text-green-700 transition-all duration-300 ease-in-out" />
-                        <div className="flex flex-col items-center text-center gap-1">
-                          <p className="font-bold text-xl text-black">Avançado</p>
-                          <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-medium">Experiência completa + automações</span>
-                          <p className="text-sm text-gray-500 mt-1">10 usuários, 10 técnicos, app e automações</p>
-                          <p className="text-green-600 font-extrabold text-lg mt-2">R$ 279,90/mês</p>
-                          <p className="text-xs text-gray-400">Inclui:</p>
-                          <ul className="text-xs text-gray-500 mt-3 space-y-1 text-left">
+                        </>
+                      )}
+                      
+                      {form.plano === 'avancado' && (
+                        <>
+                          <h3 className="font-bold text-xl text-black mb-2">Plano Avançado</h3>
+                          <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-medium mb-2">
+                            Experiência completa + automações
+                          </span>
+                          <p className="text-sm text-gray-500 mb-4">10 usuários, 10 técnicos, app e automações</p>
+                          <p className="text-green-600 font-extrabold text-2xl mb-4">R$ 279,90/mês</p>
+                          <ul className="text-xs text-gray-600 space-y-2 text-left w-full">
                             <li className="flex items-center gap-2">
-                              <FaProjectDiagram className="text-green-600" />
+                              <FaCheckCircle className="text-green-600 text-xs" />
                               <span>Kanban para OS</span>
                             </li>
                             <li className="flex items-center gap-2">
-                              <FaMobileAlt className="text-green-600" />
+                              <FaCheckCircle className="text-green-600 text-xs" />
                               <span>App do técnico com notificações</span>
                             </li>
                             <li className="flex items-center gap-2">
-                              <FaWhatsapp className="text-green-600" />
+                              <FaCheckCircle className="text-green-600 text-xs" />
                               <span>Integração WhatsApp</span>
                             </li>
                             <li className="flex items-center gap-2">
-                              <FaChartLine className="text-green-600" />
+                              <FaCheckCircle className="text-green-600 text-xs" />
                               <span>Dashboard de performance</span>
                             </li>
                             <li className="flex items-center gap-2">
-                              <FaFileInvoice className="text-green-600" />
+                              <FaCheckCircle className="text-green-600 text-xs" />
                               <span>Geração de relatórios personalizados</span>
                             </li>
                           </ul>
-                        </div>
-                        {form.plano === 'avancado' && (
-                          <p className="text-xs font-bold text-green-600 mt-1">Selecionado</p>
-                        )}
-                      </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
-                <div className="mt-4 text-green-600 text-sm text-center">
+                
+                <div className="mt-6 text-green-600 text-sm text-center">
                   🎁 15 dias grátis para começar. Sem cartão de crédito.
                 </div>
                 <div className="mt-2 text-gray-500 text-xs flex items-center justify-center gap-2">
@@ -427,12 +395,9 @@ export default function CadastroEmpresa() {
                 <div className="flex justify-end mt-6">
                   <button
                     onClick={handleNext}
-                    disabled={form.plano === ''}
-                    className={`bg-black text-white px-4 py-2 rounded transition ${
-                      form.plano === '' ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-900'
-                    }`}
+                    className="bg-black text-white px-6 py-3 rounded-lg hover:bg-gray-900 transition font-medium"
                   >
-                    Próximo
+                    Continuar
                   </button>
                 </div>
               </div>
@@ -463,9 +428,13 @@ export default function CadastroEmpresa() {
                   className={`w-full px-4 py-3 rounded-md border ${cnpjError ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-black transition`}
                   value={form.cnpj}
                   onChange={(e) => {
-                    const raw = e.target.value.replace(/\D/g, '');
-                    setForm({ ...form, cnpj: masker(raw, ['00.000.000/0000-00']) });
+                    const value = e.target.value;
+                    // Permitir apenas números e caracteres de formatação
+                    const cleaned = value.replace(/[^\d./-]/g, '');
+                    setForm({ ...form, cnpj: cleaned });
                   }}
+                  maxLength={18}
+                  autoComplete="off"
                 />
                 {cnpjError && <span className="text-red-500 text-xs">{cnpjError}</span>}
 
@@ -499,34 +468,7 @@ export default function CadastroEmpresa() {
                   onChange={handleChange}
                 />
 
-                <div className="flex justify-between mt-6">
-                  <button
-                    onClick={handleBack}
-                    className="bg-gray-200 text-black px-4 py-2 rounded hover:bg-gray-300 transition"
-                  >
-                    Voltar
-                  </button>
-                  <button
-                    onClick={handleNext}
-                    disabled={!form.nomeEmpresa || !form.cidade || !form.endereco}
-                    className={`bg-black text-white px-4 py-2 rounded transition ${
-                      !form.nomeEmpresa || !form.cidade || !form.endereco
-                        ? 'opacity-50 cursor-not-allowed'
-                        : 'hover:bg-gray-900'
-                    }`}
-                  >
-                    Próximo
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {step === 3 && (
-              <div
-                key={`step3-${step}`}
-                className="w-full gap-3 flex flex-col transition-opacity duration-200"
-              >
-                <h2 className="text-xl font-bold mb-4">Dados do responsável</h2>
+                <h2 className="text-xl font-bold mb-4 mt-8">Dados do responsável</h2>
                 <label className="text-sm text-gray-600">Digite seu nome completo.</label>
                 <input
                   type="text"
@@ -637,9 +579,12 @@ export default function CadastroEmpresa() {
                       !form.whatsapp ||
                       !form.cpf ||
                       cpfError !== '' ||
-                      cnpjError !== ''
+                      cnpjError !== '' ||
+                      !form.nomeEmpresa ||
+                      !form.cidade ||
+                      !form.endereco
                     }
-                    className={`bg-black text-white px-4 py-2 rounded transition ${
+                    className={`bg-black text-white px-6 py-3 rounded-lg transition font-medium ${
                       !form.nome ||
                       !form.email ||
                       !form.senha ||
@@ -649,7 +594,10 @@ export default function CadastroEmpresa() {
                       !form.whatsapp ||
                       !form.cpf ||
                       cpfError !== '' ||
-                      cnpjError !== ''
+                      cnpjError !== '' ||
+                      !form.nomeEmpresa ||
+                      !form.cidade ||
+                      !form.endereco
                         ? 'opacity-50 cursor-not-allowed'
                         : 'hover:bg-gray-900'
                     }`}

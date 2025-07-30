@@ -125,74 +125,97 @@ function LoginClientInner() {
   };
 
   return (
-    <div className="relative flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-[#cffb6d] to-[#e0ffe3] overflow-hidden">
-      {/* Overlay da imagem de fundo */}
-      <div className="absolute inset-0 z-0 pointer-events-none">
+    <div className="min-h-screen bg-gradient-to-br from-[#cffb6d] to-[#e0ffe3] relative overflow-hidden">
+      {/* Background Image */}
+      <div className="absolute inset-0 z-0">
         <img
           src={bgImage.src}
           alt="Background Login"
-          className="w-full h-full object-cover opacity-30"
+          className="w-full h-full object-cover opacity-40"
           style={{ mixBlendMode: 'overlay' }}
         />
       </div>
-      {/* Conteúdo do login */}
-      <form
-        onSubmit={handleLogin}
-        className="relative z-10 bg-white p-8 rounded-2xl shadow-xl w-full max-w-sm border border-gray-200"
-      >
-        <div className="flex justify-center mb-6">
-          <Image src={logo} alt="Logo AgilizaOS" width={200} height={200} />
-        </div>
-        <p className="text-sm text-gray-500 mb-6 text-center">
-          Acesse sua conta para continuar
-        </p>
-        
-        {/* Informações para novos usuários */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-          <h3 className="text-sm font-semibold text-blue-800 mb-2">Novo por aqui?</h3>
-          <p className="text-xs text-blue-700 mb-3">
-            Após o cadastro, use o <strong>e-mail</strong> e <strong>senha</strong> que você criou para fazer login.
-          </p>
-          <button
-            type="button"
-            onClick={() => router.push('/cadastro')}
-            className="text-xs text-blue-600 hover:text-blue-800 underline"
+      
+      {/* Subtle Gradient Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-30"></div>
+      <div className="absolute inset-0 bg-gradient-to-b from-black via-transparent to-transparent opacity-20"></div>
+
+      {/* Login Container */}
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4">
+        <div className="w-full max-w-md">
+          {/* Logo */}
+          <div className="flex justify-center mb-8">
+            <Image 
+              src={logo} 
+              alt="Consert Logo" 
+              width={180} 
+              height={180}
+              className="transition-all duration-500 ease-out hover:scale-110 hover:brightness-110"
+            />
+          </div>
+
+          {/* Login Form */}
+          <form
+            onSubmit={handleLogin}
+            className="bg-white/90 backdrop-blur-xl p-8 rounded-3xl border border-white/30 shadow-2xl"
+            style={{
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%)',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+            }}
           >
-            Criar nova conta
-          </button>
+            <h1 className="text-3xl font-light text-gray-900 mb-2 text-center tracking-tight">
+              Bem-vindo de volta
+            </h1>
+            <p className="text-gray-600 text-center mb-8 font-light">
+              Acesse sua conta para continuar
+            </p>
+            
+            <div className="space-y-6">
+              <div>
+                <input
+                  type="text"
+                  placeholder="E-mail ou Usuário"
+                  value={loginInput}
+                  onChange={(e) => setLoginInput(e.target.value)}
+                  className="w-full px-6 py-4 bg-white/80 border border-gray-200 rounded-2xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#D1FE6E] focus:border-[#D1FE6E] transition-all duration-300 backdrop-blur-sm"
+                  required
+                />
+              </div>
+              
+              <div>
+                <input
+                  type="password"
+                  placeholder="Senha"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-6 py-4 bg-white/80 border border-gray-200 rounded-2xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#D1FE6E] focus:border-[#D1FE6E] transition-all duration-300 backdrop-blur-sm"
+                  required
+                />
+              </div>
+              
+              <button
+                type="submit"
+                className="w-full bg-gradient-to-r from-[#D1FE6E] to-[#B8E55A] text-black font-medium py-4 rounded-2xl hover:from-[#B8E55A] hover:to-[#A5D44A] transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isSubmitting}
+                style={{
+                  boxShadow: '0 4px 20px rgba(209, 254, 110, 0.3)'
+                }}
+              >
+                {isSubmitting ? 'Entrando...' : 'Entrar'}
+              </button>
+              
+              <button
+                type="button"
+                className="w-full bg-gray-100 border border-gray-200 text-gray-700 font-medium py-4 rounded-2xl hover:bg-gray-200 hover:border-gray-300 transition-all duration-300 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handlePasswordReset}
+                disabled={isRecovering}
+              >
+                {isRecovering ? 'Enviando...' : 'Esqueci minha senha'}
+              </button>
+            </div>
+          </form>
         </div>
-        <input
-          type="text"
-          placeholder="E-mail ou Usuário"
-          value={loginInput}
-          onChange={(e) => setLoginInput(e.target.value)}
-          className="mb-4 w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          required
-        />
-        <input
-          type="password"
-          placeholder="Senha"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="mb-2 w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          required
-        />
-        <button
-          type="submit"
-          className="w-full bg-[#000000] text-white font-semibold py-3 rounded-lg hover:opacity-90 transition flex justify-center items-center mb-2"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? 'Entrando...' : 'Entrar'}
-        </button>
-        <button
-          type="button"
-          className="w-full bg-white text-black font-semibold py-3 rounded-lg hover:bg-gray-100 transition"
-          onClick={handlePasswordReset}
-          disabled={isRecovering}
-        >
-          {isRecovering ? 'Enviando...' : 'Esqueci minha senha'}
-        </button>
-      </form>
+      </div>
     </div>
   );
 }

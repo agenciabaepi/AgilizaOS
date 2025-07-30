@@ -117,21 +117,20 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="flex min-h-screen bg-white">
       {/* Sidebar Desktop */}
-      <aside className="w-64 bg-white border-r border-zinc-200 flex flex-col py-8 px-4 min-h-screen hidden md:flex">
-        {/* Logo preto centralizado com degradê radial sutil de fundo */}
-        <div className="flex flex-col items-center mb-8 relative">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 rounded-full pointer-events-none" style={{background: 'radial-gradient(circle, #f6ffe6 0%, transparent 70%)'}} />
-          <Image src={logopreto} alt="Logo AgilizaOS" className="h-12 w-auto object-contain relative z-10" />
+      <aside className="w-64 bg-black border-r border-white/20 flex flex-col py-8 px-4 min-h-screen hidden md:flex">
+        {/* Logo branco centralizado */}
+        <div className="flex flex-col items-center mb-8">
+          <Image src={logobranco} alt="Consert Logo" className="h-12 w-auto object-contain" />
         </div>
         {/* Busca */}
         <div className="flex items-center gap-2 mb-6">
-          <FiSearch className="text-zinc-400" size={18} />
+          <FiSearch className="text-white/60" size={18} />
           <input
             type="text"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             placeholder="Buscar no menu..."
-            className="w-full bg-zinc-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime-400 transition"
+            className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#D1FE6E] focus:border-[#D1FE6E] transition"
           />
         </div>
         {/* Menu */}
@@ -149,7 +148,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {podeVer('clientes') && (
             <>
               <div 
-                className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-zinc-700 hover:bg-zinc-100"
+                className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
                 onClick={() => setContatosExpanded(!contatosExpanded)}
                 style={{ minHeight: 48 }}
               >
@@ -174,7 +173,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {podeVer('equipamentos') && (
             <>
               <div 
-                className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-zinc-700 hover:bg-zinc-100"
+                className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
                 onClick={() => setEquipamentosExpanded(!equipamentosExpanded)}
                 style={{ minHeight: 48 }}
               >
@@ -199,7 +198,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {podeVer('financeiro') && (
             <>
               <div 
-                className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-zinc-700 hover:bg-zinc-100"
+                className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
                 onClick={() => setFinanceiroExpanded(!financeiroExpanded)}
                 style={{ minHeight: 48 }}
               >
@@ -246,7 +245,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             }
           }} />
         </nav>
-        <div className="mt-auto text-center text-xs text-[#cffb6d] pb-4">
+        <div className="mt-auto text-center text-xs text-[#D1FE6E] pb-4">
           v1.0.0
         </div>
       </aside>
@@ -257,22 +256,21 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {/* Overlay */}
           <div className="absolute inset-0 bg-black/40" onClick={() => setMobileMenuOpen(false)} />
           {/* Drawer */}
-          <aside className="relative w-64 bg-white border-r border-zinc-200 flex flex-col py-8 px-4 min-h-screen animate-slide-in">
-            <button className="absolute top-4 right-4 text-zinc-500" onClick={() => setMobileMenuOpen(false)}>
+          <aside className="relative w-64 bg-black border-r border-white/20 flex flex-col py-8 px-4 min-h-screen animate-slide-in">
+            <button className="absolute top-4 right-4 text-white" onClick={() => setMobileMenuOpen(false)}>
               <FiX size={28} />
             </button>
-            <div className="flex flex-col items-center mb-8 relative">
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 rounded-full pointer-events-none" style={{background: 'radial-gradient(circle, #f6ffe6 0%, transparent 70%)'}} />
-              <Image src={logopreto} alt="Logo AgilizaOS" className="h-12 w-auto object-contain relative z-10" />
+            <div className="flex flex-col items-center mb-8">
+              <Image src={logobranco} alt="Consert Logo" className="h-12 w-auto object-contain" />
             </div>
             <div className="flex items-center gap-2 mb-6">
-              <FiSearch className="text-zinc-400" size={18} />
+              <FiSearch className="text-white/60" size={18} />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
                 placeholder="Buscar no menu..."
-                className="w-full bg-zinc-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-lime-400 transition"
+                className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#D1FE6E] focus:border-[#D1FE6E] transition"
               />
             </div>
             <nav className="flex flex-col gap-1">
@@ -289,7 +287,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               {podeVer('clientes') && (
                 <>
                   <div 
-                    className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-zinc-700 hover:bg-zinc-100"
+                    className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
                     onClick={() => setContatosExpanded(!contatosExpanded)}
                     style={{ minHeight: 48 }}
                   >
@@ -314,7 +312,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                             {podeVer('equipamentos') && (
                 <>
                   <div 
-                    className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-zinc-700 hover:bg-zinc-100"
+                    className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
                     onClick={() => setEquipamentosExpanded(!equipamentosExpanded)}
                     style={{ minHeight: 48 }}
                   >
@@ -342,7 +340,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               {podeVer('financeiro') && (
                 <>
                   <div 
-                    className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-zinc-700 hover:bg-zinc-100"
+                    className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
                     onClick={() => setFinanceiroExpanded(!financeiroExpanded)}
                     style={{ minHeight: 48 }}
                   >
@@ -389,7 +387,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                 }
               }} />
             </nav>
-            <div className="mt-auto text-center text-xs text-[#cffb6d] pb-4">
+            <div className="mt-auto text-center text-xs text-[#D1FE6E] pb-4">
               v1.0.0
             </div>
           </aside>
@@ -467,7 +465,7 @@ function SidebarButton({ path, icon, label, isActive, onClick }: { path: string;
     <button
       onClick={onClick || (() => window.location.href = path)}
       className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg transition font-medium text-base
-        ${isActive ? 'bg-lime-100 text-black' : 'hover:bg-zinc-100 text-zinc-700'}`}
+        ${isActive ? 'bg-[#D1FE6E] text-black' : 'hover:bg-white/10 text-white'}`}
       style={{ minHeight: 48 }}
     >
       <span className="min-w-[24px] flex items-center justify-center">{icon}</span>
