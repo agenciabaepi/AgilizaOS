@@ -11,16 +11,18 @@ export default function Home() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [scrollY, setScrollY] = useState(0);
+  const [animatedElements, setAnimatedElements] = useState<Set<string>>(new Set());
 
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+      element.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'start'
+      });
     }
-    setIsMenuOpen(false); // Fecha o menu mobile
   };
 
-  // Efeito vagalume que segue o mouse
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       setMousePosition({ x: e.clientX, y: e.clientY });
@@ -30,12 +32,34 @@ export default function Home() {
       setScrollY(window.scrollY);
     };
 
+    // Intersection Observer para animações de entrada
+    const observerOptions = {
+      threshold: 0.1,
+      rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const elementId = entry.target.getAttribute('data-animate');
+          if (elementId) {
+            setAnimatedElements(prev => new Set([...prev, elementId]));
+          }
+        }
+      });
+    }, observerOptions);
+
+    // Observar elementos com animação
+    const animatedElements = document.querySelectorAll('[data-animate]');
+    animatedElements.forEach(el => observer.observe(el));
+
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('scroll', handleScroll);
     
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('scroll', handleScroll);
+      observer.disconnect();
     };
   }, []);
 
@@ -45,8 +69,8 @@ export default function Home() {
       <div className="absolute inset-0">
         <div className="absolute inset-0" style={{
           backgroundImage: `
-            linear-gradient(rgba(209, 254, 110, 0.03) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(209, 254, 110, 0.03) 1px, transparent 1px)
+            linear-gradient(rgba(209, 254, 110, 0.08) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(209, 254, 110, 0.08) 1px, transparent 1px)
           `,
           backgroundSize: '100px 100px'
         }}></div>
@@ -130,7 +154,7 @@ export default function Home() {
               onClick={() => router.push('/login')}
               className="px-8 py-3 text-white border border-white/20 rounded-full font-medium hover:bg-white/10 transition-all duration-300"
             >
-              Agendar Demo
+              Login
             </button>
           </div>
 
@@ -190,7 +214,7 @@ export default function Home() {
                   onClick={() => router.push('/login')}
                   className="px-6 py-3 text-gray-900 bg-white border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-all duration-300"
                 >
-                  Agendar Demo
+                  Login
                 </button>
               </div>
             </div>
@@ -202,34 +226,64 @@ export default function Home() {
       <div className="relative z-10 px-8 py-32 lg:px-12 lg:py-48">
         <div className="mx-auto max-w-5xl text-center">
           {/* Social Proof Badge */}
-          <div className="inline-flex items-center px-6 py-3 bg-gray-900/80 backdrop-blur-sm border border-gray-700/50 rounded-full mb-12">
-            <div className="w-3 h-3 bg-[#D1FE6E] rounded-full mr-3"></div>
-            <span className="text-white/80 text-sm font-light tracking-wide">+500 assistências confiam no Consert</span>
+          <div 
+            data-animate="badge"
+            className={`inline-flex items-center px-8 py-4 bg-white/5 backdrop-blur-xl border border-white/20 rounded-full mb-16 transition-all duration-1000 ease-out ${
+              animatedElements.has('badge') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+            }`}
+            style={{
+              boxShadow: '0 8px 32px rgba(209, 254, 110, 0.1)',
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
+            }}
+          >
+            <div className="w-3 h-3 bg-[#D1FE6E] rounded-full mr-4 animate-pulse"></div>
+            <span className="text-white/90 text-sm font-light tracking-wide">+500 assistências confiam no Consert</span>
           </div>
 
           {/* Main Headline */}
-          <h1 className="text-6xl md:text-8xl font-light text-white mb-12 leading-none tracking-tight">
+          <h1 
+            data-animate="headline"
+            className={`text-6xl md:text-8xl font-light text-white mb-16 leading-none tracking-tight transition-all duration-1000 ease-out ${
+              animatedElements.has('headline') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+            }`}
+          >
             Sua assistência com 
             <span className="text-[#D1FE6E] block font-medium">gestão inteligente</span>
           </h1>
 
           {/* Sub-headline */}
-          <p className="text-xl md:text-2xl text-white/80 mb-16 max-w-3xl mx-auto leading-relaxed font-light">
+          <p 
+            data-animate="subheadline"
+            className={`text-xl md:text-2xl text-white/80 mb-20 max-w-4xl mx-auto leading-relaxed font-light transition-all duration-1000 ease-out delay-300 ${
+              animatedElements.has('subheadline') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+            }`}
+          >
             Consert transforma oficinas em máquinas de crescimento—onde cada ordem de serviço 
             impulsiona eficiência, engajamento real e momentum da marca no piloto automático.
           </p>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-8 justify-center items-center">
+          <div 
+            data-animate="cta"
+            className={`flex flex-col sm:flex-row gap-8 justify-center items-center transition-all duration-1000 ease-out delay-500 ${
+              animatedElements.has('cta') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+            }`}
+          >
             <button 
               onClick={() => router.push('/login')}
-              className="px-12 py-4 bg-[#D1FE6E] text-black rounded-full font-medium text-lg hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105"
+              className="px-12 py-5 bg-gradient-to-r from-[#D1FE6E] to-[#B8E55A] text-black rounded-full font-medium text-lg hover:from-[#B8E55A] hover:to-[#A5D44A] transition-all duration-500 transform hover:scale-105 hover:shadow-2xl"
+              style={{
+                boxShadow: '0 4px 20px rgba(209, 254, 110, 0.3)'
+              }}
             >
               Falar com Vendas
             </button>
             <button 
               onClick={() => router.push('/cadastro')}
-              className="px-12 py-4 text-white border border-white/30 rounded-full font-medium text-lg hover:bg-white/10 transition-all duration-300"
+              className="px-12 py-5 text-white border border-white/30 rounded-full font-medium text-lg hover:bg-white/10 hover:border-white/50 transition-all duration-500 backdrop-blur-sm"
+              style={{
+                background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
+              }}
             >
               Começar Grátis
             </button>
@@ -242,7 +296,12 @@ export default function Home() {
         <div className="mx-auto max-w-6xl">
           <div className="flex flex-col items-center justify-center">
             {/* MacBook Pro Image */}
-            <div className="relative mb-16 flex justify-center">
+            <div 
+              data-animate="macbook"
+              className={`relative mb-16 flex justify-center transition-all duration-1000 ease-out delay-300 ${
+                animatedElements.has('macbook') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+              }`}
+            >
               <Image 
                 src={macbookImage}
                 alt="MacBook Pro with Consert" 
@@ -251,13 +310,19 @@ export default function Home() {
                 className="w-full max-w-4xl transition-all duration-700 ease-out"
                 style={{
                   transform: `scale(${1 + (scrollY * 0.0002)})`,
-                  filter: `brightness(${1 + (scrollY * 0.0001)})`
+                  filter: 'drop-shadow(0 20px 40px rgba(0,0,0,0.3))',
+                  transition: 'transform 0.1s ease-out'
                 }}
               />
             </div>
 
             {/* Call to Action */}
-            <div className="text-center max-w-lg">
+            <div 
+              data-animate="demo-cta"
+              className={`text-center max-w-lg transition-all duration-1000 ease-out delay-500 ${
+                animatedElements.has('demo-cta') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+              }`}
+            >
               <div className="flex items-center justify-center mb-8">
                 <svg className="w-6 h-6 text-white/60 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
@@ -265,11 +330,14 @@ export default function Home() {
                 <span className="text-white/80 font-light text-lg tracking-wide">Veja em ação</span>
               </div>
               <p className="text-white/70 text-lg mb-10 leading-relaxed font-light">
-                Interface intuitiva e completa para gerenciar sua oficina de forma eficiente.
+                Interface intuitiva e completa para gerenciar sua assistência de forma eficiente.
               </p>
               <button 
                 onClick={() => router.push('/cadastro')}
                 className="px-10 py-4 bg-[#D1FE6E] text-black rounded-full font-medium hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105"
+                style={{
+                  boxShadow: '0 4px 20px rgba(209, 254, 110, 0.3)'
+                }}
               >
                 Testar Agora
               </button>
@@ -281,8 +349,13 @@ export default function Home() {
       {/* Features Section */}
       <div id="recursos" className="relative z-10 px-8 py-32 lg:px-12">
         <div className="mx-auto max-w-6xl">
-          <div className="text-center mb-24">
-            <h2 className="text-6xl md:text-7xl font-light text-white mb-8 leading-none tracking-tight">
+          <div 
+            data-animate="features-header"
+            className={`text-center mb-32 transition-all duration-1000 ease-out ${
+              animatedElements.has('features-header') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+            }`}
+          >
+            <h2 className="text-6xl md:text-7xl font-light text-white mb-12 leading-none tracking-tight">
               Tudo que sua assistência precisa
             </h2>
             <p className="text-white/70 text-xl md:text-2xl max-w-4xl mx-auto leading-relaxed font-light">
@@ -290,291 +363,36 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Screenshots Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-24">
-            {/* Dashboard Screenshot */}
-            <div className="group">
-              <div className="bg-white/5 backdrop-blur-sm rounded-3xl p-8 border border-white/10 hover:border-white/20 transition-all duration-500 ease-out hover:transform hover:scale-105">
-                <div className="relative mb-6">
-                  <div className="bg-gray-800 rounded-t-2xl p-4 flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  </div>
-                  <div className="bg-gray-900 rounded-b-2xl p-6">
-                    <Image 
-                      src="/assets/screenshots/dashboard.png"
-                      alt="Dashboard do Consert"
-                      width={400}
-                      height={300}
-                      className="w-full h-auto rounded-lg"
-                      onError={(e) => {
-                        // Fallback para mockup se a imagem não existir
-                        const target = e.currentTarget as HTMLImageElement;
-                        target.style.display = 'none';
-                        const fallback = target.nextElementSibling as HTMLElement;
-                        if (fallback) {
-                          fallback.style.display = 'block';
-                        }
-                      }}
-                    />
-                    <div className="space-y-4" style={{display: 'none'}}>
-                      <div className="h-4 bg-gray-700 rounded w-3/4"></div>
-                      <div className="h-4 bg-gray-700 rounded w-1/2"></div>
-                      <div className="grid grid-cols-3 gap-4 mt-6">
-                        <div className="h-20 bg-[#D1FE6E]/20 rounded-lg flex items-center justify-center">
-                          <span className="text-[#D1FE6E] text-sm font-medium">OS</span>
-                        </div>
-                        <div className="h-20 bg-[#D1FE6E]/20 rounded-lg flex items-center justify-center">
-                          <span className="text-[#D1FE6E] text-sm font-medium">Clientes</span>
-                        </div>
-                        <div className="h-20 bg-[#D1FE6E]/20 rounded-lg flex items-center justify-center">
-                          <span className="text-[#D1FE6E] text-sm font-medium">Receita</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <h3 className="text-white font-light text-2xl mb-4 tracking-wide">Dashboard Intuitivo</h3>
-                <p className="text-white/70 leading-relaxed text-lg font-light">
-                  Visualize métricas importantes em tempo real. 
-                  Controle total sobre sua assistência.
-                </p>
-              </div>
-            </div>
-
-            {/* Orders Screenshot */}
-            <div className="group">
-              <div className="bg-white/5 backdrop-blur-sm rounded-3xl p-8 border border-white/10 hover:border-white/20 transition-all duration-500 ease-out hover:transform hover:scale-105">
-                <div className="relative mb-6">
-                  <div className="bg-gray-800 rounded-t-2xl p-4 flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  </div>
-                  <div className="bg-gray-900 rounded-b-2xl p-6">
-                    <Image 
-                      src="/assets/screenshots/ordens.png"
-                      alt="Ordens de Serviço do Consert"
-                      width={400}
-                      height={300}
-                      className="w-full h-auto rounded-lg"
-                      onError={(e) => {
-                        const target = e.currentTarget as HTMLImageElement;
-                        target.style.display = 'none';
-                        const fallback = target.nextElementSibling as HTMLElement;
-                        if (fallback) {
-                          fallback.style.display = 'block';
-                        }
-                      }}
-                    />
-                    <div className="space-y-3" style={{display: 'none'}}>
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="h-4 bg-gray-700 rounded w-1/3"></div>
-                        <div className="h-6 bg-[#D1FE6E] rounded w-16"></div>
-                      </div>
-                      <div className="space-y-3">
-                        <div className="flex items-center space-x-3 p-3 bg-gray-800 rounded-lg">
-                          <div className="w-3 h-3 bg-[#D1FE6E] rounded-full"></div>
-                          <div className="flex-1">
-                            <div className="h-3 bg-gray-700 rounded w-2/3 mb-1"></div>
-                            <div className="h-2 bg-gray-600 rounded w-1/2"></div>
-                          </div>
-                          <div className="h-4 bg-[#D1FE6E]/20 rounded w-12"></div>
-                        </div>
-                        <div className="flex items-center space-x-3 p-3 bg-gray-800 rounded-lg">
-                          <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                          <div className="flex-1">
-                            <div className="h-3 bg-gray-700 rounded w-1/2 mb-1"></div>
-                            <div className="h-2 bg-gray-600 rounded w-1/3"></div>
-                          </div>
-                          <div className="h-4 bg-yellow-500/20 rounded w-12"></div>
-                        </div>
-                        <div className="flex items-center space-x-3 p-3 bg-gray-800 rounded-lg">
-                          <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                          <div className="flex-1">
-                            <div className="h-3 bg-gray-700 rounded w-3/4 mb-1"></div>
-                            <div className="h-2 bg-gray-600 rounded w-2/3"></div>
-                          </div>
-                          <div className="h-4 bg-red-500/20 rounded w-12"></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <h3 className="text-white font-light text-2xl mb-4 tracking-wide">Ordens de Serviço</h3>
-                <p className="text-white/70 leading-relaxed text-lg font-light">
-                  Crie e gerencie ordens de forma simples e organizada. 
-                  Acompanhe o progresso em tempo real.
-                </p>
-              </div>
-            </div>
-
-            {/* Clients Screenshot */}
-            <div className="group">
-              <div className="bg-white/5 backdrop-blur-sm rounded-3xl p-8 border border-white/10 hover:border-white/20 transition-all duration-500 ease-out hover:transform hover:scale-105">
-                <div className="relative mb-6">
-                  <div className="bg-gray-800 rounded-t-2xl p-4 flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  </div>
-                  <div className="bg-gray-900 rounded-b-2xl p-6">
-                    <Image 
-                      src="/assets/screenshots/clientes.png"
-                      alt="Gestão de Clientes do Consert"
-                      width={400}
-                      height={300}
-                      className="w-full h-auto rounded-lg"
-                      onError={(e) => {
-                        const target = e.currentTarget as HTMLImageElement;
-                        target.style.display = 'none';
-                        const fallback = target.nextElementSibling as HTMLElement;
-                        if (fallback) {
-                          fallback.style.display = 'block';
-                        }
-                      }}
-                    />
-                    <div className="space-y-3" style={{display: 'none'}}>
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="h-4 bg-gray-700 rounded w-1/3"></div>
-                        <div className="h-6 bg-[#D1FE6E] rounded w-16"></div>
-                      </div>
-                      <div className="space-y-3">
-                        <div className="flex items-center space-x-3 p-3 bg-gray-800 rounded-lg">
-                          <div className="w-10 h-10 bg-[#D1FE6E] rounded-full flex items-center justify-center">
-                            <span className="text-gray-900 text-sm font-bold">JS</span>
-                          </div>
-                          <div className="flex-1">
-                            <div className="h-3 bg-gray-700 rounded w-2/3 mb-1"></div>
-                            <div className="h-2 bg-gray-600 rounded w-1/2"></div>
-                          </div>
-                          <div className="h-4 bg-[#D1FE6E]/20 rounded w-8"></div>
-                        </div>
-                        <div className="flex items-center space-x-3 p-3 bg-gray-800 rounded-lg">
-                          <div className="w-10 h-10 bg-[#D1FE6E] rounded-full flex items-center justify-center">
-                            <span className="text-gray-900 text-sm font-bold">MS</span>
-                          </div>
-                          <div className="flex-1">
-                            <div className="h-3 bg-gray-700 rounded w-1/2 mb-1"></div>
-                            <div className="h-2 bg-gray-600 rounded w-1/3"></div>
-                          </div>
-                          <div className="h-4 bg-[#D1FE6E]/20 rounded w-8"></div>
-                        </div>
-                        <div className="flex items-center space-x-3 p-3 bg-gray-800 rounded-lg">
-                          <div className="w-10 h-10 bg-[#D1FE6E] rounded-full flex items-center justify-center">
-                            <span className="text-gray-900 text-sm font-bold">PC</span>
-                          </div>
-                          <div className="flex-1">
-                            <div className="h-3 bg-gray-700 rounded w-3/4 mb-1"></div>
-                            <div className="h-2 bg-gray-600 rounded w-2/3"></div>
-                          </div>
-                          <div className="h-4 bg-[#D1FE6E]/20 rounded w-8"></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <h3 className="text-white font-light text-2xl mb-4 tracking-wide">Gestão de Clientes</h3>
-                <p className="text-white/70 leading-relaxed text-lg font-light">
-                  Cadastre e acompanhe seus clientes com histórico completo. 
-                  Histórico de serviços e veículos.
-                </p>
-              </div>
-            </div>
-
-            {/* Financial Screenshot */}
-            <div className="group">
-              <div className="bg-white/5 backdrop-blur-sm rounded-3xl p-8 border border-white/10 hover:border-white/20 transition-all duration-500 ease-out hover:transform hover:scale-105">
-                <div className="relative mb-6">
-                  <div className="bg-gray-800 rounded-t-2xl p-4 flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  </div>
-                  <div className="bg-gray-900 rounded-b-2xl p-6">
-                    <Image 
-                      src="/assets/screenshots/financeiro.png"
-                      alt="Controle Financeiro do Consert"
-                      width={400}
-                      height={300}
-                      className="w-full h-auto rounded-lg"
-                      onError={(e) => {
-                        const target = e.currentTarget as HTMLImageElement;
-                        target.style.display = 'none';
-                        const fallback = target.nextElementSibling as HTMLElement;
-                        if (fallback) {
-                          fallback.style.display = 'block';
-                        }
-                      }}
-                    />
-                    <div className="space-y-4" style={{display: 'none'}}>
-                      <div className="flex justify-between items-center mb-4">
-                        <div className="h-4 bg-gray-700 rounded w-1/3"></div>
-                        <div className="h-6 bg-[#D1FE6E] rounded w-16"></div>
-                      </div>
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-[#D1FE6E] rounded-full flex items-center justify-center">
-                              <span className="text-gray-900 text-xs font-bold">R$</span>
-                            </div>
-                            <div>
-                              <div className="h-3 bg-gray-700 rounded w-20 mb-1"></div>
-                              <div className="h-2 bg-gray-600 rounded w-16"></div>
-                            </div>
-                          </div>
-                          <div className="text-[#D1FE6E] text-sm font-medium">R$ 2.450</div>
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                              <span className="text-white text-xs font-bold">↑</span>
-                            </div>
-                            <div>
-                              <div className="h-3 bg-gray-700 rounded w-24 mb-1"></div>
-                              <div className="h-2 bg-gray-600 rounded w-20"></div>
-                            </div>
-                          </div>
-                          <div className="text-green-500 text-sm font-medium">+15%</div>
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                              <span className="text-white text-xs font-bold">📊</span>
-                            </div>
-                            <div>
-                              <div className="h-3 bg-gray-700 rounded w-28 mb-1"></div>
-                              <div className="h-2 bg-gray-600 rounded w-24"></div>
-                            </div>
-                          </div>
-                          <div className="text-blue-500 text-sm font-medium">R$ 18.750</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <h3 className="text-white font-light text-2xl mb-4 tracking-wide">Controle Financeiro</h3>
-                <p className="text-white/70 leading-relaxed text-lg font-light">
-                  Acompanhe receitas, despesas e lucros em tempo real. 
-                  Relatórios financeiros detalhados.
-                </p>
-              </div>
-            </div>
-          </div>
-
           {/* Features Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {/* Feature 1 */}
-            <div className="group">
-              <div className="bg-white/5 backdrop-blur-sm rounded-3xl p-10 border border-white/10 hover:border-white/20 transition-all duration-500 ease-out hover:transform hover:scale-105">
-                <div className="w-20 h-20 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-3xl flex items-center justify-center mb-8 shadow-2xl transition-all duration-500 group-hover:scale-110">
+            <div 
+              data-animate="feature-1"
+              className={`group h-full transition-all duration-1000 ease-out ${
+                animatedElements.has('feature-1') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+              }`}
+            >
+              <div 
+                className="h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  backdropFilter: 'blur(20px)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+                }}
+              >
+                <div 
+                  className="w-20 h-20 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-3xl flex items-center justify-center mb-6 shadow-2xl transition-all duration-500 group-hover:scale-110"
+                  style={{
+                    boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)'
+                  }}
+                >
                   <svg className="w-10 h-10 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
-                <h3 className="text-white font-light text-2xl mb-6 tracking-wide">Ordens de Serviço</h3>
-                <p className="text-white/70 leading-relaxed text-lg font-light">
+                <h3 className="text-white font-light text-xl mb-4 tracking-wide">Ordens de Serviço</h3>
+                <p className="text-white/80 leading-relaxed text-base font-light flex-grow">
                   Crie e gerencie ordens de serviço de forma simples e organizada. 
                   Acompanhe o progresso em tempo real.
                 </p>
@@ -582,15 +400,33 @@ export default function Home() {
             </div>
 
             {/* Feature 2 */}
-            <div className="group">
-              <div className="bg-white/5 backdrop-blur-sm rounded-3xl p-10 border border-white/10 hover:border-white/20 transition-all duration-500 ease-out hover:transform hover:scale-105">
-                <div className="w-20 h-20 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-3xl flex items-center justify-center mb-8 shadow-2xl transition-all duration-500 group-hover:scale-110">
+            <div 
+              data-animate="feature-2"
+              className={`group h-full transition-all duration-1000 ease-out delay-100 ${
+                animatedElements.has('feature-2') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+              }`}
+            >
+              <div 
+                className="h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  backdropFilter: 'blur(20px)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+                }}
+              >
+                <div 
+                  className="w-20 h-20 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-3xl flex items-center justify-center mb-6 shadow-2xl transition-all duration-500 group-hover:scale-110"
+                  style={{
+                    boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)'
+                  }}
+                >
                   <svg className="w-10 h-10 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
                 </div>
-                <h3 className="text-white font-light text-2xl mb-6 tracking-wide">Gestão de Clientes</h3>
-                <p className="text-white/70 leading-relaxed text-lg font-light">
+                <h3 className="text-white font-light text-xl mb-4 tracking-wide">Gestão de Clientes</h3>
+                <p className="text-white/80 leading-relaxed text-base font-light flex-grow">
                   Cadastre e acompanhe seus clientes com histórico completo. 
                   Histórico de serviços e veículos.
                 </p>
@@ -598,15 +434,33 @@ export default function Home() {
             </div>
 
             {/* Feature 3 */}
-            <div className="group">
-              <div className="bg-white/5 backdrop-blur-sm rounded-3xl p-10 border border-white/10 hover:border-white/20 transition-all duration-500 ease-out hover:transform hover:scale-105">
-                <div className="w-20 h-20 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-3xl flex items-center justify-center mb-8 shadow-2xl transition-all duration-500 group-hover:scale-110">
+            <div 
+              data-animate="feature-3"
+              className={`group h-full transition-all duration-1000 ease-out delay-200 ${
+                animatedElements.has('feature-3') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+              }`}
+            >
+              <div 
+                className="h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  backdropFilter: 'blur(20px)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+                }}
+              >
+                <div 
+                  className="w-20 h-20 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-3xl flex items-center justify-center mb-6 shadow-2xl transition-all duration-500 group-hover:scale-110"
+                  style={{
+                    boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)'
+                  }}
+                >
                   <svg className="w-10 h-10 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <h3 className="text-white font-light text-2xl mb-6 tracking-wide">Controle Financeiro</h3>
-                <p className="text-white/70 leading-relaxed text-lg font-light">
+                <h3 className="text-white font-light text-xl mb-4 tracking-wide">Controle Financeiro</h3>
+                <p className="text-white/80 leading-relaxed text-base font-light flex-grow">
                   Acompanhe receitas, despesas e lucros em tempo real. 
                   Relatórios financeiros detalhados.
                 </p>
@@ -614,15 +468,33 @@ export default function Home() {
             </div>
 
             {/* Feature 4 */}
-            <div className="group">
-              <div className="bg-white/5 backdrop-blur-sm rounded-3xl p-10 border border-white/10 hover:border-white/20 transition-all duration-500 ease-out hover:transform hover:scale-105">
-                <div className="w-20 h-20 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-3xl flex items-center justify-center mb-8 shadow-2xl transition-all duration-500 group-hover:scale-110">
+            <div 
+              data-animate="feature-4"
+              className={`group h-full transition-all duration-1000 ease-out delay-300 ${
+                animatedElements.has('feature-4') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+              }`}
+            >
+              <div 
+                className="h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  backdropFilter: 'blur(20px)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+                }}
+              >
+                <div 
+                  className="w-20 h-20 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-3xl flex items-center justify-center mb-6 shadow-2xl transition-all duration-500 group-hover:scale-110"
+                  style={{
+                    boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)'
+                  }}
+                >
                   <svg className="w-10 h-10 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                 </div>
-                <h3 className="text-white font-light text-2xl mb-6 tracking-wide">Relatórios Avançados</h3>
-                <p className="text-white/70 leading-relaxed text-lg font-light">
+                <h3 className="text-white font-light text-xl mb-4 tracking-wide">Relatórios Avançados</h3>
+                <p className="text-white/80 leading-relaxed text-base font-light flex-grow">
                   Relatórios detalhados para tomar decisões estratégicas. 
                   Dashboards personalizáveis.
                 </p>
@@ -630,15 +502,33 @@ export default function Home() {
             </div>
 
             {/* Feature 5 */}
-            <div className="group">
-              <div className="bg-white/5 backdrop-blur-sm rounded-3xl p-10 border border-white/10 hover:border-white/20 transition-all duration-500 ease-out hover:transform hover:scale-105">
-                <div className="w-20 h-20 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-3xl flex items-center justify-center mb-8 shadow-2xl transition-all duration-500 group-hover:scale-110">
+            <div 
+              data-animate="feature-5"
+              className={`group h-full transition-all duration-1000 ease-out delay-400 ${
+                animatedElements.has('feature-5') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+              }`}
+            >
+              <div 
+                className="h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  backdropFilter: 'blur(20px)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+                }}
+              >
+                <div 
+                  className="w-20 h-20 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-3xl flex items-center justify-center mb-6 shadow-2xl transition-all duration-500 group-hover:scale-110"
+                  style={{
+                    boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)'
+                  }}
+                >
                   <svg className="w-10 h-10 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
                   </svg>
                 </div>
-                <h3 className="text-white font-light text-2xl mb-6 tracking-wide">Acesso Mobile</h3>
-                <p className="text-white/70 leading-relaxed text-lg font-light">
+                <h3 className="text-white font-light text-xl mb-4 tracking-wide">Acesso Mobile</h3>
+                <p className="text-white/80 leading-relaxed text-base font-light flex-grow">
                   Acesse o sistema de qualquer dispositivo, a qualquer hora. 
                   Interface responsiva e otimizada.
                 </p>
@@ -646,15 +536,33 @@ export default function Home() {
             </div>
 
             {/* Feature 6 */}
-            <div className="group">
-              <div className="bg-white/5 backdrop-blur-sm rounded-3xl p-10 border border-white/10 hover:border-white/20 transition-all duration-500 ease-out hover:transform hover:scale-105">
-                <div className="w-20 h-20 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-3xl flex items-center justify-center mb-8 shadow-2xl transition-all duration-500 group-hover:scale-110">
+            <div 
+              data-animate="feature-6"
+              className={`group h-full transition-all duration-1000 ease-out delay-500 ${
+                animatedElements.has('feature-6') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+              }`}
+            >
+              <div 
+                className="h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  backdropFilter: 'blur(20px)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+                }}
+              >
+                <div 
+                  className="w-20 h-20 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-3xl flex items-center justify-center mb-6 shadow-2xl transition-all duration-500 group-hover:scale-110"
+                  style={{
+                    boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)'
+                  }}
+                >
                   <svg className="w-10 h-10 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
                 </div>
-                <h3 className="text-white font-light text-2xl mb-6 tracking-wide">Segurança Total</h3>
-                <p className="text-white/70 leading-relaxed text-lg font-light">
+                <h3 className="text-white font-light text-xl mb-4 tracking-wide">Segurança Total</h3>
+                <p className="text-white/80 leading-relaxed text-base font-light flex-grow">
                   Seus dados protegidos com a mais alta segurança. 
                   Backup automático e criptografia.
                 </p>
