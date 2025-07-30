@@ -21,6 +21,7 @@ export default function Home() {
   const [reduction, setReduction] = useState(0);
   const [satisfaction, setSatisfaction] = useState(0);
   const [numbersAnimated, setNumbersAnimated] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
@@ -93,7 +94,10 @@ export default function Home() {
           setNumbersAnimated(false);
         }
       });
-    }, { threshold: 0.5 }); // 50% da seção deve estar visível
+    }, { 
+      threshold: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
+      rootMargin: '0px 0px -10% 0px' // Trigger um pouco antes da seção ficar totalmente visível
+    });
     analyticsObs.observe(analyticsRef.current);
     return () => analyticsObs.disconnect();
   }, []);
@@ -105,19 +109,19 @@ export default function Home() {
       const endReduction = 45;
       const endSatisfaction = 89;
       let frame = 0;
-      const totalFrames = 60; // Frames para animação mais rápida
-      const duration = 1500; // 1.5 segundos de duração
+      const totalFrames = isMobile ? 30 : 40; // Menos frames no mobile
+      const duration = isMobile ? 1000 : 1200; // Duração menor no mobile
       const interval = duration / totalFrames;
       
       const animate = () => {
         frame++;
         // Função de easing para animação mais natural
         const progress = frame / totalFrames;
-        const easeOutBack = 1 - Math.pow(1 - progress, 3) * (1 - progress * 0.5);
+        const easeOutQuart = 1 - Math.pow(1 - progress, 4);
         
-        const newRevenue = Math.round(endRevenue * easeOutBack);
-        const newReduction = Math.round(endReduction * easeOutBack);
-        const newSatisfaction = Math.round(endSatisfaction * easeOutBack);
+        const newRevenue = Math.round(endRevenue * easeOutQuart);
+        const newReduction = Math.round(endReduction * easeOutQuart);
+        const newSatisfaction = Math.round(endSatisfaction * easeOutQuart);
         
         setRevenue(newRevenue);
         setReduction(newReduction);
@@ -133,10 +137,20 @@ export default function Home() {
           setHasAnimated(true); // Marca que já animou APÓS a animação terminar
         }
       };
-      // Delay para começar a animação após as barras aparecerem
-      setTimeout(animate, 800);
+      // Delay baseado no dispositivo
+      setTimeout(animate, isMobile ? 400 : 600);
     }
-  }, [showAnalyticsAnimation, hasAnimated]);
+  }, [showAnalyticsAnimation, hasAnimated, isMobile]);
+
+  // --- Mobile Detection ---
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   return (
     <div className="min-h-screen bg-black">
@@ -718,22 +732,25 @@ export default function Home() {
                     {[65, 78, 82, 91, 88, 95].map((value, index) => (
                       <div key={index} className="flex-1 relative flex flex-col justify-end">
                         <div 
-                          className="bg-gradient-to-t from-[#D1FE6E] to-[#B8E55A] rounded-t-lg transition-all duration-1000 ease-out"
+                          className="bg-gradient-to-t from-[#D1FE6E] to-[#B8E55A] rounded-t-lg"
                           style={{
                             height: `${Math.max(value, 10)}px`,
-                            opacity: showAnalyticsAnimation ? 1 : 0,
-                            transform: showAnalyticsAnimation ? 'scaleY(1)' : 'scaleY(0.3)',
+                            opacity: (showAnalyticsAnimation || hasAnimated) ? 1 : 0,
+                            transform: (showAnalyticsAnimation || hasAnimated) ? 'scaleY(1)' : 'scaleY(0.3)',
                             transformOrigin: 'bottom',
-                            transitionDelay: `${index * 150}ms`,
-                            transition: 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)'
+                            transitionDelay: `${index * (isMobile ? 50 : 100)}ms`,
+                            transition: `all ${isMobile ? '0.4s' : '0.6s'} cubic-bezier(0.4, 0, 0.2, 1)`,
+                            willChange: 'transform, opacity'
                           }}
                         ></div>
                         {/* Value on top of bar */}
                         <div 
-                          className="absolute -top-8 left-1/2 transform -translate-x-1/2 text-white/80 text-xs font-medium transition-all duration-1000 ease-out"
+                          className="absolute -top-8 left-1/2 transform -translate-x-1/2 text-white/80 text-xs font-medium"
                           style={{
                             opacity: (showAnalyticsAnimation || hasAnimated) ? 1 : 0,
-                            transitionDelay: `${index * 150 + 200}ms`
+                            transitionDelay: `${index * (isMobile ? 50 : 100) + (isMobile ? 200 : 300)}ms`,
+                            transition: `opacity ${isMobile ? '0.3s' : '0.4s'} ease-out`,
+                            willChange: 'opacity'
                           }}
                         >
                           R$ {Math.round((value / 100) * 50)}k
