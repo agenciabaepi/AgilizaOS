@@ -1,18 +1,8 @@
 'use client';
 import { Suspense } from 'react';
+import CadastroEmpresa from './CadastroComponent';
 
-function CadastroTest() {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-[#cffb6d] to-[#e0ffe3] flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold mb-4">Página de Cadastro</h1>
-        <p className="text-gray-600">Teste de carregamento</p>
-      </div>
-    </div>
-  );
-}
-
-export default function CadastroPage() {
+export default function CadastroWrapper() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-gradient-to-br from-[#cffb6d] to-[#e0ffe3] flex items-center justify-center">
@@ -22,7 +12,7 @@ export default function CadastroPage() {
         </div>
       </div>
     }>
-      <CadastroTest />
+      <CadastroEmpresa />
     </Suspense>
   );
-}
+} 

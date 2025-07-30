@@ -28,10 +28,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Plano Trial não encontrado' }, { status: 404 });
     }
 
-    // Calcular data fim do trial (15 dias)
+    // Calcular data fim do trial (15 dias exatos)
     const dataInicio = new Date();
-    const dataTrialFim = new Date();
-    dataTrialFim.setDate(dataTrialFim.getDate() + 15);
+    const dataTrialFim = new Date(dataInicio.getTime() + (15 * 24 * 60 * 60 * 1000)); // 15 dias em milissegundos
 
     const payload = {
       empresa_id,

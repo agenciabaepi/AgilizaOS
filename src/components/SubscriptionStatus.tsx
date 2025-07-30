@@ -69,8 +69,8 @@ export const SubscriptionStatus = () => {
     );
   }
 
-  // Se está no trial
-  if (assinatura.status === 'trial') {
+  // Se está no trial (e não expirou)
+  if (assinatura.status === 'trial' && !isTrialExpired()) {
     const diasRestantes = diasRestantesTrial();
     const isProximoDoFim = diasRestantes <= 3;
     

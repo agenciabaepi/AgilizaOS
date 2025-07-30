@@ -28,10 +28,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Plano não encontrado' }, { status: 404 });
     }
 
-    // Calcular data fim (30 dias para planos pagos)
+    // Calcular data fim (30 dias exatos para planos pagos)
     const dataInicio = new Date();
-    const dataFim = new Date();
-    dataFim.setDate(dataFim.getDate() + 30);
+    const dataFim = new Date(dataInicio.getTime() + (30 * 24 * 60 * 60 * 1000)); // 30 dias em milissegundos
 
     const payload = {
       empresa_id,
