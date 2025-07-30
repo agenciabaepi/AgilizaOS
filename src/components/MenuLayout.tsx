@@ -49,7 +49,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const [contatosExpanded, setContatosExpanded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [menuRecolhido, setMenuRecolhido] = useState(false);
+  const [menuRecolhido, setMenuRecolhido] = useState<boolean | null>(null);
 
   const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
   const pathname = usePathname();
@@ -125,16 +125,16 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
     localStorage.setItem('menuRecolhido', newState.toString());
   };
 
-  if (menuExpandido === null) return null;
+  if (menuExpandido === null || menuRecolhido === null) return null;
   return (
     <div className="flex min-h-screen bg-white">
       {/* Sidebar Desktop */}
-      <aside className={`${menuRecolhido ? 'w-16' : 'w-64'} bg-black border-r border-white/20 flex flex-col py-8 px-4 min-h-screen hidden md:flex transition-all duration-300`}>
+      <aside className={`${menuRecolhido ? 'w-16' : 'w-64'} bg-black border-r border-white/20 flex flex-col py-8 ${menuRecolhido ? 'px-2' : 'px-4'} min-h-screen hidden md:flex transition-all duration-300`}>
         {/* Logo branco centralizado */}
         <div className="flex flex-col items-center mb-6">
           {menuRecolhido ? (
-            <div className="w-8 h-8 bg-[#D1FE6E] rounded-lg flex items-center justify-center">
-              <span className="text-black font-bold text-sm">C</span>
+            <div className="w-10 h-10 bg-[#D1FE6E] rounded-lg flex items-center justify-center">
+              <span className="text-black font-bold text-lg">C</span>
             </div>
           ) : (
             <Image src={logobranco} alt="Consert Logo" className="h-12 w-auto object-contain" />
@@ -142,7 +142,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
         </div>
         {/* Busca */}
         {!menuRecolhido && (
-          <div className="flex items-center gap-2 mb-6">
+          <div className="flex items-center gap-2 mb-8">
             <FiSearch className="text-white/60" size={18} />
             <input
               type="text"
@@ -168,14 +168,15 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {podeVer('clientes') && (
             <>
               <div 
-                className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
+                className={`flex items-center px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10
+                  ${menuRecolhido ? 'justify-center' : 'justify-between'}`}
                 onClick={() => setContatosExpanded(!contatosExpanded)}
                 style={{ minHeight: 48 }}
                 title="Contatos"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center">
                   <FiUsers size={20} />
-                  {!menuRecolhido && <span>Contatos</span>}
+                  {!menuRecolhido && <span className="ml-3">Contatos</span>}
                 </div>
                 {!menuRecolhido && (
                   <FiChevronDown 
@@ -186,7 +187,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               </div>
               
               {contatosExpanded && !menuRecolhido && (
-                <div className="ml-6 flex flex-col gap-2 mt-2">
+                <div className="ml-6 flex flex-col gap-1 mt-1">
                   <SidebarButton path="/clientes" icon={<FiUsers size={18} />} label="Clientes" isActive={pathname === '/clientes'} menuRecolhido={menuRecolhido} />
                   <SidebarButton path="/fornecedores" icon={<FiTruck size={18} />} label="Fornecedores" isActive={pathname === '/fornecedores'} menuRecolhido={menuRecolhido} />
                 </div>
@@ -196,14 +197,15 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {podeVer('equipamentos') && (
             <>
               <div 
-                className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
+                className={`flex items-center px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10
+                  ${menuRecolhido ? 'justify-center' : 'justify-between'}`}
                 onClick={() => setEquipamentosExpanded(!equipamentosExpanded)}
                 style={{ minHeight: 48 }}
                 title="Produtos/Serviços"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center">
                   <FiBox size={20} />
-                  {!menuRecolhido && <span>Produtos/Serviços</span>}
+                  {!menuRecolhido && <span className="ml-3">Produtos/Serviços</span>}
                 </div>
                 {!menuRecolhido && (
                   <FiChevronDown 
@@ -224,14 +226,15 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {podeVer('financeiro') && (
             <>
               <div 
-                className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
+                className={`flex items-center px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10
+                  ${menuRecolhido ? 'justify-center' : 'justify-between'}`}
                 onClick={() => setFinanceiroExpanded(!financeiroExpanded)}
                 style={{ minHeight: 48 }}
                 title="Financeiro"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center">
                   <FiDollarSign size={20} />
-                  {!menuRecolhido && <span>Financeiro</span>}
+                  {!menuRecolhido && <span className="ml-3">Financeiro</span>}
                 </div>
                 {!menuRecolhido && (
                   <FiChevronDown 
@@ -512,13 +515,14 @@ function SidebarButton({ path, icon, label, isActive, onClick, menuRecolhido }: 
   return (
     <button
       onClick={onClick || (() => window.location.href = path)}
-      className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg transition font-medium text-base
+      className={`flex items-center w-full px-3 py-2 rounded-lg transition font-medium text-base
+        ${menuRecolhido ? 'justify-center' : 'justify-start'}
         ${isActive ? 'bg-[#D1FE6E] text-black' : 'hover:bg-white/10 text-white'}`}
       style={{ minHeight: 48 }}
       title={label}
     >
-      <span className="min-w-[24px] flex items-center justify-center">{icon}</span>
-      {!menuRecolhido && <span className="whitespace-nowrap">{label}</span>}
+      {icon}
+      {!menuRecolhido && <span className="ml-3 whitespace-nowrap">{label}</span>}
     </button>
   );
 }
