@@ -11,6 +11,7 @@ interface Plano {
   limite_produtos: number;
   limite_clientes: number;
   limite_fornecedores: number;
+  limite_ordens?: number;
   recursos_disponiveis: Record<string, any>;
 }
 
@@ -30,7 +31,9 @@ interface Assinatura {
 interface Limites {
   usuarios: { atual: number; limite: number };
   produtos: { atual: number; limite: number };
+  servicos: { atual: number; limite: number };
   clientes: { atual: number; limite: number };
+  ordens: { atual: number; limite: number };
   fornecedores: { atual: number; limite: number };
 }
 
@@ -39,6 +42,7 @@ export const useSubscription = () => {
   const [assinatura, setAssinatura] = useState<Assinatura | null>(null);
   const [limites, setLimites] = useState<Limites | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingLimites, setLoadingLimites] = useState(false);
 
   // Carregar assinatura da empresa
   const carregarAssinatura = async () => {
@@ -74,41 +78,59 @@ export const useSubscription = () => {
 
   // Carregar limites atuais
   const carregarLimites = async () => {
-    if (!usuarioData?.empresa_id || !assinatura) return;
+    if (!usuarioData?.empresa_id || !assinatura || loadingLimites) return;
 
+    setLoadingLimites(true);
     try {
-      // Contar usuários
-      const { count: usuariosCount } = await supabase
-        .from('usuarios')
-        .select('*', { count: 'exact', head: true })
-        .eq('empresa_id', usuarioData.empresa_id);
-
-      // Contar produtos
-      const { count: produtosCount } = await supabase
-        .from('produtos_servicos')
-        .select('*', { count: 'exact', head: true })
-        .eq('empresa_id', usuarioData.empresa_id);
-
-      // Contar clientes
-      const { count: clientesCount } = await supabase
-        .from('clientes')
-        .select('*', { count: 'exact', head: true })
-        .eq('empresa_id', usuarioData.empresa_id);
-
-      // Contar fornecedores
-      const { count: fornecedoresCount } = await supabase
-        .from('fornecedores')
-        .select('*', { count: 'exact', head: true })
-        .eq('empresa_id', usuarioData.empresa_id);
+      // Fazer todas as contagens em paralelo para melhor performance
+      const [
+        { count: usuariosCount },
+        { count: produtosCount },
+        { count: servicosCount },
+        { count: clientesCount },
+        { count: ordensCount },
+        { count: fornecedoresCount }
+      ] = await Promise.all([
+        supabase
+          .from('usuarios')
+          .select('*', { count: 'exact', head: true })
+          .eq('empresa_id', usuarioData.empresa_id),
+        supabase
+          .from('produtos_servicos')
+          .select('*', { count: 'exact', head: true })
+          .eq('empresa_id', usuarioData.empresa_id)
+          .eq('tipo', 'produto'),
+        supabase
+          .from('produtos_servicos')
+          .select('*', { count: 'exact', head: true })
+          .eq('empresa_id', usuarioData.empresa_id)
+          .eq('tipo', 'servico'),
+        supabase
+          .from('clientes')
+          .select('*', { count: 'exact', head: true })
+          .eq('empresa_id', usuarioData.empresa_id),
+        supabase
+          .from('ordens_servico')
+          .select('*', { count: 'exact', head: true })
+          .eq('empresa_id', usuarioData.empresa_id),
+        supabase
+          .from('fornecedores')
+          .select('*', { count: 'exact', head: true })
+          .eq('empresa_id', usuarioData.empresa_id)
+      ]);
 
       setLimites({
         usuarios: { atual: usuariosCount || 0, limite: assinatura.plano.limite_usuarios },
         produtos: { atual: produtosCount || 0, limite: assinatura.plano.limite_produtos },
+        servicos: { atual: servicosCount || 0, limite: assinatura.plano.limite_produtos }, // Usa o mesmo limite de produtos
         clientes: { atual: clientesCount || 0, limite: assinatura.plano.limite_clientes },
+        ordens: { atual: ordensCount || 0, limite: assinatura.plano.limite_ordens || 15 },
         fornecedores: { atual: fornecedoresCount || 0, limite: assinatura.plano.limite_fornecedores }
       });
     } catch (error) {
       console.error('Erro ao carregar limites:', error);
+    } finally {
+      setLoadingLimites(false);
     }
   };
 
@@ -141,7 +163,7 @@ export const useSubscription = () => {
   };
 
   // Verificar se pode criar mais itens
-  const podeCriar = (tipo: 'usuarios' | 'produtos' | 'clientes' | 'fornecedores'): boolean => {
+  const podeCriar = (tipo: 'usuarios' | 'produtos' | 'servicos' | 'clientes' | 'ordens' | 'fornecedores'): boolean => {
     if (!limites) return false;
     return limites[tipo].atual < limites[tipo].limite;
   };
@@ -171,13 +193,13 @@ export const useSubscription = () => {
     if (usuarioData?.empresa_id) {
       carregarAssinatura();
     }
-  }, [usuarioData]);
+  }, [usuarioData?.empresa_id]);
 
   useEffect(() => {
-    if (assinatura) {
+    if (assinatura && !loading) {
       carregarLimites();
     }
-  }, [assinatura]);
+  }, [assinatura?.id, loading]);
 
   return {
     assinatura,

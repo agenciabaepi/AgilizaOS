@@ -216,7 +216,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               </div>
               
               {equipamentosExpanded && !menuRecolhido && (
-                <div className="ml-6 flex flex-col gap-2 mt-2">
+                <div className="ml-6 flex flex-col gap-1 mt-1">
                   <SidebarButton path="/equipamentos" icon={<FiBox size={18} />} label="Produtos" isActive={pathname === '/equipamentos'} menuRecolhido={menuRecolhido} />
                   <SidebarButton path="/equipamentos/categorias" icon={<FiGrid size={18} />} label="Categorias" isActive={pathname === '/equipamentos/categorias'} menuRecolhido={menuRecolhido} />
                 </div>
@@ -245,7 +245,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               </div>
               
               {financeiroExpanded && !menuRecolhido && (
-                <div className="ml-6 flex flex-col gap-2 mt-2">
+                <div className="ml-6 flex flex-col gap-1 mt-1">
                   <SidebarButton path="/financeiro/vendas" icon={<FiFileText size={18} />} label="Vendas" isActive={pathname === '/financeiro/vendas'} menuRecolhido={menuRecolhido} />
                   <SidebarButton path="/movimentacao-caixa" icon={<FiDollarSign size={18} />} label="Movimentações Caixa" isActive={pathname === '/movimentacao-caixa'} menuRecolhido={menuRecolhido} />
                   <SidebarButton path="/financeiro/contas-a-pagar" icon={<FiFileText size={18} />} label="Contas a Pagar" isActive={pathname === '/financeiro/contas-a-pagar'} menuRecolhido={menuRecolhido} />

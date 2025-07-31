@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 
 import MenuLayout from '@/components/MenuLayout';
 import ProtectedArea from '@/components/ProtectedArea';
+import TrialLimitsAlert from '@/components/TrialLimitsAlert';
 
 export default function DashboardPage() {
   return (
@@ -10,6 +11,9 @@ export default function DashboardPage() {
       <ProtectedArea area="dashboard">
         <div className="p-8">
           <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
+          
+          {/* Alertas de limites do trial */}
+          <TrialLimitsAlert />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
               <span className="text-3xl font-bold text-green-600">42</span>

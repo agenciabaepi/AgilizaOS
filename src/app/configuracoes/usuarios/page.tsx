@@ -12,10 +12,14 @@ import { useSession } from '@supabase/auth-helpers-react'
 import { Session } from '@supabase/auth-helpers-nextjs'
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useRouter } from 'next/navigation';
+import TrialLimitGuard from '@/components/TrialLimitGuard';
+import { useSubscription } from '@/hooks/useSubscription';
+import { FiAlertTriangle } from 'react-icons/fi';
 
 export default function UsuariosPage() {
   const session: Session | null = useSession()
   const router = useRouter();
+  const { carregarLimites, limites, podeCriar, assinatura, isTrialExpired } = useSubscription();
 
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
@@ -77,11 +81,24 @@ export default function UsuariosPage() {
     if (!confirmar) return
 
     try {
-      const { error } = await supabase.from('usuarios').delete().eq('id', id)
-      if (error) throw error
+      const response = await fetch('/api/usuarios/excluir', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao excluir usuário')
+      }
+
+      alert('Usuário excluído com sucesso!')
       fetchUsuarios()
+      carregarLimites()
     } catch (error: unknown) {
       console.error('Erro ao excluir usuário:', error instanceof Error ? error.message : 'Erro desconhecido')
+      alert('Erro ao excluir usuário: ' + (error instanceof Error ? error.message : 'Erro desconhecido'))
     }
   }
 
@@ -131,12 +148,17 @@ export default function UsuariosPage() {
       setNivel('tecnico')
       setUsuario('')
 
-      // Atualiza lista
+      // Atualiza lista e limites
       fetchUsuarios()
+      carregarLimites()
     } catch (error: unknown) {
       alert(error instanceof Error ? error.message : 'Erro desconhecido ao cadastrar usuário.')
     }
   }
+
+  // Verificar se está no trial e não pode criar usuários
+  const isTrial = assinatura?.status === 'trial' && !isTrialExpired();
+  const cannotCreateUsers = isTrial && limites && !podeCriar('usuarios');
 
   return (
     <ProtectedRoute>
@@ -145,19 +167,44 @@ export default function UsuariosPage() {
           <CardHeader>
             <div className="flex justify-between items-center">
               <CardTitle>Gerenciar Usuários</CardTitle>
-              <button
-                onClick={() => setMostrarFormulario(!mostrarFormulario)}
-                className="bg-black text-white px-4 py-2 rounded-md text-sm hover:bg-gray-800 transition"
-              >
-                + Adicionar novo usuário
-              </button>
+              {!cannotCreateUsers && (
+                <button
+                  onClick={() => setMostrarFormulario(!mostrarFormulario)}
+                  className="bg-black text-white px-4 py-2 rounded-md text-sm hover:bg-gray-800 transition"
+                >
+                  + Adicionar novo usuário
+                </button>
+              )}
             </div>
             <p className="text-gray-600 text-sm">
               Aqui você poderá adicionar, editar e remover usuários vinculados à empresa.
             </p>
+            
+            {/* Aviso único quando limite for atingido */}
+            {cannotCreateUsers && (
+              <div className="mt-4 bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-4 text-center">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <div className="w-5 h-5 bg-gray-400 rounded-full flex items-center justify-center">
+                    <FiAlertTriangle className="w-3 h-3 text-white" />
+                  </div>
+                  <span className="text-gray-700 font-medium text-sm">
+                    Limite de usuários atingido
+                  </span>
+                </div>
+                <p className="text-gray-600 text-xs mb-3">
+                  Para criar mais usuários, escolha um plano adequado às suas necessidades.
+                </p>
+                <button 
+                  onClick={() => window.location.href = '/teste-expirado'}
+                  className="bg-black text-white px-4 py-2 rounded-md text-sm hover:bg-gray-800 transition-colors"
+                >
+                  Ver planos disponíveis
+                </button>
+              </div>
+            )}
           </CardHeader>
           <CardContent>
-            {mostrarFormulario && (
+            {mostrarFormulario && !cannotCreateUsers && (
               <form className="mt-4 space-y-4 bg-gray-100 p-4 rounded" onSubmit={handleSubmit}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>

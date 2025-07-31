@@ -71,7 +71,7 @@ export default function TesteExpiradoPage() {
   ];
 
   const handleContatoSuporte = () => {
-    const mensagem = encodeURIComponent('Olá! Preciso de ajuda com meu teste grátis que expirou.');
+    const mensagem = encodeURIComponent('Olá! Meu teste grátis expirou e preciso de ajuda para escolher o melhor plano para continuar usando o sistema.');
     window.open(`https://wa.me/5511999999999?text=${mensagem}`, '_blank');
   };
 
@@ -158,24 +158,24 @@ export default function TesteExpiradoPage() {
       <div className="relative z-10 px-8 py-32 lg:px-12 lg:py-48">
         <div className="mx-auto max-w-5xl text-center">
           {/* Alert Badge */}
-          <div className="inline-flex items-center px-8 py-4 bg-orange-500/10 backdrop-blur-xl border border-orange-500/20 rounded-full mb-16"
+          <div className="inline-flex items-center px-8 py-4 bg-red-500/10 backdrop-blur-xl border border-red-500/20 rounded-full mb-16"
                style={{
-                 boxShadow: '0 8px 32px rgba(249, 115, 22, 0.1)',
-                 background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.05) 0%, rgba(249, 115, 22, 0.02) 100%)'
+                 boxShadow: '0 8px 32px rgba(239, 68, 68, 0.1)',
+                 background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(239, 68, 68, 0.02) 100%)'
                }}>
-            <div className="w-3 h-3 bg-orange-400 rounded-full mr-4 animate-pulse"></div>
-            <span className="text-white/90 text-sm font-light tracking-wide">Planos Disponíveis</span>
+            <div className="w-3 h-3 bg-red-400 rounded-full mr-4 animate-pulse"></div>
+            <span className="text-white/90 text-sm font-light tracking-wide">Teste Grátis Expirado</span>
           </div>
 
           {/* Main Headline */}
           <h1 className="text-6xl md:text-8xl font-light mb-16 leading-none tracking-tight text-white">
-            Conheça nossos
-            <span className="block font-medium text-gradient-secondary">planos disponíveis</span>
+            Seu teste grátis
+            <span className="block font-medium text-gradient-secondary">expirou</span>
           </h1>
 
           {/* Sub-headline */}
           <p className="text-xl md:text-2xl text-white/80 mb-20 max-w-4xl mx-auto leading-relaxed font-light">
-            Escolha o plano ideal para sua assistência e continue transformando seu negócio em uma máquina de crescimento.
+            Para continuar usando o sistema e aproveitar todos os recursos, escolha um dos nossos planos disponíveis.
           </p>
         </div>
       </div>
@@ -186,10 +186,10 @@ export default function TesteExpiradoPage() {
           {/* Section Header */}
           <div className="text-center mb-20">
             <h2 className="text-6xl md:text-7xl font-light mb-8 leading-none tracking-tight text-white">
-              Planos que crescem com você
+              Escolha seu plano
             </h2>
             <p className="text-white/70 text-xl md:text-2xl max-w-4xl mx-auto leading-relaxed font-light">
-              Escolha o plano ideal para o tamanho da sua assistência
+              Para continuar usando o sistema, escolha o plano ideal para sua assistência
             </p>
           </div>
 
@@ -286,7 +286,7 @@ export default function TesteExpiradoPage() {
                   Precisa de Ajuda?
                 </h3>
                 <p className="text-white/70 text-lg mb-8 font-light">
-                  Nossa equipe está pronta para te ajudar a escolher o melhor plano para seu negócio.
+                  Nossa equipe está pronta para te ajudar a escolher o melhor plano e resolver qualquer dúvida sobre a expiração do seu teste grátis.
                 </p>
                 
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">

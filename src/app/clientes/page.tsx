@@ -11,6 +11,8 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 
 import { useAuth } from '@/context/AuthContext';
+import { useSubscription } from '@/hooks/useSubscription';
+import { FiAlertTriangle } from 'react-icons/fi';
 
 const Chart = dynamic(() => import('react-apexcharts'), { ssr: false });
 import { Cliente } from '@/types/cliente';
@@ -116,6 +118,11 @@ export default function ClientesPage() {
   const router = useRouter();
 
   const { empresaData, usuario } = useAuth();
+  const { carregarLimites, limites, podeCriar, assinatura, isTrialExpired } = useSubscription();
+
+  // Verificar se está no trial e não pode criar clientes
+  const isTrial = assinatura?.status === 'trial' && !isTrialExpired();
+  const cannotCreateClients = isTrial && limites && !podeCriar('clientes');
 
 
   useEffect(() => {
@@ -234,14 +241,39 @@ export default function ClientesPage() {
         <div className="px-6 py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-semibold text-gray-800">Clientes</h1>
-        <Link
-          href={`/clientes/novo?atendente=${usuario?.nome || ''}`}
-          className="flex items-center gap-2 bg-[#cffb6d] text-black shadow-lg px-4 py-2 rounded-md hover:bg-[#e5ffa1] backdrop-blur-md"
-        >
-          <FiPlus className="w-6 h-6" />
-          Novo Cliente
-        </Link>
+        {!cannotCreateClients && (
+          <Link
+            href={`/clientes/novo?atendente=${usuario?.nome || ''}`}
+            className="flex items-center gap-2 bg-[#cffb6d] text-black shadow-lg px-4 py-2 rounded-md hover:bg-[#e5ffa1] backdrop-blur-md"
+          >
+            <FiPlus className="w-6 h-6" />
+            Novo Cliente
+          </Link>
+        )}
       </div>
+
+      {/* Aviso único quando limite for atingido */}
+      {cannotCreateClients && (
+        <div className="mb-6 bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-4 text-center">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <div className="w-5 h-5 bg-gray-400 rounded-full flex items-center justify-center">
+              <FiAlertTriangle className="w-3 h-3 text-white" />
+            </div>
+            <span className="text-gray-700 font-medium text-sm">
+              Limite de clientes atingido
+            </span>
+          </div>
+          <p className="text-gray-600 text-xs mb-3">
+            Para criar mais clientes, escolha um plano adequado às suas necessidades.
+          </p>
+          <button 
+            onClick={() => window.location.href = '/teste-expirado'}
+            className="bg-black text-white px-4 py-2 rounded-md text-sm hover:bg-gray-800 transition-colors"
+          >
+            Ver planos disponíveis
+          </button>
+        </div>
+      )}
 
       <div className="mb-6">
         <div className="relative max-w-sm">

@@ -13,6 +13,8 @@ import errorAnimation from '@/assets/animations/error.json';
 import { Input } from './Input';
 import { Select } from './Select';
 import { Button } from './Button';
+import { useSubscription } from '@/hooks/useSubscription';
+import { FiAlertTriangle } from 'react-icons/fi';
 
 interface Cliente {
   id: string;
@@ -65,6 +67,11 @@ export default function ClienteForm({ cliente, returnToOS }: { cliente?: Cliente
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showError, setShowError] = useState(false);
+  const { carregarLimites, limites, podeCriar, assinatura, isTrialExpired } = useSubscription();
+
+  // Verificar se está no trial e não pode criar clientes
+  const isTrial = assinatura?.status === 'trial' && !isTrialExpired();
+  const cannotCreateClients = isTrial && limites && !podeCriar('clientes');
 
   const isDocumentoValido = () => {
     if (!form.documento) return null;
@@ -224,6 +231,9 @@ export default function ClienteForm({ cliente, returnToOS }: { cliente?: Cliente
       const novoId = data?.[0]?.id;
       setNovoClienteId(novoId || null);
       
+      // Recarregar limites após criar cliente
+      carregarLimites();
+      
       setLoading(false);
       setShowSuccess(true);
       setTimeout(() => {
@@ -273,7 +283,30 @@ export default function ClienteForm({ cliente, returnToOS }: { cliente?: Cliente
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="max-w-4xl mx-auto p-6 bg-white rounded shadow space-y-8">
+      {/* Aviso quando limite for atingido */}
+      {cannotCreateClients && (
+        <div className="max-w-4xl mx-auto mb-6 bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-4 text-center">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <div className="w-5 h-5 bg-gray-400 rounded-full flex items-center justify-center">
+              <FiAlertTriangle className="w-3 h-3 text-white" />
+            </div>
+            <span className="text-gray-700 font-medium text-sm">
+              Limite de clientes atingido
+            </span>
+          </div>
+          <p className="text-gray-600 text-xs mb-3">
+            Para criar mais clientes, escolha um plano adequado às suas necessidades.
+          </p>
+          <button 
+            onClick={() => window.location.href = '/teste-expirado'}
+            className="bg-black text-white px-4 py-2 rounded-md text-sm hover:bg-gray-800 transition-colors"
+          >
+            Ver planos disponíveis
+          </button>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className={`max-w-4xl mx-auto p-6 bg-white rounded shadow space-y-8 ${cannotCreateClients ? 'opacity-50 pointer-events-none' : ''}`}>
         <div className="flex items-center justify-between mb-6">
           <Button type="button" onClick={() => router.back()} variant="secondary">
             <FiArrowLeft size={20} />
