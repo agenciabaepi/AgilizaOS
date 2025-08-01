@@ -27,6 +27,7 @@ interface OrdemServico {
   valor_faturado?: number;
   qtd_peca?: number;
   qtd_servico?: number;
+  tipo?: string;
   usuarios?: {
     nome?: string;
   }[];
@@ -52,16 +53,21 @@ interface OrdemTransformada {
   valorTotal: number;
   valorComDesconto: number;
   valorFaturado: number;
+  tipo: string;
 }
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { FiEye, FiEdit, FiPrinter, FiUsers } from 'react-icons/fi';
+import { FiEye, FiEdit, FiPrinter, FiRefreshCw, FiPlus } from 'react-icons/fi';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import ProtectedArea from '@/components/ProtectedArea';
 import DashboardCard from '@/components/ui/DashboardCard';
 import MenuLayout from '@/components/MenuLayout';
+
+import { Button } from '@/components/Button';
+import { Input } from '@/components/Input';
+import { Select } from '@/components/Select';
 
 
 export default function ListaOrdensPage() {
@@ -103,6 +109,7 @@ export default function ListaOrdensPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [aparelhoFilter, setAparelhoFilter] = useState('');
   const [tecnicoFilter, setTecnicoFilter] = useState('');
+  const [tipoFilter, setTipoFilter] = useState('');
 
   useEffect(() => {
     if (!empresaId) return;
@@ -135,7 +142,8 @@ export default function ListaOrdensPage() {
           clientes:cliente_id(nome, telefone, email),
           usuarios!tecnico_id ( nome ),
           qtd_peca,
-          qtd_servico
+          qtd_servico,
+          tipo
         `)
         .eq("empresa_id", empresaUuid);
 
@@ -168,6 +176,7 @@ export default function ListaOrdensPage() {
           valorTotal: ((item.valor_peca || 0) * (item.qtd_peca || 1)) + ((item.valor_servico || 0) * (item.qtd_servico || 1)),
           valorComDesconto: (((item.valor_peca || 0) * (item.qtd_peca || 1)) + ((item.valor_servico || 0) * (item.qtd_servico || 1))) - (item.desconto || 0),
           valorFaturado: item.valor_faturado || 0,
+          tipo: item.tipo || 'Nova',
         }));
         setOrdens(mapped);
 
@@ -251,9 +260,10 @@ export default function ListaOrdensPage() {
       const matchesStatus = statusFilter === '' || os.statusOS === statusFilter;
       const matchesAparelho = aparelhoFilter === '' || os.aparelho.includes(aparelhoFilter);
       const matchesTecnico = tecnicoFilter === '' || os.tecnico === tecnicoFilter;
-      return matchesSearch && matchesStatus && matchesAparelho && matchesTecnico;
+      const matchesTipo = tipoFilter === '' || os.tipo === tipoFilter;
+      return matchesSearch && matchesStatus && matchesAparelho && matchesTecnico && matchesTipo;
     });
-  }, [ordens, searchTerm, statusFilter, aparelhoFilter, tecnicoFilter]);
+  }, [ordens, searchTerm, statusFilter, aparelhoFilter, tecnicoFilter, tipoFilter]);
 
   // Otimização: useMemo para dados paginados
   const paginated = useMemo(() => {
@@ -286,6 +296,11 @@ export default function ListaOrdensPage() {
     setCurrentPage(1);
   }, []);
 
+  const handleTipoFilterChange = useCallback((value: string) => {
+    setTipoFilter(value);
+    setCurrentPage(1);
+  }, []);
+
   const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page);
   }, []);
@@ -301,7 +316,7 @@ export default function ListaOrdensPage() {
   return (
     <ProtectedArea area="ordens">
       <MenuLayout>
-        <div className="pt-20 px-6 w-full">
+        <div className="p-8">
           {/* Cards principais */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <DashboardCard
@@ -320,6 +335,7 @@ export default function ListaOrdensPage() {
             />
             <DashboardCard
               title="Retornos do Mês"
+              icon={<FiRefreshCw className="w-4 h-4 text-red-500" />}
               value={retornosMes}
               description={`${percentualRetornos}% do total`}
               descriptionColorClass="text-red-500"
@@ -333,43 +349,35 @@ export default function ListaOrdensPage() {
               svgPolyline={{ color: '#60a5fa', points: '0,20 10,16 20,14 30,10 40,11 50,8 60,6 70,4' }}
             />
           </div>
-          {/* Cards de técnicos */}
-          <div className="backdrop-blur-sm bg-white/60 p-6 rounded-xl shadow mb-6">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <FiUsers className="text-white" />
-              Aparelhos em Andamento por Técnico
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              <div className="bg-[#cffb6d]/20 border border-[#cffb6d] p-4 rounded-lg shadow-sm hover:shadow-md transition text-[#333]">
-                <h3 className="text-sm font-semibold">Carlos</h3>
-                <p className="text-sm">3 aparelhos</p>
-              </div>
-              <div className="bg-[#cffb6d]/30 border border-[#cffb6d] p-4 rounded-lg shadow-sm hover:shadow-md transition text-[#333]">
-                <h3 className="text-sm font-semibold">Fernanda</h3>
-                <p className="text-sm">5 aparelhos</p>
-              </div>
-              <div className="bg-white border border-[#ccc] p-4 rounded-lg shadow-sm hover:shadow-md transition text-[#555]">
-                <h3 className="text-sm font-semibold">Eduardo</h3>
-                <p className="text-sm">2 aparelhos</p>
-              </div>
-            </div>
-          </div>
+
 
           {/* Filtros e busca */}
-          <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
-            <h1 className="text-2xl font-bold">Ordens de Serviço</h1>
+          <h1 className="text-2xl font-bold mb-6">Ordens de Serviço</h1>
+          
+                    <div className="bg-white rounded-xl shadow p-6 mb-6">
             <div className="flex flex-wrap gap-4 items-center">
-              <input
+              <Button
+                onClick={() => {
+                  router.push("/nova-os");
+                }}
+                size="lg"
+                className="bg-black text-white hover:bg-neutral-800 px-8 py-3 text-base font-semibold"
+              >
+                + Nova OS
+              </Button>
+              
+              <Input
                 type="text"
                 placeholder="Buscar OS..."
                 value={searchTerm}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm bg-white/70 backdrop-blur"
+                className="flex-1 min-w-80"
               />
-              <select
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm bg-white/70 backdrop-blur"
+              
+              <Select
                 value={statusFilter}
                 onChange={(e) => handleStatusFilterChange(e.target.value)}
+                className="w-48"
               >
                 <option value="">Filtrar por Status</option>
                 <option value="Finalizada">Finalizada</option>
@@ -377,126 +385,174 @@ export default function ListaOrdensPage() {
                 <option value="Pronta para retirada">Pronta para retirada</option>
                 <option value="Aberta">Aberta</option>
                 <option value="Não aprovada">Não aprovada</option>
-              </select>
-              <select
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm bg-white/70 backdrop-blur"
+              </Select>
+              <Select
                 value={aparelhoFilter}
                 onChange={(e) => handleAparelhoFilterChange(e.target.value)}
+                className="w-48"
               >
                 <option value="">Todos os Tipos</option>
                 <option value="iPhone">Celulares</option>
                 <option value="Samsung">Celulares</option>
                 <option value="Notebook">Computadores</option>
-              </select>
-              <select
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm shadow-sm bg-white/70 backdrop-blur"
+              </Select>
+              <Select
                 value={tecnicoFilter}
                 onChange={(e) => handleTecnicoFilterChange(e.target.value)}
+                className="w-48"
               >
                 <option value="">Todos os Técnicos</option>
                 <option value="Carlos">Carlos</option>
                 <option value="Fernanda">Fernanda</option>
-              </select>
-              <button
-                onClick={() => {
-                  router.push("/nova-os");
-                }}
-                className="rounded-md bg-lime-400 px-4 py-2 text-black font-medium hover:bg-lime-300 transition-all"
+              </Select>
+              <Select
+                value={tipoFilter}
+                onChange={(e) => handleTipoFilterChange(e.target.value)}
+                className="w-48"
               >
-                + Nova OS
-              </button>
+                <option value="">Todos os Tipos</option>
+                <option value="Nova">🟢 Nova</option>
+                <option value="Retorno">🔴 Retorno</option>
+              </Select>
             </div>
           </div>
 
           {/* Tabela */}
-          <div className="overflow-auto rounded-lg border border-gray-200 mt-4">
-            <table className="min-w-full divide-y divide-gray-200 bg-white text-sm">
-              <thead className="bg-gray-100 text-left text-xs font-semibold text-gray-700 border-b border-gray-300">
-                <tr>
-                  <th className="px-3 py-2 border-r border-gray-200">#</th>
-                  <th className="px-3 py-2 border-r border-gray-200">Aparelho</th>
-                  <th className="px-3 py-2 border-r border-gray-200">Serviço</th>
-                  <th className="px-3 py-2 border-r border-gray-200">Entrada</th>
-                  <th className="px-3 py-2 border-r border-gray-200">Entrega</th>
-                  <th className="px-3 py-2 border-r border-gray-200">Garantia</th>
-                  <th className="px-3 py-2 border-r border-gray-200">Total</th>
-                  <th className="px-3 py-2 border-r border-gray-200">Técnico</th>
-                  <th className="px-3 py-2 border-r border-gray-200">Status</th>
-                  <th className="px-3 py-2">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="text-gray-700 divide-y divide-gray-200">
-                {paginated.map((os) => (
-                  <tr key={os.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm font-medium text-gray-900">
-                      <div className="text-sm font-bold text-gray-800">#{os.numero}</div>
-                      <div className="text-sm text-gray-700">{os.cliente}</div>
-                      <div className="text-sm text-gray-500">{os.clienteTelefone}</div>
-                    </td>
-                    <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm">{os.aparelho}</td>
-                    <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm">{os.servico}</td>
-                    <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm">{formatDate(os.entrada)}</td>
-                    <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm">{formatDate(os.entrega)}</td>
-                    <td className={`px-3 py-2 align-middle border-r border-gray-100 text-sm font-semibold ${
-                      os.garantia && new Date(os.garantia) < new Date()
-                        ? 'text-red-400'
-                        : 'text-green-600'
-                    }`}>
-                      <div>{formatDate(os.garantia)}</div>
-                      {os.garantia && (
-                        <div className="text-xs mt-1">
-                          {
-                            new Date(os.garantia).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)
-                              ? 'Expirada'
-                              : `${Math.max(0, Math.ceil((new Date(os.garantia).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / (1000 * 60 * 60 * 24)))} dias restantes`
-                          }
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm text-left font-bold text-green-700">R$ {os.valorTotal?.toFixed(2)}</td>
-                    <td className="px-3 py-2 align-middle border-r border-gray-100 text-sm">{os.tecnico}</td>
-                    <td className="px-3 py-2 align-middle border-r border-gray-100 text-left  text-sm">
-                      <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full capitalize ${
-                        os.statusOS.toLowerCase() === 'concluido' ? 'bg-green-100 text-green-700' :
-                        os.statusOS.toLowerCase() === 'orcamento' ? 'bg-yellow-100 text-yellow-700' :
-                        os.statusOS.toLowerCase() === 'analise' ? 'bg-blue-100 text-blue-700' :
-                        os.statusOS.toLowerCase() === 'nao aprovado' ? 'bg-red-100 text-red-700' :
-                        'bg-gray-100 text-gray-600'
-                      }`}>
-                        {os.statusOS}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 align-middle border-r border-gray-100 text-left text-sm">
-                      <div className="flex justify-end gap-2">
-                        <button onClick={() => router.push(`/ordens/${os.id}`)} className="p-2 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 transition">
-                          <FiEye size={16} />
-                        </button>
-                        <button onClick={() => router.push(`/ordens/${os.id}/editar`)} className="p-2 rounded-full bg-yellow-100 text-yellow-600 hover:bg-yellow-200 transition">
-                          <FiEdit size={16} />
-                        </button>
-                        <button onClick={() => console.log('Imprimir', os.id)} className="p-2 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition">
-                          <FiPrinter size={16} />
-                        </button>
+          <div className="bg-white rounded-xl shadow overflow-hidden">
+            <div className="overflow-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <div className="flex items-center gap-1.5">
+                        <FiRefreshCw className="w-4 h-4" />
+                        <span>Tipo</span>
                       </div>
-                    </td>
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aparelho</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Serviço</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entrada</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entrega</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Garantia</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Técnico</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {paginated.map((os) => (
+                    <tr key={os.id} className={`hover:bg-gray-50 transition-colors ${
+                      os.tipo === 'Retorno' ? 'border-l-4 border-l-red-400' : ''
+                    }`}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold">#{os.numero}</span>
+                          {os.tipo === 'Retorno' && (
+                            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-500">{os.cliente}</div>
+                        <div className="text-sm text-gray-400">{os.clienteTelefone}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {os.tipo === 'Retorno' ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            <FiRefreshCw className="w-3 h-3 mr-1" />
+                            Retorno
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            <FiPlus className="w-3 h-3 mr-1" />
+                            Nova
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{os.aparelho}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{os.servico}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(os.entrada)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(os.entrega)}</td>
+                      <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
+                        os.garantia && new Date(os.garantia) < new Date()
+                          ? 'text-red-600'
+                          : 'text-green-600'
+                      }`}>
+                        <div>{formatDate(os.garantia)}</div>
+                        {os.garantia && (
+                          <div className="text-xs text-gray-500">
+                            {
+                              new Date(os.garantia).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)
+                                ? 'Expirada'
+                                : `${Math.max(0, Math.ceil((new Date(os.garantia).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / (1000 * 60 * 60 * 24)))} dias restantes`
+                            }
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600">R$ {os.valorTotal?.toFixed(2)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{os.tecnico}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            os.statusOS.toLowerCase() === 'concluido' ? 'bg-green-100 text-green-800' :
+                            os.statusOS.toLowerCase() === 'orcamento' ? 'bg-yellow-100 text-yellow-800' :
+                            os.statusOS.toLowerCase() === 'analise' ? 'bg-blue-100 text-blue-800' :
+                            os.statusOS.toLowerCase() === 'nao aprovado' ? 'bg-red-100 text-red-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {os.statusOS}
+                          </span>
+                          {os.tipo === 'Retorno' && (
+                            <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            onClick={() => router.push(`/ordens/${os.id}`)}
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                          >
+                            <FiEye size={16} />
+                          </Button>
+                          <Button
+                            onClick={() => router.push(`/ordens/${os.id}/editar`)}
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                          >
+                            <FiEdit size={16} />
+                          </Button>
+                          <Button
+                            onClick={() => console.log('Imprimir', os.id)}
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                          >
+                            <FiPrinter size={16} />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* Paginação */}
           <div className="mt-6 flex justify-center gap-2">
             {Array.from({ length: totalPages }, (_, i) => (
-              <button
+              <Button
                 key={i}
                 onClick={() => handlePageChange(i + 1)}
-                className={`px-3 py-1 rounded-md text-sm font-medium border ${
-                  currentPage === i + 1 ? 'bg-[#cffb6d] text-black' : 'bg-white text-gray-700'
-                } hover:bg-lime-400 hover:text-black transition`}
+                variant={currentPage === i + 1 ? "default" : "outline"}
+                size="sm"
               >
                 {i + 1}
-              </button>
+              </Button>
             ))}
           </div>
         </div>

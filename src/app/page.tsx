@@ -289,12 +289,12 @@ export default function Home() {
       </nav>
 
       {/* Hero Section */}
-      <div className="relative z-10 px-8 py-32 lg:px-12 lg:py-48">
+      <div className="relative z-10 px-8 py-24 lg:px-12 lg:py-32">
         <div className="mx-auto max-w-5xl text-center">
           {/* Social Proof Badge */}
           <div 
             data-animate="badge"
-            className={`inline-flex items-center px-8 py-4 bg-white/5 backdrop-blur-xl border border-white/20 rounded-full mb-16 transition-all duration-1000 ease-out ${
+            className={`inline-flex items-center px-8 py-4 bg-white/5 backdrop-blur-xl border border-white/20 rounded-full mb-12 transition-all duration-1000 ease-out ${
               animatedElements.has('badge') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
             }`}
             style={{
@@ -309,7 +309,7 @@ export default function Home() {
           {/* Main Headline */}
           <h1 
             data-animate="headline"
-            className={`text-6xl md:text-8xl font-light mb-16 leading-none tracking-tight transition-all duration-1000 ease-out text-gradient-primary ${
+            className={`text-6xl md:text-8xl font-light mb-12 leading-none tracking-tight transition-all duration-1000 ease-out text-gradient-primary ${
               animatedElements.has('headline') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
             }`}
           >
@@ -320,7 +320,7 @@ export default function Home() {
           {/* Sub-headline */}
           <p 
             data-animate="subheadline"
-            className={`text-xl md:text-2xl text-white/80 mb-20 max-w-4xl mx-auto leading-relaxed font-light transition-all duration-1000 ease-out delay-300 ${
+            className={`text-xl md:text-2xl text-white/80 mb-16 max-w-4xl mx-auto leading-relaxed font-light transition-all duration-1000 ease-out delay-300 ${
               animatedElements.has('subheadline') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
             }`}
           >
