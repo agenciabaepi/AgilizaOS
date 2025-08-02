@@ -91,7 +91,7 @@ export default function TrialLimitsAlert({ showOnlyIfNearLimit = false }: TrialL
       <div className="flex items-center justify-between">
         <span className="text-gray-700 text-sm">Limites do teste grátis</span>
         <button 
-          onClick={() => window.location.href = '/teste-expirado'}
+          onClick={() => window.location.href = '/planos'}
           className="text-blue-600 text-xs hover:underline"
         >
           Ver planos

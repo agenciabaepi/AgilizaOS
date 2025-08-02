@@ -64,7 +64,11 @@ export const SubscriptionStatus = () => {
 
   const handleTrialClick = () => {
     if (assinatura?.status === 'trial') {
-      router.push('/teste-expirado');
+      if (testeGratisExpirado) {
+        router.push('/teste-expirado');
+      } else {
+        router.push('/planos');
+      }
     }
   };
 
@@ -108,7 +112,7 @@ export const SubscriptionStatus = () => {
             : 'bg-orange-50 border-orange-200'
         }`}
         title={`Teste Grátis expira em ${tempoRestante || `${diasRestantes} dias`}. Clique para ver planos.`}
-        onClick={() => router.push('/teste-expirado')}
+        onClick={() => router.push('/planos')}
       >
         <FiClock className={`w-4 h-4 ${
           isProximoDoFim ? 'text-red-500' : 'text-orange-500'

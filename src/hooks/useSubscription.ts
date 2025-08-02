@@ -136,8 +136,14 @@ export const useSubscription = () => {
 
   // Verificar se trial expirou
   const isTrialExpired = (): boolean => {
-    if (!assinatura || assinatura.status !== 'trial') return false;
-    if (!assinatura.data_trial_fim) return false;
+    if (!assinatura || assinatura.status !== 'trial') {
+      console.log('Debug isTrialExpired: Não é trial ou não há assinatura');
+      return false;
+    }
+    if (!assinatura.data_trial_fim) {
+      console.log('Debug isTrialExpired: Não há data de fim do trial');
+      return false;
+    }
     
     const agora = new Date();
     const fimTrial = new Date(assinatura.data_trial_fim);

@@ -267,7 +267,7 @@ export default function ClientesPage() {
             Para criar mais clientes, escolha um plano adequado às suas necessidades.
           </p>
           <button 
-            onClick={() => window.location.href = '/teste-expirado'}
+            onClick={() => window.location.href = '/planos'}
             className="bg-black text-white px-4 py-2 rounded-md text-sm hover:bg-gray-800 transition-colors"
           >
             Ver planos disponíveis

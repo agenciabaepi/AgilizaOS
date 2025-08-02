@@ -29,7 +29,8 @@ export function useTrialBlock() {
   const paginasPermitidas = [
     '/login',
     '/cadastro',
-    '/teste-expirado',
+    '/periodo-teste',
+    '/planos',
     '/',
     '/assets'
   ];
