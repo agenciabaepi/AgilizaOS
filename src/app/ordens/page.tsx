@@ -1,37 +1,7 @@
 
 'use client';
 
-interface OrdemServico {
-  id: string;
-  numero_os: number;
-  clientes?: {
-    nome?: string;
-    telefone?: string;
-    email?: string;
-  };
-  categoria?: string;
-  marca?: string;
-  modelo?: string;
-  cor?: string;
-  servico?: string;
-  status?: string;
-  created_at?: string;
-  tecnico_id?: {
-    nome?: string;
-  };
-  atendente?: string;
-  data_entrega?: string;
-  valor_peca?: number;
-  valor_servico?: number;
-  desconto?: number;
-  valor_faturado?: number;
-  qtd_peca?: number;
-  qtd_servico?: number;
-  tipo?: string;
-  usuarios?: {
-    nome?: string;
-  }[];
-}
+
 
 interface OrdemTransformada {
   id: string;
@@ -58,7 +28,7 @@ interface OrdemTransformada {
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { FiEye, FiEdit, FiPrinter, FiRefreshCw, FiPlus } from 'react-icons/fi';
+import { FiEye, FiEdit, FiPrinter, FiRefreshCw, FiPlus, FiSearch, FiFilter, FiCalendar, FiUser, FiSmartphone, FiDollarSign, FiClock, FiAlertCircle, FiFileText } from 'react-icons/fi';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import ProtectedArea from '@/components/ProtectedArea';
@@ -69,7 +39,6 @@ import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { Select } from '@/components/Select';
 
-
 export default function ListaOrdensPage() {
   const router = useRouter();
   const { empresaData } = useAuth();
@@ -79,14 +48,24 @@ export default function ListaOrdensPage() {
   const [totalOS, setTotalOS] = useState(0);
   const [totalMes, setTotalMes] = useState(0);
   const [retornosMes, setRetornosMes] = useState(0);
-  const [osConcluidas, setOsConcluidas] = useState(0);
-  const [percentualConcluidas, setPercentualConcluidas] = useState(0);
+
   const [percentualRetornos, setPercentualRetornos] = useState(0);
-  // Novos estados para crescimento real semana/mês
   const [crescimentoSemana, setCrescimentoSemana] = useState(0);
   const [crescimentoMes, setCrescimentoMes] = useState(0);
-  // Remover tecnicosDict se não está sendo usado
-  // const [tecnicosDict, setTecnicosDict] = useState<Record<string, string>>({});
+  const [faturamentoMes, setFaturamentoMes] = useState(0);
+  const [ticketMedio, setTicketMedio] = useState(0);
+
+  // Estados da lista
+  const [ordens, setOrdens] = useState<OrdemTransformada[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [aparelhoFilter, setAparelhoFilter] = useState('');
+  const [tecnicoFilter, setTecnicoFilter] = useState('');
+  const [tipoFilter, setTipoFilter] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  const [tecnicos, setTecnicos] = useState<string[]>([]);
 
   function formatDate(date: string) {
     return date ? new Date(date).toLocaleDateString('pt-BR') : '';
@@ -101,60 +80,71 @@ export default function ListaOrdensPage() {
     return phone;
   }
 
-  const [ordens, setOrdens] = useState<OrdemTransformada[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  function formatCurrency(value: number) {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
+  }
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [aparelhoFilter, setAparelhoFilter] = useState('');
-  const [tecnicoFilter, setTecnicoFilter] = useState('');
-  const [tipoFilter, setTipoFilter] = useState('');
-
-  useEffect(() => {
+  const fetchOrdens = async () => {
     if (!empresaId) return;
-    const fetchOrdens = async () => {
-      console.log('🟢 Iniciando fetchOrdens');
-      console.log('🟡 empresaId recebido:', empresaId);
 
-      if (!empresaId) {
-        console.warn('[ListaOrdensPage] empresaId não definido, abortando fetch');
-        return;
-      }
-
-      const empresaUuid = empresaId as `${string}-${string}-${string}-${string}-${string}`;
-
-      const session = await supabase.auth.getSession();
-      console.log('🟠 SESSION:', session);
-      console.log('🔵 USER ID:', session.data.session?.user?.id);
-
-      console.log("🟢 SESSION:", session.data.session);
-
-      const user = session.data.session?.user;
-      console.log("🟡 USER UID:", user?.id);
-
-      console.log("🔵 EMPRESA ID usada na query:", empresaUuid);
-
+    setLoading(true);
+    try {
       const { data, error } = await supabase
-        .from("ordens_servico")
+        .from('ordens_servico')
         .select(`
-          *,
-          clientes:cliente_id(nome, telefone, email),
-          usuarios!tecnico_id ( nome ),
+          id,
+          numero_os,
+          cliente_id,
+          categoria,
+          marca,
+          modelo,
+          cor,
+          servico,
+          status,
+          created_at,
+          tecnico_id,
+          atendente,
+          data_entrega,
+          valor_peca,
+          valor_servico,
+          desconto,
+          valor_faturado,
           qtd_peca,
           qtd_servico,
-          tipo
+          tipo,
+          clientes:cliente_id(nome, telefone, email),
+          tecnico:usuarios!tecnico_id(nome)
         `)
-        .eq("empresa_id", empresaUuid);
-
-      console.log('🟣 Dados retornados:', data);
-      console.log('🔴 Erro na query:', error);
+        .eq("empresa_id", empresaId);
 
       if (error) {
-        console.error('Erro ao carregar OS:', JSON.stringify(error, null, 2));
+        console.error('Erro ao carregar OS:', error);
       } else if (data) {
+        console.log('Dados recebidos do Supabase:', data);
         data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        const mapped = data.map((item: OrdemServico) => ({
+        // @ts-ignore - Supabase retorna dados dinâmicos
+        // Buscar nomes dos técnicos se necessário
+        const tecnicoIds = [...new Set(data.filter(item => item.tecnico_id).map(item => item.tecnico_id))];
+        let tecnicosDict: Record<string, string> = {};
+        
+        if (tecnicoIds.length > 0) {
+          const { data: tecnicosData } = await supabase
+            .from('usuarios')
+            .select('id, nome')
+            .in('id', tecnicoIds);
+          
+          if (tecnicosData) {
+            tecnicosDict = tecnicosData.reduce((acc, tecnico) => {
+              acc[tecnico.id] = tecnico.nome;
+              return acc;
+            }, {} as Record<string, string>);
+          }
+        }
+
+        const mapped = data.map((item: any) => ({
           id: item.id,
           numero: item.numero_os,
           cliente: item.clientes?.nome || 'Sem nome',
@@ -164,7 +154,7 @@ export default function ListaOrdensPage() {
           servico: item.servico || '',
           statusOS: item.status || '',
           entrada: item.created_at || '',
-          tecnico: item.usuarios?.[0]?.nome || '',
+          tecnico: item.tecnico?.nome || tecnicosDict[item.tecnico_id] || item.tecnico_id || '',
           atendente: item.atendente || '',
           entrega: item.data_entrega || '',
           garantia: item.data_entrega
@@ -178,104 +168,111 @@ export default function ListaOrdensPage() {
           valorFaturado: item.valor_faturado || 0,
           tipo: item.tipo || 'Nova',
         }));
+
+        console.log('Dados mapeados:', mapped);
+        console.log('Exemplo de dados do técnico:', data[0]?.tecnico, data[0]?.tecnico_id);
         setOrdens(mapped);
 
-        // Lógica dos cards principais e crescimento real semana/mês
-        // Datas de corte
-        const agora = new Date();
-        const primeiroDiaMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
-        const primeiroDiaMesAnterior = new Date(agora.getFullYear(), agora.getMonth() - 1, 1);
-        const ultimoDiaMesAnterior = new Date(agora.getFullYear(), agora.getMonth(), 0);
-        const seteDiasAtras = new Date(agora);
-        seteDiasAtras.setDate(agora.getDate() - 7);
-        const quatorzeDiasAtras = new Date(agora);
-        quatorzeDiasAtras.setDate(agora.getDate() - 14);
+        // Calcular métricas dos cards
+        const hoje = new Date();
+        const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+        const inicioSemana = new Date(hoje.setDate(hoje.getDate() - hoje.getDay()));
+        const mesAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
 
-        // Totais reais
-        const totalMesAtual = data.filter(os => new Date(os.created_at) >= primeiroDiaMes).length;
-        const totalMesAnterior = data.filter(os => {
-          const d = new Date(os.created_at);
-          return d >= primeiroDiaMesAnterior && d <= ultimoDiaMesAnterior;
+        const totalOS = mapped.length;
+        const totalMes = mapped.filter(o => new Date(o.entrada) >= inicioMes).length;
+        const retornosMes = mapped.filter(o => o.tipo === 'Retorno' && new Date(o.entrada) >= inicioMes).length;
+        const percentualRetornos = totalOS > 0 ? Math.round((retornosMes / totalOS) * 100) : 0;
+
+        // Calcular crescimento
+        const ordensSemana = mapped.filter(o => new Date(o.entrada) >= inicioSemana).length;
+        const ordensSemanaAnterior = mapped.filter(o => {
+          const data = new Date(o.entrada);
+          const semanaAnterior = new Date(inicioSemana);
+          semanaAnterior.setDate(semanaAnterior.getDate() - 7);
+          return data >= semanaAnterior && data < inicioSemana;
         }).length;
 
-        const totalSemanaAtual = data.filter(os => new Date(os.created_at) >= seteDiasAtras).length;
-        const totalSemanaAnterior = data.filter(os => {
-          const d = new Date(os.created_at);
-          return d >= quatorzeDiasAtras && d < seteDiasAtras;
+        const ordensMesAnterior = mapped.filter(o => {
+          const data = new Date(o.entrada);
+          return data >= mesAnterior && data < inicioMes;
         }).length;
-
-        const retornos = data.filter(os => os.tipo === 'Retorno' && new Date(os.created_at) >= primeiroDiaMes).length;
-        const concluidas = data.filter(os =>
-          os.status?.toLowerCase() === 'concluido' && new Date(os.created_at) >= primeiroDiaMes
-        ).length;
 
         const calcPercent = (atual: number, anterior: number) => {
           if (anterior === 0) return atual > 0 ? 100 : 0;
           return Math.round(((atual - anterior) / anterior) * 100);
         };
 
-        const percentualSemana = calcPercent(totalSemanaAtual, totalSemanaAnterior);
-        const percentualMes = calcPercent(totalMesAtual, totalMesAnterior);
+        setTotalOS(totalOS);
+        setTotalMes(totalMes);
+        setRetornosMes(retornosMes);
+        setPercentualRetornos(percentualRetornos);
+        setCrescimentoSemana(calcPercent(ordensSemana, ordensSemanaAnterior));
+        setCrescimentoMes(calcPercent(totalMes, ordensMesAnterior));
 
-        setTotalOS(data.length);
-        setTotalMes(totalMesAtual);
-        setRetornosMes(retornos);
-        setOsConcluidas(concluidas);
-        setPercentualConcluidas(data.length ? Math.round((concluidas / data.length) * 100) : 0);
-        setPercentualRetornos(data.length ? Math.round((retornos / data.length) * 100) : 0);
-        setCrescimentoSemana(percentualSemana);
-        setCrescimentoMes(percentualMes);
+        // Calcular faturamento e ticket médio
+        const faturamentoMes = mapped
+          .filter(o => new Date(o.entrada) >= inicioMes)
+          .reduce((sum, o) => sum + o.valorTotal, 0);
+        
+        const ticketMedio = mapped.length > 0 
+          ? mapped.reduce((sum, o) => sum + o.valorTotal, 0) / mapped.length 
+          : 0;
+
+        setFaturamentoMes(faturamentoMes);
+        setTicketMedio(ticketMedio);
       }
-    };
+    } catch (error) {
+      console.error('Erro ao carregar ordens:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchOrdens();
-  }, [empresaId]);
-
-  // Buscar todos os técnicos da empresa e montar dicionário auth_user_id -> nome
-  useEffect(() => {
+  const fetchTecnicos = async () => {
     if (!empresaId) return;
-    const fetchTecnicos = async () => {
+
+    try {
       const { data, error } = await supabase
         .from('usuarios')
-        .select('auth_user_id, nome')
+        .select('nome')
         .eq('empresa_id', empresaId)
         .eq('nivel', 'tecnico');
+
       if (!error && data) {
-        const dict: Record<string, string> = {};
-        data.forEach((t: { auth_user_id: string, nome: string }) => {
-          dict[t.auth_user_id] = t.nome;
-        });
-        // setTecnicosDict(dict); // Remover tecnicosDict se não está sendo usado
+        setTecnicos(data.map(u => u.nome).filter(Boolean));
       }
-    };
+    } catch (error) {
+      console.error('Erro ao carregar técnicos:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrdens();
     fetchTecnicos();
   }, [empresaId]);
 
-  // Otimização: useMemo para dados filtrados
-  const filtered = useMemo(() => {
-    return ordens.filter((os) => {
-      const matchesSearch = os.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  // Filtros e busca
+  const filteredOrdens = useMemo(() => {
+    return ordens.filter(os => {
+      const matchesSearch = searchTerm === '' || 
+        os.numero.toString().includes(searchTerm) ||
+        os.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
         os.aparelho.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        String(os.id).includes(searchTerm);
-      const matchesStatus = statusFilter === '' || os.statusOS === statusFilter;
-      const matchesAparelho = aparelhoFilter === '' || os.aparelho.includes(aparelhoFilter);
-      const matchesTecnico = tecnicoFilter === '' || os.tecnico === tecnicoFilter;
+        os.servico.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesStatus = statusFilter === '' || os.statusOS.toLowerCase() === statusFilter.toLowerCase();
+      const matchesAparelho = aparelhoFilter === '' || os.aparelho.toLowerCase().includes(aparelhoFilter.toLowerCase());
+      const matchesTecnico = tecnicoFilter === '' || os.tecnico.toLowerCase().includes(tecnicoFilter.toLowerCase());
       const matchesTipo = tipoFilter === '' || os.tipo === tipoFilter;
+
       return matchesSearch && matchesStatus && matchesAparelho && matchesTecnico && matchesTipo;
     });
   }, [ordens, searchTerm, statusFilter, aparelhoFilter, tecnicoFilter, tipoFilter]);
 
-  // Otimização: useMemo para dados paginados
-  const paginated = useMemo(() => {
-    return filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-  }, [filtered, currentPage, itemsPerPage]);
+  const totalPages = Math.ceil(filteredOrdens.length / itemsPerPage);
+  const paginated = filteredOrdens.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  // Otimização: useMemo para total de páginas
-  const totalPages = useMemo(() => {
-    return Math.ceil(filtered.length / itemsPerPage);
-  }, [filtered.length, itemsPerPage]);
-
-  // Otimização: useCallback para handlers
   const handleSearchChange = useCallback((value: string) => {
     setSearchTerm(value);
     setCurrentPage(1);
@@ -286,10 +283,7 @@ export default function ListaOrdensPage() {
     setCurrentPage(1);
   }, []);
 
-  const handleAparelhoFilterChange = useCallback((value: string) => {
-    setAparelhoFilter(value);
-    setCurrentPage(1);
-  }, []);
+
 
   const handleTecnicoFilterChange = useCallback((value: string) => {
     setTecnicoFilter(value);
@@ -317,188 +311,270 @@ export default function ListaOrdensPage() {
     <ProtectedArea area="ordens">
       <MenuLayout>
         <div className="p-8">
+          {/* Header com título e botão */}
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Ordens de Serviço</h1>
+              <p className="text-gray-600 mt-1">
+                Gerencie todas as ordens de serviço da sua empresa
+              </p>
+            </div>
+            <Button
+              onClick={() => router.push("/nova-os")}
+              size="lg"
+              className="bg-black text-white hover:bg-neutral-800 px-8 py-3 text-base font-semibold shadow-lg"
+            >
+              <FiPlus className="w-5 h-5 mr-2" />
+              Nova OS
+            </Button>
+          </div>
+
           {/* Cards principais */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <DashboardCard
               title="Total de OS"
               value={totalOS}
               description={`+${crescimentoSemana}% na última semana`}
-              descriptionColorClass="text-green-500"
+              descriptionColorClass={crescimentoSemana >= 0 ? "text-green-500" : "text-red-500"}
+              icon={<FiFileText className="w-5 h-5" />}
               svgPolyline={{ color: '#84cc16', points: '0,20 10,15 20,17 30,10 40,12 50,8 60,10 70,6' }}
             />
             <DashboardCard
               title="OS no Mês"
               value={totalMes}
-              description={`+${crescimentoMes}% em relação ao mês anterior`}
-              descriptionColorClass="text-green-500"
+              description={`+${crescimentoMes}% vs mês anterior`}
+              descriptionColorClass={crescimentoMes >= 0 ? "text-green-500" : "text-red-500"}
+              icon={<FiCalendar className="w-5 h-5" />}
               svgPolyline={{ color: '#4ade80', points: '0,18 10,16 20,14 30,10 40,11 50,9 60,10 70,6' }}
             />
             <DashboardCard
-              title="Retornos do Mês"
-              icon={<FiRefreshCw className="w-4 h-4 text-red-500" />}
+              title="Faturamento"
+              value={formatCurrency(faturamentoMes)}
+              description={`Ticket médio: ${formatCurrency(ticketMedio)}`}
+              descriptionColorClass="text-blue-500"
+              icon={<FiDollarSign className="w-5 h-5" />}
+              svgPolyline={{ color: '#60a5fa', points: '0,20 10,16 20,14 30,10 40,11 50,8 60,6 70,4' }}
+            />
+            <DashboardCard
+              title="Retornos"
               value={retornosMes}
               description={`${percentualRetornos}% do total`}
               descriptionColorClass="text-red-500"
+              icon={<FiRefreshCw className="w-5 h-5" />}
               svgPolyline={{ color: '#f87171', points: '0,12 10,14 20,16 30,18 40,20 50,17 60,15 70,16' }}
-            />
-            <DashboardCard
-              title="OS Concluídas"
-              value={osConcluidas}
-              description={`${percentualConcluidas}% do total`}
-              descriptionColorClass="text-blue-500"
-              svgPolyline={{ color: '#60a5fa', points: '0,20 10,16 20,14 30,10 40,11 50,8 60,6 70,4' }}
             />
           </div>
 
-
           {/* Filtros e busca */}
-          <h1 className="text-2xl font-bold mb-6">Ordens de Serviço</h1>
-          
-                    <div className="bg-white rounded-xl shadow p-6 mb-6">
-            <div className="flex flex-wrap gap-4 items-center">
-              <Button
-                onClick={() => {
-                  router.push("/nova-os");
-                }}
-                size="lg"
-                className="bg-black text-white hover:bg-neutral-800 px-8 py-3 text-base font-semibold"
-              >
-                + Nova OS
-              </Button>
-              
-              <Input
-                type="text"
-                placeholder="Buscar OS..."
-                value={searchTerm}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                className="flex-1 min-w-80"
-              />
-              
-              <Select
-                value={statusFilter}
-                onChange={(e) => handleStatusFilterChange(e.target.value)}
-                className="w-48"
-              >
-                <option value="">Filtrar por Status</option>
-                <option value="Finalizada">Finalizada</option>
-                <option value="Aguardando aprovação">Aguardando aprovação</option>
-                <option value="Pronta para retirada">Pronta para retirada</option>
-                <option value="Aberta">Aberta</option>
-                <option value="Não aprovada">Não aprovada</option>
-              </Select>
-              <Select
-                value={aparelhoFilter}
-                onChange={(e) => handleAparelhoFilterChange(e.target.value)}
-                className="w-48"
-              >
-                <option value="">Todos os Tipos</option>
-                <option value="iPhone">Celulares</option>
-                <option value="Samsung">Celulares</option>
-                <option value="Notebook">Computadores</option>
-              </Select>
-              <Select
-                value={tecnicoFilter}
-                onChange={(e) => handleTecnicoFilterChange(e.target.value)}
-                className="w-48"
-              >
-                <option value="">Todos os Técnicos</option>
-                <option value="Carlos">Carlos</option>
-                <option value="Fernanda">Fernanda</option>
-              </Select>
-              <Select
-                value={tipoFilter}
-                onChange={(e) => handleTipoFilterChange(e.target.value)}
-                className="w-48"
-              >
-                <option value="">Todos os Tipos</option>
-                <option value="Nova">🟢 Nova</option>
-                <option value="Retorno">🔴 Retorno</option>
-              </Select>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
+              {/* Busca */}
+              <div className="flex-1 relative">
+                <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  type="text"
+                  placeholder="Buscar por OS, cliente, aparelho ou serviço..."
+                  value={searchTerm}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  className="pl-10 w-full"
+                />
+              </div>
+
+              {/* Filtros */}
+              <div className="flex flex-wrap gap-3">
+                <Select
+                  value={statusFilter}
+                  onChange={(e) => handleStatusFilterChange(e.target.value)}
+                  className="w-48"
+                >
+                  <option value="">Todos os Status</option>
+                  <option value="concluido">✅ Concluído</option>
+                  <option value="pendente">⏳ Pendente</option>
+                  <option value="orcamento">💰 Orçamento</option>
+                  <option value="analise">🔍 Análise</option>
+                  <option value="nao aprovado">❌ Não Aprovado</option>
+                </Select>
+
+                <Select
+                  value={tipoFilter}
+                  onChange={(e) => handleTipoFilterChange(e.target.value)}
+                  className="w-40"
+                >
+                  <option value="">Todos os Tipos</option>
+                  <option value="Nova">🟢 Nova</option>
+                  <option value="Retorno">🔴 Retorno</option>
+                </Select>
+
+                <Select
+                  value={tecnicoFilter}
+                  onChange={(e) => handleTecnicoFilterChange(e.target.value)}
+                  className="w-48"
+                >
+                  <option value="">Todos os Técnicos</option>
+                  {tecnicos.map(tecnico => (
+                    <option key={tecnico} value={tecnico}>{tecnico}</option>
+                  ))}
+                </Select>
+
+                <Button
+                  onClick={() => {
+                    setSearchTerm('');
+                    setStatusFilter('');
+                    setTipoFilter('');
+                    setTecnicoFilter('');
+                    setAparelhoFilter('');
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2"
+                >
+                  <FiFilter className="w-4 h-4" />
+                  Limpar
+                </Button>
+              </div>
+            </div>
+
+            {/* Resultados */}
+            <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
+              <span>
+                {filteredOrdens.length} de {ordens.length} ordens encontradas
+              </span>
+              {loading && (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
+                  <span>Carregando...</span>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Tabela */}
-          <div className="bg-white rounded-xl shadow overflow-hidden">
-            <div className="overflow-auto">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div className="flex items-center gap-1.5">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <div className="flex items-center gap-2">
+                        <FiFileText className="w-4 h-4" />
+                        <span>OS</span>
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <div className="flex items-center gap-2">
                         <FiRefreshCw className="w-4 h-4" />
                         <span>Tipo</span>
                       </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aparelho</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Serviço</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entrada</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entrega</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Garantia</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Técnico</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <div className="flex items-center gap-2">
+                        <FiSmartphone className="w-4 h-4" />
+                        <span>Aparelho</span>
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Serviço</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <div className="flex items-center gap-2">
+                        <FiCalendar className="w-4 h-4" />
+                        <span>Entrada</span>
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <div className="flex items-center gap-2">
+                        <FiClock className="w-4 h-4" />
+                        <span>Entrega</span>
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Garantia</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <div className="flex items-center gap-2">
+                        <FiDollarSign className="w-4 h-4" />
+                        <span>Total</span>
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <div className="flex items-center gap-2">
+                        <FiUser className="w-4 h-4" />
+                        <span>Técnico</span>
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {paginated.map((os) => (
                     <tr key={os.id} className={`hover:bg-gray-50 transition-colors ${
-                      os.tipo === 'Retorno' ? 'border-l-4 border-l-red-400' : ''
+                      os.tipo === 'Retorno' ? 'border-l-4 border-l-red-400 bg-red-50/30' : ''
                     }`}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <span className="font-bold">#{os.numero}</span>
+                          <span className="font-bold text-gray-900">#{os.numero}</span>
                           {os.tipo === 'Retorno' && (
                             <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
                           )}
                         </div>
-                        <div className="text-sm text-gray-500">{os.cliente}</div>
-                        <div className="text-sm text-gray-400">{os.clienteTelefone}</div>
+                        <div className="text-sm text-gray-600 font-medium">{os.cliente}</div>
+                        <div className="text-xs text-gray-500">{os.clienteTelefone}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-4 py-3">
                         {os.tipo === 'Retorno' ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
                             <FiRefreshCw className="w-3 h-3 mr-1" />
                             Retorno
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
                             <FiPlus className="w-3 h-3 mr-1" />
                             Nova
                           </span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{os.aparelho}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{os.servico}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(os.entrada)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(os.entrega)}</td>
-                      <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
-                        os.garantia && new Date(os.garantia) < new Date()
-                          ? 'text-red-600'
-                          : 'text-green-600'
-                      }`}>
-                        <div>{formatDate(os.garantia)}</div>
-                        {os.garantia && (
-                          <div className="text-xs text-gray-500">
-                            {
-                              new Date(os.garantia).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)
+                      <td className="px-4 py-3">
+                        <div className="text-sm font-medium text-gray-900">{os.aparelho}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-sm text-gray-900">{os.servico}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-sm text-gray-600">{formatDate(os.entrada)}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-sm text-gray-600">{formatDate(os.entrega)}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className={`text-sm font-medium ${
+                          os.garantia && new Date(os.garantia) < new Date()
+                            ? 'text-red-600'
+                            : 'text-green-600'
+                        }`}>
+                          <div>{formatDate(os.garantia)}</div>
+                          {os.garantia && (
+                            <div className="text-xs text-gray-500">
+                              {new Date(os.garantia).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)
                                 ? 'Expirada'
                                 : `${Math.max(0, Math.ceil((new Date(os.garantia).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / (1000 * 60 * 60 * 24)))} dias restantes`
-                            }
-                          </div>
-                        )}
+                              }
+                            </div>
+                          )}
+                        </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600">R$ {os.valorTotal?.toFixed(2)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{os.tecnico}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-4 py-3">
+                        <div className="text-sm font-bold text-green-600">
+                          {formatCurrency(os.valorTotal)}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-sm text-gray-900">{os.tecnico}</div>
+                      </td>
+                      <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            os.statusOS.toLowerCase() === 'concluido' ? 'bg-green-100 text-green-800' :
-                            os.statusOS.toLowerCase() === 'orcamento' ? 'bg-yellow-100 text-yellow-800' :
-                            os.statusOS.toLowerCase() === 'analise' ? 'bg-blue-100 text-blue-800' :
-                            os.statusOS.toLowerCase() === 'nao aprovado' ? 'bg-red-100 text-red-800' :
-                            'bg-gray-100 text-gray-800'
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            os.statusOS.toLowerCase() === 'concluido' ? 'bg-green-100 text-green-800 border border-green-200' :
+                            os.statusOS.toLowerCase() === 'orcamento' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' :
+                            os.statusOS.toLowerCase() === 'analise' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
+                            os.statusOS.toLowerCase() === 'nao aprovado' ? 'bg-red-100 text-red-800 border border-red-200' :
+                            'bg-gray-100 text-gray-800 border border-gray-200'
                           }`}>
                             {os.statusOS}
                           </span>
@@ -507,31 +583,34 @@ export default function ListaOrdensPage() {
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <div className="flex justify-end gap-2">
+                      <td className="px-4 py-3">
+                        <div className="flex justify-end gap-1">
                           <Button
                             onClick={() => router.push(`/ordens/${os.id}`)}
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8"
+                            className="h-7 w-7 hover:bg-blue-50 hover:text-blue-600"
+                            title="Visualizar"
                           >
-                            <FiEye size={16} />
+                            <FiEye size={14} />
                           </Button>
                           <Button
                             onClick={() => router.push(`/ordens/${os.id}/editar`)}
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8"
+                            className="h-7 w-7 hover:bg-green-50 hover:text-green-600"
+                            title="Editar"
                           >
-                            <FiEdit size={16} />
+                            <FiEdit size={14} />
                           </Button>
                           <Button
-                            onClick={() => console.log('Imprimir', os.id)}
+                            onClick={() => router.push(`/ordens/${os.id}/imprimir`)}
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8"
+                            className="h-7 w-7 hover:bg-purple-50 hover:text-purple-600"
+                            title="Imprimir"
                           >
-                            <FiPrinter size={16} />
+                            <FiPrinter size={14} />
                           </Button>
                         </div>
                       </td>
@@ -540,21 +619,67 @@ export default function ListaOrdensPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Estado vazio */}
+            {!loading && paginated.length === 0 && (
+              <div className="text-center py-12">
+                <FiAlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma ordem encontrada</h3>
+                <p className="text-gray-600 mb-4">
+                  {searchTerm || statusFilter || tipoFilter || tecnicoFilter 
+                    ? 'Tente ajustar os filtros de busca'
+                    : 'Comece criando sua primeira ordem de serviço'
+                  }
+                </p>
+                {!searchTerm && !statusFilter && !tipoFilter && !tecnicoFilter && (
+                  <Button
+                    onClick={() => router.push("/nova-os")}
+                    className="bg-black text-white hover:bg-neutral-800"
+                  >
+                    <FiPlus className="w-4 h-4 mr-2" />
+                    Criar Primeira OS
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Paginação */}
-          <div className="mt-6 flex justify-center gap-2">
-            {Array.from({ length: totalPages }, (_, i) => (
+          {totalPages > 1 && (
+            <div className="mt-6 flex justify-center gap-2">
               <Button
-                key={i}
-                onClick={() => handlePageChange(i + 1)}
-                variant={currentPage === i + 1 ? "default" : "outline"}
+                onClick={() => handlePageChange(currentPage - 1)}
+                variant="outline"
                 size="sm"
+                disabled={currentPage === 1}
               >
-                {i + 1}
+                Anterior
               </Button>
-            ))}
-          </div>
+              
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const page = i + 1;
+                return (
+                  <Button
+                    key={page}
+                    onClick={() => handlePageChange(page)}
+                    variant={currentPage === page ? "default" : "outline"}
+                    size="sm"
+                  >
+                    {page}
+                  </Button>
+                );
+              })}
+              
+              <Button
+                onClick={() => handlePageChange(currentPage + 1)}
+                variant="outline"
+                size="sm"
+                disabled={currentPage === totalPages}
+              >
+                Próxima
+              </Button>
+            </div>
+          )}
         </div>
       </MenuLayout>
     </ProtectedArea>
