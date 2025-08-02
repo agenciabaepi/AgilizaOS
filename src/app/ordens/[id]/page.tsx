@@ -5,92 +5,185 @@ import MenuLayout from '@/components/MenuLayout';
 import ProtectedArea from '@/components/ProtectedArea';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
-import { PencilIcon, PrinterIcon, ReceiptPercentIcon, ChatBubbleOvalLeftEllipsisIcon } from '@heroicons/react/24/outline';
+import { FiArrowLeft, FiEdit, FiPrinter, FiDollarSign, FiMessageCircle, FiUser, FiSmartphone, FiFileText, FiCalendar, FiShield, FiTool, FiPackage, FiCheckCircle, FiClock, FiRefreshCw } from 'react-icons/fi';
 
 const VisualizarOrdemServicoPage = () => {
   const router = useRouter();
   const { id } = useParams();
   const [ordem, setOrdem] = useState<any>(null);
-  const [statusEtapas, setStatusEtapas] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchOrdem = async () => {
-      const { data, error } = await supabase
-        .from('ordens_servico')
-        .select(`
-          id,
-          numero_os,
-          created_at,
-          cliente:cliente_id (
-            nome,
-            telefone,
-            cpf,
-            endereco
-          ),
-          tecnico:tecnico_id (
-            nome
-          ),
-          categoria,
-          modelo,
-          cor,
-          marca,
-          numero_serie,
-          status,
-          status_tecnico,
-          observacao,
-          qtd_peca,
-          peca,
-          valor_peca,
-          qtd_servico,
-          servico,
-          valor_servico,
-          valor_faturado,
-          empresa_id,
-          empresa:empresa_id (
-            nome,
-            cnpj,
-            endereco,
-            telefone,
-            email,
-            logo_url
-          ),
-          termo_garantia,
-          vencimento_garantia,
-          relato,
-          desconto,
-          acessorios,
-          condicoes_equipamento,
-          laudo
-        `)
-        .eq('id', String(id))
-        .single();
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('ordens_servico')
+          .select(`
+            id,
+            numero_os,
+            created_at,
+            cliente:cliente_id (
+              nome,
+              telefone,
+              cpf,
+              endereco
+            ),
+            tecnico:tecnico_id (
+              nome
+            ),
+            categoria,
+            modelo,
+            cor,
+            marca,
+            numero_serie,
+            status,
+            status_tecnico,
+            observacao,
+            qtd_peca,
+            peca,
+            valor_peca,
+            qtd_servico,
+            servico,
+            valor_servico,
+            valor_faturado,
+                         desconto,
+             acessorios,
+             condicoes_equipamento,
+             relato,
+             laudo,
+             termo_garantia,
+             vencimento_garantia,
+             tipo
+          `)
+          .eq('id', String(id))
+          .single();
 
-      const { data: statusFixos } = await supabase
-        .from('status_fixo')
-        .select('*')
-        .eq('tipo', 'os');
-
-      const { data: statusPersonalizados } = await supabase
-        .from('status')
-        .select('*')
-        .eq('empresa_id', data?.empresa_id)
-        .eq('tipo', 'os');
-
-      const todosStatus = [...(statusFixos || []), ...(statusPersonalizados || [])].sort((a, b) => a.ordem - b.ordem);
-      
-      setStatusEtapas(todosStatus);
-      setOrdem(data);
+        if (error) {
+          console.error('Erro ao carregar OS:', error);
+        } else {
+          console.log('OS carregada:', data);
+          console.log('Tipo da OS:', data?.tipo);
+          console.log('Valores da OS:', {
+            valor_servico: data?.valor_servico,
+            qtd_servico: data?.qtd_servico,
+            valor_peca: data?.valor_peca,
+            qtd_peca: data?.qtd_peca,
+            desconto: data?.desconto,
+            valor_faturado: data?.valor_faturado
+          });
+          setOrdem(data);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar OS:', error);
+      } finally {
+        setLoading(false);
+      }
     };
 
     if (id) fetchOrdem();
   }, [id]);
 
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value || 0);
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '---';
+    return new Date(dateString).toLocaleDateString('pt-BR');
+  };
+
+  const getStatusColor = (status: string) => {
+    const statusLower = status?.toLowerCase();
+    switch (statusLower) {
+      case 'concluido':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'pendente':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'orcamento':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'analise':
+        return 'bg-purple-100 text-purple-800 border-purple-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const isRetorno = (ordem: any) => {
+    const tipo = ordem?.tipo?.toLowerCase();
+    return tipo === 'retorno' || tipo === 'Retorno';
+  };
+
+  // Calcular valores
+  const calcularValores = () => {
+    if (!ordem) return { valorTotal: 0, valorFinal: 0 };
+    
+    // Converter para números e garantir valores válidos
+    const valorServico = Number(ordem.valor_servico || 0);
+    const qtdServico = Number(ordem.qtd_servico || 0);
+    const valorPeca = Number(ordem.valor_peca || 0);
+    const qtdPeca = Number(ordem.qtd_peca || 0);
+    const desconto = Number(ordem.desconto || 0);
+    
+    const totalServico = valorServico * qtdServico;
+    const totalPeca = valorPeca * qtdPeca;
+    const valorTotal = totalServico + totalPeca;
+    const valorFinal = valorTotal - desconto;
+    
+    console.log('Cálculos:', {
+      valorServico,
+      qtdServico,
+      totalServico,
+      valorPeca,
+      qtdPeca,
+      totalPeca,
+      valorTotal,
+      desconto,
+      valorFinal,
+      dados: {
+        valor_servico: ordem.valor_servico,
+        qtd_servico: ordem.qtd_servico,
+        valor_peca: ordem.valor_peca,
+        qtd_peca: ordem.qtd_peca,
+        desconto: ordem.desconto
+      }
+    });
+    
+    return { valorTotal, valorFinal };
+  };
+
+  if (loading) {
+    return (
+      <MenuLayout>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+            <p className="text-gray-600">Carregando ordem de serviço...</p>
+          </div>
+        </div>
+      </MenuLayout>
+    );
+  }
+
   if (!ordem) {
     return (
       <MenuLayout>
-        <main className="min-h-screen flex items-center justify-center text-gray-600">
-          Carregando...
-        </main>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <FiFileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Ordem não encontrada</h2>
+            <p className="text-gray-600 mb-4">A ordem de serviço solicitada não foi encontrada.</p>
+            <button
+              onClick={() => router.push('/ordens')}
+              className="bg-black text-white px-6 py-2 rounded-lg hover:bg-gray-800 transition-colors"
+            >
+              Voltar para Ordens
+            </button>
+          </div>
+        </div>
       </MenuLayout>
     );
   }
@@ -98,183 +191,370 @@ const VisualizarOrdemServicoPage = () => {
   return (
     <ProtectedArea area="ordens">
       <MenuLayout>
-        <main className="min-h-screen bg-gradient-to-br from-white to-slate-100 px-6 py-10 text-black print-area">
-          <button
-            onClick={() => router.push('/ordens')}
-            className="mb-4 text-sm text-[#000000] hover:underline"
-          >
-            ← Voltar para Ordens de Serviço
-          </button>
-          <div className="flex flex-wrap justify-end gap-3 mb-8">
+        <div className="p-8">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => router.push('/ordens')}
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                <FiArrowLeft className="w-5 h-5" />
+                <span>Voltar</span>
+              </button>
+              <div className="h-6 w-px bg-gray-300"></div>
+                             <div>
+                 <div className="flex items-center gap-3">
+                   <h1 className="text-3xl font-bold text-gray-900">
+                     OS #{ordem.numero_os}
+                   </h1>
+                   {isRetorno(ordem) && (
+                     <div className="flex items-center gap-2 px-3 py-1 bg-red-50 border border-red-200 rounded-full">
+                       <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                       <span className="text-sm font-medium text-red-700">Retorno</span>
+                     </div>
+                   )}
+                 </div>
+                 <p className="text-gray-600 mt-1">
+                   Criada em {formatDate(ordem.created_at)}
+                 </p>
+               </div>
+            </div>
+            
             {/* Botões de ação */}
-            <button onClick={() => router.push(`/ordens/${id}/editar`)} className="flex items-center gap-2 px-4 py-2 border rounded-md text-sm hover:bg-[#cffb6d]/30"><PencilIcon className="h-5 w-5" />Editar</button>
-            <a href={`/ordens/${id}/imprimir`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-4 py-2 border rounded-md text-sm hover:bg-[#cffb6d]/30"><PrinterIcon className="h-5 w-5" />Imprimir A4</a>
-            <button className="flex items-center gap-2 px-4 py-2 border rounded-md text-sm hover:bg-[#cffb6d]/30"><ReceiptPercentIcon className="h-5 w-5" />Cupom</button>
-            <button className="flex items-center gap-2 px-4 py-2 border rounded-md text-sm text-green-600 border-green-500 hover:bg-green-50"><ChatBubbleOvalLeftEllipsisIcon className="h-5 w-5" />WhatsApp</button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.push(`/ordens/${id}/editar`)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <FiEdit className="w-4 h-4" />
+                Editar
+              </button>
+              <button
+                onClick={() => router.push(`/ordens/${id}/imprimir`)}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                <FiPrinter className="w-4 h-4" />
+                Imprimir
+              </button>
+            </div>
           </div>
-          {/* Barra de progresso de status */}
-          <div className="mb-10">
-            <div className="mb-6 overflow-x-auto">
-              <div className="flex items-center space-x-4">
-                {statusEtapas.map((etapa, index) => {
-                  const ativo = etapa.nome?.toLowerCase() === ordem?.status?.toLowerCase();
-                  const proximo = index < statusEtapas.length - 1;
-                  return (
-                    <div key={etapa.id} className="flex items-center">
-                      <div className="flex flex-col items-center">
-                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-colors`} style={{ backgroundColor: ativo ? etapa.cor : '#fff', borderColor: etapa.cor, color: ativo ? '#000' : etapa.cor }}>
-                          {index + 1}
-                        </div>
-                        <span className="text-[10px] text-center mt-1 w-16 truncate">{etapa.nome}</span>
+
+          {/* Status */}
+          <div className="mb-8">
+            <div className="flex items-center gap-3">
+              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(ordem.status)}`}>
+                <FiCheckCircle className="w-4 h-4 mr-2" />
+                {ordem.status || 'Status não definido'}
+              </span>
+              {ordem.status_tecnico && (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                  <FiTool className="w-4 h-4 mr-2" />
+                  {ordem.status_tecnico}
+                </span>
+              )}
+              {isRetorno(ordem) && (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800 border border-red-200 animate-pulse">
+                  <FiRefreshCw className="w-4 h-4 mr-2" />
+                  Retorno
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Grid Principal */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                         {/* Coluna Esquerda - Informações Principais */}
+             <div className="lg:col-span-2 space-y-6">
+               {/* Cliente */}
+               <div className={`bg-white rounded-xl shadow-sm border p-6 ${
+                 isRetorno(ordem)
+                   ? 'border-red-200 bg-red-50/30' 
+                   : 'border-gray-200'
+               }`}>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <FiUser className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <h2 className="text-xl font-semibold text-gray-900">Cliente</h2>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-lg font-medium text-gray-900">{ordem.cliente?.nome || 'Nome não informado'}</p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-600">Telefone:</span>
+                      <p className="font-medium text-gray-900">{ordem.cliente?.telefone || '---'}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">CPF:</span>
+                      <p className="font-medium text-gray-900">{ordem.cliente?.cpf || '---'}</p>
+                    </div>
+                    <div className="md:col-span-2">
+                      <span className="text-gray-600">Endereço:</span>
+                      <p className="font-medium text-gray-900">{ordem.cliente?.endereco || '---'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Aparelho */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <FiSmartphone className="w-5 h-5 text-green-600" />
+                  </div>
+                  <h2 className="text-xl font-semibold text-gray-900">Aparelho</h2>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-600">Categoria:</span>
+                    <p className="font-medium text-gray-900">{ordem.categoria || '---'}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Marca:</span>
+                    <p className="font-medium text-gray-900">{ordem.marca || '---'}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Modelo:</span>
+                    <p className="font-medium text-gray-900">{ordem.modelo || '---'}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Cor:</span>
+                    <p className="font-medium text-gray-900">{ordem.cor || '---'}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Número de Série:</span>
+                    <p className="font-medium text-gray-900">{ordem.numero_serie || '---'}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Acessórios:</span>
+                    <p className="font-medium text-gray-900">{ordem.acessorios || '---'}</p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <span className="text-gray-600">Condições do Equipamento:</span>
+                    <p className="font-medium text-gray-900">{ordem.condicoes_equipamento || '---'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Relato e Observações */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <FiMessageCircle className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <h2 className="text-xl font-semibold text-gray-900">Relato do Cliente</h2>
+                  </div>
+                  <p className="text-gray-700 whitespace-pre-line">
+                    {ordem.relato || 'Nenhum relato registrado.'}
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-orange-100 rounded-lg">
+                      <FiFileText className="w-5 h-5 text-orange-600" />
+                    </div>
+                    <h2 className="text-xl font-semibold text-gray-900">Observações</h2>
+                  </div>
+                  <p className="text-gray-700 whitespace-pre-line">
+                    {ordem.observacao || 'Nenhuma observação registrada.'}
+                  </p>
+                </div>
+              </div>
+
+                             {/* Laudo Técnico */}
+               {ordem.laudo && (
+                 <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-6">
+                   <div className="flex items-center gap-3 mb-4">
+                     <div className="p-2 bg-blue-100 rounded-lg">
+                       <FiTool className="w-5 h-5 text-blue-600" />
+                     </div>
+                     <h2 className="text-xl font-semibold text-gray-900">Laudo Técnico</h2>
+                   </div>
+                   <p className="text-gray-700 whitespace-pre-line">{ordem.laudo}</p>
+                 </div>
+               )}
+
+               {/* Informações do Retorno */}
+               {isRetorno(ordem) && (
+                 <div className="bg-red-50 rounded-xl shadow-sm border border-red-200 p-6">
+                   <div className="flex items-center gap-3 mb-4">
+                     <div className="p-2 bg-red-100 rounded-lg">
+                       <FiRefreshCw className="w-5 h-5 text-red-600" />
+                     </div>
+                     <h2 className="text-xl font-semibold text-red-900">Informações do Retorno</h2>
+                   </div>
+                   <div className="space-y-3 text-sm">
+                     <div className="bg-white rounded-lg p-4 border border-red-200">
+                       <p className="text-red-800 font-medium mb-2">⚠️ Esta é uma ordem de retorno</p>
+                       <p className="text-red-700">
+                         O equipamento foi devolvido pelo cliente para correção ou ajuste. 
+                         Verifique o relato do cliente e o laudo técnico para entender o motivo do retorno.
+                       </p>
+                     </div>
+                     {ordem.relato && (
+                       <div>
+                         <span className="text-red-700 font-medium">Motivo do retorno:</span>
+                         <p className="text-red-700 mt-1 whitespace-pre-line">{ordem.relato}</p>
+                       </div>
+                     )}
+                   </div>
+                 </div>
+               )}
+            </div>
+
+            {/* Coluna Direita - Valores e Informações Técnicas */}
+            <div className="space-y-6">
+              {/* Informações da OS */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-indigo-100 rounded-lg">
+                    <FiFileText className="w-5 h-5 text-indigo-600" />
+                  </div>
+                  <h2 className="text-xl font-semibold text-gray-900">Informações da OS</h2>
+                </div>
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Técnico:</span>
+                    <span className="font-medium text-gray-900">{ordem.tecnico?.nome || '---'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Garantia:</span>
+                    <span className="font-medium text-gray-900">{ordem.termo_garantia || '---'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Venc. Garantia:</span>
+                    <span className="font-medium text-gray-900">{formatDate(ordem.vencimento_garantia)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Valores */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <FiDollarSign className="w-5 h-5 text-green-600" />
+                  </div>
+                  <h2 className="text-xl font-semibold text-gray-900">Valores</h2>
+                </div>
+                
+                {/* Serviços */}
+                {ordem.servico && (
+                  <div className="mb-4">
+                    <h3 className="text-sm font-medium text-gray-700 mb-2">Serviços</h3>
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <div className="flex justify-between text-sm">
+                        <span>{ordem.servico}</span>
+                        <span className="font-medium">{formatCurrency(ordem.valor_servico)}</span>
                       </div>
-                      {proximo && (<div className="h-1 w-8 mx-1 transition-colors" style={{ backgroundColor: etapa.cor }} />)}
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>Qtd: {ordem.qtd_servico || 1}</span>
+                        <span>Subtotal: {formatCurrency((ordem.valor_servico || 0) * (ordem.qtd_servico || 1))}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Peças */}
+                {ordem.peca && (
+                  <div className="mb-4">
+                    <h3 className="text-sm font-medium text-gray-700 mb-2">Peças</h3>
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <div className="flex justify-between text-sm">
+                        <span>{ordem.peca}</span>
+                        <span className="font-medium">{formatCurrency(ordem.valor_peca)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>Qtd: {ordem.qtd_peca || 1}</span>
+                        <span>Subtotal: {formatCurrency((ordem.valor_peca || 0) * (ordem.qtd_peca || 1))}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Resumo dos Valores */}
+                {(ordem.servico || ordem.peca) && (
+                  <div className="mb-4">
+                    <h3 className="text-sm font-medium text-gray-700 mb-2">Resumo</h3>
+                    <div className="bg-blue-50 rounded-lg p-3 space-y-2">
+                      {ordem.servico && (
+                        <div className="flex justify-between text-sm">
+                          <span>Serviços:</span>
+                          <span className="font-medium">{formatCurrency(Number(ordem.valor_servico || 0) * Number(ordem.qtd_servico || 1))}</span>
+                        </div>
+                      )}
+                      {ordem.peca && (
+                        <div className="flex justify-between text-sm">
+                          <span>Peças:</span>
+                          <span className="font-medium">{formatCurrency(Number(ordem.valor_peca || 0) * Number(ordem.qtd_peca || 1))}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Resumo Final */}
+                {(() => {
+                  const { valorTotal, valorFinal } = calcularValores();
+                  return (
+                    <div className="border-t pt-4 space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Subtotal:</span>
+                        <span className="font-medium">{formatCurrency(valorTotal)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Desconto:</span>
+                        <span className="font-medium text-red-600">-{formatCurrency(ordem.desconto || 0)}</span>
+                      </div>
+                      <div className="flex justify-between text-lg font-bold border-t pt-2">
+                        <span>Total:</span>
+                        <span className="text-green-600">{formatCurrency(valorFinal)}</span>
+                      </div>
+                      {ordem.valor_faturado && Math.abs(ordem.valor_faturado - valorFinal) > 0.01 && (
+                        <div className="flex justify-between text-sm bg-yellow-50 p-2 rounded border border-yellow-200">
+                          <span>Faturado:</span>
+                          <span className="font-medium">{formatCurrency(ordem.valor_faturado)}</span>
+                        </div>
+                      )}
                     </div>
                   );
-                })}
+                })()}
+              </div>
+
+              {/* Garantia */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-yellow-100 rounded-lg">
+                    <FiShield className="w-5 h-5 text-yellow-600" />
+                  </div>
+                  <h2 className="text-xl font-semibold text-gray-900">Garantia</h2>
+                </div>
+                <div className="space-y-3 text-sm">
+                  <div>
+                    <span className="text-gray-600">Termo:</span>
+                    <p className="font-medium text-gray-900">{ordem.termo_garantia || '---'}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Vencimento:</span>
+                    <p className="font-medium text-gray-900">{formatDate(ordem.vencimento_garantia)}</p>
+                  </div>
+                  {ordem.vencimento_garantia && (
+                    <div className="flex items-center gap-2">
+                      <FiClock className="w-4 h-4 text-gray-500" />
+                      <span className="text-xs text-gray-500">
+                        {new Date(ordem.vencimento_garantia) > new Date() ? 'Garantia válida' : 'Garantia expirada'}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-          <h1 className="text-3xl font-extrabold text-[#000000] mb-6">Ordem de Serviço #{ordem.numero_os}</h1>
-          {/* PARTE DE CIMA: 2 colunas */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-            <div className="flex flex-col gap-6">
-              {/* Dados da OS */}
-              <section className="bg-white p-6 rounded-lg border border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-700 mb-2">Dados da O.S</h2>
-                <div className="flex flex-col gap-1 text-sm">
-                  <span>Status: <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#cffb6d] text-[#000000] font-semibold"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2l4-4" /></svg>{ordem.status}</span></span>
-                  <span>Técnico: {ordem.tecnico?.nome}</span>
-                  <span>Garantia: {ordem.termo_garantia || '---'}</span>
-                  <span>Venc. Garantia: {ordem.vencimento_garantia ? new Date(ordem.vencimento_garantia).toLocaleDateString() : '---'}</span>
-                  <span>Criada em: {new Date(ordem.created_at).toLocaleDateString()}</span>
-                </div>
-              </section>
-              {/* Cliente */}
-              <section className="bg-white p-6 rounded-lg border border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-700 mb-2">Cliente</h2>
-                <p className="text-gray-900 font-medium">{ordem.cliente?.nome}</p>
-                <p className="text-gray-600 text-sm">Telefone: {ordem.cliente?.telefone}</p>
-                <p className="text-gray-600 text-sm">CPF: {ordem.cliente?.cpf}</p>
-                <p className="text-gray-600 text-sm">Endereço: {ordem.cliente?.endereco}</p>
-              </section>
-              {/* Aparelho */}
-              <section className="bg-white p-6 rounded-lg border border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-700 mb-2">Aparelho</h2>
-                <p className="text-gray-600 text-sm">Categoria: {ordem.categoria}</p>
-                <p className="text-gray-900 font-medium">Modelo: {ordem.modelo}</p>
-                <p className="text-gray-600 text-sm">Cor: {ordem.cor}</p>
-                <p className="text-gray-600 text-sm">Marca: {ordem.marca}</p>
-                <p className="text-gray-600 text-sm">Número de Série: {ordem.numero_serie}</p>
-                <p className="text-gray-600 text-sm">Acessórios: {ordem.acessorios || '---'}</p>
-                <p className="text-gray-600 text-sm">Condições: {ordem.condicoes_equipamento || '---'}</p>
-              </section>
-            </div>
-            <div className="flex flex-col gap-6">
-              {/* Relato */}
-              <section className="bg-white p-6 rounded-lg border border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-700 mb-2">Relato do Cliente</h2>
-                <p className="text-gray-700 text-sm whitespace-pre-line">{ordem.relato || 'Nenhum relato registrado.'}</p>
-              </section>
-              {/* Observações Internas */}
-              <section className="bg-white p-6 rounded-lg border border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-700 mb-2">Observações Internas</h2>
-                <p className="text-gray-700 text-sm whitespace-pre-line">{ordem.observacao || 'Nenhuma observação interna registrada.'}</p>
-              </section>
-            </div>
-          </div>
-          <hr className="my-8 border-t-2 border-gray-200" />
-          {/* PARTE DE BAIXO: DADOS DO TÉCNICO E VALORES */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="flex flex-col gap-6">
-              {/* Bloco Técnico: Status, Laudo */}
-              <section className="bg-white p-6 rounded-lg border border-blue-200">
-                <h2 className="text-xl font-semibold text-blue-700 mb-4">Informações Técnicas</h2>
-                <div className="mb-2">
-                  <span className="block text-sm font-medium text-gray-600">Status Técnico:</span>
-                  <span className="inline-block px-3 py-1 text-sm font-medium bg-gray-100 text-gray-800 rounded-full">
-                    {ordem.status_tecnico || 'Não informado'}
-                  </span>
-                </div>
-                <div className="mb-2">
-                  <span className="block text-sm font-medium text-gray-600">Laudo Técnico:</span>
-                  <p className="text-gray-700 text-sm whitespace-pre-line">{ordem.laudo || 'Nenhum laudo registrado.'}</p>
-                </div>
-              </section>
-            </div>
-            <div className="flex flex-col gap-6">
-              {/* Serviços e Peças */}
-              <section className="bg-white p-6 rounded-lg border border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-700 mb-2">Serviços e Peças</h2>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm border border-gray-200">
-                    <thead>
-                      <tr className="bg-gray-100">
-                        <th className="px-2 py-1 text-left font-semibold">Item</th>
-                        <th className="px-2 py-1 text-center font-semibold">Qtd</th>
-                        <th className="px-2 py-1 text-center font-semibold">Valor Unit.</th>
-                        <th className="px-2 py-1 text-right font-semibold">Subtotal</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {ordem.servico && (
-                        <tr>
-                          <td className="px-2 py-1 text-left">{ordem.servico}</td>
-                          <td className="px-2 py-1 text-center">{ordem.qtd_servico}</td>
-                          <td className="px-2 py-1 text-center">R$ {(ordem.valor_servico ?? 0).toFixed(2)}</td>
-                          <td className="px-2 py-1 text-right">R$ {((ordem.qtd_servico ?? 0) * (ordem.valor_servico ?? 0)).toFixed(2)}</td>
-                        </tr>
-                      )}
-                      {ordem.peca && (
-                        <tr>
-                          <td className="px-2 py-1 text-left">{ordem.peca}</td>
-                          <td className="px-2 py-1 text-center">{ordem.qtd_peca}</td>
-                          <td className="px-2 py-1 text-center">R$ {(ordem.valor_peca ?? 0).toFixed(2)}</td>
-                          <td className="px-2 py-1 text-right">R$ {((ordem.qtd_peca ?? 0) * (ordem.valor_peca ?? 0)).toFixed(2)}</td>
-                        </tr>
-                      )}
-                    </tbody>
-                    <tfoot>
-                      <tr>
-                        <td colSpan={3} className="px-2 py-1 text-right font-semibold">Desconto:</td>
-                        <td className="px-2 py-1 text-right font-semibold">R$ {(ordem.desconto ?? 0).toFixed(2)}</td>
-                      </tr>
-                      <tr>
-                        <td colSpan={3} className="px-2 py-1 text-right font-bold">Total:</td>
-                        <td className="px-2 py-1 text-right font-bold">R$ {(((ordem.qtd_servico ?? 0) * (ordem.valor_servico ?? 0)) + ((ordem.qtd_peca ?? 0) * (ordem.valor_peca ?? 0)) - (ordem.desconto ?? 0)).toFixed(2)}</td>
-                      </tr>
-                      <tr>
-                        <td colSpan={3} className="px-2 py-1 text-right font-bold">Valor Faturado:</td>
-                        <td className="px-2 py-1 text-right font-bold">R$ {(ordem.valor_faturado ?? 0).toFixed(2)}</td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              </section>
-              {/* Valores */}
-              <section className="bg-white p-6 rounded-lg border border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-700 mb-2">Valores</h2>
-                <div className="flex flex-col gap-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Peças</span>
-                    <span className="font-semibold">R$ {(ordem.valor_peca ?? 0).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Serviços</span>
-                    <span className="font-semibold">R$ {(ordem.valor_servico ?? 0).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Desconto</span>
-                    <span className="font-semibold">R$ {(ordem.desconto ?? 0).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-base border-t pt-2 mt-2">
-                    <span className="font-bold">Total Faturado</span>
-                    <span className="font-bold">R$ {(ordem.valor_faturado ?? 0).toFixed(2)}</span>
-                  </div>
-                </div>
-              </section>
-            </div>
-          </div>
-        </main>
+        </div>
       </MenuLayout>
     </ProtectedArea>
   );
