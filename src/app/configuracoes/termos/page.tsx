@@ -4,7 +4,7 @@ import { Button } from '@/components/Button'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/context/AuthContext'
-import { FiPlus, FiEdit2, FiTrash2, FiX, FiSave, FiFileText, FiBold, FiItalic, FiUnderline, FiList, FiAlignLeft, FiAlignCenter, FiAlignRight, FiLink, FiChevronDown, FiChevronRight } from 'react-icons/fi'
+import { FiPlus, FiEdit2, FiTrash2, FiX, FiSave, FiFileText, FiBold, FiItalic, FiUnderline, FiList, FiAlignLeft, FiAlignCenter, FiAlignRight, FiLink, FiCheckCircle, FiClock } from 'react-icons/fi'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import TextAlign from '@tiptap/extension-text-align'
@@ -316,71 +316,116 @@ export default function TermosPage() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Termos de Garantia</h1>
-          <p className="text-gray-600 mt-1">Gerencie os termos de garantia da sua empresa</p>
+      {/* Header com gradiente */}
+      <div className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-200 -mx-8 px-8 py-6 mb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <FiFileText className="w-6 h-6 text-blue-600" />
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900">Termos de Garantia</h1>
+            </div>
+            <p className="text-gray-600">Gerencie os termos de garantia da sua empresa</p>
+          </div>
+          <Button
+            onClick={novoTermo}
+            className="flex items-center gap-2 shadow-lg hover:shadow-xl transition-shadow"
+          >
+            <FiPlus className="w-4 h-4" />
+            Novo Termo
+          </Button>
         </div>
-        <Button
-          onClick={novoTermo}
-          className="flex items-center gap-2"
-        >
-          <FiPlus className="w-4 h-4" />
-          Novo Termo
-        </Button>
+      </div>
+
+      {/* Estatísticas */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Total de Termos</p>
+              <p className="text-2xl font-bold text-gray-900">{termos.length}</p>
+            </div>
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <FiFileText className="w-5 h-5 text-blue-600" />
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Termos Ativos</p>
+              <p className="text-2xl font-bold text-green-600">{termos.filter(t => t.ativo).length}</p>
+            </div>
+            <div className="p-2 bg-green-100 rounded-lg">
+              <FiCheckCircle className="w-5 h-5 text-green-600" />
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Termos Inativos</p>
+              <p className="text-2xl font-bold text-gray-500">{termos.filter(t => !t.ativo).length}</p>
+            </div>
+            <div className="p-2 bg-gray-100 rounded-lg">
+              <FiX className="w-5 h-5 text-gray-500" />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Lista de Termos */}
       {loading ? (
-        <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-          <span className="ml-3 text-gray-600">Carregando termos...</span>
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600 font-medium">Carregando termos...</p>
+          </div>
         </div>
       ) : (
-        <div className="flex-1 space-y-3">
+        <div className="flex-1">
           {termos.length === 0 ? (
-            <div className="text-center py-8">
-              <FiFileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum termo encontrado</h3>
-              <p className="text-gray-600 mb-4">Crie seu primeiro termo de garantia para começar</p>
-              <Button onClick={novoTermo}>
+            <div className="text-center py-12">
+              <div className="bg-gray-50 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+                <FiFileText className="w-10 h-10 text-gray-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Nenhum termo encontrado</h3>
+              <p className="text-gray-600 mb-6 max-w-md mx-auto">Crie seu primeiro termo de garantia para começar a usar no sistema</p>
+              <Button onClick={novoTermo} className="shadow-lg">
                 <FiPlus className="w-4 h-4 mr-2" />
                 Criar Primeiro Termo
               </Button>
             </div>
           ) : (
-            <div className="grid gap-3">
-              {termos.map((termo) => (
-                <div key={termo.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="grid gap-4">
+              {termos.map((termo, index) => (
+                <div key={termo.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
                   {/* Header do Acordeão */}
                   <div 
-                    className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                    className="flex items-center justify-between p-5 cursor-pointer hover:bg-gray-50 transition-colors"
                     onClick={() => toggleTermo(termo.id)}
                   >
-                    <div className="flex items-center gap-3 flex-1">
-                      <button className="text-gray-400 hover:text-gray-600 transition-colors">
-                        {expandedTermos.has(termo.id) ? (
-                          <FiChevronDown className="w-4 h-4" />
-                        ) : (
-                          <FiChevronRight className="w-4 h-4" />
-                        )}
-                      </button>
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="flex items-center justify-center w-10 h-10 bg-blue-50 rounded-lg">
+                        <span className="text-sm font-bold text-blue-600">{index + 1}</span>
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-base font-semibold text-gray-900 truncate">{termo.nome}</h3>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                        <h3 className="text-lg font-semibold text-gray-900 truncate">{termo.nome}</h3>
+                        <div className="flex items-center gap-3 mt-2">
+                          <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
                             termo.ativo ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-500'
                           }`}>
-                            {termo.ativo ? 'Ativo' : 'Inativo'}
+                            {termo.ativo ? '✓ Ativo' : '✗ Inativo'}
                           </span>
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-gray-500 flex items-center gap-1">
+                            <FiClock className="w-3 h-3" />
                             Criado em {new Date(termo.created_at).toLocaleDateString('pt-BR')}
                           </span>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 ml-4">
+                    <div className="flex items-center gap-2 ml-4">
                       <Button
                         variant="secondary"
                         size="sm"
@@ -388,8 +433,9 @@ export default function TermosPage() {
                           e.stopPropagation()
                           editarTermo(termo)
                         }}
+                        className="hover:bg-blue-50 hover:text-blue-600"
                       >
-                        <FiEdit2 className="w-3 h-3" />
+                        <FiEdit2 className="w-4 h-4" />
                       </Button>
                       <Button
                         variant="secondary"
@@ -398,16 +444,16 @@ export default function TermosPage() {
                           e.stopPropagation()
                           excluirTermo(termo.id)
                         }}
-                        className="text-red-600 hover:text-red-700"
+                        className="text-red-600 hover:bg-red-50 hover:text-red-700"
                       >
-                        <FiTrash2 className="w-3 h-3" />
+                        <FiTrash2 className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
 
                   {/* Conteúdo do Acordeão */}
                   {expandedTermos.has(termo.id) && (
-                    <div className="border-t border-gray-200 p-4 bg-gray-50">
+                    <div className="border-t border-gray-200 p-5 bg-gradient-to-br from-gray-50 to-white">
                       <div 
                         className="text-gray-600 prose prose-sm max-w-none"
                         dangerouslySetInnerHTML={{ __html: termo.conteudo }}

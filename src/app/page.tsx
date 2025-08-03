@@ -9,6 +9,8 @@ import macbookImage from '../assets/imagens/macbook.png';
 export default function Home() {
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  
+
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [scrollY, setScrollY] = useState(0);
   const [animatedElements, setAnimatedElements] = useState<Set<string>>(new Set());
