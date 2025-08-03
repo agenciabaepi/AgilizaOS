@@ -388,8 +388,8 @@ export default function ProdutosServicosPage() {
       header: 'Status',
       render: row => (
         <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-          row.situacao === 'Ativo' ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-500'
-        }`}>{row.situacao || '-'}</span>
+          row.ativo ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-500'
+        }`}>{row.ativo ? 'Ativo' : 'Inativo'}</span>
       )
     },
     {

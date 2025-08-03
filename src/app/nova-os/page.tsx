@@ -48,6 +48,8 @@ interface ProdutoServico {
   tipo: string;
   preco: number;
   unidade: string;
+  ativo?: boolean;
+  codigo?: string;
 }
 
 
@@ -64,12 +66,12 @@ function NovaOS2Content() {
   
   // Estado para etapa 2 - Aparelho
   const [dadosEquipamento, setDadosEquipamento] = useState({
-    tipo: 'Smartphone',
-    marca: 'Samsung',
-    modelo: 'Galaxy S21',
-    numero_serie: 'SM-G991B/DS',
-    descricao_problema: 'Tela quebrada e não carrega',
-    observacoes: 'Cliente relatou que caiu no chão e quebrou a tela. Também não está carregando.'
+    tipo: '',
+    marca: '',
+    modelo: '',
+    numero_serie: '',
+    descricao_problema: '',
+    observacoes: ''
   });
 
 
@@ -97,22 +99,25 @@ function NovaOS2Content() {
   const [produtosSelecionados, setProdutosSelecionados] = useState<ProdutoServico[]>([]);
   const [servicosSelecionados, setServicosSelecionados] = useState<ProdutoServico[]>([]);
   
-  // Dados de teste para produtos e serviços
-  const produtosTeste: ProdutoServico[] = [
-    { id: '1', nome: 'Tela LCD Samsung Galaxy S21', tipo: 'produto', preco: 450.00, unidade: 'un' },
-    { id: '2', nome: 'Bateria Original Samsung', tipo: 'produto', preco: 120.00, unidade: 'un' },
-    { id: '3', nome: 'Cabo USB-C Original', tipo: 'produto', preco: 35.00, unidade: 'un' }
-  ];
+  // Estado para cadastro rápido de produtos/serviços
+  const [showCadastroRapidoProduto, setShowCadastroRapidoProduto] = useState(false);
+  const [showCadastroRapidoServico, setShowCadastroRapidoServico] = useState(false);
+  const [cadastrandoRapido, setCadastrandoRapido] = useState(false);
+  const [novoProduto, setNovoProduto] = useState({
+    nome: '',
+    tipo: 'produto' as 'produto' | 'servico',
+    preco: 0,
+    unidade: 'un'
+  });
   
-  const servicosTeste: ProdutoServico[] = [
-    { id: '4', nome: 'Troca de Tela', tipo: 'servico', preco: 80.00, unidade: 'un' },
-    { id: '5', nome: 'Diagnóstico de Hardware', tipo: 'servico', preco: 50.00, unidade: 'un' },
-    { id: '6', nome: 'Limpeza Interna', tipo: 'servico', preco: 30.00, unidade: 'un' }
-  ];
+  // Dados de teste para produtos e serviços
+  const produtosTeste: ProdutoServico[] = [];
+  
+  const servicosTeste: ProdutoServico[] = [];
   
   // Estado para etapa 5 - Observações
-  const [observacoes, setObservacoes] = useState('Equipamento com tela trincada e problema de carregamento. Cliente deixou carregador e cabo USB. Precisa de orçamento para troca da tela e verificação da placa.');
-  const [condicoesEquipamento, setCondicoesEquipamento] = useState('Tela trincada, bordas amassadas, não carrega, mas liga');
+  const [observacoes, setObservacoes] = useState('');
+  const [condicoesEquipamento, setCondicoesEquipamento] = useState('');
   
   // Estado para etapa 6 - Imagens
   const [imagens, setImagens] = useState<File[]>([]);
@@ -207,36 +212,121 @@ function NovaOS2Content() {
       setStatusSelecionado('orcamento'); // Padrão: Aguardando Orçamento
       
       // Para teste: pré-selecionar alguns produtos e serviços
-      setProdutosSelecionados([produtosTeste[0]]); // Tela LCD
-      setServicosSelecionados([servicosTeste[0], servicosTeste[1]]); // Troca de Tela + Diagnóstico
+      // setProdutosSelecionados([]); // Arrays vazios agora
+      // setServicosSelecionados([]); // Arrays vazios agora
     }
     fetchStatus();
   }, [empresaData?.id]);
 
-  useEffect(() => {
-    async function fetchProdutosServicos() {
-      if (!empresaData?.id) return;
-      setLoadingProdutos(true);
-      
-      const { data, error } = await supabase
-        .from('produtos_servicos')
-        .select('id, nome, tipo, preco, unidade')
-        .eq('empresa_id', empresaData.id)
-        .eq('ativo', true)
-        .order('nome', { ascending: true });
-      
-      if (!error && data && data.length > 0) {
-        setProdutosServicos(data);
-      } else {
-        // Usar dados de teste se não houver dados no banco
-        setProdutosServicos([...produtosTeste, ...servicosTeste]);
-      }
-      setLoadingProdutos(false);
+  async function fetchProdutosServicos() {
+    if (!empresaData?.id) return;
+    setLoadingProdutos(true);
+    
+    const { data, error } = await supabase
+      .from('produtos_servicos')
+      .select('id, nome, tipo, preco, unidade, ativo, codigo')
+      .eq('empresa_id', empresaData.id)
+      .eq('ativo', true)
+      .order('nome', { ascending: true });
+    
+    if (!error && data && data.length > 0) {
+      setProdutosServicos(data);
+    } else {
+      // Usar dados de teste se não houver dados no banco
+      setProdutosServicos([...produtosTeste, ...servicosTeste]);
     }
+    setLoadingProdutos(false);
+  }
+
+  useEffect(() => {
     fetchProdutosServicos();
   }, [empresaData?.id]);
 
 
+
+  async function onCadastrarProdutoRapido() {
+    if (!empresaData?.id || !novoProduto.nome || novoProduto.preco <= 0) {
+      alert('Preencha todos os campos obrigatórios!');
+      return;
+    }
+
+    setCadastrandoRapido(true);
+
+    try {
+      const produtoPayload = {
+        empresa_id: empresaData.id,
+        nome: novoProduto.nome,
+        tipo: novoProduto.tipo,
+        preco: novoProduto.preco,
+        unidade: novoProduto.unidade,
+        ativo: true // Sempre ativo por padrão
+      };
+
+      console.log('Tentando cadastrar produto/serviço:', produtoPayload);
+
+      // Usar API route para contornar RLS
+      console.log('Fazendo requisição para API route...');
+      
+      const response = await fetch('/api/produtos/criar', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(produtoPayload)
+      });
+
+      console.log('Status da resposta:', response.status);
+      console.log('Headers da resposta:', Object.fromEntries(response.headers.entries()));
+
+      const result = await response.json();
+      console.log('Resposta da API route:', result);
+
+      if (!response.ok) {
+        console.error('Erro da API route:', result);
+        const errorMessage = result.error?.message || result.error || 'Erro desconhecido';
+        alert(`Erro ao cadastrar produto/serviço: ${errorMessage}`);
+        return;
+      }
+
+      const novo = result.data;
+
+      if (!novo) {
+        console.error('Nenhum dado retornado da API');
+        alert('Erro: Nenhum dado retornado do servidor');
+        return;
+      }
+
+      // Recarregar lista de produtos/serviços para garantir que está atualizada
+      await fetchProdutosServicos();
+      
+      // Selecionar automaticamente o novo item
+      if (novo.tipo === 'produto') {
+        setProdutosSelecionados(prev => [...prev, novo]);
+      } else {
+        setServicosSelecionados(prev => [...prev, novo]);
+      }
+
+      // Limpar formulário
+      setNovoProduto({
+        nome: '',
+        tipo: novo.tipo,
+        preco: 0,
+        unidade: 'un'
+      });
+
+      // Fechar modal
+      setShowCadastroRapidoProduto(false);
+      setShowCadastroRapidoServico(false);
+
+      alert(`${novo.tipo === 'produto' ? 'Produto' : 'Serviço'} cadastrado com sucesso! Código: ${novo.codigo || 'N/A'}`);
+
+    } catch (error) {
+      console.error('Erro ao cadastrar produto/serviço:', error);
+      alert('Erro inesperado ao cadastrar produto/serviço!');
+    } finally {
+      setCadastrandoRapido(false);
+    }
+  }
 
   async function onCadastrarCliente(data: { nome: string; whatsapp: string; cpf: string; numero_reserva?: string; email?: string }) {
     if (!empresaData?.id) {
@@ -351,7 +441,7 @@ function NovaOS2Content() {
         empresa_id: empresaData?.id,
         atendente: usuarioData?.nome || 'Usuário Logado',
         tecnico: tecnicoSelecionado?.nome || 'Técnico Selecionado',
-        acessorios: "Carregador original Samsung, cabo USB-C, capa protetora",
+        acessorios: "",
         condicoes_equipamento: condicoesEquipamento,
         data_cadastro: new Date().toISOString(),
         os_garantia_id: tipoEntrada === 'garantia' && osGarantiaSelecionada ? osGarantiaSelecionada.id : null
@@ -588,8 +678,11 @@ function NovaOS2Content() {
                 )}
                 <label className="block text-sm font-medium text-gray-700 mb-2">Selecione o cliente</label>
                 <ReactSelect
-                  options={clientes.map(c => ({ value: c.id, label: c.nome }))}
-                  value={clientes.find(c => c.id === clienteSelecionado) ? { value: clienteSelecionado, label: clientes.find(c => c.id === clienteSelecionado)?.nome || "" } : null}
+                  options={(clientes || []).map(c => ({ value: c.id, label: c.nome }))}
+                  value={(() => {
+                    const cliente = (clientes || []).find(c => c.id === clienteSelecionado);
+                    return cliente ? { value: clienteSelecionado, label: cliente.nome } : null;
+                  })()}
                   onChange={opt => setClienteSelecionado(opt?.value || null)}
                   isLoading={loadingClientes}
                   placeholder={loadingClientes ? "Carregando clientes..." : "Buscar cliente..."}
@@ -759,14 +852,17 @@ function NovaOS2Content() {
                 <div className="space-y-4">
                   <label className="block text-sm font-medium text-gray-700">Selecione o Técnico Responsável</label>
                   <ReactSelect
-                    options={tecnicos.map(tecnico => ({ 
+                    options={(tecnicos || []).map(tecnico => ({ 
                       value: tecnico.auth_user_id, 
                       label: tecnico.nome 
                     }))}
-                    value={tecnicoResponsavel ? { 
-                      value: tecnicoResponsavel, 
-                      label: tecnicos.find(t => t.auth_user_id === tecnicoResponsavel)?.nome || '' 
-                    } : null}
+                    value={(() => {
+                      const tecnico = (tecnicos || []).find(t => t.auth_user_id === tecnicoResponsavel);
+                      return tecnicoResponsavel && tecnico ? { 
+                        value: tecnicoResponsavel, 
+                        label: tecnico.nome 
+                      } : null;
+                    })()}
                     onChange={(option) => setTecnicoResponsavel(option?.value || null)}
                     isLoading={loadingUsuarios}
                     placeholder={loadingUsuarios ? "Carregando técnicos..." : "Selecione o técnico..."}
@@ -799,11 +895,17 @@ function NovaOS2Content() {
                     <h4 className="text-sm font-medium text-gray-700 mb-2">Técnico Selecionado</h4>
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center text-sm font-medium">
-                        {tecnicos.find(t => t.auth_user_id === tecnicoResponsavel)?.nome.charAt(0).toUpperCase()}
+                        {(() => {
+                          const tecnico = (tecnicos || []).find(t => t.auth_user_id === tecnicoResponsavel);
+                          return tecnico ? tecnico.nome.charAt(0).toUpperCase() : '';
+                        })()}
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-700">
-                          {tecnicos.find(t => t.auth_user_id === tecnicoResponsavel)?.nome}
+                          {(() => {
+                            const tecnico = (tecnicos || []).find(t => t.auth_user_id === tecnicoResponsavel);
+                            return tecnico ? tecnico.nome : '';
+                          })()}
                         </p>
                         <p className="text-xs text-gray-500">
                           Técnico responsável pela execução
@@ -940,20 +1042,38 @@ function NovaOS2Content() {
                   <div className="space-y-6">
                     <div className="border-t pt-6">
                       <h4 className="text-sm font-medium text-gray-700 mb-4">Produtos e Serviços Aprovados</h4>
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                        <p className="text-sm text-blue-700">
+                          💡 <strong>Dica:</strong> Não encontrou o produto ou serviço? Use os botões "+" para cadastrar rapidamente!
+                        </p>
+                      </div>
                       
-                      {/* Seleção de Produtos */}
+                                            {/* Seleção de Produtos */}
                       <div className="space-y-4 mb-6">
-                        <label className="block text-sm font-medium text-gray-700">Produtos</label>
+                        <div className="flex items-center justify-between">
+                          <label className="block text-sm font-medium text-gray-700">Produtos</label>
+                          <Button 
+                            type="button" 
+                            variant="secondary" 
+                            size="sm"
+                            onClick={() => {
+                              setNovoProduto(prev => ({ ...prev, tipo: 'produto' }));
+                              setShowCadastroRapidoProduto(true);
+                            }}
+                          >
+                            + Cadastrar Produto
+                          </Button>
+                        </div>
                         <ReactSelect
                           isMulti
-                          options={produtosServicos.filter(p => p.tipo === 'produto').map(p => ({ 
+                          options={(produtosServicos || []).filter(p => p.tipo === 'produto').map(p => ({ 
                             value: p.id, 
-                            label: `${p.nome} - R$ ${p.preco.toFixed(2)}/${p.unidade}`,
+                            label: `${p.codigo || 'N/A'} - ${p.nome} - R$ ${p.preco.toFixed(2)}/${p.unidade}`,
                             data: p 
                           }))}
                           value={produtosSelecionados.map(p => ({ 
                             value: p.id, 
-                            label: `${p.nome} - R$ ${p.preco.toFixed(2)}/${p.unidade}`,
+                            label: `${p.codigo || 'N/A'} - ${p.nome} - R$ ${p.preco.toFixed(2)}/${p.unidade}`,
                             data: p 
                           }))}
                           onChange={(options) => {
@@ -988,17 +1108,30 @@ function NovaOS2Content() {
 
                       {/* Seleção de Serviços */}
                       <div className="space-y-4">
-                        <label className="block text-sm font-medium text-gray-700">Serviços</label>
+                        <div className="flex items-center justify-between">
+                          <label className="block text-sm font-medium text-gray-700">Serviços</label>
+                          <Button 
+                            type="button" 
+                            variant="secondary" 
+                            size="sm"
+                            onClick={() => {
+                              setNovoProduto(prev => ({ ...prev, tipo: 'servico' }));
+                              setShowCadastroRapidoServico(true);
+                            }}
+                          >
+                            + Cadastrar Serviço
+                          </Button>
+                        </div>
                         <ReactSelect
                           isMulti
-                          options={produtosServicos.filter(s => s.tipo === 'servico').map(s => ({ 
+                          options={(produtosServicos || []).filter(s => s.tipo === 'servico').map(s => ({ 
                             value: s.id, 
-                            label: `${s.nome} - R$ ${s.preco.toFixed(2)}`,
+                            label: `${s.codigo || 'N/A'} - ${s.nome} - R$ ${s.preco.toFixed(2)}`,
                             data: s 
                           }))}
                           value={servicosSelecionados.map(s => ({ 
                             value: s.id, 
-                            label: `${s.nome} - R$ ${s.preco.toFixed(2)}`,
+                            label: `${s.codigo || 'N/A'} - ${s.nome} - R$ ${s.preco.toFixed(2)}`,
                             data: s 
                           }))}
                           onChange={(options) => {
@@ -1038,13 +1171,13 @@ function NovaOS2Content() {
                           <div className="space-y-2">
                             {produtosSelecionados.map(produto => (
                               <div key={produto.id} className="flex justify-between text-sm">
-                                <span className="text-gray-700">📦 {produto.nome}</span>
+                                <span className="text-gray-700">📦 {produto.codigo || 'N/A'} - {produto.nome}</span>
                                 <span className="text-gray-600">R$ {produto.preco.toFixed(2)}/{produto.unidade}</span>
                               </div>
                             ))}
                             {servicosSelecionados.map(servico => (
                               <div key={servico.id} className="flex justify-between text-sm">
-                                <span className="text-gray-700">🔧 {servico.nome}</span>
+                                <span className="text-gray-700">🔧 {servico.codigo || 'N/A'} - {servico.nome}</span>
                                 <span className="text-gray-600">R$ {servico.preco.toFixed(2)}</span>
                               </div>
                             ))}
@@ -1093,7 +1226,7 @@ function NovaOS2Content() {
                     <textarea
                       placeholder="Carregador, cabo, capa, etc..."
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 h-20 resize-none"
-                      value="Carregador original Samsung, cabo USB-C, capa protetora"
+                      value=""
                       onChange={(e) => setDadosEquipamento(prev => ({ ...prev, observacoes: e.target.value }))}
                     />
                   </div>
@@ -1208,6 +1341,141 @@ function NovaOS2Content() {
               {etapaAtual === etapas.length ? (salvando ? 'Salvando...' : 'Finalizar') : 'Próxima'}
             </Button>
           </div>
+
+          {/* Modal de Cadastro Rápido de Produto */}
+          {showCadastroRapidoProduto && (
+            <div className="fixed inset-0 bg-gray-600/40 backdrop-blur-sm flex items-center justify-center z-50">
+              <div className="bg-white/95 backdrop-blur-md rounded-xl shadow-2xl p-6 w-full max-w-md mx-4 border border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Cadastrar Produto Rápido</h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Produto</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Tela LCD Samsung"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+                      value={novoProduto.nome}
+                      onChange={(e) => setNovoProduto(prev => ({ ...prev, nome: e.target.value }))}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Preço de Venda</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="0,00"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+                      value={novoProduto.preco}
+                      onChange={(e) => setNovoProduto(prev => ({ ...prev, preco: parseFloat(e.target.value) || 0 }))}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Unidade</label>
+                    <select
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+                      value={novoProduto.unidade}
+                      onChange={(e) => setNovoProduto(prev => ({ ...prev, unidade: e.target.value }))}
+                    >
+                      <option value="un">Unidade</option>
+                      <option value="kg">Quilograma</option>
+                      <option value="m">Metro</option>
+                      <option value="l">Litro</option>
+                      <option value="pct">Pacote</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div className="flex gap-3 mt-6">
+                  <Button 
+                    type="button" 
+                    variant="secondary" 
+                    onClick={() => {
+                      setShowCadastroRapidoProduto(false);
+                      setNovoProduto({
+                        nome: '',
+                        tipo: 'produto',
+                        preco: 0,
+                        unidade: 'un'
+                      });
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="default" 
+                    onClick={onCadastrarProdutoRapido}
+                    disabled={cadastrandoRapido || !novoProduto.nome || novoProduto.preco <= 0}
+                  >
+                    {cadastrandoRapido ? 'Salvando...' : 'Cadastrar'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Modal de Cadastro Rápido de Serviço */}
+          {showCadastroRapidoServico && (
+            <div className="fixed inset-0 bg-gray-600/40 backdrop-blur-sm flex items-center justify-center z-50">
+              <div className="bg-white/95 backdrop-blur-md rounded-xl shadow-2xl p-6 w-full max-w-md mx-4 border border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Cadastrar Serviço Rápido</h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Serviço</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Troca de Tela"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+                      value={novoProduto.nome}
+                      onChange={(e) => setNovoProduto(prev => ({ ...prev, nome: e.target.value }))}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Preço de Venda</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="0,00"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+                      value={novoProduto.preco}
+                      onChange={(e) => setNovoProduto(prev => ({ ...prev, preco: parseFloat(e.target.value) || 0 }))}
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex gap-3 mt-6">
+                  <Button 
+                    type="button" 
+                    variant="secondary" 
+                    onClick={() => {
+                      setShowCadastroRapidoServico(false);
+                      setNovoProduto({
+                        nome: '',
+                        tipo: 'servico',
+                        preco: 0,
+                        unidade: 'un'
+                      });
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="default" 
+                    onClick={onCadastrarProdutoRapido}
+                    disabled={cadastrandoRapido || !novoProduto.nome || novoProduto.preco <= 0}
+                  >
+                    {cadastrandoRapido ? 'Salvando...' : 'Cadastrar'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </ProtectedArea>
     </MenuLayout>
