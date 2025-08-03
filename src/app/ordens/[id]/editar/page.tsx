@@ -8,7 +8,18 @@ import { supabase } from '@/lib/supabaseClient';
 import MenuLayout from '@/components/MenuLayout';
 import ProtectedArea from '@/components/ProtectedArea';
 import { Combobox } from '@headlessui/react';
-import { FiArrowLeft, FiSave, FiX, FiUser, FiSmartphone, FiFileText, FiTool, FiDollarSign, FiMessageCircle, FiPackage, FiCheckCircle, FiRefreshCw } from 'react-icons/fi';
+import { FiArrowLeft, FiSave, FiX, FiUser, FiSmartphone, FiFileText, FiTool, FiDollarSign, FiMessageCircle, FiPackage, FiCheckCircle, FiRefreshCw, FiShield } from 'react-icons/fi';
+
+interface Termo {
+  id: string;
+  nome: string;
+  conteudo: string;
+  ativo: boolean;
+  ordem: number;
+  empresa_id: string;
+  created_at: string;
+  updated_at: string;
+}
 
 export default function EditarOrdemServico() {
   const router = useRouter();
@@ -24,6 +35,9 @@ export default function EditarOrdemServico() {
   const [pecaSelecionada, setPecaSelecionada] = useState<any>(null);
   const [queryServico, setQueryServico] = useState('');
   const [queryPeca, setQueryPeca] = useState('');
+  const [termos, setTermos] = useState<Termo[]>([]);
+  const [loadingTermos, setLoadingTermos] = useState(false);
+  const [termoSelecionado, setTermoSelecionado] = useState<string | null>(null);
 
   // Função para detectar se é retorno
   const isRetorno = (ordem: any) => {
@@ -69,13 +83,32 @@ export default function EditarOrdemServico() {
           setPecas(pecasData);
         }
 
+        // Buscar termos de garantia
+        setLoadingTermos(true);
+        const { data: termosData } = await supabase
+          .from('termos_garantia')
+          .select('*')
+          .eq('empresa_id', empresaId)
+          .eq('ativo', true)
+          .order('ordem', { ascending: true });
+        
+        if (termosData) {
+          setTermos(termosData);
+        }
+        setLoadingTermos(false);
+
         // Buscar ordem
         const { data: ordemData, error } = await supabase
           .from('ordens_servico')
           .select(`
             *,
             clientes(*),
-            usuarios!tecnico_id ( nome )
+            usuarios!tecnico_id ( nome ),
+            termo_garantia:termo_garantia_id (
+              id,
+              nome,
+              conteudo
+            )
           `)
           .eq('id', id as string)
           .single();
@@ -98,6 +131,11 @@ export default function EditarOrdemServico() {
           // Set initial selected status
           const statusInicial = todosStatus.find(s => s.nome === ordemData.status);
           setStatusSelecionado(statusInicial || null);
+
+          // Set initial selected termo
+          if (ordemData.termo_garantia_id) {
+            setTermoSelecionado(ordemData.termo_garantia_id);
+          }
         }
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
@@ -162,6 +200,7 @@ export default function EditarOrdemServico() {
       updatedData['valor_servico'] = servicoSelecionado?.preco || 0;
       updatedData['valor_peca'] = pecaSelecionada?.preco || 0;
       updatedData['valor_faturado'] = calcularTotal();
+      updatedData['termo_garantia_id'] = termoSelecionado || null;
 
       const { error } = await supabase
         .from('ordens_servico')
@@ -536,6 +575,43 @@ export default function EditarOrdemServico() {
                       defaultValue={ordem.qtd_peca}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
+                  </div>
+                </div>
+              </div>
+
+              {/* Garantia */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-yellow-100 rounded-lg">
+                    <FiShield className="w-5 h-5 text-yellow-600" />
+                  </div>
+                  <h2 className="text-xl font-semibold text-gray-900">Garantia</h2>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Termo de Garantia</label>
+                    <select
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      value={termoSelecionado || ''}
+                      onChange={(e) => setTermoSelecionado(e.target.value || null)}
+                    >
+                      <option value="">Selecione um termo de garantia (opcional)</option>
+                      {termos.map((termo) => (
+                        <option key={termo.id} value={termo.id}>
+                          {termo.nome}
+                        </option>
+                      ))}
+                    </select>
+                    {loadingTermos && <div className="text-xs text-gray-500 mt-1">Carregando termos...</div>}
+                    {termos.length === 0 && !loadingTermos && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        Nenhum termo de garantia cadastrado. 
+                        <a href="/configuracoes?tab=2" className="text-blue-600 hover:underline ml-1">
+                          Cadastrar termos
+                        </a>
+                      </div>
+                    )}
+
                   </div>
                 </div>
               </div>

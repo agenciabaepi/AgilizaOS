@@ -52,9 +52,15 @@ const VisualizarOrdemServicoPage = () => {
              condicoes_equipamento,
              relato,
              laudo,
-             termo_garantia,
-             vencimento_garantia,
-             tipo
+                         termo_garantia,
+            vencimento_garantia,
+            termo_garantia_id,
+            tipo,
+            termo_garantia:termo_garantia_id (
+              id,
+              nome,
+              conteudo
+            )
           `)
           .eq('id', String(id))
           .single();
@@ -123,9 +129,9 @@ const VisualizarOrdemServicoPage = () => {
     
     // Converter para números e garantir valores válidos
     const valorServico = Number(ordem.valor_servico || 0);
-    const qtdServico = Number(ordem.qtd_servico || 0);
+    const qtdServico = Number(ordem.qtd_servico || 1);
     const valorPeca = Number(ordem.valor_peca || 0);
-    const qtdPeca = Number(ordem.qtd_peca || 0);
+    const qtdPeca = Number(ordem.qtd_peca || 1);
     const desconto = Number(ordem.desconto || 0);
     
     const totalServico = valorServico * qtdServico;
@@ -133,7 +139,7 @@ const VisualizarOrdemServicoPage = () => {
     const valorTotal = totalServico + totalPeca;
     const valorFinal = valorTotal - desconto;
     
-    console.log('Cálculos:', {
+    console.log('Cálculos detalhados:', {
       valorServico,
       qtdServico,
       totalServico,
@@ -143,7 +149,7 @@ const VisualizarOrdemServicoPage = () => {
       valorTotal,
       desconto,
       valorFinal,
-      dados: {
+      dadosOriginais: {
         valor_servico: ordem.valor_servico,
         qtd_servico: ordem.qtd_servico,
         valor_peca: ordem.valor_peca,
@@ -500,6 +506,17 @@ const VisualizarOrdemServicoPage = () => {
                 {/* Resumo Final */}
                 {(() => {
                   const { valorTotal, valorFinal } = calcularValores();
+                  console.log('Debug - Valores da OS:', {
+                    peca: ordem.peca,
+                    valor_peca: ordem.valor_peca,
+                    qtd_peca: ordem.qtd_peca,
+                    servico: ordem.servico,
+                    valor_servico: ordem.valor_servico,
+                    qtd_servico: ordem.qtd_servico,
+                    desconto: ordem.desconto,
+                    valorTotal,
+                    valorFinal
+                  });
                   return (
                     <div className="border-t pt-4 space-y-2">
                       <div className="flex justify-between text-sm">
@@ -534,10 +551,23 @@ const VisualizarOrdemServicoPage = () => {
                   <h2 className="text-xl font-semibold text-gray-900">Garantia</h2>
                 </div>
                 <div className="space-y-3 text-sm">
-                  <div>
-                    <span className="text-gray-600">Termo:</span>
-                    <p className="font-medium text-gray-900">{ordem.termo_garantia || '---'}</p>
-                  </div>
+                  {ordem.termo_garantia ? (
+                    <div>
+                      <span className="text-gray-600">Termo de Garantia:</span>
+                      <div className="mt-2 p-3 bg-gray-50 rounded border">
+                        <h4 className="font-medium text-gray-900 mb-2">{ordem.termo_garantia.nome}</h4>
+                        <div 
+                          className="text-xs text-gray-600 prose prose-sm max-w-none"
+                          dangerouslySetInnerHTML={{ __html: ordem.termo_garantia.conteudo }}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <span className="text-gray-600">Termo:</span>
+                      <p className="font-medium text-gray-900">Nenhum termo selecionado</p>
+                    </div>
+                  )}
                   <div>
                     <span className="text-gray-600">Vencimento:</span>
                     <p className="font-medium text-gray-900">{formatDate(ordem.vencimento_garantia)}</p>

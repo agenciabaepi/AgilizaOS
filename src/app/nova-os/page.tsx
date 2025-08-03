@@ -11,7 +11,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Suspense } from 'react';
 
-const etapas = ["Cliente", "Aparelho", "Técnico", "Status", "Obs.", "Imagens"];
+const etapas = ["Cliente", "Aparelho", "Técnico", "Status", "Imagens"];
 
 interface Cliente {
   id: string;
@@ -52,6 +52,17 @@ interface ProdutoServico {
   codigo?: string;
 }
 
+interface Termo {
+  id: string;
+  nome: string;
+  conteudo: string;
+  ativo: boolean;
+  ordem: number;
+  empresa_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
 
 
 function NovaOS2Content() {
@@ -70,9 +81,11 @@ function NovaOS2Content() {
     marca: '',
     modelo: '',
     numero_serie: '',
-    descricao_problema: '',
-    observacoes: ''
+    descricao_problema: ''
   });
+
+  // Estado para acessórios
+  const [acessorios, setAcessorios] = useState('');
 
 
   
@@ -98,6 +111,11 @@ function NovaOS2Content() {
   const [loadingProdutos, setLoadingProdutos] = useState(false);
   const [produtosSelecionados, setProdutosSelecionados] = useState<ProdutoServico[]>([]);
   const [servicosSelecionados, setServicosSelecionados] = useState<ProdutoServico[]>([]);
+  
+  // Estado para termos de garantia
+  const [termos, setTermos] = useState<Termo[]>([]);
+  const [loadingTermos, setLoadingTermos] = useState(false);
+  const [termoSelecionado, setTermoSelecionado] = useState<string | null>(null);
   
   // Estado para cadastro rápido de produtos/serviços
   const [showCadastroRapidoProduto, setShowCadastroRapidoProduto] = useState(false);
@@ -218,6 +236,14 @@ function NovaOS2Content() {
     fetchStatus();
   }, [empresaData?.id]);
 
+  useEffect(() => {
+    fetchProdutosServicos();
+  }, [empresaData?.id]);
+
+  useEffect(() => {
+    fetchTermos();
+  }, [empresaData?.id]);
+
   async function fetchProdutosServicos() {
     if (!empresaData?.id) return;
     setLoadingProdutos(true);
@@ -236,6 +262,23 @@ function NovaOS2Content() {
       setProdutosServicos([...produtosTeste, ...servicosTeste]);
     }
     setLoadingProdutos(false);
+  }
+
+  async function fetchTermos() {
+    if (!empresaData?.id) return;
+    setLoadingTermos(true);
+    
+    const { data, error } = await supabase
+      .from('termos_garantia')
+      .select('*')
+      .eq('empresa_id', empresaData.id)
+      .eq('ativo', true)
+      .order('ordem', { ascending: true });
+    
+    if (!error && data) {
+      setTermos(data);
+    }
+    setLoadingTermos(false);
   }
 
   useEffect(() => {
@@ -441,10 +484,11 @@ function NovaOS2Content() {
         empresa_id: empresaData?.id,
         atendente: usuarioData?.nome || 'Usuário Logado',
         tecnico: tecnicoSelecionado?.nome || 'Técnico Selecionado',
-        acessorios: "",
+        acessorios: acessorios,
         condicoes_equipamento: condicoesEquipamento,
         data_cadastro: new Date().toISOString(),
-        os_garantia_id: tipoEntrada === 'garantia' && osGarantiaSelecionada ? osGarantiaSelecionada.id : null
+        os_garantia_id: tipoEntrada === 'garantia' && osGarantiaSelecionada ? osGarantiaSelecionada.id : null,
+        termo_garantia_id: termoSelecionado || null
       };
 
       console.log('Salvando OS no banco:', dadosOS);
@@ -660,8 +704,7 @@ function NovaOS2Content() {
                                   marca: osTyped.marca,
                                   modelo: osTyped.modelo,
                                   numero_serie: osTyped.numero_serie,
-                                  descricao_problema: '',
-                                  observacoes: ''
+                                  descricao_problema: ''
                                 });
                               }}
                             >
@@ -831,15 +874,33 @@ function NovaOS2Content() {
                       onChange={(e) => setDadosEquipamento(prev => ({ ...prev, descricao_problema: e.target.value }))}
                     />
                   </div>
-                  
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Observações adicionais</label>
-                    <textarea
-                      placeholder="Observações, acessórios, etc..."
-                      className="w-full border border-gray-300 rounded px-3 py-2 h-20 resize-none"
-                      value={dadosEquipamento.observacoes}
-                      onChange={(e) => setDadosEquipamento(prev => ({ ...prev, observacoes: e.target.value }))}
-                    />
+
+                  {/* Acessórios e Estado do Equipamento */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Acessórios que Acompanham</label>
+                      <textarea
+                        placeholder="Carregador, cabo, capa, manual, etc..."
+                        className="w-full border border-gray-300 rounded px-3 py-2 h-20 resize-none"
+                        value={acessorios}
+                        onChange={(e) => setAcessorios(e.target.value)}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Liste os acessórios que o cliente está deixando
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Estado do Equipamento</label>
+                      <textarea
+                        placeholder="Riscos, amassados, funcionando, etc..."
+                        className="w-full border border-gray-300 rounded px-3 py-2 h-20 resize-none"
+                        value={condicoesEquipamento}
+                        onChange={(e) => setCondicoesEquipamento(e.target.value)}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Descreva o estado físico do equipamento
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1037,6 +1098,48 @@ function NovaOS2Content() {
                   </div>
                 )}
 
+                {/* Observações Gerais */}
+                <div className="mt-6 w-full max-w-lg mx-auto">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Observações Gerais</label>
+                  <textarea
+                    placeholder="Digite observações importantes sobre o atendimento, contexto, observações do cliente, etc..."
+                    className="w-full border border-gray-300 rounded px-3 py-2 h-24 resize-none"
+                    value={observacoes}
+                    onChange={(e) => setObservacoes(e.target.value)}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Descreva detalhes importantes como: contexto do atendimento, observações do cliente, 
+                    informações adicionais relevantes para o técnico, urgência, etc.
+                  </p>
+                </div>
+
+                {/* Seleção de Termo de Garantia */}
+                <div className="mt-6 w-full max-w-lg mx-auto">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Termo de Garantia</label>
+                  <select
+                    className="w-full border border-gray-300 rounded px-3 py-2"
+                    value={termoSelecionado || ''}
+                    onChange={(e) => setTermoSelecionado(e.target.value || null)}
+                  >
+                    <option value="">Selecione um termo de garantia (opcional)</option>
+                    {termos.map((termo) => (
+                      <option key={termo.id} value={termo.id}>
+                        {termo.nome}
+                      </option>
+                    ))}
+                  </select>
+                  {loadingTermos && <div className="text-xs text-gray-500 mt-1">Carregando termos...</div>}
+                  {termos.length === 0 && !loadingTermos && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      Nenhum termo de garantia cadastrado. 
+                      <a href="/configuracoes?tab=2" className="text-blue-600 hover:underline ml-1">
+                        Cadastrar termos
+                      </a>
+                    </div>
+                  )}
+
+                </div>
+
                 {/* Campos para produtos e serviços quando valor aprovado */}
                 {statusSelecionado === 'aprovado' && (
                   <div className="space-y-6">
@@ -1202,48 +1305,6 @@ function NovaOS2Content() {
             )}
 
             {etapaAtual === 5 && (
-              <div className="w-full max-w-2xl mx-auto flex flex-col gap-6">
-                <h3 className="text-lg font-medium text-gray-700 mb-4">Observações</h3>
-                
-                <div className="space-y-4">
-                  <label className="block text-sm font-medium text-gray-700">Observações da Ordem de Serviço</label>
-                  <textarea
-                    placeholder="Digite observações importantes sobre o equipamento, problema, acessórios, etc..."
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 h-32 resize-none focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
-                    value={observacoes}
-                    onChange={(e) => setObservacoes(e.target.value)}
-                  />
-                  <p className="text-xs text-gray-500">
-                    Descreva detalhes importantes como: acessórios que acompanham, condições especiais, 
-                    observações do cliente, etc.
-                  </p>
-                </div>
-
-                {/* Campos adicionais */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Acessórios</label>
-                    <textarea
-                      placeholder="Carregador, cabo, capa, etc..."
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 h-20 resize-none"
-                      value=""
-                      onChange={(e) => setDadosEquipamento(prev => ({ ...prev, observacoes: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Condições do Equipamento</label>
-                    <textarea
-                      placeholder="Riscos, amassados, funcionando, etc..."
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 h-20 resize-none"
-                      value={condicoesEquipamento}
-                      onChange={(e) => setCondicoesEquipamento(e.target.value)}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {etapaAtual === 6 && (
               <div className="w-full max-w-2xl mx-auto flex flex-col gap-6">
                 <h3 className="text-lg font-medium text-gray-700 mb-4">Imagens do Equipamento</h3>
                 

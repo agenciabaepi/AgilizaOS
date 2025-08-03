@@ -5,7 +5,9 @@ import MenuLayout from '@/components/MenuLayout'
 import { Tab } from '@headlessui/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
-import ProtectedArea from '@/components/ProtectedArea';
+import ProtectedArea from '@/components/ProtectedArea'
+import { ToastProvider } from '@/components/Toast'
+import { ConfirmProvider } from '@/components/ConfirmDialog'
 
 
 // Lazy loading das páginas para melhor performance
@@ -201,9 +203,13 @@ function ConfiguracoesInner() {
 export default function ConfiguracoesPage() {
   return (
     <ProtectedArea area="configuracoes">
-      <Suspense fallback={<div className="p-8">Carregando configurações...</div>}>
-        <ConfiguracoesInner />
-      </Suspense>
+      <ToastProvider>
+        <ConfirmProvider>
+          <Suspense fallback={<div className="p-8">Carregando configurações...</div>}>
+            <ConfiguracoesInner />
+          </Suspense>
+        </ConfirmProvider>
+      </ToastProvider>
     </ProtectedArea>
   )
 }
