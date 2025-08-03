@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { configureMercadoPago } from '@/lib/mercadopago';
-import { createClient } from '@/lib/supabase/server';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     const response = await mercadopago.preferences.create(preference);
     
     // Salvar no banco de dados
-    const supabase = createClient();
+    const supabase = createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {

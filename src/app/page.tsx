@@ -1174,7 +1174,7 @@ export default function Home() {
                 {/* CTA Button */}
                 <div className="relative z-10 mt-auto">
                   <button 
-                    onClick={() => router.push('/cadastro?plano=pro')}
+                    onClick={() => router.push('/cadastro')}
                     className="w-full py-4 bg-[#D1FE6E] text-black rounded-2xl font-medium hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105"
                     style={{
                       boxShadow: '0 4px 20px rgba(209, 254, 110, 0.3)'
@@ -1285,7 +1285,7 @@ export default function Home() {
                 {/* CTA Button */}
                 <div className="relative z-10 mt-auto">
                   <button 
-                    onClick={() => router.push('/cadastro?plano=avancado')}
+                    onClick={() => router.push('/cadastro')}
                     className="w-full py-4 bg-[#D1FE6E] text-black rounded-2xl font-medium hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105"
                     style={{
                       boxShadow: '0 4px 20px rgba(209, 254, 110, 0.3)'
@@ -1326,7 +1326,7 @@ export default function Home() {
             </p>
             <div className="flex flex-col sm:flex-row gap-8 justify-center items-center">
               <button 
-                onClick={() => router.push('/cadastro?plano=pro')}
+                onClick={() => router.push('/cadastro')}
                 className="px-12 py-5 bg-[#D1FE6E] text-black rounded-full font-medium text-lg hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105"
               >
                 Começar Agora

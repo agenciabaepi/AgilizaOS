@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { configureMercadoPago } from '@/lib/mercadopago';
-import { createClient } from '@/lib/supabase/server';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Salvar no banco de dados
-    const supabase = createClient();
+    const supabase = createServerSupabaseClient();
     
     // Buscar pagamento pelo external_reference
     const { data: pagamento, error: fetchError } = await supabase

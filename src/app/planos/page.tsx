@@ -247,7 +247,7 @@ export default function PlanosPage() {
 
                     {/* CTA Button */}
                     <button
-                      onClick={() => router.push(`/cadastro?plano=${plano.nome.toLowerCase()}`)}
+                      onClick={() => router.push('/cadastro')}
                       className={`w-full py-4 px-6 rounded-2xl font-medium transition-all duration-300 transform hover:scale-105 ${
                         plano.destaque
                           ? 'bg-gradient-to-r from-[#D1FE6E] to-[#B8E55A] text-black hover:from-[#B8E55A] hover:to-[#A5D44A] shadow-lg'
