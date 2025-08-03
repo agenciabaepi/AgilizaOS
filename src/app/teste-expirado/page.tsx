@@ -4,10 +4,13 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { FiAlertTriangle, FiCheckCircle, FiMail, FiMessageCircle } from 'react-icons/fi';
 import Image from 'next/image';
+import PixPayment from '@/components/PixPayment';
 
 export default function TesteExpiradoPage() {
   const router = useRouter();
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [selectedPlano, setSelectedPlano] = useState<any>(null);
+  const [showPixPayment, setShowPixPayment] = useState(false);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -24,7 +27,8 @@ export default function TesteExpiradoPage() {
   const planos = [
     {
       nome: 'Básico',
-      preco: 'R$ 129,90',
+      preco: 'R$ 1,00',
+      valor: 1.00,
       periodo: '/mês',
       descricao: '1 usuário, 1 técnico, sistema de OS completo',
       badge: 'Sistema completo para começar',
@@ -39,7 +43,8 @@ export default function TesteExpiradoPage() {
     },
     {
       nome: 'Pro',
-      preco: 'R$ 189,90',
+      preco: 'R$ 2,00',
+      valor: 2.00,
       periodo: '/mês',
       descricao: '5 usuários, 5 técnicos e muito mais',
       badge: 'Mais popular',
@@ -55,7 +60,8 @@ export default function TesteExpiradoPage() {
     },
     {
       nome: 'Avançado',
-      preco: 'R$ 279,90',
+      preco: 'R$ 3,00',
+      valor: 3.00,
       periodo: '/mês',
       descricao: 'Múltiplas filiais, recursos ilimitados',
       badge: 'Para grandes operações',
@@ -73,6 +79,24 @@ export default function TesteExpiradoPage() {
   const handleContatoSuporte = () => {
     const mensagem = encodeURIComponent('Olá! Meu teste grátis expirou e preciso de ajuda para escolher o melhor plano para continuar usando o sistema.');
     window.open(`https://wa.me/5511999999999?text=${mensagem}`, '_blank');
+  };
+
+  const handleEscolherPlano = (plano: any) => {
+    setSelectedPlano(plano);
+    setShowPixPayment(true);
+  };
+
+  const handlePaymentSuccess = (paymentId: string) => {
+    console.log('Pagamento realizado com sucesso:', paymentId);
+    alert('Pagamento realizado com sucesso! Você será redirecionado para o sistema.');
+    setTimeout(() => {
+      router.push('/dashboard');
+    }, 2000);
+  };
+
+  const handlePaymentError = (error: string) => {
+    console.error('Erro no pagamento:', error);
+    alert(`Erro no pagamento: ${error}`);
   };
 
   return (
@@ -252,7 +276,7 @@ export default function TesteExpiradoPage() {
 
                     {/* CTA Button */}
                     <button
-                      onClick={() => router.push(`/cadastro?plano=${plano.nome.toLowerCase()}`)}
+                      onClick={() => handleEscolherPlano(plano)}
                       className={`w-full py-4 px-6 rounded-2xl font-medium transition-all duration-300 transform hover:scale-105 ${
                         plano.destaque
                           ? 'bg-gradient-to-r from-[#D1FE6E] to-[#B8E55A] text-black hover:from-[#B8E55A] hover:to-[#A5D44A] shadow-lg'
@@ -314,6 +338,38 @@ export default function TesteExpiradoPage() {
           </div>
         </div>
       </div>
+
+      {/* Modal de Pagamento PIX */}
+      {showPixPayment && selectedPlano && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="text-center mb-6">
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                  Pagamento via PIX
+                </h3>
+                <p className="text-gray-600">
+                  Plano {selectedPlano.nome} - R$ {selectedPlano.valor.toFixed(2).replace('.', ',')}
+                </p>
+              </div>
+
+              <PixPayment
+                valor={selectedPlano.valor}
+                descricao={`Plano ${selectedPlano.nome} - Teste Expirado`}
+                onSuccess={handlePaymentSuccess}
+                onError={handlePaymentError}
+              />
+
+              <button
+                onClick={() => setShowPixPayment(false)}
+                className="mt-4 w-full px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

@@ -993,12 +993,12 @@ export default function Home() {
                   </div>
 
                   {/* Price */}
-                  <div className="mb-8">
-                    <div className="flex items-baseline">
-                      <span className="text-4xl font-light text-white">R$ 129,90</span>
-                      <span className="text-white/60 text-sm ml-2">/mês</span>
-                    </div>
+                                  <div className="mb-8">
+                  <div className="flex items-baseline">
+                    <span className="text-4xl font-light text-white">R$ 1,00</span>
+                    <span className="text-white/60 text-sm ml-2">/mês</span>
                   </div>
+                </div>
 
                   {/* Features */}
                   <div className="space-y-4 mb-8">
@@ -1111,12 +1111,12 @@ export default function Home() {
                   </div>
 
                   {/* Price */}
-                  <div className="mb-8">
-                    <div className="flex items-baseline">
-                      <span className="text-4xl font-light text-white">R$ 189,90</span>
-                      <span className="text-white/60 text-sm ml-2">/mês</span>
-                    </div>
+                                  <div className="mb-8">
+                  <div className="flex items-baseline">
+                    <span className="text-4xl font-light text-white">R$ 2,00</span>
+                    <span className="text-white/60 text-sm ml-2">/mês</span>
                   </div>
+                </div>
 
                   {/* Features */}
                   <div className="space-y-4 mb-8">
@@ -1230,12 +1230,12 @@ export default function Home() {
                   </div>
 
                   {/* Price */}
-                  <div className="mb-8">
-                    <div className="flex items-baseline">
-                      <span className="text-4xl font-light text-white">R$ 279,90</span>
-                      <span className="text-white/60 text-sm ml-2">/mês</span>
-                    </div>
+                                  <div className="mb-8">
+                  <div className="flex items-baseline">
+                    <span className="text-4xl font-light text-white">R$ 3,00</span>
+                    <span className="text-white/60 text-sm ml-2">/mês</span>
                   </div>
+                </div>
 
                   {/* Features */}
                   <div className="space-y-4 mb-8">
