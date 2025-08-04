@@ -19,6 +19,8 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError }: PixQ
     preference_id?: string;
     pagamento_id?: string;
     generated_qr_code?: string;
+    init_point?: string;
+    sandbox_init_point?: string;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,32 +47,21 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError }: PixQ
         throw new Error(data.error || 'Erro ao gerar PIX');
       }
 
-      if (data.success) {
-        // Se não temos QR Code do Mercado Pago, gerar um baseado no código PIX
-        let generatedQRCode = null;
-        if (!data.qr_code_base64 && data.qr_code) {
-          try {
-            generatedQRCode = await QRCode.toDataURL(data.qr_code, {
-              width: 200,
-              margin: 2,
-            });
-          } catch (err) {
-            console.error('Erro ao gerar QR Code:', err);
-          }
-        }
-
-        setQrCodeData({
-          qr_code: data.qr_code,
-          qr_code_base64: data.qr_code_base64,
-          preference_id: data.preference_id,
-          pagamento_id: data.pagamento_id,
-          generated_qr_code: generatedQRCode,
-        });
-        
-        // Só chama onSuccess se tiver QR Code ou código PIX
-        if (generatedQRCode || data.qr_code_base64 || data.qr_code) {
-          onSuccess?.();
-        }
+                    if (data.success) {
+                // Se não temos QR Code do Mercado Pago, não podemos gerar um válido
+                // Vamos apenas salvar os dados da preferência
+                setQrCodeData({
+                  qr_code: data.qr_code,
+                  qr_code_base64: data.qr_code_base64,
+                  preference_id: data.preference_id,
+                  pagamento_id: data.pagamento_id,
+                  generated_qr_code: null, // Não geramos QR Code inválido
+                  init_point: data.init_point,
+                  sandbox_init_point: data.sandbox_init_point,
+                });
+                
+                // Não chama onSuccess automaticamente
+                // O usuário precisa clicar em "Abrir no Mercado Pago"
       } else {
         throw new Error('Erro ao gerar PIX');
       }
@@ -102,63 +93,16 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError }: PixQ
           </p>
         </div>
 
-        {(qrCodeData.qr_code_base64 || qrCodeData.generated_qr_code) ? (
-          <div className="text-center mb-4">
-            <div className="bg-gray-100 p-4 rounded-lg inline-block">
-              {qrCodeData.qr_code_base64 ? (
-                <Image
-                  src={`data:image/png;base64,${qrCodeData.qr_code_base64}`}
-                  alt="QR Code PIX"
-                  width={200}
-                  height={200}
-                  className="mx-auto"
-                />
-              ) : qrCodeData.generated_qr_code ? (
-                <Image
-                  src={qrCodeData.generated_qr_code}
-                  alt="QR Code PIX"
-                  width={200}
-                  height={200}
-                  className="mx-auto"
-                />
-              ) : null}
-            </div>
-            <p className="text-sm text-gray-500 mt-2">
-              Escaneie o QR Code com seu app bancário
+        <div className="text-center mb-4">
+          <div className="bg-gray-100 p-4 rounded-lg">
+            <p className="text-sm text-gray-600 mb-2">QR Code não disponível</p>
+            <p className="text-xs text-gray-500">
+              Clique em "Abrir no Mercado Pago" para pagar
             </p>
           </div>
-        ) : (
-          <div className="text-center mb-4">
-            <div className="bg-gray-100 p-4 rounded-lg">
-              <p className="text-sm text-gray-600 mb-2">QR Code não disponível</p>
-              <p className="text-xs text-gray-500">
-                Use o link direto do Mercado Pago
-              </p>
-            </div>
-          </div>
-        )}
+        </div>
 
-        {qrCodeData.qr_code && (
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Código PIX (copie e cole no seu app bancário):
-            </label>
-            <div className="flex">
-              <input
-                type="text"
-                value={qrCodeData.qr_code}
-                readOnly
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-l-md text-sm"
-              />
-              <button
-                onClick={copiarQRCode}
-                className="px-4 py-2 bg-gray-600 text-white rounded-r-md hover:bg-gray-700 text-sm"
-              >
-                Copiar
-              </button>
-            </div>
-          </div>
-        )}
+
 
         <div className="flex gap-2">
           <button

@@ -165,10 +165,9 @@ export async function POST(request: NextRequest) {
     console.log('🔍 sandbox_init_point:', response.sandbox_init_point);
     
     // O Mercado Pago não fornece QR Code na criação da preferência
-    // Vamos gerar um código PIX baseado na preferência
-    const pixCode = `00020126580014br.gov.bcb.pix0136${response.id}52040000530398654051.005802BR5913Consert App6009Sao Paulo62070503***6304`;
-    
-    console.log('🔍 Código PIX gerado:', pixCode);
+    // Vamos usar o init_point como fallback e deixar o frontend gerar o QR Code
+    console.log('🔍 Preferência criada, mas sem QR Code');
+    console.log('🔍 Usando init_point como fallback:', response.init_point);
 
     return NextResponse.json({
       success: true,
@@ -176,9 +175,9 @@ export async function POST(request: NextRequest) {
       init_point: response.init_point,
       sandbox_init_point: response.sandbox_init_point,
       pagamento_id: pagamento.id,
-      // Dados do QR Code (gerado localmente)
-      qr_code: pixCode,
-      qr_code_base64: null, // Será gerado no frontend
+      // Dados da preferência para o frontend
+      init_point: response.init_point,
+      sandbox_init_point: response.sandbox_init_point,
     });
 
   } catch (error) {
