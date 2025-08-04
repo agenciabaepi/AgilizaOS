@@ -487,8 +487,8 @@ function NovaOS2Content() {
         acessorios: acessorios,
         condicoes_equipamento: condicoesEquipamento,
         data_cadastro: new Date().toISOString(),
-        os_garantia_id: tipoEntrada === 'garantia' && osGarantiaSelecionada ? osGarantiaSelecionada.id : null,
-        termo_garantia_id: termoSelecionado || null
+        os_garantia_id: tipoEntrada === 'garantia' && osGarantiaSelecionada ? osGarantiaSelecionada.id : null
+        // termo_garantia_id: termoSelecionado || null // Temporariamente comentado até a coluna ser adicionada
       };
 
       console.log('Salvando OS no banco:', dadosOS);
