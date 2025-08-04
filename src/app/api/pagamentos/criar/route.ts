@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { configureMercadoPago } from '@/lib/mercadopago';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 
 export async function POST(request: NextRequest) {
   try {
@@ -79,6 +80,18 @@ export async function POST(request: NextRequest) {
     const supabase = createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
     
+    // Criar cliente com service role para bypass RLS
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+    
     console.log('👤 Usuário encontrado:', user?.id);
     
     if (!user) {
@@ -116,7 +129,7 @@ export async function POST(request: NextRequest) {
       mercadopago_external_reference: preferenceData.external_reference,
     });
     
-    const { data: pagamento, error: dbError } = await supabase
+    const { data: pagamento, error: dbError } = await supabaseAdmin
       .from('pagamentos')
       .insert({
         empresa_id: usuario.empresa_id,
