@@ -61,9 +61,23 @@ export async function POST(request: NextRequest) {
     console.log('Response body:', response.body);
     console.log('Response body id:', response.body?.id);
     
+    // Verificar se response.body existe
+    if (!response.body) {
+      throw new Error('Resposta do Mercado Pago não contém body');
+    }
+    
+    if (!response.body.id) {
+      throw new Error('Resposta do Mercado Pago não contém id');
+    }
+    
+    console.log('✅ Response válido, continuando...');
+    
     // Salvar no banco de dados
+    console.log('🔍 Iniciando busca do usuário...');
     const supabase = createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
+    
+    console.log('👤 Usuário encontrado:', user?.id);
     
     if (!user) {
       return NextResponse.json(
@@ -73,11 +87,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Buscar empresa_id do usuário
+    console.log('🏢 Buscando empresa do usuário...');
     const { data: usuario } = await supabase
       .from('usuarios')
       .select('empresa_id')
       .eq('id', user.id)
       .single();
+
+    console.log('🏢 Usuário encontrado:', usuario);
 
     if (!usuario?.empresa_id) {
       return NextResponse.json(
@@ -87,6 +104,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Inserir pagamento no banco
+    console.log('💾 Inserindo pagamento no banco...');
+    console.log('📊 Dados do pagamento:', {
+      empresa_id: usuario.empresa_id,
+      usuario_id: user.id,
+      ordem_servico_id: ordemServicoId,
+      valor: valor,
+      mercadopago_preference_id: response.body.id,
+      mercadopago_external_reference: preferenceData.external_reference,
+    });
+    
     const { data: pagamento, error: dbError } = await supabase
       .from('pagamentos')
       .insert({
@@ -103,12 +130,14 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (dbError) {
-      console.error('Erro ao salvar pagamento:', dbError);
+      console.error('❌ Erro ao salvar pagamento:', dbError);
       return NextResponse.json(
         { error: 'Erro ao salvar pagamento' },
         { status: 500 }
       );
     }
+    
+    console.log('✅ Pagamento salvo com sucesso:', pagamento);
 
     return NextResponse.json({
       success: true,
