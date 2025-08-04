@@ -70,6 +70,9 @@ export async function POST(request: NextRequest) {
     }
     
     console.log('✅ Response válido, continuando...');
+    console.log('🔍 Response id:', response.id);
+    console.log('🔍 Response init_point:', response.init_point);
+    console.log('🔍 Response sandbox_init_point:', response.sandbox_init_point);
     
     // Salvar no banco de dados
     console.log('🔍 Iniciando busca do usuário...');
@@ -109,7 +112,7 @@ export async function POST(request: NextRequest) {
       usuario_id: user.id,
       ordem_servico_id: ordemServicoId,
       valor: valor,
-      mercadopago_preference_id: response.body.id,
+      mercadopago_preference_id: response.id,
       mercadopago_external_reference: preferenceData.external_reference,
     });
     
@@ -136,8 +139,12 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    console.log('✅ Pagamento salvo com sucesso:', pagamento);
-
+        console.log('✅ Pagamento salvo com sucesso:', pagamento);
+    console.log('🔍 Retornando resposta...');
+    console.log('🔍 preference_id:', response.id);
+    console.log('🔍 init_point:', response.init_point);
+    console.log('🔍 sandbox_init_point:', response.sandbox_init_point);
+    
     return NextResponse.json({
       success: true,
       preference_id: response.id,
