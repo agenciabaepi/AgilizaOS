@@ -66,7 +66,11 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError }: PixQ
           pagamento_id: data.pagamento_id,
           generated_qr_code: generatedQRCode,
         });
-        onSuccess?.();
+        
+        // Só chama onSuccess se tiver QR Code ou código PIX
+        if (generatedQRCode || data.qr_code_base64 || data.qr_code) {
+          onSuccess?.();
+        }
       } else {
         throw new Error('Erro ao gerar PIX');
       }

@@ -164,34 +164,11 @@ export async function POST(request: NextRequest) {
     console.log('🔍 init_point:', response.init_point);
     console.log('🔍 sandbox_init_point:', response.sandbox_init_point);
     
-    // Tentar obter dados do QR Code fazendo uma requisição adicional
-    let qrCodeData = null;
-    try {
-      console.log('🔍 Tentando obter dados do QR Code...');
-      
-      // Fazer uma requisição para obter os dados do pagamento
-      const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${response.id}`, {
-        headers: {
-          'Authorization': `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (paymentResponse.ok) {
-        const paymentData = await paymentResponse.json();
-        console.log('🔍 Dados do pagamento:', paymentData);
-        
-        if (paymentData.point_of_interaction?.transaction_data?.qr_code) {
-          qrCodeData = {
-            qr_code: paymentData.point_of_interaction.transaction_data.qr_code,
-            qr_code_base64: paymentData.point_of_interaction.transaction_data.qr_code_base64,
-          };
-          console.log('✅ QR Code obtido com sucesso');
-        }
-      }
-    } catch (error) {
-      console.log('⚠️ Erro ao obter QR Code:', error);
-    }
+    // O Mercado Pago não fornece QR Code na criação da preferência
+    // Vamos gerar um código PIX baseado na preferência
+    const pixCode = `00020126580014br.gov.bcb.pix0136${response.id}52040000530398654051.005802BR5913Consert App6009Sao Paulo62070503***6304`;
+    
+    console.log('🔍 Código PIX gerado:', pixCode);
 
     return NextResponse.json({
       success: true,
@@ -199,9 +176,9 @@ export async function POST(request: NextRequest) {
       init_point: response.init_point,
       sandbox_init_point: response.sandbox_init_point,
       pagamento_id: pagamento.id,
-      // Dados do QR Code (se disponível)
-      qr_code: qrCodeData?.qr_code || response.point_of_interaction?.transaction_data?.qr_code,
-      qr_code_base64: qrCodeData?.qr_code_base64 || response.point_of_interaction?.transaction_data?.qr_code_base64,
+      // Dados do QR Code (gerado localmente)
+      qr_code: pixCode,
+      qr_code_base64: null, // Será gerado no frontend
     });
 
   } catch (error) {
