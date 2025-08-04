@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
+import QRCode from 'qrcode';
 
 interface PixQRCodeProps {
   valor: number;
@@ -17,6 +18,7 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError }: PixQ
     qr_code_base64?: string;
     preference_id?: string;
     pagamento_id?: string;
+    generated_qr_code?: string;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,11 +46,25 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError }: PixQ
       }
 
       if (data.success) {
+        // Se não temos QR Code do Mercado Pago, gerar um baseado no código PIX
+        let generatedQRCode = null;
+        if (!data.qr_code_base64 && data.qr_code) {
+          try {
+            generatedQRCode = await QRCode.toDataURL(data.qr_code, {
+              width: 200,
+              margin: 2,
+            });
+          } catch (err) {
+            console.error('Erro ao gerar QR Code:', err);
+          }
+        }
+
         setQrCodeData({
           qr_code: data.qr_code,
           qr_code_base64: data.qr_code_base64,
           preference_id: data.preference_id,
           pagamento_id: data.pagamento_id,
+          generated_qr_code: generatedQRCode,
         });
         onSuccess?.();
       } else {
@@ -82,16 +98,26 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError }: PixQ
           </p>
         </div>
 
-        {qrCodeData.qr_code_base64 ? (
+        {(qrCodeData.qr_code_base64 || qrCodeData.generated_qr_code) ? (
           <div className="text-center mb-4">
             <div className="bg-gray-100 p-4 rounded-lg inline-block">
-              <Image
-                src={`data:image/png;base64,${qrCodeData.qr_code_base64}`}
-                alt="QR Code PIX"
-                width={200}
-                height={200}
-                className="mx-auto"
-              />
+              {qrCodeData.qr_code_base64 ? (
+                <Image
+                  src={`data:image/png;base64,${qrCodeData.qr_code_base64}`}
+                  alt="QR Code PIX"
+                  width={200}
+                  height={200}
+                  className="mx-auto"
+                />
+              ) : qrCodeData.generated_qr_code ? (
+                <Image
+                  src={qrCodeData.generated_qr_code}
+                  alt="QR Code PIX"
+                  width={200}
+                  height={200}
+                  className="mx-auto"
+                />
+              ) : null}
             </div>
             <p className="text-sm text-gray-500 mt-2">
               Escaneie o QR Code com seu app bancário

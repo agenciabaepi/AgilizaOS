@@ -74,6 +74,10 @@ export async function POST(request: NextRequest) {
     console.log('🔍 Response id:', response.id);
     console.log('🔍 Response init_point:', response.init_point);
     console.log('🔍 Response sandbox_init_point:', response.sandbox_init_point);
+    console.log('🔍 Response point_of_interaction:', response.point_of_interaction);
+    console.log('🔍 Response point_of_interaction?.transaction_data:', response.point_of_interaction?.transaction_data);
+    console.log('🔍 Response point_of_interaction?.transaction_data?.qr_code:', response.point_of_interaction?.transaction_data?.qr_code);
+    console.log('🔍 Response point_of_interaction?.transaction_data?.qr_code_base64:', response.point_of_interaction?.transaction_data?.qr_code_base64);
     
     // Salvar no banco de dados
     console.log('🔍 Iniciando busca do usuário...');
@@ -160,6 +164,35 @@ export async function POST(request: NextRequest) {
     console.log('🔍 init_point:', response.init_point);
     console.log('🔍 sandbox_init_point:', response.sandbox_init_point);
     
+    // Tentar obter dados do QR Code fazendo uma requisição adicional
+    let qrCodeData = null;
+    try {
+      console.log('🔍 Tentando obter dados do QR Code...');
+      
+      // Fazer uma requisição para obter os dados do pagamento
+      const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${response.id}`, {
+        headers: {
+          'Authorization': `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (paymentResponse.ok) {
+        const paymentData = await paymentResponse.json();
+        console.log('🔍 Dados do pagamento:', paymentData);
+        
+        if (paymentData.point_of_interaction?.transaction_data?.qr_code) {
+          qrCodeData = {
+            qr_code: paymentData.point_of_interaction.transaction_data.qr_code,
+            qr_code_base64: paymentData.point_of_interaction.transaction_data.qr_code_base64,
+          };
+          console.log('✅ QR Code obtido com sucesso');
+        }
+      }
+    } catch (error) {
+      console.log('⚠️ Erro ao obter QR Code:', error);
+    }
+
     return NextResponse.json({
       success: true,
       preference_id: response.id,
@@ -167,8 +200,8 @@ export async function POST(request: NextRequest) {
       sandbox_init_point: response.sandbox_init_point,
       pagamento_id: pagamento.id,
       // Dados do QR Code (se disponível)
-      qr_code: response.point_of_interaction?.transaction_data?.qr_code,
-      qr_code_base64: response.point_of_interaction?.transaction_data?.qr_code_base64,
+      qr_code: qrCodeData?.qr_code || response.point_of_interaction?.transaction_data?.qr_code,
+      qr_code_base64: qrCodeData?.qr_code_base64 || response.point_of_interaction?.transaction_data?.qr_code_base64,
     });
 
   } catch (error) {
