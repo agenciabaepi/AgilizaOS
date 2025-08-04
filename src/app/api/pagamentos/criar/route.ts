@@ -57,6 +57,10 @@ export async function POST(request: NextRequest) {
 
     const response = await preference.create({ body: preferenceData });
     
+    console.log('Resposta do Mercado Pago:', JSON.stringify(response, null, 2));
+    console.log('Response body:', response.body);
+    console.log('Response body id:', response.body?.id);
+    
     // Salvar no banco de dados
     const supabase = createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -108,9 +112,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      preference_id: response.id,
-      init_point: response.init_point,
-      sandbox_init_point: response.sandbox_init_point,
+      preference_id: response.body.id,
+      init_point: response.body.init_point,
+      sandbox_init_point: response.body.sandbox_init_point,
       pagamento_id: pagamento.id,
     });
 
