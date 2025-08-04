@@ -1,4 +1,4 @@
-import mercadopago from 'mercadopago';
+const mercadopago = require('mercadopago');
 
 // Configuração do Mercado Pago
 const configureMercadoPago = () => {
