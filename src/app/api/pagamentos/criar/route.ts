@@ -131,6 +131,7 @@ export async function POST(request: NextRequest) {
     const { data: pagamento, error: dbError } = await supabaseAdmin
       .from('pagamentos')
       .insert({
+        id: crypto.randomUUID(), // Gerar UUID explicitamente
         empresa_id: usuario.empresa_id,
         usuario_id: user.id,
         ordem_servico_id: ordemServicoId,
