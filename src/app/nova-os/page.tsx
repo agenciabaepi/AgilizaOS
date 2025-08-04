@@ -828,7 +828,7 @@ function NovaOS2Content() {
                         placeholder="Ex: Smartphone, Notebook, etc."
                         className="w-full border border-gray-300 rounded px-3 py-2"
                         value={dadosEquipamento.tipo}
-                        onChange={(e) => setDadosEquipamento(prev => ({ ...prev, tipo: e.target.value }))}
+                        onChange={(e) => setDadosEquipamento(prev => ({ ...prev, tipo: e.target.value.toUpperCase() }))}
                         readOnly={tipoEntrada === 'garantia' && !!osGarantiaSelecionada}
                       />
                     </div>
@@ -839,7 +839,7 @@ function NovaOS2Content() {
                         placeholder="Ex: Samsung, Apple, etc."
                         className="w-full border border-gray-300 rounded px-3 py-2"
                         value={dadosEquipamento.marca}
-                        onChange={(e) => setDadosEquipamento(prev => ({ ...prev, marca: e.target.value }))}
+                        onChange={(e) => setDadosEquipamento(prev => ({ ...prev, marca: e.target.value.toUpperCase() }))}
                         readOnly={tipoEntrada === 'garantia' && !!osGarantiaSelecionada}
                       />
                     </div>
@@ -850,7 +850,7 @@ function NovaOS2Content() {
                         placeholder="Ex: Galaxy S21, iPhone 13, etc."
                         className="w-full border border-gray-300 rounded px-3 py-2"
                         value={dadosEquipamento.modelo}
-                        onChange={(e) => setDadosEquipamento(prev => ({ ...prev, modelo: e.target.value }))}
+                        onChange={(e) => setDadosEquipamento(prev => ({ ...prev, modelo: e.target.value.toUpperCase() }))}
                         readOnly={tipoEntrada === 'garantia' && !!osGarantiaSelecionada}
                       />
                     </div>
@@ -861,7 +861,7 @@ function NovaOS2Content() {
                         placeholder="Ex: Preto, Prata, Azul, etc."
                         className="w-full border border-gray-300 rounded px-3 py-2"
                         value={dadosEquipamento.cor}
-                        onChange={(e) => setDadosEquipamento(prev => ({ ...prev, cor: e.target.value }))}
+                        onChange={(e) => setDadosEquipamento(prev => ({ ...prev, cor: e.target.value.toUpperCase() }))}
                         readOnly={tipoEntrada === 'garantia' && !!osGarantiaSelecionada}
                       />
                     </div>
@@ -872,7 +872,7 @@ function NovaOS2Content() {
                         placeholder="Número de série do equipamento"
                         className="w-full border border-gray-300 rounded px-3 py-2"
                         value={dadosEquipamento.numero_serie}
-                        onChange={(e) => setDadosEquipamento(prev => ({ ...prev, numero_serie: e.target.value }))}
+                        onChange={(e) => setDadosEquipamento(prev => ({ ...prev, numero_serie: e.target.value.toUpperCase() }))}
                         readOnly={tipoEntrada === 'garantia' && !!osGarantiaSelecionada}
                       />
                     </div>
@@ -884,7 +884,7 @@ function NovaOS2Content() {
                       placeholder="Descreva o problema apresentado pelo equipamento..."
                       className="w-full border border-gray-300 rounded px-3 py-2 h-24 resize-none"
                       value={dadosEquipamento.descricao_problema}
-                      onChange={(e) => setDadosEquipamento(prev => ({ ...prev, descricao_problema: e.target.value }))}
+                      onChange={(e) => setDadosEquipamento(prev => ({ ...prev, descricao_problema: e.target.value.toUpperCase() }))}
                     />
                   </div>
 
@@ -896,7 +896,7 @@ function NovaOS2Content() {
                         placeholder="Carregador, cabo, capa, manual, etc..."
                         className="w-full border border-gray-300 rounded px-3 py-2 h-20 resize-none"
                         value={acessorios}
-                        onChange={(e) => setAcessorios(e.target.value)}
+                        onChange={(e) => setAcessorios(e.target.value.toUpperCase())}
                       />
                       <p className="text-xs text-gray-500 mt-1">
                         Liste os acessórios que o cliente está deixando
@@ -908,7 +908,7 @@ function NovaOS2Content() {
                         placeholder="Riscos, amassados, funcionando, etc..."
                         className="w-full border border-gray-300 rounded px-3 py-2 h-20 resize-none"
                         value={condicoesEquipamento}
-                        onChange={(e) => setCondicoesEquipamento(e.target.value)}
+                        onChange={(e) => setCondicoesEquipamento(e.target.value.toUpperCase())}
                       />
                       <p className="text-xs text-gray-500 mt-1">
                         Descreva o estado físico do equipamento
@@ -1118,7 +1118,7 @@ function NovaOS2Content() {
                     placeholder="Digite observações importantes sobre o atendimento, contexto, observações do cliente, etc..."
                     className="w-full border border-gray-300 rounded px-3 py-2 h-24 resize-none"
                     value={observacoes}
-                    onChange={(e) => setObservacoes(e.target.value)}
+                    onChange={(e) => setObservacoes(e.target.value.toUpperCase())}
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     Descreva detalhes importantes como: contexto do atendimento, observações do cliente, 

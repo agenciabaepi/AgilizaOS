@@ -46,31 +46,56 @@ export const useSubscription = () => {
 
   // Carregar assinatura da empresa
   const carregarAssinatura = async () => {
+    console.log('Debug carregarAssinatura:', {
+      usuarioData,
+      empresaId: usuarioData?.empresa_id,
+      userId: user?.id
+    });
+
     if (!usuarioData?.empresa_id) {
+      console.log('Debug: Não há empresa_id no usuarioData');
       setLoading(false);
       return;
     }
 
     try {
-      const { data, error } = await supabase
-        .from('assinaturas')
-        .select(`
-          *,
-          plano:planos(*)
-        `)
-        .eq('empresa_id', usuarioData.empresa_id)
-        .in('status', ['active', 'trial'])
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+      console.log('Debug: Buscando assinatura para empresa_id:', usuarioData.empresa_id);
+      
+      // Usar API route para contornar RLS
+      console.log('Debug: Usando API route para buscar assinatura...');
+      
+      try {
+        const response = await fetch('/api/assinatura/buscar', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            empresa_id: usuarioData.empresa_id
+          })
+        });
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Erro ao carregar assinatura:', error);
+        const result = await response.json();
+        
+        console.log('Debug: Resposta da API route:', result);
+
+        if (response.ok && result.data) {
+          console.log('Debug: Assinatura encontrada via API route:', result.data);
+          setAssinatura(result.data);
+        } else {
+          console.log('Debug: Nenhuma assinatura encontrada via API route');
+          setAssinatura(null);
+        }
+      } catch (apiError) {
+        console.error('Erro na API route:', apiError);
+        setAssinatura(null);
       }
 
-      setAssinatura(data);
+      // A API route já tratou tudo, não precisamos mais dessa lógica
+      console.log('Debug: Processamento da API route concluído');
     } catch (error) {
       console.error('Erro ao carregar assinatura:', error);
+      setAssinatura(null);
     } finally {
       setLoading(false);
     }
@@ -136,6 +161,12 @@ export const useSubscription = () => {
 
   // Verificar se trial expirou
   const isTrialExpired = (): boolean => {
+    console.log('Debug isTrialExpired chamado:', {
+      assinatura,
+      assinaturaStatus: assinatura?.status,
+      assinaturaDataTrialFim: assinatura?.data_trial_fim
+    });
+
     if (!assinatura || assinatura.status !== 'trial') {
       console.log('Debug isTrialExpired: Não é trial ou não há assinatura');
       return false;
@@ -196,8 +227,17 @@ export const useSubscription = () => {
   };
 
   useEffect(() => {
+    console.log('Debug useSubscription useEffect:', {
+      usuarioData,
+      empresaId: usuarioData?.empresa_id,
+      loading: loading
+    });
+    
     if (usuarioData?.empresa_id) {
+      console.log('Debug: Carregando assinatura para empresa:', usuarioData.empresa_id);
       carregarAssinatura();
+    } else {
+      console.log('Debug: Não há empresa_id disponível ainda');
     }
   }, [usuarioData?.empresa_id]);
 

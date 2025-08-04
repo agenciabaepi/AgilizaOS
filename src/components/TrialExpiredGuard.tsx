@@ -17,27 +17,15 @@ export default function TrialExpiredGuard({ children }: TrialExpiredGuardProps) 
   const router = useRouter();
   const { assinatura, isTrialExpired } = useSubscription();
 
-  // Se está tentando acessar /teste-expirado com trial ativo, redirecionar IMEDIATAMENTE
-  useEffect(() => {
-    if (user && pathname.startsWith('/teste-expirado') && assinatura?.status === 'trial' && !isTrialExpired()) {
-      router.replace('/planos');
-    }
-  }, [user, pathname, assinatura, isTrialExpired, router]);
-
   // Se não há usuário autenticado, permitir acesso
   if (!user) {
     return <>{children}</>;
   }
 
-  if (pathname.startsWith('/teste-expirado') && assinatura?.status === 'trial' && !isTrialExpired()) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p className="text-gray-600">Redirecionando...</p>
-        </div>
-      </div>
-    );
+  // Se está no trial e NÃO expirou, permitir acesso normal (não redirecionar)
+  if (assinatura?.status === 'trial' && !isTrialExpired()) {
+    console.log('TrialExpiredGuard: Trial ativo, permitindo acesso normal');
+    return <>{children}</>;
   }
 
   // Se está bloqueado, não renderizar nada

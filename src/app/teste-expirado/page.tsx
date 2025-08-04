@@ -5,12 +5,38 @@ import { useRouter } from 'next/navigation';
 import { FiAlertTriangle, FiCheckCircle, FiMail, FiMessageCircle } from 'react-icons/fi';
 import Image from 'next/image';
 import PixQRCode from '@/components/PixQRCode';
+import { useSubscription } from '@/hooks/useSubscription';
 
 export default function TesteExpiradoPage() {
   const router = useRouter();
+  const { assinatura, isTrialExpired, loading } = useSubscription();
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [selectedPlano, setSelectedPlano] = useState<any>(null);
   const [showPixPayment, setShowPixPayment] = useState(false);
+
+  // Verificar se o trial realmente expirou
+  useEffect(() => {
+    if (!loading) {
+      console.log('TesteExpiradoPage: Verificando status do trial:', {
+        assinatura: assinatura,
+        isTrialExpired: isTrialExpired(),
+        loading: loading
+      });
+
+      // Se tem assinatura ativa ou trial não expirou, redirecionar para dashboard
+      if (assinatura && !isTrialExpired()) {
+        console.log('TesteExpiradoPage: Trial ativo, redirecionando para dashboard');
+        router.push('/dashboard');
+        return;
+      }
+
+      // Se não tem assinatura, permanecer na página
+      if (!assinatura) {
+        console.log('TesteExpiradoPage: Sem assinatura, permanecendo na página');
+        return;
+      }
+    }
+  }, [assinatura, isTrialExpired, loading, router]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -98,6 +124,18 @@ export default function TesteExpiradoPage() {
     console.error('Erro no pagamento:', error);
     alert(`Erro no pagamento: ${error}`);
   };
+
+  // Mostrar loading enquanto verifica o status
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#D1FE6E] mx-auto mb-4"></div>
+          <p className="text-white/60">Verificando status do trial...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black">
