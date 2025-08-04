@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
+import { createBrowserSupabaseClient } from '@supabase/auth-helpers-nextjs';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
@@ -9,7 +9,7 @@ import bgImage from '@/assets/imagens/background-login.png';
 import { ToastProvider, useToast } from '@/components/Toast';
 import { ConfirmProvider, useConfirm } from '@/components/ConfirmDialog';
 
-const supabase = createPagesBrowserClient();
+const supabase = createBrowserSupabaseClient();
 
 function LoginClientInner() {
   const [loginInput, setLoginInput] = useState('');

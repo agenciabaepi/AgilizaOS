@@ -62,6 +62,11 @@ export default function TermosPage() {
       setFormData(prev => ({ ...prev, conteudo: editor.getHTML() }))
     },
     immediatelyRender: false,
+    editorProps: {
+      attributes: {
+        class: 'prose prose-sm max-w-none focus:outline-none',
+      },
+    },
   })
 
   // Atualizar conteúdo do editor quando formData.conteudo mudar
