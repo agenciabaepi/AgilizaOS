@@ -133,6 +133,10 @@ export async function POST(request: NextRequest) {
 
     if (dbError) {
       console.error('❌ Erro ao salvar pagamento:', dbError);
+      console.error('❌ Código do erro:', dbError.code);
+      console.error('❌ Mensagem do erro:', dbError.message);
+      console.error('❌ Detalhes do erro:', dbError.details);
+      console.error('❌ Hint do erro:', dbError.hint);
       return NextResponse.json(
         { error: 'Erro ao salvar pagamento' },
         { status: 500 }
