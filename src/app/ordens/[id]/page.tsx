@@ -550,25 +550,10 @@ const VisualizarOrdemServicoPage = () => {
                   <h2 className="text-xl font-semibold text-gray-900">Garantia</h2>
                 </div>
                 <div className="space-y-3 text-sm">
-                  {ordem.termo_garantia && ordem.termo_garantia.nome ? (
-                    <div>
-                      <span className="text-gray-600">Termo de Garantia:</span>
-                      <div className="mt-2 p-3 bg-gray-50 rounded border">
-                        <h4 className="font-medium text-gray-900 mb-2">{ordem.termo_garantia.nome}</h4>
-                        {ordem.termo_garantia.conteudo && (
-                          <div 
-                            className="text-xs text-gray-600 prose prose-sm max-w-none"
-                            dangerouslySetInnerHTML={{ __html: ordem.termo_garantia.conteudo }}
-                          />
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <span className="text-gray-600">Termo:</span>
-                      <p className="font-medium text-gray-900">Nenhum termo selecionado</p>
-                    </div>
-                  )}
+                  <div>
+                    <span className="text-gray-600">Termo:</span>
+                    <p className="font-medium text-gray-900">{ordem.termo_garantia?.nome || 'Nenhum termo selecionado'}</p>
+                  </div>
                   <div>
                     <span className="text-gray-600">Vencimento:</span>
                     <p className="font-medium text-gray-900">{formatDate(ordem.vencimento_garantia)}</p>
