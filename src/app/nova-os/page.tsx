@@ -80,6 +80,7 @@ function NovaOS2Content() {
     tipo: '',
     marca: '',
     modelo: '',
+    cor: '', // NOVO
     numero_serie: '',
     descricao_problema: ''
   });
@@ -474,21 +475,22 @@ function NovaOS2Content() {
       const dadosOS = {
         cliente_id: clienteSelecionado,
         tecnico_id: tecnicoResponsavel,
-        status: statusSelecionado,
-        categoria: dadosEquipamento.tipo,
-        marca: dadosEquipamento.marca,
-        modelo: dadosEquipamento.modelo,
-        numero_serie: dadosEquipamento.numero_serie,
-        relato: dadosEquipamento.descricao_problema,
-        observacao: observacoes,
+        status: statusSelecionado?.toUpperCase() || 'ABERTA',
+        categoria: dadosEquipamento.tipo?.toUpperCase() || '',
+        marca: dadosEquipamento.marca?.toUpperCase() || '',
+        modelo: dadosEquipamento.modelo?.toUpperCase() || '',
+        cor: dadosEquipamento.cor?.toUpperCase() || '',
+        numero_serie: dadosEquipamento.numero_serie?.toUpperCase() || '',
+        relato: dadosEquipamento.descricao_problema?.toUpperCase() || '',
+        observacao: observacoes?.toUpperCase() || '',
         empresa_id: empresaData?.id,
-        atendente: usuarioData?.nome || 'Usuário Logado',
-        tecnico: tecnicoSelecionado?.nome || 'Técnico Selecionado',
-        acessorios: acessorios,
-        condicoes_equipamento: condicoesEquipamento,
+        atendente: usuarioData?.nome?.toUpperCase() || 'USUÁRIO LOGADO',
+        tecnico: tecnicoSelecionado?.nome?.toUpperCase() || 'TÉCNICO SELECIONADO',
+        acessorios: acessorios?.toUpperCase() || '',
+        condicoes_equipamento: condicoesEquipamento?.toUpperCase() || '',
         data_cadastro: new Date().toISOString(),
-        os_garantia_id: tipoEntrada === 'garantia' && osGarantiaSelecionada ? osGarantiaSelecionada.id : null
-        // termo_garantia_id: termoSelecionado || null // Temporariamente comentado até a coluna ser adicionada
+        os_garantia_id: tipoEntrada === 'garantia' && osGarantiaSelecionada ? osGarantiaSelecionada.id : null,
+        termo_garantia_id: termoSelecionado || null // DESCOMENTADO
       };
 
       console.log('Salvando OS no banco:', dadosOS);
@@ -849,6 +851,17 @@ function NovaOS2Content() {
                         className="w-full border border-gray-300 rounded px-3 py-2"
                         value={dadosEquipamento.modelo}
                         onChange={(e) => setDadosEquipamento(prev => ({ ...prev, modelo: e.target.value }))}
+                        readOnly={tipoEntrada === 'garantia' && !!osGarantiaSelecionada}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Cor</label>
+                      <input
+                        type="text"
+                        placeholder="Ex: Preto, Prata, Azul, etc."
+                        className="w-full border border-gray-300 rounded px-3 py-2"
+                        value={dadosEquipamento.cor}
+                        onChange={(e) => setDadosEquipamento(prev => ({ ...prev, cor: e.target.value }))}
                         readOnly={tipoEntrada === 'garantia' && !!osGarantiaSelecionada}
                       />
                     </div>
