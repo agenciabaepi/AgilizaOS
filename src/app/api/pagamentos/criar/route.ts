@@ -20,6 +20,13 @@ export async function POST(request: NextRequest) {
     // Criar preferência de pagamento
     const preference = new Preference(config);
     
+    // Determinar URLs baseado no ambiente
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const baseUrl = isDevelopment ? 'http://localhost:3000' : 'https://www.consert.app';
+    
+    console.log(`Criando preferência para ambiente: ${isDevelopment ? 'development' : 'production'}`);
+    console.log(`URL base: ${baseUrl}`);
+    
     const preferenceData = {
       items: [
         {
@@ -37,13 +44,13 @@ export async function POST(request: NextRequest) {
         installments: 1,
       },
       back_urls: {
-        success: process.env.NEXT_PUBLIC_SUCCESS_URL || `${process.env.NEXT_PUBLIC_BASE_URL}/pagamentos/sucesso`,
-        failure: process.env.NEXT_PUBLIC_FAILURE_URL || `${process.env.NEXT_PUBLIC_BASE_URL}/pagamentos/falha`,
-        pending: process.env.NEXT_PUBLIC_PENDING_URL || `${process.env.NEXT_PUBLIC_BASE_URL}/pagamentos/pendente`,
+        success: `${baseUrl}/pagamentos/sucesso`,
+        failure: `${baseUrl}/pagamentos/falha`,
+        pending: `${baseUrl}/pagamentos/pendente`,
       },
       auto_return: 'approved',
       external_reference: ordemServicoId || `pagamento_${Date.now()}`,
-      notification_url: `${process.env.NEXT_PUBLIC_BASE_URL}/api/pagamentos/webhook`,
+      notification_url: `${baseUrl}/api/pagamentos/webhook`,
       expires: true,
       expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutos
     };
