@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { FiAlertTriangle, FiCheckCircle, FiMail, FiMessageCircle } from 'react-icons/fi';
 import Image from 'next/image';
-import PixPayment from '@/components/PixPayment';
+import PixQRCode from '@/components/PixQRCode';
 
 export default function TesteExpiradoPage() {
   const router = useRouter();
@@ -353,7 +353,7 @@ export default function TesteExpiradoPage() {
                 </p>
               </div>
 
-              <PixPayment
+              <PixQRCode
                 valor={selectedPlano.valor}
                 descricao={`Plano ${selectedPlano.nome} - Teste Expirado`}
                 onSuccess={handlePaymentSuccess}

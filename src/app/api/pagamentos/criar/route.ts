@@ -166,6 +166,9 @@ export async function POST(request: NextRequest) {
       init_point: response.init_point,
       sandbox_init_point: response.sandbox_init_point,
       pagamento_id: pagamento.id,
+      // Dados do QR Code (se disponível)
+      qr_code: response.point_of_interaction?.transaction_data?.qr_code,
+      qr_code_base64: response.point_of_interaction?.transaction_data?.qr_code_base64,
     });
 
   } catch (error) {
