@@ -15,10 +15,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Configurar Mercado Pago
-    const mercadopago = configureMercadoPago();
+    const { config, Preference } = configureMercadoPago();
     
     // Criar preferência de pagamento
-    const preference = {
+    const preference = new Preference(config);
+    
+    const preferenceData = {
       items: [
         {
           title: descricao || 'Pagamento Consert',
@@ -46,7 +48,7 @@ export async function POST(request: NextRequest) {
       expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutos
     };
 
-    const response = await mercadopago.preferences.create(preference);
+    const response = await preference.create({ body: preferenceData });
     
     // Salvar no banco de dados
     const supabase = createServerSupabaseClient();
@@ -99,9 +101,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      preference_id: response.body.id,
-      init_point: response.body.init_point,
-      sandbox_init_point: response.body.sandbox_init_point,
+      preference_id: response.id,
+      init_point: response.init_point,
+      sandbox_init_point: response.sandbox_init_point,
       pagamento_id: pagamento.id,
     });
 
