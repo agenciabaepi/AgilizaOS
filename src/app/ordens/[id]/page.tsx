@@ -287,18 +287,10 @@ const VisualizarOrdemServicoPage = () => {
                   <div>
                     <p className="text-lg font-medium text-gray-900">{ordem.cliente?.nome || 'Nome não informado'}</p>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div className="text-sm">
                     <div>
                       <span className="text-gray-600">Telefone:</span>
                       <p className="font-medium text-gray-900">{ordem.cliente?.telefone || '---'}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">CPF:</span>
-                      <p className="font-medium text-gray-900">{ordem.cliente?.cpf || '---'}</p>
-                    </div>
-                    <div className="md:col-span-2">
-                      <span className="text-gray-600">Endereço:</span>
-                      <p className="font-medium text-gray-900">{ordem.cliente?.endereco || '---'}</p>
                     </div>
                   </div>
                 </div>
