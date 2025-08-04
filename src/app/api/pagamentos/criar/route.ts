@@ -58,15 +58,14 @@ export async function POST(request: NextRequest) {
     const response = await preference.create({ body: preferenceData });
     
     console.log('Resposta do Mercado Pago:', JSON.stringify(response, null, 2));
-    console.log('Response body:', response.body);
-    console.log('Response body id:', response.body?.id);
+    console.log('Response id:', response.id);
     
-    // Verificar se response.body existe
-    if (!response.body) {
-      throw new Error('Resposta do Mercado Pago não contém body');
+    // Verificar se response existe e tem id
+    if (!response) {
+      throw new Error('Resposta do Mercado Pago não existe');
     }
     
-    if (!response.body.id) {
+    if (!response.id) {
       throw new Error('Resposta do Mercado Pago não contém id');
     }
     
@@ -121,7 +120,7 @@ export async function POST(request: NextRequest) {
         usuario_id: user.id,
         ordem_servico_id: ordemServicoId,
         valor: valor,
-        mercadopago_preference_id: response.body.id,
+        mercadopago_preference_id: response.id,
         mercadopago_external_reference: preferenceData.external_reference,
         status: 'pending',
         status_detail: 'pending_waiting_payment',
@@ -141,9 +140,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      preference_id: response.body.id,
-      init_point: response.body.init_point,
-      sandbox_init_point: response.body.sandbox_init_point,
+      preference_id: response.id,
+      init_point: response.init_point,
+      sandbox_init_point: response.sandbox_init_point,
       pagamento_id: pagamento.id,
     });
 
