@@ -126,7 +126,6 @@ export async function POST(request: NextRequest) {
       ordem_servico_id: ordemServicoId,
       valor: valor,
       mercadopago_preference_id: response.id,
-      mercadopago_external_reference: preferenceData.external_reference,
     });
     
     const { data: pagamento, error: dbError } = await supabaseAdmin
@@ -137,9 +136,7 @@ export async function POST(request: NextRequest) {
         ordem_servico_id: ordemServicoId,
         valor: valor,
         mercadopago_preference_id: response.id,
-        mercadopago_external_reference: preferenceData.external_reference,
         status: 'pending',
-        status_detail: 'pending_waiting_payment',
       })
       .select()
       .single();
