@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
         ordem_servico_id: ordemServicoId,
         valor: valor,
         mercadopago_preference_id: response.body.id,
-        mercadopago_external_reference: preference.external_reference,
+        mercadopago_external_reference: preferenceData.external_reference,
         status: 'pending',
         status_detail: 'pending_waiting_payment',
       })
