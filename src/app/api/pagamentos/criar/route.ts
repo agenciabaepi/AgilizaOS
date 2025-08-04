@@ -6,6 +6,13 @@ import { MercadoPagoConfig, Payment } from 'mercadopago';
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('🔍 Iniciando criação de pagamento...');
+    console.log('🔍 Variáveis de ambiente:', {
+      MERCADOPAGO_ACCESS_TOKEN: process.env.MERCADOPAGO_ACCESS_TOKEN ? 'Definida' : 'Não definida',
+      MERCADOPAGO_ENVIRONMENT: process.env.MERCADOPAGO_ENVIRONMENT,
+      NODE_ENV: process.env.NODE_ENV,
+    });
+    
     const { valor, ordemServicoId, descricao } = await request.json();
     
     // Validar dados
@@ -17,7 +24,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Configurar Mercado Pago
+    console.log('🔍 Configurando Mercado Pago...');
     const { config } = configureMercadoPago();
+    console.log('🔍 Mercado Pago configurado com sucesso');
     
     // Criar pagamento direto (não preferência)
     const payment = new Payment(config);
@@ -187,6 +196,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Usuário não autenticado' },
         { status: 401 }
+      );
+    }
+    
+    // Verificar se é erro do Mercado Pago
+    if (error instanceof Error && error.message.includes('mercadopago')) {
+      return NextResponse.json(
+        { error: `Erro do Mercado Pago: ${error.message}` },
+        { status: 500 }
       );
     }
     
