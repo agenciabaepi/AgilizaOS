@@ -107,8 +107,31 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Erro ao criar pagamento:', error);
+    
+    // Log detalhado do erro
+    if (error instanceof Error) {
+      console.error('Mensagem de erro:', error.message);
+      console.error('Stack trace:', error.stack);
+    }
+    
+    // Verificar se é erro de configuração do Mercado Pago
+    if (error instanceof Error && error.message.includes('MERCADOPAGO_ACCESS_TOKEN')) {
+      return NextResponse.json(
+        { error: 'Configuração do Mercado Pago inválida' },
+        { status: 500 }
+      );
+    }
+    
+    // Verificar se é erro de autenticação
+    if (error instanceof Error && error.message.includes('autenticado')) {
+      return NextResponse.json(
+        { error: 'Usuário não autenticado' },
+        { status: 401 }
+      );
+    }
+    
     return NextResponse.json(
-      { error: 'Erro interno do servidor' },
+      { error: `Erro interno do servidor: ${error instanceof Error ? error.message : 'Erro desconhecido'}` },
       { status: 500 }
     );
   }

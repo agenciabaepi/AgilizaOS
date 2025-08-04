@@ -57,7 +57,19 @@ export default function PixPayment({
       window.location.href = initPoint;
 
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
+      console.error('Erro detalhado:', err);
+      
+      let errorMessage = 'Erro desconhecido';
+      
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      } else if (err && typeof err === 'object' && 'message' in err) {
+        errorMessage = String(err.message);
+      }
+      
+      console.error('Mensagem de erro final:', errorMessage);
       setError(errorMessage);
       onError?.(errorMessage);
     } finally {
