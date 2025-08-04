@@ -429,7 +429,7 @@ const VisualizarOrdemServicoPage = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Garantia:</span>
-                    <span className="font-medium text-gray-900">{ordem.termo_garantia || '---'}</span>
+                    <span className="font-medium text-gray-900">{ordem.termo_garantia?.nome || '---'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Venc. Garantia:</span>

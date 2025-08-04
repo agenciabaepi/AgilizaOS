@@ -157,7 +157,7 @@ function OrdemPDF({ ordem }: { ordem: any }) {
             <Text style={styles.osText}>Entrega: {formatDate(ordem.data_entrega)}</Text>
             <Text style={styles.osText}>Status: {ordem.status}</Text>
             <Text style={styles.osText}>Técnico: {ordem.usuarios?.nome || ordem.tecnico}</Text>
-            <Text style={styles.osText}>Garantia: {ordem.termo_garantia || '---'}</Text>
+            <Text style={styles.osText}>Garantia: {ordem.termo_garantia?.nome || '---'}</Text>
             <Text style={styles.osText}>Venc. Garantia: {formatDate(ordem.vencimento_garantia)}</Text>
           </View>
         </View>

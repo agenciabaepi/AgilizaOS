@@ -175,7 +175,7 @@ export default function VisualizarClientePage() {
                       <td className="px-4 py-2">
                         {os.data_entrega ? new Date(os.data_entrega).toLocaleDateString('pt-BR') : '-'}
                       </td>
-                      <td className="px-4 py-2">{os.termo_garantia || '-'}</td>
+                      <td className="px-4 py-2">{os.termo_garantia?.nome || '-'}</td>
                       <td className="px-4 py-2 font-semibold">
                         {`R$ ${(Number(os.valor_servico || 0) + Number(os.valor_peca || 0)).toFixed(2)}`}
                       </td>
