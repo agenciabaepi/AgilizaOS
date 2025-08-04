@@ -16,11 +16,9 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError }: PixQ
   const [qrCodeData, setQrCodeData] = useState<{
     qr_code?: string;
     qr_code_base64?: string;
-    preference_id?: string;
+    payment_id?: string;
     pagamento_id?: string;
-    generated_qr_code?: string;
-    init_point?: string;
-    sandbox_init_point?: string;
+    status?: string;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,15 +51,15 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError }: PixQ
                 setQrCodeData({
                   qr_code: data.qr_code,
                   qr_code_base64: data.qr_code_base64,
-                  preference_id: data.preference_id,
+                  payment_id: data.payment_id,
                   pagamento_id: data.pagamento_id,
-                  generated_qr_code: null, // Não geramos QR Code inválido
-                  init_point: data.init_point,
-                  sandbox_init_point: data.sandbox_init_point,
+                  status: data.status,
                 });
                 
-                // Não chama onSuccess automaticamente
-                // O usuário precisa clicar em "Abrir no Mercado Pago"
+                // Chama onSuccess se tiver QR Code
+                if (data.qr_code || data.qr_code_base64) {
+                  onSuccess?.();
+                }
       } else {
         throw new Error('Erro ao gerar PIX');
       }
@@ -93,16 +91,64 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError }: PixQ
           </p>
         </div>
 
-        <div className="text-center mb-4">
-          <div className="bg-gray-100 p-4 rounded-lg">
-            <p className="text-sm text-gray-600 mb-2">QR Code não disponível</p>
-            <p className="text-xs text-gray-500">
-              Clique em "Abrir no Mercado Pago" para pagar
+        {(qrCodeData.qr_code_base64 || qrCodeData.qr_code) ? (
+          <div className="text-center mb-4">
+            <div className="bg-gray-100 p-4 rounded-lg inline-block">
+              {qrCodeData.qr_code_base64 ? (
+                <Image
+                  src={`data:image/png;base64,${qrCodeData.qr_code_base64}`}
+                  alt="QR Code PIX"
+                  width={200}
+                  height={200}
+                  className="mx-auto"
+                />
+              ) : qrCodeData.qr_code ? (
+                <div className="text-center">
+                  <p className="text-sm text-gray-600 mb-2">QR Code disponível</p>
+                  <p className="text-xs text-gray-500">
+                    Use o código PIX abaixo
+                  </p>
+                </div>
+              ) : null}
+            </div>
+            <p className="text-sm text-gray-500 mt-2">
+              Escaneie o QR Code com seu app bancário
             </p>
           </div>
-        </div>
+        ) : (
+          <div className="text-center mb-4">
+            <div className="bg-gray-100 p-4 rounded-lg">
+              <p className="text-sm text-gray-600 mb-2">QR Code não disponível</p>
+              <p className="text-xs text-gray-500">
+                Aguarde alguns segundos...
+              </p>
+            </div>
+          </div>
+        )}
 
 
+
+        {qrCodeData.qr_code && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Código PIX (copie e cole no seu app bancário):
+            </label>
+            <div className="flex">
+              <input
+                type="text"
+                value={qrCodeData.qr_code}
+                readOnly
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-l-md text-sm"
+              />
+              <button
+                onClick={copiarQRCode}
+                className="px-4 py-2 bg-gray-600 text-white rounded-r-md hover:bg-gray-700 text-sm"
+              >
+                Copiar
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="flex gap-2">
           <button
@@ -112,7 +158,7 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError }: PixQ
             Voltar
           </button>
           <button
-            onClick={() => window.open(qrCodeData.sandbox_init_point || qrCodeData.init_point, '_blank')}
+            onClick={() => window.open(`https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=${qrCodeData.payment_id}`, '_blank')}
             className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
           >
             Abrir no Mercado Pago

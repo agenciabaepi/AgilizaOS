@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { configureMercadoPago } from '@/lib/mercadopago';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { createClient } from '@supabase/supabase-js';
+import { MercadoPagoConfig, Payment } from 'mercadopago';
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,10 +17,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Configurar Mercado Pago
-    const { config, Preference } = configureMercadoPago();
+    const { config } = configureMercadoPago();
     
-    // Criar preferência de pagamento
-    const preference = new Preference(config);
+    // Criar pagamento direto (não preferência)
+    const payment = new Payment(config);
     
     // Determinar URLs baseado no ambiente
     const isDevelopment = process.env.NODE_ENV === 'development';
@@ -28,35 +29,20 @@ export async function POST(request: NextRequest) {
     console.log(`Criando preferência para ambiente: ${isDevelopment ? 'development' : 'production'}`);
     console.log(`URL base: ${baseUrl}`);
     
-    const preferenceData = {
-      items: [
-        {
-          title: descricao || 'Pagamento Consert',
-          unit_price: parseFloat(valor),
-          quantity: 1,
-        },
-      ],
-      payment_methods: {
-        excluded_payment_types: [
-          { id: 'credit_card' },
-          { id: 'debit_card' },
-          { id: 'bank_transfer' },
-        ],
-        installments: 1,
-      },
-      back_urls: {
-        success: `${baseUrl}/pagamentos/sucesso`,
-        failure: `${baseUrl}/pagamentos/falha`,
-        pending: `${baseUrl}/pagamentos/pendente`,
-      },
-      auto_return: 'approved',
+    const paymentData = {
+      transaction_amount: parseFloat(valor),
+      description: descricao || 'Pagamento Consert',
+      payment_method_id: 'pix',
       external_reference: ordemServicoId || `pagamento_${Date.now()}`,
       notification_url: `${baseUrl}/api/pagamentos/webhook`,
-      expires: true,
-      expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutos
+      payer: {
+        email: 'pagamento@consert.app',
+        first_name: 'Pagamento',
+        last_name: 'Consert',
+      },
     };
 
-    const response = await preference.create({ body: preferenceData });
+    const response = await payment.create({ body: paymentData });
     
     console.log('Resposta do Mercado Pago:', JSON.stringify(response, null, 2));
     console.log('Response id:', response.id);
@@ -72,8 +58,7 @@ export async function POST(request: NextRequest) {
     
     console.log('✅ Response válido, continuando...');
     console.log('🔍 Response id:', response.id);
-    console.log('🔍 Response init_point:', response.init_point);
-    console.log('🔍 Response sandbox_init_point:', response.sandbox_init_point);
+    console.log('🔍 Response status:', response.status);
     console.log('🔍 Response point_of_interaction:', response.point_of_interaction);
     console.log('🔍 Response point_of_interaction?.transaction_data:', response.point_of_interaction?.transaction_data);
     console.log('🔍 Response point_of_interaction?.transaction_data?.qr_code:', response.point_of_interaction?.transaction_data?.qr_code);
@@ -129,7 +114,7 @@ export async function POST(request: NextRequest) {
       usuario_id: user.id,
       ordem_servico_id: ordemServicoId,
       valor: valor,
-      mercadopago_preference_id: response.id,
+      mercadopago_payment_id: response.id,
     });
     
     const { data: pagamento, error: dbError } = await supabaseAdmin
@@ -140,7 +125,7 @@ export async function POST(request: NextRequest) {
         usuario_id: user.id,
         ordem_servico_id: ordemServicoId,
         valor: valor,
-        mercadopago_preference_id: response.id,
+        mercadopago_payment_id: response.id,
         status: 'pending',
       })
       .select()
@@ -160,24 +145,24 @@ export async function POST(request: NextRequest) {
     
         console.log('✅ Pagamento salvo com sucesso:', pagamento);
     console.log('🔍 Retornando resposta...');
-    console.log('🔍 preference_id:', response.id);
-    console.log('🔍 init_point:', response.init_point);
-    console.log('🔍 sandbox_init_point:', response.sandbox_init_point);
+    console.log('🔍 payment_id:', response.id);
+    console.log('🔍 status:', response.status);
     
-    // O Mercado Pago não fornece QR Code na criação da preferência
-    // Vamos usar o init_point como fallback e deixar o frontend gerar o QR Code
-    console.log('🔍 Preferência criada, mas sem QR Code');
-    console.log('🔍 Usando init_point como fallback:', response.init_point);
+    // Verificar se temos QR Code do Mercado Pago
+    const qrCode = response.point_of_interaction?.transaction_data?.qr_code;
+    const qrCodeBase64 = response.point_of_interaction?.transaction_data?.qr_code_base64;
+    
+    console.log('🔍 QR Code disponível:', !!qrCode);
+    console.log('🔍 QR Code Base64 disponível:', !!qrCodeBase64);
 
     return NextResponse.json({
       success: true,
-      preference_id: response.id,
-      init_point: response.init_point,
-      sandbox_init_point: response.sandbox_init_point,
+      payment_id: response.id,
+      status: response.status,
       pagamento_id: pagamento.id,
-      // Dados da preferência para o frontend
-      init_point: response.init_point,
-      sandbox_init_point: response.sandbox_init_point,
+      // Dados do QR Code do Mercado Pago
+      qr_code: qrCode,
+      qr_code_base64: qrCodeBase64,
     });
 
   } catch (error) {
