@@ -3,7 +3,7 @@
 import './globals.css';
 import '../styles/print.css';
 import { SessionContextProvider } from '@supabase/auth-helpers-react';
-import { createBrowserSupabaseClient } from '@supabase/auth-helpers-nextjs';
+import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
 import { useState } from 'react';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { ToastProvider } from '@/components/Toast';
@@ -11,11 +11,7 @@ import { ConfirmProvider } from '@/components/ConfirmDialog';
 import TrialExpiredGuard from '@/components/TrialExpiredGuard';
 import { Toaster } from 'react-hot-toast';
 
-// Removido o export da metadata conforme exigência do Next.js para arquivos com "use client"
-const metadata = {
-  title: "ConsertOS",
-  description: "Sistema de ordem de serviço",
-};
+// Metadata removida conforme exigência do Next.js para arquivos com "use client"
 
 function AuthContent({ children }: { children: React.ReactNode }) {
   const { isLoggingOut } = useAuth();
@@ -29,7 +25,7 @@ function AuthContent({ children }: { children: React.ReactNode }) {
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const [supabaseClient] = useState(() => createBrowserSupabaseClient());
+  const [supabaseClient] = useState(() => createPagesBrowserClient());
 
   return (
     <html lang="pt-BR">

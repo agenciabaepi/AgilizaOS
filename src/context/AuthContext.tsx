@@ -5,7 +5,7 @@
 // src/context/AuthContext.tsx
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 // import { useSupabaseClient } from '@supabase/auth-helpers-react';
-import { createBrowserSupabaseClient } from '@supabase/auth-helpers-nextjs';
+import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
 import { Session, User } from '@supabase/supabase-js';
 // import { ToastProvider, useToast } from '@/components/Toast'; // Remover import de useToast/ToastProvider
 
@@ -41,7 +41,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const supabase = createBrowserSupabaseClient();
+  const supabase = createPagesBrowserClient();
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [usuarioData, setUsuarioData] = useState<UsuarioData | null>(null);

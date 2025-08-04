@@ -8,10 +8,6 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    domains: [
-      'nxamrvfusyrtkcshehfm.supabase.co',
-      // adicione outros domínios necessários aqui
-    ],
     remotePatterns: [
       {
         protocol: 'https',
