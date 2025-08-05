@@ -10,8 +10,11 @@ interface OrdemTransformada {
   clienteTelefone: string;
   clienteEmail: string;
   aparelho: string;
+  aparelhoCategoria: string;
+  aparelhoMarca: string;
   servico: string;
   statusOS: string;
+  statusTecnico: string;
   entrada: string;
   tecnico: string;
   atendente: string;
@@ -28,7 +31,7 @@ interface OrdemTransformada {
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { FiEye, FiEdit, FiPrinter, FiRefreshCw, FiPlus, FiSearch, FiFilter, FiCalendar, FiUser, FiSmartphone, FiDollarSign, FiClock, FiAlertCircle, FiFileText } from 'react-icons/fi';
+import { FiEye, FiRefreshCw, FiPlus, FiSearch, FiFilter, FiCalendar, FiUser, FiSmartphone, FiDollarSign, FiClock, FiAlertCircle, FiFileText } from 'react-icons/fi';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import ProtectedArea from '@/components/ProtectedArea';
@@ -86,6 +89,67 @@ export default function ListaOrdensPage() {
       currency: 'BRL'
     }).format(value);
   }
+
+  const getStatusColor = (status: string) => {
+    const statusLower = status.toLowerCase();
+    switch (statusLower) {
+      case 'concluido':
+      case 'finalizado':
+      case 'reparo concluído':
+        return 'bg-green-100 text-green-800 border border-green-200';
+      case 'orcamento':
+      case 'orçamento enviado':
+        return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
+      case 'analise':
+      case 'em analise':
+      case 'em análise':
+        return 'bg-blue-100 text-blue-800 border border-blue-200';
+      case 'aguardando inicio':
+      case 'aguardando início':
+        return 'bg-gray-100 text-gray-800 border border-gray-200';
+      case 'aguardando peca':
+      case 'aguardando peça':
+        return 'bg-orange-100 text-orange-800 border border-orange-200';
+      case 'em execucao':
+      case 'em execução':
+        return 'bg-purple-100 text-purple-800 border border-purple-200';
+      case 'sem reparo':
+        return 'bg-red-100 text-red-800 border border-red-200';
+      case 'nao aprovado':
+      case 'não aprovado':
+        return 'bg-red-100 text-red-800 border border-red-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border border-gray-200';
+    }
+  };
+
+  const getStatusTecnicoColor = (status: string) => {
+    const statusLower = status.toLowerCase();
+    switch (statusLower) {
+      case 'aguardando início':
+      case 'aguardando inicio':
+        return 'bg-gray-100 text-gray-800 border border-gray-200';
+      case 'em análise':
+      case 'em analise':
+        return 'bg-blue-100 text-blue-800 border border-blue-200';
+      case 'orçamento enviado':
+      case 'orcamento enviado':
+        return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
+      case 'aguardando peça':
+      case 'aguardando peca':
+        return 'bg-orange-100 text-orange-800 border border-orange-200';
+      case 'em execução':
+      case 'em execucao':
+        return 'bg-purple-100 text-purple-800 border border-purple-200';
+      case 'sem reparo':
+        return 'bg-red-100 text-red-800 border border-red-200';
+      case 'reparo concluído':
+      case 'reparo concluido':
+        return 'bg-green-100 text-green-800 border border-green-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border border-gray-200';
+    }
+  };
 
   const fetchOrdens = async () => {
     if (!empresaId) return;
@@ -150,9 +214,12 @@ export default function ListaOrdensPage() {
           cliente: item.clientes?.nome || 'Sem nome',
           clienteTelefone: item.clientes?.telefone ? formatPhoneNumber(item.clientes.telefone) : '',
           clienteEmail: item.clientes?.email || '',
-          aparelho: [item.categoria, item.marca, item.modelo, item.cor].filter(Boolean).join(' ') || '',
+          aparelho: item.modelo || item.marca || item.categoria || '',
+          aparelhoCategoria: item.categoria || '',
+          aparelhoMarca: item.marca || '',
           servico: item.servico || '',
           statusOS: item.status || '',
+          statusTecnico: item.status_tecnico || '',
           entrada: item.created_at || '',
           tecnico: item.tecnico?.nome || tecnicosDict[item.tecnico_id] || item.tecnico_id || '',
           atendente: item.atendente || '',
@@ -452,54 +519,79 @@ export default function ListaOrdensPage() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
+                <colgroup>
+                  <col className="w-24" />
+                  <col className="w-16" />
+                  <col className="w-28" />
+                  <col className="w-20" />
+                  <col className="w-16" />
+                  <col className="w-16" />
+                  <col className="w-16" />
+                  <col className="w-16" />
+                  <col className="w-16" />
+                  <col className="w-20" />
+                  <col className="w-20" />
+                  <col className="w-10" />
+                </colgroup>
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div className="flex items-center gap-2">
-                        <FiFileText className="w-4 h-4" />
-                        <span>OS</span>
+                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <div className="flex items-center gap-1">
+                        <FiFileText className="w-3 h-3" />
+                        <span className="hidden sm:inline">OS</span>
                       </div>
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div className="flex items-center gap-2">
-                        <FiRefreshCw className="w-4 h-4" />
-                        <span>Tipo</span>
+                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <div className="flex items-center gap-1">
+                        <FiRefreshCw className="w-3 h-3" />
+                        <span className="hidden sm:inline">Tipo</span>
                       </div>
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div className="flex items-center gap-2">
-                        <FiSmartphone className="w-4 h-4" />
-                        <span>Aparelho</span>
+                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <div className="flex items-center gap-1">
+                        <FiSmartphone className="w-3 h-3" />
+                        <span className="hidden sm:inline">Aparelho</span>
                       </div>
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Serviço</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div className="flex items-center gap-2">
-                        <FiCalendar className="w-4 h-4" />
-                        <span>Entrada</span>
+                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <span className="hidden sm:inline">Serviço</span>
+                    </th>
+                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <div className="flex items-center gap-1">
+                        <FiCalendar className="w-3 h-3" />
+                        <span className="hidden sm:inline">Entrada</span>
                       </div>
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div className="flex items-center gap-2">
-                        <FiClock className="w-4 h-4" />
-                        <span>Entrega</span>
+                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <div className="flex items-center gap-1">
+                        <FiClock className="w-3 h-3" />
+                        <span className="hidden sm:inline">Entrega</span>
                       </div>
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Garantia</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div className="flex items-center gap-2">
-                        <FiDollarSign className="w-4 h-4" />
-                        <span>Total</span>
+                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <span className="hidden sm:inline">Garantia</span>
+                    </th>
+                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <div className="flex items-center gap-1">
+                        <FiDollarSign className="w-3 h-3" />
+                        <span className="hidden sm:inline">Total</span>
                       </div>
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div className="flex items-center gap-2">
-                        <FiUser className="w-4 h-4" />
-                        <span>Técnico</span>
+                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <div className="flex items-center gap-1">
+                        <FiUser className="w-3 h-3" />
+                        <span className="hidden sm:inline">Técnico</span>
                       </div>
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <span className="hidden sm:inline">Status</span>
+                    </th>
+                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <span className="hidden sm:inline">Status Técnico</span>
+                    </th>
+                    <th className="px-1 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <span className="hidden sm:inline">Ações</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -507,50 +599,55 @@ export default function ListaOrdensPage() {
                     <tr key={os.id} className={`hover:bg-gray-50 transition-colors ${
                       os.tipo === 'Retorno' ? 'border-l-4 border-l-red-400 bg-red-50/30' : ''
                     }`}>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-gray-900">#{os.numero}</span>
+                      <td className="px-2 py-3">
+                        <div className="flex items-center gap-1">
+                          <span className="font-bold text-gray-900 text-xs">#{os.numero}</span>
                           {os.tipo === 'Retorno' && (
-                            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0"></div>
                           )}
                         </div>
-                        <div className="text-sm text-gray-600 font-medium">{os.cliente}</div>
-                        <div className="text-xs text-gray-500">{os.clienteTelefone}</div>
+                        <div className="text-xs text-gray-600 font-medium truncate">{os.cliente}</div>
+                        <div className="text-xs text-gray-500 truncate">{os.clienteTelefone}</div>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-2 py-3">
                         {os.tipo === 'Retorno' ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
-                            <FiRefreshCw className="w-3 h-3 mr-1" />
-                            Retorno
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
+                            <FiRefreshCw className="w-3 h-3 mr-0.5" />
+                            <span className="hidden sm:inline">Retorno</span>
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
-                            <FiPlus className="w-3 h-3 mr-1" />
-                            Nova
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+                            <FiPlus className="w-3 h-3 mr-0.5" />
+                            <span className="hidden sm:inline">Nova</span>
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm font-medium text-gray-900">{os.aparelho}</div>
+                      <td className="px-2 py-3">
+                        <div className="text-xs font-medium text-gray-900 truncate">{os.aparelho}</div>
+                        {(os.aparelhoCategoria || os.aparelhoMarca) && (
+                          <div className="text-xs text-gray-500 truncate">
+                            {[os.aparelhoCategoria, os.aparelhoMarca].filter(Boolean).join(' • ')}
+                          </div>
+                        )}
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-gray-900">{os.servico}</div>
+                      <td className="px-2 py-3">
+                        <div className="text-xs text-gray-900 truncate">{os.servico}</div>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-gray-600">{formatDate(os.entrada)}</div>
+                      <td className="px-2 py-3">
+                        <div className="text-xs text-gray-600 whitespace-nowrap">{formatDate(os.entrada)}</div>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-gray-600">{formatDate(os.entrega)}</div>
+                      <td className="px-2 py-3">
+                        <div className="text-xs text-gray-600 whitespace-nowrap">{formatDate(os.entrega)}</div>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className={`text-sm font-medium ${
+                      <td className="px-2 py-3">
+                        <div className={`text-xs font-medium ${
                           os.garantia && new Date(os.garantia) < new Date()
                             ? 'text-red-600'
                             : 'text-green-600'
                         }`}>
-                          <div>{formatDate(os.garantia)}</div>
+                          <div className="whitespace-nowrap">{formatDate(os.garantia)}</div>
                           {os.garantia && (
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs text-gray-500 truncate">
                               {new Date(os.garantia).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)
                                 ? 'Expirada'
                                 : `${Math.max(0, Math.ceil((new Date(os.garantia).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / (1000 * 60 * 60 * 24)))} dias restantes`
@@ -559,58 +656,41 @@ export default function ListaOrdensPage() {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm font-bold text-green-600">
+                      <td className="px-2 py-3">
+                        <div className="text-xs font-bold text-green-600 whitespace-nowrap">
                           {formatCurrency(os.valorTotal)}
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-gray-900">{os.tecnico}</div>
+                      <td className="px-2 py-3">
+                        <div className="text-xs text-gray-900 truncate">{os.tecnico}</div>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                            os.statusOS.toLowerCase() === 'concluido' ? 'bg-green-100 text-green-800 border border-green-200' :
-                            os.statusOS.toLowerCase() === 'orcamento' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' :
-                            os.statusOS.toLowerCase() === 'analise' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
-                            os.statusOS.toLowerCase() === 'nao aprovado' ? 'bg-red-100 text-red-800 border border-red-200' :
-                            'bg-gray-100 text-gray-800 border border-gray-200'
-                          }`}>
+                      <td className="px-2 py-3">
+                        <div className="flex items-center gap-1">
+                          <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getStatusColor(os.statusOS)}`}>
                             {os.statusOS}
                           </span>
                           {os.tipo === 'Retorno' && (
-                            <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+                            <div className="w-1.5 h-1.5 bg-red-500 rounded-full flex-shrink-0"></div>
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex justify-end gap-1">
+                      <td className="px-2 py-3">
+                        <div className="flex items-center gap-1">
+                          <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getStatusTecnicoColor(os.statusTecnico)}`}>
+                            {os.statusTecnico || '-'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-1 py-3">
+                        <div className="flex justify-center">
                           <Button
                             onClick={() => router.push(`/ordens/${os.id}`)}
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 hover:bg-blue-50 hover:text-blue-600"
+                            className="h-5 w-5 hover:bg-blue-50 hover:text-blue-600"
                             title="Visualizar"
                           >
-                            <FiEye size={14} />
-                          </Button>
-                          <Button
-                            onClick={() => router.push(`/ordens/${os.id}/editar`)}
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 hover:bg-green-50 hover:text-green-600"
-                            title="Editar"
-                          >
-                            <FiEdit size={14} />
-                          </Button>
-                          <Button
-                            onClick={() => router.push(`/ordens/${os.id}/imprimir`)}
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 hover:bg-purple-50 hover:text-purple-600"
-                            title="Imprimir"
-                          >
-                            <FiPrinter size={14} />
+                            <FiEye size={10} />
                           </Button>
                         </div>
                       </td>

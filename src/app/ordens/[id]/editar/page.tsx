@@ -38,6 +38,8 @@ export default function EditarOrdemServico() {
   const [termos, setTermos] = useState<Termo[]>([]);
   const [loadingTermos, setLoadingTermos] = useState(false);
   const [termoSelecionado, setTermoSelecionado] = useState<string | null>(null);
+  const [valorServico, setValorServico] = useState<number>(0);
+  const [valorPeca, setValorPeca] = useState<number>(0);
 
   // Função para detectar se é retorno
   const isRetorno = (ordem: any) => {
@@ -136,6 +138,10 @@ export default function EditarOrdemServico() {
           if (ordemData.termo_garantia_id) {
             setTermoSelecionado(ordemData.termo_garantia_id);
           }
+
+          // Set initial values
+          setValorServico(parseFloat(ordemData.valor_servico || '0'));
+          setValorPeca(parseFloat(ordemData.valor_peca || '0'));
         }
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
@@ -169,9 +175,7 @@ export default function EditarOrdemServico() {
   const calcularTotal = () => {
     const qtdServico = ordem?.qtd_servico || 0;
     const qtdPeca = ordem?.qtd_peca || 0;
-    const precoServico = servicoSelecionado?.preco || 0;
-    const precoPeca = pecaSelecionada?.preco || 0;
-    return qtdServico * precoServico + qtdPeca * precoPeca;
+    return qtdServico * valorServico + qtdPeca * valorPeca;
   };
 
   const handleSalvar = async () => {
@@ -197,8 +201,9 @@ export default function EditarOrdemServico() {
       updatedData['status'] = statusSelecionado?.nome || '';
       updatedData['servico'] = servicoSelecionado?.nome || '';
       updatedData['peca'] = pecaSelecionada?.nome || '';
-      updatedData['valor_servico'] = servicoSelecionado?.preco || 0;
-      updatedData['valor_peca'] = pecaSelecionada?.preco || 0;
+      // Usar os valores dos estados
+      updatedData['valor_servico'] = valorServico;
+      updatedData['valor_peca'] = valorPeca;
       updatedData['valor_faturado'] = calcularTotal();
       updatedData['termo_garantia_id'] = termoSelecionado || null;
 
@@ -522,6 +527,18 @@ export default function EditarOrdemServico() {
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Valor do Serviço</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      name="valor_servico"
+                      value={valorServico}
+                      onChange={(e) => setValorServico(parseFloat(e.target.value) || 0)}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="0,00"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -576,6 +593,18 @@ export default function EditarOrdemServico() {
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Valor da Peça</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      name="valor_peca"
+                      value={valorPeca}
+                      onChange={(e) => setValorPeca(parseFloat(e.target.value) || 0)}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="0,00"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -627,11 +656,11 @@ export default function EditarOrdemServico() {
                 <div className="space-y-3">
                   <div className="flex justify-between text-sm">
                     <span>Serviços:</span>
-                    <span className="font-medium">{formatCurrency((servicoSelecionado?.preco || 0) * (ordem.qtd_servico || 0))}</span>
+                    <span className="font-medium">{formatCurrency(valorServico * (ordem?.qtd_servico || 0))}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>Peças:</span>
-                    <span className="font-medium">{formatCurrency((pecaSelecionada?.preco || 0) * (ordem.qtd_peca || 0))}</span>
+                    <span className="font-medium">{formatCurrency(valorPeca * (ordem?.qtd_peca || 0))}</span>
                   </div>
                   <div className="border-t pt-3">
                     <div className="flex justify-between text-lg font-bold">
