@@ -452,7 +452,6 @@ export default function FornecedoresPage() {
           )}
         </div>
       </MenuLayout>
-    </ProtectedArea>
 
       {/* Modal de Adicionar/Editar Fornecedor */}
       {showModal && (
@@ -602,6 +601,6 @@ export default function FornecedoresPage() {
           </div>
         </div>
       )}
-    </>
+    </ProtectedArea>
   );
 } 
