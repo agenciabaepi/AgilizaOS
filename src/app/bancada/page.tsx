@@ -3,7 +3,7 @@
 import MenuLayout from '@/components/MenuLayout';
 import ProtectedArea from '@/components/ProtectedArea';
 import { useRouter } from 'next/navigation';
-import { FiCpu, FiPlayCircle } from 'react-icons/fi';
+import { FiCpu, FiPlayCircle, FiCheckCircle, FiClock, FiDollarSign, FiUsers, FiFileText } from 'react-icons/fi';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
@@ -58,24 +58,63 @@ export default function BancadaPage() {
     const fetchOrdens = async () => {
       if (!user) return;
       setLoading(true);
-      console.log('user.id:', user.id);
-      const { data, error } = await supabase
-        .from('ordens_servico')
-        .select(`
-          *,
-          cliente:cliente_id(nome)
-        `)
-        .eq('tecnico_id', user.id);
-      console.log('ordens_servico data:', data, 'error:', error);
-      if (!error && data) {
-        setOrdens(data);
+      
+      try {
+        // Buscar ordens atribuídas ao técnico
+        const { data: ordensData, error: ordensError } = await supabase
+          .from('ordens_servico')
+          .select(`
+            *,
+            cliente:cliente_id(nome, telefone)
+          `)
+          .eq('tecnico_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (ordensError) {
+          console.error('Erro ao buscar ordens:', ordensError);
+        } else {
+          setOrdens(ordensData || []);
+        }
+
+      } catch (error) {
+        console.error('Erro ao carregar dados:', error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
+    
     if (user && !authLoading) fetchOrdens();
   }, [user, authLoading]);
 
-  const iniciarOrdem = (id: string) => {
+  const iniciarOrdem = async (id: string) => {
+    // Se a OS está aguardando início, mudar para "em análise" automaticamente
+    const ordem = ordens.find(os => os.id === id);
+    if (ordem && ordem.status === 'ABERTA') {
+      try {
+        const { error } = await supabase
+          .from('ordens_servico')
+          .update({
+            status: 'EM_ANALISE',
+            status_tecnico: 'EM ANÁLISE',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', id);
+
+        if (error) {
+          console.error('Erro ao iniciar OS:', error);
+        } else {
+          // Atualizar a lista local
+          setOrdens(prev => prev.map(os => 
+            os.id === id 
+              ? { ...os, status: 'EM_ANALISE', status_tecnico: 'EM ANÁLISE' }
+              : os
+          ));
+        }
+      } catch (error) {
+        console.error('Erro ao iniciar OS:', error);
+      }
+    }
+    
     router.push(`/bancada/${id}`);
   };
 
@@ -95,97 +134,176 @@ export default function BancadaPage() {
     <ProtectedArea area="bancada">
       <MenuLayout>
         <div className="p-6">
-          <h1 className="text-2xl font-bold flex items-center gap-2 mb-6">
-            <FiCpu className="text-blue-600" />
-            Minha Bancada
-          </h1>
-
-          <div className="sticky top-0 z-10 pt-4 pb-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 px-1">
-              <div className="bg-white p-5 min-h-[90px] flex flex-col justify-center rounded-xl shadow border-l-4 border-green-500">
-                <p className="text-sm text-gray-500">Finalizados no mês</p>
-                <p className="text-2xl font-semibold text-green-600">8</p>
-              </div>
-              <div className="bg-white p-5 min-h-[90px] flex flex-col justify-center rounded-xl shadow border-l-4 border-yellow-500">
-                <p className="text-sm text-gray-500">Pendentes no mês</p>
-                <p className="text-2xl font-semibold text-yellow-600">3</p>
-              </div>
-              <div className="bg-white p-5 min-h-[90px] flex flex-col justify-center rounded-xl shadow border-l-4 border-blue-500">
-                <p className="text-sm text-gray-500">Comissão do mês</p>
-                <p className="text-2xl font-semibold text-blue-600">R$ 420,00</p>
-              </div>
-              <div className="bg-white p-5 min-h-[90px] flex flex-col justify-center rounded-xl shadow border-l-4 border-gray-500">
-                <p className="text-sm text-gray-500">Já sacado no mês</p>
-                <p className="text-2xl font-semibold text-gray-600">R$ 180,00</p>
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <FiCpu className="text-blue-600" />
+              Minha Bancada
+            </h1>
+            
+            {/* Card de resumo rápido */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-50 rounded-lg">
+                  <FiClock className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Hoje</p>
+                  <p className="text-lg font-bold text-gray-900">{ordens.filter(os => os.status === 'ABERTA').length} OSs para iniciar</p>
+                </div>
               </div>
             </div>
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <input
-              type="text"
-              placeholder="Buscar cliente..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full sm:max-w-xs border border-gray-300 rounded-lg px-4 py-2 text-sm"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Buscar por cliente ou número da OS..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full sm:w-80 border border-gray-300 rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <svg className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
             <div className="flex flex-wrap gap-2">
-              {['Todos', 'Aguardando Início', 'Em análise', 'Aguardando peça', 'Concluído'].map((status) => (
+              {[
+                { label: 'Todos', value: 'Todos' },
+                { label: 'Aguardando', value: 'ABERTA' },
+                { label: 'Em Análise', value: 'EM_ANALISE' },
+                { label: 'Aguardando Peça', value: 'AGUARDANDO_PECA' },
+                { label: 'Concluído', value: 'CONCLUIDO' }
+              ].map((status) => (
                 <button
-                  key={status}
-                  onClick={() => setFiltroStatus(status)}
-                  className={`px-4 py-2 rounded-md text-sm font-medium border ${
-                    filtroStatus === status
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-gray-700 border-gray-300'
+                  key={status.value}
+                  onClick={() => setFiltroStatus(status.value)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                    filtroStatus === status.value
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  {status}
+                  {status.label}
                 </button>
               ))}
             </div>
           </div>
 
           <div className="space-y-4">
-            {ordens
-              .filter((os) =>
-                (os.cliente?.nome?.toLowerCase() || '').includes(searchTerm.toLowerCase())
-              )
-              .filter((os) => {
-                if (filtroStatus === 'Todos') return true;
-                return os.status === filtroStatus;
-              })
-              .map((os) => {
-                const aparelho = [os.categoria, os.marca, os.modelo, os.cor].filter(Boolean).join(' ');
-                const entrada = os.created_at ? new Date(os.created_at).toLocaleDateString('pt-BR') : '';
-                const valor = ((os.valor_servico || 0) + (os.valor_peca || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-                return (
-                  <div
-                    key={os.id}
-                    className="bg-white p-6 rounded-xl shadow flex items-center justify-between hover:shadow-md transition"
-                  >
-                    <div>
-                      <p className="font-medium text-gray-800">
-                        #{os.numero_os || os.id} - {os.cliente?.nome || 'Sem nome'}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {aparelho} | Entrada: {entrada}
-                      </p>
-                      <p className="text-sm font-semibold text-blue-600 mt-1">Valor: {valor}</p>
-                      <span className="inline-block mt-2 text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800">
-                        {os.status}
-                      </span>
-                    </div>
+            {ordens.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-gray-400 mb-4">
+                  <FiCpu size={48} className="mx-auto" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma ordem encontrada</h3>
+                <p className="text-gray-500">Não há ordens de serviço atribuídas a você no momento.</p>
+              </div>
+            ) : (
+              ordens
+                .filter((os) => {
+                  const searchLower = searchTerm.toLowerCase();
+                  return (
+                    (os.cliente?.nome?.toLowerCase() || '').includes(searchLower) ||
+                    (os.numero_os || os.id).toLowerCase().includes(searchLower)
+                  );
+                })
+                .filter((os) => {
+                  if (filtroStatus === 'Todos') return true;
+                  return os.status === filtroStatus;
+                })
+                .map((os) => {
+                  const aparelho = [os.categoria, os.marca, os.modelo, os.cor].filter(Boolean).join(' ');
+                  const entrada = os.created_at ? new Date(os.created_at).toLocaleDateString('pt-BR') : '';
+                  const valor = parseFloat(os.valor_servico || '0') + parseFloat(os.valor_peca || '0');
+                  const valorFormatado = valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                  
+                  const getStatusColor = (status: string) => {
+                    switch (status) {
+                      case 'ABERTA': return 'bg-yellow-100 text-yellow-800';
+                      case 'EM_ANALISE': return 'bg-blue-100 text-blue-800';
+                      case 'AGUARDANDO_PECA': return 'bg-orange-100 text-orange-800';
+                      case 'CONCLUIDO': return 'bg-green-100 text-green-800';
+                      default: return 'bg-gray-100 text-gray-800';
+                    }
+                  };
 
-                    <button
-                      onClick={() => iniciarOrdem(os.id)}
-                      className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition"
+                  const getStatusLabel = (status: string) => {
+                    switch (status) {
+                      case 'ABERTA': return 'Aguardando Início';
+                      case 'EM_ANALISE': return 'Em Análise';
+                      case 'AGUARDANDO_PECA': return 'Aguardando Peça';
+                      case 'CONCLUIDO': return 'Reparo Concluído';
+                      default: return status;
+                    }
+                  };
+
+                  return (
+                    <div
+                      key={os.id}
+                      className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200"
                     >
-                      <FiPlayCircle size={18} /> Iniciar
-                    </button>
-                  </div>
-                );
-              })}
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-3">
+                            <h3 className="font-semibold text-gray-900">
+                              #{os.numero_os || os.id} - {os.cliente?.nome || 'Cliente não informado'}
+                            </h3>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(os.status)}`}>
+                              {getStatusLabel(os.status)}
+                            </span>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+                            <div>
+                              <p className="font-medium text-gray-700 mb-1">Aparelho</p>
+                              <p>{aparelho || 'Não informado'}</p>
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-700 mb-1">Cliente</p>
+                              <p>{os.cliente?.nome || 'Não informado'}</p>
+                              {os.cliente?.telefone && (
+                                <p className="text-xs text-gray-500">{os.cliente.telefone}</p>
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-700 mb-1">Entrada</p>
+                              <p>{entrada}</p>
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-700 mb-1">Valor</p>
+                              <p className="font-semibold text-blue-600">{valorFormatado}</p>
+                            </div>
+                          </div>
+
+                          {os.relato && (
+                            <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                              <p className="text-xs font-medium text-gray-700 mb-1">Relato do Cliente</p>
+                              <p className="text-sm text-gray-600 line-clamp-2">{os.relato}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="ml-6 flex flex-col items-end">
+                          <button
+                            onClick={() => iniciarOrdem(os.id)}
+                            className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm"
+                          >
+                            <FiPlayCircle size={16} /> 
+                            {os.status === 'ABERTA' ? 'Iniciar' : 'Continuar'}
+                          </button>
+                          
+                          {os.status !== 'ABERTA' && (
+                            <p className="text-xs text-gray-500 mt-2">
+                              Última atualização: {os.updated_at ? new Date(os.updated_at).toLocaleDateString('pt-BR') : entrada}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+            )}
           </div>
         </div>
       </MenuLayout>

@@ -5,10 +5,40 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import macbookImage from '../assets/imagens/macbook.png';
+import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
 
 export default function Home() {
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  
+  // Verificar se usuário está logado e redirecionar se necessário
+  useEffect(() => {
+    const checkUserAndRedirect = async () => {
+      const supabase = createPagesBrowserClient();
+      
+      // Verificar se há sessão ativa
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        // Buscar dados do usuário
+        const { data: usuario } = await supabase
+          .from('usuarios')
+          .select('nivel')
+          .eq('auth_user_id', session.user.id)
+          .single();
+        
+        if (usuario?.nivel === 'tecnico') {
+          // Técnico logado, redirecionar para dashboard do técnico
+          router.push('/dashboard-tecnico');
+        } else if (usuario?.nivel === 'admin' || usuario?.nivel === 'atendente') {
+          // Admin ou atendente logado, redirecionar para dashboard admin
+          router.push('/dashboard');
+        }
+      }
+    };
+    
+    checkUserAndRedirect();
+  }, [router]);
   
 
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });

@@ -15,6 +15,7 @@ import { useCaixa } from '@/hooks/useCaixa';
 import { AbrirCaixaModal } from '@/components/caixa/AbrirCaixaModal';
 import { FecharCaixaModal } from '@/components/caixa/FecharCaixaModal';
 import { FiUnlock, FiLock, FiMinus, FiPlus, FiEye } from 'react-icons/fi';
+import ProtectedArea from '@/components/ProtectedArea';
 
 interface Produto {
   id: string;
@@ -546,7 +547,8 @@ export default function CaixaPage() {
         <div className={`min-h-screen bg-gray-50 ${isFullscreen ? 'h-screen overflow-hidden' : ''}`}>
             
             {!isFullscreen ? (
-              <MenuLayout>
+              <ProtectedArea area="caixa">
+                <MenuLayout>
                 {!turnoAtual ? (
                   <div className="flex items-center justify-center h-[calc(100vh-80px)] bg-gray-50">
                     <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md">
@@ -849,7 +851,8 @@ export default function CaixaPage() {
                   </div>
                                   </div>
                 )}
-              </MenuLayout>
+                </MenuLayout>
+              </ProtectedArea>
             ) : (
               // Modo Tela Cheia - Layout Igual ao Normal (50/50)
               <div ref={pdvRef} className="h-screen bg-gray-50 flex">

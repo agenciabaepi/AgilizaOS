@@ -24,14 +24,14 @@ import {
   FiStar,
 } from 'react-icons/fi';
 import { Toaster } from 'react-hot-toast';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/Toast';
 import { SubscriptionStatus } from '@/components/SubscriptionStatus';
 
 export default function MenuLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const supabase = createClientComponentClient();
+  const supabase = createPagesBrowserClient();
   const { signOut, usuarioData } = useAuth();
   const { addToast } = useToast();
 
@@ -116,8 +116,13 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   // Sidebar sempre expandida
 
   // Função para checar permissão
-  const podeVer = (area: string) =>
-    usuarioData?.nivel === 'admin' || usuarioData?.permissoes?.includes(area);
+  const podeVer = (area: string) => {
+    // Técnicos sempre podem ver dashboard
+    if (area === 'dashboard' && usuarioData?.nivel === 'tecnico') {
+      return true;
+    }
+    return usuarioData?.nivel === 'admin' || usuarioData?.permissoes?.includes(area);
+  };
 
   const toggleMenu = () => {
     const newState = !menuRecolhido;
@@ -155,8 +160,13 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
         )}
         {/* Menu */}
         <nav className="flex flex-col gap-2 flex-1">
-          {podeVer('dashboard') && (
-            <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard'} menuRecolhido={menuRecolhido} />
+          {/* Dashboard - Mostrar dashboard do técnico se for técnico, senão dashboard admin */}
+          {(podeVer('dashboard') || usuarioData?.nivel === 'tecnico') && (
+            usuarioData?.nivel === 'tecnico' ? (
+              <SidebarButton path="/dashboard-tecnico" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard-tecnico'} menuRecolhido={menuRecolhido} />
+            ) : (
+              <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard'} menuRecolhido={menuRecolhido} />
+            )
           )}
           {podeVer('lembretes') && (
             <SidebarButton path="/lembretes" icon={<FiFileText size={20} />} label="Lembretes" isActive={pathname === '/lembretes'} menuRecolhido={menuRecolhido} />
@@ -164,7 +174,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {podeVer('ordens') && (
             <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} menuRecolhido={menuRecolhido} />
           )}
-          <SidebarButton path="/caixa" icon={<FiDollarSign size={20} />} label="Caixa" isActive={pathname === '/caixa'} menuRecolhido={menuRecolhido} />
+          {podeVer('caixa') && (
+            <SidebarButton path="/caixa" icon={<FiDollarSign size={20} />} label="Caixa" isActive={pathname === '/caixa'} menuRecolhido={menuRecolhido} />
+          )}
           {podeVer('clientes') && (
             <>
               <div 
@@ -189,7 +201,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               {contatosExpanded && !menuRecolhido && (
                 <div className="ml-6 flex flex-col gap-1 mt-1">
                   <SidebarButton path="/clientes" icon={<FiUsers size={18} />} label="Clientes" isActive={pathname === '/clientes'} menuRecolhido={menuRecolhido} />
-                  <SidebarButton path="/fornecedores" icon={<FiTruck size={18} />} label="Fornecedores" isActive={pathname === '/fornecedores'} menuRecolhido={menuRecolhido} />
+                  {podeVer('fornecedores') && (
+                    <SidebarButton path="/fornecedores" icon={<FiTruck size={18} />} label="Fornecedores" isActive={pathname === '/fornecedores'} menuRecolhido={menuRecolhido} />
+                  )}
                 </div>
               )}
             </>
@@ -246,9 +260,15 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               
               {financeiroExpanded && !menuRecolhido && (
                 <div className="ml-6 flex flex-col gap-1 mt-1">
-                  <SidebarButton path="/financeiro/vendas" icon={<FiFileText size={18} />} label="Vendas" isActive={pathname === '/financeiro/vendas'} menuRecolhido={menuRecolhido} />
-                  <SidebarButton path="/movimentacao-caixa" icon={<FiDollarSign size={18} />} label="Movimentações Caixa" isActive={pathname === '/movimentacao-caixa'} menuRecolhido={menuRecolhido} />
-                  <SidebarButton path="/financeiro/contas-a-pagar" icon={<FiFileText size={18} />} label="Contas a Pagar" isActive={pathname === '/financeiro/contas-a-pagar'} menuRecolhido={menuRecolhido} />
+                  {podeVer('vendas') && (
+                    <SidebarButton path="/financeiro/vendas" icon={<FiFileText size={18} />} label="Vendas" isActive={pathname === '/financeiro/vendas'} menuRecolhido={menuRecolhido} />
+                  )}
+                  {podeVer('movimentacao-caixa') && (
+                    <SidebarButton path="/movimentacao-caixa" icon={<FiDollarSign size={18} />} label="Movimentações Caixa" isActive={pathname === '/movimentacao-caixa'} menuRecolhido={menuRecolhido} />
+                  )}
+                  {podeVer('contas-a-pagar') && (
+                    <SidebarButton path="/financeiro/contas-a-pagar" icon={<FiFileText size={18} />} label="Contas a Pagar" isActive={pathname === '/financeiro/contas-a-pagar'} menuRecolhido={menuRecolhido} />
+                  )}
                 </div>
               )}
             </>
@@ -307,8 +327,13 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               />
             </div>
             <nav className="flex flex-col gap-1">
-              {podeVer('dashboard') && (
-                <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" />
+              {/* Dashboard - Mostrar dashboard do técnico se for técnico, senão dashboard admin */}
+              {(podeVer('dashboard') || usuarioData?.nivel === 'tecnico') && (
+                usuarioData?.nivel === 'tecnico' ? (
+                  <SidebarButton path="/dashboard-tecnico" icon={<FiHome size={20} />} label="Dashboard" />
+                ) : (
+                  <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" />
+                )
               )}
               {podeVer('lembretes') && (
                 <SidebarButton path="/lembretes" icon={<FiFileText size={20} />} label="Lembretes" />
@@ -316,7 +341,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               {podeVer('ordens') && (
                 <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" />
               )}
-              <SidebarButton path="/caixa" icon={<FiDollarSign size={20} />} label="Caixa" />
+              {podeVer('caixa') && (
+                <SidebarButton path="/caixa" icon={<FiDollarSign size={20} />} label="Caixa" />
+              )}
               {podeVer('clientes') && (
                 <>
                   <div 
@@ -337,7 +364,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   {contatosExpanded && (
                     <div className="ml-6 flex flex-col gap-1 mt-1">
                       <SidebarButton path="/clientes" icon={<FiUsers size={18} />} label="Clientes" />
-                      <SidebarButton path="/fornecedores" icon={<FiTruck size={18} />} label="Fornecedores" />
+                      {podeVer('fornecedores') && (
+                        <SidebarButton path="/fornecedores" icon={<FiTruck size={18} />} label="Fornecedores" />
+                      )}
                     </div>
                   )}
                 </>
@@ -367,9 +396,6 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   )}
                 </>
               )}
-              {podeVer('fornecedores') && (
-                <SidebarButton path="/fornecedores" icon={<FiTruck size={20} />} label="Fornecedores" />
-              )}
               {podeVer('financeiro') && (
                 <>
                   <div 
@@ -389,9 +415,15 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   
                   {financeiroExpanded && (
                     <div className="ml-6 flex flex-col gap-1 mt-1">
-                      <SidebarButton path="/financeiro/vendas" icon={<FiFileText size={18} />} label="Vendas" />
-                      <SidebarButton path="/financeiro/movimentacoes-caixa" icon={<FiDollarSign size={18} />} label="Movimentações Caixa" />
-                      <SidebarButton path="/financeiro/contas-a-pagar" icon={<FiFileText size={18} />} label="Contas a Pagar" />
+                      {podeVer('vendas') && (
+                        <SidebarButton path="/financeiro/vendas" icon={<FiFileText size={18} />} label="Vendas" />
+                      )}
+                      {podeVer('movimentacao-caixa') && (
+                        <SidebarButton path="/financeiro/movimentacoes-caixa" icon={<FiDollarSign size={18} />} label="Movimentações Caixa" />
+                      )}
+                      {podeVer('contas-a-pagar') && (
+                        <SidebarButton path="/financeiro/contas-a-pagar" icon={<FiFileText size={18} />} label="Contas a Pagar" />
+                      )}
                     </div>
                   )}
                 </>

@@ -147,44 +147,242 @@ export default function PerfilPage() {
 
   const handleUploadFoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !perfil?.id) return;
-    setUploading(true);
-    const filePath = `user-${perfil.id}/${file.name}`;
-    const { data, error } = await supabase.storage
-      .from('avatars')
-      .upload(filePath, file, { upsert: true });
-    if (!error) {
-      const { data: publicData } = supabase.storage.from('avatars').getPublicUrl(filePath);
-      const url = publicData.publicUrl;
-      await supabase.from('usuarios').update({ foto_url: url }).eq('id', perfil.id);
-      setFotoUrl(url);
-      updateUsuarioFoto(url); // Atualiza o contexto do usuário
-      addToast('success', 'Foto atualizada!');
-    } else {
-      addToast('error', 'Erro ao fazer upload da foto.');
+    if (!file || !perfil?.id) {
+      addToast('error', 'Arquivo não selecionado ou usuário não encontrado');
+      return;
     }
-    setUploading(false);
+
+    // Validar tipo de arquivo
+    if (!file.type.startsWith('image/')) {
+      addToast('error', 'Por favor, selecione apenas arquivos de imagem');
+      return;
+    }
+
+    // Validar tamanho do arquivo (máximo 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      addToast('error', 'A imagem deve ter no máximo 5MB');
+      return;
+    }
+
+    // Validar se o arquivo não está vazio
+    if (file.size === 0) {
+      addToast('error', 'O arquivo está vazio');
+      return;
+    }
+
+    // Validar se o arquivo tem nome
+    if (!file.name || file.name.trim() === '') {
+      addToast('error', 'O arquivo deve ter um nome');
+      return;
+    }
+
+    setUploading(true);
+    
+    try {
+      console.log('Iniciando upload da foto:', {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        userId: perfil.id
+      });
+
+      // Verificar se o bucket existe
+      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+      
+      if (bucketsError) {
+        console.error('Erro ao verificar buckets:', bucketsError);
+        addToast('error', 'Erro ao verificar configuração do storage');
+        setUploading(false);
+        return;
+      }
+
+      const avatarsBucket = buckets.find(b => b.id === 'avatars');
+      
+      if (!avatarsBucket) {
+        console.error('Bucket avatars não encontrado');
+        addToast('error', 'Bucket de avatars não está configurado. Execute o script SQL primeiro.');
+        setUploading(false);
+        return;
+      }
+
+      console.log('Bucket avatars encontrado:', avatarsBucket);
+
+      // Validar extensões permitidas
+      const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+      const fileExtension = file.name.split('.').pop()?.toLowerCase();
+      
+      if (!fileExtension || !allowedExtensions.includes(fileExtension)) {
+        addToast('error', `Formato não suportado. Use: ${allowedExtensions.join(', ')}`);
+        setUploading(false);
+        return;
+      }
+
+      const filePath = `user-${perfil.id}/${Date.now()}-${file.name}`;
+      
+      console.log('Fazendo upload para:', filePath);
+      
+      // Tentar upload com diferentes configurações
+      let uploadResult;
+      let uploadError;
+
+      // Primeira tentativa: upload normal
+      uploadResult = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { 
+          upsert: true,
+          cacheControl: '3600'
+        });
+
+      if (uploadResult.error) {
+        console.log('Primeira tentativa falhou, tentando sem upsert...');
+        
+        // Segunda tentativa: sem upsert
+        uploadResult = await supabase.storage
+          .from('avatars')
+          .upload(filePath, file, { 
+            upsert: false,
+            cacheControl: '3600'
+          });
+      }
+
+      if (uploadResult.error) {
+        console.log('Segunda tentativa falhou, tentando com nome único...');
+        
+        // Terceira tentativa: com nome único
+        const uniqueFilePath = `user-${perfil.id}/${Date.now()}-${Math.random().toString(36).substring(7)}-${file.name}`;
+        uploadResult = await supabase.storage
+          .from('avatars')
+          .upload(uniqueFilePath, file, { 
+            upsert: false,
+            cacheControl: '3600'
+          });
+        
+        if (!uploadResult.error) {
+          // Atualizar filePath se a terceira tentativa funcionou
+          filePath = uniqueFilePath;
+        }
+      }
+
+      const { data, error } = uploadResult;
+
+      if (error) {
+        console.error('Erro no upload:', error);
+        console.error('Detalhes do erro:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        
+        let errorMessage = 'Erro ao fazer upload da foto';
+        if (error.message) {
+          errorMessage += `: ${error.message}`;
+        } else if (error.details) {
+          errorMessage += `: ${error.details}`;
+        } else if (error.hint) {
+          errorMessage += `: ${error.hint}`;
+        }
+        
+        addToast('error', errorMessage);
+        setUploading(false);
+        return;
+      }
+
+      if (!data) {
+        console.error('Upload falhou - sem dados retornados');
+        addToast('error', 'Upload falhou - tente novamente');
+        setUploading(false);
+        return;
+      }
+
+      console.log('Upload realizado com sucesso:', data);
+
+      // Obter URL pública
+      const { data: publicData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      const url = publicData.publicUrl;
+      console.log('URL pública gerada:', url);
+
+      // Atualizar no banco de dados
+      const { error: updateError } = await supabase
+        .from('usuarios')
+        .update({ foto_url: url })
+        .eq('id', perfil.id);
+
+      if (updateError) {
+        console.error('Erro ao atualizar foto_url no banco:', updateError);
+        addToast('error', 'Erro ao salvar URL da foto no banco de dados');
+        setUploading(false);
+        return;
+      }
+
+      setFotoUrl(url);
+      updateUsuarioFoto(url);
+      addToast('success', 'Foto atualizada com sucesso!');
+      
+    } catch (error) {
+      console.error('Erro inesperado no upload:', error);
+      addToast('error', 'Erro inesperado ao fazer upload da foto');
+    } finally {
+      setUploading(false);
+    }
   };
 
   // Função para remover foto de perfil
   const handleRemoverFoto = async () => {
-    if (!perfil?.id || !fotoUrl) return;
+    if (!perfil?.id || !fotoUrl) {
+      addToast('error', 'Usuário não encontrado ou sem foto');
+      return;
+    }
+
     setUploading(true);
+    
     try {
+      console.log('Iniciando remoção da foto:', { userId: perfil.id, fotoUrl });
+
       // Extrai o caminho do arquivo do storage
       const pathMatch = fotoUrl.match(/user-[^/]+\/[^?]+/);
       if (pathMatch) {
         const filePath = pathMatch[0];
-        await supabase.storage.from('avatars').remove([filePath]);
+        console.log('Removendo arquivo do storage:', filePath);
+        
+        const { error: removeError } = await supabase.storage
+          .from('avatars')
+          .remove([filePath]);
+
+        if (removeError) {
+          console.error('Erro ao remover arquivo do storage:', removeError);
+          // Continua mesmo se não conseguir remover do storage
+        } else {
+          console.log('Arquivo removido do storage com sucesso');
+        }
       }
-      await supabase.from('usuarios').update({ foto_url: null }).eq('id', perfil.id);
+
+      // Atualizar no banco de dados
+      const { error: updateError } = await supabase
+        .from('usuarios')
+        .update({ foto_url: null })
+        .eq('id', perfil.id);
+
+      if (updateError) {
+        console.error('Erro ao atualizar foto_url no banco:', updateError);
+        addToast('error', 'Erro ao remover foto do banco de dados');
+        setUploading(false);
+        return;
+      }
+
       setFotoUrl(null);
       updateUsuarioFoto('');
-      addToast('success', 'Foto removida!');
-    } catch (err) {
-      addToast('error', 'Erro ao remover foto.');
+      addToast('success', 'Foto removida com sucesso!');
+      
+    } catch (error) {
+      console.error('Erro inesperado ao remover foto:', error);
+      addToast('error', 'Erro inesperado ao remover foto');
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
   };
 
   if (loading || authLoading) {

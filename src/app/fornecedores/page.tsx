@@ -9,6 +9,7 @@ import MenuLayout from '@/components/MenuLayout';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { FiPlus, FiEdit, FiTrash2, FiSearch } from 'react-icons/fi';
+import ProtectedArea from '@/components/ProtectedArea';
 
 interface Fornecedor {
   id: string;
@@ -315,7 +316,7 @@ export default function FornecedoresPage() {
   };
 
   return (
-    <>
+    <ProtectedArea area="fornecedores">
       <MenuLayout>
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
@@ -451,6 +452,7 @@ export default function FornecedoresPage() {
           )}
         </div>
       </MenuLayout>
+    </ProtectedArea>
 
       {/* Modal de Adicionar/Editar Fornecedor */}
       {showModal && (

@@ -18,9 +18,33 @@ export async function middleware(req: NextRequest) {
 
   // Se está autenticado, verificar assinatura para rotas protegidas
   if (user) {
+    // Verificar se é técnico e está tentando acessar dashboard ou página inicial
+    if (req.nextUrl.pathname === '/dashboard' || req.nextUrl.pathname === '/') {
+      try {
+        const { data: usuario } = await supabase
+          .from('usuarios')
+          .select('nivel')
+          .eq('auth_user_id', user.id)
+          .single();
+
+        if (usuario?.nivel === 'tecnico') {
+          if (req.nextUrl.pathname === '/dashboard') {
+            console.log('Middleware: Técnico acessando dashboard, redirecionando para dashboard-tecnico');
+            return NextResponse.redirect(new URL('/dashboard-tecnico', req.url));
+          } else if (req.nextUrl.pathname === '/') {
+            console.log('Middleware: Técnico acessando página inicial, redirecionando para dashboard-tecnico');
+            return NextResponse.redirect(new URL('/dashboard-tecnico', req.url));
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao verificar nível do usuário:', error);
+      }
+    }
+
     // Rotas que precisam de verificação de assinatura
     const rotasProtegidas = [
       '/dashboard',
+      '/dashboard-tecnico',
       '/caixa',
       '/clientes',
       '/fornecedores',
