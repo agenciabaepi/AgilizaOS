@@ -121,8 +121,7 @@ export default function TermosPage() {
           .update({
             nome: formData.nome,
             conteudo: formData.conteudo,
-            ativo: formData.ativo,
-            updated_at: new Date().toISOString()
+            ativo: formData.ativo
           })
           .eq('id', editingTermo.id)
 

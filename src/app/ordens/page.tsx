@@ -41,6 +41,7 @@ import MenuLayout from '@/components/MenuLayout';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { Select } from '@/components/Select';
+import LaudoProntoAlert from '@/components/LaudoProntoAlert';
 
 export default function ListaOrdensPage() {
   const router = useRouter();
@@ -67,7 +68,7 @@ export default function ListaOrdensPage() {
   const [tecnicoFilter, setTecnicoFilter] = useState('');
   const [tipoFilter, setTipoFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [itemsPerPage] = useState(20);
   const [tecnicos, setTecnicos] = useState<string[]>([]);
 
   function formatDate(date: string) {
@@ -761,6 +762,9 @@ export default function ListaOrdensPage() {
             </div>
           )}
         </div>
+        
+        {/* Alerta de Laudos Prontos */}
+        <LaudoProntoAlert />
       </MenuLayout>
     </ProtectedArea>
   );

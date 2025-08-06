@@ -164,8 +164,7 @@ export default function DetalheBancadaPage() {
           laudo,
           observacao: observacoes,
           peca: produtos,
-          servico: servicos,
-          updated_at: new Date().toISOString()
+          servico: servicos
         })
         .eq('id', id);
 
@@ -200,8 +199,7 @@ export default function DetalheBancadaPage() {
         .from('ordens_servico')
         .update({
           status: 'EM_ANALISE',
-          status_tecnico: 'EM ANÁLISE',
-          updated_at: new Date().toISOString()
+          status_tecnico: 'EM ANÁLISE'
         })
         .eq('id', id);
 

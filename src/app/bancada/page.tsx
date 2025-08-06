@@ -105,8 +105,7 @@ export default function BancadaPage() {
           .from('ordens_servico')
           .update({
             status: statusEmAnalise?.nome || 'EM_ANALISE',
-            status_tecnico: statusTecnicoEmAnalise?.nome || 'EM ANÁLISE',
-            updated_at: new Date().toISOString()
+            status_tecnico: statusTecnicoEmAnalise?.nome || 'EM ANÁLISE'
           })
           .eq('id', id);
 
@@ -309,7 +308,7 @@ export default function BancadaPage() {
                           
                           {os.status !== 'ABERTA' && (
                             <p className="text-xs text-gray-500 mt-2">
-                              Última atualização: {os.updated_at ? new Date(os.updated_at).toLocaleDateString('pt-BR') : entrada}
+                              Entrada: {entrada}
                             </p>
                           )}
                         </div>

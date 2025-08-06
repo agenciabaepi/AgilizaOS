@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import MenuLayout from '@/components/MenuLayout';
 import ProtectedArea from '@/components/ProtectedArea';
 import { FiCheckCircle, FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiFileText, FiAlertCircle, FiCalendar, FiTarget } from 'react-icons/fi';
+import LaudoProntoAlert from '@/components/LaudoProntoAlert';
 
 interface TecnicoMetrics {
   totalOS: number;
@@ -404,6 +405,9 @@ export default function DashboardTecnicoPage() {
             )}
           </div>
         </div>
+        
+        {/* Alerta de Laudos Prontos */}
+        <LaudoProntoAlert />
       </MenuLayout>
     </ProtectedArea>
   );

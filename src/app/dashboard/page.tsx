@@ -8,6 +8,7 @@ import MenuLayout from '@/components/MenuLayout';
 import ProtectedArea from '@/components/ProtectedArea';
 import TrialLimitsAlert from '@/components/TrialLimitsAlert';
 import { FiTrendingUp, FiTrendingDown, FiUsers, FiFileText, FiDollarSign, FiClock, FiCheckCircle, FiAlertCircle } from 'react-icons/fi';
+import LaudoProntoAlert from '@/components/LaudoProntoAlert';
 
 interface DashboardMetrics {
   totalOrdens: number;
@@ -417,6 +418,9 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
+        
+        {/* Alerta de Laudos Prontos */}
+        <LaudoProntoAlert />
       </ProtectedArea>
     </MenuLayout>
   );
