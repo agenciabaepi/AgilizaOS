@@ -24,14 +24,13 @@ import {
   FiStar,
 } from 'react-icons/fi';
 import { Toaster } from 'react-hot-toast';
-import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/Toast';
 import { SubscriptionStatus } from '@/components/SubscriptionStatus';
 
 export default function MenuLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const supabase = createPagesBrowserClient();
   const { signOut, usuarioData } = useAuth();
   const { addToast } = useToast();
 
@@ -64,14 +63,14 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
         const { data: profile } = await supabase
           .from('usuarios')
           .select('nivel')
-          .eq('id', user.id)
+          .eq('auth_user_id', user.id)
           .single();
         if (profile?.nivel) {
           setUserLevel(profile.nivel);
         }
       }
     })();
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     const stored = localStorage.getItem('menuExpandido') === 'true';

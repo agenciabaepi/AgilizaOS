@@ -3,7 +3,7 @@
 export const dynamic = 'force-dynamic';
 export const runtime = 'edge';
 
-import { createBrowserSupabaseClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/lib/supabaseClient';
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Tab } from '@headlessui/react';
@@ -63,7 +63,7 @@ export default function NovoProdutoPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const produtoId = searchParams.get('produtoId');
-  const supabase = createBrowserSupabaseClient();
+  // Usar o cliente importado
   const { addToast } = useToast();
   const confirm = useConfirm();
   const { user } = useAuth();

@@ -8,8 +8,8 @@ import {
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { useSession } from '@supabase/auth-helpers-react'
-import { Session } from '@supabase/auth-helpers-nextjs'
+import { useAuth } from '@/context/AuthContext'
+import { Session } from '@supabase/supabase-js'
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useRouter } from 'next/navigation';
 import TrialLimitGuard from '@/components/TrialLimitGuard';
@@ -17,7 +17,7 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { FiAlertTriangle } from 'react-icons/fi';
 
 export default function UsuariosPage() {
-  const session: Session | null = useSession()
+  const { session } = useAuth()
   const router = useRouter();
   const { carregarLimites, limites, podeCriar, assinatura, isTrialExpired } = useSubscription();
 

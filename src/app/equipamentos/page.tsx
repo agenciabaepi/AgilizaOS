@@ -22,12 +22,12 @@ import DashboardCard from '@/components/ui/DashboardCard';
 
 ChartJS.register(ArcElement2, Tooltip2, Legend2, DoughnutController);
 import { useRef } from 'react';
-import { createBrowserSupabaseClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/lib/supabaseClient';
 import { TagIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '@/context/AuthContext';
 import { useConfirm } from '@/components/ConfirmDialog';
 
-const supabase = createBrowserSupabaseClient();
+// Usar o cliente importado
 
 type Tipo = 'produto' | 'servico';
 

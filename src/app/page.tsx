@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import macbookImage from '../assets/imagens/macbook.png';
-import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function Home() {
   const router = useRouter();
@@ -14,8 +14,6 @@ export default function Home() {
   // Verificar se usuário está logado e redirecionar se necessário
   useEffect(() => {
     const checkUserAndRedirect = async () => {
-      const supabase = createPagesBrowserClient();
-      
       // Verificar se há sessão ativa
       const { data: { session } } = await supabase.auth.getSession();
       

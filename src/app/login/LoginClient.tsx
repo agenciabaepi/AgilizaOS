@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
@@ -9,7 +9,7 @@ import bgImage from '@/assets/imagens/background-login.png';
 import { ToastProvider, useToast } from '@/components/Toast';
 import { ConfirmProvider, useConfirm } from '@/components/ConfirmDialog';
 
-const supabase = createPagesBrowserClient();
+
 
 function LoginClientInner() {
   const [loginInput, setLoginInput] = useState('');
@@ -20,11 +20,20 @@ function LoginClientInner() {
   const auth = useAuth();
   const { addToast } = useToast();
   const confirm = useConfirm();
+  
+  console.log('Debug LoginClient - AuthContext:', {
+    user: auth.user,
+    session: auth.session,
+    usuarioData: auth.usuarioData,
+    empresaData: auth.empresaData,
+    loading: auth.loading
+  });
 
-  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    let emailToLogin = loginInput;
+      const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      console.log('Debug login - iniciando login com:', loginInput);
+      setIsSubmitting(true);
+      let emailToLogin = loginInput;
     if (!loginInput.includes('@')) {
       const username = loginInput.trim().toLowerCase();
       const { data: usuario, error } = await supabase
@@ -68,28 +77,40 @@ function LoginClientInner() {
         router.replace('/criar-empresa');
         return;
       }
-      const { data: empresa } = await supabase
-        .from('empresas')
-        .select('status, motivoBloqueio')
-        .eq('id', usuario.empresa_id)
-        .single();
+      console.log('Debug login - empresa_id:', usuario.empresa_id);
+      
+              const { data: empresa, error: empresaError } = await supabase
+          .from('empresas')
+          .select('status, motivobloqueio')
+          .eq('id', usuario.empresa_id)
+          .single();
+        
+      if (empresaError) {
+        console.error('Erro ao buscar empresa:', empresaError);
+        addToast('error', 'Erro ao verificar status da empresa.');
+        setIsSubmitting(false);
+        return;
+      }
       if (empresa?.status === 'bloqueado') {
         await confirm({
           title: 'Acesso bloqueado',
-          message: empresa.motivoBloqueio || 'Entre em contato com o suporte.',
+          message: empresa.motivobloqueio || 'Entre em contato com o suporte.',
           confirmText: 'OK',
         });
         return;
       }
+      console.log('Debug login - Login bem-sucedido, redirecionando...');
       localStorage.setItem("user", JSON.stringify({
         id: userId,
         email: emailToLogin,
         nivel: perfil.nivel
       }));
       localStorage.setItem("empresa_id", usuario.empresa_id);
-      setTimeout(() => {
-        router.replace('/dashboard');
-      }, 500);
+      console.log('Debug login - Dados salvos no localStorage, iniciando redirecionamento...');
+      
+      // Forçar reload da página para garantir que o AuthContext seja atualizado
+      console.log('Debug login - Executando window.location.href...');
+      window.location.href = '/';
     }
   };
 

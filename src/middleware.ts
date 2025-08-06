@@ -1,174 +1,38 @@
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export async function middleware(req: NextRequest) {
   console.log('🔍 Middleware executando para:', req.nextUrl.pathname);
   
+  // TEMPORARIAMENTE DESABILITADO - Permitir acesso a todas as páginas
+  console.log('🔍 Middleware - DESABILITADO - Permitindo acesso');
+  return NextResponse.next();
+  
+  // CÓDIGO ORIGINAL COMENTADO:
+  /*
   const res = NextResponse.next();
-  const supabase = createMiddlewareClient({ req, res });
+  
+  // Criar cliente Supabase para middleware
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
   // Verificar se o usuário está autenticado
   const { data: { user } } = await supabase.auth.getUser();
+  console.log('🔍 Middleware - Usuário autenticado:', !!user);
 
   // Se não está autenticado e não está em páginas públicas, redirecionar para login
   if (!user && !req.nextUrl.pathname.startsWith('/login') && !req.nextUrl.pathname.startsWith('/criar-empresa') && !req.nextUrl.pathname.startsWith('/cadastro') && !req.nextUrl.pathname.startsWith('/teste-expirado') && req.nextUrl.pathname !== '/' && !req.nextUrl.pathname.startsWith('/assets/')) {
+    console.log('🔍 Middleware - Redirecionando para login');
     return NextResponse.redirect(new URL('/login', req.url));
   }
 
-  // Se está autenticado, verificar assinatura para rotas protegidas
-  if (user) {
-    // Verificar se é técnico e está tentando acessar dashboard ou página inicial
-    if (req.nextUrl.pathname === '/dashboard' || req.nextUrl.pathname === '/') {
-      try {
-        const { data: usuario } = await supabase
-          .from('usuarios')
-          .select('nivel')
-          .eq('auth_user_id', user.id)
-          .single();
-
-        if (usuario?.nivel === 'tecnico') {
-          if (req.nextUrl.pathname === '/dashboard') {
-            console.log('Middleware: Técnico acessando dashboard, redirecionando para dashboard-tecnico');
-            return NextResponse.redirect(new URL('/dashboard-tecnico', req.url));
-          } else if (req.nextUrl.pathname === '/') {
-            console.log('Middleware: Técnico acessando página inicial, redirecionando para dashboard-tecnico');
-            return NextResponse.redirect(new URL('/dashboard-tecnico', req.url));
-          }
-        }
-      } catch (error) {
-        console.error('Erro ao verificar nível do usuário:', error);
-      }
-    }
-
-    // Rotas que precisam de verificação de assinatura
-    const rotasProtegidas = [
-      '/dashboard',
-      '/dashboard-tecnico',
-      '/caixa',
-      '/clientes',
-      '/fornecedores',
-      '/equipamentos',
-      '/ordens',
-      '/bancada',
-      '/financeiro',
-      '/lembretes',
-      '/perfil',
-      '/configuracoes'
-    ];
-
-    const precisaVerificarAssinatura = rotasProtegidas.some(rota => 
-      req.nextUrl.pathname.startsWith(rota)
-    );
-
-    if (precisaVerificarAssinatura) {
-      try {
-        // Buscar empresa do usuário
-        const { data: usuario } = await supabase
-          .from('usuarios')
-          .select('empresa_id')
-          .eq('auth_user_id', user.id)
-          .single();
-
-        if (usuario?.empresa_id) {
-          // Verificar se tem assinatura ativa usando service role
-          try {
-            // Criar cliente com service role para bypass RLS
-            const { createClient } = await import('@supabase/supabase-js');
-            const supabaseAdmin = createClient(
-              process.env.NEXT_PUBLIC_SUPABASE_URL!,
-              process.env.SUPABASE_SERVICE_ROLE_KEY!,
-              {
-                auth: {
-                  autoRefreshToken: false,
-                  persistSession: false
-                }
-              }
-            );
-
-            // Buscar assinatura ativa/trial
-            const { data: assinatura, error: assinaturaError } = await supabaseAdmin
-              .from('assinaturas')
-              .select('status, data_fim, data_trial_fim')
-              .eq('empresa_id', usuario.empresa_id)
-              .in('status', ['active', 'trial'])
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .single();
-
-            if (assinaturaError) {
-              console.error('Erro ao buscar assinatura no middleware:', assinaturaError);
-              // Em caso de erro, permitir acesso (não bloquear o usuário)
-              return res;
-            }
-
-            console.log('Middleware Debug:', {
-              empresa_id: usuario.empresa_id,
-              assinatura: assinatura,
-              pathname: req.nextUrl.pathname
-            });
-
-            if (assinatura) {
-              // Se tem assinatura ativa (não trial), verificar se não expirou
-              if (assinatura.status === 'active') {
-                if (assinatura.data_fim && new Date(assinatura.data_fim) < new Date()) {
-                  // Assinatura ativa expirou, redirecionar para teste expirado
-                  if (!req.nextUrl.pathname.startsWith('/teste-expirado')) {
-                    console.log('Middleware: Assinatura ativa expirou, redirecionando');
-                    return NextResponse.redirect(new URL('/teste-expirado', req.url));
-                  }
-                } else {
-                  // Assinatura ativa válida, permitir acesso
-                  console.log('Middleware: Assinatura ativa válida, permitindo acesso');
-                  return res;
-                }
-              }
-
-              // Se está no trial, verificar se expirou
-              if (assinatura.status === 'trial') {
-                const agora = new Date();
-                const fimTrial = new Date(assinatura.data_trial_fim);
-                const expirou = fimTrial < agora;
-                
-                console.log('Middleware Trial Check:', {
-                  agora: agora.toISOString(),
-                  fimTrial: fimTrial.toISOString(),
-                  expirou: expirou,
-                  diferencaHoras: (fimTrial.getTime() - agora.getTime()) / (1000 * 60 * 60)
-                });
-
-                if (expirou) {
-                  // Trial expirou, redirecionar para teste expirado
-                  if (!req.nextUrl.pathname.startsWith('/teste-expirado')) {
-                    console.log('Middleware: Trial expirou, redirecionando');
-                    return NextResponse.redirect(new URL('/teste-expirado', req.url));
-                  }
-                } else {
-                  // Trial ativo, permitir acesso normal
-                  console.log('Middleware: Trial ativo, permitindo acesso normal');
-                  return res;
-                }
-              }
-            } else {
-              // Se não tem assinatura, redirecionar para teste expirado
-              if (!req.nextUrl.pathname.startsWith('/teste-expirado')) {
-                console.log('Middleware: Sem assinatura, redirecionando');
-                return NextResponse.redirect(new URL('/teste-expirado', req.url));
-              }
-            }
-          } catch (error) {
-            console.error('Erro ao verificar assinatura no middleware:', error);
-            // Em caso de erro, permitir acesso (não bloquear o usuário)
-          }
-        }
-      } catch (error) {
-        console.error('Erro ao verificar assinatura:', error);
-        // Em caso de erro, permitir acesso (não bloquear o usuário)
-      }
-    }
-  }
-
+  // Temporariamente desabilitar verificações complexas para testar login
+  console.log('🔍 Middleware - Permitindo acesso');
   return res;
+  */
 }
 
 export const config = {

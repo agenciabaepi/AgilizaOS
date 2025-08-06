@@ -2,8 +2,6 @@
 
 import './globals.css';
 import '../styles/print.css';
-import { SessionContextProvider } from '@supabase/auth-helpers-react';
-import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
 import { useState } from 'react';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { ToastProvider } from '@/components/Toast';
@@ -25,25 +23,24 @@ function AuthContent({ children }: { children: React.ReactNode }) {
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const [supabaseClient] = useState(() => createPagesBrowserClient());
-
   return (
     <html lang="pt-BR">
+      <head>
+        <script src="/notification.js" defer></script>
+      </head>
       <body suppressHydrationWarning={true}>
-        <SessionContextProvider supabaseClient={supabaseClient}>
-          <AuthProvider>
-            <ToastProvider>
-              <ConfirmProvider>
-                <AuthContent>
-                  <TrialExpiredGuard>
-                    {children}
-                  </TrialExpiredGuard>
-                </AuthContent>
-                <Toaster position="top-right" />
-              </ConfirmProvider>
-            </ToastProvider>
-          </AuthProvider>
-        </SessionContextProvider>
+        <AuthProvider>
+          <ToastProvider>
+            <ConfirmProvider>
+              <AuthContent>
+                <TrialExpiredGuard>
+                  {children}
+                </TrialExpiredGuard>
+              </AuthContent>
+              <Toaster position="top-right" />
+            </ConfirmProvider>
+          </ToastProvider>
+        </AuthProvider>
       </body>
     </html>
   );

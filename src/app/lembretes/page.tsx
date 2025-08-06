@@ -26,7 +26,7 @@ import {
 import {CSS} from '@dnd-kit/utilities';
 import { Book, Pencil, Move } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import ClientOnly from '@/components/ClientOnly';
 import { v4 as uuidv4 } from 'uuid';
@@ -84,7 +84,7 @@ export default function LembretesPage() {
   // Use o contexto de autenticação
   const { session, user, usuarioData, empresaData } = useAuth();
   const empresa_id = empresaData?.id;
-  const supabase = useSupabaseClient();
+
   const { addToast } = useToast();
   const confirm = useConfirm();
 
