@@ -206,33 +206,26 @@ function NovaOS2Content() {
     async function fetchStatus() {
       if (!empresaData?.id) return;
       
-      // Status essenciais para nova OS
-      const statusEssenciais: Status[] = [
+      // Status fixos para criação de OS
+      const statusPadrao = [
         {
           id: 'orcamento',
-          nome: 'Aguardando Orçamento',
+          nome: 'ORÇAMENTO',
           cor: '#f59e0b',
           ordem: 1,
-          tipo: 'os',
-          empresa_id: undefined
+          tipo: 'os'
         },
         {
           id: 'aprovado',
-          nome: 'Valor Aprovado',
+          nome: 'APROVADO',
           cor: '#10b981',
           ordem: 2,
-          tipo: 'os',
-          empresa_id: undefined
+          tipo: 'os'
         }
-        // Remover retorno_garantia daqui
       ];
       
-      setStatusOS(statusEssenciais);
-      setStatusSelecionado('orcamento'); // Padrão: Aguardando Orçamento
-      
-      // Para teste: pré-selecionar alguns produtos e serviços
-      // setProdutosSelecionados([]); // Arrays vazios agora
-      // setServicosSelecionados([]); // Arrays vazios agora
+      setStatusOS(statusPadrao);
+      setStatusSelecionado('orcamento'); // Padrão: ORÇAMENTO
     }
     fetchStatus();
   }, [empresaData?.id]);
@@ -435,12 +428,19 @@ function NovaOS2Content() {
 
   // Função para verificar se o formulário está completo
   function formularioCompleto() {
-    return clienteSelecionado && 
-           dadosEquipamento.tipo && 
-           dadosEquipamento.marca && 
-           dadosEquipamento.modelo &&
-           tecnicoResponsavel &&
-           statusSelecionado;
+    const camposBasicos = clienteSelecionado && 
+                          dadosEquipamento.tipo && 
+                          dadosEquipamento.marca && 
+                          dadosEquipamento.modelo &&
+                          tecnicoResponsavel &&
+                          statusSelecionado;
+    
+    // Se for APROVADO, verificar se há produtos/serviços selecionados
+    if (statusSelecionado === 'aprovado') {
+      return camposBasicos && (produtosSelecionados.length > 0 || servicosSelecionados.length > 0);
+    }
+    
+    return camposBasicos;
   }
 
   async function finalizarOS() {
@@ -465,17 +465,28 @@ function NovaOS2Content() {
       return;
     }
 
+    // Se for APROVADO, verificar se há produtos/serviços selecionados
+    if (statusSelecionado === 'aprovado' && produtosSelecionados.length === 0 && servicosSelecionados.length === 0) {
+      alert('Para OS aprovada, selecione pelo menos um produto ou serviço');
+      return;
+    }
+
     setSalvando(true);
 
     try {
       // Buscar dados do técnico selecionado
       const tecnicoSelecionado = tecnicos.find(t => t.auth_user_id === tecnicoResponsavel);
       
+      // Buscar o status selecionado para obter o nome
+      const statusSelecionadoObj = statusOS.find(s => s.id === statusSelecionado);
+      const nomeStatus = statusSelecionadoObj?.nome || 'ABERTA';
+
       // Preparar dados da OS para salvar no banco
       const dadosOS = {
         cliente_id: clienteSelecionado,
         tecnico_id: tecnicoResponsavel,
-        status: statusSelecionado?.toUpperCase() || 'ABERTA',
+        status: nomeStatus,
+        status_tecnico: 'AGUARDANDO INÍCIO', // Status do técnico por padrão
         categoria: dadosEquipamento.tipo?.toUpperCase() || '',
         marca: dadosEquipamento.marca?.toUpperCase() || '',
         modelo: dadosEquipamento.modelo?.toUpperCase() || '',
@@ -993,11 +1004,12 @@ function NovaOS2Content() {
 
             {etapaAtual === 4 && (
               <div className="w-full max-w-2xl mx-auto flex flex-col gap-6">
-                <h3 className="text-lg font-medium text-gray-700 mb-4">Status da Ordem de Serviço</h3>
+                <h3 className="text-lg font-medium text-gray-700 mb-4">Tipo de Entrada</h3>
                 
                 {/* Seleção de Status */}
                 <div className="space-y-4">
-                  <label className="block text-sm font-medium text-gray-700">Tipo de Entrada</label>
+                  <label className="block text-sm font-medium text-gray-700">Como o cliente deixou o aparelho?</label>
+                  
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {statusOS.map((status) => (
                       <div 
@@ -1012,14 +1024,15 @@ function NovaOS2Content() {
                         <div className="flex items-center gap-3">
                           <div 
                             className="w-4 h-4 rounded-full" 
-                            style={{ backgroundColor: status.cor }}
+                            style={{ backgroundColor: status.cor || '#6b7280' }}
                           />
                           <div>
                             <p className="text-sm font-medium text-gray-700">{status.nome}</p>
                             <p className="text-xs text-gray-500">
-                              {status.id === 'orcamento' 
-                                ? 'Cliente deixou para orçamento' 
-                                : 'Cliente já aprovou o valor'}
+                              {status.nome === 'ORÇAMENTO' 
+                                ? 'Cliente deixou para orçamento - será necessário fazer orçamento posteriormente'
+                                : 'Cliente já aprovou o valor - OS pode prosseguir para execução'
+                              }
                             </p>
                           </div>
                         </div>
@@ -1031,7 +1044,7 @@ function NovaOS2Content() {
                 {/* Informações do Status Selecionado */}
                 {statusSelecionado && (
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Status Selecionado</h4>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Tipo de Entrada Selecionado</h4>
                     {(() => {
                       const status = statusOS.find(s => s.id === statusSelecionado);
                       if (!status) return null;
@@ -1044,9 +1057,10 @@ function NovaOS2Content() {
                           <div>
                             <p className="text-sm font-medium text-gray-700">{status.nome}</p>
                             <p className="text-xs text-gray-500">
-                              {status.id === 'orcamento' 
+                              {status.nome === 'ORÇAMENTO' 
                                 ? 'Será necessário fazer orçamento posteriormente' 
-                                : 'OS pode prosseguir para execução'}
+                                : 'OS pode prosseguir para execução'
+                              }
                             </p>
                           </div>
                         </div>

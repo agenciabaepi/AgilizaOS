@@ -91,11 +91,21 @@ export default function BancadaPage() {
     const ordem = ordens.find(os => os.id === id);
     if (ordem && ordem.status === 'ABERTA') {
       try {
+        // Buscar status fixos para obter os nomes corretos
+        const { data: statusFixos } = await supabase
+          .from('status_fixo')
+          .select('*')
+          .eq('tipo', 'os');
+
+        // Encontrar o status "EM ANÁLISE" nos status fixos
+        const statusEmAnalise = statusFixos?.find(s => s.nome === 'EM ANÁLISE');
+        const statusTecnicoEmAnalise = statusFixos?.find(s => s.nome === 'EM ANÁLISE' && s.tipo === 'tecnico');
+
         const { error } = await supabase
           .from('ordens_servico')
           .update({
-            status: 'EM_ANALISE',
-            status_tecnico: 'EM ANÁLISE',
+            status: statusEmAnalise?.nome || 'EM_ANALISE',
+            status_tecnico: statusTecnicoEmAnalise?.nome || 'EM ANÁLISE',
             updated_at: new Date().toISOString()
           })
           .eq('id', id);
@@ -106,7 +116,11 @@ export default function BancadaPage() {
           // Atualizar a lista local
           setOrdens(prev => prev.map(os => 
             os.id === id 
-              ? { ...os, status: 'EM_ANALISE', status_tecnico: 'EM ANÁLISE' }
+              ? { 
+                  ...os, 
+                  status: statusEmAnalise?.nome || 'EM_ANALISE', 
+                  status_tecnico: statusTecnicoEmAnalise?.nome || 'EM ANÁLISE' 
+                }
               : os
           ));
         }

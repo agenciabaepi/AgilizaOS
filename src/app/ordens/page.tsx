@@ -168,6 +168,7 @@ export default function ListaOrdensPage() {
           cor,
           servico,
           status,
+          status_tecnico,
           created_at,
           tecnico_id,
           atendente,
@@ -189,9 +190,8 @@ export default function ListaOrdensPage() {
       } else if (data) {
         console.log('Dados recebidos do Supabase:', data);
         data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        // @ts-ignore - Supabase retorna dados dinâmicos
         // Buscar nomes dos técnicos se necessário
-        const tecnicoIds = [...new Set(data.filter(item => item.tecnico_id).map(item => item.tecnico_id))];
+        const tecnicoIds = [...new Set(data.filter((item: any) => item.tecnico_id).map((item: any) => item.tecnico_id))];
         let tecnicosDict: Record<string, string> = {};
         
         if (tecnicoIds.length > 0) {
