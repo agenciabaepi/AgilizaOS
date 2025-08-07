@@ -45,14 +45,34 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Converter arquivo para base64 (solução temporária até criar o bucket)
-      const arrayBuffer = await file.arrayBuffer();
-      const base64 = Buffer.from(arrayBuffer).toString('base64');
-      const dataUrl = `data:${file.type};base64,${base64}`;
+      // Gerar nome único para o arquivo
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${ordemId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+
+      // Upload para o Supabase Storage
+      const { error } = await supabase.storage
+        .from('ordens-imagens')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) {
+        console.error('Erro no upload:', error);
+        return NextResponse.json(
+          { error: 'Erro ao fazer upload da imagem: ' + error.message },
+          { status: 500 }
+        );
+      }
+
+      // Obter URL pública
+      const { data: urlData } = supabase.storage
+        .from('ordens-imagens')
+        .getPublicUrl(fileName);
 
       uploadedFiles.push({
         name: file.name,
-        url: dataUrl,
+        url: urlData.publicUrl,
         size: file.size,
         type: file.type
       });
