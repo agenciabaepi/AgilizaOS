@@ -236,3 +236,83 @@
     margin-right: 8px;
   }
 }
+
+/* ===== ANIMAÇÕES SIMPLES DE SCROLL REVEAL ===== */
+
+/* Animação básica de entrada */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.scroll-reveal.animated {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Animação de fade */
+.scroll-reveal-fade {
+  opacity: 0;
+  transition: opacity 0.6s ease-out;
+}
+
+.scroll-reveal-fade.animated {
+  opacity: 1;
+}
+
+/* Animação de slide up */
+.scroll-reveal-slide-up {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: all 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.scroll-reveal-slide-up.animated {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Animação de scale */
+.scroll-reveal-scale {
+  opacity: 0;
+  transform: scale(0.9) translateY(20px);
+  transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.scroll-reveal-scale.animated {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+/* Delays */
+.delay-100 { transition-delay: 100ms; }
+.delay-200 { transition-delay: 200ms; }
+.delay-300 { transition-delay: 300ms; }
+.delay-400 { transition-delay: 400ms; }
+.delay-500 { transition-delay: 500ms; }
+.delay-600 { transition-delay: 600ms; }
+.delay-700 { transition-delay: 700ms; }
+.delay-800 { transition-delay: 800ms; }
+.delay-900 { transition-delay: 900ms; }
+.delay-1000 { transition-delay: 1000ms; }
+
+/* Responsividade para animações */
+@media (prefers-reduced-motion: reduce) {
+  .scroll-reveal,
+  .scroll-reveal-fade,
+  .scroll-reveal-slide-up,
+  .scroll-reveal-scale {
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+  
+  .scroll-reveal.animated,
+  .scroll-reveal-fade.animated,
+  .scroll-reveal-slide-up.animated,
+  .scroll-reveal-scale.animated {
+    opacity: 1;
+    transform: none;
+  }
+}

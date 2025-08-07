@@ -6,10 +6,15 @@ import Link from 'next/link';
 import Image from 'next/image';
 import macbookImage from '../assets/imagens/macbook.png';
 import { supabase } from '@/lib/supabaseClient';
+import { useScrollReveal } from '@/hooks/useScrollReveal';
+import UltraModernWordRotator from '@/components/UltraModernWordRotator';
 
 export default function Home() {
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  
+  // Hook para animações de scroll reveal
+  const { isAnimated } = useScrollReveal();
   
   // Verificar se usuário está logado e redirecionar se necessário
   useEffect(() => {
@@ -41,7 +46,6 @@ export default function Home() {
 
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [scrollY, setScrollY] = useState(0);
-  const [animatedElements, setAnimatedElements] = useState<Set<string>>(new Set());
   // --- Analytics Animation State ---
   const [showAnalyticsAnimation, setShowAnalyticsAnimation] = useState(false);
   const [hasAnimated, setHasAnimated] = useState(false);
@@ -71,34 +75,12 @@ export default function Home() {
       setScrollY(window.scrollY);
     };
 
-    // Intersection Observer para animações de entrada
-    const observerOptions = {
-      threshold: 0.1,
-      rootMargin: '0px 0px -50px 0px'
-    };
-
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          const elementId = entry.target.getAttribute('data-animate');
-          if (elementId) {
-            setAnimatedElements(prev => new Set([...prev, elementId]));
-          }
-        }
-      });
-    }, observerOptions);
-
-    // Observar elementos com animação
-    const animatedElements = document.querySelectorAll('[data-animate]');
-    animatedElements.forEach(el => observer.observe(el));
-
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('scroll', handleScroll);
     
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('scroll', handleScroll);
-      observer.disconnect();
     };
   }, []);
 
@@ -323,9 +305,9 @@ export default function Home() {
         <div className="mx-auto max-w-5xl text-center">
           {/* Social Proof Badge */}
           <div 
-            data-animate="badge"
-            className={`inline-flex items-center px-8 py-4 bg-white/5 backdrop-blur-xl border border-white/20 rounded-full mb-12 transition-all duration-1000 ease-out ${
-              animatedElements.has('badge') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+            data-reveal="badge"
+            className={`inline-flex items-center px-8 py-4 bg-white/5 backdrop-blur-xl border border-white/20 rounded-full mb-12 scroll-reveal-slide-up ${
+              isAnimated('badge') ? 'animated' : ''
             }`}
             style={{
               boxShadow: '0 8px 32px rgba(209, 254, 110, 0.1)',
@@ -338,31 +320,37 @@ export default function Home() {
 
           {/* Main Headline */}
           <h1 
-            data-animate="headline"
-            className={`text-6xl md:text-8xl font-light mb-12 leading-none tracking-tight transition-all duration-1000 ease-out text-gradient-primary ${
-              animatedElements.has('headline') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+            data-reveal="headline"
+            className={`text-6xl md:text-8xl font-light mb-12 leading-none tracking-tight scroll-reveal-slide-up text-gradient-primary ${
+              isAnimated('headline') ? 'animated' : ''
             }`}
           >
             Sua assistência com 
-            <span className="block font-medium text-gradient-secondary">gestão inteligente</span>
+            <span className="block font-medium text-gradient-secondary">
+              <UltraModernWordRotator 
+                words={['gestão inteligente', 'sistema completo', 'resultados reais', 'crescimento contínuo']}
+                interval={3000}
+                textClassName="text-gradient-secondary"
+              />
+            </span>
           </h1>
 
           {/* Sub-headline */}
-          <p 
-            data-animate="subheadline"
-            className={`text-xl md:text-2xl text-white/80 mb-16 max-w-4xl mx-auto leading-relaxed font-light transition-all duration-1000 ease-out delay-300 ${
-              animatedElements.has('subheadline') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+          <div 
+            data-reveal="subheadline"
+            className={`text-xl md:text-2xl text-white/80 mb-16 max-w-4xl mx-auto leading-relaxed font-light scroll-reveal-slide-up delay-300 ${
+              isAnimated('subheadline') ? 'animated' : ''
             }`}
           >
-            Consert transforma oficinas em máquinas de crescimento—onde cada ordem de serviço 
+            Consert transforma oficinas em negócios lucrativos. Cada ordem de serviço 
             impulsiona eficiência, engajamento real e momentum da marca no piloto automático.
-          </p>
+          </div>
 
           {/* CTA Buttons */}
           <div 
-            data-animate="cta"
-            className={`flex flex-col sm:flex-row gap-8 justify-center items-center transition-all duration-1000 ease-out delay-500 ${
-              animatedElements.has('cta') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+            data-reveal="cta"
+            className={`flex flex-col sm:flex-row gap-8 justify-center items-center scroll-reveal-slide-up delay-500 ${
+              isAnimated('cta') ? 'animated' : ''
             }`}
           >
             <button 
@@ -393,9 +381,9 @@ export default function Home() {
           <div className="flex flex-col items-center justify-center">
             {/* MacBook Pro Image */}
             <div 
-              data-animate="macbook"
-              className={`relative mb-16 flex justify-center transition-all duration-1000 ease-out delay-300 ${
-                animatedElements.has('macbook') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+              data-reveal="macbook"
+              className={`relative mb-16 flex justify-center scroll-reveal-scale scroll-reveal-delay-300 ${
+                isAnimated('macbook') ? 'revealed' : ''
               }`}
             >
               <Image 
@@ -414,9 +402,9 @@ export default function Home() {
 
             {/* Call to Action */}
             <div 
-              data-animate="demo-cta"
-              className={`text-center max-w-lg transition-all duration-1000 ease-out delay-500 ${
-                animatedElements.has('demo-cta') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+              data-reveal="demo-cta"
+              className={`text-center max-w-lg scroll-reveal-slide-up scroll-reveal-delay-500 ${
+                isAnimated('demo-cta') ? 'revealed' : ''
               }`}
             >
               <div className="flex items-center justify-center mb-8">
@@ -448,9 +436,9 @@ export default function Home() {
       <div id="recursos" className="relative z-10 px-8 py-32 lg:px-12">
         <div className="mx-auto max-w-6xl">
           <div 
-            data-animate="features-header"
-            className={`text-center mb-32 transition-all duration-1000 ease-out ${
-              animatedElements.has('features-header') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+            data-reveal="features-header"
+            className={`text-center mb-32 hero-reveal ${
+              isAnimated('features-header') ? 'revealed' : ''
             }`}
           >
             <h2 className="text-6xl md:text-7xl font-light mb-12 leading-none tracking-tight text-gradient-accent">
@@ -465,9 +453,9 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {/* Feature 1 */}
             <div 
-              data-animate="feature-1"
-              className={`group h-full transition-all duration-1000 ease-out ${
-                animatedElements.has('feature-1') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+              data-reveal="feature-1"
+              className={`group h-full card-reveal ${
+                isAnimated('feature-1') ? 'revealed' : ''
               }`}
             >
               <div 
@@ -499,9 +487,9 @@ export default function Home() {
 
             {/* Feature 2 */}
             <div 
-              data-animate="feature-2"
-              className={`group h-full transition-all duration-1000 ease-out delay-100 ${
-                animatedElements.has('feature-2') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+              data-reveal="feature-2"
+              className={`group h-full card-reveal scroll-reveal-delay-100 ${
+                isAnimated('feature-2') ? 'revealed' : ''
               }`}
             >
               <div 
@@ -533,9 +521,9 @@ export default function Home() {
 
             {/* Feature 3 */}
             <div 
-              data-animate="feature-3"
-              className={`group h-full transition-all duration-1000 ease-out delay-200 ${
-                animatedElements.has('feature-3') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+              data-reveal="feature-3"
+              className={`group h-full card-reveal scroll-reveal-delay-200 ${
+                isAnimated('feature-3') ? 'revealed' : ''
               }`}
             >
               <div 
@@ -567,9 +555,9 @@ export default function Home() {
 
             {/* Feature 4 */}
             <div 
-              data-animate="feature-4"
-              className={`group h-full transition-all duration-1000 ease-out delay-300 ${
-                animatedElements.has('feature-4') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+              data-reveal="feature-4"
+              className={`group h-full card-reveal scroll-reveal-delay-300 ${
+                isAnimated('feature-4') ? 'revealed' : ''
               }`}
             >
               <div 
@@ -601,9 +589,9 @@ export default function Home() {
 
             {/* Feature 5 */}
             <div 
-              data-animate="feature-5"
-              className={`group h-full transition-all duration-1000 ease-out delay-400 ${
-                animatedElements.has('feature-5') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+              data-reveal="feature-5"
+              className={`group h-full card-reveal scroll-reveal-delay-400 ${
+                isAnimated('feature-5') ? 'revealed' : ''
               }`}
             >
               <div 
@@ -635,9 +623,9 @@ export default function Home() {
 
             {/* Feature 6 */}
             <div 
-              data-animate="feature-6"
-              className={`group h-full transition-all duration-1000 ease-out delay-500 ${
-                animatedElements.has('feature-6') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+              data-reveal="feature-6"
+              className={`group h-full card-reveal scroll-reveal-delay-500 ${
+                isAnimated('feature-6') ? 'revealed' : ''
               }`}
             >
               <div 
@@ -676,17 +664,17 @@ export default function Home() {
           {/* Section Header */}
           <div className="text-center mb-24">
             <h2 
-              data-animate="analytics-headline"
-              className={`text-5xl md:text-7xl font-light mb-8 leading-none tracking-tight transition-all duration-1000 ease-out text-gradient-accent ${
-                animatedElements.has('analytics-headline') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+              data-reveal="analytics-headline"
+              className={`text-5xl md:text-7xl font-light mb-8 leading-none tracking-tight hero-reveal text-gradient-accent ${
+                isAnimated('analytics-headline') ? 'revealed' : ''
               }`}
             >
               Dados que impulsionam resultados
             </h2>
             <p 
-              data-animate="analytics-subheadline"
-              className={`text-xl text-white/70 max-w-3xl mx-auto leading-relaxed font-light transition-all duration-1000 ease-out delay-300 ${
-                animatedElements.has('analytics-subheadline') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+              data-reveal="analytics-subheadline"
+              className={`text-xl text-white/70 max-w-3xl mx-auto leading-relaxed font-light scroll-reveal-slide-up scroll-reveal-delay-300 ${
+                isAnimated('analytics-subheadline') ? 'revealed' : ''
               }`}
             >
               Dashboards inteligentes que transformam números em insights acionáveis
@@ -697,9 +685,9 @@ export default function Home() {
           <div className="max-w-5xl mx-auto">
             {/* Charts Container */}
             <div 
-              data-animate="charts-container"
-              className={`transition-all duration-1000 ease-out delay-200 ${
-                animatedElements.has('charts-container') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+              data-reveal="charts-container"
+              className={`chart-reveal scroll-reveal-delay-200 ${
+                isAnimated('charts-container') ? 'revealed' : ''
               }`}
             >
               <div className="relative">
@@ -870,9 +858,9 @@ export default function Home() {
 
                 {/* Metrics Row */}
                 <div 
-                  data-animate="analytics-content"
-                  className={`grid grid-cols-1 md:grid-cols-3 gap-8 transition-all duration-1000 ease-out delay-400 ${
-                    animatedElements.has('analytics-content') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+                  data-reveal="analytics-content"
+                  className={`grid grid-cols-1 md:grid-cols-3 gap-8 scroll-reveal-slide-up scroll-reveal-delay-400 ${
+                    isAnimated('analytics-content') ? 'revealed' : ''
                   }`}
                 >
                   {/* Metric 1 */}
@@ -962,9 +950,9 @@ export default function Home() {
         <div className="mx-auto max-w-7xl">
           {/* Section Header */}
           <div 
-            data-animate="pricing-header"
-            className={`text-center mb-20 transition-all duration-1000 ease-out ${
-              animatedElements.has('pricing-header') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+            data-reveal="pricing-header"
+            className={`text-center mb-20 hero-reveal ${
+              isAnimated('pricing-header') ? 'revealed' : ''
             }`}
           >
             <h2 className="text-6xl md:text-7xl font-light mb-8 leading-none tracking-tight text-gradient-accent">
@@ -979,9 +967,9 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
             {/* Plano Básico */}
             <div 
-              data-animate="pricing-basic"
-              className={`group relative transition-all duration-1000 ease-out ${
-                animatedElements.has('pricing-basic') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+              data-reveal="pricing-basic"
+              className={`group relative card-reveal ${
+                isAnimated('pricing-basic') ? 'revealed' : ''
               }`}
             >
               <div 
@@ -1090,9 +1078,9 @@ export default function Home() {
 
             {/* Plano Pro */}
             <div 
-              data-animate="pricing-pro"
-              className={`group relative transition-all duration-1000 ease-out delay-100 ${
-                animatedElements.has('pricing-pro') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+              data-reveal="pricing-pro"
+              className={`group relative card-reveal scroll-reveal-delay-100 ${
+                isAnimated('pricing-pro') ? 'revealed' : ''
               }`}
             >
               {/* Popular Badge */}
@@ -1216,9 +1204,9 @@ export default function Home() {
 
             {/* Plano Avançado */}
             <div 
-              data-animate="pricing-advanced"
-              className={`group relative transition-all duration-1000 ease-out delay-200 ${
-                animatedElements.has('pricing-advanced') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+              data-reveal="pricing-advanced"
+              className={`group relative card-reveal scroll-reveal-delay-200 ${
+                isAnimated('pricing-advanced') ? 'revealed' : ''
               }`}
             >
               <div 
@@ -1328,9 +1316,9 @@ export default function Home() {
 
           {/* Additional Info */}
           <div 
-            data-animate="pricing-info"
-            className={`text-center mt-16 transition-all duration-1000 ease-out delay-300 ${
-              animatedElements.has('pricing-info') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+            data-reveal="pricing-info"
+            className={`text-center mt-16 scroll-reveal-fade scroll-reveal-delay-300 ${
+              isAnimated('pricing-info') ? 'revealed' : ''
             }`}
           >
             <p className="text-white/60 text-sm max-w-2xl mx-auto">

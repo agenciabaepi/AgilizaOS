@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { ToastProvider } from '@/components/Toast';
 import { ConfirmProvider } from '@/components/ConfirmDialog';
 import TrialExpiredGuard from '@/components/TrialExpiredGuard';
+
 import { Toaster } from 'react-hot-toast';
 
 // Metadata removida conforme exigência do Next.js para arquivos com "use client"
@@ -18,7 +19,9 @@ function AuthContent({ children }: { children: React.ReactNode }) {
       <span style={{ fontSize: 24 }}>Saindo...</span>
     </div>
   ) : (
-    <>{children}</>
+    <>
+      {children}
+    </>
   );
 }
 
