@@ -42,6 +42,7 @@ import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { Select } from '@/components/Select';
 import LaudoProntoAlert from '@/components/LaudoProntoAlert';
+import StatusQuickChange from '@/components/StatusQuickChange';
 
 export default function ListaOrdensPage() {
   const router = useRouter();
@@ -295,6 +296,16 @@ export default function ListaOrdensPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleStatusChange = (ordemId: string, newStatus: string, newStatusTecnico: string) => {
+    setOrdens(prevOrdens => 
+      prevOrdens.map(os => 
+        os.id === ordemId 
+          ? { ...os, statusOS: newStatus, statusTecnico: newStatusTecnico }
+          : os
+      )
+    );
   };
 
   const fetchTecnicos = async () => {

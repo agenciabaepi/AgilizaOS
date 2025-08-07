@@ -40,6 +40,8 @@ export default function EditarOrdemServico() {
   const [termoSelecionado, setTermoSelecionado] = useState<string | null>(null);
   const [valorServico, setValorServico] = useState<number>(0);
   const [valorPeca, setValorPeca] = useState<number>(0);
+  const [tecnicos, setTecnicos] = useState<any[]>([]);
+  const [tecnicoSelecionado, setTecnicoSelecionado] = useState<any>(null);
 
   // Função para detectar se é retorno
   const isRetorno = (ordem: any) => {
@@ -99,6 +101,21 @@ export default function EditarOrdemServico() {
         }
         setLoadingTermos(false);
 
+        // Buscar técnicos da empresa
+        const { data: tecnicosData, error: tecnicosError } = await supabase
+          .from('usuarios')
+          .select('id, nome, email, auth_user_id')
+          .eq('empresa_id', empresaId)
+          .eq('nivel', 'tecnico')
+          .order('nome', { ascending: true });
+
+        console.log('Técnicos encontrados:', tecnicosData);
+        console.log('Erro ao buscar técnicos:', tecnicosError);
+
+        if (tecnicosData) {
+          setTecnicos(tecnicosData);
+        }
+
         // Buscar ordem
         const { data: ordemData, error } = await supabase
           .from('ordens_servico')
@@ -137,6 +154,16 @@ export default function EditarOrdemServico() {
           // Set initial selected termo
           if (ordemData.termo_garantia_id) {
             setTermoSelecionado(ordemData.termo_garantia_id);
+          }
+
+          // Set initial selected tecnico
+          if (ordemData.tecnico_id && tecnicosData) {
+            const tecnicoEncontrado = tecnicosData.find((t: any) => t.auth_user_id === ordemData.tecnico_id);
+            console.log('Técnico encontrado:', tecnicoEncontrado);
+            setTecnicoSelecionado(tecnicoEncontrado || null);
+          } else {
+            console.log('Nenhum técnico encontrado para:', ordemData.tecnico_id);
+            setTecnicoSelecionado(null);
           }
 
           // Set initial values
@@ -188,9 +215,15 @@ export default function EditarOrdemServico() {
         const el = input as HTMLInputElement;
         if (!el.readOnly && el.name) {
           if (el.type === 'number') {
-            updatedData[el.name] = parseInt(el.value, 10);
+            const value = parseInt(el.value, 10);
+            if (!isNaN(value)) {
+              updatedData[el.name] = value;
+            }
           } else {
-            updatedData[el.name] = el.value;
+            const value = el.value.trim();
+            if (value !== '') {
+              updatedData[el.name] = value;
+            }
             if (el.name === 'status' && statusSelecionado?.nome === 'FINALIZADO') {
               updatedData['data_entrega'] = new Date().toISOString();
             }
@@ -206,16 +239,71 @@ export default function EditarOrdemServico() {
       updatedData['valor_peca'] = valorPeca;
       updatedData['valor_faturado'] = calcularTotal();
       updatedData['termo_garantia_id'] = termoSelecionado || null;
+      // Incluir tecnico_id se um técnico válido foi selecionado
+      console.log('TÉCNICO SELECIONADO:', tecnicoSelecionado);
+      console.log('TÉCNICOS DISPONÍVEIS:', tecnicos);
+      console.log('TÉCNICO ATUAL DA OS:', ordem.tecnico_id);
+      
+      if (tecnicoSelecionado?.auth_user_id && tecnicos.some(t => t.auth_user_id === tecnicoSelecionado.auth_user_id)) {
+        console.log('Técnico válido selecionado:', tecnicoSelecionado.auth_user_id);
+        console.log('Nome do técnico:', tecnicoSelecionado.nome);
+        console.log('Técnico existe na lista:', tecnicos.find(t => t.auth_user_id === tecnicoSelecionado.auth_user_id));
+        updatedData['tecnico_id'] = tecnicoSelecionado.auth_user_id;
+      } else if (tecnicoSelecionado === null) {
+        // Se nenhum técnico foi selecionado, remover o campo
+        console.log('Nenhum técnico selecionado, removendo tecnico_id');
+        delete updatedData['tecnico_id'];
+      } else {
+        // Se o técnico selecionado é inválido, manter o atual
+        console.log('Técnico inválido, mantendo atual:', ordem.tecnico_id);
+        console.log('Técnico selecionado inválido:', tecnicoSelecionado);
+        if (ordem.tecnico_id) {
+          updatedData['tecnico_id'] = ordem.tecnico_id;
+        }
+      }
 
-      const { error } = await supabase
+      // Remover campos undefined/null
+      Object.keys(updatedData).forEach(key => {
+        if (updatedData[key] === undefined || updatedData[key] === null || updatedData[key] === '') {
+          delete updatedData[key];
+        }
+      });
+
+      // Verificar se tecnico_id é um UUID válido
+      if (updatedData.tecnico_id) {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(updatedData.tecnico_id)) {
+          console.error('tecnico_id não é um UUID válido:', updatedData.tecnico_id);
+          delete updatedData.tecnico_id;
+        } else {
+          console.log('tecnico_id é um UUID válido:', updatedData.tecnico_id);
+        }
+      }
+
+      console.log('Dados para atualizar (limpos):', updatedData);
+      console.log('Técnico selecionado:', tecnicoSelecionado);
+      console.log('Técnicos disponíveis:', tecnicos);
+      console.log('ID da OS:', id);
+
+      const { data, error } = await supabase
         .from('ordens_servico')
         .update(updatedData)
-        .eq('id', id as string);
+        .eq('id', id as string)
+        .select();
+
+      console.log('Resposta do Supabase:', { data, error });
 
       if (error) {
         console.error('Erro ao atualizar ordem:', error);
-        alert('Erro ao salvar alterações: ' + error.message);
+        console.error('Detalhes do erro:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        alert('Erro ao salvar alterações: ' + (error.message || 'Erro desconhecido'));
       } else {
+        console.log('OS atualizada com sucesso:', data);
         alert('Alterações salvas com sucesso!');
         router.push(`/ordens/${id}`);
       }
@@ -389,8 +477,8 @@ export default function EditarOrdemServico() {
                 </div>
               </div>
 
-              {/* Status e Relatos */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Status, Técnico e Relatos */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="p-2 bg-purple-100 rounded-lg">
@@ -428,6 +516,46 @@ export default function EditarOrdemServico() {
                                   style={{ backgroundColor: status.cor || 'black' }}
                                 ></span>
                                 {status.nome}
+                              </Listbox.Option>
+                            ))}
+                          </Listbox.Options>
+                        </Transition>
+                      </div>
+                    </Listbox>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <FiTool className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <h2 className="text-xl font-semibold text-gray-900">Técnico</h2>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Técnico Responsável</label>
+                    <Listbox value={tecnicoSelecionado} onChange={setTecnicoSelecionado}>
+                      <div className="relative">
+                        <Listbox.Button className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-left focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                          <span className="flex items-center gap-2">
+                            <FiUser className="w-4 h-4 text-gray-400" />
+                            {tecnicoSelecionado?.nome || 'Selecione um técnico...'}
+                          </span>
+                        </Listbox.Button>
+                        <Transition as={Fragment} leave="transition ease-in duration-100" leaveFrom="opacity-100" leaveTo="opacity-0">
+                          <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto bg-white border border-gray-200 rounded-lg shadow-lg text-sm">
+                            {tecnicos.map((tecnico) => (
+                              <Listbox.Option
+                                key={tecnico.id}
+                                value={tecnico}
+                                className={({ active }) =>
+                                  `cursor-pointer select-none px-3 py-2 flex items-center gap-2 ${
+                                    active ? 'bg-blue-600 text-white' : 'text-gray-900'
+                                  }`
+                                }
+                              >
+                                <FiUser className="w-4 h-4 text-gray-400" />
+                                {tecnico.nome}
                               </Listbox.Option>
                             ))}
                           </Listbox.Options>

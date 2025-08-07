@@ -68,6 +68,8 @@ const VisualizarOrdemServicoPage = () => {
           console.error('Erro ao carregar OS:', error);
         } else {
           console.log('OS carregada:', data);
+          console.log('Técnico da OS:', data?.tecnico);
+          console.log('Técnico ID:', data?.tecnico_id);
           console.log('Tipo da OS:', data?.tipo);
           console.log('Valores da OS:', {
             valor_servico: data?.valor_servico,
