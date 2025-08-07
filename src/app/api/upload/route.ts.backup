@@ -45,6 +45,10 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Gerar nome único para o arquivo
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${ordemId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+
       // Converter arquivo para base64 (solução temporária)
       const arrayBuffer = await file.arrayBuffer();
       const base64 = Buffer.from(arrayBuffer).toString('base64');
@@ -70,4 +74,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+} 

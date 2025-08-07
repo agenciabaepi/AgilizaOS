@@ -3,9 +3,10 @@
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { FiClipboard, FiSave, FiBox, FiTool, FiPlayCircle } from 'react-icons/fi';
+import { FiClipboard, FiSave, FiBox, FiTool, FiPlayCircle, FiX } from 'react-icons/fi';
 import MenuLayout from '@/components/MenuLayout';
 import ProtectedArea from '@/components/ProtectedArea';
+import ProdutoServicoSearch from '@/components/ProdutoServicoSearch';
 
 export default function DetalheBancadaPage() {
   const params = useParams();
@@ -54,6 +55,20 @@ export default function DetalheBancadaPage() {
   const [salvando, setSalvando] = useState(false);
   const [statusTecnicoOptions, setStatusTecnicoOptions] = useState<{ id: string, nome: string }[]>([]);
   const [mostrarBotaoIniciar, setMostrarBotaoIniciar] = useState(false);
+  
+  // Estados para produtos e serviços selecionados
+  const [produtosSelecionados, setProdutosSelecionados] = useState<Array<{
+    id: string;
+    nome: string;
+    preco: number;
+    quantidade: number;
+  }>>([]);
+  const [servicosSelecionados, setServicosSelecionados] = useState<Array<{
+    id: string;
+    nome: string;
+    preco: number;
+  }>>([]);
+  const [empresaId, setEmpresaId] = useState<string>('');
 
   useEffect(() => {
     const fetchOS = async () => {
@@ -65,6 +80,7 @@ export default function DetalheBancadaPage() {
         .single();
       if (!error && data) {
         setOs(data);
+        setEmpresaId(data.empresa_id);
         
         // Definir status inicial baseado no status atual da OS
         let statusInicial = data.status_tecnico || '';
@@ -156,6 +172,15 @@ export default function DetalheBancadaPage() {
         novoStatus = 'ABERTA';
       }
 
+      // Preparar dados dos produtos e serviços
+      const produtosText = produtosSelecionados.map(p => 
+        `${p.nome} (${p.quantidade}x) - ${formatPrice(p.preco * p.quantidade)}`
+      ).join(', ');
+      
+      const servicosText = servicosSelecionados.map(s => 
+        `${s.nome} - ${formatPrice(s.preco)}`
+      ).join(', ');
+
       const { error } = await supabase
         .from('ordens_servico')
         .update({
@@ -163,8 +188,11 @@ export default function DetalheBancadaPage() {
           status_tecnico: statusTecnico,
           laudo,
           observacao: observacoes,
-          peca: produtos,
-          servico: servicos
+          peca: produtosText || produtos,
+          servico: servicosText || servicos,
+          valor_peca: calcularTotalProdutos().toString(),
+          valor_servico: calcularTotalServicos().toString(),
+          valor_faturado: (calcularTotalProdutos() + calcularTotalServicos()).toString()
         })
         .eq('id', id);
 
@@ -174,7 +202,13 @@ export default function DetalheBancadaPage() {
 
       // Atualizar estado local
       if (os) {
-        setOs({ ...os, status: novoStatus || os.status });
+        setOs({ 
+          ...os, 
+          status: novoStatus || os.status,
+          valor_peca: calcularTotalProdutos().toString(),
+          valor_servico: calcularTotalServicos().toString(),
+          valor_faturado: (calcularTotalProdutos() + calcularTotalServicos()).toString()
+        });
       }
 
       // Atualizar botão iniciar
@@ -223,6 +257,73 @@ export default function DetalheBancadaPage() {
     } finally {
       setSalvando(false);
     }
+  };
+
+  // Funções para adicionar produtos e serviços
+  const handleAdicionarProduto = (produto: { id: string; nome: string; preco: number; tipo: string }) => {
+    const produtoExistente = produtosSelecionados.find(p => p.id === produto.id);
+    
+    if (produtoExistente) {
+      setProdutosSelecionados(prev => 
+        prev.map(p => 
+          p.id === produto.id 
+            ? { ...p, quantidade: p.quantidade + 1 }
+            : p
+        )
+      );
+    } else {
+      setProdutosSelecionados(prev => [...prev, { ...produto, quantidade: 1 }]);
+    }
+  };
+
+  const handleAdicionarServico = (servico: { id: string; nome: string; preco: number; tipo: string }) => {
+    const servicoExistente = servicosSelecionados.find(s => s.id === servico.id);
+    
+    if (!servicoExistente) {
+      setServicosSelecionados(prev => [...prev, servico]);
+    }
+  };
+
+  const handleRemoverProduto = (produtoId: string) => {
+    setProdutosSelecionados(prev => prev.filter(p => p.id !== produtoId));
+  };
+
+  const handleRemoverServico = (servicoId: string) => {
+    setServicosSelecionados(prev => prev.filter(s => s.id !== servicoId));
+  };
+
+  const handleAlterarQuantidade = (produtoId: string, novaQuantidade: number) => {
+    if (novaQuantidade <= 0) {
+      handleRemoverProduto(produtoId);
+      return;
+    }
+    
+    setProdutosSelecionados(prev => 
+      prev.map(p => 
+        p.id === produtoId 
+          ? { ...p, quantidade: novaQuantidade }
+          : p
+      )
+    );
+  };
+
+  const calcularTotalProdutos = () => {
+    return produtosSelecionados.reduce((total, produto) => {
+      return total + (produto.preco * produto.quantidade);
+    }, 0);
+  };
+
+  const calcularTotalServicos = () => {
+    return servicosSelecionados.reduce((total, servico) => {
+      return total + servico.preco;
+    }, 0);
+  };
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(price);
   };
 
   // const steps = [
@@ -370,20 +471,59 @@ export default function DetalheBancadaPage() {
                 ))}
               </select>
             </div>
-            {/* Produtos utilizados */}
-            <div className="space-y-3">
-              <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                <FiBox className="text-blue-600" />
-                Produtos utilizados
-              </h2>
-              <input
-                type="text"
-                className="w-full border border-gray-300 px-4 py-3 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                placeholder="Ex: Placa mãe, Bateria, Display..."
-                value={produtos}
-                onChange={e => setProdutos(e.target.value)}
-              />
-            </div>
+          </div>
+
+          {/* Produtos utilizados */}
+          <div className="space-y-3">
+            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+              <FiBox className="text-blue-600" />
+              Produtos utilizados
+            </h2>
+            
+            {/* Busca de produtos */}
+            <ProdutoServicoSearch
+              onSelect={handleAdicionarProduto}
+              placeholder="Buscar produtos..."
+              tipo="produto"
+              empresaId={empresaId}
+            />
+
+            {/* Lista de produtos selecionados */}
+            {produtosSelecionados.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-gray-700">Produtos selecionados:</h3>
+                <div className="space-y-2">
+                  {produtosSelecionados.map((produto) => (
+                    <div key={produto.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900">{produto.nome}</p>
+                        <p className="text-sm text-gray-600">{formatPrice(produto.preco)}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          value={produto.quantidade}
+                          onChange={(e) => handleAlterarQuantidade(produto.id, parseInt(e.target.value) || 1)}
+                          className="w-16 px-2 py-1 border border-gray-300 rounded text-sm"
+                        />
+                        <button
+                          onClick={() => handleRemoverProduto(produto.id)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <FiX size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-medium text-gray-700">
+                    Total produtos: {formatPrice(calcularTotalProdutos())}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Serviços realizados */}
@@ -392,13 +532,42 @@ export default function DetalheBancadaPage() {
               <FiTool className="text-blue-600" />
               Serviços realizados
             </h2>
-            <input
-              type="text"
-              className="w-full border border-gray-300 px-4 py-3 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              placeholder="Ex: Troca de tela, Formatação, Limpeza..."
-              value={servicos}
-              onChange={e => setServicos(e.target.value)}
+            
+            {/* Busca de serviços */}
+            <ProdutoServicoSearch
+              onSelect={handleAdicionarServico}
+              placeholder="Buscar serviços..."
+              tipo="servico"
+              empresaId={empresaId}
             />
+
+            {/* Lista de serviços selecionados */}
+            {servicosSelecionados.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-gray-700">Serviços selecionados:</h3>
+                <div className="space-y-2">
+                  {servicosSelecionados.map((servico) => (
+                    <div key={servico.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900">{servico.nome}</p>
+                        <p className="text-sm text-gray-600">{formatPrice(servico.preco)}</p>
+                      </div>
+                      <button
+                        onClick={() => handleRemoverServico(servico.id)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <FiX size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-medium text-gray-700">
+                    Total serviços: {formatPrice(calcularTotalServicos())}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Laudo Técnico */}
