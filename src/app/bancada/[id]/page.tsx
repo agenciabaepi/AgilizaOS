@@ -3,7 +3,7 @@
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { FiClipboard, FiSave, FiBox, FiTool, FiPlayCircle, FiX } from 'react-icons/fi';
+import { FiClipboard, FiSave, FiBox, FiTool, FiPlayCircle, FiX, FiCamera, FiTrash2 } from 'react-icons/fi';
 import MenuLayout from '@/components/MenuLayout';
 import ProtectedArea from '@/components/ProtectedArea';
 import ProdutoServicoSearch from '@/components/ProdutoServicoSearch';
@@ -69,6 +69,12 @@ export default function DetalheBancadaPage() {
     preco: number;
   }>>([]);
   const [empresaId, setEmpresaId] = useState<string>('');
+  
+  // Estados para upload de imagens
+  const [imagens, setImagens] = useState<File[]>([]);
+  const [previewImagens, setPreviewImagens] = useState<string[]>([]);
+  const [imagensExistentes, setImagensExistentes] = useState<string[]>([]);
+  const [uploadingImagens, setUploadingImagens] = useState(false);
 
   useEffect(() => {
     const fetchOS = async () => {
@@ -81,6 +87,12 @@ export default function DetalheBancadaPage() {
       if (!error && data) {
         setOs(data);
         setEmpresaId(data.empresa_id);
+        
+        // Carregar imagens existentes
+        if (data.imagens) {
+          const urls = data.imagens.split(',').filter(url => url.trim() !== '');
+          setImagensExistentes(urls);
+        }
         
         // Definir status inicial baseado no status atual da OS
         let statusInicial = data.status_tecnico || '';
@@ -160,6 +172,9 @@ export default function DetalheBancadaPage() {
     setSalvando(true);
     
     try {
+      // Upload de imagens primeiro
+      const novasImagens = await uploadImagens();
+      
       // Atualizar status da OS baseado no status técnico
       let novoStatus = os?.status;
       if (statusTecnico === 'EM ANÁLISE') {
@@ -181,6 +196,10 @@ export default function DetalheBancadaPage() {
         `${s.nome} - ${formatPrice(s.preco)}`
       ).join(', ');
 
+      // Combinar imagens existentes com novas
+      const todasImagens = [...imagensExistentes, ...novasImagens];
+      const imagensString = todasImagens.join(',');
+
       const { error } = await supabase
         .from('ordens_servico')
         .update({
@@ -192,7 +211,8 @@ export default function DetalheBancadaPage() {
           servico: servicosText || servicos,
           valor_peca: calcularTotalProdutos().toString(),
           valor_servico: calcularTotalServicos().toString(),
-          valor_faturado: (calcularTotalProdutos() + calcularTotalServicos()).toString()
+          valor_faturado: (calcularTotalProdutos() + calcularTotalServicos()).toString(),
+          imagens: imagensString
         })
         .eq('id', id);
 
@@ -207,9 +227,15 @@ export default function DetalheBancadaPage() {
           status: novoStatus || os.status,
           valor_peca: calcularTotalProdutos().toString(),
           valor_servico: calcularTotalServicos().toString(),
-          valor_faturado: (calcularTotalProdutos() + calcularTotalServicos()).toString()
+          valor_faturado: (calcularTotalProdutos() + calcularTotalServicos()).toString(),
+          imagens: imagensString
         });
       }
+
+      // Limpar imagens temporárias
+      setImagens([]);
+      setPreviewImagens([]);
+      setImagensExistentes(todasImagens);
 
       // Atualizar botão iniciar
       setMostrarBotaoIniciar(statusTecnico === 'AGUARDANDO INÍCIO');
@@ -324,6 +350,68 @@ export default function DetalheBancadaPage() {
       style: 'currency',
       currency: 'BRL'
     }).format(price);
+  };
+
+  // Funções para manipular imagens
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const validFiles = files.filter(file => file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024);
+    
+    if (validFiles.length !== files.length) {
+      alert('Algumas imagens foram ignoradas. Apenas imagens até 5MB são permitidas.');
+    }
+    
+    setImagens(prev => [...prev, ...validFiles]);
+    const previews = validFiles.map(file => URL.createObjectURL(file));
+    setPreviewImagens(prev => [...prev, ...previews]);
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setImagens(prev => prev.filter((_, i) => i !== index));
+    setPreviewImagens(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleRemoveExistingImage = (index: number) => {
+    setImagensExistentes(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadImagens = async () => {
+    if (imagens.length === 0) return [];
+    
+    setUploadingImagens(true);
+    const uploadedUrls: string[] = [];
+    
+    try {
+      const formData = new FormData();
+      formData.append('ordemId', id);
+      
+      imagens.forEach((file) => {
+        formData.append('files', file);
+      });
+
+      const uploadResponse = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      const uploadResult = await uploadResponse.json();
+
+      if (!uploadResponse.ok) {
+        console.error('Erro no upload das imagens:', uploadResult.error);
+        alert('Erro ao fazer upload das imagens: ' + uploadResult.error);
+        return [];
+      }
+
+      uploadedUrls.push(...uploadResult.files.map((file: any) => file.url));
+      
+    } catch (error) {
+      console.error('Erro no upload das imagens:', error);
+      alert('Erro inesperado no upload das imagens');
+    } finally {
+      setUploadingImagens(false);
+    }
+    
+    return uploadedUrls;
   };
 
   // const steps = [
@@ -582,6 +670,115 @@ export default function DetalheBancadaPage() {
               onChange={e => setLaudo(e.target.value)}
               placeholder="Descreva o diagnóstico técnico com todos os detalhes relevantes..."
             />
+          </div>
+
+          {/* Imagens do Equipamento */}
+          <div className="space-y-3">
+            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+              <FiCamera className="text-blue-600" />
+              Imagens do Equipamento
+            </h2>
+            
+            {/* Upload de novas imagens */}
+            <div className="space-y-4">
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  className="hidden"
+                  id="image-upload-edit"
+                  onChange={handleImageUpload}
+                />
+                <label htmlFor="image-upload-edit" className="cursor-pointer">
+                  <div className="space-y-2">
+                    <div className="text-4xl">📷</div>
+                    <p className="text-sm text-gray-600">
+                      Clique para selecionar imagens ou arraste aqui
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      PNG, JPG até 5MB cada • Máximo 10 imagens
+                    </p>
+                    {imagens.length > 0 && (
+                      <p className="text-xs text-green-600 font-medium">
+                        {imagens.length} imagem{imagens.length !== 1 ? 'ns' : ''} selecionada{imagens.length !== 1 ? 's' : ''}
+                      </p>
+                    )}
+                  </div>
+                </label>
+              </div>
+
+              {/* Preview das novas imagens */}
+              {previewImagens.length > 0 && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium text-gray-700">Novas Imagens</h4>
+                    <button
+                      onClick={() => {
+                        setImagens([]);
+                        setPreviewImagens([]);
+                      }}
+                      className="text-xs text-red-600 hover:text-red-800 font-medium"
+                    >
+                      Limpar todas
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {previewImagens.map((preview, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={preview}
+                          alt={`Preview ${index + 1}`}
+                          className="w-full h-24 object-cover rounded-lg border border-gray-200 shadow-sm"
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg flex items-center justify-center">
+                          <button
+                            onClick={() => handleRemoveImage(index)}
+                            className="bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                          >
+                            <FiTrash2 size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Imagens existentes */}
+              {imagensExistentes.length > 0 && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium text-gray-700">Imagens Existentes</h4>
+                    <button
+                      onClick={() => setImagensExistentes([])}
+                      className="text-xs text-red-600 hover:text-red-800 font-medium"
+                    >
+                      Remover todas
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {imagensExistentes.map((url, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={url}
+                          alt={`Imagem ${index + 1}`}
+                          className="w-full h-24 object-cover rounded-lg border border-gray-200 shadow-sm"
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg flex items-center justify-center">
+                          <button
+                            onClick={() => handleRemoveExistingImage(index)}
+                            className="bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                          >
+                            <FiTrash2 size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Observações técnicas */}
