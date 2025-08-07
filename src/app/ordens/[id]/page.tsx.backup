@@ -56,7 +56,6 @@ const VisualizarOrdemServicoPage = () => {
             vencimento_garantia,
             termo_garantia_id,
             tipo,
-            imagens,
             termo_garantia:termo_garantia_id (
               id,
               nome,
