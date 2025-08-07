@@ -324,21 +324,31 @@ export default function BancadaPage() {
                           )}
                         </div>
 
-                        <div className="ml-6 flex flex-col items-end">
-                          <button
-                            onClick={() => abrirModal(os)}
-                            className="inline-flex items-center gap-2 bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors shadow-sm"
-                          >
-                            <FiEye size={16} /> 
-                            Visualizar
-                          </button>
-                          
-                          {os.status !== 'ABERTA' && (
-                            <p className="text-xs text-gray-500 mt-2">
-                              Entrada: {entrada}
-                            </p>
-                          )}
-                        </div>
+                                                            <div className="ml-6 flex flex-col items-end">
+                                      {os.status === 'ABERTA' ? (
+                                        <button
+                                          onClick={() => abrirModal(os)}
+                                          className="inline-flex items-center gap-2 bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors shadow-sm"
+                                        >
+                                          <FiEye size={16} /> 
+                                          Visualizar
+                                        </button>
+                                      ) : (
+                                        <button
+                                          onClick={() => router.push(`/bancada/${os.id}`)}
+                                          className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm"
+                                        >
+                                          <FiCpu size={16} /> 
+                                          Continuar
+                                        </button>
+                                      )}
+                                      
+                                      {os.status !== 'ABERTA' && (
+                                        <p className="text-xs text-gray-500 mt-2">
+                                          Entrada: {entrada}
+                                        </p>
+                                      )}
+                                    </div>
                       </div>
                     </div>
                   );

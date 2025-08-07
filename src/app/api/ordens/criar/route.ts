@@ -1,13 +1,26 @@
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   console.log('API route /api/ordens/criar chamada');
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
     console.log('Cliente Supabase criado com sucesso');
     const dadosOS = await request.json();
     console.log('Dados recebidos:', dadosOS);
+
+    // Verificar se empresa_id já está presente nos dados
+    if (!dadosOS.empresa_id) {
+      return NextResponse.json(
+        { error: 'empresa_id não fornecido nos dados da OS' },
+        { status: 400 }
+      );
+    }
+
+    console.log('Dados OS recebidos:', dadosOS);
 
     // Criar a OS no banco de dados
     const { data: osData, error: osError } = await supabase
@@ -30,8 +43,7 @@ export async function POST(request: NextRequest) {
     console.error('Erro geral ao criar OS:', error);
     console.error('Detalhes do erro:', {
       message: error instanceof Error ? error.message : 'Erro desconhecido',
-      stack: error instanceof Error ? error.stack : undefined,
-      dadosOS: dadosOS
+      stack: error instanceof Error ? error.stack : undefined
     });
     return NextResponse.json(
       { error: 'Erro inesperado ao criar a Ordem de Serviço: ' + (error instanceof Error ? error.message : 'Erro desconhecido') },

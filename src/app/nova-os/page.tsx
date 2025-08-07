@@ -465,6 +465,11 @@ function NovaOS2Content() {
       return;
     }
 
+    if (!empresaData?.id) {
+      alert('Erro: Dados da empresa não encontrados. Faça login novamente.');
+      return;
+    }
+
     // Se for APROVADO, verificar se há produtos/serviços selecionados
     if (statusSelecionado === 'aprovado' && produtosSelecionados.length === 0 && servicosSelecionados.length === 0) {
       alert('Para OS aprovada, selecione pelo menos um produto ou serviço');

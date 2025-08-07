@@ -1,6 +1,8 @@
 'use client';
 
 import { FiX, FiPlayCircle, FiUser, FiPhone, FiCalendar, FiDollarSign, FiPackage, FiTool } from 'react-icons/fi';
+import { supabase } from '@/lib/supabaseClient';
+import { useState } from 'react';
 
 interface OrdemServico {
   id: string;
@@ -49,6 +51,8 @@ interface VisualizarOSModalProps {
 }
 
 export default function VisualizarOSModal({ isOpen, onClose, ordem, onIniciar }: VisualizarOSModalProps) {
+  const [loading, setLoading] = useState(false);
+
   if (!isOpen || !ordem) return null;
 
   const aparelho = [ordem.categoria, ordem.marca, ordem.modelo, ordem.cor].filter(Boolean).join(' ');
@@ -76,9 +80,40 @@ export default function VisualizarOSModal({ isOpen, onClose, ordem, onIniciar }:
     }
   };
 
-  const handleIniciar = () => {
-    onIniciar(ordem.id);
-    onClose();
+  const handleIniciar = async () => {
+    setLoading(true);
+    try {
+      // Buscar status fixos para obter os nomes corretos
+      const { data: statusFixos } = await supabase
+        .from('status_fixo')
+        .select('*')
+        .eq('tipo', 'os');
+
+      // Encontrar o status "EM ANÁLISE" nos status fixos
+      const statusEmAnalise = statusFixos?.find(s => s.nome === 'EM ANÁLISE');
+      
+      if (statusEmAnalise) {
+        const { error: updateError } = await supabase
+          .from('ordens_servico')
+          .update({ 
+            status: statusEmAnalise.nome,
+            status_tecnico: 'EM ANÁLISE'
+          })
+          .eq('id', ordem.id);
+
+        if (updateError) {
+          console.error('Erro ao atualizar status:', updateError);
+        } else {
+          // Chamar a função onIniciar para redirecionar
+          onIniciar(ordem.id);
+          onClose();
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao iniciar ordem:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -217,15 +252,25 @@ export default function VisualizarOSModal({ isOpen, onClose, ordem, onIniciar }:
           >
             Fechar
           </button>
-          {ordem.status === 'ABERTA' && (
-            <button
-              onClick={handleIniciar}
-              className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-            >
-              <FiPlayCircle size={16} />
-              Iniciar OS
-            </button>
-          )}
+                                {ordem.status === 'ABERTA' && (
+                        <button
+                          onClick={handleIniciar}
+                          disabled={loading}
+                          className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {loading ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                              Iniciando...
+                            </>
+                          ) : (
+                            <>
+                              <FiPlayCircle size={16} />
+                              Iniciar OS
+                            </>
+                          )}
+                        </button>
+                      )}
         </div>
       </div>
     </div>
