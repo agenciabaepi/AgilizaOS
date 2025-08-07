@@ -3,10 +3,11 @@
 import MenuLayout from '@/components/MenuLayout';
 import ProtectedArea from '@/components/ProtectedArea';
 import { useRouter } from 'next/navigation';
-import { FiCpu, FiPlayCircle, FiCheckCircle, FiClock, FiDollarSign, FiUsers, FiFileText } from 'react-icons/fi';
+import { FiCpu, FiEye } from 'react-icons/fi';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
+import VisualizarOSModal from '@/components/VisualizarOSModal';
 
 export default function BancadaPage() {
   const { user, loading: authLoading } = useAuth();
@@ -15,6 +16,8 @@ export default function BancadaPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('Todos');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [ordemSelecionada, setOrdemSelecionada] = useState<OrdemServico | null>(null);
 
   interface OrdemServico {
     id: string;
@@ -50,6 +53,7 @@ export default function BancadaPage() {
     condicoes_equipamento: string;
     cliente?: {
       nome: string;
+      telefone?: string;
     };
     [key: string]: unknown;
   }
@@ -99,44 +103,59 @@ export default function BancadaPage() {
 
         // Encontrar o status "EM ANÁLISE" nos status fixos
         const statusEmAnalise = statusFixos?.find(s => s.nome === 'EM ANÁLISE');
-        const statusTecnicoEmAnalise = statusFixos?.find(s => s.nome === 'EM ANÁLISE' && s.tipo === 'tecnico');
+        
+        if (statusEmAnalise) {
+          const { error: updateError } = await supabase
+            .from('ordens_servico')
+            .update({ 
+              status: statusEmAnalise.nome,
+              status_tecnico: 'EM ANÁLISE'
+            })
+            .eq('id', id);
 
-        const { error } = await supabase
-          .from('ordens_servico')
-          .update({
-            status: statusEmAnalise?.nome || 'EM_ANALISE',
-            status_tecnico: statusTecnicoEmAnalise?.nome || 'EM ANÁLISE'
-          })
-          .eq('id', id);
-
-        if (error) {
-          console.error('Erro ao iniciar OS:', error);
-        } else {
-          // Atualizar a lista local
-          setOrdens(prev => prev.map(os => 
-            os.id === id 
-              ? { 
-                  ...os, 
-                  status: statusEmAnalise?.nome || 'EM_ANALISE', 
-                  status_tecnico: statusTecnicoEmAnalise?.nome || 'EM ANÁLISE' 
-                }
-              : os
-          ));
+          if (updateError) {
+            console.error('Erro ao atualizar status:', updateError);
+          } else {
+            // Atualizar a lista local
+            setOrdens(prevOrdens => 
+              prevOrdens.map(os => 
+                os.id === id 
+                  ? { ...os, status: statusEmAnalise.nome, status_tecnico: 'EM ANÁLISE' }
+                  : os
+              )
+            );
+          }
         }
       } catch (error) {
-        console.error('Erro ao iniciar OS:', error);
+        console.error('Erro ao iniciar ordem:', error);
       }
     }
     
+    // Redirecionar para a página de edição
     router.push(`/bancada/${id}`);
   };
 
-  if (loading || authLoading) {
+  const abrirModal = (ordem: OrdemServico) => {
+    setOrdemSelecionada(ordem);
+    setModalOpen(true);
+  };
+
+  const fecharModal = () => {
+    setModalOpen(false);
+    setOrdemSelecionada(null);
+  };
+
+  if (loading) {
     return (
       <ProtectedArea area="bancada">
         <MenuLayout>
-          <div className="p-6 flex justify-center items-center min-h-[300px]">
-            <span className="text-gray-500">Carregando ordens...</span>
+          <div className="p-6">
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-2 text-gray-600">Carregando...</p>
+              </div>
+            </div>
           </div>
         </MenuLayout>
       </ProtectedArea>
@@ -147,17 +166,17 @@ export default function BancadaPage() {
     <ProtectedArea area="bancada">
       <MenuLayout>
         <div className="p-6">
+          {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <FiCpu className="text-blue-600" />
               Minha Bancada
             </h1>
             
-            {/* Card de resumo rápido */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-blue-50 rounded-lg">
-                  <FiClock className="w-5 h-5 text-blue-600" />
+                  <FiCpu className="w-5 h-5 text-blue-600" />
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Hoje</p>
@@ -167,6 +186,7 @@ export default function BancadaPage() {
             </div>
           </div>
 
+          {/* Filtros */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div className="relative">
               <input
@@ -182,27 +202,34 @@ export default function BancadaPage() {
             </div>
             <div className="flex flex-wrap gap-2">
               {[
-                { label: 'Todos', value: 'Todos' },
-                { label: 'Aguardando', value: 'ABERTA' },
+                { label: 'Abertas', value: 'ABERTA' },
                 { label: 'Em Análise', value: 'EM_ANALISE' },
                 { label: 'Aguardando Peça', value: 'AGUARDANDO_PECA' },
-                { label: 'Concluído', value: 'CONCLUIDO' }
-              ].map((status) => (
-                <button
-                  key={status.value}
-                  onClick={() => setFiltroStatus(status.value)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                    filtroStatus === status.value
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  {status.label}
-                </button>
-              ))}
+                { label: 'Concluídas', value: 'CONCLUIDO' },
+                { label: 'Todas', value: 'Todos' }
+              ].map((status) => {
+                const count = status.value === 'Todos' 
+                  ? ordens.length 
+                  : ordens.filter(os => os.status === status.value).length;
+                
+                return (
+                  <button
+                    key={status.value}
+                    onClick={() => setFiltroStatus(status.value)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                      filtroStatus === status.value
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    {status.label} ({count})
+                  </button>
+                );
+              })}
             </div>
           </div>
 
+          {/* Lista de OSs */}
           <div className="space-y-4">
             {ordens.length === 0 ? (
               <div className="text-center py-12">
@@ -299,11 +326,11 @@ export default function BancadaPage() {
 
                         <div className="ml-6 flex flex-col items-end">
                           <button
-                            onClick={() => iniciarOrdem(os.id)}
-                            className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm"
+                            onClick={() => abrirModal(os)}
+                            className="inline-flex items-center gap-2 bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors shadow-sm"
                           >
-                            <FiPlayCircle size={16} /> 
-                            {os.status === 'ABERTA' ? 'Iniciar' : 'Continuar'}
+                            <FiEye size={16} /> 
+                            Visualizar
                           </button>
                           
                           {os.status !== 'ABERTA' && (
@@ -319,6 +346,14 @@ export default function BancadaPage() {
             )}
           </div>
         </div>
+
+        {/* Modal */}
+        <VisualizarOSModal
+          isOpen={modalOpen}
+          onClose={fecharModal}
+          ordem={ordemSelecionada}
+          onIniciar={iniciarOrdem}
+        />
       </MenuLayout>
     </ProtectedArea>
   );
