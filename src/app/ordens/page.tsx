@@ -532,11 +532,10 @@ export default function ListaOrdensPage() {
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <colgroup>
-                  <col className="w-24" />
+                  <col className="w-28" />
                   <col className="w-16" />
                   <col className="w-28" />
                   <col className="w-20" />
-                  <col className="w-16" />
                   <col className="w-16" />
                   <col className="w-16" />
                   <col className="w-16" />
@@ -567,12 +566,6 @@ export default function ListaOrdensPage() {
                     </th>
                     <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       <span className="hidden sm:inline">Serviço</span>
-                    </th>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div className="flex items-center gap-1">
-                        <FiCalendar className="w-3 h-3" />
-                        <span className="hidden sm:inline">Entrada</span>
-                      </div>
                     </th>
                     <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       <div className="flex items-center gap-1">
@@ -620,6 +613,7 @@ export default function ListaOrdensPage() {
                         </div>
                         <div className="text-xs text-gray-600 font-medium truncate">{os.cliente}</div>
                         <div className="text-xs text-gray-500 truncate">{os.clienteTelefone}</div>
+                        <div className="text-xs text-gray-400 truncate">{formatDate(os.entrada)}</div>
                       </td>
                       <td className="px-2 py-3">
                         {os.tipo === 'Retorno' ? (
@@ -644,9 +638,6 @@ export default function ListaOrdensPage() {
                       </td>
                       <td className="px-2 py-3">
                         <div className="text-xs text-gray-900 truncate">{os.servico}</div>
-                      </td>
-                      <td className="px-2 py-3">
-                        <div className="text-xs text-gray-600 whitespace-nowrap">{formatDate(os.entrada)}</div>
                       </td>
                       <td className="px-2 py-3">
                         <div className="text-xs text-gray-600 whitespace-nowrap">{formatDate(os.entrega)}</div>
