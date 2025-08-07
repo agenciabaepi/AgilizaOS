@@ -6,6 +6,7 @@ import ProtectedArea from '@/components/ProtectedArea';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { FiArrowLeft, FiEdit, FiPrinter, FiDollarSign, FiMessageCircle, FiUser, FiSmartphone, FiFileText, FiCalendar, FiShield, FiTool, FiPackage, FiCheckCircle, FiClock, FiRefreshCw } from 'react-icons/fi';
+import ImagensOS from '@/components/ImagensOS';
 
 const VisualizarOrdemServicoPage = () => {
   const router = useRouter();
@@ -47,14 +48,15 @@ const VisualizarOrdemServicoPage = () => {
             servico,
             valor_servico,
             valor_faturado,
-                         desconto,
-             acessorios,
-             condicoes_equipamento,
-             relato,
-             laudo,
-                         vencimento_garantia,
+            desconto,
+            acessorios,
+            condicoes_equipamento,
+            relato,
+            laudo,
+            vencimento_garantia,
             termo_garantia_id,
             tipo,
+            imagens,
             termo_garantia:termo_garantia_id (
               id,
               nome,
@@ -561,6 +563,14 @@ const VisualizarOrdemServicoPage = () => {
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* Imagens do Equipamento */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <ImagensOS 
+                  imagens={ordem.imagens || ''} 
+                  ordemId={ordem.numero_os || ordem.id} 
+                />
               </div>
             </div>
           </div>

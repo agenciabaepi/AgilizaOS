@@ -564,7 +564,46 @@ function NovaOS2Content() {
       // Upload das imagens (se houver)
       if (imagens.length > 0) {
         console.log('Imagens selecionadas:', imagens.length, 'arquivos');
-        // TODO: Implementar upload de imagens quando o bucket estiver configurado
+        
+        try {
+          const formData = new FormData();
+          formData.append('ordemId', osData.id);
+          
+          imagens.forEach((file) => {
+            formData.append('files', file);
+          });
+
+          const uploadResponse = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+          });
+
+          const uploadResult = await uploadResponse.json();
+
+          if (!uploadResponse.ok) {
+            console.error('Erro no upload das imagens:', uploadResult.error);
+            // Não falhar a criação da OS por erro no upload
+          } else {
+            console.log('Imagens enviadas com sucesso:', uploadResult.files);
+            
+            // Salvar URLs das imagens na OS
+            const urlsImagens = uploadResult.files.map((file: any) => file.url).join(',');
+            
+            const { error: updateError } = await supabase
+              .from('ordens_servico')
+              .update({ 
+                imagens: urlsImagens 
+              })
+              .eq('id', osData.id);
+
+            if (updateError) {
+              console.error('Erro ao salvar URLs das imagens:', updateError);
+            }
+          }
+        } catch (uploadError) {
+          console.error('Erro no upload das imagens:', uploadError);
+          // Não falhar a criação da OS por erro no upload
+        }
       }
 
       alert('Ordem de Serviço criada com sucesso!');
@@ -1342,7 +1381,31 @@ function NovaOS2Content() {
                 
                 <div className="space-y-4">
                   <label className="block text-sm font-medium text-gray-700">Fotos do Equipamento</label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                  <div 
+                    className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors"
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.add('border-blue-400', 'bg-blue-50');
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50');
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50');
+                      
+                      const files = Array.from(e.dataTransfer.files).filter(file => 
+                        file.type.startsWith('image/')
+                      );
+                      
+                      if (files.length > 0) {
+                        setImagens(prev => [...prev, ...files]);
+                        const previews = files.map(file => URL.createObjectURL(file));
+                        setPreviewImagens(prev => [...prev, ...previews]);
+                      }
+                    }}
+                  >
                     <input
                       type="file"
                       multiple
@@ -1351,11 +1414,11 @@ function NovaOS2Content() {
                       id="image-upload"
                       onChange={(e) => {
                         const files = Array.from(e.target.files || []);
-                        setImagens(files);
+                        setImagens(prev => [...prev, ...files]);
                         
                         // Criar previews
                         const previews = files.map(file => URL.createObjectURL(file));
-                        setPreviewImagens(previews);
+                        setPreviewImagens(prev => [...prev, ...previews]);
                       }}
                     />
                     <label htmlFor="image-upload" className="cursor-pointer">
@@ -1365,8 +1428,13 @@ function NovaOS2Content() {
                           Clique para selecionar imagens ou arraste aqui
                         </p>
                         <p className="text-xs text-gray-500">
-                          PNG, JPG até 5MB cada
+                          PNG, JPG até 5MB cada • Máximo 10 imagens
                         </p>
+                        {imagens.length > 0 && (
+                          <p className="text-xs text-green-600 font-medium">
+                            {imagens.length} imagem{imagens.length !== 1 ? 'ns' : ''} selecionada{imagens.length !== 1 ? 's' : ''}
+                          </p>
+                        )}
                       </div>
                     </label>
                   </div>
@@ -1375,24 +1443,40 @@ function NovaOS2Content() {
                 {/* Preview das imagens */}
                 {previewImagens.length > 0 && (
                   <div className="space-y-4">
-                    <h4 className="text-sm font-medium text-gray-700">Imagens Selecionadas</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-medium text-gray-700">Imagens Selecionadas</h4>
+                      <button
+                        onClick={() => {
+                          setImagens([]);
+                          setPreviewImagens([]);
+                        }}
+                        className="text-xs text-red-600 hover:text-red-800 font-medium"
+                      >
+                        Limpar todas
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                       {previewImagens.map((preview, index) => (
                         <div key={index} className="relative group">
                           <img
                             src={preview}
                             alt={`Preview ${index + 1}`}
-                            className="w-full h-24 object-cover rounded-lg border border-gray-200"
+                            className="w-full h-24 object-cover rounded-lg border border-gray-200 shadow-sm"
                           />
-                          <button
-                            onClick={() => {
-                              setImagens(prev => prev.filter((_, i) => i !== index));
-                              setPreviewImagens(prev => prev.filter((_, i) => i !== index));
-                            }}
-                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            ×
-                          </button>
+                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg flex items-center justify-center">
+                            <button
+                              onClick={() => {
+                                setImagens(prev => prev.filter((_, i) => i !== index));
+                                setPreviewImagens(prev => prev.filter((_, i) => i !== index));
+                              }}
+                              className="bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                            >
+                              ×
+                            </button>
+                          </div>
+                          <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
+                            {imagens[index]?.name?.substring(0, 15)}...
+                          </div>
                         </div>
                       ))}
                     </div>

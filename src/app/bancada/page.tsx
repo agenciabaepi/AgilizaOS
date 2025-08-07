@@ -95,16 +95,27 @@ export default function BancadaPage() {
     const ordem = ordens.find(os => os.id === id);
     if (ordem && ordem.status === 'ABERTA') {
       try {
+        console.log('Iniciando ordem:', id);
+        
         // Buscar status fixos para obter os nomes corretos
-        const { data: statusFixos } = await supabase
+        const { data: statusFixos, error: statusError } = await supabase
           .from('status_fixo')
           .select('*')
           .eq('tipo', 'os');
+
+        if (statusError) {
+          console.error('Erro ao buscar status fixos:', statusError);
+          return;
+        }
+
+        console.log('Status fixos encontrados:', statusFixos);
 
         // Encontrar o status "EM ANÁLISE" nos status fixos
         const statusEmAnalise = statusFixos?.find(s => s.nome === 'EM ANÁLISE');
         
         if (statusEmAnalise) {
+          console.log('Status EM ANÁLISE encontrado:', statusEmAnalise);
+          
           const { error: updateError } = await supabase
             .from('ordens_servico')
             .update({ 
@@ -115,7 +126,10 @@ export default function BancadaPage() {
 
           if (updateError) {
             console.error('Erro ao atualizar status:', updateError);
+            alert('Erro ao iniciar a ordem. Tente novamente.');
+            return;
           } else {
+            console.log('Status atualizado com sucesso');
             // Atualizar a lista local
             setOrdens(prevOrdens => 
               prevOrdens.map(os => 
@@ -125,9 +139,15 @@ export default function BancadaPage() {
               )
             );
           }
+        } else {
+          console.error('Status "EM ANÁLISE" não encontrado nos status fixos');
+          alert('Erro: Status "EM ANÁLISE" não encontrado. Verifique a configuração do sistema.');
+          return;
         }
       } catch (error) {
         console.error('Erro ao iniciar ordem:', error);
+        alert('Erro ao iniciar a ordem. Tente novamente.');
+        return;
       }
     }
     
