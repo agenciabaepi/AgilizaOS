@@ -16,7 +16,7 @@ export default function ProtectedRoute({
   allowedLevels = [], 
   redirectTo = '/dashboard' 
 }: ProtectedRouteProps) {
-  const { user } = useAuth()
+  const { user, isLoggingOut } = useAuth()
   const router = useRouter()
   const [userLevel, setUserLevel] = useState<string>('')
   const [loading, setLoading] = useState(true)
@@ -69,6 +69,11 @@ export default function ProtectedRoute({
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
       </div>
     )
+  }
+
+  // Se está fazendo logout, não mostrar nada para evitar a tela de acesso negado
+  if (isLoggingOut) {
+    return null
   }
 
   if (!hasAccess) {

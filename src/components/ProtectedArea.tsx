@@ -3,10 +3,15 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 
 export default function ProtectedArea({ area, children }: { area: string, children: React.ReactNode }) {
-  const { usuarioData, loading } = useAuth();
+  const { usuarioData, loading, isLoggingOut } = useAuth();
   const router = useRouter();
 
   if (loading) return null;
+
+  // Se está fazendo logout, não mostrar nada para evitar a tela de acesso negado
+  if (isLoggingOut) {
+    return null;
+  }
 
   const isAdmin = usuarioData?.nivel === 'admin';
   const hasPerm = usuarioData?.permissoes?.includes(area);

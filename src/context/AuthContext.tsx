@@ -248,15 +248,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = async (onError?: (msg: string) => void) => {
     setIsLoggingOut(true);
     try {
+      // Limpar dados locais primeiro
+      clearSession();
+      
+      // Fazer logout no Supabase
       const { error } = await supabase.auth.signOut();
       if (error && error.message !== 'Auth session missing!') {
         if (onError) onError(error.message);
         console.error('Erro ao sair:', error.message);
       }
-      clearSession();
+      
+      // Garantir que todos os dados sejam limpos
+      localStorage.clear();
+      sessionStorage.clear();
+      
     } catch (error) {
       console.error('Erro inesperado ao sair:', error);
+      // Mesmo com erro, limpar dados locais
       clearSession();
+      localStorage.clear();
+      sessionStorage.clear();
     } finally {
       setIsLoggingOut(false);
     }

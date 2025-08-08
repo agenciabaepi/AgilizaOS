@@ -160,9 +160,11 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
         {/* Menu */}
         <nav className="flex flex-col gap-2 flex-1">
           {/* Dashboard - Mostrar dashboard do técnico se for técnico, senão dashboard admin */}
-          {(podeVer('dashboard') || usuarioData?.nivel === 'tecnico') && (
+          {(podeVer('dashboard') || usuarioData?.nivel === 'tecnico' || usuarioData?.nivel === 'atendente') && (
             usuarioData?.nivel === 'tecnico' ? (
               <SidebarButton path="/dashboard-tecnico" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard-tecnico'} menuRecolhido={menuRecolhido} />
+            ) : usuarioData?.nivel === 'atendente' ? (
+              <SidebarButton path="/dashboard-atendente" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard-atendente'} menuRecolhido={menuRecolhido} />
             ) : (
               <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard'} menuRecolhido={menuRecolhido} />
             )
@@ -286,7 +288,8 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             setIsLoggingOut(true);
             try {
               await signOut((msg) => addToast('error', `Erro ao sair: ${msg}`));
-              window.location.href = '/login';
+              // Redirecionar diretamente para a landing page sem passar por páginas protegidas
+              window.location.href = '/';
             } catch (error) {
               addToast('error', 'Erro inesperado ao sair.');
               console.error('Erro ao fazer logout:', error);
@@ -326,10 +329,12 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               />
             </div>
             <nav className="flex flex-col gap-1">
-              {/* Dashboard - Mostrar dashboard do técnico se for técnico, senão dashboard admin */}
-              {(podeVer('dashboard') || usuarioData?.nivel === 'tecnico') && (
+              {/* Dashboard - Mostrar dashboard específico baseado no nível do usuário */}
+              {(podeVer('dashboard') || usuarioData?.nivel === 'tecnico' || usuarioData?.nivel === 'atendente') && (
                 usuarioData?.nivel === 'tecnico' ? (
                   <SidebarButton path="/dashboard-tecnico" icon={<FiHome size={20} />} label="Dashboard" />
+                ) : usuarioData?.nivel === 'atendente' ? (
+                  <SidebarButton path="/dashboard-atendente" icon={<FiHome size={20} />} label="Dashboard" />
                 ) : (
                   <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" />
                 )
@@ -441,7 +446,8 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                 setIsLoggingOut(true);
                 try {
                   await signOut((msg) => addToast('error', `Erro ao sair: ${msg}`));
-                  window.location.href = '/login';
+                  // Redirecionar diretamente para a landing page sem passar por páginas protegidas
+                  window.location.href = '/';
                 } catch (error) {
                   addToast('error', 'Erro inesperado ao sair.');
                   console.error('Erro ao fazer logout:', error);
