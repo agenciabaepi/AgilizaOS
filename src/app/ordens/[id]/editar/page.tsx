@@ -29,8 +29,8 @@ export default function EditarOrdemServico() {
   const [ordem, setOrdem] = useState<any>(null);
   const [statusOS, setStatusOS] = useState<any[]>([]);
   const [statusSelecionado, setStatusSelecionado] = useState<any>(null);
-  const [servicos, setServicos] = useState([]);
-  const [pecas, setPecas] = useState([]);
+  const [servicos, setServicos] = useState<any[]>([]);
+  const [pecas, setPecas] = useState<any[]>([]);
   const [servicoSelecionado, setServicoSelecionado] = useState<any>(null);
   const [pecaSelecionada, setPecaSelecionada] = useState<any>(null);
   const [queryServico, setQueryServico] = useState('');
@@ -42,6 +42,11 @@ export default function EditarOrdemServico() {
   const [valorPeca, setValorPeca] = useState<number>(0);
   const [tecnicos, setTecnicos] = useState<any[]>([]);
   const [tecnicoSelecionado, setTecnicoSelecionado] = useState<any>(null);
+
+  // Estados para imagens
+  const [imagens, setImagens] = useState<File[]>([]);
+  const [previewImagens, setPreviewImagens] = useState<string[]>([]);
+  const [imagensExistentes, setImagensExistentes] = useState<string[]>([]);
 
   // Função para detectar se é retorno
   const isRetorno = (ordem: any) => {
@@ -99,81 +104,76 @@ export default function EditarOrdemServico() {
         if (termosData) {
           setTermos(termosData);
         }
-        setLoadingTermos(false);
 
-        // Buscar técnicos da empresa
-        const { data: tecnicosData, error: tecnicosError } = await supabase
+        // Buscar técnicos
+        const { data: tecnicosData } = await supabase
           .from('usuarios')
-          .select('id, nome, email, auth_user_id')
+          .select('id, nome, email, nivel, auth_user_id')
           .eq('empresa_id', empresaId)
-          .eq('nivel', 'tecnico')
-          .order('nome', { ascending: true });
+          .eq('nivel', 'tecnico');
 
-        console.log('Técnicos encontrados:', tecnicosData);
-        console.log('Erro ao buscar técnicos:', tecnicosError);
+        setTecnicos(tecnicosData || []);
 
-        if (tecnicosData) {
-          setTecnicos(tecnicosData);
-        }
-
-        // Buscar ordem
-        const { data: ordemData, error } = await supabase
+        // Buscar a OS
+        const { data: ordemData, error: ordemError } = await supabase
           .from('ordens_servico')
-          .select(`
-            *,
-            clientes(*),
-            usuarios!tecnico_id ( nome ),
-            termo_garantia:termo_garantia_id (
-              id,
-              nome,
-              conteudo
-            )
-          `)
-          .eq('id', id as string)
+          .select('*')
+          .eq('id', id)
           .single();
 
-        if (error) {
-          console.error('Erro ao carregar OS:', error);
-        } else {
-          setOrdem(ordemData);
-          
-          // Set initial selected servico and peca
-          if (ordemData.servico) {
-            const servicoEncontrado = servicosData.find((s: any) => s.nome === ordemData.servico);
-            setServicoSelecionado(servicoEncontrado || null);
-          }
-          if (ordemData.peca) {
-            const pecaEncontrada = pecasData.find((p: any) => p.nome === ordemData.peca);
-            setPecaSelecionada(pecaEncontrada || null);
-          }
-
-          // Set initial selected status
-          const statusInicial = todosStatus.find(s => s.nome === ordemData.status);
-          setStatusSelecionado(statusInicial || null);
-
-          // Set initial selected termo
-          if (ordemData.termo_garantia_id) {
-            setTermoSelecionado(ordemData.termo_garantia_id);
-          }
-
-          // Set initial selected tecnico
-          if (ordemData.tecnico_id && tecnicosData) {
-            const tecnicoEncontrado = tecnicosData.find((t: any) => t.auth_user_id === ordemData.tecnico_id);
-            console.log('Técnico encontrado:', tecnicoEncontrado);
-            setTecnicoSelecionado(tecnicoEncontrado || null);
-          } else {
-            console.log('Nenhum técnico encontrado para:', ordemData.tecnico_id);
-            setTecnicoSelecionado(null);
-          }
-
-          // Set initial values
-          setValorServico(parseFloat(ordemData.valor_servico || '0'));
-          setValorPeca(parseFloat(ordemData.valor_peca || '0'));
+        if (ordemError) {
+          console.error('Erro ao buscar OS:', ordemError);
+          return;
         }
+
+        setOrdem(ordemData);
+        setStatusSelecionado(todosStatus.find(s => s.id === ordemData.status_id));
+        setTecnicoSelecionado(tecnicosData?.find(t => t.auth_user_id === ordemData.tecnico_id));
+        setTermoSelecionado(ordemData.termo_garantia_id);
+
+        // Carregar imagens existentes
+        if (ordemData.imagens) {
+          const urls = ordemData.imagens.split(',').filter((url: string) => url.trim());
+          setImagensExistentes(urls);
+        }
+
+        // Set initial selected servico and peca
+        if (ordemData.servico) {
+          const servicoEncontrado = servicosData.find((s: any) => s.nome === ordemData.servico);
+          setServicoSelecionado(servicoEncontrado || null);
+        }
+        if (ordemData.peca) {
+          const pecaEncontrada = pecasData.find((p: any) => p.nome === ordemData.peca);
+          setPecaSelecionada(pecaEncontrada || null);
+        }
+
+        // Set initial selected status
+        const statusInicial = todosStatus.find(s => s.nome === ordemData.status);
+        setStatusSelecionado(statusInicial || null);
+
+        // Set initial selected termo
+        if (ordemData.termo_garantia_id) {
+          setTermoSelecionado(ordemData.termo_garantia_id);
+        }
+
+        // Set initial selected tecnico
+        if (ordemData.tecnico_id && tecnicosData) {
+          const tecnicoEncontrado = tecnicosData.find((t: any) => t.auth_user_id === ordemData.tecnico_id);
+          console.log('Técnico encontrado:', tecnicoEncontrado);
+          setTecnicoSelecionado(tecnicoEncontrado || null);
+        } else {
+          console.log('Nenhum técnico encontrado para:', ordemData.tecnico_id);
+          setTecnicoSelecionado(null);
+        }
+
+        // Set initial values
+        setValorServico(parseFloat(ordemData.valor_servico || '0'));
+        setValorPeca(parseFloat(ordemData.valor_peca || '0'));
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
       } finally {
         setLoading(false);
+        setLoadingTermos(false);
       }
     };
 
@@ -208,108 +208,60 @@ export default function EditarOrdemServico() {
   const handleSalvar = async () => {
     setSaving(true);
     try {
-      const inputs = document.querySelectorAll('input, textarea, select');
-      const updatedData: any = {};
+      const formData = new FormData();
+      formData.append('servico', servicoSelecionado?.nome || '');
+      formData.append('peca', pecaSelecionada?.nome || '');
+      formData.append('qtd_servico', (document.querySelector('input[name="qtd_servico"]') as HTMLInputElement)?.value || '0');
+      formData.append('qtd_peca', (document.querySelector('input[name="qtd_peca"]') as HTMLInputElement)?.value || '0');
+      formData.append('valor_servico', valorServico.toString());
+      formData.append('valor_peca', valorPeca.toString());
+      formData.append('status_id', statusSelecionado?.id || '');
+      formData.append('tecnico_id', tecnicoSelecionado?.auth_user_id || '');
+      formData.append('termo_garantia_id', termoSelecionado || '');
 
-      inputs.forEach((input) => {
-        const el = input as HTMLInputElement;
-        if (!el.readOnly && el.name) {
-          if (el.type === 'number') {
-            const value = parseInt(el.value, 10);
-            if (!isNaN(value)) {
-              updatedData[el.name] = value;
-            }
-          } else {
-            const value = el.value.trim();
-            if (value !== '') {
-              updatedData[el.name] = value;
-            }
-            if (el.name === 'status' && statusSelecionado?.nome === 'FINALIZADO') {
-              updatedData['data_entrega'] = new Date().toISOString();
+      // Upload das imagens (se houver)
+      if (imagens.length > 0) {
+        console.log('Imagens selecionadas:', imagens.length, 'arquivos');
+        
+        try {
+          const uploadResult = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+          });
+
+          if (uploadResult.ok) {
+            const uploadData = await uploadResult.json();
+            console.log('Imagens enviadas com sucesso:', uploadData.files);
+            
+            // Salvar URLs das imagens na OS
+            const urlsImagens = uploadData.files.map((file: any) => file.url).join(',');
+            
+            const { error: updateError } = await supabase
+              .from('ordens_servico')
+              .update({ imagens: urlsImagens })
+              .eq('id', id);
+
+            if (updateError) {
+              console.error('Erro ao salvar URLs das imagens:', updateError);
             }
           }
-        }
-      });
-
-      updatedData['status'] = statusSelecionado?.nome || '';
-      updatedData['servico'] = servicoSelecionado?.nome || '';
-      updatedData['peca'] = pecaSelecionada?.nome || '';
-      // Usar os valores dos estados
-      updatedData['valor_servico'] = valorServico;
-      updatedData['valor_peca'] = valorPeca;
-      updatedData['valor_faturado'] = calcularTotal();
-      updatedData['termo_garantia_id'] = termoSelecionado || null;
-      // Incluir tecnico_id se um técnico válido foi selecionado
-      console.log('TÉCNICO SELECIONADO:', tecnicoSelecionado);
-      console.log('TÉCNICOS DISPONÍVEIS:', tecnicos);
-      console.log('TÉCNICO ATUAL DA OS:', ordem.tecnico_id);
-      
-      if (tecnicoSelecionado?.auth_user_id && tecnicos.some(t => t.auth_user_id === tecnicoSelecionado.auth_user_id)) {
-        console.log('Técnico válido selecionado:', tecnicoSelecionado.auth_user_id);
-        console.log('Nome do técnico:', tecnicoSelecionado.nome);
-        console.log('Técnico existe na lista:', tecnicos.find(t => t.auth_user_id === tecnicoSelecionado.auth_user_id));
-        updatedData['tecnico_id'] = tecnicoSelecionado.auth_user_id;
-      } else if (tecnicoSelecionado === null) {
-        // Se nenhum técnico foi selecionado, remover o campo
-        console.log('Nenhum técnico selecionado, removendo tecnico_id');
-        delete updatedData['tecnico_id'];
-      } else {
-        // Se o técnico selecionado é inválido, manter o atual
-        console.log('Técnico inválido, mantendo atual:', ordem.tecnico_id);
-        console.log('Técnico selecionado inválido:', tecnicoSelecionado);
-        if (ordem.tecnico_id) {
-          updatedData['tecnico_id'] = ordem.tecnico_id;
+        } catch (uploadError) {
+          console.error('Erro no upload das imagens:', uploadError);
         }
       }
 
-      // Remover campos undefined/null
-      Object.keys(updatedData).forEach(key => {
-        if (updatedData[key] === undefined || updatedData[key] === null || updatedData[key] === '') {
-          delete updatedData[key];
-        }
+      const response = await fetch(`/api/ordens/${id}`, {
+        method: 'PUT',
+        body: formData
       });
 
-      // Verificar se tecnico_id é um UUID válido
-      if (updatedData.tecnico_id) {
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (!uuidRegex.test(updatedData.tecnico_id)) {
-          console.error('tecnico_id não é um UUID válido:', updatedData.tecnico_id);
-          delete updatedData.tecnico_id;
-        } else {
-          console.log('tecnico_id é um UUID válido:', updatedData.tecnico_id);
-        }
-      }
-
-      console.log('Dados para atualizar (limpos):', updatedData);
-      console.log('Técnico selecionado:', tecnicoSelecionado);
-      console.log('Técnicos disponíveis:', tecnicos);
-      console.log('ID da OS:', id);
-
-      const { data, error } = await supabase
-        .from('ordens_servico')
-        .update(updatedData)
-        .eq('id', id as string)
-        .select();
-
-      console.log('Resposta do Supabase:', { data, error });
-
-      if (error) {
-        console.error('Erro ao atualizar ordem:', error);
-        console.error('Detalhes do erro:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-        alert('Erro ao salvar alterações: ' + (error.message || 'Erro desconhecido'));
+      if (response.ok) {
+        router.push('/ordens');
       } else {
-        console.log('OS atualizada com sucesso:', data);
-        alert('Alterações salvas com sucesso!');
-        router.push(`/ordens/${id}`);
+        console.error('Erro ao salvar OS');
       }
     } catch (error) {
       console.error('Erro ao salvar:', error);
-      alert('Erro ao salvar alterações');
     } finally {
       setSaving(false);
     }
@@ -733,6 +685,149 @@ export default function EditarOrdemServico() {
                       placeholder="0,00"
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* Imagens */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <FiPackage className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <h2 className="text-xl font-semibold text-gray-900">Imagens do Equipamento</h2>
+                </div>
+                
+                <div className="space-y-4">
+                  <label className="block text-sm font-medium text-gray-700">Fotos do Equipamento</label>
+                  <div 
+                    className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors"
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.add('border-blue-400', 'bg-blue-50');
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50');
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50');
+                      
+                      const files = Array.from(e.dataTransfer.files).filter(file => 
+                        file.type.startsWith('image/')
+                      );
+                      
+                      if (files.length > 0) {
+                        setImagens(prev => [...prev, ...files]);
+                        const previews = files.map(file => URL.createObjectURL(file));
+                        setPreviewImagens(prev => [...prev, ...previews]);
+                      }
+                    }}
+                  >
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      className="hidden"
+                      id="image-upload"
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        setImagens(prev => [...prev, ...files]);
+                        
+                        // Criar previews
+                        const previews = files.map(file => URL.createObjectURL(file));
+                        setPreviewImagens(prev => [...prev, ...previews]);
+                      }}
+                    />
+                    <label htmlFor="image-upload" className="cursor-pointer">
+                      <div className="space-y-2">
+                        <div className="text-4xl">📷</div>
+                        <p className="text-sm text-gray-600">
+                          Clique para selecionar imagens ou arraste aqui
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          PNG, JPG até 5MB cada • Máximo 10 imagens
+                        </p>
+                        {imagens.length > 0 && (
+                          <p className="text-xs text-green-600 font-medium">
+                            {imagens.length} imagem{imagens.length !== 1 ? 'ns' : ''} selecionada{imagens.length !== 1 ? 's' : ''}
+                          </p>
+                        )}
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Imagens existentes */}
+                {imagensExistentes.length > 0 && (
+                  <div className="space-y-4 mt-4">
+                    <h4 className="text-sm font-medium text-gray-700">Imagens Existentes</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {imagensExistentes.map((url, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={url}
+                            alt={`Imagem ${index + 1}`}
+                            className="w-full h-24 object-cover rounded-lg border border-gray-200 shadow-sm"
+                          />
+                          <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
+                            Imagem {index + 1}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Preview das novas imagens */}
+                {previewImagens.length > 0 && (
+                  <div className="space-y-4 mt-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-medium text-gray-700">Novas Imagens</h4>
+                      <button
+                        onClick={() => {
+                          setImagens([]);
+                          setPreviewImagens([]);
+                        }}
+                        className="text-xs text-red-600 hover:text-red-800 font-medium"
+                      >
+                        Limpar todas
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {previewImagens.map((preview, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={preview}
+                            alt={`Preview ${index + 1}`}
+                            className="w-full h-24 object-cover rounded-lg border border-gray-200 shadow-sm"
+                          />
+                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg flex items-center justify-center">
+                            <button
+                              onClick={() => {
+                                setImagens(prev => prev.filter((_, i) => i !== index));
+                                setPreviewImagens(prev => prev.filter((_, i) => i !== index));
+                              }}
+                              className="bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                            >
+                              ×
+                            </button>
+                          </div>
+                          <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
+                            {imagens[index]?.name?.substring(0, 15)}...
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+                  <h4 className="text-sm font-medium text-blue-700 mb-2">💡 Dica</h4>
+                  <p className="text-sm text-blue-600">
+                    Tire fotos do equipamento para documentar seu estado atual. 
+                    Isso ajuda a evitar problemas futuros e facilita a identificação.
+                  </p>
                 </div>
               </div>
 
