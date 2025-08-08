@@ -16,7 +16,7 @@ export default function ProtectedRoute({
   allowedLevels = [], 
   redirectTo = '/dashboard' 
 }: ProtectedRouteProps) {
-  const { user, isLoggingOut } = useAuth()
+  const { user, usuarioData, loading: authLoading, isLoggingOut } = useAuth()
   const router = useRouter()
   const [userLevel, setUserLevel] = useState<string>('')
   const [loading, setLoading] = useState(true)
@@ -24,11 +24,32 @@ export default function ProtectedRoute({
 
   useEffect(() => {
     const checkUserLevel = async () => {
+      // Aguardar o contexto de autenticação carregar
+      if (authLoading) {
+        return
+      }
+
       if (!user) {
         setLoading(false)
         return
       }
 
+      // Se já temos dados do contexto, usar imediatamente
+      if (usuarioData?.nivel) {
+        setUserLevel(usuarioData.nivel)
+        
+        // Se não há restrições de nível ou o usuário tem nível permitido
+        if (allowedLevels.length === 0 || allowedLevels.includes(usuarioData.nivel)) {
+          setHasAccess(true)
+        } else {
+          setHasAccess(false)
+          router.push(redirectTo)
+        }
+        setLoading(false)
+        return
+      }
+
+      // Se não temos dados do contexto, buscar do banco
       try {
         const { data, error } = await supabase
           .from('usuarios')
@@ -61,9 +82,9 @@ export default function ProtectedRoute({
     }
 
     checkUserLevel()
-  }, [user, allowedLevels, redirectTo, router])
+  }, [user, usuarioData, authLoading, allowedLevels, redirectTo, router])
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>

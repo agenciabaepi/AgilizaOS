@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
@@ -27,34 +27,9 @@ interface AtendenteMetrics {
   mensagensRespondidas: number;
 }
 
-interface OSData {
-  id: string;
-  numero_os: string;
-  status: string;
-  valor_faturado: number;
-  created_at: string;
-  tecnico_id: string;
-  servico: string;
-  observacoes: string;
-  orcamento: string;
-  laudo: string;
-  clientes: {
-    nome: string;
-    telefone: string;
-    email: string;
-  };
-}
-
-interface ClienteData {
-  id: string;
-  nome: string;
-  created_at: string;
-  telefone?: string;
-}
-
 export default function DashboardAtendentePage() {
   const router = useRouter();
-  const { user, usuarioData } = useAuth();
+  const { user, usuarioData, loading: authLoading } = useAuth();
   const [metrics, setMetrics] = useState<AtendenteMetrics>({
     totalOS: 0,
     osCriadasMes: 0,
@@ -73,36 +48,19 @@ export default function DashboardAtendentePage() {
     mensagensRespondidas: 0
   });
   const [loading, setLoading] = useState(true);
-  const [recentOS, setRecentOS] = useState<any[]>([]);
-  const [recentClientes, setRecentClientes] = useState<any[]>([]);
-  const [osComOrcamento, setOsComOrcamento] = useState<any[]>([]);
-  const [osComLaudo, setOsComLaudo] = useState<any[]>([]);
+  const [recentOS, setRecentOS] = useState<Record<string, unknown>[]>([]);
+  const [recentClientes, setRecentClientes] = useState<Record<string, unknown>[]>([]);
+  const [osComOrcamento, setOsComOrcamento] = useState<Record<string, unknown>[]>([]);
+  const [osComLaudo, setOsComLaudo] = useState<Record<string, unknown>[]>([]);
+  const [dataFetched, setDataFetched] = useState(false);
 
-  useEffect(() => {
-    // Verificar se o usuário tem permissão para acessar esta dashboard
-    if (usuarioData?.nivel) {
-      if (usuarioData.nivel === 'admin') {
-        router.replace('/dashboard');
-        return;
-      } else if (usuarioData.nivel === 'tecnico') {
-        router.replace('/dashboard-tecnico');
-        return;
-      }
-    }
-
-    if (user && usuarioData?.empresa_id) {
-      fetchAtendenteData();
-    }
-  }, [user, usuarioData?.empresa_id, usuarioData?.nivel, router]);
-
-  const fetchAtendenteData = async () => {
-    if (!user || !usuarioData?.empresa_id) return;
+  const fetchAtendenteData = useCallback(async () => {
+    if (!user || !usuarioData?.empresa_id || dataFetched) return;
 
     setLoading(true);
     try {
       const empresaId = usuarioData.empresa_id;
       const hoje = new Date();
-      const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
 
       // Buscar OSs criadas pelo atendente
       const { data: ordens } = await supabase
@@ -135,46 +93,30 @@ export default function DashboardAtendentePage() {
 
       // Separar OSs com orçamento e laudo
       const ordensData = ordens || [];
-      console.log('Todas as OSs:', ordensData);
       
       // Buscar OSs com orçamento enviado (mesma lógica do LaudoProntoAlert)
-      const osComOrcamentoData = ordensData.filter(os => {
+      const osComOrcamentoData = ordensData.filter((os: Record<string, unknown>) => {
         const temOrcamentoEnviado = os.status_tecnico === 'ORÇAMENTO ENVIADO' || os.status_tecnico === 'AGUARDANDO APROVAÇÃO';
-        console.log(`OS ${os.numero_os}: status_tecnico="${os.status_tecnico}", temOrcamentoEnviado=${temOrcamentoEnviado}`);
         return temOrcamentoEnviado;
       });
       
       // Buscar OSs com laudo (campo laudo preenchido ou status específico)
-      const osComLaudoData = ordensData.filter(os => {
-        const temLaudo = (os.laudo && os.laudo.trim() !== '') || os.status_tecnico === 'LAUDO PRONTO';
-        console.log(`OS ${os.numero_os}: laudo="${os.laudo}", status_tecnico="${os.status_tecnico}", temLaudo=${temLaudo}`);
+      const osComLaudoData = ordensData.filter((os: Record<string, unknown>) => {
+        const temLaudo = (os.laudo && String(os.laudo).trim() !== '') || os.status_tecnico === 'LAUDO PRONTO';
         return temLaudo;
-      });
-      
-      console.log('OSs com orçamento enviado:', osComOrcamentoData);
-      console.log('OSs com laudo:', osComLaudoData);
-      
-      // Debug adicional - verificar todas as OSs que têm laudo
-      ordensData.forEach(os => {
-        if (os.laudo) {
-          console.log(`DEBUG - OS ${os.numero_os} tem laudo:`, os.laudo);
-        }
-        if (os.status_tecnico) {
-          console.log(`DEBUG - OS ${os.numero_os} status_tecnico:`, os.status_tecnico);
-        }
       });
 
       // Calcular métricas
       const totalOS = ordensData.length;
-      const osCriadasMes = ordensData.filter(o => 
-        new Date(o.created_at).getMonth() === hoje.getMonth()
+      const osCriadasMes = ordensData.filter((o: Record<string, unknown>) => 
+        new Date(String(o.created_at)).getMonth() === hoje.getMonth()
       ).length;
-      const osPendentes = ordensData.filter(o => o.status === 'PENDENTE').length;
-      const osEmAnalise = ordensData.filter(o => o.status === 'EM ANÁLISE').length;
-      const osConcluidas = ordensData.filter(o => o.status === 'CONCLUIDA').length;
+      const osPendentes = ordensData.filter((o: Record<string, unknown>) => o.status === 'PENDENTE').length;
+      const osEmAnalise = ordensData.filter((o: Record<string, unknown>) => o.status === 'EM ANÁLISE').length;
+      const osConcluidas = ordensData.filter((o: Record<string, unknown>) => o.status === 'CONCLUIDA').length;
       const clientesAtendidos = (clientes || []).length;
-      const clientesNovos = (clientes || []).filter(c => 
-        new Date(c.created_at).getMonth() === hoje.getMonth()
+      const clientesNovos = (clientes || []).filter((c: Record<string, unknown>) => 
+        new Date(String(c.created_at)).getMonth() === hoje.getMonth()
       ).length;
 
       // Simular outras métricas
@@ -183,7 +125,7 @@ export default function DashboardAtendentePage() {
       const atendimentosHoje = Math.floor(Math.random() * 10) + 1;
       const atendimentosSemana = Math.floor(Math.random() * 50) + 10;
       const ticketMedio = ordensData.length > 0 
-        ? ordensData.reduce((sum, os) => sum + (os.valor_faturado || 0), 0) / ordensData.length 
+        ? ordensData.reduce((sum, os: Record<string, unknown>) => sum + (Number(os.valor_faturado) || 0), 0) / ordensData.length 
         : 0;
       const rankingAtendente = 1;
       const chamadasRecebidas = Math.floor(Math.random() * 20) + 5;
@@ -211,13 +153,32 @@ export default function DashboardAtendentePage() {
       setRecentClientes((clientes || []).slice(0, 5));
       setOsComOrcamento(osComOrcamentoData);
       setOsComLaudo(osComLaudoData);
+      setDataFetched(true);
       
     } catch (error) {
       console.error('Erro ao buscar dados do atendente:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, usuarioData?.empresa_id, dataFetched]);
+
+  useEffect(() => {
+    // Verificar se o usuário tem permissão para acessar esta dashboard
+    if (usuarioData?.nivel) {
+      if (usuarioData.nivel === 'admin') {
+        router.replace('/dashboard');
+        return;
+      } else if (usuarioData.nivel === 'tecnico') {
+        router.replace('/dashboard-tecnico');
+        return;
+      }
+    }
+
+    // Só buscar dados se não estiver carregando e tiver os dados necessários
+    if (!authLoading && user && usuarioData?.empresa_id && !dataFetched) {
+      fetchAtendenteData();
+    }
+  }, [authLoading, user, usuarioData?.empresa_id, usuarioData?.nivel, router, fetchAtendenteData, dataFetched]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {

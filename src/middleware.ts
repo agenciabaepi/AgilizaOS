@@ -3,36 +3,56 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export async function middleware(req: NextRequest) {
-  console.log('🔍 Middleware executando para:', req.nextUrl.pathname);
-  
-  // TEMPORARIAMENTE DESABILITADO - Permitir acesso a todas as páginas
-  console.log('🔍 Middleware - DESABILITADO - Permitindo acesso');
-  return NextResponse.next();
-  
-  // CÓDIGO ORIGINAL COMENTADO:
-  /*
-  const res = NextResponse.next();
-  
-  // Criar cliente Supabase para middleware
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-
-  // Verificar se o usuário está autenticado
-  const { data: { user } } = await supabase.auth.getUser();
-  console.log('🔍 Middleware - Usuário autenticado:', !!user);
-
-  // Se não está autenticado e não está em páginas públicas, redirecionar para login
-  if (!user && !req.nextUrl.pathname.startsWith('/login') && !req.nextUrl.pathname.startsWith('/criar-empresa') && !req.nextUrl.pathname.startsWith('/cadastro') && !req.nextUrl.pathname.startsWith('/teste-expirado') && req.nextUrl.pathname !== '/' && !req.nextUrl.pathname.startsWith('/assets/')) {
-    console.log('🔍 Middleware - Redirecionando para login');
-    return NextResponse.redirect(new URL('/login', req.url));
+  // Ignorar arquivos estáticos e assets
+  if (
+    req.nextUrl.pathname.startsWith('/_next') ||
+    req.nextUrl.pathname.startsWith('/api') ||
+    req.nextUrl.pathname.startsWith('/favicon.ico') ||
+    req.nextUrl.pathname.startsWith('/assets') ||
+    req.nextUrl.pathname.startsWith('/notification.js') ||
+    req.nextUrl.pathname.includes('.')
+  ) {
+    return NextResponse.next();
   }
 
-  // Temporariamente desabilitar verificações complexas para testar login
-  console.log('🔍 Middleware - Permitindo acesso');
-  return res;
-  */
+  // Páginas públicas que não precisam de autenticação
+  const publicPages = [
+    '/',
+    '/login',
+    '/cadastro',
+    '/criar-empresa',
+    '/teste-expirado',
+    '/termos',
+    '/planos',
+    '/periodo-teste'
+  ];
+
+  const isPublicPage = publicPages.some(page => req.nextUrl.pathname.startsWith(page));
+  
+  if (isPublicPage) {
+    return NextResponse.next();
+  }
+
+  // Para páginas protegidas, verificar autenticação
+  try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+
+    const { data: { user }, error } = await supabase.auth.getUser();
+    
+    if (error || !user) {
+      // Se não está autenticado, redirecionar para login
+      return NextResponse.redirect(new URL('/login', req.url));
+    }
+
+    // Se está autenticado, permitir acesso
+    return NextResponse.next();
+  } catch (error) {
+    // Em caso de erro, redirecionar para login
+    return NextResponse.redirect(new URL('/login', req.url));
+  }
 }
 
 export const config = {
