@@ -208,25 +208,19 @@ export default function EditarOrdemServico() {
   const handleSalvar = async () => {
     setSaving(true);
     try {
-      const formData = new FormData();
-      formData.append('servico', servicoSelecionado?.nome || '');
-      formData.append('peca', pecaSelecionada?.nome || '');
-      formData.append('qtd_servico', (document.querySelector('input[name="qtd_servico"]') as HTMLInputElement)?.value || '0');
-      formData.append('qtd_peca', (document.querySelector('input[name="qtd_peca"]') as HTMLInputElement)?.value || '0');
-      formData.append('valor_servico', valorServico.toString());
-      formData.append('valor_peca', valorPeca.toString());
-      formData.append('status_id', statusSelecionado?.id || '');
-      formData.append('tecnico_id', tecnicoSelecionado?.auth_user_id || '');
-      formData.append('termo_garantia_id', termoSelecionado || '');
-
       // Upload das imagens (se houver)
       if (imagens.length > 0) {
         console.log('Imagens selecionadas:', imagens.length, 'arquivos');
         
         try {
+          const imageFormData = new FormData();
+          imagens.forEach((file, index) => {
+            imageFormData.append(`file${index}`, file);
+          });
+
           const uploadResult = await fetch('/api/upload', {
             method: 'POST',
-            body: formData
+            body: imageFormData
           });
 
           if (uploadResult.ok) {
@@ -249,6 +243,18 @@ export default function EditarOrdemServico() {
           console.error('Erro no upload das imagens:', uploadError);
         }
       }
+
+      // Salvar dados da OS
+      const formData = new FormData();
+      formData.append('servico', servicoSelecionado?.nome || '');
+      formData.append('peca', pecaSelecionada?.nome || '');
+      formData.append('qtd_servico', (document.querySelector('input[name="qtd_servico"]') as HTMLInputElement)?.value || '0');
+      formData.append('qtd_peca', (document.querySelector('input[name="qtd_peca"]') as HTMLInputElement)?.value || '0');
+      formData.append('valor_servico', valorServico.toString());
+      formData.append('valor_peca', valorPeca.toString());
+      formData.append('status_id', statusSelecionado?.id || '');
+      formData.append('tecnico_id', tecnicoSelecionado?.auth_user_id || '');
+      formData.append('termo_garantia_id', termoSelecionado || '');
 
       const response = await fetch(`/api/ordens/${id}`, {
         method: 'PUT',
