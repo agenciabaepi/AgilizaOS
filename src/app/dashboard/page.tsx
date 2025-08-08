@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import MenuLayout from '@/components/MenuLayout';
@@ -28,6 +29,7 @@ interface DashboardMetrics {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { usuarioData, empresaData } = useAuth();
   const [metrics, setMetrics] = useState<DashboardMetrics>({
     totalOrdens: 0,
@@ -48,10 +50,21 @@ export default function DashboardPage() {
   const [recentOrdens, setRecentOrdens] = useState<any[]>([]);
 
   useEffect(() => {
+    // Verificar se o usuário tem permissão para acessar esta dashboard
+    if (usuarioData?.nivel) {
+      if (usuarioData.nivel === 'tecnico') {
+        router.replace('/dashboard-tecnico');
+        return;
+      } else if (usuarioData.nivel === 'atendente') {
+        router.replace('/dashboard-atendente');
+        return;
+      }
+    }
+
     if (usuarioData?.empresa_id) {
       fetchDashboardData();
     }
-  }, [usuarioData?.empresa_id]);
+  }, [usuarioData?.empresa_id, usuarioData?.nivel, router]);
 
   const fetchDashboardData = async () => {
     if (!usuarioData?.empresa_id) return;

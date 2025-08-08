@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import MenuLayout from '@/components/MenuLayout';
@@ -27,6 +28,7 @@ interface TecnicoMetrics {
 }
 
 export default function DashboardTecnicoPage() {
+  const router = useRouter();
   const { user, usuarioData } = useAuth();
   const [metrics, setMetrics] = useState<TecnicoMetrics>({
     totalOS: 0,
@@ -49,10 +51,21 @@ export default function DashboardTecnicoPage() {
   const [recentOS, setRecentOS] = useState<any[]>([]);
 
   useEffect(() => {
+    // Verificar se o usuário tem permissão para acessar esta dashboard
+    if (usuarioData?.nivel) {
+      if (usuarioData.nivel === 'admin') {
+        router.replace('/dashboard');
+        return;
+      } else if (usuarioData.nivel === 'atendente') {
+        router.replace('/dashboard-atendente');
+        return;
+      }
+    }
+
     if (user) {
       fetchTecnicoData();
     }
-  }, [user]);
+  }, [user, usuarioData?.nivel, router]);
 
   const fetchTecnicoData = async () => {
     if (!user) return;
