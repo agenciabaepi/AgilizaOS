@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabaseClient';
 import MenuLayout from '@/components/MenuLayout';
 import ProtectedArea from '@/components/ProtectedArea';
 import { Combobox } from '@headlessui/react';
-import { FiArrowLeft, FiSave, FiX, FiUser, FiSmartphone, FiFileText, FiTool, FiDollarSign, FiMessageCircle, FiPackage, FiCheckCircle, FiRefreshCw, FiShield } from 'react-icons/fi';
+import { FiArrowLeft, FiSave, FiX, FiUser, FiSmartphone, FiFileText, FiTool, FiDollarSign, FiMessageCircle, FiPackage, FiCheckCircle, FiShield } from 'react-icons/fi';
 
 interface Termo {
   id: string;
@@ -180,29 +180,26 @@ export default function EditarOrdemServico() {
     fetchData();
   }, [id]);
 
-  const servicosFiltrados = queryServico === ''
-    ? servicos.slice(0, 5)
-    : servicos.filter((s: any) =>
-        s.nome.toLowerCase().includes(queryServico.toLowerCase())
-      );
+  const calcularTotal = () => {
+    const qtdServico = ordem?.qtd_servico || 0;
+    const qtdPeca = ordem?.qtd_peca || 0;
+    return qtdServico * valorServico + qtdPeca * valorPeca;
+  };
 
-  const pecasFiltradas = queryPeca === ''
-    ? pecas.slice(0, 5)
-    : pecas.filter((p: any) =>
-        p.nome.toLowerCase().includes(queryPeca.toLowerCase())
-      );
+  // Filtrar serviços e peças baseado na query
+  const servicosFiltrados = servicos.filter((s) =>
+    s?.nome?.toLowerCase().includes(queryServico.toLowerCase())
+  );
+
+  const pecasFiltradas = pecas.filter((p) =>
+    p?.nome?.toLowerCase().includes(queryPeca.toLowerCase())
+  );
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL'
     }).format(value || 0);
-  };
-
-  const calcularTotal = () => {
-    const qtdServico = ordem?.qtd_servico || 0;
-    const qtdPeca = ordem?.qtd_peca || 0;
-    return qtdServico * valorServico + qtdPeca * valorPeca;
   };
 
   const handleSalvar = async () => {
@@ -597,7 +594,7 @@ export default function EditarOrdemServico() {
                                 }`
                               }
                             >
-                              {s.nome} – {formatCurrency(s.preco)}
+                              {s?.nome} – {formatCurrency(s?.preco || 0)}
                             </Combobox.Option>
                           ))}
                         </Combobox.Options>
@@ -609,7 +606,7 @@ export default function EditarOrdemServico() {
                     <input
                       type="number"
                       name="qtd_servico"
-                      defaultValue={ordem.qtd_servico}
+                      defaultValue={ordem?.qtd_servico}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
@@ -663,7 +660,7 @@ export default function EditarOrdemServico() {
                                 }`
                               }
                             >
-                              {p.nome} – {formatCurrency(p.preco)}
+                              {p?.nome} – {formatCurrency(p?.preco || 0)}
                             </Combobox.Option>
                           ))}
                         </Combobox.Options>
@@ -675,7 +672,7 @@ export default function EditarOrdemServico() {
                     <input
                       type="number"
                       name="qtd_peca"
-                      defaultValue={ordem.qtd_peca}
+                      defaultValue={ordem?.qtd_peca}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
