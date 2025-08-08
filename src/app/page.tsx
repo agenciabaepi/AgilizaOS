@@ -301,7 +301,7 @@ export default function Home() {
       </nav>
 
       {/* Hero Section */}
-      <div className="relative z-10 px-8 py-24 lg:px-12 lg:py-32">
+      <div className="relative z-10 px-4 sm:px-6 md:px-8 py-16 sm:py-20 md:py-24 lg:px-12 lg:py-32">
         <div className="mx-auto max-w-5xl text-center">
           {/* Social Proof Badge */}
           <div 
@@ -321,7 +321,7 @@ export default function Home() {
           {/* Main Headline */}
           <h1 
             data-reveal="headline"
-            className={`text-6xl md:text-8xl font-light mb-12 leading-none tracking-tight scroll-reveal-slide-up text-gradient-primary ${
+            className={`text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-light mb-8 md:mb-12 leading-tight tracking-tight scroll-reveal-slide-up text-gradient-primary ${
               isAnimated('headline') ? 'animated' : ''
             }`}
           >
@@ -338,7 +338,7 @@ export default function Home() {
           {/* Sub-headline */}
           <div 
             data-reveal="subheadline"
-            className={`text-xl md:text-2xl text-white/80 mb-16 max-w-4xl mx-auto leading-relaxed font-light scroll-reveal-slide-up delay-300 ${
+            className={`text-lg sm:text-xl md:text-2xl text-white/80 mb-12 md:mb-16 max-w-4xl mx-auto leading-relaxed font-light scroll-reveal-slide-up delay-300 ${
               isAnimated('subheadline') ? 'animated' : ''
             }`}
           >
@@ -349,13 +349,13 @@ export default function Home() {
           {/* CTA Buttons */}
           <div 
             data-reveal="cta"
-            className={`flex flex-col sm:flex-row gap-8 justify-center items-center scroll-reveal-slide-up delay-500 ${
+            className={`flex flex-col sm:flex-row gap-4 sm:gap-6 md:gap-8 justify-center items-center scroll-reveal-slide-up delay-500 ${
               isAnimated('cta') ? 'animated' : ''
             }`}
           >
             <button 
               onClick={() => router.push('/login')}
-              className="px-12 py-5 bg-gradient-to-r from-[#D1FE6E] to-[#B8E55A] text-black rounded-full font-medium text-lg hover:from-[#B8E55A] hover:to-[#A5D44A] transition-all duration-500 transform hover:scale-105 hover:shadow-2xl"
+              className="px-8 sm:px-10 md:px-12 py-4 md:py-5 bg-gradient-to-r from-[#D1FE6E] to-[#B8E55A] text-black rounded-full font-medium text-base md:text-lg hover:from-[#B8E55A] hover:to-[#A5D44A] transition-all duration-500 transform hover:scale-105 hover:shadow-2xl"
               style={{
                 boxShadow: '0 4px 20px rgba(209, 254, 110, 0.3)'
               }}
@@ -364,7 +364,7 @@ export default function Home() {
             </button>
             <button 
               onClick={() => router.push('/cadastro?plano=pro')}
-              className="px-12 py-5 text-white border border-white/30 rounded-full font-medium text-lg hover:bg-white/10 hover:border-white/50 transition-all duration-500 backdrop-blur-sm"
+              className="px-8 sm:px-10 md:px-12 py-4 md:py-5 text-white border border-white/30 rounded-full font-medium text-base md:text-lg hover:bg-white/10 hover:border-white/50 transition-all duration-500 backdrop-blur-sm"
               style={{
                 background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
               }}
@@ -376,7 +376,7 @@ export default function Home() {
       </div>
 
       {/* Product Demo Section */}
-      <div id="solucoes" className="relative z-10 px-8 pb-32 lg:px-12">
+      <div id="solucoes" className="relative z-10 px-4 sm:px-6 md:px-8 pb-20 md:pb-32 lg:px-12">
         <div className="mx-auto max-w-6xl">
           <div className="flex flex-col items-center justify-center">
             {/* MacBook Pro Image */}
@@ -433,7 +433,7 @@ export default function Home() {
 
 
       {/* Features Section */}
-      <div id="recursos" className="relative z-10 px-8 py-32 lg:px-12">
+      <div id="recursos" className="relative z-10 px-4 sm:px-6 md:px-8 py-20 md:py-32 lg:px-12">
         <div className="mx-auto max-w-6xl">
           <div 
             data-reveal="features-header"
@@ -450,7 +450,7 @@ export default function Home() {
           </div>
 
           {/* Features Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
             {/* Feature 1 */}
             <div 
               data-reveal="feature-1"
@@ -459,7 +459,7 @@ export default function Home() {
               }`}
             >
               <div 
-                className="h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col"
+                className="h-full rounded-3xl p-6 md:p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col"
                 style={{
                   background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)',
                   border: '1px solid rgba(255,255,255,0.15)',
@@ -468,17 +468,17 @@ export default function Home() {
                 }}
               >
                 <div 
-                  className="w-20 h-20 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-3xl flex items-center justify-center mb-6 shadow-2xl transition-all duration-500 group-hover:scale-110"
+                  className="w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-3xl flex items-center justify-center mb-4 md:mb-6 shadow-2xl transition-all duration-500 group-hover:scale-110"
                   style={{
                     boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)'
                   }}
                 >
-                  <svg className="w-10 h-10 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-8 h-8 md:w-10 md:h-10 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
-                <h3 className="text-white font-light text-xl mb-4 tracking-wide">Ordens de Serviço</h3>
-                <p className="text-white/80 leading-relaxed text-base font-light flex-grow">
+                <h3 className="text-white font-light text-lg md:text-xl mb-3 md:mb-4 tracking-wide">Ordens de Serviço</h3>
+                <p className="text-white/80 leading-relaxed text-sm md:text-base font-light flex-grow">
                   Crie e gerencie ordens de serviço de forma simples e organizada. 
                   Acompanhe o progresso em tempo real.
                 </p>
@@ -659,13 +659,13 @@ export default function Home() {
       </div>
 
       {/* Analytics Section */}
-      <section id="analytics" ref={analyticsRef} className="relative z-10 px-8 py-32 lg:px-12">
+      <section id="analytics" ref={analyticsRef} className="relative z-10 px-4 sm:px-6 md:px-8 py-20 md:py-32 lg:px-12">
         <div className="mx-auto max-w-6xl">
           {/* Section Header */}
           <div className="text-center mb-24">
             <h2 
               data-reveal="analytics-headline"
-              className={`text-5xl md:text-7xl font-light mb-8 leading-none tracking-tight hero-reveal text-gradient-accent ${
+              className={`text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-light mb-6 md:mb-8 leading-tight tracking-tight hero-reveal text-gradient-accent ${
                 isAnimated('analytics-headline') ? 'revealed' : ''
               }`}
             >
@@ -946,7 +946,7 @@ export default function Home() {
       </section>
 
       {/* Pricing Section */}
-      <div id="precos" className="relative z-10 px-8 py-32 lg:px-12">
+      <div id="precos" className="relative z-10 px-4 sm:px-6 md:px-8 py-20 md:py-32 lg:px-12">
         <div className="mx-auto max-w-7xl">
           {/* Section Header */}
           <div 
@@ -964,7 +964,7 @@ export default function Home() {
           </div>
 
           {/* Pricing Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 max-w-6xl mx-auto">
             {/* Plano Básico */}
             <div 
               data-reveal="pricing-basic"
@@ -973,7 +973,7 @@ export default function Home() {
               }`}
             >
               <div 
-                className="h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col relative overflow-hidden"
+                className="h-full rounded-3xl p-6 md:p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col relative overflow-hidden"
                 style={{
                   background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)',
                   border: '1px solid rgba(255,255,255,0.15)',
@@ -985,14 +985,14 @@ export default function Home() {
                 <div className="absolute inset-0 bg-gradient-to-br from-[#D1FE6E]/5 to-transparent opacity-50"></div>
                 
                 {/* Icon */}
-                <div className="relative z-10 mb-6">
+                <div className="relative z-10 mb-4 md:mb-6">
                   <div 
-                    className="w-16 h-16 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-2xl flex items-center justify-center shadow-2xl"
+                    className="w-14 h-14 md:w-16 md:h-16 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-2xl flex items-center justify-center shadow-2xl"
                     style={{
                       boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)'
                     }}
                   >
-                    <svg className="w-8 h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-7 h-7 md:w-8 md:h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
                   </div>
@@ -1004,15 +1004,15 @@ export default function Home() {
                     <span className="inline-block px-3 py-1 bg-[#D1FE6E]/20 text-[#D1FE6E] text-xs font-medium rounded-full mb-3">
                       Sistema completo para começar
                     </span>
-                    <h3 className="text-2xl font-light text-white mb-2">Básico</h3>
-                    <p className="text-white/70 text-sm mb-6">1 usuário, 1 técnico, sistema de OS completo</p>
+                    <h3 className="text-xl md:text-2xl font-light text-white mb-2">Básico</h3>
+                    <p className="text-white/70 text-xs md:text-sm mb-4 md:mb-6">1 usuário, 1 técnico, sistema de OS completo</p>
                   </div>
 
                   {/* Price */}
                                   <div className="mb-8">
                   <div className="flex items-baseline">
-                    <span className="text-4xl font-light text-white">R$ 1,00</span>
-                    <span className="text-white/60 text-sm ml-2">/mês</span>
+                    <span className="text-3xl md:text-4xl font-light text-white">R$ 1,00</span>
+                    <span className="text-white/60 text-xs md:text-sm ml-2">/mês</span>
                   </div>
                 </div>
 
@@ -1065,7 +1065,7 @@ export default function Home() {
                 <div className="relative z-10 mt-auto">
                   <button 
                     onClick={() => router.push('/cadastro?plano=basico')}
-                    className="w-full py-4 bg-[#D1FE6E] text-black rounded-2xl font-medium hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105"
+                    className="w-full py-3 md:py-4 bg-[#D1FE6E] text-black rounded-2xl font-medium hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105 text-sm md:text-base"
                     style={{
                       boxShadow: '0 4px 20px rgba(209, 254, 110, 0.3)'
                     }}

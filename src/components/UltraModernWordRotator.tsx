@@ -40,56 +40,53 @@ export default function UltraModernWordRotator({
       <span 
         className={`inline-block transition-all duration-800 ease-out ${
           isAnimating 
-            ? 'opacity-0 -translate-y-8 scale-85 blur-md' 
-            : 'opacity-100 translate-y-0 scale-100 blur-0'
+            ? 'opacity-0 -translate-y-6 scale-90' 
+            : 'opacity-100 translate-y-0 scale-100'
         } ${textClassName}`}
         style={{
           transformOrigin: 'center',
-          willChange: 'transform, opacity, filter',
+          willChange: 'transform, opacity',
           background: 'linear-gradient(135deg, #D1FE6E 0%, #B8E55A 25%, #A5D44A 50%, #8BC34A 75%, #4CAF50 100%)',
           backgroundClip: 'text',
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent',
           backgroundSize: '300% 300%',
-          animation: isAnimating ? 'ultraGradientShift 0.8s cubic-bezier(0.4, 0, 0.2, 1)' : 'ultraGradientIdle 3s ease-in-out infinite',
-          textShadow: isAnimating ? '0 0 20px rgba(209, 254, 110, 0.5)' : '0 0 10px rgba(209, 254, 110, 0.3)',
-          filter: isAnimating ? 'drop-shadow(0 0 8px rgba(209, 254, 110, 0.6))' : 'drop-shadow(0 0 4px rgba(209, 254, 110, 0.4))',
+          animation: isAnimating ? 'mobileGradientShift 0.8s cubic-bezier(0.4, 0, 0.2, 1)' : 'mobileGradientIdle 3s ease-in-out infinite',
+          textShadow: isAnimating ? '0 0 15px rgba(209, 254, 110, 0.4)' : '0 0 8px rgba(209, 254, 110, 0.3)',
           display: 'inline-block',
           lineHeight: '1.4',
           paddingBottom: '8px',
-          paddingTop: '2px'
+          paddingTop: '2px',
+          WebkitFontSmoothing: 'antialiased',
+          MozOsxFontSmoothing: 'grayscale'
         }}
       >
         {words[currentIndex]}
       </span>
 
       <style jsx>{`
-        @keyframes ultraGradientShift {
+        @keyframes mobileGradientShift {
           0% {
             background-position: 0% 50%;
             opacity: 1;
             transform: translateY(0) scale(1);
-            filter: blur(0) drop-shadow(0 0 4px rgba(209, 254, 110, 0.4));
           }
           20% {
             opacity: 0.8;
-            transform: translateY(-4px) scale(0.95);
-            filter: blur(2px) drop-shadow(0 0 6px rgba(209, 254, 110, 0.5));
+            transform: translateY(-3px) scale(0.95);
           }
           50% {
             opacity: 0;
-            transform: translateY(-32px) scale(0.85);
-            filter: blur(4px) drop-shadow(0 0 8px rgba(209, 254, 110, 0.6));
+            transform: translateY(-24px) scale(0.9);
           }
           100% {
             background-position: 100% 50%;
             opacity: 0;
-            transform: translateY(-32px) scale(0.85);
-            filter: blur(4px) drop-shadow(0 0 8px rgba(209, 254, 110, 0.6));
+            transform: translateY(-24px) scale(0.9);
           }
         }
 
-        @keyframes ultraGradientIdle {
+        @keyframes mobileGradientIdle {
           0%, 100% {
             background-position: 0% 50%;
           }
