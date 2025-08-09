@@ -4,52 +4,117 @@ import { useEffect, useState } from 'react';
 import { Listbox, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { supabase } from '@/lib/supabaseClient';
 import MenuLayout from '@/components/MenuLayout';
 import ProtectedArea from '@/components/ProtectedArea';
 import { Combobox } from '@headlessui/react';
 import { FiArrowLeft, FiSave, FiX, FiUser, FiSmartphone, FiFileText, FiTool, FiDollarSign, FiMessageCircle, FiPackage, FiCheckCircle, FiShield } from 'react-icons/fi';
 
-interface Termo {
+interface Servico {
   id: string;
   nome: string;
-  conteudo: string;
-  ativo: boolean;
-  ordem: number;
+  preco: number;
+  tipo: string;
   empresa_id: string;
-  created_at: string;
-  updated_at: string;
+}
+
+interface Peca {
+  id: string;
+  nome: string;
+  preco: number;
+  tipo: string;
+  empresa_id: string;
+}
+
+interface Status {
+  id: string;
+  nome: string;
+  tipo: string;
+  empresa_id?: string;
+  cor?: string;
+}
+
+interface Tecnico {
+  id: string;
+  nome: string;
+  email?: string;
+  nivel?: string;
+  auth_user_id: string;
+  empresa_id?: string;
+}
+
+interface Ordem {
+  id: string;
+  numero_os: string;
+  servico?: string;
+  peca?: string;
+  qtd_servico?: number;
+  qtd_peca?: number;
+  valor_servico?: number;
+  valor_peca?: number;
+  valor_faturado?: number;
+  status_id?: string;
+  tecnico_id?: string;
+  termo_garantia_id?: string;
+  tipo?: string;
+  imagens?: string;
+  clientes?: {
+    nome: string;
+    email: string;
+    telefone: string;
+    cpf?: string;
+    endereco?: string;
+  };
+  marca?: string;
+  modelo?: string;
+  cor?: string;
+  numero_serie?: string;
+  relato?: string;
+  observacao?: string;
 }
 
 export default function EditarOrdemServico() {
   const router = useRouter();
-  const { id } = useParams();
+  const params = useParams();
+  const id = Array.isArray(params.id) ? params.id[0] : params.id;
+  
+  console.log('🆔 ID obtido dos parâmetros:', id);
+  console.log('🎨 Componente sendo renderizado');
+  
+  const [ordem, setOrdem] = useState<Ordem | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [ordem, setOrdem] = useState<any>(null);
-  const [statusOS, setStatusOS] = useState<any[]>([]);
-  const [statusSelecionado, setStatusSelecionado] = useState<any>(null);
-  const [servicos, setServicos] = useState<any[]>([]);
-  const [pecas, setPecas] = useState<any[]>([]);
-  const [servicoSelecionado, setServicoSelecionado] = useState<any>(null);
-  const [pecaSelecionada, setPecaSelecionada] = useState<any>(null);
-  const [queryServico, setQueryServico] = useState('');
-  const [queryPeca, setQueryPeca] = useState('');
-  const [termos, setTermos] = useState<Termo[]>([]);
-  const [loadingTermos, setLoadingTermos] = useState(false);
-  const [termoSelecionado, setTermoSelecionado] = useState<string | null>(null);
+  const [servicos, setServicos] = useState<Servico[]>([]);
+  const [pecas, setPecas] = useState<Peca[]>([]);
+  const [status, setStatus] = useState<Status[]>([]);
+  const [tecnicos, setTecnicos] = useState<Tecnico[]>([]);
+  const [termos, setTermos] = useState<Array<{ id: string; nome: string; ordem: number; ativo: boolean; empresa_id: string }>>([]);
+  const [servicoSelecionado, setServicoSelecionado] = useState<Servico | null>(null);
+  const [pecaSelecionada, setPecaSelecionada] = useState<Peca | null>(null);
+  const [statusSelecionado, setStatusSelecionado] = useState<Status | null>(null);
+  const [tecnicoSelecionado, setTecnicoSelecionado] = useState<Tecnico | null>(null);
+  const [termoSelecionado, setTermoSelecionado] = useState<string>('');
   const [valorServico, setValorServico] = useState<number>(0);
   const [valorPeca, setValorPeca] = useState<number>(0);
-  const [tecnicos, setTecnicos] = useState<any[]>([]);
-  const [tecnicoSelecionado, setTecnicoSelecionado] = useState<any>(null);
-
-  // Estados para imagens
+  const [queryServico, setQueryServico] = useState('');
+  const [queryPeca, setQueryPeca] = useState('');
   const [imagens, setImagens] = useState<File[]>([]);
   const [previewImagens, setPreviewImagens] = useState<string[]>([]);
   const [imagensExistentes, setImagensExistentes] = useState<string[]>([]);
 
+  // Estados para os campos que não estão sendo salvos
+  const [marca, setMarca] = useState<string>('');
+  const [modelo, setModelo] = useState<string>('');
+  const [cor, setCor] = useState<string>('');
+  const [numeroSerie, setNumeroSerie] = useState<string>('');
+  const [relato, setRelato] = useState<string>('');
+  const [observacao, setObservacao] = useState<string>('');
+  const [qtdServico, setQtdServico] = useState<number>(0);
+  const [qtdPeca, setQtdPeca] = useState<number>(0);
+
   // Função para detectar se é retorno
-  const isRetorno = (ordem: any) => {
+  const isRetorno = (ordem: Ordem | null) => {
     const tipo = ordem?.tipo?.toLowerCase();
     return tipo === 'retorno' || tipo === 'Retorno';
   };
@@ -58,10 +123,17 @@ export default function EditarOrdemServico() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Buscar status
+        // Buscar dados do usuário
         const { data: userData } = await supabase.auth.getUser();
         const empresaId = userData.user?.user_metadata?.empresa_id;
 
+        if (!empresaId) {
+          console.error('Empresa ID não encontrado');
+          setLoading(false);
+          return;
+        }
+
+        // Buscar status
         const { data: statusEmpresa } = await supabase
           .from('status')
           .select('*')
@@ -74,7 +146,7 @@ export default function EditarOrdemServico() {
           .eq('tipo', 'os');
 
         const todosStatus = [...(statusFixos || []), ...(statusEmpresa || [])];
-        setStatusOS(todosStatus);
+        setStatus(todosStatus);
 
         // Buscar produtos e serviços
         const { data: produtosEServicos } = await supabase
@@ -82,18 +154,17 @@ export default function EditarOrdemServico() {
           .select('id, nome, tipo, preco, empresa_id')
           .eq('empresa_id', empresaId);
 
-        let servicosData: any[] = [];
-        let pecasData: any[] = [];
+        let servicosData: Servico[] = [];
+        let pecasData: Peca[] = [];
 
         if (produtosEServicos) {
-          servicosData = produtosEServicos.filter((item: any) => item.tipo === 'servico');
-          pecasData = produtosEServicos.filter((item: any) => item.tipo === 'produto');
+          servicosData = produtosEServicos.filter((item: { tipo: string }) => item.tipo === 'servico') as Servico[];
+          pecasData = produtosEServicos.filter((item: { tipo: string }) => item.tipo === 'produto') as Peca[];
           setServicos(servicosData);
           setPecas(pecasData);
         }
 
         // Buscar termos de garantia
-        setLoadingTermos(true);
         const { data: termosData } = await supabase
           .from('termos_garantia')
           .select('*')
@@ -115,36 +186,51 @@ export default function EditarOrdemServico() {
         setTecnicos(tecnicosData || []);
 
         // Buscar a OS
+        if (!id) {
+          console.error('ID da OS não encontrado');
+          setLoading(false);
+          return;
+        }
+
         const { data: ordemData, error: ordemError } = await supabase
           .from('ordens_servico')
           .select('*')
           .eq('id', id)
           .single();
 
+        console.log('📋 Dados da OS carregados:', ordemData);
+        console.log('❌ Erro ao carregar OS:', ordemError);
+
         if (ordemError) {
           console.error('Erro ao buscar OS:', ordemError);
+          setLoading(false);
           return;
         }
 
-        setOrdem(ordemData);
-        setStatusSelecionado(todosStatus.find(s => s.id === ordemData.status_id));
-        setTecnicoSelecionado(tecnicosData?.find(t => t.auth_user_id === ordemData.tecnico_id));
-        setTermoSelecionado(ordemData.termo_garantia_id);
+        if (ordemData) {
+          setOrdem(ordemData);
+          setServicoSelecionado(servicosData.find(s => s.nome === ordemData.servico) || null);
+          setPecaSelecionada(pecasData.find(p => p.nome === ordemData.peca) || null);
+          setStatusSelecionado(todosStatus.find(s => s.nome === ordemData.status) || null);
+          setTecnicoSelecionado(tecnicosData?.find(t => t.auth_user_id === ordemData.tecnico_id) || null);
+          setTermoSelecionado(ordemData.termo_garantia_id || '');
+          setValorServico(parseFloat(ordemData.valor_servico?.toString() || '0'));
+          setValorPeca(parseFloat(ordemData.valor_peca?.toString() || '0'));
+          setQtdServico(ordemData.qtd_servico || 0);
+          setQtdPeca(ordemData.qtd_peca || 0);
+          // Carregar valores dos campos adicionais
+          setMarca(ordemData.marca || '');
+          setModelo(ordemData.modelo || '');
+          setCor(ordemData.cor || '');
+          setNumeroSerie(ordemData.numero_serie || '');
+          setRelato(ordemData.relato || '');
+          setObservacao(ordemData.observacao || '');
+        }
 
         // Carregar imagens existentes
         if (ordemData.imagens) {
           const urls = ordemData.imagens.split(',').filter((url: string) => url.trim());
           setImagensExistentes(urls);
-        }
-
-        // Set initial selected servico and peca
-        if (ordemData.servico) {
-          const servicoEncontrado = servicosData.find((s: any) => s.nome === ordemData.servico);
-          setServicoSelecionado(servicoEncontrado || null);
-        }
-        if (ordemData.peca) {
-          const pecaEncontrada = pecasData.find((p: any) => p.nome === ordemData.peca);
-          setPecaSelecionada(pecaEncontrada || null);
         }
 
         // Set initial selected status
@@ -158,7 +244,7 @@ export default function EditarOrdemServico() {
 
         // Set initial selected tecnico
         if (ordemData.tecnico_id && tecnicosData) {
-          const tecnicoEncontrado = tecnicosData.find((t: any) => t.auth_user_id === ordemData.tecnico_id);
+          const tecnicoEncontrado = tecnicosData.find((t: Tecnico) => t.auth_user_id === ordemData.tecnico_id);
           console.log('Técnico encontrado:', tecnicoEncontrado);
           setTecnicoSelecionado(tecnicoEncontrado || null);
         } else {
@@ -166,14 +252,10 @@ export default function EditarOrdemServico() {
           setTecnicoSelecionado(null);
         }
 
-        // Set initial values
-        setValorServico(parseFloat(ordemData.valor_servico || '0'));
-        setValorPeca(parseFloat(ordemData.valor_peca || '0'));
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
       } finally {
         setLoading(false);
-        setLoadingTermos(false);
       }
     };
 
@@ -187,13 +269,13 @@ export default function EditarOrdemServico() {
   };
 
   // Filtrar serviços e peças baseado na query
-  const servicosFiltrados = servicos.filter((s) =>
-    s?.nome?.toLowerCase().includes(queryServico.toLowerCase())
-  );
+  const servicosFiltrados = servicos?.filter((s: Servico) =>
+    s.nome?.toLowerCase().includes(queryServico.toLowerCase())
+  ) || [];
 
-  const pecasFiltradas = pecas.filter((p) =>
-    p?.nome?.toLowerCase().includes(queryPeca.toLowerCase())
-  );
+  const pecasFiltradas = pecas?.filter((p: Peca) =>
+    p.nome?.toLowerCase().includes(queryPeca.toLowerCase())
+  ) || [];
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -203,11 +285,41 @@ export default function EditarOrdemServico() {
   };
 
   const handleSalvar = async () => {
+    alert('🔄 Função handleSalvar foi chamada!');
+    console.log('🔄 Iniciando salvamento...');
+    
+    if (!id) {
+      console.error('❌ ID da OS não encontrado');
+      alert('Erro: ID da OS não encontrado');
+      return;
+    }
+    
+    // Verificar autenticação
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      console.error('❌ Erro de autenticação:', authError);
+      alert('Erro: Usuário não autenticado');
+      return;
+    }
+    
+    console.log('✅ Usuário autenticado:', user.email);
+    console.log('🏢 Empresa ID:', user.user_metadata?.empresa_id);
+    
     setSaving(true);
     try {
+      console.log('📋 Dados atuais:', {
+        servicoSelecionado,
+        pecaSelecionada,
+        statusSelecionado,
+        tecnicoSelecionado,
+        valorServico,
+        valorPeca,
+        id
+      });
+
       // Upload das imagens (se houver)
       if (imagens.length > 0) {
-        console.log('Imagens selecionadas:', imagens.length, 'arquivos');
+        console.log('📸 Imagens selecionadas:', imagens.length, 'arquivos');
         
         try {
           const imageFormData = new FormData();
@@ -222,10 +334,10 @@ export default function EditarOrdemServico() {
 
           if (uploadResult.ok) {
             const uploadData = await uploadResult.json();
-            console.log('Imagens enviadas com sucesso:', uploadData.files);
+            console.log('✅ Imagens enviadas com sucesso:', uploadData.files);
             
             // Salvar URLs das imagens na OS
-            const urlsImagens = uploadData.files.map((file: any) => file.url).join(',');
+            const urlsImagens = uploadData.files.map((file: { url: string }) => file.url).join(',');
             
             const { error: updateError } = await supabase
               .from('ordens_servico')
@@ -233,75 +345,120 @@ export default function EditarOrdemServico() {
               .eq('id', id);
 
             if (updateError) {
-              console.error('Erro ao salvar URLs das imagens:', updateError);
+              console.error('❌ Erro ao salvar URLs das imagens:', updateError);
             }
           }
         } catch (uploadError) {
-          console.error('Erro no upload das imagens:', uploadError);
+          console.error('❌ Erro no upload das imagens:', uploadError);
         }
       }
 
-      // Salvar dados da OS
-      const formData = new FormData();
-      formData.append('servico', servicoSelecionado?.nome || '');
-      formData.append('peca', pecaSelecionada?.nome || '');
-      formData.append('qtd_servico', (document.querySelector('input[name="qtd_servico"]') as HTMLInputElement)?.value || '0');
-      formData.append('qtd_peca', (document.querySelector('input[name="qtd_peca"]') as HTMLInputElement)?.value || '0');
-      formData.append('valor_servico', valorServico.toString());
-      formData.append('valor_peca', valorPeca.toString());
-      formData.append('status_id', statusSelecionado?.id || '');
-      formData.append('tecnico_id', tecnicoSelecionado?.auth_user_id || '');
-      formData.append('termo_garantia_id', termoSelecionado || '');
+      // Obter valores dos campos do formulário usando os estados
+      const marcaValue = marca || '';
+      const modeloValue = modelo || '';
+      const corValue = cor || '';
+      const numeroSerieValue = numeroSerie || '';
+      const relatoValue = relato || '';
+      const observacaoValue = observacao || '';
+      const qtdServicoValue = qtdServico || 0;
+      const qtdPecaValue = qtdPeca || 0;
 
-      const response = await fetch(`/api/ordens/${id}`, {
-        method: 'PUT',
-        body: formData
-      });
+      // Preparar dados para envio - incluindo todos os campos
+      const updateData = {
+        servico: servicoSelecionado?.nome || '',
+        qtd_servico: qtdServicoValue,
+        peca: pecaSelecionada?.nome || '',
+        qtd_peca: qtdPecaValue,
+        valor_servico: valorServico,
+        valor_peca: valorPeca,
+        valor_faturado: (qtdServicoValue * valorServico) + (qtdPecaValue * valorPeca),
+        status: statusSelecionado?.nome || 'aberta',
+        tecnico_id: tecnicoSelecionado?.auth_user_id || '',
+        termo_garantia_id: termoSelecionado || '',
+        tecnico: tecnicoSelecionado?.nome || '',
+        atendente: 'LUCAS OLIVEIRA', // ou pegar do contexto do usuário logado
+        empresa_id: user.user_metadata?.empresa_id,
+        // Campos adicionais que estavam faltando
+        marca: marcaValue,
+        modelo: modeloValue,
+        cor: corValue,
+        numero_serie: numeroSerieValue,
+        relato: relatoValue,
+        observacao: observacaoValue
+      };
 
-      if (response.ok) {
-        router.push('/ordens');
+      console.log('📤 Enviando dados para atualização:', updateData);
+      console.log('🆔 ID da OS:', id);
+
+      // Fazer a atualização completa
+      const { data, error } = await supabase
+        .from('ordens_servico')
+        .update(updateData)
+        .eq('id', id)
+        .select();
+
+      console.log('📊 Resposta do Supabase:', { data, error });
+
+      if (error) {
+        console.error('❌ Erro ao salvar OS:', error);
+        alert(`Erro ao salvar OS: ${error.message}`);
       } else {
-        console.error('Erro ao salvar OS');
+        console.log('✅ OS salva com sucesso:', data);
+        alert('OS salva com sucesso!');
+        router.push('/ordens');
       }
     } catch (error) {
-      console.error('Erro ao salvar:', error);
+      console.error('❌ Erro ao salvar:', error);
+      alert(`Erro ao salvar: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     } finally {
       setSaving(false);
+      console.log('🏁 Salvamento finalizado');
     }
   };
 
   if (loading) {
+    console.log('⏳ Página em loading...');
     return (
-      <MenuLayout>
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-            <p className="text-gray-600">Carregando ordem de serviço...</p>
+      <ProtectedArea area="ordens">
+        <MenuLayout>
+          <div className="p-8">
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Carregando OS...</p>
+              </div>
+            </div>
           </div>
-        </div>
-      </MenuLayout>
+        </MenuLayout>
+      </ProtectedArea>
     );
   }
 
   if (!ordem) {
+    console.log('❌ Ordem não encontrada');
     return (
-      <MenuLayout>
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <FiFileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">Ordem não encontrada</h2>
-            <p className="text-gray-600 mb-4">A ordem de serviço solicitada não foi encontrada.</p>
-            <button
-              onClick={() => router.push('/ordens')}
-              className="bg-black text-white px-6 py-2 rounded-lg hover:bg-gray-800 transition-colors"
-            >
-              Voltar para Ordens
-            </button>
+      <ProtectedArea area="ordens">
+        <MenuLayout>
+          <div className="p-8">
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <p className="text-red-600 text-lg font-semibold mb-2">OS não encontrada</p>
+                <p className="text-gray-600">A ordem de serviço solicitada não foi encontrada.</p>
+                <button
+                  onClick={() => router.push('/ordens')}
+                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Voltar para Ordens
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      </MenuLayout>
+        </MenuLayout>
+      </ProtectedArea>
     );
   }
+
+  console.log('✅ Ordem carregada:', ordem.numero_os);
 
   return (
     <ProtectedArea area="ordens">
@@ -321,7 +478,7 @@ export default function EditarOrdemServico() {
               <div>
                 <div className="flex items-center gap-3">
                   <h1 className="text-3xl font-bold text-gray-900">
-                    Editar OS #{ordem.numero_os}
+                    Editar OS #{ordem?.numero_os || 'N/A'}
                   </h1>
                   {isRetorno(ordem) && (
                     <div className="flex items-center gap-2 px-3 py-1 bg-red-50 border border-red-200 rounded-full">
@@ -346,7 +503,11 @@ export default function EditarOrdemServico() {
                 Cancelar
               </button>
               <button
-                onClick={handleSalvar}
+                onClick={() => {
+                  console.log('🔘 Botão Salvar clicado!');
+                  console.log('💾 Estado saving:', saving);
+                  handleSalvar();
+                }}
                 disabled={saving}
                 className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
               >
@@ -401,7 +562,8 @@ export default function EditarOrdemServico() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Marca</label>
                     <input
                       name="marca"
-                      defaultValue={ordem.marca}
+                      value={marca}
+                      onChange={(e) => setMarca(e.target.value)}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
@@ -409,7 +571,8 @@ export default function EditarOrdemServico() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Modelo</label>
                     <input
                       name="modelo"
-                      defaultValue={ordem.modelo}
+                      value={modelo}
+                      onChange={(e) => setModelo(e.target.value)}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
@@ -417,7 +580,8 @@ export default function EditarOrdemServico() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Cor</label>
                     <input
                       name="cor"
-                      defaultValue={ordem.cor}
+                      value={cor}
+                      onChange={(e) => setCor(e.target.value)}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
@@ -425,7 +589,8 @@ export default function EditarOrdemServico() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Número de Série</label>
                     <input
                       name="numero_serie"
-                      defaultValue={ordem.numero_serie}
+                      value={numeroSerie}
+                      onChange={(e) => setNumeroSerie(e.target.value)}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
@@ -456,7 +621,7 @@ export default function EditarOrdemServico() {
                         </Listbox.Button>
                         <Transition as={Fragment} leave="transition ease-in duration-100" leaveFrom="opacity-100" leaveTo="opacity-0">
                           <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto bg-white border border-gray-200 rounded-lg shadow-lg text-sm">
-                            {statusOS.map((status) => (
+                            {status.map((status) => (
                               <Listbox.Option
                                 key={status.id}
                                 value={status}
@@ -531,7 +696,8 @@ export default function EditarOrdemServico() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Relato do Cliente</label>
                     <textarea
                       name="relato"
-                      defaultValue={ordem.relato}
+                      value={relato}
+                      onChange={(e) => setRelato(e.target.value)}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg resize-none h-20 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
@@ -550,7 +716,8 @@ export default function EditarOrdemServico() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Observações Internas</label>
                   <textarea
                     name="observacao"
-                    defaultValue={ordem.observacao}
+                    value={observacao}
+                    onChange={(e) => setObservacao(e.target.value)}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg resize-none h-20 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
@@ -576,7 +743,7 @@ export default function EditarOrdemServico() {
                           className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           onFocus={() => setQueryServico('')}
                           onChange={(e) => setQueryServico(e.target.value)}
-                          displayValue={(s) => s?.nome ? `${s.nome} - ${formatCurrency(s.preco)}` : ''}
+                          displayValue={(s: Servico | null) => s?.nome ? `${s.nome} - ${formatCurrency(s.preco)}` : ''}
                           placeholder="Buscar serviço..."
                           autoComplete="off"
                         />
@@ -584,7 +751,7 @@ export default function EditarOrdemServico() {
                           {servicosFiltrados.length === 0 && (
                             <div className="px-3 py-2 text-gray-500">Nenhum serviço encontrado.</div>
                           )}
-                          {servicosFiltrados.map((s) => (
+                          {servicosFiltrados.map((s: Servico) => (
                             <Combobox.Option
                               key={s.id}
                               value={s}
@@ -594,7 +761,7 @@ export default function EditarOrdemServico() {
                                 }`
                               }
                             >
-                              {s?.nome} – {formatCurrency(s?.preco || 0)}
+                              {s.nome} – {formatCurrency(s.preco || 0)}
                             </Combobox.Option>
                           ))}
                         </Combobox.Options>
@@ -606,7 +773,8 @@ export default function EditarOrdemServico() {
                     <input
                       type="number"
                       name="qtd_servico"
-                      defaultValue={ordem?.qtd_servico}
+                      value={qtdServico}
+                      onChange={(e) => setQtdServico(parseInt(e.target.value) || 0)}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
@@ -642,7 +810,7 @@ export default function EditarOrdemServico() {
                           className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           onFocus={() => setQueryPeca('')}
                           onChange={(e) => setQueryPeca(e.target.value)}
-                          displayValue={(p) => p?.nome ? `${p.nome} - ${formatCurrency(p.preco)}` : ''}
+                          displayValue={(p: Peca | null) => p?.nome ? `${p.nome} - ${formatCurrency(p.preco)}` : ''}
                           placeholder="Buscar peça..."
                           autoComplete="off"
                         />
@@ -650,7 +818,7 @@ export default function EditarOrdemServico() {
                           {pecasFiltradas.length === 0 && (
                             <div className="px-3 py-2 text-gray-500">Nenhuma peça encontrada.</div>
                           )}
-                          {pecasFiltradas.map((p) => (
+                          {pecasFiltradas.map((p: Peca) => (
                             <Combobox.Option
                               key={p.id}
                               value={p}
@@ -660,7 +828,7 @@ export default function EditarOrdemServico() {
                                 }`
                               }
                             >
-                              {p?.nome} – {formatCurrency(p?.preco || 0)}
+                              {p.nome} – {formatCurrency(p.preco || 0)}
                             </Combobox.Option>
                           ))}
                         </Combobox.Options>
@@ -672,7 +840,8 @@ export default function EditarOrdemServico() {
                     <input
                       type="number"
                       name="qtd_peca"
-                      defaultValue={ordem?.qtd_peca}
+                      value={qtdPeca}
+                      onChange={(e) => setQtdPeca(parseInt(e.target.value) || 0)}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
@@ -768,9 +937,11 @@ export default function EditarOrdemServico() {
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                       {imagensExistentes.map((url, index) => (
                         <div key={index} className="relative group">
-                          <img
+                          <Image
                             src={url}
                             alt={`Imagem ${index + 1}`}
+                            width={100}
+                            height={100}
                             className="w-full h-24 object-cover rounded-lg border border-gray-200 shadow-sm"
                           />
                           <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
@@ -800,9 +971,11 @@ export default function EditarOrdemServico() {
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                       {previewImagens.map((preview, index) => (
                         <div key={index} className="relative group">
-                          <img
+                          <Image
                             src={preview}
                             alt={`Preview ${index + 1}`}
+                            width={100}
+                            height={100}
                             className="w-full h-24 object-cover rounded-lg border border-gray-200 shadow-sm"
                           />
                           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg flex items-center justify-center">
@@ -848,7 +1021,7 @@ export default function EditarOrdemServico() {
                     <select
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       value={termoSelecionado || ''}
-                      onChange={(e) => setTermoSelecionado(e.target.value || null)}
+                      onChange={(e) => setTermoSelecionado(e.target.value || '')}
                     >
                       <option value="">Selecione um termo de garantia (opcional)</option>
                       {termos.map((termo) => (
@@ -857,8 +1030,7 @@ export default function EditarOrdemServico() {
                         </option>
                       ))}
                     </select>
-                    {loadingTermos && <div className="text-xs text-gray-500 mt-1">Carregando termos...</div>}
-                    {termos.length === 0 && !loadingTermos && (
+                    {termos.length === 0 && (
                       <div className="text-xs text-gray-500 mt-1">
                         Nenhum termo de garantia cadastrado. 
                         <a href="/configuracoes?tab=2" className="text-blue-600 hover:underline ml-1">
