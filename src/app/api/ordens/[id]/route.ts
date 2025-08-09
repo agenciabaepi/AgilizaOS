@@ -59,6 +59,21 @@ export async function PUT(
     if (updateData.status_id) dataToUpdate.status_id = updateData.status_id;
     if (updateData.tecnico_id) dataToUpdate.tecnico_id = updateData.tecnico_id;
     if (updateData.termo_garantia_id) dataToUpdate.termo_garantia_id = updateData.termo_garantia_id;
+    
+    // Lógica automática para status técnico
+    if (updateData.status) {
+      dataToUpdate.status = updateData.status;
+      
+      if (updateData.status === 'APROVADO') {
+        dataToUpdate.status_tecnico = 'APROVADO';
+      } else if (updateData.status === 'ENTREGUE') {
+        dataToUpdate.status_tecnico = 'FINALIZADA';
+      }
+    }
+    
+    if (updateData.status_tecnico && !dataToUpdate.status_tecnico) {
+      dataToUpdate.status_tecnico = updateData.status_tecnico;
+    }
 
     // Calculate total value
     const valor_faturado = (updateData.qtd_servico * updateData.valor_servico) + (updateData.qtd_peca * updateData.valor_peca);

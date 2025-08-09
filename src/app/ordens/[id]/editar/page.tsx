@@ -326,7 +326,7 @@ export default function EditarOrdemServico() {
             // Preparar URLs das imagens para salvar
             urlsImagens = uploadData.files.map((file: { url: string }) => file.url).join(',');
           }
-        } catch (uploadError) {
+        } catch {
           addToast('error', '❌ Erro ao enviar imagens. Tente novamente.');
         }
       }
@@ -351,6 +351,16 @@ export default function EditarOrdemServico() {
       const qtdPecaValue = qtdPeca || 0;
 
       // Preparar dados para envio - incluindo todos os campos
+      const novoStatus = statusSelecionado?.nome || 'aberta';
+      let novoStatusTecnico = ordem?.status_tecnico || '';
+      
+      // Lógica automática para status técnico
+      if (novoStatus === 'APROVADO') {
+        novoStatusTecnico = 'APROVADO';
+      } else if (novoStatus === 'ENTREGUE') {
+        novoStatusTecnico = 'FINALIZADA';
+      }
+      
       const updateData = {
         servico: servicoSelecionado?.nome || '',
         qtd_servico: qtdServicoValue,
@@ -359,7 +369,8 @@ export default function EditarOrdemServico() {
         valor_servico: valorServico,
         valor_peca: valorPeca,
         valor_faturado: (qtdServicoValue * valorServico) + (qtdPecaValue * valorPeca),
-        status: statusSelecionado?.nome || 'aberta',
+        status: novoStatus,
+        status_tecnico: novoStatusTecnico,
         tecnico_id: tecnicoSelecionado?.auth_user_id || '',
         termo_garantia_id: termoSelecionado || '',
         tecnico: tecnicoSelecionado?.nome || '',
@@ -377,36 +388,27 @@ export default function EditarOrdemServico() {
       };
 
       console.log('📤 Enviando dados para atualização:', updateData);
-      console.log('🆔 ID da OS:', id);
-
       // Fazer a atualização completa
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('ordens_servico')
         .update(updateData)
         .eq('id', id)
         .select();
 
-      console.log('📊 Resposta do Supabase:', { data, error });
-
       if (error) {
-        console.error('❌ Erro ao salvar OS:', error);
-        alert(`Erro ao salvar OS: ${error.message}`);
+        addToast('error', `❌ Erro ao salvar OS: ${error.message}`);
       } else {
-        console.log('✅ OS salva com sucesso:', data);
-        alert('OS salva com sucesso!');
+        addToast('success', '✅ OS salva com sucesso!');
         router.push('/ordens');
       }
     } catch (error) {
-      console.error('❌ Erro ao salvar:', error);
-      alert(`Erro ao salvar: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      addToast('error', `❌ Erro ao salvar: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     } finally {
       setSaving(false);
-      console.log('🏁 Salvamento finalizado');
     }
   };
 
   if (loading) {
-    console.log('⏳ Página em loading...');
     return (
       <ProtectedArea area="ordens">
         <MenuLayout>
@@ -424,7 +426,6 @@ export default function EditarOrdemServico() {
   }
 
   if (!ordem) {
-    console.log('❌ Ordem não encontrada');
     return (
       <ProtectedArea area="ordens">
         <MenuLayout>
@@ -446,8 +447,6 @@ export default function EditarOrdemServico() {
       </ProtectedArea>
     );
   }
-
-  console.log('✅ Ordem carregada:', ordem.numero_os);
 
   return (
     <ProtectedArea area="ordens">
@@ -492,10 +491,17 @@ export default function EditarOrdemServico() {
                 Cancelar
               </button>
               <button
-                onClick={() => {
-                  console.log('🔘 Botão Salvar clicado!');
-                  console.log('💾 Estado saving:', saving);
-                  handleSalvar();
+                onClick={async () => {
+                  const confirmed = await confirm({
+                    title: 'Confirmar Salvamento',
+                    message: 'Deseja salvar as alterações desta ordem de serviço?',
+                    confirmText: 'Salvar',
+                    cancelText: 'Cancelar'
+                  });
+                  
+                  if (confirmed) {
+                    handleSalvar();
+                  }
                 }}
                 disabled={saving}
                 className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"

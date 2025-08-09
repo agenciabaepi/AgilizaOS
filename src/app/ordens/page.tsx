@@ -71,6 +71,9 @@ export default function ListaOrdensPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20);
   const [tecnicos, setTecnicos] = useState<string[]>([]);
+  
+  // Estado para abas
+  const [activeTab, setActiveTab] = useState('abertas');
 
   function formatDate(date: string) {
     return date ? new Date(date).toLocaleDateString('pt-BR') : '';
@@ -93,14 +96,19 @@ export default function ListaOrdensPage() {
   }
 
   const getStatusColor = (status: string) => {
+    if (!status) return 'bg-gray-100 text-gray-800 border border-gray-200';
+    
     const statusLower = status.toLowerCase();
     switch (statusLower) {
       case 'concluido':
       case 'finalizado':
       case 'reparo concluído':
+      case 'entregue':
         return 'bg-green-100 text-green-800 border border-green-200';
       case 'orcamento':
+      case 'orçamento':
       case 'orçamento enviado':
+      case 'aprovado':
         return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
       case 'analise':
       case 'em analise':
@@ -126,6 +134,8 @@ export default function ListaOrdensPage() {
   };
 
   const getStatusTecnicoColor = (status: string) => {
+    if (!status) return 'bg-gray-100 text-gray-800 border border-gray-200';
+    
     const statusLower = status.toLowerCase();
     switch (statusLower) {
       case 'aguardando início':
@@ -147,6 +157,8 @@ export default function ListaOrdensPage() {
         return 'bg-red-100 text-red-800 border border-red-200';
       case 'reparo concluído':
       case 'reparo concluido':
+      case 'finalizada':
+      case 'finalizado':
         return 'bg-green-100 text-green-800 border border-green-200';
       default:
         return 'bg-gray-100 text-gray-800 border border-gray-200';
@@ -344,10 +356,27 @@ export default function ListaOrdensPage() {
       const matchesAparelho = aparelhoFilter === '' || os.aparelho.toLowerCase().includes(aparelhoFilter.toLowerCase());
       const matchesTecnico = tecnicoFilter === '' || os.tecnico.toLowerCase().includes(tecnicoFilter.toLowerCase());
       const matchesTipo = tipoFilter === '' || os.tipo === tipoFilter;
+      
+      // Filtro por aba
+      let matchesTab = true;
+      if (activeTab === 'abertas') {
+        // OS abertas: não entregues, não finalizadas
+        const statusAbertos = ['em análise', 'aguardando início', 'aguardando peça', 'em execução', 'orçamento', 'aprovado'];
+        matchesTab = statusAbertos.includes(os.statusOS.toLowerCase());
+      } else if (activeTab === 'concluidas') {
+        // OS concluídas: entregues, finalizadas
+        const statusConcluidos = ['entregue', 'finalizado', 'concluído', 'reparo concluído'];
+        matchesTab = statusConcluidos.includes(os.statusOS.toLowerCase());
+      } else if (activeTab === 'orcamentos') {
+        // OS com orçamento
+        const statusOrcamento = ['orçamento', 'orçamento enviado', 'aguardando aprovação'];
+        matchesTab = statusOrcamento.includes(os.statusOS.toLowerCase());
+      }
+      // activeTab === 'todas' não filtra nada
 
-      return matchesSearch && matchesStatus && matchesAparelho && matchesTecnico && matchesTipo;
+      return matchesSearch && matchesStatus && matchesAparelho && matchesTecnico && matchesTipo && matchesTab;
     });
-  }, [ordens, searchTerm, statusFilter, aparelhoFilter, tecnicoFilter, tipoFilter]);
+  }, [ordens, searchTerm, statusFilter, aparelhoFilter, tecnicoFilter, tipoFilter, activeTab]);
 
   const totalPages = Math.ceil(filteredOrdens.length / itemsPerPage);
   const paginated = filteredOrdens.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -377,6 +406,31 @@ export default function ListaOrdensPage() {
   const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page);
   }, []);
+  
+  const handleTabChange = useCallback((tab: string) => {
+    setActiveTab(tab);
+    setCurrentPage(1);
+  }, []);
+  
+  // Contadores para as abas
+  const contadores = useMemo(() => {
+    const abertas = ordens.filter(os => {
+      const statusAbertos = ['em análise', 'aguardando início', 'aguardando peça', 'em execução', 'orçamento', 'aprovado'];
+      return statusAbertos.includes(os.statusOS.toLowerCase());
+    }).length;
+    
+    const concluidas = ordens.filter(os => {
+      const statusConcluidos = ['entregue', 'finalizado', 'concluído', 'reparo concluído'];
+      return statusConcluidos.includes(os.statusOS.toLowerCase());
+    }).length;
+    
+    const orcamentos = ordens.filter(os => {
+      const statusOrcamento = ['orçamento', 'orçamento enviado', 'aguardando aprovação'];
+      return statusOrcamento.includes(os.statusOS.toLowerCase());
+    }).length;
+    
+    return { abertas, concluidas, orcamentos, todas: ordens.length };
+  }, [ordens]);
 
   if (!empresaId) {
     return (
@@ -444,6 +498,72 @@ export default function ListaOrdensPage() {
             />
           </div>
 
+          {/* Abas */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+            <div className="flex border-b border-gray-200">
+              <button
+                onClick={() => handleTabChange('abertas')}
+                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
+                  activeTab === 'abertas'
+                    ? 'border-blue-500 text-blue-600 bg-blue-50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                🔄 Em Aberto
+                <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
+                  activeTab === 'abertas' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                }`}>
+                  {contadores.abertas}
+                </span>
+              </button>
+              <button
+                onClick={() => handleTabChange('orcamentos')}
+                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
+                  activeTab === 'orcamentos'
+                    ? 'border-blue-500 text-blue-600 bg-blue-50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                💰 Orçamentos
+                <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
+                  activeTab === 'orcamentos' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                }`}>
+                  {contadores.orcamentos}
+                </span>
+              </button>
+              <button
+                onClick={() => handleTabChange('concluidas')}
+                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
+                  activeTab === 'concluidas'
+                    ? 'border-blue-500 text-blue-600 bg-blue-50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                ✅ Concluídas
+                <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
+                  activeTab === 'concluidas' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                }`}>
+                  {contadores.concluidas}
+                </span>
+              </button>
+              <button
+                onClick={() => handleTabChange('todas')}
+                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
+                  activeTab === 'todas'
+                    ? 'border-blue-500 text-blue-600 bg-blue-50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                📋 Todas
+                <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
+                  activeTab === 'todas' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                }`}>
+                  {contadores.todas}
+                </span>
+              </button>
+            </div>
+          </div>
+
           {/* Filtros e busca */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
             <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
@@ -502,6 +622,8 @@ export default function ListaOrdensPage() {
                     setTipoFilter('');
                     setTecnicoFilter('');
                     setAparelhoFilter('');
+                    setActiveTab('abertas');
+                    setCurrentPage(1);
                   }}
                   variant="outline"
                   size="sm"

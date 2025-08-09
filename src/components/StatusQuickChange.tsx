@@ -84,6 +84,17 @@ export default function StatusQuickChange({
       
       if (newStatus !== currentStatus) {
         updateData.status = newStatus;
+        
+        // Lógica automática: quando status OS = APROVADO, status técnico = APROVADO
+        if (newStatus === 'APROVADO' && newStatusTecnico !== 'APROVADO') {
+          updateData.status_tecnico = 'APROVADO';
+          newStatusTecnico = 'APROVADO';
+        }
+        // Lógica automática: quando status OS = ENTREGUE, status técnico = FINALIZADA
+        else if (newStatus === 'ENTREGUE' && newStatusTecnico !== 'FINALIZADA') {
+          updateData.status_tecnico = 'FINALIZADA';
+          newStatusTecnico = 'FINALIZADA';
+        }
       }
       
       if (newStatusTecnico !== currentStatusTecnico) {
