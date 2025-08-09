@@ -8,6 +8,8 @@ import Image from 'next/image';
 import { supabase } from '@/lib/supabaseClient';
 import MenuLayout from '@/components/MenuLayout';
 import ProtectedArea from '@/components/ProtectedArea';
+import { useToast } from '@/components/Toast';
+import { useConfirm } from '@/components/ConfirmDialog';
 import { Combobox } from '@headlessui/react';
 import { FiArrowLeft, FiSave, FiX, FiUser, FiSmartphone, FiFileText, FiTool, FiDollarSign, FiMessageCircle, FiPackage, FiCheckCircle, FiShield } from 'react-icons/fi';
 
@@ -78,9 +80,8 @@ export default function EditarOrdemServico() {
   const router = useRouter();
   const params = useParams();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
-  
-  console.log('🆔 ID obtido dos parâmetros:', id);
-  console.log('🎨 Componente sendo renderizado');
+  const { addToast } = useToast();
+  const confirm = useConfirm();
   
   const [ordem, setOrdem] = useState<Ordem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -285,46 +286,32 @@ export default function EditarOrdemServico() {
   };
 
   const handleSalvar = async () => {
-    alert('🔄 Função handleSalvar foi chamada!');
-    console.log('🔄 Iniciando salvamento...');
+    addToast('info', '🔄 Salvando ordem de serviço...');
     
     if (!id) {
-      console.error('❌ ID da OS não encontrado');
-      alert('Erro: ID da OS não encontrado');
+      addToast('error', '❌ ID da OS não encontrado');
       return;
     }
     
     // Verificar autenticação
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      console.error('❌ Erro de autenticação:', authError);
-      alert('Erro: Usuário não autenticado');
+      addToast('error', '❌ Erro de autenticação. Faça login novamente.');
       return;
     }
     
-    console.log('✅ Usuário autenticado:', user.email);
-    console.log('🏢 Empresa ID:', user.user_metadata?.empresa_id);
-    
     setSaving(true);
     try {
-      console.log('📋 Dados atuais:', {
-        servicoSelecionado,
-        pecaSelecionada,
-        statusSelecionado,
-        tecnicoSelecionado,
-        valorServico,
-        valorPeca,
-        id
-      });
-
       // Upload das imagens (se houver)
+      let urlsImagens = '';
       if (imagens.length > 0) {
-        console.log('📸 Imagens selecionadas:', imagens.length, 'arquivos');
+        addToast('info', `📸 Enviando ${imagens.length} imagem(ns)...`);
         
         try {
           const imageFormData = new FormData();
-          imagens.forEach((file, index) => {
-            imageFormData.append(`file${index}`, file);
+          imageFormData.append('ordemId', id);
+          imagens.forEach((file) => {
+            imageFormData.append('files', file);
           });
 
           const uploadResult = await fetch('/api/upload', {
@@ -334,24 +321,24 @@ export default function EditarOrdemServico() {
 
           if (uploadResult.ok) {
             const uploadData = await uploadResult.json();
-            console.log('✅ Imagens enviadas com sucesso:', uploadData.files);
+            addToast('success', `✅ ${imagens.length} imagem(ns) enviada(s) com sucesso!`);
             
-            // Salvar URLs das imagens na OS
-            const urlsImagens = uploadData.files.map((file: { url: string }) => file.url).join(',');
-            
-            const { error: updateError } = await supabase
-              .from('ordens_servico')
-              .update({ imagens: urlsImagens })
-              .eq('id', id);
-
-            if (updateError) {
-              console.error('❌ Erro ao salvar URLs das imagens:', updateError);
-            }
+            // Preparar URLs das imagens para salvar
+            urlsImagens = uploadData.files.map((file: { url: string }) => file.url).join(',');
           }
         } catch (uploadError) {
-          console.error('❌ Erro no upload das imagens:', uploadError);
+          addToast('error', '❌ Erro ao enviar imagens. Tente novamente.');
         }
       }
+
+      // Combinar imagens existentes com novas imagens
+      if (imagensExistentes.length > 0 && urlsImagens) {
+        urlsImagens = imagensExistentes.join(',') + ',' + urlsImagens;
+      } else if (imagensExistentes.length > 0) {
+        urlsImagens = imagensExistentes.join(',');
+      }
+
+
 
       // Obter valores dos campos do formulário usando os estados
       const marcaValue = marca || '';
@@ -367,8 +354,8 @@ export default function EditarOrdemServico() {
       const updateData = {
         servico: servicoSelecionado?.nome || '',
         qtd_servico: qtdServicoValue,
-        peca: pecaSelecionada?.nome || '',
         qtd_peca: qtdPecaValue,
+        peca: pecaSelecionada?.nome || '',
         valor_servico: valorServico,
         valor_peca: valorPeca,
         valor_faturado: (qtdServicoValue * valorServico) + (qtdPecaValue * valorPeca),
@@ -378,6 +365,8 @@ export default function EditarOrdemServico() {
         tecnico: tecnicoSelecionado?.nome || '',
         atendente: 'LUCAS OLIVEIRA', // ou pegar do contexto do usuário logado
         empresa_id: user.user_metadata?.empresa_id,
+        // Campo de imagens
+        imagens: urlsImagens,
         // Campos adicionais que estavam faltando
         marca: marcaValue,
         modelo: modeloValue,
