@@ -1,28 +1,21 @@
 'use client';
-import { Suspense } from 'react';
 
-function CadastroTest() {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-[#cffb6d] to-[#e0ffe3] flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold mb-4">Página de Cadastro</h1>
-        <p className="text-gray-600">Teste de carregamento</p>
-      </div>
-    </div>
-  );
-}
+import { Suspense } from 'react';
+import CadastroWrapper from './CadastroWrapper';
 
 export default function CadastroPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-[#cffb6d] to-[#e0ffe3] flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto"></div>
-          <p className="mt-4 text-gray-600">Carregando...</p>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gradient-to-br from-[#cffb6d] to-[#e0ffe3] flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto"></div>
+            <p className="mt-4 text-gray-600">Carregando...</p>
+          </div>
         </div>
-      </div>
-    }>
-      <CadastroTest />
+      }
+    >
+      <CadastroWrapper />
     </Suspense>
   );
 }

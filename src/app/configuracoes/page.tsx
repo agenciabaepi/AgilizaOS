@@ -15,6 +15,7 @@ const EmpresaPage = lazy(() => import('./empresa/page'))
 const UsuariosPage = lazy(() => import('./usuarios/page'))
 const TermosPage = lazy(() => import('./termos/page'))
 const StatusPage = lazy(() => import('./status/page'))
+const ComissoesPage = lazy(() => import('./comissoes/page'))
 // Remover importação de PerfilPage
 
 // Componente de loading para as páginas filhas
@@ -146,6 +147,7 @@ function ConfiguracoesInner() {
     ? [
         { name: 'Empresa', component: <EmpresaPage /> },
         { name: 'Usuários', component: <UsuariosPage /> },
+        { name: 'Comissões', component: <ComissoesPage /> },
         { name: 'Termos de Garantia', component: <TermosPage /> },
         { name: 'Status', component: <StatusPage /> },
       ]
@@ -156,6 +158,7 @@ function ConfiguracoesInner() {
     : [
         { name: 'Empresa', component: <EmpresaPage /> },
         { name: 'Usuários', component: <UsuariosPage /> },
+        { name: 'Comissões', component: <ComissoesPage /> },
         { name: 'Termos de Garantia', component: <TermosPage /> },
         { name: 'Status', component: <StatusPage /> },
       ];

@@ -1,26 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize Supabase admin client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-console.log('API Route - Variáveis de ambiente:', {
-  supabaseUrl: supabaseUrl ? 'Definida' : 'Não definida',
-  supabaseKey: supabaseKey ? 'Definida' : 'Não definida'
-});
-
-if (!supabaseUrl || !supabaseKey) {
-  console.error('Erro: Variáveis de ambiente não definidas');
-  throw new Error('Supabase URL or Service Role Key is not defined in environment');
-}
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 export async function POST(req: NextRequest) {
   console.log('API Route /api/produtos/criar chamada');
   
   try {
+    const supabaseAdmin = getSupabaseAdmin();
     const {
       empresa_id,
       nome,

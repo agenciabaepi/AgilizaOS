@@ -133,7 +133,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="flex min-h-screen bg-white">
       {/* Sidebar Desktop */}
-      <aside className={`${menuRecolhido ? 'w-16' : 'w-64'} bg-black border-r border-white/20 flex flex-col py-8 ${menuRecolhido ? 'px-2' : 'px-4'} min-h-screen hidden md:flex transition-all duration-300`}>
+      <aside className={`${menuRecolhido ? 'w-16' : 'w-64'} bg-black border-r border-white/20 flex flex-col py-8 ${menuRecolhido ? 'px-2' : 'px-4'} h-screen fixed top-0 left-0 z-40 hidden md:flex transition-all duration-300 overflow-y-auto`}>
         {/* Logo branco centralizado */}
         <div className="flex flex-col items-center mb-6">
           {menuRecolhido ? (
@@ -274,6 +274,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           )}
           {podeVer('bancada') && (
             <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" isActive={pathname === '/bancada'} menuRecolhido={menuRecolhido} />
+          )}
+          {usuarioData?.nivel === 'tecnico' && (
+            <SidebarButton path="/comissoes" icon={<FiDollarSign size={20} />} label="Comissões" isActive={pathname === '/comissoes'} menuRecolhido={menuRecolhido} />
           )}
           {podeVer('termos') && (
             <SidebarButton path="#" icon={<FiFileText size={20} />} label="Termos" isActive={pathname === '/termos'} menuRecolhido={menuRecolhido} />
@@ -430,6 +433,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               {podeVer('bancada') && (
                 <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" />
               )}
+              {usuarioData?.nivel === 'tecnico' && (
+                <SidebarButton path="/comissoes" icon={<FiDollarSign size={20} />} label="Comissões" />
+              )}
               {podeVer('termos') && (
                 <SidebarButton path="#" icon={<FiFileText size={20} />} label="Termos" />
               )}
@@ -457,7 +463,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
         </div>
       )}
       {/* Main area with header and content */}
-      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${menuRecolhido ? 'ml-0' : ''}`}>
+      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${menuRecolhido ? 'ml-16' : 'ml-64'}`}>
         {/* TopHeader */}
         <header className="w-full h-16 bg-white border-b border-zinc-200 flex items-center justify-between px-6 sticky top-0 z-30">
           {/* Botão menu mobile */}

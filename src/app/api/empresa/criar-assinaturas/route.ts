@@ -1,14 +1,10 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 export async function POST() {
   try {
     console.log('Iniciando criação de assinaturas trial para empresas existentes...');
+    const supabaseAdmin = getSupabaseAdmin();
 
     // 1. Buscar todas as empresas
     const { data: todasEmpresas, error: errorEmpresas } = await supabaseAdmin

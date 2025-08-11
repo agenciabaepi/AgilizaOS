@@ -31,6 +31,7 @@ interface Usuario {
   email: string;
   nivel: string;
   auth_user_id: string;
+  tecnico_id?: string;
 }
 
 interface Status {
@@ -181,7 +182,7 @@ function NovaOS2Content() {
       setLoadingUsuarios(true);
       const { data, error } = await supabase
         .from('usuarios')
-        .select('id, nome, email, nivel, auth_user_id')
+        .select('id, nome, email, nivel, auth_user_id, tecnico_id')
         .eq('empresa_id', empresaData.id)
         .order('nome', { ascending: true });
       
@@ -193,7 +194,7 @@ function NovaOS2Content() {
         if (usuarioData) {
           const usuarioLogado = data.find(u => u.auth_user_id === usuarioData.auth_user_id);
           if (usuarioLogado && usuarioLogado.nivel === 'tecnico') {
-            setTecnicoResponsavel(usuarioLogado.auth_user_id);
+            setTecnicoResponsavel(usuarioLogado.tecnico_id || usuarioLogado.auth_user_id);
           }
         }
       }
@@ -480,7 +481,7 @@ function NovaOS2Content() {
 
     try {
       // Buscar dados do técnico selecionado
-      const tecnicoSelecionado = tecnicos.find(t => t.auth_user_id === tecnicoResponsavel);
+      const tecnicoSelecionado = tecnicos.find(t => t.tecnico_id === tecnicoResponsavel);
       
       // Buscar o status selecionado para obter o nome
       const statusSelecionadoObj = statusOS.find(s => s.id === statusSelecionado);
@@ -982,11 +983,11 @@ function NovaOS2Content() {
                   <label className="block text-sm font-medium text-gray-700">Selecione o Técnico Responsável</label>
                   <ReactSelect
                     options={(tecnicos || []).map(tecnico => ({ 
-                      value: tecnico.auth_user_id, 
+                      value: tecnico.tecnico_id || tecnico.auth_user_id, 
                       label: tecnico.nome 
                     }))}
                     value={(() => {
-                      const tecnico = (tecnicos || []).find(t => t.auth_user_id === tecnicoResponsavel);
+                      const tecnico = (tecnicos || []).find(t => (t.tecnico_id || t.auth_user_id) === tecnicoResponsavel);
                       return tecnicoResponsavel && tecnico ? { 
                         value: tecnicoResponsavel, 
                         label: tecnico.nome 
@@ -1025,14 +1026,14 @@ function NovaOS2Content() {
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center text-sm font-medium">
                         {(() => {
-                          const tecnico = (tecnicos || []).find(t => t.auth_user_id === tecnicoResponsavel);
+                          const tecnico = (tecnicos || []).find(t => (t.tecnico_id || t.auth_user_id) === tecnicoResponsavel);
                           return tecnico ? tecnico.nome.charAt(0).toUpperCase() : '';
                         })()}
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-700">
                           {(() => {
-                            const tecnico = (tecnicos || []).find(t => t.auth_user_id === tecnicoResponsavel);
+                            const tecnico = (tecnicos || []).find(t => (t.tecnico_id || t.auth_user_id) === tecnicoResponsavel);
                             return tecnico ? tecnico.nome : '';
                           })()}
                         </p>

@@ -3,14 +3,19 @@
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { FiClipboard, FiSave, FiBox, FiTool, FiPlayCircle, FiX, FiCamera, FiTrash2 } from 'react-icons/fi';
+import { FiClipboard, FiSave, FiBox, FiTool, FiPlayCircle, FiX, FiCamera, FiTrash2, FiEdit, FiCheck, FiAlertCircle } from 'react-icons/fi';
 import MenuLayout from '@/components/MenuLayout';
 import ProtectedArea from '@/components/ProtectedArea';
 import ProdutoServicoSearch from '@/components/ProdutoServicoSearch';
+import { Button } from '@/components/Button';
+import { useToast } from '@/components/Toast';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 export default function DetalheBancadaPage() {
   const params = useParams();
   const id = params?.id as string;
+  const { addToast } = useToast();
+  const confirm = useConfirm();
   interface OrdemServico {
     id: string;
     empresa_id: string;
@@ -84,8 +89,24 @@ export default function DetalheBancadaPage() {
         .select(`*, cliente:cliente_id(nome)`)
         .eq('id', id)
         .single();
-      if (!error && data) {
+        
+      console.log('Resultado da consulta:', { data, error });
+      
+      if (error) {
+        console.error('Erro ao carregar OS:', error);
+        setLoading(false);
+        return;
+      }
+      
+      if (!data) {
+        console.error('OS não encontrada com ID:', id);
+        setLoading(false);
+        return;
+      }
+      
+      if (data) {
         setOs(data);
+        console.log('Empresa ID definido:', data.empresa_id);
         setEmpresaId(data.empresa_id);
         
         // Carregar imagens existentes
@@ -122,6 +143,83 @@ export default function DetalheBancadaPage() {
         setObservacoes(data.observacao || '');
         setProdutos(data.peca || '');
         setServicos(data.servico || '');
+        
+        console.log('Dados carregados da OS:', {
+          peca: data.peca,
+          servico: data.servico,
+          valor_peca: data.valor_peca,
+          valor_servico: data.valor_servico,
+          valor_faturado: data.valor_faturado
+        });
+        
+        // Exibir no console para debug
+        console.log('===== DADOS COMPLETOS DA OS =====');
+        console.log('Peças/Produtos:', data.peca);
+        console.log('Serviços:', data.servico);
+        console.log('Valor Peças:', data.valor_peca);
+        console.log('Valor Serviços:', data.valor_servico);
+        console.log('===================================');
+        
+        // Tentar restaurar produtos e serviços selecionados (campos novos podem não existir ainda)
+        try {
+          // Buscar campos JSON separadamente para não quebrar se não existirem
+          const { data: dadosJson } = await supabase
+            .from('ordens_servico')
+            .select('produtos_json, servicos_json')
+            .eq('id', id)
+            .single();
+            
+          if (dadosJson?.produtos_json) {
+            const produtosRestaurados = JSON.parse(dadosJson.produtos_json);
+            console.log('Produtos restaurados:', produtosRestaurados);
+            setProdutosSelecionados(produtosRestaurados);
+          } else {
+            setProdutosSelecionados([]);
+          }
+          
+          if (dadosJson?.servicos_json) {
+            const servicosRestaurados = JSON.parse(dadosJson.servicos_json);
+            console.log('Serviços restaurados:', servicosRestaurados);
+            setServicosSelecionados(servicosRestaurados);
+          } else {
+            setServicosSelecionados([]);
+          }
+        } catch (error) {
+          console.log('Campos JSON não existem ainda, tentando reconstruir a partir do texto:', error);
+          
+          // Tentar reconstruir produtos e serviços a partir dos campos de texto
+          const produtosReconstruidos = [];
+          const servicosReconstruidos = [];
+          
+          // Se há valor de peça, criar item genérico baseado no texto
+          if (data.peca && data.valor_peca && parseFloat(data.valor_peca) > 0) {
+            console.log('Reconstruindo produto a partir de:', data.peca);
+            produtosReconstruidos.push({
+              id: 'reconstruct-prod-1',
+              nome: data.peca.length > 50 ? data.peca.substring(0, 50) + '...' : data.peca,
+              preco: parseFloat(data.valor_peca),
+              quantidade: 1,
+              tipo: 'produto'
+            });
+          }
+          
+          // Se há valor de serviço, criar item genérico baseado no texto
+          if (data.servico && data.valor_servico && parseFloat(data.valor_servico) > 0) {
+            console.log('Reconstruindo serviço a partir de:', data.servico);
+            servicosReconstruidos.push({
+              id: 'reconstruct-serv-1',
+              nome: data.servico.length > 50 ? data.servico.substring(0, 50) + '...' : data.servico,
+              preco: parseFloat(data.valor_servico),
+              tipo: 'servico'
+            });
+          }
+          
+          console.log('Produtos reconstruídos:', produtosReconstruidos);
+          console.log('Serviços reconstruídos:', servicosReconstruidos);
+          
+          setProdutosSelecionados(produtosReconstruidos);
+          setServicosSelecionados(servicosReconstruidos);
+        }
         
         // Mostrar botão iniciar se estiver aguardando início
         setMostrarBotaoIniciar(statusInicial === 'AGUARDANDO INÍCIO');
@@ -188,6 +286,9 @@ export default function DetalheBancadaPage() {
       }
 
       // Preparar dados dos produtos e serviços
+      console.log('Produtos selecionados para salvar:', produtosSelecionados);
+      console.log('Serviços selecionados para salvar:', servicosSelecionados);
+      
       const produtosText = produtosSelecionados.map(p => 
         `${p.nome} (${p.quantidade}x) - ${formatPrice(p.preco * p.quantidade)}`
       ).join(', ');
@@ -195,25 +296,53 @@ export default function DetalheBancadaPage() {
       const servicosText = servicosSelecionados.map(s => 
         `${s.nome} - ${formatPrice(s.preco)}`
       ).join(', ');
+      
+      const totalProdutos = calcularTotalProdutos();
+      const totalServicos = calcularTotalServicos();
+      console.log('Total produtos:', totalProdutos);
+      console.log('Total serviços:', totalServicos);
+      console.log('Produtos text:', produtosText);
+      console.log('Serviços text:', servicosText);
 
       // Combinar imagens existentes com novas
       const todasImagens = [...imagensExistentes, ...novasImagens];
       const imagensString = todasImagens.join(',');
 
+      // Preparar dados estruturados para salvar
+      const produtosJson = JSON.stringify(produtosSelecionados);
+      const servicosJson = JSON.stringify(servicosSelecionados);
+      
+      console.log('Salvando produtos estruturados:', produtosJson);
+      console.log('Salvando serviços estruturados:', servicosJson);
+      
+      // Tentar salvar com campos JSON, mas funcionar mesmo se eles não existirem
+      const updateData: any = {
+        status: novoStatus,
+        status_tecnico: statusTecnico,
+        laudo,
+        observacao: observacoes,
+        peca: produtosText || produtos,
+        servico: servicosText || servicos,
+        valor_peca: calcularTotalProdutos().toString(),
+        valor_servico: calcularTotalServicos().toString(),
+        valor_faturado: (calcularTotalProdutos() + calcularTotalServicos()).toString(),
+        imagens: imagensString
+      };
+      
+      // Tentar adicionar campos JSON se existirem
+      try {
+        await supabase
+          .from('ordens_servico')
+          .update({ produtos_json: produtosJson, servicos_json: servicosJson })
+          .eq('id', id);
+        console.log('Campos JSON salvos com sucesso');
+      } catch (jsonError) {
+        console.log('Campos JSON não existem ainda, salvando apenas dados básicos:', jsonError);
+      }
+      
       const { error } = await supabase
         .from('ordens_servico')
-        .update({
-          status: novoStatus,
-          status_tecnico: statusTecnico,
-          laudo,
-          observacao: observacoes,
-          peca: produtosText || produtos,
-          servico: servicosText || servicos,
-          valor_peca: calcularTotalProdutos().toString(),
-          valor_servico: calcularTotalServicos().toString(),
-          valor_faturado: (calcularTotalProdutos() + calcularTotalServicos()).toString(),
-          imagens: imagensString
-        })
+        .update(updateData)
         .eq('id', id);
 
       if (error) {
@@ -241,11 +370,11 @@ export default function DetalheBancadaPage() {
       setMostrarBotaoIniciar(statusTecnico === 'AGUARDANDO INÍCIO');
 
       // Mostrar toast de sucesso
-      alert('Dados salvos com sucesso!');
+      addToast('success', 'Dados salvos com sucesso!');
       
     } catch (error) {
       console.error('Erro ao salvar:', error);
-      alert('Erro ao salvar: ' + (error as Error).message);
+      addToast('error', 'Erro ao salvar: ' + (error as Error).message);
     } finally {
       setSalvando(false);
     }
@@ -275,11 +404,11 @@ export default function DetalheBancadaPage() {
         setOs({ ...os, status: 'EM_ANALISE', status_tecnico: 'EM ANÁLISE' });
       }
 
-      alert('OS iniciada com sucesso!');
+      addToast('success', 'OS iniciada com sucesso!');
       
     } catch (error) {
       console.error('Erro ao iniciar OS:', error);
-      alert('Erro ao iniciar OS: ' + (error as Error).message);
+      addToast('error', 'Erro ao iniciar OS: ' + (error as Error).message);
     } finally {
       setSalvando(false);
     }
@@ -287,26 +416,40 @@ export default function DetalheBancadaPage() {
 
   // Funções para adicionar produtos e serviços
   const handleAdicionarProduto = (produto: { id: string; nome: string; preco: number; tipo: string }) => {
+    console.log('Adicionando produto:', produto);
     const produtoExistente = produtosSelecionados.find(p => p.id === produto.id);
     
     if (produtoExistente) {
-      setProdutosSelecionados(prev => 
-        prev.map(p => 
+      setProdutosSelecionados(prev => {
+        const updated = prev.map(p => 
           p.id === produto.id 
             ? { ...p, quantidade: p.quantidade + 1 }
             : p
-        )
-      );
+        );
+        console.log('Produtos atualizados:', updated);
+        return updated;
+      });
     } else {
-      setProdutosSelecionados(prev => [...prev, { ...produto, quantidade: 1 }]);
+      setProdutosSelecionados(prev => {
+        const updated = [...prev, { ...produto, quantidade: 1 }];
+        console.log('Produto adicionado, lista atualizada:', updated);
+        return updated;
+      });
     }
   };
 
   const handleAdicionarServico = (servico: { id: string; nome: string; preco: number; tipo: string }) => {
+    console.log('Adicionando serviço:', servico);
     const servicoExistente = servicosSelecionados.find(s => s.id === servico.id);
     
     if (!servicoExistente) {
-      setServicosSelecionados(prev => [...prev, servico]);
+      setServicosSelecionados(prev => {
+        const updated = [...prev, servico];
+        console.log('Serviço adicionado, lista atualizada:', updated);
+        return updated;
+      });
+    } else {
+      console.log('Serviço já existe na lista');
     }
   };
 
@@ -316,6 +459,26 @@ export default function DetalheBancadaPage() {
 
   const handleRemoverServico = (servicoId: string) => {
     setServicosSelecionados(prev => prev.filter(s => s.id !== servicoId));
+  };
+  
+  const handleEditarProduto = (produtoId: string, novoNome: string, novoPreco: number, novaQuantidade: number) => {
+    setProdutosSelecionados(prev => 
+      prev.map(p => 
+        p.id === produtoId 
+          ? { ...p, nome: novoNome, preco: novoPreco, quantidade: novaQuantidade }
+          : p
+      )
+    );
+  };
+  
+  const handleEditarServico = (servicoId: string, novoNome: string, novoPreco: number) => {
+    setServicosSelecionados(prev => 
+      prev.map(s => 
+        s.id === servicoId 
+          ? { ...s, nome: novoNome, preco: novoPreco }
+          : s
+      )
+    );
   };
 
   const handleAlterarQuantidade = (produtoId: string, novaQuantidade: number) => {
@@ -334,15 +497,29 @@ export default function DetalheBancadaPage() {
   };
 
   const calcularTotalProdutos = () => {
-    return produtosSelecionados.reduce((total, produto) => {
+    let totalSelecionados = produtosSelecionados.reduce((total, produto) => {
       return total + (produto.preco * produto.quantidade);
     }, 0);
+    
+    // Se não há produtos selecionados, mas há valor existente na OS, usar o existente
+    if (totalSelecionados === 0 && os && os.valor_peca) {
+      totalSelecionados = parseFloat(os.valor_peca) || 0;
+    }
+    
+    return totalSelecionados;
   };
 
   const calcularTotalServicos = () => {
-    return servicosSelecionados.reduce((total, servico) => {
+    let totalSelecionados = servicosSelecionados.reduce((total, servico) => {
       return total + servico.preco;
     }, 0);
+    
+    // Se não há serviços selecionados, mas há valor existente na OS, usar o existente
+    if (totalSelecionados === 0 && os && os.valor_servico) {
+      totalSelecionados = parseFloat(os.valor_servico) || 0;
+    }
+    
+    return totalSelecionados;
   };
 
   const formatPrice = (price: number) => {
@@ -358,7 +535,7 @@ export default function DetalheBancadaPage() {
     const validFiles = files.filter(file => file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024);
     
     if (validFiles.length !== files.length) {
-      alert('Algumas imagens foram ignoradas. Apenas imagens até 5MB são permitidas.');
+      addToast('warning', 'Algumas imagens foram ignoradas. Apenas imagens até 5MB são permitidas.');
     }
     
     setImagens(prev => [...prev, ...validFiles]);
@@ -398,7 +575,7 @@ export default function DetalheBancadaPage() {
 
       if (!uploadResponse.ok) {
         console.error('Erro no upload das imagens:', uploadResult.error);
-        alert('Erro ao fazer upload das imagens: ' + uploadResult.error);
+        addToast('error', 'Erro ao fazer upload das imagens: ' + uploadResult.error);
         return [];
       }
 
@@ -406,7 +583,7 @@ export default function DetalheBancadaPage() {
       
     } catch (error) {
       console.error('Erro no upload das imagens:', error);
-      alert('Erro inesperado no upload das imagens');
+      addToast('error', 'Erro inesperado no upload das imagens');
     } finally {
       setUploadingImagens(false);
     }
@@ -448,12 +625,14 @@ export default function DetalheBancadaPage() {
       <MenuLayout>
       <div className="px-6 py-8 max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-6">
-          <button
+          <Button
             onClick={() => window.history.back()}
-            className="text-sm text-blue-600 hover:text-blue-700 inline-flex items-center gap-2 transition-colors"
+            variant="ghost"
+            size="sm"
+            className="text-blue-600 hover:text-blue-700 inline-flex items-center gap-2"
           >
             ← Voltar para Bancada
-          </button>
+          </Button>
           
           <div className="flex items-center gap-3">
             <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
@@ -576,16 +755,114 @@ export default function DetalheBancadaPage() {
               empresaId={empresaId}
             />
 
+            {/* Produtos salvos anteriormente - Editáveis */}
+            {os && (os.peca || (os.valor_peca && parseFloat(os.valor_peca) > 0)) && produtosSelecionados.length === 0 && (
+              <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-4 mb-4 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-base font-semibold text-blue-900 flex items-center gap-2">
+                    <FiBox className="text-blue-600" size={18} />
+                    Produtos já lançados
+                  </h3>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => {
+                        // Carregar produto existente para edição
+                        const produtoExistente = {
+                          id: 'existing-prod-' + os.id,
+                          nome: os.peca || 'Produto existente',
+                          preco: parseFloat(os.valor_peca || '0'),
+                          quantidade: 1,
+                          tipo: 'produto'
+                        };
+                        setProdutosSelecionados([produtoExistente]);
+                      }}
+                      size="sm"
+                      className="bg-blue-600 text-white hover:bg-blue-700"
+                      title="Editar produtos"
+                    >
+                      <FiEdit size={14} className="mr-1" />
+                      Editar
+                    </Button>
+                    <Button
+                      onClick={async () => {
+                        const confirmed = await confirm({
+                          title: 'Remover Produtos',
+                          message: 'Tem certeza que deseja remover todos os produtos desta OS?',
+                          confirmText: 'Remover',
+                          cancelText: 'Cancelar'
+                        });
+                        
+                        if (confirmed) {
+                          // Limpar produtos existentes
+                          setProdutos('');
+                          // Forçar atualização dos totais
+                          if (os) {
+                            setOs({ ...os, peca: '', valor_peca: '0' });
+                          }
+                          addToast('success', 'Produtos removidos com sucesso!');
+                        }
+                      }}
+                      variant="destructive"
+                      size="sm"
+                      title="Remover produtos"
+                    >
+                      <FiTrash2 size={14} className="mr-1" />
+                      Remover
+                    </Button>
+                  </div>
+                </div>
+                <div className="bg-white/50 rounded-lg p-3 border border-blue-200">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <FiClipboard className="text-blue-600" size={14} />
+                      <span className="text-sm font-medium text-blue-900">Descrição:</span>
+                      <span className="text-sm text-blue-700">{os.peca || 'Não especificado'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">💰</span>
+                      <span className="text-sm font-medium text-blue-900">Valor Total:</span>
+                      <span className="text-sm font-bold text-blue-800 bg-blue-200 px-2 py-1 rounded">
+                        {formatPrice(parseFloat(os.valor_peca || '0'))}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center gap-1 text-xs text-blue-600">
+                    <FiAlertCircle size={12} />
+                    <span className="italic">Clique em "Editar" para modificar os produtos</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             {/* Lista de produtos selecionados */}
             {produtosSelecionados.length > 0 && (
               <div className="space-y-2">
-                <h3 className="text-sm font-medium text-gray-700">Produtos selecionados:</h3>
+                <h3 className="text-sm font-medium text-gray-700">Produtos selecionados para edição:</h3>
                 <div className="space-y-2">
                   {produtosSelecionados.map((produto) => (
-                    <div key={produto.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-900">{produto.nome}</p>
-                        <p className="text-sm text-gray-600">{formatPrice(produto.preco)}</p>
+                    <div key={produto.id} className="p-3 bg-gray-50 rounded-lg space-y-2">
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-medium text-gray-700 w-16">Nome:</label>
+                        <input
+                          type="text"
+                          value={produto.nome}
+                          onChange={(e) => handleEditarProduto(produto.id, e.target.value, produto.preco, produto.quantidade)}
+                          className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
+                          placeholder="Nome do produto"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-medium text-gray-700 w-16">Preço:</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={produto.preco}
+                          onChange={(e) => handleEditarProduto(produto.id, produto.nome, parseFloat(e.target.value) || 0, produto.quantidade)}
+                          className="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
+                          placeholder="0,00"
+                        />
+                        <span className="text-sm text-gray-600">{formatPrice(produto.preco)}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <input
@@ -629,23 +906,122 @@ export default function DetalheBancadaPage() {
               empresaId={empresaId}
             />
 
+            {/* Serviços salvos anteriormente - Editáveis */}
+            {os && (os.servico || (os.valor_servico && parseFloat(os.valor_servico) > 0)) && servicosSelecionados.length === 0 && (
+              <div className="bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-xl p-4 mb-4 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-base font-semibold text-green-900 flex items-center gap-2">
+                    <FiTool className="text-green-600" size={18} />
+                    Serviços já lançados
+                  </h3>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => {
+                        // Carregar serviço existente para edição
+                        const servicoExistente = {
+                          id: 'existing-serv-' + os.id,
+                          nome: os.servico || 'Serviço existente',
+                          preco: parseFloat(os.valor_servico || '0'),
+                          tipo: 'servico'
+                        };
+                        setServicosSelecionados([servicoExistente]);
+                      }}
+                      size="sm"
+                      className="bg-green-600 text-white hover:bg-green-700"
+                      title="Editar serviços"
+                    >
+                      <FiEdit size={14} className="mr-1" />
+                      Editar
+                    </Button>
+                    <Button
+                      onClick={async () => {
+                        const confirmed = await confirm({
+                          title: 'Remover Serviços',
+                          message: 'Tem certeza que deseja remover todos os serviços desta OS?',
+                          confirmText: 'Remover',
+                          cancelText: 'Cancelar'
+                        });
+                        
+                        if (confirmed) {
+                          // Limpar serviços existentes
+                          setServicos('');
+                          // Forçar atualização dos totais
+                          if (os) {
+                            setOs({ ...os, servico: '', valor_servico: '0' });
+                          }
+                          addToast('success', 'Serviços removidos com sucesso!');
+                        }
+                      }}
+                      variant="destructive"
+                      size="sm"
+                      title="Remover serviços"
+                    >
+                      <FiTrash2 size={14} className="mr-1" />
+                      Remover
+                    </Button>
+                  </div>
+                </div>
+                <div className="bg-white/50 rounded-lg p-3 border border-green-200">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <FiClipboard className="text-green-600" size={14} />
+                      <span className="text-sm font-medium text-green-900">Descrição:</span>
+                      <span className="text-sm text-green-700">{os.servico || 'Não especificado'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">💰</span>
+                      <span className="text-sm font-medium text-green-900">Valor Total:</span>
+                      <span className="text-sm font-bold text-green-800 bg-green-200 px-2 py-1 rounded">
+                        {formatPrice(parseFloat(os.valor_servico || '0'))}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center gap-1 text-xs text-green-600">
+                    <FiAlertCircle size={12} />
+                    <span className="italic">Clique em "Editar" para modificar os serviços</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             {/* Lista de serviços selecionados */}
             {servicosSelecionados.length > 0 && (
               <div className="space-y-2">
-                <h3 className="text-sm font-medium text-gray-700">Serviços selecionados:</h3>
+                <h3 className="text-sm font-medium text-gray-700">Serviços selecionados para edição:</h3>
                 <div className="space-y-2">
                   {servicosSelecionados.map((servico) => (
-                    <div key={servico.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-900">{servico.nome}</p>
-                        <p className="text-sm text-gray-600">{formatPrice(servico.preco)}</p>
+                    <div key={servico.id} className="p-3 bg-gray-50 rounded-lg space-y-2">
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-medium text-gray-700 w-16">Nome:</label>
+                        <input
+                          type="text"
+                          value={servico.nome}
+                          onChange={(e) => handleEditarServico(servico.id, e.target.value, servico.preco)}
+                          className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
+                          placeholder="Nome do serviço"
+                        />
                       </div>
-                      <button
-                        onClick={() => handleRemoverServico(servico.id)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <FiX size={16} />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-medium text-gray-700 w-16">Preço:</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={servico.preco}
+                          onChange={(e) => handleEditarServico(servico.id, servico.nome, parseFloat(e.target.value) || 0)}
+                          className="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
+                          placeholder="0,00"
+                        />
+                        <span className="text-sm text-gray-600">{formatPrice(servico.preco)}</span>
+                      </div>
+                      <div className="flex justify-end">
+                        <button
+                          onClick={() => handleRemoverServico(servico.id)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <FiX size={16} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -797,24 +1173,26 @@ export default function DetalheBancadaPage() {
 
           <div className="pt-4 border-t border-gray-200 flex gap-3">
             {mostrarBotaoIniciar && (
-              <button
-                className="inline-flex items-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              <Button
                 onClick={handleIniciarOS}
                 disabled={salvando}
+                className="inline-flex items-center gap-2 bg-green-600 text-white hover:bg-green-700"
+                size="lg"
               >
                 <FiPlayCircle size={16} /> 
                 {salvando ? 'Iniciando...' : 'Iniciar OS'}
-              </button>
+              </Button>
             )}
             
-            <button
-              className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            <Button
               onClick={handleSalvar}
               disabled={salvando}
+              size="lg"
+              className="inline-flex items-center gap-2"
             >
               <FiSave size={16} /> 
               {salvando ? 'Salvando...' : 'Salvar Alterações'}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

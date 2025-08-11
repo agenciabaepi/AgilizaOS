@@ -1,14 +1,10 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    const supabaseAdmin = getSupabaseAdmin();
     const { id, nome, email, usuario, telefone, cpf, whatsapp, nivel, permissoes, senha, auth_user_id } = body;
     if (!id) {
       return NextResponse.json({ error: 'ID do usuário não informado' }, { status: 400 });
@@ -32,6 +28,8 @@ export async function POST(request: Request) {
       whatsapp,
       nivel,
       permissoes,
+      // Atualizar tecnico_id quando o nível for alterado para técnico
+      tecnico_id: nivel === 'tecnico' ? auth_user_id : null,
     }).eq('id', id);
 
     if (dbError) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 
 export async function PUT(
   request: NextRequest,
@@ -13,10 +14,17 @@ export async function PUT(
     const updateData = await request.json();
     console.log('API Route - Dados recebidos:', updateData);
     
-    // Criar cliente Supabase direto sem cookies para teste
-    const supabase = createClient(
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) { return cookieStore.get(name)?.value; },
+          set() {},
+          remove() {},
+        },
+      }
     );
     
     // Tentar obter usuário diretamente
@@ -57,7 +65,7 @@ export async function PUT(
     if (updateData.valor_servico > 0) dataToUpdate.valor_servico = updateData.valor_servico;
     if (updateData.valor_peca > 0) dataToUpdate.valor_peca = updateData.valor_peca;
     if (updateData.status_id) dataToUpdate.status_id = updateData.status_id;
-    if (updateData.tecnico_id) dataToUpdate.tecnico_id = updateData.tecnico_id;
+    if (updateData.tecnico_id && updateData.tecnico_id !== '') dataToUpdate.tecnico_id = updateData.tecnico_id;
     if (updateData.termo_garantia_id) dataToUpdate.termo_garantia_id = updateData.termo_garantia_id;
     
     // Lógica automática para status técnico

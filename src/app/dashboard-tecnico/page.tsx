@@ -64,22 +64,38 @@ export default function DashboardTecnicoPage() {
       const inicioSemana = new Date(hoje.setDate(hoje.getDate() - hoje.getDay()));
       const mesAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
 
-      // Buscar todas as OSs do técnico
+      // Buscar ID do usuário na tabela usuarios PRIMEIRO
+      const { data: userData } = await supabase
+        .from('usuarios')
+        .select('id, nome, comissao_ativa, comissao_percentual, tecnico_id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      console.log('Dashboard - Dados do usuário:', userData);
+
+      if (!userData?.id) {
+        console.error('Usuário não encontrado na tabela usuarios');
+        setLoading(false);
+        return;
+      }
+
+      // Buscar todas as OSs do técnico usando múltiplas estratégias de mapeamento
       const { data: ordens } = await supabase
         .from('ordens_servico')
         .select(`
           *,
           cliente:cliente_id(nome)
         `)
-        .eq('tecnico_id', user.id)
+        .or(`tecnico_id.eq.${user.id},tecnico_id.eq.${userData.id}`)
         .order('created_at', { ascending: false });
 
       const ordensData = ordens || [];
+      console.log('Dashboard - OSs encontradas:', ordensData.length);
 
       // Calcular métricas
       const totalOS = ordensData.length;
       const finalizadasMes = ordensData.filter(o => 
-        o.status === 'CONCLUIDO' && 
+        o.status === 'ENTREGUE' && 
         new Date(o.created_at) >= inicioMes
       ).length;
       
@@ -95,22 +111,40 @@ export default function DashboardTecnicoPage() {
         new Date(o.created_at) >= inicioSemana
       ).length;
 
-      // Calcular comissão (10% do valor total das OSs finalizadas no mês)
-      const osFinalizadasMes = ordensData.filter(o => 
-        o.status === 'CONCLUIDO' && 
-        new Date(o.created_at) >= inicioMes
-      );
-      
-      const comissaoMes = osFinalizadasMes.reduce((total, os) => {
-        const valor = parseFloat(os.valor_faturado || '0');
-        return total + (valor * 0.1);
-      }, 0);
+      // userData já foi buscado acima
 
-      // Comissão do mês anterior (simulado)
-      const comissaoAnterior = comissaoMes * 0.8; // Exemplo
+      // Buscar comissões usando função RPC que funciona
+      console.log('Dashboard - Usando função RPC que funciona...');
+      
+      const { data: comissoesJSON, error: comissoesError } = await supabase
+        .rpc('buscar_comissoes_tecnico', { 
+          tecnico_id_param: user.id 
+        });
+
+      console.log('Dashboard - Resultado RPC:', comissoesJSON);
+      console.log('Dashboard - Erro RPC:', comissoesError);
+      console.log('Dashboard - ID usado na busca:', user.id);
+
+      // Converter JSON para array se necessário
+      const comissoes = Array.isArray(comissoesJSON) ? comissoesJSON : (comissoesJSON || []);
+      
+      // Calcular comissão do mês atual
+      const comissaoMes = comissoes
+        .filter(c => new Date(c.data_entrega) >= inicioMes)
+        .reduce((total, c) => total + parseFloat(c.valor_comissao || '0'), 0);
+
+      // Comissão do mês anterior
+      const fimMesAnterior = new Date(mesAnterior.getFullYear(), mesAnterior.getMonth() + 1, 0);
+      const comissaoAnterior = comissoes
+        .filter(c => {
+          const dataComissao = new Date(c.data_entrega);
+          return dataComissao >= mesAnterior && dataComissao <= fimMesAnterior;
+        })
+        .reduce((total, c) => total + parseFloat(c.valor_comissao || '0'), 0);
+
       const crescimentoComissao = comissaoAnterior > 0 
         ? ((comissaoMes - comissaoAnterior) / comissaoAnterior) * 100 
-        : 0;
+        : comissaoMes > 0 ? 100 : 0;
 
       // Tempo médio de conclusão (simulado)
       const tempoMedioConclusao = finalizadasMes > 0 ? Math.floor(Math.random() * 3) + 2 : 0;
@@ -122,6 +156,10 @@ export default function DashboardTecnicoPage() {
       const clientesUnicos = new Set(ordensData.map(o => o.cliente_id)).size;
 
       // Ticket médio
+      const osFinalizadasMes = ordensData.filter(o => 
+        o.status === 'ENTREGUE' && 
+        new Date(o.created_at) >= inicioMes
+      );
       const ticketMedio = finalizadasMes > 0 
         ? osFinalizadasMes.reduce((total, os) => total + parseFloat(os.valor_faturado || '0'), 0) / finalizadasMes
         : 0;
@@ -131,6 +169,14 @@ export default function DashboardTecnicoPage() {
 
       // OSs recentes
       const recentOSData = ordensData.slice(0, 5);
+
+      console.log('Dashboard - Métricas calculadas:', {
+        totalOS,
+        finalizadasMes,
+        comissaoMes,
+        comissaoAnterior,
+        crescimentoComissao
+      });
 
       setMetrics({
         totalOS,
@@ -362,6 +408,33 @@ export default function DashboardTecnicoPage() {
             </div>
           </div>
 
+          {/* Detalhes de Comissões */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <FiDollarSign className="w-5 h-5 text-green-600" />
+              Detalhes de Comissões
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-green-50 p-4 rounded-lg">
+                <p className="text-sm text-green-600 font-medium">Total do Mês</p>
+                <p className="text-2xl font-bold text-green-900">{formatCurrency(metrics.comissaoMes)}</p>
+                <p className="text-xs text-green-700 mt-1">
+                  {metrics.crescimentoComissao >= 0 ? '+' : ''}{metrics.crescimentoComissao.toFixed(1)}% vs mês anterior
+                </p>
+              </div>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-blue-600 font-medium">Mês Anterior</p>
+                <p className="text-2xl font-bold text-blue-900">{formatCurrency(metrics.comissaoAnterior)}</p>
+                <p className="text-xs text-blue-700 mt-1">Para comparação</p>
+              </div>
+              <div className="bg-orange-50 p-4 rounded-lg">
+                <p className="text-sm text-orange-600 font-medium">OSs com Comissão</p>
+                <p className="text-2xl font-bold text-orange-900">{metrics.finalizadasMes}</p>
+                <p className="text-xs text-orange-700 mt-1">Entregas do mês</p>
+              </div>
+            </div>
+          </div>
+
           {/* OSs Recentes */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">OSs Recentes</h3>
@@ -387,13 +460,13 @@ export default function DashboardTecnicoPage() {
                         os.status === 'ABERTA' ? 'bg-yellow-100 text-yellow-800' :
                         os.status === 'EM_ANALISE' ? 'bg-blue-100 text-blue-800' :
                         os.status === 'AGUARDANDO_PECA' ? 'bg-orange-100 text-orange-800' :
-                        os.status === 'CONCLUIDO' ? 'bg-green-100 text-green-800' :
+                        os.status === 'ENTREGUE' ? 'bg-green-100 text-green-800' :
                         'bg-gray-100 text-gray-800'
                       }`}>
                         {os.status === 'ABERTA' ? 'Aguardando' :
                          os.status === 'EM_ANALISE' ? 'Em Análise' :
                          os.status === 'AGUARDANDO_PECA' ? 'Aguardando Peça' :
-                         os.status === 'CONCLUIDO' ? 'Concluída' : os.status}
+                         os.status === 'ENTREGUE' ? 'Entregue' : os.status}
                       </span>
                       <span className="text-sm text-gray-500">
                         {formatDate(os.created_at)}

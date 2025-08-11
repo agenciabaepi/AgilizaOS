@@ -52,6 +52,7 @@ export default function TesteExpiradoPage() {
 
   const planos = [
     {
+      id: 'basico',
       nome: 'Básico',
       preco: 'R$ 1,00',
       valor: 1.00,
@@ -68,6 +69,7 @@ export default function TesteExpiradoPage() {
       destaque: false
     },
     {
+      id: 'pro',
       nome: 'Pro',
       preco: 'R$ 2,00',
       valor: 2.00,
@@ -85,6 +87,7 @@ export default function TesteExpiradoPage() {
       destaque: true
     },
     {
+      id: 'avancado',
       nome: 'Avançado',
       preco: 'R$ 3,00',
       valor: 3.00,
@@ -108,8 +111,7 @@ export default function TesteExpiradoPage() {
   };
 
   const handleEscolherPlano = (plano: any) => {
-    setSelectedPlano(plano);
-    setShowPixPayment(true);
+    router.push(`/planos/pagar/${plano.id || 'pro'}`);
   };
 
   const handlePaymentSuccess = (paymentId: string) => {

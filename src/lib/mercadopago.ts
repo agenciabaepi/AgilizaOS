@@ -1,4 +1,4 @@
-import { MercadoPagoConfig, Preference } from 'mercadopago';
+import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
 
 // Configuração do Mercado Pago
 const configureMercadoPago = () => {
@@ -9,18 +9,14 @@ const configureMercadoPago = () => {
     throw new Error('MERCADOPAGO_ACCESS_TOKEN não configurado');
   }
 
-  console.log(`Configurando Mercado Pago com token: ${accessToken.substring(0, 10)}...`);
-  console.log(`Ambiente: ${environment}`);
-
   const config = new MercadoPagoConfig({
     accessToken: accessToken,
     options: {
-      timeout: 10000, // Aumentar timeout
+      timeout: 15000,
     }
   });
 
-  console.log(`Mercado Pago configurado para ambiente: ${environment}`);
-  return { config, Preference };
+  return { config, Preference, Payment };
 };
 
 export { configureMercadoPago }; 
