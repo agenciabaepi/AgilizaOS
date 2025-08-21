@@ -305,7 +305,7 @@ export default function Home() {
                   onClick={() => router.push('/cadastro')}
                   className="px-6 py-3 text-gray-900 bg-[#D1FE6E] rounded-lg font-semibold hover:bg-[#B8E55A] transition-all duration-300"
                 >
-                  Começar
+                  Começar Agora
                 </button>
                 <button 
                   onClick={() => router.push('/login')}
@@ -344,7 +344,7 @@ export default function Home() {
               isAnimated('headline') ? 'animated' : ''
             }`}
           >
-            Sua assistência com 
+            Sua assistência com:
             <span className="block font-medium text-gradient-secondary">
               <UltraModernWordRotator 
                 words={['gestão inteligente', 'sistema completo', 'resultados reais', 'crescimento contínuo']}
