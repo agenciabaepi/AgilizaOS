@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`🔔 WhatsApp: Iniciando conexão para empresa: ${empresa_id}`);
 
-    // Criar/atualizar sessão no banco
+    // Criar/atualizar sessão no banco usando os campos corretos
     const { error: upsertError } = await supabase
       .from('whatsapp_sessions')
       .upsert({
@@ -28,13 +28,15 @@ export async function POST(request: NextRequest) {
         qr_code: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
         numero_whatsapp: '',
         nome_contato: '',
+        session_data: { empresa_id, timestamp: new Date().toISOString() },
+        ultima_conexao: new Date().toISOString(),
         updated_at: new Date().toISOString()
       });
 
     if (upsertError) {
       console.error('❌ WhatsApp: Erro ao criar/atualizar sessão no banco:', upsertError);
       return NextResponse.json(
-        { error: 'Erro ao criar sessão no banco' },
+        { error: 'Erro ao criar sessão no banco: ' + upsertError.message },
         { status: 500 }
       );
     }
