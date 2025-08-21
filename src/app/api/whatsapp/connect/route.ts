@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'WhatsApp conectado com sucesso',
+      message: 'WhatsApp conectado com sucesso!',
       status: 'connecting'
     });
 
