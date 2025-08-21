@@ -10,9 +10,9 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Declaração global para clientes ativos
-// Declaração global para clientes ativos
 declare global {
-  let activeClients: Map<string, Client>;
+  // eslint-disable-next-line no-var
+  var activeClients: Map<string, Client>;
 }
 
 if (!global.activeClients) {
@@ -72,31 +72,66 @@ export async function POST(request: NextRequest) {
 
     console.log('▲ WhatsApp: Inicializando cliente...');
 
-    // Criar cliente WhatsApp com Puppeteer integrado
+    // Detectar se estamos em um ambiente Docker/VPS
+    const isDocker = fs.existsSync('/.dockerenv');
+    console.log('🐳 WhatsApp: Ambiente Docker detectado:', isDocker);
+
+    // Configuração do Puppeteer adaptada para VPS/Docker
+    const puppeteerConfig: { headless: boolean; args: string[]; executablePath?: string } = {
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--disable-software-rasterizer',
+        '--disable-webgl',
+        '--disable-3d-apis',
+        '--disable-accelerated-2d-canvas',
+        '--disable-features=VizDisplayCompositor',
+        '--disable-dbus',
+        '--single-process',
+        '--no-zygote',
+        '--disable-extensions',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
+        '--memory-pressure-off',
+        '--max_old_space_size=4096'
+      ]
+    };
+
+    // Tentar diferentes caminhos do Chrome/Chromium
+    const chromePaths = [
+      '/usr/bin/chromium-browser',
+      '/usr/bin/chromium',
+      '/usr/bin/google-chrome',
+      '/usr/bin/google-chrome-stable',
+      '/opt/google/chrome/chrome'
+    ];
+
+    let executablePath: string | null = null;
+    for (const chromePath of chromePaths) {
+      if (fs.existsSync(chromePath)) {
+        executablePath = chromePath;
+        console.log(`✅ WhatsApp: Chrome encontrado em: ${chromePath}`);
+        break;
+      }
+    }
+
+    if (executablePath) {
+      puppeteerConfig.executablePath = executablePath;
+    } else {
+      console.log('⚠️ WhatsApp: Chrome não encontrado, usando padrão do sistema');
+    }
+
+    // Criar cliente WhatsApp com configuração otimizada para VPS
     const client = new Client({
       authStrategy: new LocalAuth({
         clientId: empresa_id,
         dataPath: sessionPath
       }),
-      puppeteer: {
-        headless: true,
-        executablePath: '/usr/bin/chromium-browser',
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-gpu',
-          '--disable-software-rasterizer',
-          '--disable-webgl',
-          '--disable-3d-apis',
-          '--disable-accelerated-2d-canvas',
-          '--disable-features=VizDisplayCompositor',
-          '--disable-dbus',
-          '--single-process',
-          '--no-zygote',
-          '--disable-extensions'
-        ]
-      }
+      puppeteer: puppeteerConfig
     });
 
     // Eventos do cliente
@@ -169,8 +204,17 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // Inicializar cliente
-    await client.initialize();
+    // Adicionar timeout para evitar travamento
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Timeout na inicialização do WhatsApp')), 60000);
+    });
+
+    // Inicializar cliente com timeout
+    console.log('🚀 WhatsApp: Iniciando cliente...');
+    await Promise.race([
+      client.initialize(),
+      timeoutPromise
+    ]);
 
     // Adicionar cliente à lista global
     global.activeClients.set(empresa_id, client);
@@ -186,8 +230,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('❌ WhatsApp: Erro ao conectar:', error);
     
+    // Remover cliente da lista global em caso de erro se possível
+    
     return NextResponse.json(
-      { error: 'Erro interno do servidor' },
+      { error: 'Erro interno do servidor: ' + (error instanceof Error ? error.message : 'Erro desconhecido') },
       { status: 500 }
     );
   }

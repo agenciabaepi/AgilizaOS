@@ -51,7 +51,7 @@ const VisualizarOrdemServicoPage = () => {
             desconto,
             acessorios,
             condicoes_equipamento,
-            relato,
+            problema_relatado,
             laudo,
             vencimento_garantia,
             termo_garantia_id,
@@ -74,20 +74,29 @@ const VisualizarOrdemServicoPage = () => {
             hint: error.hint
           });
         } else {
-          console.log('OS carregada:', data);
-          console.log('Técnico da OS:', data?.tecnico);
-          console.log('Técnico ID:', data?.tecnico_id);
-          console.log('Tipo da OS:', data?.tipo);
-          console.log('Imagens da OS:', data?.imagens);
+          // Mapear campos para compatibilidade com a interface
+          const ordemMapeada = {
+            ...data,
+            relato: data.problema_relatado, // Mapear problema_relatado para relato
+            observacao: data.observacao // Manter observacao como está
+          };
+          
+          console.log('OS carregada:', ordemMapeada);
+          console.log('Técnico da OS:', ordemMapeada?.tecnico);
+          console.log('Técnico ID:', ordemMapeada?.tecnico_id);
+          console.log('Tipo da OS:', ordemMapeada?.tipo);
+          console.log('Imagens da OS:', ordemMapeada?.imagens);
           console.log('Valores da OS:', {
-            valor_servico: data?.valor_servico,
-            qtd_servico: data?.qtd_servico,
-            valor_peca: data?.valor_peca,
-            qtd_peca: data?.qtd_peca,
-            desconto: data?.desconto,
-            valor_faturado: data?.valor_faturado
+            valor_servico: ordemMapeada?.valor_servico,
+            qtd_servico: ordemMapeada?.qtd_servico,
+            valor_peca: ordemMapeada?.valor_peca,
+            qtd_peca: ordemMapeada?.qtd_peca,
+            desconto: ordemMapeada?.desconto,
+            valor_faturado: ordemMapeada?.valor_faturado
           });
-          setOrdem(data);
+          console.log('Relato mapeado:', ordemMapeada.relato);
+          console.log('Observação:', ordemMapeada.observacao);
+          setOrdem(ordemMapeada);
         }
       } catch (error) {
         console.error('Erro ao carregar OS:', error);

@@ -25,6 +25,7 @@ interface OrdemServico {
   termo_garantia: string | null;
   relato: string;
   observacao: string;
+  problema_relatado?: string; // Campo adicional para compatibilidade
   data_cadastro: string;
   numero_os: string;
   data_entrega: string | null;
@@ -227,10 +228,10 @@ export default function VisualizarOSModal({ isOpen, onClose, ordem, onIniciar }:
           </div>
 
           {/* Relato */}
-          {ordem.relato && (
+          {(ordem.relato || ordem.problema_relatado) && (
             <div className="bg-gray-50 rounded-lg p-4">
               <h3 className="font-semibold text-gray-900 mb-2">Relato do Cliente</h3>
-              <p className="text-gray-700">{ordem.relato}</p>
+              <p className="text-gray-700">{ordem.relato || ordem.problema_relatado}</p>
             </div>
           )}
 

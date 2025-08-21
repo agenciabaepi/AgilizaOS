@@ -81,7 +81,7 @@ export default function ListaOrdensPage() {
   const [entregaAutoPrint] = useState(true);
   
   // Estado para abas
-  const [activeTab, setActiveTab] = useState('reparo_concluido');
+  const [activeTab, setActiveTab] = useState('todas');
 
   function formatDate(date: string) {
     if (!date) return '';
@@ -640,6 +640,21 @@ export default function ListaOrdensPage() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
             <div className="flex border-b border-gray-200">
               <button
+                onClick={() => handleTabChange('todas')}
+                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
+                  activeTab === 'todas'
+                    ? 'border-blue-500 text-blue-600 bg-blue-50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                📋 Todas
+                <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
+                  activeTab === 'todas' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                }`}>
+                  {contadores.todas}
+                </span>
+              </button>
+              <button
                 onClick={() => handleTabChange('reparo_concluido')}
                 className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
                   activeTab === 'reparo_concluido'
@@ -727,21 +742,6 @@ export default function ListaOrdensPage() {
                   activeTab === 'concluidas' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
                 }`}>
                   {contadores.concluidas}
-                </span>
-              </button>
-              <button
-                onClick={() => handleTabChange('todas')}
-                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
-                  activeTab === 'todas'
-                    ? 'border-blue-500 text-blue-600 bg-blue-50'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                📋 Todas
-                <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-                  activeTab === 'todas' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
-                }`}>
-                  {contadores.todas}
                 </span>
               </button>
           </div>
