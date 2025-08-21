@@ -24,7 +24,7 @@ export default function CriarAssinaturasPage() {
         toast.success(data.message);
         setResultado(data);
       } else {
-        toast.error(data.error || 'Erro ao criar assinaturas');
+        toast.error(data.error || 'Erro ao criar as assinaturas');
       }
     } catch (error) {
       console.error('Erro:', error);
