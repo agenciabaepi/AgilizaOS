@@ -14,8 +14,20 @@ import { CupomVenda } from '@/components/CupomVenda';
 import { useCaixa } from '@/hooks/useCaixa';
 import { AbrirCaixaModal } from '@/components/caixa/AbrirCaixaModal';
 import { FecharCaixaModal } from '@/components/caixa/FecharCaixaModal';
-import { FiUnlock, FiLock, FiMinus, FiPlus, FiEye } from 'react-icons/fi';
+import { FiUnlock, FiLock, FiMinus, FiPlus, FiEye, FiShoppingCart, FiTrash2 } from 'react-icons/fi';
 import ProtectedArea from '@/components/ProtectedArea';
+
+interface ProdutoSupabase {
+  id: string;
+  nome: string;
+  preco: number;
+  obs?: string;
+  categoria?: string;
+  imagens_url?: string[];
+  tipo: string;
+  ativo: boolean;
+  codigo_barras?: string;
+}
 
 interface Produto {
   id: string;
@@ -40,8 +52,9 @@ interface Cliente {
 
 export default function CaixaPage() {
   const { user, usuarioData, empresaData } = useAuth();
+  const { addToast } = useToast();
   const [isInitialized, setIsInitialized] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState('Todos');
+  const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
   const [cart, setCart] = useState<(Produto & { qty: number })[]>([]);
   const [orderType, setOrderType] = useState('Local');
   const [paymentType, setPaymentType] = useState('Dinheiro');
@@ -58,6 +71,13 @@ export default function CaixaPage() {
   const [searchCliente, setSearchCliente] = useState('');
   const [loadingClientes, setLoadingClientes] = useState(false);
   const clienteSearchRef = React.useRef<HTMLDivElement>(null);
+
+  // Modal cadastro rápido de cliente
+  const [modalNovoCliente, setModalNovoCliente] = useState(false);
+  const [salvandoCliente, setSalvandoCliente] = useState(false);
+  const [novoClienteNome, setNovoClienteNome] = useState('');
+  const [novoClienteDocumento, setNovoClienteDocumento] = useState('');
+  const [novoClienteTelefone, setNovoClienteTelefone] = useState('');
 
   // Fechar dropdown quando clicar fora
   React.useEffect(() => {
@@ -105,13 +125,15 @@ export default function CaixaPage() {
   };
 
   // Buscar clientes quando digitar
-  const handleSearchCliente = (value: string) => {
-    setSearchCliente(value);
-    if (value.length >= 2) {
-      buscarClientes(value);
-      setShowClienteDropdown(true);
-    } else {
-      setShowClienteDropdown(false);
+  const handleSearchCliente = (value: string | undefined) => {
+    if (value !== undefined) {
+      setSearchCliente(value);
+      if (value.length >= 2) {
+        buscarClientes(value);
+        setShowClienteDropdown(true);
+      } else {
+        setShowClienteDropdown(false);
+      }
     }
   };
 
@@ -151,7 +173,7 @@ export default function CaixaPage() {
       if (error) {
         setProdutos([]);
       } else if (data) {
-        setProdutos(data.map((p: any) => ({
+        setProdutos(data.map((p: ProdutoSupabase) => ({
           ...p,
           imagem_url: Array.isArray(p.imagens_url) && p.imagens_url.length > 0 ? p.imagens_url[0] : undefined,
           descricao: p.obs || ''
@@ -224,7 +246,6 @@ export default function CaixaPage() {
     });
   };
 
-  const { addToast } = useToast();
   const confirm = useConfirm();
 
   // Remover item do carrinho com confirmação
@@ -257,12 +278,23 @@ export default function CaixaPage() {
   const [descontoModal, setDescontoModal] = useState(0);
   const [acrescimoModal, setAcrescimoModal] = useState(0);
   const [modalImprimir, setModalImprimir] = useState(false);
-  const [ultimaVenda, setUltimaVenda] = useState<any>(null);
+  interface UltimaVenda {
+    numeroVenda: number;
+    cliente: Cliente | null;
+    produtos: (Produto & { qty: number })[];
+    total: number;
+    desconto: number;
+    acrescimo: number;
+    pagamento: string;
+    data: string;
+  }
+
+  const [ultimaVenda, setUltimaVenda] = useState<UltimaVenda | null>(null);
 
   useEffect(() => {
     async function fetchUsuarioId() {
       if (user?.id) {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('usuarios')
           .select('id')
           .eq('auth_user_id', user.id)
@@ -392,7 +424,7 @@ export default function CaixaPage() {
       setModalSangria(false);
       setValorMovimentacao('');
       setDescricaoMovimentacao('');
-    } catch (error) {
+    } catch (_) {
       addToast('error', 'Erro ao realizar sangria');
     }
   };
@@ -412,17 +444,18 @@ export default function CaixaPage() {
       setModalSuprimento(false);
       setValorMovimentacao('');
       setDescricaoMovimentacao('');
-    } catch (error) {
+    } catch (_) {
       addToast('error', 'Erro ao realizar suprimento');
     }
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
+  // Função não utilizada, mas mantida para referência futura
+  // const formatCurrency = (value: number) => {
+  //   return new Intl.NumberFormat('pt-BR', {
+  //     style: 'currency',
+  //     currency: 'BRL'
+  //   }).format(value);
+  // };
 
   const { 
     turnoAtual, 
@@ -618,42 +651,44 @@ export default function CaixaPage() {
                     ) : produtos.length === 0 ? (
                       <div className="text-center text-red-500 py-20">Nenhum produto cadastrado ou erro ao buscar produtos.</div>
                     ) : (
-                      <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 overflow-auto">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-3 overflow-auto">
                         {produtosExibidos.map(produto => (
-                          <div key={produto.id} className="bg-white rounded-lg shadow-sm border p-3 hover:shadow-md transition-shadow">
-                            <div className="aspect-square bg-gray-100 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
+                          <div 
+                            key={produto.id} 
+                            className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow cursor-pointer"
+                            onClick={() => {
+                              if (!turnoAtual) {
+                                addToast('warning', 'Abra o caixa antes de adicionar produtos!');
+                                setModalAbrirCaixa(true);
+                                return;
+                              }
+                              addToCart(produto);
+                            }}
+                          >
+                             <div className="aspect-square bg-gray-100 rounded-t-lg flex items-center justify-center overflow-hidden">
                               {produto.imagem_url ? (
                                 <img 
                                   src={produto.imagem_url} 
                                   alt={produto.nome}
-                                  className="w-full h-full object-cover rounded-lg"
+                                  className="w-full h-full object-cover"
                                   onError={(e) => {
                                     e.currentTarget.style.display = 'none';
                                     e.currentTarget.nextElementSibling?.classList.remove('hidden');
                                   }}
                                 />
-                              ) : null}
-                              <div className={`w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-sm font-bold text-gray-600 ${produto.imagem_url ? 'hidden' : ''}`}>
-                                {produto.nome.charAt(0).toUpperCase()}
-                              </div>
+                              ) : (
+                                <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center text-xl font-bold text-gray-600">
+                                  {produto.nome.charAt(0).toUpperCase()}
+                                </div>
+                              )}
                             </div>
-                            <h3 className="font-semibold text-sm mb-2 line-clamp-2 text-center text-gray-800 leading-tight">{produto.nome}</h3>
-                            <p className="text-sm font-bold text-green-600 mb-3 text-center">
-                              R$ {produto.preco.toFixed(2)}
-                            </p>
-                            <Button
-                              onClick={() => {
-                                if (!turnoAtual) {
-                                  addToast('warning', 'Abra o caixa antes de adicionar produtos!');
-                                  setModalAbrirCaixa(true);
-                                  return;
-                                }
-                                addToCart(produto);
-                              }}
-                              className="w-full py-2 text-xs font-medium hover:bg-green-600 transition-colors"
-                            >
-                              Adicionar
-                            </Button>
+                             <div className="p-2">
+                               <h3 className="font-semibold text-sm mb-0.5 line-clamp-1 text-gray-800">{produto.nome}</h3>
+                               <p className="text-xs text-gray-500 mb-1">{produto.categoria || 'Geral'}</p>
+                               <p className="text-sm font-bold text-green-600">
+                                R$ {produto.preco.toFixed(2)}
+                              </p>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -662,14 +697,14 @@ export default function CaixaPage() {
 
                   {/* Meu Pedido - Lado Direito (50%) */}
                   <div className="w-1/2 bg-white border-l shadow-lg flex flex-col overflow-hidden">
-                    <div className="p-6 border-b bg-gray-50">
+                    <div className="p-4 border-b bg-white sticky top-0 z-10">
                       <div className="flex items-center justify-between">
-                        <h2 className="text-2xl font-bold text-gray-800">Meu Pedido</h2>
+                        <h2 className="text-xl font-bold text-gray-800">Meu Pedido</h2>
                         <Button
                           onClick={toggleFullscreen}
-                          variant="secondary"
+                          variant="ghost"
                           size="sm"
-                          className="hover:bg-gray-200 transition-colors"
+                          className="hover:bg-gray-100 transition-colors rounded-full h-8 w-8 p-0"
                         >
                           <FiMaximize size={16} />
                         </Button>
@@ -677,15 +712,15 @@ export default function CaixaPage() {
                     </div>
 
                     {/* Cliente */}
-                    <div className="p-6 border-b bg-white">
-                      <label className="block text-sm font-semibold text-gray-700 mb-3">Cliente</label>
+                    <div className="px-4 py-3 border-b bg-white">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Cliente</label>
                       {clienteSelecionado ? (
-                        <div className="bg-green-50 p-4 rounded-lg border border-green-200 flex items-center justify-between">
+                        <div className="bg-green-50 p-3 rounded-lg border border-green-100 flex items-center justify-between">
                           <div>
-                            <p className="font-semibold text-green-800">{clienteSelecionado.nome}</p>
-                            <p className="text-sm text-green-600">Cliente #{clienteSelecionado.numero_cliente}</p>
+                            <p className="font-medium text-gray-800">{clienteSelecionado.nome}</p>
+                            <p className="text-xs text-gray-500">#{clienteSelecionado.numero_cliente}</p>
                           </div>
-                          <Button size="sm" variant="secondary" onClick={() => setClienteSelecionado(null)} className="hover:bg-red-100 hover:text-red-600 transition-colors">
+                          <Button size="sm" variant="ghost" onClick={() => setClienteSelecionado(null)} className="hover:bg-red-50 hover:text-red-600 transition-colors h-8 w-8 p-0 rounded-full">
                             <FiX size={16} />
                           </Button>
                         </div>
@@ -697,22 +732,38 @@ export default function CaixaPage() {
                             placeholder="Buscar cliente..."
                             className="w-full"
                           />
-                          {showClienteDropdown && (
-                            <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-lg shadow-lg z-10 max-h-48 overflow-auto">
+                      {showClienteDropdown && (
+                            <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-48 overflow-auto mt-1">
                               {loadingClientes ? (
                                 <div className="p-3 text-center text-sm text-gray-500">Carregando...</div>
                               ) : clientes.length === 0 ? (
-                                <div className="p-3 text-center text-sm text-gray-500">Nenhum cliente encontrado</div>
+                            <div className="p-3 text-center text-sm text-gray-500">
+                              Nenhum cliente encontrado
+                              <div className="mt-2">
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    setNovoClienteNome(searchCliente.trim());
+                                    setNovoClienteDocumento('');
+                                    setNovoClienteTelefone('');
+                                    setModalNovoCliente(true);
+                                  }}
+                                  className="w-full"
+                                >
+                                  Cadastrar cliente "{searchCliente}"
+                                </Button>
+                              </div>
+                            </div>
                               ) : (
-                                <div className="py-1">
+                                <div>
                                   {clientes.map((cliente) => (
                                     <div
                                       key={cliente.id}
                                       onClick={() => selecionarCliente(cliente)}
                                       className="p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
                                     >
-                                      <p className="font-medium">{cliente.nome}</p>
-                                      <p className="text-sm text-gray-500">Cliente #{cliente.numero_cliente}</p>
+                                      <p className="font-medium text-sm">{cliente.nome}</p>
+                                      <p className="text-xs text-gray-500">#{cliente.numero_cliente}</p>
                                     </div>
                                   ))}
                                 </div>
@@ -723,118 +774,142 @@ export default function CaixaPage() {
                       )}
                     </div>
 
-                                      {/* Tipo de Pedido */}
-                  <div className="p-6 border-b bg-gray-50">
-                    <div className="font-semibold mb-3 text-gray-700">Tipo de Pedido</div>
-                    <div className="flex gap-2">
-                      {['Local', 'Retirada', 'Entrega'].map(type => (
-                        <Button
-                          key={type}
-                          variant={orderType === type ? 'default' : 'secondary'}
-                          className={`px-4 py-2 text-sm font-medium transition-colors ${
-                            orderType === type 
-                              ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                              : 'bg-white hover:bg-gray-100 text-gray-700 border'
-                          }`}
-                          onClick={() => setOrderType(type)}
-                        >
-                          {type}
-                        </Button>
-                      ))}
+                    {/* Tipo de Pedido */}
+                    <div className="px-4 py-3 border-b bg-gray-50">
+                      <div className="text-sm font-medium text-gray-700 mb-2">Tipo de Pedido</div>
+                      <div className="flex gap-2">
+                        {['Local', 'Retirada', 'Entrega'].map(type => (
+                          <Button
+                            key={type}
+                            variant={orderType === type ? 'default' : 'secondary'}
+                            className={`px-3 py-1 text-xs font-medium transition-colors ${
+                              orderType === type 
+                                ? 'bg-green-600 hover:bg-green-700 text-white' 
+                                : 'bg-white hover:bg-gray-100 text-gray-700 border'
+                            }`}
+                            onClick={() => setOrderType(type)}
+                          >
+                            {type}
+                          </Button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
 
                     {/* Itens do Carrinho */}
-                    <div className="flex-1 overflow-auto p-4">
+                    <div className="flex-1 overflow-auto px-4 py-2">
                       {cart.length === 0 ? (
-                        <div className="text-center text-gray-500 py-8">
+                        <div className="text-center text-gray-500 py-8 flex flex-col items-center justify-center h-full">
                           {!turnoAtual ? (
-                            <div>
-                              <p>Abra o caixa para começar</p>
+                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 w-full max-w-xs">
+                              <p className="text-sm mb-3">Abra o caixa para começar</p>
                               <Button 
                                 onClick={() => setModalAbrirCaixa(true)}
-                                className="mt-2 bg-green-600 hover:bg-green-700"
+                                className="w-full bg-green-600 hover:bg-green-700 transition-colors"
                                 size="sm"
                               >
-                                <FiUnlock size={16} className="mr-2" />
+                                <FiUnlock size={14} className="mr-2" />
                                 Abrir Caixa
                               </Button>
                             </div>
                           ) : (
-                            <p>Nenhum produto adicionado</p>
+                            <div className="flex flex-col items-center">
+                              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                                <FiShoppingCart size={24} className="text-gray-400" />
+                              </div>
+                              <p className="text-sm">Seu carrinho está vazio</p>
+                              <p className="text-xs text-gray-400 mt-1">Adicione produtos clicando nos cards</p>
+                            </div>
                           )}
                         </div>
                       ) : (
-                        cart.map(item => (
-                          <div key={item.id} className="flex items-center justify-between py-3 border-b">
-                            <div className="flex-1">
-                              <p className="font-medium text-sm">{item.nome}</p>
-                              <p className="text-sm text-gray-500">R$ {item.preco.toFixed(2)}</p>
+                        <div className="space-y-2">
+                          {cart.map(item => (
+                            <div key={item.id} className="bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden">
+                              <div className="flex items-center p-3">
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-sm truncate">{item.nome}</p>
+                                  <p className="text-xs text-gray-500">R$ {item.preco.toFixed(2)} × {item.qty}</p>
+                                </div>
+                                <p className="font-bold text-sm text-green-600 ml-2">R$ {(item.preco * item.qty).toFixed(2)}</p>
+                              </div>
+                              <div className="flex border-t bg-gray-50">
+                                <button 
+                                  onClick={() => changeQty(item.id, -1)}
+                                  className="flex-1 py-2 text-gray-500 hover:bg-gray-100 transition-colors text-center"
+                                >
+                                  <FiMinus size={14} className="inline" />
+                                </button>
+                                <div className="flex-1 py-2 text-center font-medium text-sm border-l border-r">{item.qty}</div>
+                                <button 
+                                  onClick={() => changeQty(item.id, 1)}
+                                  className="flex-1 py-2 text-gray-500 hover:bg-gray-100 transition-colors text-center"
+                                >
+                                  <FiPlus size={14} className="inline" />
+                                </button>
+                                <button 
+                                  onClick={() => removeFromCart(item.id)}
+                                  className="flex-1 py-2 text-red-500 hover:bg-red-50 transition-colors text-center border-l"
+                                >
+                                  <FiTrash2 size={14} className="inline" />
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Button size="sm" variant="secondary" onClick={() => changeQty(item.id, -1)}>-</Button>
-                              <span className="w-8 text-center font-medium">{item.qty}</span>
-                              <Button size="sm" variant="secondary" onClick={() => changeQty(item.id, 1)}>+</Button>
-                              <Button size="sm" variant="secondary" onClick={() => removeFromCart(item.id)}>
-                                <FiX size={16} />
-                              </Button>
-                            </div>
-                          </div>
-                        ))
+                          ))}
+                        </div>
                       )}
                     </div>
 
                     {/* Controles do Caixa (quando caixa aberto) */}
                     {turnoAtual && (
-                      <div className="p-4 border-t border-b bg-gray-50">
-                        <div className="flex gap-2 flex-wrap">
+                      <div className="px-4 py-3 border-t border-b bg-gray-50">
+                        <div className="grid grid-cols-4 gap-2">
                           <Button
-                            variant="secondary"
+                            variant="outline"
                             size="sm"
                             onClick={() => setModalSangria(true)}
-                            className="flex items-center gap-1"
+                            className="flex items-center justify-center gap-1 h-9"
                           >
-                            <FiMinus size={14} />
-                            Sangria
+                            <FiMinus size={12} />
+                            <span className="text-xs">Sangria</span>
                           </Button>
                           <Button
-                            variant="secondary"
+                            variant="outline"
                             size="sm"
                             onClick={() => setModalSuprimento(true)}
-                            className="flex items-center gap-1"
+                            className="flex items-center justify-center gap-1 h-9"
                           >
-                            <FiPlus size={14} />
-                            Suprimento
+                            <FiPlus size={12} />
+                            <span className="text-xs">Suprimento</span>
                           </Button>
                           <Button
-                            variant="secondary"
+                            variant="outline"
                             size="sm"
                             onClick={() => setModalMovimentacoes(true)}
-                            className="flex items-center gap-1"
+                            className="flex items-center justify-center gap-1 h-9"
                           >
-                            <FiEye size={14} />
-                            Ver Movimentações
+                            <FiEye size={12} />
+                            <span className="text-xs">Movimentações</span>
                           </Button>
                           <Button
                             onClick={() => setModalFecharCaixa(true)}
                             size="sm"
-                            className="bg-red-600 hover:bg-red-700 flex items-center gap-1"
+                            className="bg-red-600 hover:bg-red-700 flex items-center justify-center gap-1 h-9"
                           >
-                            <FiLock size={14} />
-                            Fechar Caixa
+                            <FiLock size={12} />
+                            <span className="text-xs">Fechar</span>
                           </Button>
                         </div>
                       </div>
                     )}
 
                     {/* Totais e Finalização */}
-                    <div className="p-4 border-t bg-gray-50">
-                      <div className="flex justify-between font-bold text-lg mb-4">
-                        <span>Total</span>
-                        <span>R$ {total.toFixed(2)}</span>
+                    <div className="p-4 border-t bg-white sticky bottom-0">
+                      <div className="flex justify-between items-center mb-3">
+                        <div className="text-sm text-gray-500">Total</div>
+                        <div className="text-xl font-bold text-gray-800">R$ {total.toFixed(2)}</div>
                       </div>
                       <Button 
-                        className="w-full py-3 font-bold text-lg"
+                        className="w-full py-3 font-bold bg-green-600 hover:bg-green-700 transition-colors"
                         onClick={() => {
                           if (!turnoAtual) {
                             addToast('warning', 'Abra o caixa antes de finalizar vendas!');
@@ -885,31 +960,44 @@ export default function CaixaPage() {
                     ))}
                   </div>
 
-                  <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                     {produtosExibidos.map(product => (
-                      <div key={product.id} className="bg-white rounded-lg shadow p-2">
-                        <div className="aspect-square bg-gray-100 rounded-lg mb-1 flex items-center justify-center">
-                          <img 
-                            src={product.imagem_url || '/assets/imagens/imagem-produto.jpg'} 
-                            alt={product.nome} 
-                            className="w-full h-full object-cover rounded-lg"
-                          />
+                      <div 
+                        key={product.id} 
+                        className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={() => {
+                          if (!turnoAtual) {
+                            addToast('warning', 'Abra o caixa antes de adicionar produtos!');
+                            setModalAbrirCaixa(true);
+                            return;
+                          }
+                          addToCart(product);
+                        }}
+                      >
+                        <div className="aspect-square bg-gray-100 rounded-t-lg flex items-center justify-center overflow-hidden">
+                          {product.imagem_url ? (
+                            <img 
+                              src={product.imagem_url} 
+                              alt={product.nome}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                              }}
+                            />
+                          ) : (
+                            <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center text-xl font-bold text-gray-600">
+                              {product.nome.charAt(0).toUpperCase()}
+                            </div>
+                          )}
                         </div>
-                        <div className="font-semibold text-xs text-center truncate">{product.nome}</div>
-                        <div className="text-green-600 font-bold text-xs text-center">R$ {product.preco.toFixed(2)}</div>
-                        <Button
-                          className="w-full mt-1 text-xs py-1"
-                          onClick={() => {
-                            if (!turnoAtual) {
-                              addToast('warning', 'Abra o caixa antes de adicionar produtos!');
-                              setModalAbrirCaixa(true);
-                              return;
-                            }
-                            addToCart(product);
-                          }}
-                        >
-                          Adicionar
-                        </Button>
+                        <div className="p-3">
+                          <h3 className="font-semibold text-sm mb-1 line-clamp-1 text-gray-800">{product.nome}</h3>
+                          <p className="text-xs text-gray-500 mb-2">{product.categoria || 'Geral'}</p>
+                          <p className="text-sm font-bold text-green-600">
+                            R$ {product.preco.toFixed(2)}
+                          </p>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -917,102 +1005,184 @@ export default function CaixaPage() {
 
                 {/* Meu Pedido - Lado Direito (50%) */}
                 <div className="w-1/2 bg-white border-l shadow-lg flex flex-col overflow-hidden">
-                  <h2 className="text-lg font-bold mb-4">Meu Pedido</h2>
+                  <div className="p-4 border-b bg-white sticky top-0 z-10">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-xl font-bold text-gray-800">Meu Pedido</h2>
+                      <Button
+                        onClick={toggleFullscreen}
+                        variant="ghost"
+                        size="sm"
+                        className="hover:bg-gray-100 transition-colors rounded-full h-8 w-8 p-0"
+                      >
+                        <FiMinimize size={16} />
+                      </Button>
+                    </div>
+                  </div>
                   
                   {/* Cliente compacto */}
-                  <div className="mb-3 p-2 bg-gray-50 rounded">
+                  <div className="px-4 py-3 border-b bg-white">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Cliente</label>
                     {clienteSelecionado ? (
-                      <div className="flex items-center justify-between">
+                      <div className="bg-green-50 p-3 rounded-lg border border-green-100 flex items-center justify-between">
                         <div>
-                          <p className="font-medium text-sm">{clienteSelecionado.nome}</p>
+                          <p className="font-medium text-gray-800">{clienteSelecionado.nome}</p>
                           <p className="text-xs text-gray-500">#{clienteSelecionado.numero_cliente}</p>
                         </div>
-                        <Button size="sm" onClick={removerCliente}>×</Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          onClick={removerCliente}
+                          className="hover:bg-red-50 hover:text-red-600 transition-colors h-8 w-8 p-0 rounded-full"
+                        >
+                          <FiX size={16} />
+                        </Button>
                       </div>
                     ) : (
-                      <Input
+                      <SearchInput
                         placeholder="Buscar cliente..."
                         value={searchCliente}
                         onChange={(e) => handleSearchCliente(e.target.value)}
-                        className="text-sm"
+                        className="w-full"
                       />
                     )}
                   </div>
 
                   {/* Tipo de pedido compacto */}
-                  <div className="flex gap-1 mb-3">
-                    {['Local', 'Retirada', 'Entrega'].map(type => (
-                      <Button
-                        key={type}
-                        variant={orderType === type ? 'default' : 'secondary'}
-                        className="px-2 py-1 text-xs"
-                        onClick={() => setOrderType(type)}
-                      >
-                        {type}
-                      </Button>
-                    ))}
+                  <div className="px-4 py-3 border-b bg-gray-50">
+                    <div className="text-sm font-medium text-gray-700 mb-2">Tipo de Pedido</div>
+                    <div className="flex gap-2">
+                      {['Local', 'Retirada', 'Entrega'].map(type => (
+                        <Button
+                          key={type}
+                          variant={orderType === type ? 'default' : 'secondary'}
+                          className={`px-3 py-1 text-xs font-medium transition-colors ${
+                            orderType === type 
+                              ? 'bg-green-600 hover:bg-green-700 text-white' 
+                              : 'bg-white hover:bg-gray-100 text-gray-700 border'
+                          }`}
+                          onClick={() => setOrderType(type)}
+                        >
+                          {type}
+                        </Button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Carrinho */}
-                  <div className="flex-1 overflow-y-auto mb-3">
+                  <div className="flex-1 overflow-y-auto px-4 py-2">
                     {cart.length === 0 ? (
-                      <div className="text-gray-400 text-center mt-10">
+                      <div className="text-center text-gray-500 py-8 flex flex-col items-center justify-center h-full">
                         {!turnoAtual ? (
-                          <div>
-                            <p className="text-sm">Abra o caixa para começar</p>
+                          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 w-full max-w-xs">
+                            <p className="text-sm mb-3">Abra o caixa para começar</p>
                             <Button 
                               onClick={() => setModalAbrirCaixa(true)}
-                              className="mt-2 bg-green-600 hover:bg-green-700"
+                              className="w-full bg-green-600 hover:bg-green-700 transition-colors"
                               size="sm"
                             >
+                              <FiUnlock size={14} className="mr-2" />
                               Abrir Caixa
                             </Button>
                           </div>
                         ) : (
-                          'Carrinho vazio'
+                          <div className="flex flex-col items-center">
+                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                              <FiShoppingCart size={24} className="text-gray-400" />
+                            </div>
+                            <p className="text-sm">Seu carrinho está vazio</p>
+                            <p className="text-xs text-gray-400 mt-1">Adicione produtos clicando nos cards</p>
+                          </div>
                         )}
                       </div>
                     ) : (
-                      cart.map(item => (
-                        <div key={item.id} className="flex items-center justify-between mb-2 border-b pb-1">
-                          <div className="flex-1">
-                            <p className="font-medium text-sm">{item.nome}</p>
-                            <p className="text-xs text-lime-600">R$ {item.preco.toFixed(2)}</p>
+                      <div className="space-y-2">
+                        {cart.map(item => (
+                          <div key={item.id} className="bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden">
+                            <div className="flex items-center p-3">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm truncate">{item.nome}</p>
+                                <p className="text-xs text-gray-500">R$ {item.preco.toFixed(2)} × {item.qty}</p>
+                              </div>
+                              <p className="font-bold text-sm text-green-600 ml-2">R$ {(item.preco * item.qty).toFixed(2)}</p>
+                            </div>
+                            <div className="flex border-t bg-gray-50">
+                              <button 
+                                onClick={() => changeQty(item.id, -1)}
+                                className="flex-1 py-2 text-gray-500 hover:bg-gray-100 transition-colors text-center"
+                              >
+                                <FiMinus size={14} className="inline" />
+                              </button>
+                              <div className="flex-1 py-2 text-center font-medium text-sm border-l border-r">{item.qty}</div>
+                              <button 
+                                onClick={() => changeQty(item.id, 1)}
+                                className="flex-1 py-2 text-gray-500 hover:bg-gray-100 transition-colors text-center"
+                              >
+                                <FiPlus size={14} className="inline" />
+                              </button>
+                              <button 
+                                onClick={() => removeFromCart(item.id)}
+                                className="flex-1 py-2 text-red-500 hover:bg-red-50 transition-colors text-center border-l"
+                              >
+                                <FiTrash2 size={14} className="inline" />
+                              </button>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <Button size="sm" variant="secondary" onClick={() => changeQty(item.id, -1)}>-</Button>
-                            <span className="text-sm w-6 text-center">{item.qty}</span>
-                            <Button size="sm" variant="secondary" onClick={() => changeQty(item.id, 1)}>+</Button>
-                            <Button size="sm" variant="destructive" onClick={() => removeFromCart(item.id)}>×</Button>
-                          </div>
-                        </div>
-                      ))
+                        ))}
+                      </div>
                     )}
                   </div>
 
                   {/* Controles do caixa em tela cheia */}
                   {turnoAtual && (
-                    <div className="flex gap-1 mb-2 justify-center">
-                      <Button variant="secondary" size="sm" onClick={() => setModalSangria(true)}>
-                        <FiMinus size={12} />
-                      </Button>
-                      <Button variant="secondary" size="sm" onClick={() => setModalSuprimento(true)}>
-                        <FiPlus size={12} />
-                      </Button>
-                      <Button onClick={() => setModalFecharCaixa(true)} size="sm" className="bg-red-600 hover:bg-red-700">
-                        <FiLock size={12} />
-                      </Button>
+                    <div className="px-4 py-3 border-t border-b bg-gray-50">
+                      <div className="grid grid-cols-4 gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setModalSangria(true)}
+                          className="flex items-center justify-center gap-1 h-9"
+                        >
+                          <FiMinus size={12} />
+                          <span className="text-xs">Sangria</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setModalSuprimento(true)}
+                          className="flex items-center justify-center gap-1 h-9"
+                        >
+                          <FiPlus size={12} />
+                          <span className="text-xs">Suprimento</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setModalMovimentacoes(true)}
+                          className="flex items-center justify-center gap-1 h-9"
+                        >
+                          <FiEye size={12} />
+                          <span className="text-xs">Movimentações</span>
+                        </Button>
+                        <Button
+                          onClick={() => setModalFecharCaixa(true)}
+                          size="sm"
+                          className="bg-red-600 hover:bg-red-700 flex items-center justify-center gap-1 h-9"
+                        >
+                          <FiLock size={12} />
+                          <span className="text-xs">Fechar</span>
+                        </Button>
+                      </div>
                     </div>
                   )}
 
                   {/* Total */}
-                  <div className="border-t pt-3">
-                    <div className="flex justify-between font-bold text-lg mb-3">
-                      <span>Total</span>
-                      <span>R$ {total.toFixed(2)}</span>
+                  <div className="p-4 border-t bg-white sticky bottom-0">
+                    <div className="flex justify-between items-center mb-3">
+                      <div className="text-sm text-gray-500">Total</div>
+                      <div className="text-xl font-bold text-gray-800">R$ {total.toFixed(2)}</div>
                     </div>
                     <Button 
-                      className="w-full py-2 font-bold"
+                      className="w-full py-3 font-bold bg-green-600 hover:bg-green-700 transition-colors"
                       onClick={() => {
                         if (!turnoAtual) {
                           addToast('warning', 'Abra o caixa antes de finalizar vendas!');
@@ -1038,6 +1208,67 @@ export default function CaixaPage() {
               loading={caixaLoading}
               valorTrocoSugerido={valorUltimoFechamento}
             />
+
+            {/* Modal cadastro rápido de cliente */}
+            {modalNovoCliente && (
+              <Dialog onClose={() => setModalNovoCliente(false)}>
+                <div className="p-6 w-full max-w-xl">
+                  <h2 className="text-xl font-bold mb-4">Cadastrar Cliente</h2>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm mb-1">Nome</label>
+                      <Input value={novoClienteNome} onChange={(e) => setNovoClienteNome(e.target.value)} placeholder="Nome completo" />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">CPF/CNPJ</label>
+                      <Input value={novoClienteDocumento} onChange={(e) => setNovoClienteDocumento(e.target.value)} placeholder="Documento" />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">Telefone/WhatsApp</label>
+                      <Input value={novoClienteTelefone} onChange={(e) => setNovoClienteTelefone(e.target.value)} placeholder="(00) 00000-0000" />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-5">
+                    <Button variant="secondary" onClick={() => setModalNovoCliente(false)}>Cancelar</Button>
+                    <Button
+                      onClick={async () => {
+                        if (!usuarioData?.empresa_id) return;
+                        if (!novoClienteNome.trim()) { addToast('error', 'Informe o nome'); return; }
+                        setSalvandoCliente(true);
+                        try {
+                          const res = await fetch('/api/clientes', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              empresaId: usuarioData.empresa_id,
+                              nome: novoClienteNome.trim(),
+                              documento: novoClienteDocumento.trim(),
+                              telefone: novoClienteTelefone.trim(),
+                              celular: novoClienteTelefone.trim(),
+                              email: ''
+                            })
+                          });
+                          const json = await res.json();
+                          if (!res.ok) { addToast('error', json?.error || 'Erro ao cadastrar'); return; }
+                          const novo: Cliente = json.cliente;
+                          setClientes([novo]);
+                          selecionarCliente(novo);
+                          addToast('success', 'Cliente cadastrado!');
+                          setModalNovoCliente(false);
+                        } catch (e) {
+                          addToast('error', 'Erro ao cadastrar');
+                        } finally {
+                          setSalvandoCliente(false);
+                        }
+                      }}
+                      disabled={salvandoCliente}
+                    >
+                      {salvandoCliente ? 'Salvando...' : 'Salvar'}
+                    </Button>
+                  </div>
+                </div>
+              </Dialog>
+            )}
 
             {turnoAtual && (
               <FecharCaixaModal
@@ -1394,8 +1625,8 @@ export default function CaixaPage() {
                 </div>
               </Dialog>
             )}
-                            </div>
+                </div>
               </ConfirmProvider>
             </ToastProvider>
           );
-        }
+}

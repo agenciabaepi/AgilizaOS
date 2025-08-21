@@ -5,7 +5,11 @@
 // src/context/AuthContext.tsx
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 // import { useSupabaseClient } from '@supabase/auth-helpers-react';
+<<<<<<< HEAD
 import { supabase, clearAuthData, isValidSession } from '@/lib/supabaseClient';
+=======
+import { supabase, forceLogout } from '@/lib/supabaseClient';
+>>>>>>> stable-version
 import { Session, User } from '@supabase/supabase-js';
 // import { ToastProvider, useToast } from '@/components/Toast'; // Remover import de useToast/ToastProvider
 
@@ -47,6 +51,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [usuarioData, setUsuarioData] = useState<UsuarioData | null>(null);
   const [empresaData, setEmpresaData] = useState<EmpresaData | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   const [loading, setLoading] = useState(true);
   // Remover const { addToast } = useToast ? useToast() : { addToast: () => {} };
@@ -63,6 +68,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const checkSession = async () => {
+<<<<<<< HEAD
       console.log('AuthContext: Iniciando checkSession')
       
       try {
@@ -71,6 +77,44 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (!isValid) {
           console.log('AuthContext: Sessão inválida, limpando dados');
           clearSession();
+=======
+      console.log('🔍 AuthContext: Iniciando checkSession')
+      
+      // Se já temos dados, não verificar novamente
+      if (usuarioData && empresaData) {
+        console.log('🔍 AuthContext: Dados já carregados, pulando verificação');
+        setLoading(false);
+        return;
+      }
+      
+      const {
+        data: { session },
+        error
+      } = await supabase.auth.getSession();
+
+      if (error) {
+        console.error('Erro ao buscar sessão:', error.message);
+        setLoading(false);
+        return;
+      }
+
+      if (session) {
+        console.log('AuthContext: Sessão encontrada, usuário:', session.user.email)
+        setSession(session);
+        setUser(session.user);
+
+        const { data: profileData, error: profileError } = await supabase
+          .from('usuarios')
+          .select('empresa_id, nome, email, nivel, permissoes, foto_url')
+          .eq('auth_user_id', session.user.id)
+          .maybeSingle();
+
+
+        if (profileError || !profileData) {
+          setUsuarioData(null);
+          setEmpresaData(null);
+          localStorage.removeItem("user");
+>>>>>>> stable-version
           setLoading(false);
           return;
         }
@@ -164,15 +208,67 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setLoading(false);
           return;
         }
+<<<<<<< HEAD
       } catch (error) {
         console.error('AuthContext: Erro inesperado ao verificar sessão:', error);
         clearSession();
         setLoading(false);
+=======
+
+        setUsuarioData(profileData);
+        localStorage.setItem("user", JSON.stringify({ ...session.user, ...profileData }));
+
+        const metadataEmpresaId = session.user.user_metadata?.empresa_id;
+        if (!metadataEmpresaId || metadataEmpresaId !== profileData.empresa_id) {
+          await supabase.auth.updateUser({
+            data: { empresa_id: profileData.empresa_id },
+          });
+
+          // Atualiza localmente a sessão sem forçar novo getSession()
+          setSession((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  user: {
+                    ...prev.user,
+                    user_metadata: {
+                      ...prev.user.user_metadata,
+                      empresa_id: profileData.empresa_id,
+                    },
+                  },
+                }
+              : prev
+          );
+        }
+
+        const { data: empresaInfo, error: empresaError } = await supabase
+          .from("empresas")
+          .select("id, nome, plano")
+          .eq("id", profileData.empresa_id)
+          .single();
+
+
+        if (empresaError || !empresaInfo) {
+          setEmpresaData(null);
+        } else {
+          setEmpresaData(empresaInfo);
+        }
+
+        console.log('🔍 AuthContext: Carregamento concluído com sucesso')
+        setLoading(false);
+        setHasInitialized(true);
+      } else {
+        console.log('🔍 AuthContext: Nenhuma sessão encontrada')
+        setLoading(false);
+        setHasInitialized(true);
+        return;
+>>>>>>> stable-version
       }
     };
 
     checkSession();
 
+<<<<<<< HEAD
     const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('AuthContext: Auth state change:', event, session?.user?.email);
       
@@ -185,6 +281,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         await checkSession();
       } else {
         clearSession();
+=======
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log('🔍 onAuthStateChange disparado:', _event, session ? 'Sessão presente' : 'Sessão ausente');
+      
+      // Atualizar apenas o estado básico, não chamar checkSession novamente
+      setUser(session?.user ?? null);
+      setSession(session);
+      
+      // Se a sessão foi removida, limpar dados
+      if (!session) {
+        console.log('🔍 Sessão removida, limpando dados...');
+        setUsuarioData(null);
+        setEmpresaData(null);
+        setLoading(false); // ✅ CORRIGIDO: Definir loading como false quando não há sessão
+      }
+      
+      // NÃO chamar checkSession aqui para evitar loops
+      // Só executar se não foi inicializado ainda
+      if (!hasInitialized && session) {
+        console.log('🔍 onAuthStateChange: Primeira execução, chamando checkSession');
+        checkSession();
+      } else {
+        console.log('🔍 onAuthStateChange: Estado atualizado sem chamar checkSession');
+>>>>>>> stable-version
       }
     });
 
@@ -246,8 +366,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async (onError?: (msg: string) => void) => {
+    console.log('🚨 signOut chamado!', {
+      timestamp: new Date().toISOString(),
+      stackTrace: new Error().stack,
+      currentUser: user?.email
+    });
+    
     setIsLoggingOut(true);
+    setLoading(false); // ✅ CORRIGIDO: Definir loading como false durante logout
+    
     try {
+<<<<<<< HEAD
       // Limpar dados locais primeiro
       clearSession();
       
@@ -268,6 +397,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       clearSession();
       localStorage.clear();
       sessionStorage.clear();
+=======
+      // Limpar estado local imediatamente para evitar renderização do ProtectedArea
+      setUser(null);
+      setSession(null);
+      setUsuarioData(null);
+      setEmpresaData(null);
+      
+      // Logout simples e direto
+      console.log('🔴 AuthContext: Executando logout...');
+      
+      // 1. Limpar estado local
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // 2. Fazer logout do Supabase
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.log('⚠️ Erro no logout Supabase:', error.message);
+      } else {
+        console.log('✅ Logout Supabase realizado');
+      }
+      
+      // 3. Forçar limpeza do estado
+      await supabase.auth.setSession(null);
+      
+      // 4. Redirecionar para login
+      window.location.href = '/login';
+      
+    } catch (error) {
+      if (onError) onError(error instanceof Error ? error.message : 'Erro desconhecido');
+      console.error('Erro ao sair:', error);
+      // Mesmo com erro, forçar redirecionamento
+      window.location.href = '/login';
+>>>>>>> stable-version
     } finally {
       setIsLoggingOut(false);
     }

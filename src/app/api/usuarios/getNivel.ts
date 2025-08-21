@@ -1,8 +1,7 @@
 // /pages/api/usuarios/getNivel.ts
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
+const supabase = getSupabaseAdmin();
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { usuario_id } = req.query;

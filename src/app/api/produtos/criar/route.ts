@@ -1,26 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize Supabase admin client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-console.log('API Route - Variáveis de ambiente:', {
-  supabaseUrl: supabaseUrl ? 'Definida' : 'Não definida',
-  supabaseKey: supabaseKey ? 'Definida' : 'Não definida'
-});
-
-if (!supabaseUrl || !supabaseKey) {
-  console.error('Erro: Variáveis de ambiente não definidas');
-  throw new Error('Supabase URL or Service Role Key is not defined in environment');
-}
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 export async function POST(req: NextRequest) {
   console.log('API Route /api/produtos/criar chamada');
   
   try {
+    const supabaseAdmin = getSupabaseAdmin();
     const {
       empresa_id,
       nome,
@@ -42,16 +27,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Buscar próximo número sequencial
-    const { data: maxResult } = await supabaseAdmin
+    // Buscar todos os códigos da empresa e calcular o máximo de forma robusta
+    const { data: codigosData } = await supabaseAdmin
       .from('produtos_servicos')
       .select('codigo')
-      .eq('empresa_id', empresa_id)
-      .order('codigo', { ascending: false })
-      .limit(1)
-      .single();
+      .eq('empresa_id', empresa_id);
 
-    const proximoCodigo = maxResult?.codigo ? parseInt(maxResult.codigo) + 1 : 1;
+    const maxCodigo = (codigosData || [])
+      .map((r: any) => parseInt(String(r?.codigo || '0'), 10))
+      .filter((n: number) => !Number.isNaN(n))
+      .reduce((acc: number, n: number) => (n > acc ? n : acc), 0);
+
+    let proximoCodigo = maxCodigo + 1;
 
     const payload = {
       empresa_id,
@@ -65,11 +52,26 @@ export async function POST(req: NextRequest) {
 
     console.log('Payload para inserção:', payload);
 
-    const { data, error } = await supabaseAdmin
-      .from('produtos_servicos')
-      .insert(payload)
-      .select()
-      .single();
+    // Inserção com retry se houver conflito de código único (23505)
+    let data: any = null;
+    let error: any = null;
+    for (let tentativas = 0; tentativas < 5; tentativas++) {
+      const tentativaPayload = { ...payload, codigo: proximoCodigo.toString() };
+      const res = await supabaseAdmin
+        .from('produtos_servicos')
+        .insert(tentativaPayload)
+        .select()
+        .single();
+      data = res.data;
+      error = res.error;
+      if (!error) break;
+      if (error?.code === '23505') {
+        // código duplicado – incrementar e tentar novamente
+        proximoCodigo += 1;
+        continue;
+      }
+      break;
+    }
 
     if (error) {
       console.error('Error inserting product/service:', error);

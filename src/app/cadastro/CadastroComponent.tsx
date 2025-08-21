@@ -26,7 +26,7 @@ export default function CadastroEmpresa() {
     senha: '',
     confirmarSenha: '',
     whatsapp: '',
-    plano: 'pro', // Valor padrão
+    plano: 'unico', // Valor padrão
     cpf: '',
     // Campos da empresa
     nomeEmpresa: '',
@@ -39,8 +39,9 @@ export default function CadastroEmpresa() {
   // Inicializa o plano da URL de forma segura
   useEffect(() => {
     try {
-      const planoFromUrl = searchParams?.get('plano') || 'pro';
-      setForm(prev => ({ ...prev, plano: planoFromUrl }));
+      const planoFromUrl = searchParams?.get('plano') || 'unico';
+      // Força modelo de preço único
+      setForm(prev => ({ ...prev, plano: 'unico' }));
     } catch (error) {
       console.log('Erro ao obter parâmetros da URL:', error);
     }
@@ -141,32 +142,69 @@ export default function CadastroEmpresa() {
   }, [form.cnpj]);
 
   const validarFormulario = () => {
-    if (
-      !form.nome ||
-      !form.email ||
-      !form.senha ||
-      !form.confirmarSenha ||
-      !form.whatsapp ||
-      !form.nomeEmpresa ||
-      !form.cidade ||
-      !form.endereco
-    ) {
-      alert("Preencha todos os campos obrigatórios.");
+    // Verificar campos obrigatórios
+    if (!form.nome?.trim()) {
+      toast.error("Preencha seu nome completo.");
       return false;
     }
+    if (!form.email?.trim()) {
+      toast.error("Preencha seu e-mail.");
+      return false;
+    }
+    if (!form.senha?.trim()) {
+      toast.error("Crie uma senha.");
+      return false;
+    }
+    if (!form.confirmarSenha?.trim()) {
+      toast.error("Confirme sua senha.");
+      return false;
+    }
+    if (!form.whatsapp?.trim()) {
+      toast.error("Preencha seu WhatsApp.");
+      return false;
+    }
+    if (!form.cpf?.trim()) {
+      toast.error("Preencha seu CPF.");
+      return false;
+    }
+    if (!form.nomeEmpresa?.trim()) {
+      toast.error("Preencha o nome da empresa.");
+      return false;
+    }
+    if (!form.cidade?.trim()) {
+      toast.error("Preencha a cidade.");
+      return false;
+    }
+    if (!form.endereco?.trim()) {
+      toast.error("Preencha o endereço.");
+      return false;
+    }
+    
+    // Verificar formato do e-mail
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(form.email)) {
-      alert("Informe um e-mail válido.");
+      toast.error("Informe um e-mail válido.");
       return false;
     }
+    
+    // Verificar tamanho da senha
     if (form.senha.length < 6) {
-      alert("A senha deve ter pelo menos 6 caracteres.");
+      toast.error("A senha deve ter pelo menos 6 caracteres.");
       return false;
     }
+    
+    // Verificar se as senhas coincidem
     if (form.senha !== form.confirmarSenha) {
-      alert("As senhas não coincidem.");
+      toast.error("As senhas não coincidem.");
       return false;
     }
+    
+    // Verificar se há erros de validação
+    if (emailError || cpfError || cnpjError) {
+      toast.error("Corrija os erros de validação antes de continuar.");
+      return false;
+    }
+    
     return true;
   };
 
@@ -242,165 +280,115 @@ export default function CadastroEmpresa() {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden flex flex-col items-center justify-center px-4">
-      <div className="absolute top-0 left-0 w-full h-[400px] bg-black z-10 [clip-path:ellipse(140%_100%_at_50%_0%)]" />
-      <div className="absolute top-[0px] left-0 w-full h-full bg-gradient-to-br from-[#cffb6d] to-white z-0" />
-      <div className="relative z-20 w-full max-w-3xl space-y-6">
+    <div className="min-h-screen relative overflow-hidden flex flex-col items-center justify-center px-4 bg-black">
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute inset-0 opacity-40" style={{
+          backgroundImage: `linear-gradient(rgba(209,254,110,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(209,254,110,0.08) 1px, transparent 1px)`,
+          backgroundSize: '100px 100px'
+        }} />
+        <div className="absolute inset-0 bg-gradient-to-b from-black via-transparent to-black/60" />
+      </div>
+      <div className="relative z-20 w-full max-w-4xl space-y-6">
         <div className="flex justify-center mb-6">
           <Image src={logo} alt="" width={200} height={60} priority className="mx-auto" />
         </div>
-        <p className="text-center text-green-700 font-medium text-sm mb-4">
+        <p className="text-center text-[#D1FE6E]/80 font-medium text-sm mb-4">
           Experimente gratuitamente por 15 dias. Sem cartão de crédito!
         </p>
-        <div className="w-full max-w-7xl mx-auto p-8 bg-white rounded-[32px] shadow-xl overflow-visible min-h-[760px]">
-          <h1 className="text-4xl font-semibold tracking-tight text-[#000] text-center mb-4">Crie sua conta</h1>
-          <div className="relative mb-6 h-2 bg-gray-200 rounded-full overflow-hidden">
+        <div className="w-full max-w-7xl mx-auto p-8 rounded-3xl overflow-visible min-h-[760px] border" style={{
+          background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)',
+          border: '1px solid rgba(255,255,255,0.12)',
+          backdropFilter: 'blur(12px)'
+        }}>
+          <h1 className="text-4xl font-semibold tracking-tight text-white text-center mb-4">Crie sua conta</h1>
+          <div className="relative mb-6 h-2 bg-white/10 rounded-full overflow-hidden">
             <div
-              className="absolute top-0 left-0 h-full bg-[#000] transition-all"
+              className="absolute top-0 left-0 h-full bg-[#D1FE6E] transition-all"
               style={{ width: `${progress}%` }}
             />
           </div>
           <div className="h-auto min-h-[560px] overflow-visible relative transition-all">
             {step === 1 && (
-              <div
-                key={`step1-${step}`}
-                className="w-full gap-3 flex flex-col transition-opacity duration-200"
-              >
-                <h2 className="text-xl font-bold mb-4">Plano Selecionado</h2>
+              <div key={`step1-${step}`} className="w-full gap-3 flex flex-col transition-opacity duration-200">
+                <h2 className="text-xl font-light text-white mb-4">Seus dados</h2>
                 
-                {/* Card do plano selecionado */}
-                <div className="w-full max-w-md mx-auto">
-                  <div className="bg-green-50 border-2 border-green-600 p-6 rounded-2xl shadow-md">
-                    <div className="flex flex-col items-center text-center">
-                      <div className="w-16 h-16 bg-green-600 rounded-2xl flex items-center justify-center mb-4">
-                        <FaCheckCircle className="text-white text-2xl" />
-                      </div>
-                      
-                      {form.plano === 'basico' && (
-                        <>
-                          <h3 className="font-bold text-xl text-black mb-2">Plano Básico</h3>
-                          <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-medium mb-2">
-                            Sistema completo para começar
-                          </span>
-                          <p className="text-sm text-gray-500 mb-4">1 usuário, 1 técnico, sistema de OS completo</p>
-                          <p className="text-green-600 font-extrabold text-2xl mb-4">R$ 129,90/mês</p>
-                          <ul className="text-xs text-gray-600 space-y-2 text-left w-full">
-                            <li className="flex items-center gap-2">
-                              <FaUser className="text-green-600 text-xs" />
-                              <span>Cadastro de clientes</span>
-                            </li>
-                            <li className="flex items-center gap-2">
-                              <FaBuilding className="text-green-600 text-xs" />
-                              <span>Cadastro de produtos e serviços</span>
-                            </li>
-                            <li className="flex items-center gap-2">
-                              <FaCheckCircle className="text-green-600 text-xs" />
-                              <span>Sistema de OS completo</span>
-                            </li>
-                            <li className="flex items-center gap-2">
-                              <FaCheckCircle className="text-green-600 text-xs" />
-                              <span>Relatórios simples de atendimento</span>
-                            </li>
-                            <li className="flex items-center gap-2">
-                              <FaCheckCircle className="text-green-600 text-xs" />
-                              <span>Segurança de dados na nuvem</span>
-                            </li>
-                          </ul>
-                        </>
-                      )}
-                      
-                      {form.plano === 'pro' && (
-                        <>
-                          <div className="bg-black text-white px-3 py-1 rounded-full text-xs font-medium mb-2">
-                            POPULAR
-                          </div>
-                          <h3 className="font-bold text-xl text-black mb-2">Plano Pro</h3>
-                          <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-medium mb-2">
-                            Plano completo para equipes
-                          </span>
-                          <p className="text-sm text-gray-500 mb-4">5 usuários, 5 técnicos e muito mais</p>
-                          <p className="text-green-600 font-extrabold text-2xl mb-4">R$ 189,90/mês</p>
-                          <ul className="text-xs text-gray-600 space-y-2 text-left w-full">
-                            <li className="flex items-center gap-2">
-                              <FaCheckCircle className="text-green-600 text-xs" />
-                              <span>Controle financeiro</span>
-                            </li>
-                            <li className="flex items-center gap-2">
-                              <FaCheckCircle className="text-green-600 text-xs" />
-                              <span>Comissão por técnico</span>
-                            </li>
-                            <li className="flex items-center gap-2">
-                              <FaCheckCircle className="text-green-600 text-xs" />
-                              <span>Emissão de nota fiscal</span>
-                            </li>
-                            <li className="flex items-center gap-2">
-                              <FaCheckCircle className="text-green-600 text-xs" />
-                              <span>Controle de permissões</span>
-                            </li>
-                            <li className="flex items-center gap-2">
-                              <FaCheckCircle className="text-green-600 text-xs" />
-                              <span>Controle de estoque detalhado</span>
-                            </li>
-                            <li className="flex items-center gap-2">
-                              <FaCheckCircle className="text-green-600 text-xs" />
-                              <span>Gestão de equipe por permissões</span>
-                            </li>
-                          </ul>
-                        </>
-                      )}
-                      
-                      {form.plano === 'avancado' && (
-                        <>
-                          <h3 className="font-bold text-xl text-black mb-2">Plano Avançado</h3>
-                          <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-medium mb-2">
-                            Experiência completa + automações
-                          </span>
-                          <p className="text-sm text-gray-500 mb-4">10 usuários, 10 técnicos, app e automações</p>
-                          <p className="text-green-600 font-extrabold text-2xl mb-4">R$ 279,90/mês</p>
-                          <ul className="text-xs text-gray-600 space-y-2 text-left w-full">
-                            <li className="flex items-center gap-2">
-                              <FaCheckCircle className="text-green-600 text-xs" />
-                              <span>Kanban para OS</span>
-                            </li>
-                            <li className="flex items-center gap-2">
-                              <FaCheckCircle className="text-green-600 text-xs" />
-                              <span>App do técnico com notificações</span>
-                            </li>
-                            <li className="flex items-center gap-2">
-                              <FaCheckCircle className="text-green-600 text-xs" />
-                              <span>Integração WhatsApp</span>
-                            </li>
-                            <li className="flex items-center gap-2">
-                              <FaCheckCircle className="text-green-600 text-xs" />
-                              <span>Dashboard de performance</span>
-                            </li>
-                            <li className="flex items-center gap-2">
-                              <FaCheckCircle className="text-green-600 text-xs" />
-                              <span>Geração de relatórios personalizados</span>
-                            </li>
-                          </ul>
-                        </>
-                      )}
-                    </div>
+                <label className="text-sm text-white/70">Nome completo *</label>
+                <input
+                  type="text"
+                  name="nome"
+                  placeholder="Seu nome completo"
+                  className="w-full px-4 py-3 rounded-md border border-white/10 bg-white/5 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#D1FE6E]/40 transition"
+                  value={form.nome}
+                  onChange={handleChange}
+                />
+                
+                <label className={`text-sm ${(!emailValido || emailError) ? 'text-red-400' : 'text-white/70'}`}>{emailError || 'Informe um e-mail válido. *'}</label>
+                <input
+                  type="email"
+                  name="email"
+                  placeholder="E-mail"
+                  className={`w-full px-4 py-3 rounded-md border ${(!emailValido || emailError) ? 'border-red-400' : 'border-white/10'} bg-white/5 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#D1FE6E]/40 transition`}
+                  value={form.email}
+                  onChange={handleChange}
+                />
+                <label className="text-sm text-white/70">Crie uma senha segura. *</label>
+                <div className="relative">
+                  <input
+                    type={mostrarSenha ? 'text' : 'password'}
+                    name="senha"
+                    placeholder="Senha"
+                    className="w-full px-4 py-3 rounded-md border border-white/10 bg-white/5 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#D1FE6E]/40 transition pr-10"
+                    value={form.senha}
+                    onChange={handleChange}
+                  />
+                  <div className="absolute inset-y-0 right-3 flex items-center cursor-pointer" onClick={() => setMostrarSenha(!mostrarSenha)}>
+                    {mostrarSenha ? <FaEyeSlash /> : <FaEye />}
                   </div>
                 </div>
-                
-                <div className="mt-6 text-green-600 text-sm text-center">
-                  🎁 15 dias grátis para começar. Sem cartão de crédito.
+                <label className={`text-sm ${senhasIguais ? 'text-white/70' : 'text-red-400'}`}>{senhasIguais ? 'Repita sua senha para confirmar. *' : 'As senhas não coincidem.'}</label>
+                <div className="relative">
+                  <input
+                    type={mostrarConfirmarSenha ? 'text' : 'password'}
+                    name="confirmarSenha"
+                    placeholder="Confirmar senha"
+                    className={`w-full px-4 py-3 rounded-md border ${senhasIguais ? 'border-white/10' : 'border-red-400'} bg-white/5 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#D1FE6E]/40 transition pr-10`}
+                    value={form.confirmarSenha || ''}
+                    onChange={handleChange}
+                  />
+                  <div className="absolute inset-y-0 right-3 flex items-center cursor-pointer" onClick={() => setMostrarConfirmarSenha(!mostrarConfirmarSenha)}>
+                    {mostrarConfirmarSenha ? <FaEyeSlash /> : <FaEye />}
                 </div>
-                <div className="mt-2 text-gray-500 text-xs flex items-center justify-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20z" />
-                  </svg>
-                  Você poderá mudar de plano a qualquer momento no painel.
                 </div>
+                <label className={`text-sm ${cpfError ? 'text-red-400' : 'text-white/70'}`}>{cpfError || 'Informe seu CPF (somente números). *'}</label>
+                <input
+                  type="text"
+                  name="cpf"
+                  placeholder="000.000.000-00"
+                  className={`w-full px-4 py-3 rounded-md border ${cpfError ? 'border-red-400' : 'border-white/10'} bg-white/5 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#D1FE6E]/40 transition`}
+                  value={form.cpf}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/\D/g, '');
+                    setForm({ ...form, cpf: masker(raw, ['999.999.999-99']) });
+                  }}
+                  maxLength={14}
+                  autoComplete="off"
+                />
+                <label className="text-sm text-white/70">WhatsApp *</label>
+                <input
+                  type="text"
+                  name="whatsapp"
+                  placeholder="(99) 99999-9999"
+                  className="w-full px-4 py-3 rounded-md border border-white/10 bg-white/5 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#D1FE6E]/40 transition"
+                  value={form.whatsapp}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/\D/g, '');
+                    setForm({ ...form, whatsapp: masker(raw, ['(99) 99999-9999']) });
+                  }}
+                  maxLength={15}
+                  autoComplete="off"
+                />
                 <div className="flex justify-end mt-6">
-                  <button
-                    onClick={handleNext}
-                    className="bg-black text-white px-6 py-3 rounded-lg hover:bg-gray-900 transition font-medium"
-                  >
-                    Continuar
-                  </button>
+                  <button onClick={handleNext} className="px-6 py-3 rounded-lg transition font-medium bg-[#D1FE6E] text-black hover:bg-[#B8E55A]">Continuar</button>
                 </div>
               </div>
             )}
@@ -410,153 +398,65 @@ export default function CadastroEmpresa() {
                 key={`step2-${step}`}
                 className="w-full gap-3 flex flex-col transition-opacity duration-200"
               >
-                <h2 className="text-xl font-bold mb-4">Dados da Empresa</h2>
+                <h2 className="text-xl font-light text-white mb-4">Dados da Empresa</h2>
                 
-                <label className="text-sm text-gray-600">Nome da empresa</label>
+                <label className="text-sm text-white/70">Nome da empresa *</label>
                 <input
                   type="text"
                   name="nomeEmpresa"
                   placeholder="Nome da sua empresa"
-                  className="w-full px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-black transition"
+                  className="w-full px-4 py-3 rounded-md border border-white/10 bg-white/5 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#D1FE6E]/40 transition"
                   value={form.nomeEmpresa}
                   onChange={handleChange}
                 />
 
-                <label className="text-sm text-gray-600">CNPJ (opcional)</label>
+                <label className="text-sm text-white/70">CNPJ (opcional)</label>
                 <input
                   type="text"
                   name="cnpj"
                   placeholder="00.000.000/0000-00"
-                  className={`w-full px-4 py-3 rounded-md border ${cnpjError ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-black transition`}
+                  className={`w-full px-4 py-3 rounded-md border ${cnpjError ? 'border-red-400' : 'border-white/10'} bg-white/5 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#D1FE6E]/40 transition`}
                   value={form.cnpj}
                   onChange={(e) => {
-                    const value = e.target.value;
-                    // Permitir apenas números e caracteres de formatação
-                    const cleaned = value.replace(/[^\d./-]/g, '');
-                    setForm({ ...form, cnpj: cleaned });
+                    const raw = e.target.value.replace(/\D/g, '');
+                    setForm({ ...form, cnpj: masker(raw, ['99.999.999/9999-99']) });
                   }}
                   maxLength={18}
                   autoComplete="off"
                 />
-                {cnpjError && <span className="text-red-500 text-xs">{cnpjError}</span>}
+                {cnpjError && <span className="text-red-400 text-xs">{cnpjError}</span>}
 
-                <label className="text-sm text-gray-600">Cidade</label>
+                <label className="text-sm text-white/70">Cidade *</label>
                 <input
                   type="text"
                   name="cidade"
                   placeholder="Cidade"
-                  className="w-full px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-black transition"
+                  className="w-full px-4 py-3 rounded-md border border-white/10 bg-white/5 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#D1FE6E]/40 transition"
                   value={form.cidade}
                   onChange={handleChange}
                 />
 
-                <label className="text-sm text-gray-600">Endereço</label>
+                <label className="text-sm text-white/70">Endereço *</label>
                 <input
                   type="text"
                   name="endereco"
                   placeholder="Endereço completo"
-                  className="w-full px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-black transition"
+                  className="w-full px-4 py-3 rounded-md border border-white/10 bg-white/5 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#D1FE6E]/40 transition"
                   value={form.endereco}
                   onChange={handleChange}
                 />
 
-                <label className="text-sm text-gray-600">Website (opcional)</label>
+                <label className="text-sm text-white/70">Website (opcional)</label>
                 <input
                   type="text"
                   name="website"
                   placeholder="www.suaempresa.com.br"
-                  className="w-full px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-black transition"
+                  className="w-full px-4 py-3 rounded-md border border-white/10 bg-white/5 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#D1FE6E]/40 transition"
                   value={form.website}
                   onChange={handleChange}
                 />
 
-                <h2 className="text-xl font-bold mb-4 mt-8">Dados do responsável</h2>
-                <label className="text-sm text-gray-600">Digite seu nome completo.</label>
-                <input
-                  type="text"
-                  name="nome"
-                  placeholder="Nome completo"
-                  className="w-full px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-black transition"
-                  value={form.nome}
-                  onChange={handleChange}
-                />
-                <label className={`text-sm ${(emailError || !emailValido) ? 'text-red-500' : 'text-gray-600'}`}>
-                  {emailError || (!emailValido ? 'E-mail inválido.' : 'Informe um e-mail válido.')}
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  placeholder="E-mail"
-                  className={`w-full px-4 py-3 rounded-md border ${(emailError || !emailValido) ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-black transition`}
-                  value={form.email}
-                  onChange={handleChange}
-                />
-                {/* Campo de senha com visibilidade */}
-                <label className="text-sm text-gray-600">Crie uma senha segura.</label>
-                <div className="relative">
-                  <input
-                    type={mostrarSenha ? "text" : "password"}
-                    name="senha"
-                    placeholder="Senha"
-                    className="w-full px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-black transition pr-10"
-                    value={form.senha}
-                    onChange={handleChange}
-                  />
-                  <div
-                    className="absolute inset-y-0 right-3 flex items-center cursor-pointer"
-                    onClick={() => setMostrarSenha(!mostrarSenha)}
-                  >
-                    {mostrarSenha ? <FaEyeSlash /> : <FaEye />}
-                  </div>
-                </div>
-                {/* Campo de confirmação de senha com visibilidade */}
-                <label className={`text-sm ${senhasIguais ? 'text-gray-600' : 'text-red-500'}`}>
-                  {senhasIguais ? 'Repita sua senha para confirmar.' : 'As senhas não coincidem.'}
-                </label>
-                <div className="relative">
-                  <input
-                    type={mostrarConfirmarSenha ? "text" : "password"}
-                    name="confirmarSenha"
-                    placeholder="Confirmar senha"
-                    className={`w-full px-4 py-3 rounded-md border ${senhasIguais ? 'border-gray-300' : 'border-red-500'} focus:outline-none focus:ring-2 focus:ring-black transition pr-10`}
-                    value={form.confirmarSenha || ''}
-                    onChange={handleChange}
-                  />
-                  <div
-                    className="absolute inset-y-0 right-3 flex items-center cursor-pointer"
-                    onClick={() => setMostrarConfirmarSenha(!mostrarConfirmarSenha)}
-                  >
-                    {mostrarConfirmarSenha ? <FaEyeSlash /> : <FaEye />}
-                  </div>
-                </div>
-                {/* Campo CPF */}
-                <label className={`text-sm ${cpfError ? 'text-red-500' : 'text-gray-600'}`}>
-                  {cpfError || 'Informe seu CPF (somente números).'}
-                </label>
-                <input
-                  type="text"
-                  name="cpf"
-                  placeholder="000.000.000-00"
-                  className={`w-full px-4 py-3 rounded-md border ${cpfError ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-black transition`}
-                  value={form.cpf}
-                  onChange={(e) => {
-                    const raw = e.target.value.replace(/\D/g, '');
-                    setForm({ ...form, cpf: masker(raw, ['999.999.999-99']) });
-                  }}
-                />
-
-                <label className="text-sm text-gray-600">WhatsApp</label>
-                <input
-                  type="text"
-                  name="whatsapp"
-                  placeholder="(99) 99999-9999"
-                  className="w-full px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-black transition"
-                  value={form.whatsapp}
-                  onChange={(e) => {
-                    const raw = e.target.value.replace(/\D/g, '');
-                    setForm({ ...form, whatsapp: masker(raw, ['(99) 99999-9999']) });
-                  }}
-                />
+                {/* Dados do responsável removidos aqui; já coletados no passo 1 */}
                 {/* Exibição de erro de submissão */}
                 {submitError && (
                   <p className="text-red-500 text-sm mb-4">{submitError}</p>
@@ -564,7 +464,7 @@ export default function CadastroEmpresa() {
                 <div className="flex justify-between mt-6">
                   <button
                     onClick={handleBack}
-                    className="bg-gray-200 text-black px-4 py-2 rounded hover:bg-gray-300 transition"
+                    className="px-4 py-2 rounded bg-white/10 text-white hover:bg-white/15 transition"
                   >
                     Voltar
                   </button>
@@ -572,36 +472,36 @@ export default function CadastroEmpresa() {
                     type="submit"
                     onClick={handleSubmit}
                     disabled={
-                      !form.nome ||
-                      !form.email ||
-                      !form.senha ||
-                      !form.confirmarSenha ||
+                      !form.nome?.trim() ||
+                      !form.email?.trim() ||
+                      !form.senha?.trim() ||
+                      !form.confirmarSenha?.trim() ||
                       emailError !== '' ||
                       form.senha !== form.confirmarSenha ||
-                      !form.whatsapp ||
-                      !form.cpf ||
+                      !form.whatsapp?.trim() ||
+                      !form.cpf?.trim() ||
                       cpfError !== '' ||
                       cnpjError !== '' ||
-                      !form.nomeEmpresa ||
-                      !form.cidade ||
-                      !form.endereco
+                      !form.nomeEmpresa?.trim() ||
+                      !form.cidade?.trim() ||
+                      !form.endereco?.trim()
                     }
-                    className={`bg-black text-white px-6 py-3 rounded-lg transition font-medium ${
-                      !form.nome ||
-                      !form.email ||
-                      !form.senha ||
-                      !form.confirmarSenha ||
+                    className={`px-6 py-3 rounded-lg transition font-medium ${
+                      !form.nome?.trim() ||
+                      !form.email?.trim() ||
+                      !form.senha?.trim() ||
+                      !form.confirmarSenha?.trim() ||
                       emailError !== '' ||
                       form.senha !== form.confirmarSenha ||
-                      !form.whatsapp ||
-                      !form.cpf ||
+                      !form.whatsapp?.trim() ||
+                      !form.cpf?.trim() ||
                       cpfError !== '' ||
                       cnpjError !== '' ||
-                      !form.nomeEmpresa ||
-                      !form.cidade ||
-                      !form.endereco
-                        ? 'opacity-50 cursor-not-allowed'
-                        : 'hover:bg-gray-900'
+                      !form.nomeEmpresa?.trim() ||
+                      !form.cidade?.trim() ||
+                      !form.endereco?.trim()
+                        ? 'opacity-50 cursor-not-allowed bg-gray-400'
+                        : 'bg-[#D1FE6E] text-black hover:bg-[#B8E55A]'
                     }`}
                   >
                     Finalizar Cadastro

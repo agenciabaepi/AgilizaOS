@@ -24,14 +24,16 @@ import {
   FiStar,
 } from 'react-icons/fi';
 import { Toaster } from 'react-hot-toast';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase, forceLogout } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/Toast';
 import { SubscriptionStatus } from '@/components/SubscriptionStatus';
+import LogoutScreen from '@/components/LogoutScreen';
+import { useWhatsAppNotification } from '@/hooks/useWhatsAppNotification';
 
 export default function MenuLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { signOut, usuarioData } = useAuth();
+  const { signOut, usuarioData, empresaData } = useAuth();
   const { addToast } = useToast();
 
   const [userName, setUserName] = useState<string>('');
@@ -49,6 +51,20 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [menuRecolhido, setMenuRecolhido] = useState<boolean | null>(null);
+  const [catalogoHabilitado, setCatalogoHabilitado] = useState<boolean>(false);
+
+  // Ativar notificações WhatsApp automáticas
+  useWhatsAppNotification();
+
+  // Debug: Verificar se empresaData está sendo carregado
+  useEffect(() => {
+    console.log('🔍 MenuLayout: empresaData mudou:', empresaData);
+    if (empresaData?.id) {
+      console.log('🔍 MenuLayout: Empresa ID carregado:', empresaData.id);
+    } else {
+      console.log('🔍 MenuLayout: Empresa ID NÃO carregado ainda');
+    }
+  }, [empresaData]);
 
   const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
   const pathname = usePathname();
@@ -71,6 +87,23 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
       }
     })();
   }, []);
+
+  // Buscar configuração do catálogo quando a empresa estiver carregada
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!empresaData?.id) return;
+        const { data } = await supabase
+          .from('configuracoes_empresa')
+          .select('catalogo_habilitado')
+          .eq('empresa_id', empresaData.id)
+          .single();
+        if (data && typeof data.catalogo_habilitado === 'boolean') {
+          setCatalogoHabilitado(data.catalogo_habilitado);
+        }
+      } catch {}
+    })();
+  }, [empresaData?.id]);
 
   useEffect(() => {
     const stored = localStorage.getItem('menuExpandido') === 'true';
@@ -133,7 +166,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="flex min-h-screen bg-white">
       {/* Sidebar Desktop */}
-      <aside className={`${menuRecolhido ? 'w-16' : 'w-64'} bg-black border-r border-white/20 flex flex-col py-8 ${menuRecolhido ? 'px-2' : 'px-4'} min-h-screen hidden md:flex transition-all duration-300`}>
+      <aside className={`${menuRecolhido ? 'w-16' : 'w-64'} bg-black border-r border-white/20 flex flex-col py-8 ${menuRecolhido ? 'px-2' : 'px-4'} h-screen fixed top-0 left-0 z-40 hidden md:flex transition-all duration-300 overflow-y-auto no-print`}>
         {/* Logo branco centralizado */}
         <div className="flex flex-col items-center mb-6">
           {menuRecolhido ? (
@@ -234,6 +267,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                 <div className="ml-6 flex flex-col gap-1 mt-1">
                   <SidebarButton path="/equipamentos" icon={<FiBox size={18} />} label="Produtos" isActive={pathname === '/equipamentos'} menuRecolhido={menuRecolhido} />
                   <SidebarButton path="/equipamentos/categorias" icon={<FiGrid size={18} />} label="Categorias" isActive={pathname === '/equipamentos/categorias'} menuRecolhido={menuRecolhido} />
+                  {catalogoHabilitado && (
+                    <SidebarButton path="/catalogo" icon={<FiStar size={18} />} label="Catálogo" isActive={pathname === '/catalogo'} menuRecolhido={menuRecolhido} />
+                  )}
                 </div>
               )}
             </>
@@ -277,6 +313,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {podeVer('bancada') && (
             <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" isActive={pathname === '/bancada'} menuRecolhido={menuRecolhido} />
           )}
+          {usuarioData?.nivel === 'tecnico' && (
+            <SidebarButton path="/comissoes" icon={<FiDollarSign size={20} />} label="Comissões" isActive={pathname === '/comissoes'} menuRecolhido={menuRecolhido} />
+          )}
           {podeVer('termos') && (
             <SidebarButton path="#" icon={<FiFileText size={20} />} label="Termos" isActive={pathname === '/termos'} menuRecolhido={menuRecolhido} />
           )}
@@ -284,8 +323,10 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {podeVer('configuracoes') && usuarioData?.nivel !== 'atendente' && (
             <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" isActive={pathname === '/configuracoes'} menuRecolhido={menuRecolhido} />
           )}
-          <SidebarButton path="#logout" icon={<FiLogOut size={20} />} label="Sair" isActive={false} menuRecolhido={menuRecolhido} onClick={async () => {
+          <SidebarButton path="#logout" icon={<FiLogOut size={20} />} label="Sair" isActive={false} menuRecolhido={menuRecolhido} data-logout="true" onClick={async () => {
+            console.log('🔴 Botão Sair clicado!');
             setIsLoggingOut(true);
+<<<<<<< HEAD
             try {
               await signOut((msg) => addToast('error', `Erro ao sair: ${msg}`));
               // Redirecionar diretamente para a landing page sem passar por páginas protegidas
@@ -296,6 +337,84 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             } finally {
               setIsLoggingOut(false);
             }
+=======
+            
+            // Aguardar um momento para mostrar a tela de "Saindo..." bonita
+            setTimeout(async () => {
+              try {
+                console.log('🔴 Executando logout forçado...');
+                
+                // 1. Pegar tokens atuais antes de limpar
+                const { data: { session } } = await supabase.auth.getSession();
+                const access_token = session?.access_token;
+                const refresh_token = session?.refresh_token;
+                
+                // 2. Limpar estado local imediatamente
+                localStorage.clear();
+                sessionStorage.clear();
+                console.log('🔴 Estado local limpo');
+                
+                // 3. Fazer logout do Supabase
+                console.log('🔴 Fazendo logout do Supabase...');
+                const { error } = await supabase.auth.signOut();
+                if (error) {
+                  console.log('⚠️ Erro no logout Supabase:', error.message);
+                } else {
+                  console.log('✅ Logout Supabase realizado');
+                }
+                
+                // 4. FORÇAR LOGOUT NO BACKEND (NOVA FUNCIONALIDADE)
+                if (access_token && session?.user?.id) {
+                  try {
+                    console.log('🔴 Forçando logout no backend...');
+                    console.log('🔴 User ID:', session.user.id);
+                    console.log('🔴 Access Token:', access_token ? 'SIM' : 'NÃO');
+                    
+                    const response = await fetch('/api/auth/force-logout', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ 
+                        access_token, 
+                        refresh_token, 
+                        user_id: session.user.id 
+                      })
+                    });
+                    
+                    console.log('🔴 Resposta da API:', response.status, response.statusText);
+                    
+                    if (response.ok) {
+                      const result = await response.json();
+                      console.log('✅ Logout forçado no backend realizado:', result);
+                    } else {
+                      const error = await response.text();
+                      console.log('⚠️ Erro no logout forçado do backend:', error);
+                    }
+                  } catch (apiError) {
+                    console.log('⚠️ Erro ao chamar API de logout forçado:', apiError);
+                  }
+                } else {
+                  console.log('⚠️ Não foi possível obter access_token ou user_id');
+                  console.log('🔴 Access Token:', access_token ? 'SIM' : 'NÃO');
+                  console.log('🔴 User ID:', session?.user?.id);
+                }
+                
+                // 5. Limpeza final
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                // 6. Redirecionar para login
+                console.log('🔄 Redirecionando para login...');
+                window.location.href = '/login';
+                
+              } catch (error) {
+                console.error('❌ Erro no logout:', error);
+                // Mesmo com erro, forçar redirecionamento
+                localStorage.clear();
+                sessionStorage.clear();
+                window.location.href = '/login';
+              }
+            }, 1500);
+>>>>>>> stable-version
           }} />
         </nav>
         {!menuRecolhido && (
@@ -307,7 +426,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
       
       {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 flex">
+        <div className="fixed inset-0 z-50 flex no-print">
           {/* Overlay */}
           <div className="absolute inset-0 bg-black/40" onClick={() => setMobileMenuOpen(false)} />
           {/* Drawer */}
@@ -396,6 +515,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                     <div className="ml-6 flex flex-col gap-1 mt-1">
                       <SidebarButton path="/equipamentos" icon={<FiBox size={18} />} label="Produtos" />
                       <SidebarButton path="/equipamentos/categorias" icon={<FiGrid size={18} />} label="Categorias" />
+                  {catalogoHabilitado && (
+                    <SidebarButton path="/catalogo" icon={<FiStar size={18} />} label="Catálogo" />
+                  )}
                     </div>
                   )}
                 </>
@@ -435,6 +557,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               {podeVer('bancada') && (
                 <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" />
               )}
+              {usuarioData?.nivel === 'tecnico' && (
+                <SidebarButton path="/comissoes" icon={<FiDollarSign size={20} />} label="Comissões" />
+              )}
               {podeVer('termos') && (
                 <SidebarButton path="#" icon={<FiFileText size={20} />} label="Termos" />
               )}
@@ -442,6 +567,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               {podeVer('configuracoes') && usuarioData?.nivel !== 'atendente' && (
                 <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" />
               )}
+<<<<<<< HEAD
               <SidebarButton path="#logout" icon={<FiLogOut size={20} />} label="Sair" isActive={false} onClick={async () => {
                 setIsLoggingOut(true);
                 try {
@@ -455,6 +581,95 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   setIsLoggingOut(false);
                 }
               }} />
+=======
+              <SidebarButton 
+                path="#logout" 
+                icon={<FiLogOut size={20} />} 
+                label="Sair" 
+                isActive={false} 
+                menuRecolhido={menuRecolhido}
+                onClick={async () => {
+                  console.log('🔴 Botão Sair clicado!');
+                  setIsLoggingOut(true);
+                  
+                  // Aguardar um momento para mostrar a tela de "Saindo..." bonita
+                  setTimeout(async () => {
+                    try {
+                      console.log('🔴 Executando logout forçado...');
+                      
+                      // 1. Pegar tokens atuais antes de limpar
+                      const { data: { session } } = await supabase.auth.getSession();
+                      const access_token = session?.access_token;
+                      const refresh_token = session?.refresh_token;
+                      
+                      // 2. Limpar estado local imediatamente
+                      localStorage.clear();
+                      sessionStorage.clear();
+                      console.log('🔴 Estado local limpo');
+                      
+                      // 3. Fazer logout do Supabase
+                      console.log('🔴 Fazendo logout do Supabase...');
+                      const { error } = await supabase.auth.signOut();
+                      if (error) {
+                        console.log('⚠️ Erro no logout Supabase:', error.message);
+                      } else {
+                        console.log('✅ Logout Supabase realizado');
+                      }
+                      
+                      // 4. FORÇAR LOGOUT NO BACKEND (NOVA FUNCIONALIDADE)
+                      if (access_token && session?.user?.id) {
+                        try {
+                          console.log('🔴 Forçando logout no backend...');
+                          console.log('🔴 User ID:', session.user.id);
+                          console.log('🔴 Access Token:', access_token ? 'SIM' : 'NÃO');
+                          
+                          const response = await fetch('/api/auth/force-logout', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                              access_token, 
+                              refresh_token, 
+                              user_id: session.user.id 
+                            })
+                          });
+                          
+                          console.log('🔴 Resposta da API:', response.status, response.statusText);
+                          
+                          if (response.ok) {
+                            const result = await response.json();
+                            console.log('✅ Logout forçado no backend realizado:', result);
+                          } else {
+                            const error = await response.text();
+                            console.log('⚠️ Erro no logout forçado do backend:', error);
+                          }
+                        } catch (apiError) {
+                          console.log('⚠️ Erro ao chamar API de logout forçado:', apiError);
+                        }
+                      } else {
+                        console.log('⚠️ Não foi possível obter access_token ou user_id');
+                        console.log('🔴 Access Token:', access_token ? 'SIM' : 'NÃO');
+                        console.log('🔴 User ID:', session?.user?.id);
+                      }
+                      
+                      // 5. Limpeza final
+                      localStorage.clear();
+                      sessionStorage.clear();
+                      
+                      // 6. Redirecionar para login
+                      console.log('🔄 Redirecionando para login...');
+                      window.location.href = '/login';
+                      
+                    } catch (error) {
+                      console.error('❌ Erro no logout:', error);
+                      // Mesmo com erro, forçar redirecionamento
+                      localStorage.clear();
+                      sessionStorage.clear();
+                      window.location.href = '/login';
+                    }
+                  }, 1500);
+                }} 
+              />
+>>>>>>> stable-version
             </nav>
             <div className="mt-auto text-center text-xs text-[#D1FE6E] pb-4">
               v1.0.0
@@ -463,9 +678,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
         </div>
       )}
       {/* Main area with header and content */}
-      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${menuRecolhido ? 'ml-0' : ''}`}>
+      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${menuRecolhido ? 'ml-16' : 'ml-64'}`}>
         {/* TopHeader */}
-        <header className="w-full h-16 bg-white border-b border-zinc-200 flex items-center justify-between px-6 sticky top-0 z-30">
+        <header className="w-full h-16 bg-white border-b border-zinc-200 flex items-center justify-between px-6 sticky top-0 z-30 no-print">
           {/* Botão menu mobile */}
           <div className="md:hidden">
             <button onClick={() => setMobileMenuOpen(true)} className="text-zinc-700">
@@ -544,6 +759,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {children}
         </main>
       </div>
+      
+      {/* Tela de Logout */}
+      {isLoggingOut && <LogoutScreen />}
     </div>
   );
 }

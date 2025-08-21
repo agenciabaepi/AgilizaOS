@@ -132,12 +132,109 @@ const styles = StyleSheet.create({
 function OrdemPDF({ ordem }: { ordem: any }) {
   function formatDate(dateStr: string | null | undefined) {
     if (!dateStr) return '---';
+    const m = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) return `${m[3]}/${m[2]}/${m[1]}`;
     const d = new Date(dateStr);
-    return d.toLocaleDateString();
+    return d.toLocaleDateString('pt-BR');
   }
   function formatMoney(val: any) {
     if (val == null) return '---';
     return `R$ ${Number(val).toFixed(2)}`;
+  }
+
+  function renderTermoClean(htmlContent: string) {
+    if (!htmlContent) return null;
+    
+    // Limpeza simples do HTML
+    let cleanContent = htmlContent
+      .replace(/<[^>]*>/g, '') // Remove todas as tags HTML
+      .replace(/&nbsp;/g, ' ') // Remove espaços HTML
+      .trim();
+    
+    // Encontra todas as seções numeradas
+    const sectionMatches = [...cleanContent.matchAll(/(\d+)\s*-\s*([^:]+):/g)];
+    const sections: any[] = [];
+    
+    // Processa cada seção encontrada
+    sectionMatches.forEach((match, index) => {
+      const sectionNumber = match[1];
+      const sectionTitle = match[2];
+      const startPos = match.index!;
+      
+      // Encontra o início da próxima seção ou o fim do texto
+      let endPos = cleanContent.length;
+      if (index + 1 < sectionMatches.length) {
+        endPos = sectionMatches[index + 1].index!;
+      }
+      
+      // Extrai o conteúdo da seção
+      const content = cleanContent.substring(startPos + match[0].length, endPos).trim();
+      
+      sections.push({
+        number: parseInt(sectionNumber),
+        title: `${sectionNumber} - ${sectionTitle}:`,
+        content: content.split('\n').filter(line => line.trim().length > 0),
+        key: `section-${index}`
+      });
+    });
+    
+    // Ordena por número da seção
+    sections.sort((a, b) => a.number - b.number);
+    
+    // Distribui em 2 colunas
+    const leftColumn: any[] = [];
+    const rightColumn: any[] = [];
+    
+    sections.forEach((section, index) => {
+      if (index % 2 === 0) {
+        leftColumn.push(section);
+      } else {
+        rightColumn.push(section);
+      }
+    });
+    
+    // Debug: verifica se todas as seções foram capturadas
+    console.log('Seções encontradas:', sections.length);
+    console.log('Números das seções:', sections.map(s => s.number));
+    console.log('Coluna esquerda:', leftColumn.length);
+    console.log('Coluna direita:', rightColumn.length);
+    
+    // Renderiza layout em 2 colunas otimizado para uma folha
+    return (
+      <View style={{ flexDirection: 'row', gap: 16 }}>
+        {/* Coluna Esquerda */}
+        <View style={{ flex: 1 }}>
+          {leftColumn.map((section) => (
+            <View key={section.key} style={{ marginBottom: 8 }}>
+              <Text style={[styles.paragraph, { fontSize: 8, fontWeight: 'bold', color: '#000', marginBottom: 2 }]}>
+                {section.title}
+              </Text>
+              {section.content.map((contentLine: string, contentIndex: number) => (
+                <Text key={`${section.key}-content-${contentIndex}`} style={[styles.paragraph, { fontSize: 7, lineHeight: 1.2, color: '#333', marginBottom: 1 }]}>
+                  {contentLine}
+                </Text>
+              ))}
+            </View>
+          ))}
+        </View>
+        
+        {/* Coluna Direita */}
+        <View style={{ flex: 1 }}>
+          {rightColumn.map((section) => (
+            <View key={section.key} style={{ marginBottom: 8 }}>
+              <Text style={[styles.paragraph, { fontSize: 8, fontWeight: 'bold', color: '#000', marginBottom: 2 }]}>
+                {section.title}
+              </Text>
+              {section.content.map((contentLine: string, contentIndex: number) => (
+                <Text key={`${section.key}-content-${contentIndex}`} style={[styles.paragraph, { fontSize: 7, lineHeight: 1.2, color: '#333', marginBottom: 1 }]}>
+                  {contentLine}
+                </Text>
+              ))}
+            </View>
+          ))}
+        </View>
+      </View>
+    );
   }
   return (
     <Document>
@@ -156,8 +253,6 @@ function OrdemPDF({ ordem }: { ordem: any }) {
             <Text style={styles.osText}>Entrada: {formatDate(ordem.created_at)}</Text>
             <Text style={styles.osText}>Entrega: {formatDate(ordem.data_entrega)}</Text>
             <Text style={styles.osText}>Status: {ordem.status}</Text>
-            <Text style={styles.osText}>Técnico: {ordem.usuarios?.nome || ordem.tecnico}</Text>
-            <Text style={styles.osText}>Garantia: {ordem.termo_garantia?.nome || '---'}</Text>
             <Text style={styles.osText}>Venc. Garantia: {formatDate(ordem.vencimento_garantia)}</Text>
           </View>
         </View>
@@ -188,7 +283,20 @@ function OrdemPDF({ ordem }: { ordem: any }) {
           <Text style={styles.paragraph}><Text style={styles.bold}>Condições:</Text> {ordem.condicoes_equipamento || '---'}</Text>
         </View>
 
-        {/* Serviços e Peças */}
+
+        {/* Relato do Cliente */}
+        <View style={styles.block}>
+          <Text style={styles.sectionTitle}>Relato do Cliente</Text>
+          <Text style={styles.paragraph}>{ordem.relato}</Text>
+        </View>
+
+        {/* Técnicos / Responsáveis */}
+        <View style={styles.block}>
+          <Text style={styles.sectionTitle}>Equipe</Text>
+          <Text style={styles.paragraph}><Text style={styles.bold}>Técnico:</Text> {ordem.usuarios?.nome || ordem.tecnico}</Text>
+        </View>
+
+        {/* Serviços e Peças (por último) */}
         <View style={styles.block}>
           <Text style={styles.sectionTitle}>Serviços e Peças</Text>
           <View style={styles.table}>
@@ -198,7 +306,6 @@ function OrdemPDF({ ordem }: { ordem: any }) {
               <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 2 }]}>Valor Unit.</Text>
               <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 2 }]}>Subtotal</Text>
             </View>
-            {/* Itens de serviço */}
             {ordem.servico && (
               <View style={styles.tableRow}>
                 <Text style={[styles.tableCell, styles.tableCellLeftAlign, { flex: 3 }]}>{ordem.servico}</Text>
@@ -207,7 +314,6 @@ function OrdemPDF({ ordem }: { ordem: any }) {
                 <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 2 }]}>{formatMoney(ordem.qtd_servico * ordem.valor_servico)}</Text>
               </View>
             )}
-            {/* Itens de peça */}
             {ordem.peca && (
               <View style={styles.tableRow}>
                 <Text style={[styles.tableCell, styles.tableCellLeftAlign, { flex: 3 }]}>{ordem.peca}</Text>
@@ -216,17 +322,14 @@ function OrdemPDF({ ordem }: { ordem: any }) {
                 <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 2 }]}>{formatMoney(ordem.qtd_peca * ordem.valor_peca)}</Text>
               </View>
             )}
-            {/* Linha Desconto */}
             <View style={styles.tableRow}>
               <Text style={[styles.tableCell, { flex: 8, borderRightWidth: 0, textAlign: 'right', fontWeight: 'bold' }]}>Desconto:</Text>
               <Text style={[styles.tableCell, { flex: 2, textAlign: 'right', fontWeight: 'bold' }]}>{formatMoney(ordem.desconto)}</Text>
             </View>
-            {/* Linha Total */}
             <View style={styles.tableRow}>
               <Text style={[styles.tableCell, { flex: 8, borderRightWidth: 0, textAlign: 'right', fontWeight: 'bold' }]}>Total:</Text>
               <Text style={[styles.tableCell, { flex: 2, textAlign: 'right', fontWeight: 'bold' }]}> {formatMoney((ordem.qtd_servico * ordem.valor_servico + ordem.qtd_peca * ordem.valor_peca) - (ordem.desconto || 0))}</Text>
             </View>
-            {/* Linha Valor Faturado */}
             <View style={styles.tableRow}>
               <Text style={[styles.tableCell, { flex: 8, borderRightWidth: 0, textAlign: 'right', fontWeight: 'bold' }]}>Valor Faturado:</Text>
               <Text style={[styles.tableCell, { flex: 2, textAlign: 'right', fontWeight: 'bold' }]}>{formatMoney(ordem.valor_faturado)}</Text>
@@ -234,17 +337,18 @@ function OrdemPDF({ ordem }: { ordem: any }) {
           </View>
         </View>
 
-        {/* Relato do Cliente */}
-        <View style={styles.block}>
-          <Text style={styles.sectionTitle}>Relato do Cliente</Text>
-          <Text style={styles.paragraph}>{ordem.relato}</Text>
-        </View>
-
-        {/* Observações Internas */}
-        <View style={styles.block}>
-          <Text style={styles.sectionTitle}>Observações Internas</Text>
-          <Text style={styles.paragraph}>{ordem.observacao}</Text>
-        </View>
+        {/* Termo de Garantia */}
+        {ordem.termo_garantia && (
+          <View style={[styles.block, { padding: 8, backgroundColor: '#fafafa' }]}>
+            <Text style={[styles.sectionTitle, { marginBottom: 4, textAlign: 'center', fontSize: 12 }]}>Termo de Garantia</Text>
+            <Text style={[styles.paragraph, { marginBottom: 6, fontSize: 8, textAlign: 'center', color: '#666' }]}>{ordem.termo_garantia.nome}</Text>
+            
+            {/* Layout em 2 colunas otimizado */}
+            <View style={{ width: '100%', paddingTop: 2 }}>
+              {renderTermoClean(ordem.termo_garantia.conteudo)}
+            </View>
+          </View>
+        )}
 
         {/* Assinaturas e QR code no rodapé */}
         <View style={styles.signatureRow}>
@@ -282,7 +386,7 @@ export default function ImprimirOrdemPage() {
 
       const { data, error } = await supabase
         .from('ordens_servico')
-        .select('*, clientes(*), usuarios!tecnico_id(*), empresas(*)')
+        .select('*, clientes(*), usuarios!tecnico_id(*), empresas(*), termo_garantia:termo_garantia_id(*)')
         .eq('id', id)
         .single();
 

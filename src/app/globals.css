@@ -207,6 +207,35 @@
   animation: fadeIn 0.3s ease-out;
 }
 
+/* Animações para a tela de logout */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes progress-bar {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out;
+}
+
+.animate-progress-bar {
+  animation: progress-bar 1.5s ease-in-out;
+}
+
 /* Estilos para botões de status */
 .status-button {
   transition: all 0.2s ease-in-out;

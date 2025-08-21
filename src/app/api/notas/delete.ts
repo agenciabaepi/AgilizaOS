@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { supabase } from '@/lib/supabaseClient';
+import { createClient } from '@supabase/supabase-js';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'DELETE') {
@@ -11,6 +11,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!id) {
     return res.status(400).json({ message: 'ID da nota é obrigatório' });
   }
+
+  // Cria o cliente do Supabase em tempo de execução com Service Role para evitar RLS e erros no build
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
 
   const { error } = await supabase.from('notas').delete().eq('id', id);
 

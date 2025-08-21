@@ -16,20 +16,54 @@ export default function ProtectedRoute({
   allowedLevels = [], 
   redirectTo = '/dashboard' 
 }: ProtectedRouteProps) {
+<<<<<<< HEAD
   const { user, usuarioData, loading: authLoading, isLoggingOut } = useAuth()
+=======
+  const { user, session, usuarioData, isLoggingOut } = useAuth()
+>>>>>>> stable-version
   const router = useRouter()
   const [userLevel, setUserLevel] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [hasAccess, setHasAccess] = useState(false)
 
+  console.log('🔍 ProtectedRoute renderizado:', {
+    user: user ? 'PRESENTE' : 'AUSENTE',
+    session: session ? 'PRESENTE' : 'AUSENTE',
+    usuarioData: usuarioData ? 'PRESENTE' : 'AUSENTE',
+    isLoggingOut: isLoggingOut,
+    timestamp: new Date().toISOString()
+  });
+
+  // ✅ CORRIGIDO: Adicionar useEffect para redirecionamento
   useEffect(() => {
+    if (!user || !session) {
+      console.log('🔍 ProtectedRoute: Sem usuário ou sessão, redirecionando...');
+      router.replace('/login');
+    }
+  }, [user, session, router]);
+
+  useEffect(() => {
+    console.log('🔍 ProtectedRoute useEffect executado:', {
+      user: user ? 'PRESENTE' : 'AUSENTE',
+      session: session ? 'PRESENTE' : 'AUSENTE',
+      usuarioData: usuarioData ? 'PRESENTE' : 'AUSENTE',
+      loading: loading,
+      timestamp: new Date().toISOString()
+    });
+
     const checkUserLevel = async () => {
+<<<<<<< HEAD
       // Aguardar o contexto de autenticação carregar
       if (authLoading) {
         return
       }
 
       if (!user) {
+=======
+      // Verificação simplificada: apenas usuário e sessão
+      if (!user || !session) {
+        console.log('🔍 ProtectedRoute: Sem usuário ou sessão, aguardando redirecionamento...');
+>>>>>>> stable-version
         setLoading(false)
         return
       }
@@ -84,10 +118,33 @@ export default function ProtectedRoute({
     checkUserLevel()
   }, [user, usuarioData, authLoading, allowedLevels, redirectTo, router])
 
+<<<<<<< HEAD
   if (loading || authLoading) {
+=======
+  // Se estiver fazendo logout, não mostrar nada para evitar flash da tela de acesso negado
+  if (isLoggingOut) {
+    console.log('🔍 ProtectedRoute: Logout em andamento, não mostrando conteúdo');
+    return null;
+  }
+  
+  // Verificação simplificada: apenas usuário e sessão
+  if (!user || !session) {
+    console.log('🔍 ProtectedRoute: Sem usuário ou sessão, aguardando redirecionamento...');
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Redirecionando para login...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (loading) {
+>>>>>>> stable-version
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-2 border-b-2 border-gray-900"></div>
       </div>
     )
   }

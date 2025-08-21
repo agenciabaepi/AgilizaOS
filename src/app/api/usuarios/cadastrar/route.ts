@@ -1,12 +1,7 @@
 'use server'
 
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 export async function POST(request: Request) {
   try {
@@ -20,6 +15,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Empresa não identificada' }, { status: 400 });
     }
 
+    const supabaseAdmin = getSupabaseAdmin();
     // Verifica se já existe um usuário com esse e-mail
     const { data: existingUser } = await supabaseAdmin
       .from('usuarios')
@@ -103,6 +99,8 @@ export async function POST(request: Request) {
         nivel,
         empresa_id,
         whatsapp,
+        // Adicionar tecnico_id igual ao auth_user_id para técnicos
+        tecnico_id: nivel === 'tecnico' ? authUser.user?.id : null,
       },
     ]);
 

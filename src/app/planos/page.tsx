@@ -2,12 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import { FiCheckCircle, FiMail, FiMessageCircle } from 'react-icons/fi';
 import Image from 'next/image';
 
 export default function PlanosPage() {
   const router = useRouter();
+  const { usuarioData } = useAuth();
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [loading, setLoading] = useState<string | null>(null);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -23,52 +26,33 @@ export default function PlanosPage() {
 
   const planos = [
     {
-      nome: 'Básico',
-      preco: 'R$ 129,90',
+      id: 'unico',
+      nome: 'Acesso Completo',
+      preco: 'R$ 1,00',
+      valor: 1.0,
       periodo: '/mês',
-      descricao: '1 usuário, 1 técnico, sistema de OS completo',
-      badge: 'Sistema completo para começar',
+      descricao: 'Todos os recursos do sistema liberados',
+      badge: 'Preço único para tudo',
       recursos: [
-        'Cadastro de clientes',
-        'Cadastro de produtos e serviços',
-        'Sistema de OS completo',
-        'Relatórios simples de atendimento',
-        'Segurança de dados na nuvem'
-      ],
-      destaque: false
-    },
-    {
-      nome: 'Pro',
-      preco: 'R$ 189,90',
-      periodo: '/mês',
-      descricao: '5 usuários, 5 técnicos e muito mais',
-      badge: 'Mais popular',
-      recursos: [
-        'Controle financeiro',
-        'Comissão por técnico',
-        'Emissão de nota fiscal',
-        'Controle de permissões',
-        'Controle de estoque detalhado',
-        'Gestão de equipe por permissões'
+        'Cadastro de clientes, produtos e serviços',
+        'Ordens de serviço completas com laudos e fotos',
+        'Gestão de técnicos, equipes e comissões',
+        'Relatórios e dashboards operacionais',
+        'Controle de estoque e fornecedores',
+        'Múltiplos usuários com permissões',
+        'Backup e segurança em nuvem',
+        'Integração de pagamentos (PIX e mais)',
+        'Suporte prioritário por WhatsApp'
       ],
       destaque: true
-    },
-    {
-      nome: 'Avançado',
-      preco: 'R$ 279,90',
-      periodo: '/mês',
-      descricao: 'Múltiplas filiais, recursos ilimitados',
-      badge: 'Para grandes operações',
-      recursos: [
-        'Clientes ilimitados',
-        'Todas as funcionalidades',
-        'Relatórios personalizados',
-        'Suporte 24/7',
-        'API personalizada'
-      ],
-      destaque: false
     }
   ];
+
+  // Redireciona para página fixa de pagamento do plano selecionado
+  async function iniciarPagamento(planoId: string) {
+    setLoading(planoId);
+    window.location.href = `/planos/pagar/${planoId}`;
+  }
 
   const handleContatoSuporte = () => {
     const mensagem = encodeURIComponent('Olá! Gostaria de saber mais sobre os planos disponíveis para o sistema Consert.');
@@ -188,8 +172,8 @@ export default function PlanosPage() {
             </p>
           </div>
 
-          {/* Pricing Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto mb-20">
+          {/* Pricing Card Único */}
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-8 max-w-3xl mx-auto mb-20">
             {planos.map((plano, index) => (
               <div
                 key={index}
@@ -247,7 +231,7 @@ export default function PlanosPage() {
 
                     {/* CTA Button */}
                     <button
-                      onClick={() => router.push('/cadastro')}
+                      onClick={() => iniciarPagamento(plano.id)}
                       className={`w-full py-4 px-6 rounded-2xl font-medium transition-all duration-300 transform hover:scale-105 ${
                         plano.destaque
                           ? 'bg-gradient-to-r from-[#D1FE6E] to-[#B8E55A] text-black hover:from-[#B8E55A] hover:to-[#A5D44A] shadow-lg'
@@ -257,7 +241,7 @@ export default function PlanosPage() {
                         boxShadow: plano.destaque ? '0 4px 20px rgba(209, 254, 110, 0.3)' : undefined
                       }}
                     >
-                      Escolher {plano.nome}
+                      {loading === plano.id ? 'Redirecionando...' : `Escolher ${plano.nome}`}
                     </button>
                   </div>
                 </div>

@@ -10,6 +10,7 @@ import { useForm } from 'react-hook-form';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Suspense } from 'react';
+import { useToast } from '@/components/Toast';
 
 const etapas = ["Cliente", "Aparelho", "Técnico", "Status", "Imagens"];
 
@@ -31,6 +32,7 @@ interface Usuario {
   email: string;
   nivel: string;
   auth_user_id: string;
+  tecnico_id?: string;
 }
 
 interface Status {
@@ -148,6 +150,7 @@ function NovaOS2Content() {
   const router = useRouter();
   const { empresaData, usuarioData } = useAuth();
   const searchParams = useSearchParams();
+  const { addToast } = useToast();
   const { register, handleSubmit, reset, formState: { errors } } = useForm<{ nome: string; whatsapp: string; cpf: string; numero_reserva?: string; email?: string }>();
 
 
@@ -181,7 +184,7 @@ function NovaOS2Content() {
       setLoadingUsuarios(true);
       const { data, error } = await supabase
         .from('usuarios')
-        .select('id, nome, email, nivel, auth_user_id')
+        .select('id, nome, email, nivel, auth_user_id, tecnico_id')
         .eq('empresa_id', empresaData.id)
         .order('nome', { ascending: true });
       
@@ -193,7 +196,7 @@ function NovaOS2Content() {
         if (usuarioData) {
           const usuarioLogado = data.find(u => u.auth_user_id === usuarioData.auth_user_id);
           if (usuarioLogado && usuarioLogado.nivel === 'tecnico') {
-            setTecnicoResponsavel(usuarioLogado.auth_user_id);
+            setTecnicoResponsavel(usuarioLogado.tecnico_id || usuarioLogado.auth_user_id);
           }
         }
       }
@@ -271,6 +274,15 @@ function NovaOS2Content() {
     
     if (!error && data) {
       setTermos(data);
+      
+      // Selecionar automaticamente o primeiro termo ativo como padrão
+      if (data.length > 0) {
+        // Se não há termo selecionado OU se o termo selecionado não existe mais na lista
+        if (!termoSelecionado || !data.find(t => t.id === termoSelecionado)) {
+          setTermoSelecionado(data[0].id);
+          console.log('Termo padrão selecionado:', data[0].nome);
+        }
+      }
     }
     setLoadingTermos(false);
   }
@@ -283,7 +295,7 @@ function NovaOS2Content() {
 
   async function onCadastrarProdutoRapido() {
     if (!empresaData?.id || !novoProduto.nome || novoProduto.preco <= 0) {
-      alert('Preencha todos os campos obrigatórios!');
+      addToast('error', 'Preencha todos os campos obrigatórios!');
       return;
     }
 
@@ -321,7 +333,7 @@ function NovaOS2Content() {
       if (!response.ok) {
         console.error('Erro da API route:', result);
         const errorMessage = result.error?.message || result.error || 'Erro desconhecido';
-        alert(`Erro ao cadastrar produto/serviço: ${errorMessage}`);
+        addToast('error', `Erro ao cadastrar produto/serviço: ${errorMessage}`);
         return;
       }
 
@@ -329,7 +341,7 @@ function NovaOS2Content() {
 
       if (!novo) {
         console.error('Nenhum dado retornado da API');
-        alert('Erro: Nenhum dado retornado do servidor');
+        addToast('error', 'Erro: Nenhum dado retornado do servidor');
         return;
       }
 
@@ -355,11 +367,11 @@ function NovaOS2Content() {
       setShowCadastroRapidoProduto(false);
       setShowCadastroRapidoServico(false);
 
-      alert(`${novo.tipo === 'produto' ? 'Produto' : 'Serviço'} cadastrado com sucesso! Código: ${novo.codigo || 'N/A'}`);
+      addToast('success', `${novo.tipo === 'produto' ? 'Produto' : 'Serviço'} cadastrado com sucesso! Código: ${novo.codigo || 'N/A'}`);
 
     } catch (error) {
       console.error('Erro ao cadastrar produto/serviço:', error);
-      alert('Erro inesperado ao cadastrar produto/serviço!');
+      addToast('error', 'Erro inesperado ao cadastrar produto/serviço!');
     } finally {
       setCadastrandoRapido(false);
     }
@@ -367,7 +379,7 @@ function NovaOS2Content() {
 
   async function onCadastrarCliente(data: { nome: string; whatsapp: string; cpf: string; numero_reserva?: string; email?: string }) {
     if (!empresaData?.id) {
-      alert('Empresa não encontrada!');
+      addToast('error', 'Empresa não encontrada!');
       return;
     }
 
@@ -402,7 +414,7 @@ function NovaOS2Content() {
     
     if (error || !novo) {
       console.error('Erro ao cadastrar:', error);
-      alert('Erro ao cadastrar cliente!');
+      addToast('error', 'Erro ao cadastrar cliente!');
       return;
     }
     
@@ -435,44 +447,95 @@ function NovaOS2Content() {
                           tecnicoResponsavel &&
                           statusSelecionado;
     
-    // Se for APROVADO, verificar se há produtos/serviços selecionados
+    // Se for APROVADO, verificar se há produtos/serviços selecionados COM VALORES
     if (statusSelecionado === 'aprovado') {
-      return camposBasicos && (produtosSelecionados.length > 0 || servicosSelecionados.length > 0);
+      const temProdutosComValor = produtosSelecionados.length > 0 && 
+        produtosSelecionados.some(p => p.preco > 0);
+      const temServicosComValor = servicosSelecionados.length > 0 && 
+        servicosSelecionados.some(s => s.preco > 0);
+      
+      return camposBasicos && (temProdutosComValor || temServicosComValor);
     }
     
     return camposBasicos;
   }
 
+  // Função para verificar se há produtos/serviços com valores para OS aprovada
+  function validarProdutosServicosAprovados() {
+    if (statusSelecionado !== 'aprovado') return { valido: true, mensagem: '' };
+    
+    const produtosComValor = produtosSelecionados.filter(p => p.preco > 0);
+    const servicosComValor = servicosSelecionados.filter(s => s.preco > 0);
+    
+    if (produtosComValor.length === 0 && servicosComValor.length === 0) {
+      return { 
+        valido: false, 
+        mensagem: 'Para OS aprovada, é obrigatório selecionar pelo menos um produto ou serviço com valor maior que zero.' 
+      };
+    }
+    
+    // Verificar se todos os produtos/serviços selecionados têm valores
+    const todosProdutosTemValor = produtosSelecionados.every(p => p.preco > 0);
+    const todosServicosTemValor = servicosSelecionados.every(s => s.preco > 0);
+    
+    if (!todosProdutosTemValor || !todosServicosTemValor) {
+      return { 
+        valido: false, 
+        mensagem: 'Todos os produtos e serviços selecionados para OS aprovada devem ter valores maiores que zero.' 
+      };
+    }
+    
+    return { valido: true, mensagem: '' };
+  }
+
+  // Função para gerar tooltip do botão finalizar
+  function getTooltipFinalizar() {
+    if (statusSelecionado !== 'aprovado') return 'Finalizar OS';
+    
+    const validacao = validarProdutosServicosAprovados();
+    if (validacao.valido) {
+      const totalProdutos = produtosSelecionados.length;
+      const totalServicos = servicosSelecionados.length;
+      const valorTotal = produtosSelecionados.reduce((sum, p) => sum + p.preco, 0) + 
+                        servicosSelecionados.reduce((sum, s) => sum + s.preco, 0);
+      
+      return `OS aprovada com ${totalProdutos} produto(s) e ${totalServicos} serviço(s) - Total: R$ ${valorTotal.toFixed(2)}`;
+    }
+    
+    return validacao.mensagem;
+  }
+
   async function finalizarOS() {
     // Validar se todos os campos obrigatórios estão preenchidos
     if (!clienteSelecionado) {
-      alert('Selecione um cliente');
+      addToast('error', 'Selecione um cliente');
       return;
     }
     
     if (!dadosEquipamento.tipo || !dadosEquipamento.marca || !dadosEquipamento.modelo) {
-      alert('Preencha os dados do equipamento');
+      addToast('error', 'Preencha os dados do equipamento');
       return;
     }
     
     if (!tecnicoResponsavel) {
-      alert('Selecione um técnico responsável');
+      addToast('error', 'Selecione um técnico responsável');
       return;
     }
     
     if (!statusSelecionado) {
-      alert('Selecione um status');
+      addToast('error', 'Selecione um status');
       return;
     }
 
     if (!empresaData?.id) {
-      alert('Erro: Dados da empresa não encontrados. Faça login novamente.');
+      addToast('error', 'Erro: Dados da empresa não encontrados. Faça login novamente.');
       return;
     }
 
-    // Se for APROVADO, verificar se há produtos/serviços selecionados
-    if (statusSelecionado === 'aprovado' && produtosSelecionados.length === 0 && servicosSelecionados.length === 0) {
-      alert('Para OS aprovada, selecione pelo menos um produto ou serviço');
+    // Se for APROVADO, verificar se há produtos/serviços selecionados COM VALORES
+    const validacaoProdutosServicos = validarProdutosServicosAprovados();
+    if (!validacaoProdutosServicos.valido) {
+      addToast('error', validacaoProdutosServicos.mensagem);
       return;
     }
 
@@ -480,7 +543,7 @@ function NovaOS2Content() {
 
     try {
       // Buscar dados do técnico selecionado
-      const tecnicoSelecionado = tecnicos.find(t => t.auth_user_id === tecnicoResponsavel);
+      const tecnicoSelecionado = tecnicos.find(t => t.tecnico_id === tecnicoResponsavel);
       
       // Buscar o status selecionado para obter o nome
       const statusSelecionadoObj = statusOS.find(s => s.id === statusSelecionado);
@@ -489,27 +552,31 @@ function NovaOS2Content() {
       // Preparar dados da OS para salvar no banco
       const dadosOS = {
         cliente_id: clienteSelecionado,
-        tecnico_id: tecnicoResponsavel,
+        tecnico_id: tecnicoResponsavel,  // ✅ Campo correto: tecnico_id (não usuario_id)
         status: nomeStatus,
-        status_tecnico: 'AGUARDANDO INÍCIO', // Status do técnico por padrão
         categoria: dadosEquipamento.tipo?.toUpperCase() || '',
         marca: dadosEquipamento.marca?.toUpperCase() || '',
         modelo: dadosEquipamento.modelo?.toUpperCase() || '',
         cor: dadosEquipamento.cor?.toUpperCase() || '',
         numero_serie: dadosEquipamento.numero_serie?.toUpperCase() || '',
-        relato: dadosEquipamento.descricao_problema?.toUpperCase() || '',
+        problema_relatado: dadosEquipamento.descricao_problema?.toUpperCase() || '',  // ✅ Campo correto
         observacao: observacoes?.toUpperCase() || '',
         empresa_id: empresaData?.id,
-        atendente: usuarioData?.nome?.toUpperCase() || 'USUÁRIO LOGADO',
-        tecnico: tecnicoSelecionado?.nome?.toUpperCase() || 'TÉCNICO SELECIONADO',
+        atendente: usuarioData?.nome?.toUpperCase() || 'ATENDENTE',
+        tecnico: tecnicoSelecionado?.nome?.toUpperCase() || 'TÉCNICO',
         acessorios: acessorios?.toUpperCase() || '',
         condicoes_equipamento: condicoesEquipamento?.toUpperCase() || '',
         data_cadastro: new Date().toISOString(),
         os_garantia_id: tipoEntrada === 'garantia' && osGarantiaSelecionada ? osGarantiaSelecionada.id : null,
-        termo_garantia_id: termoSelecionado || null // DESCOMENTADO
+        termo_garantia_id: termoSelecionado || null,
+        tipo: 'Normal'
+        // Agora usando os nomes corretos das colunas da tabela
       };
 
       console.log('Salvando OS no banco:', dadosOS);
+      console.log('🔍 DEBUG: tecnico_id sendo enviado:', dadosOS.tecnico_id);
+      console.log('🔍 DEBUG: tecnicoResponsavel:', tecnicoResponsavel);
+      console.log('🔍 DEBUG: tipo de tecnicoResponsavel:', typeof tecnicoResponsavel);
 
       // Salvar a OS usando a API route (contorna RLS)
       const response = await fetch('/api/ordens/criar', {
@@ -524,7 +591,7 @@ function NovaOS2Content() {
 
       if (!response.ok) {
         console.error('Erro ao salvar OS:', result.error);
-        alert('Erro ao criar a Ordem de Serviço: ' + result.error);
+        addToast('error', 'Erro ao criar a Ordem de Serviço: ' + result.error);
         return;
       }
 
@@ -606,14 +673,15 @@ function NovaOS2Content() {
         }
       }
 
-      alert('Ordem de Serviço criada com sucesso!');
+      // Mostrar toast de sucesso
+      addToast('success', 'Ordem de Serviço criada com sucesso!');
       
       // Redirecionar para visualizar a OS criada
       router.push(`/ordens/${osData.id}`);
 
     } catch (error) {
       console.error('Erro geral ao finalizar OS:', error);
-      alert('Erro inesperado ao criar a Ordem de Serviço');
+      addToast('error', 'Erro inesperado ao criar a Ordem de Serviço');
     } finally {
       setSalvando(false);
     }
@@ -982,11 +1050,11 @@ function NovaOS2Content() {
                   <label className="block text-sm font-medium text-gray-700">Selecione o Técnico Responsável</label>
                   <ReactSelect
                     options={(tecnicos || []).map(tecnico => ({ 
-                      value: tecnico.auth_user_id, 
+                      value: tecnico.tecnico_id || tecnico.auth_user_id, 
                       label: tecnico.nome 
                     }))}
                     value={(() => {
-                      const tecnico = (tecnicos || []).find(t => t.auth_user_id === tecnicoResponsavel);
+                      const tecnico = (tecnicos || []).find(t => (t.tecnico_id || t.auth_user_id) === tecnicoResponsavel);
                       return tecnicoResponsavel && tecnico ? { 
                         value: tecnicoResponsavel, 
                         label: tecnico.nome 
@@ -1025,14 +1093,14 @@ function NovaOS2Content() {
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center text-sm font-medium">
                         {(() => {
-                          const tecnico = (tecnicos || []).find(t => t.auth_user_id === tecnicoResponsavel);
+                          const tecnico = (tecnicos || []).find(t => (t.tecnico_id || t.auth_user_id) === tecnicoResponsavel);
                           return tecnico ? tecnico.nome.charAt(0).toUpperCase() : '';
                         })()}
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-700">
                           {(() => {
-                            const tecnico = (tecnicos || []).find(t => t.auth_user_id === tecnicoResponsavel);
+                            const tecnico = (tecnicos || []).find(t => (t.tecnico_id || t.auth_user_id) === tecnicoResponsavel);
                             return tecnico ? tecnico.nome : '';
                           })()}
                         </p>
@@ -1193,13 +1261,18 @@ function NovaOS2Content() {
                     onChange={(e) => setTermoSelecionado(e.target.value || null)}
                   >
                     <option value="">Selecione um termo de garantia (opcional)</option>
-                    {termos.map((termo) => (
+                    {termos.map((termo, index) => (
                       <option key={termo.id} value={termo.id}>
-                        {termo.nome}
+                        {index === 0 ? `${termo.nome} (Padrão)` : termo.nome}
                       </option>
                     ))}
                   </select>
                   {loadingTermos && <div className="text-xs text-gray-500 mt-1">Carregando termos...</div>}
+                  {termos.length > 0 && termoSelecionado && !loadingTermos && (
+                    <div className="text-xs text-green-600 mt-1">
+                      ✅ Termo padrão selecionado automaticamente
+                    </div>
+                  )}
                   {termos.length === 0 && !loadingTermos && (
                     <div className="text-xs text-gray-500 mt-1">
                       Nenhum termo de garantia cadastrado. 
@@ -1216,6 +1289,34 @@ function NovaOS2Content() {
                   <div className="space-y-6">
                     <div className="border-t pt-6">
                       <h4 className="text-sm font-medium text-gray-700 mb-4">Produtos e Serviços Aprovados</h4>
+                      
+                      {/* Validação visual */}
+                      {(() => {
+                        const validacao = validarProdutosServicosAprovados();
+                        if (!validacao.valido) {
+                          return (
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                              <p className="text-sm text-red-700">
+                                ⚠️ <strong>Atenção:</strong> {validacao.mensagem}
+                              </p>
+                            </div>
+                          );
+                        }
+                        
+                        const totalProdutos = produtosSelecionados.length;
+                        const totalServicos = servicosSelecionados.length;
+                        const valorTotal = produtosSelecionados.reduce((sum, p) => sum + p.preco, 0) + 
+                                          servicosSelecionados.reduce((sum, s) => sum + s.preco, 0);
+                        
+                        return (
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                            <p className="text-sm text-green-700">
+                              ✅ <strong>OS Aprovada:</strong> {totalProdutos} produto(s) e {totalServicos} serviço(s) selecionados - Total: R$ {valorTotal.toFixed(2)}
+                            </p>
+                          </div>
+                        );
+                      })()}
+                      
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
                         <p className="text-sm text-blue-700">
                           💡 <strong>Dica:</strong> Não encontrou o produto ou serviço? Use os botões "+" para cadastrar rapidamente!
@@ -1253,6 +1354,14 @@ function NovaOS2Content() {
                           onChange={(options) => {
                             const selected = options ? options.map(opt => opt.data) : [];
                             setProdutosSelecionados(selected);
+                            
+                            // Validação em tempo real para produtos sem valor
+                            if (statusSelecionado === 'aprovado' && selected.length > 0) {
+                              const produtosSemValor = selected.filter(p => p.preco <= 0);
+                              if (produtosSemValor.length > 0) {
+                                console.warn('Produtos selecionados sem valor:', produtosSemValor);
+                              }
+                            }
                           }}
                           isLoading={loadingProdutos}
                           placeholder={loadingProdutos ? "Carregando produtos..." : "Selecione os produtos..."}
@@ -1311,6 +1420,14 @@ function NovaOS2Content() {
                           onChange={(options) => {
                             const selected = options ? options.map(opt => opt.data) : [];
                             setServicosSelecionados(selected);
+                            
+                            // Validação em tempo real para serviços sem valor
+                            if (statusSelecionado === 'aprovado' && selected.length > 0) {
+                              const servicosSemValor = selected.filter(s => s.preco <= 0);
+                              if (servicosSemValor.length > 0) {
+                                console.warn('Serviços selecionados sem valor:', servicosSemValor);
+                              }
+                            }
                           }}
                           isLoading={loadingProdutos}
                           placeholder={loadingProdutos ? "Carregando serviços..." : "Selecione os serviços..."}
@@ -1514,6 +1631,7 @@ function NovaOS2Content() {
               onClick={etapaAtual === etapas.length ? finalizarOS : proximaEtapa}
               disabled={etapaAtual === etapas.length && (!formularioCompleto() || salvando)}
               className={etapaAtual === etapas.length && formularioCompleto() ? 'bg-green-600 hover:bg-green-700' : ''}
+              title={etapaAtual === etapas.length ? getTooltipFinalizar() : ''}
             >
               {etapaAtual === etapas.length ? (salvando ? 'Salvando...' : 'Finalizar') : 'Próxima'}
             </Button>

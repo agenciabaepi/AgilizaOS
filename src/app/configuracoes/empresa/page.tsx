@@ -1,16 +1,11 @@
 'use client';
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import ProtectedRoute from '@/components/ProtectedRoute';
 
-interface SupabaseError {
-  message: string;
-}
-
-interface SupabaseUser {
-  id: string;
-}
-
+interface SupabaseError { message: string }
+interface SupabaseUser { id: string }
 interface Empresa {
   id: string;
   nome: string;
@@ -25,17 +20,9 @@ interface Empresa {
 
 export default function ConfigEmpresa() {
   const [form, setForm] = useState({
-    nome: '',
-    cnpj: '',
-    endereco: '',
-    logoUrl: '',
-    telefone: '',
-    email: '',
-    website: ''
+    nome: '', cnpj: '', endereco: '', logoUrl: '', telefone: '', email: '', website: ''
   });
-
   const [empresaId, setEmpresaId] = useState<string | null>(null);
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -46,23 +33,13 @@ export default function ConfigEmpresa() {
       try {
         const { data: { user }, error: userError } = await supabase.auth.getUser() as { data: { user: SupabaseUser }, error: SupabaseError | null };
         if (userError) throw new Error('Erro ao obter usuário: ' + userError.message);
-        
-        if (!user) {
-          console.log('Usuário não autenticado, pulando busca da empresa');
-          setLoading(false);
-          return;
-        }
-
+        if (!user) { setLoading(false); return; }
         const { data, error } = await supabase
           .from('empresas')
           .select('*')
           .eq('user_id', user.id)
           .maybeSingle();
-
-        console.log('Resultado fetchEmpresa:', { data, error });
-
         if (error) {
-          console.error('Erro ao buscar empresa:', error);
           setError(error.message || JSON.stringify(error) || 'Erro ao buscar dados');
         } else if (data) {
           setForm({
@@ -77,13 +54,11 @@ export default function ConfigEmpresa() {
           setEmpresaId(data.id);
         }
       } catch (err: unknown) {
-        console.error('Erro geral ao buscar empresa:', err);
         setError(err instanceof Error ? err.message : 'Erro ao buscar dados');
       } finally {
         setLoading(false);
       }
     };
-
     fetchEmpresa();
   }, []);
 
@@ -95,111 +70,57 @@ export default function ConfigEmpresa() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser() as { data: { user: SupabaseUser }, error: SupabaseError | null };
       if (userError) throw new Error('Erro ao obter usuário: ' + userError.message);
-
       if (!user) throw new Error('Usuário não autenticado');
-
       if (empresaId) {
         const { data: empresa, error: empresaError } = await supabase
           .from('empresas')
           .select('user_id')
           .eq('id', empresaId)
           .maybeSingle();
-
-        if (empresaError) {
-          throw new Error('Erro ao verificar propriedade da empresa: ' + empresaError.message);
-        }
-
-        if (empresa && empresa.user_id !== user.id) {
-          throw new Error('Você não tem permissão para editar esta empresa.');
-        }
+        if (empresaError) throw new Error('Erro ao verificar propriedade da empresa: ' + empresaError.message);
+        if (empresa && empresa.user_id !== user.id) throw new Error('Você não tem permissão para editar esta empresa.');
       }
-
       const empresaData: Partial<Empresa> = { 
-        user_id: user.id, 
-        nome: form.nome,
-        cnpj: form.cnpj,
-        endereco: form.endereco,
-        logo_url: form.logoUrl,
-        telefone: form.telefone,
-        email: form.email,
-        website: form.website
+        user_id: user.id,
+        nome: form.nome, cnpj: form.cnpj, endereco: form.endereco, logo_url: form.logoUrl,
+        telefone: form.telefone, email: form.email, website: form.website
       };
-
-      if (empresaId) {
-        empresaData.id = empresaId;
-      }
-
-      console.log('user.id:', user.id);
-      console.log('empresaId:', empresaId);
-      console.log('empresaData:', empresaData);
-
-      const { error } = await supabase
-        .from('empresas')
-        .upsert([empresaData]);
-
-      if (error) {
-        console.error('Erro Supabase:', error);
-        setError(error.message || JSON.stringify(error) || 'Erro desconhecido');
-      } else {
-        alert('Configurações salvas com sucesso!');
-        setIsEditing(false);
-      }
+      if (empresaId) empresaData.id = empresaId;
+      const { error } = await supabase.from('empresas').upsert([empresaData]);
+      if (error) { setError(error.message || JSON.stringify(error) || 'Erro desconhecido'); }
+      else { alert('Configurações salvas com sucesso!'); setIsEditing(false); }
     } catch (err: unknown) {
-      console.error('Erro geral:', err);
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
     } finally {
       setLoading(false);
     }
   };
 
-  // Função para upload da logo
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-
     await handleDeleteLogo();
-
     const file = e.target.files[0];
     const filePath = `logos/${Date.now()}_${file.name}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from('logos')
-      .upload(filePath, file);
-
-    if (uploadError) {
-      console.error('Erro ao fazer upload da logo:', uploadError);
-      setError(uploadError.message);
-      return;
-    }
-
+    const { error: uploadError } = await supabase.storage.from('logos').upload(filePath, file);
+    if (uploadError) { setError(uploadError.message); return; }
     const { data } = supabase.storage.from('logos').getPublicUrl(filePath);
     setForm({ ...form, logoUrl: data.publicUrl });
   };
 
   const handleDeleteLogo = async () => {
     if (!form.logoUrl) return;
-
     const parts = form.logoUrl.split('/');
     const fileName = parts.slice(parts.indexOf('logos')).join('/');
-    
-    const { error: deleteError } = await supabase.storage
-      .from('logos')
-      .remove([fileName]);
-
-    if (deleteError) {
-      console.error('Erro ao deletar logo:', deleteError);
-      setError(deleteError.message);
-    } else {
-      setForm({ ...form, logoUrl: '' });
-    }
+    const { error: deleteError } = await supabase.storage.from('logos').remove([fileName]);
+    if (deleteError) setError(deleteError.message); else setForm({ ...form, logoUrl: '' });
   };
 
   return (
     <ProtectedRoute allowedLevels={['admin', 'tecnico', 'financeiro']}>
-    <div className="w-full px-6 pt-1 pb-6">
+      <div className="w-full px-6 pt-1 pb-6">
         <h1 className="text-2xl font-semibold mb-6 text-black text-center">Configurações da Empresa</h1>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white rounded-xl shadow p-5 space-y-2">
@@ -217,13 +138,7 @@ export default function ConfigEmpresa() {
               <div className="mt-3">
                 <img src={form.logoUrl} alt="Logo" className="h-20 rounded shadow" />
                 {isEditing && (
-                  <button 
-                    type="button"
-                    onClick={handleDeleteLogo}
-                    className="text-red-500 text-xs mt-1 hover:underline"
-                  >
-                    Remover Logo
-                  </button>
+                  <button type="button" onClick={handleDeleteLogo} className="text-red-500 text-xs mt-1 hover:underline">Remover Logo</button>
                 )}
               </div>
             )}
@@ -232,54 +147,28 @@ export default function ConfigEmpresa() {
           <div className="bg-white rounded-xl shadow p-5">
             <div className="flex justify-between items-center mb-3">
               <h2 className="text-base font-semibold text-gray-800">Editar Dados</h2>
-              <button
-                onClick={() => setIsEditing(!isEditing)}
-                className="px-3 py-1.5 bg-black text-white text-xs rounded hover:bg-gray-800"
-              >
-                {isEditing ? 'Cancelar' : 'Editar'}
-              </button>
+              <button onClick={() => setIsEditing(!isEditing)} className="px-3 py-1.5 bg-black text-white text-xs rounded hover:bg-gray-800">{isEditing ? 'Cancelar' : 'Editar'}</button>
             </div>
             {error && <p className="text-red-500 mb-2 text-sm">Erro: {error}</p>}
             {loading && <p className="text-gray-500 mb-2 text-sm">Salvando...</p>}
             <form onSubmit={handleSubmit} className="space-y-3">
               {Object.entries({
-                nome: 'Nome da Empresa',
-                cnpj: 'CNPJ',
-                endereco: 'Endereço',
-                logoUrl: 'URL da Logo',
-                telefone: 'Telefone',
-                email: 'Email',
-                website: 'Website'
+                nome: 'Nome da Empresa', cnpj: 'CNPJ', endereco: 'Endereço', logoUrl: 'URL da Logo', telefone: 'Telefone', email: 'Email', website: 'Website'
               }).map(([field, label]) => (
                 <div key={field} className="flex flex-col">
                   <label htmlFor={field} className="text-xs font-medium text-gray-700 mb-1">{label}</label>
-                  <input
-                    id={field}
-                    name={field}
-                    value={(form as Record<string, string>)[field]}
-                    onChange={handleChange}
-                    disabled={!isEditing}
-                    className={`p-2 rounded border text-sm ${isEditing ? 'border-gray-300 focus:border-blue-400 focus:ring focus:ring-blue-200' : 'bg-gray-100 cursor-not-allowed'}`}
-                  />
+                  <input id={field} name={field} value={(form as Record<string, string>)[field]} onChange={handleChange} disabled={!isEditing} className={`p-2 rounded border text-sm ${isEditing ? 'border-gray-300 focus:border-blue-400 focus:ring focus:ring-blue-200' : 'bg-gray-100 cursor-not-allowed'}`} />
                 </div>
               ))}
               <div className="flex flex-col">
                 <label className="text-xs font-medium text-gray-700 mb-1">Upload da Logo</label>
                 <div className={`relative border-2 border-dashed rounded-lg p-3 text-center ${!isEditing ? 'bg-gray-100 opacity-60 cursor-not-allowed' : 'hover:border-blue-500'}`}>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleLogoUpload}
-                    disabled={!isEditing}
-                    className="absolute inset-0 opacity-0 cursor-pointer"
-                  />
+                  <input type="file" accept="image/*" onChange={handleLogoUpload} disabled={!isEditing} className="absolute inset-0 opacity-0 cursor-pointer" />
                   <span className="text-gray-500 text-xs">{form.logoUrl ? 'Clique para trocar a logo' : 'Clique para enviar uma imagem'}</span>
                 </div>
               </div>
               <div className="pt-3 border-t flex justify-end">
-                <button type="submit" className="px-4 py-2 rounded text-black bg-[#cffb6d] hover:bg-[#b9e84e]" disabled={!isEditing}>
-                  Salvar
-                </button>
+                <button type="submit" className="px-4 py-2 rounded text-black bg-[#cffb6d] hover:bg-[#b9e84e]" disabled={!isEditing}>Salvar</button>
               </div>
             </form>
           </div>
@@ -288,3 +177,5 @@ export default function ConfigEmpresa() {
     </ProtectedRoute>
   );
 }
+
+// Fim do arquivo - removeu duplicações e diretivas fora do topo
