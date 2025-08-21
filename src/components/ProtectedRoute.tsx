@@ -16,11 +16,7 @@ export default function ProtectedRoute({
   allowedLevels = [], 
   redirectTo = '/dashboard' 
 }: ProtectedRouteProps) {
-<<<<<<< HEAD
-  const { user, usuarioData, loading: authLoading, isLoggingOut } = useAuth()
-=======
   const { user, session, usuarioData, isLoggingOut } = useAuth()
->>>>>>> stable-version
   const router = useRouter()
   const [userLevel, setUserLevel] = useState<string>('')
   const [loading, setLoading] = useState(true)
@@ -52,18 +48,9 @@ export default function ProtectedRoute({
     });
 
     const checkUserLevel = async () => {
-<<<<<<< HEAD
-      // Aguardar o contexto de autenticação carregar
-      if (authLoading) {
-        return
-      }
-
-      if (!user) {
-=======
       // Verificação simplificada: apenas usuário e sessão
       if (!user || !session) {
         console.log('🔍 ProtectedRoute: Sem usuário ou sessão, aguardando redirecionamento...');
->>>>>>> stable-version
         setLoading(false)
         return
       }
@@ -116,42 +103,20 @@ export default function ProtectedRoute({
     }
 
     checkUserLevel()
-  }, [user, usuarioData, authLoading, allowedLevels, redirectTo, router])
+  }, [user, usuarioData, allowedLevels, redirectTo, router])
 
-<<<<<<< HEAD
-  if (loading || authLoading) {
-=======
   // Se estiver fazendo logout, não mostrar nada para evitar flash da tela de acesso negado
   if (isLoggingOut) {
     console.log('🔍 ProtectedRoute: Logout em andamento, não mostrando conteúdo');
     return null;
   }
   
-  // Verificação simplificada: apenas usuário e sessão
-  if (!user || !session) {
-    console.log('🔍 ProtectedRoute: Sem usuário ou sessão, aguardando redirecionamento...');
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Redirecionando para login...</p>
-        </div>
-      </div>
-    );
-  }
-  
   if (loading) {
->>>>>>> stable-version
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-32 w-2 border-b-2 border-gray-900"></div>
       </div>
-    )
-  }
-
-  // Se está fazendo logout, não mostrar nada para evitar a tela de acesso negado
-  if (isLoggingOut) {
-    return null
+    );
   }
 
   if (!hasAccess) {
@@ -160,14 +125,23 @@ export default function ProtectedRoute({
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Acesso Negado</h1>
           <p className="text-gray-600 mb-4">
-            Você não tem permissão para acessar esta página.
+            Você não tem permissão para acessar esta área.
+          </p>
+          <p className="text-sm text-gray-500 mb-4">
+            Área solicitada: <span className="font-medium">{redirectTo}</span>
           </p>
           <p className="text-sm text-gray-500">
             Seu nível de acesso: <span className="font-medium capitalize">{userLevel}</span>
           </p>
+          <button
+            onClick={() => router.push(redirectTo)}
+            className="mt-4 px-6 py-2 bg-black text-white rounded hover:bg-gray-800 transition"
+          >
+            Voltar para o início
+          </button>
         </div>
       </div>
-    )
+    );
   }
 
   return <>{children}</>

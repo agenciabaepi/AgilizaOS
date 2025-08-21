@@ -323,21 +323,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {podeVer('configuracoes') && usuarioData?.nivel !== 'atendente' && (
             <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" isActive={pathname === '/configuracoes'} menuRecolhido={menuRecolhido} />
           )}
-          <SidebarButton path="#logout" icon={<FiLogOut size={20} />} label="Sair" isActive={false} menuRecolhido={menuRecolhido} data-logout="true" onClick={async () => {
+          <SidebarButton path="#logout" icon={<FiLogOut size={20} />} label="Sair" isActive={false} menuRecolhido={menuRecolhido} onClick={async () => {
             console.log('🔴 Botão Sair clicado!');
             setIsLoggingOut(true);
-<<<<<<< HEAD
-            try {
-              await signOut((msg) => addToast('error', `Erro ao sair: ${msg}`));
-              // Redirecionar diretamente para a landing page sem passar por páginas protegidas
-              window.location.href = '/';
-            } catch (error) {
-              addToast('error', 'Erro inesperado ao sair.');
-              console.error('Erro ao fazer logout:', error);
-            } finally {
-              setIsLoggingOut(false);
-            }
-=======
             
             // Aguardar um momento para mostrar a tela de "Saindo..." bonita
             setTimeout(async () => {
@@ -414,7 +402,6 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                 window.location.href = '/login';
               }
             }, 1500);
->>>>>>> stable-version
           }} />
         </nav>
         {!menuRecolhido && (
@@ -567,21 +554,6 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               {podeVer('configuracoes') && usuarioData?.nivel !== 'atendente' && (
                 <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" />
               )}
-<<<<<<< HEAD
-              <SidebarButton path="#logout" icon={<FiLogOut size={20} />} label="Sair" isActive={false} onClick={async () => {
-                setIsLoggingOut(true);
-                try {
-                  await signOut((msg) => addToast('error', `Erro ao sair: ${msg}`));
-                  // Redirecionar diretamente para a landing page sem passar por páginas protegidas
-                  window.location.href = '/';
-                } catch (error) {
-                  addToast('error', 'Erro inesperado ao sair.');
-                  console.error('Erro ao fazer logout:', error);
-                } finally {
-                  setIsLoggingOut(false);
-                }
-              }} />
-=======
               <SidebarButton 
                 path="#logout" 
                 icon={<FiLogOut size={20} />} 
@@ -669,7 +641,6 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   }, 1500);
                 }} 
               />
->>>>>>> stable-version
             </nav>
             <div className="mt-auto text-center text-xs text-[#D1FE6E] pb-4">
               v1.0.0

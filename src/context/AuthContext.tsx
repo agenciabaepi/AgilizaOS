@@ -5,11 +5,7 @@
 // src/context/AuthContext.tsx
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 // import { useSupabaseClient } from '@supabase/auth-helpers-react';
-<<<<<<< HEAD
-import { supabase, clearAuthData, isValidSession } from '@/lib/supabaseClient';
-=======
 import { supabase, forceLogout } from '@/lib/supabaseClient';
->>>>>>> stable-version
 import { Session, User } from '@supabase/supabase-js';
 // import { ToastProvider, useToast } from '@/components/Toast'; // Remover import de useToast/ToastProvider
 
@@ -63,21 +59,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUsuarioData(null);
     setEmpresaData(null);
     localStorage.removeItem("user");
-    clearAuthData();
   };
 
   useEffect(() => {
     const checkSession = async () => {
-<<<<<<< HEAD
-      console.log('AuthContext: Iniciando checkSession')
-      
-      try {
-        // Primeiro verifica se a sessão é válida
-        const isValid = await isValidSession();
-        if (!isValid) {
-          console.log('AuthContext: Sessão inválida, limpando dados');
-          clearSession();
-=======
       console.log('🔍 AuthContext: Iniciando checkSession')
       
       // Se já temos dados, não verificar novamente
@@ -98,231 +83,138 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      if (session) {
-        console.log('AuthContext: Sessão encontrada, usuário:', session.user.email)
-        setSession(session);
-        setUser(session.user);
+      if (!session) {
+        console.log('🔍 AuthContext: Nenhuma sessão encontrada');
+        setLoading(false);
+        setHasInitialized(true);
+        return;
+      }
 
+      console.log('🔍 AuthContext: Sessão encontrada, verificando usuário...');
+      setUser(session.user);
+      setSession(session);
+
+      // Buscar dados do usuário
+      try {
         const { data: profileData, error: profileError } = await supabase
           .from('usuarios')
-          .select('empresa_id, nome, email, nivel, permissoes, foto_url')
+          .select('*')
           .eq('auth_user_id', session.user.id)
-          .maybeSingle();
+          .single();
 
-
-        if (profileError || !profileData) {
-          setUsuarioData(null);
-          setEmpresaData(null);
-          localStorage.removeItem("user");
->>>>>>> stable-version
+        if (profileError) {
+          console.error('Erro ao buscar perfil do usuário:', profileError.message);
           setLoading(false);
+          setHasInitialized(true);
           return;
         }
 
-        const {
-          data: { session },
-          error
-        } = await supabase.auth.getSession();
-
-        if (error) {
-          console.error('Erro ao buscar sessão:', error.message);
-          
-          // Se for erro de refresh token, limpa os dados
-          if (error.message.includes('Refresh Token') || error.message.includes('Invalid')) {
-            console.log('AuthContext: Refresh token inválido, limpando dados');
-            clearSession();
-          }
-          
+        if (!profileData) {
+          console.log('🔍 AuthContext: Perfil não encontrado');
           setLoading(false);
+          setHasInitialized(true);
           return;
         }
 
-        if (session) {
-          console.log('AuthContext: Sessão encontrada, usuário:', session.user.email)
-          setSession(session);
-          setUser(session.user);
-
-          const { data: profileData, error: profileError } = await supabase
-            .from('usuarios')
-            .select('empresa_id, nome, email, nivel, permissoes, foto_url')
-            .eq('auth_user_id', session.user.id)
-            .maybeSingle();
-
-          if (profileError || !profileData) {
-            console.log('AuthContext: Erro ao buscar dados do usuário, limpando sessão');
-            clearSession();
-            setLoading(false);
-            return;
-          }
-
-          if (!profileData.empresa_id) {
-            setUsuarioData(profileData);
-            setEmpresaData(null);
-            setLoading(false);
-            return;
-          }
-
-          setUsuarioData(profileData);
-          localStorage.setItem("user", JSON.stringify({ ...session.user, ...profileData }));
-
-          const metadataEmpresaId = session.user.user_metadata?.empresa_id;
-          if (!metadataEmpresaId || metadataEmpresaId !== profileData.empresa_id) {
-            await supabase.auth.updateUser({
-              data: { empresa_id: profileData.empresa_id },
-            });
-
-            // Atualiza localmente a sessão sem forçar novo getSession()
-            setSession((prev) =>
-              prev
-                ? {
-                    ...prev,
-                    user: {
-                      ...prev.user,
-                      user_metadata: {
-                        ...prev.user.user_metadata,
-                        empresa_id: profileData.empresa_id,
-                      },
-                    },
-                  }
-                : prev
-            );
-          }
-
-          const { data: empresaInfo, error: empresaError } = await supabase
-            .from("empresas")
-            .select("id, nome, plano")
-            .eq("id", profileData.empresa_id)
-            .single();
-
-          if (empresaError || !empresaInfo) {
-            setEmpresaData(null);
-          } else {
-            setEmpresaData(empresaInfo);
-          }
-
-          console.log('AuthContext: Carregamento concluído com sucesso')
-          setLoading(false);
-        } else {
-          console.log('AuthContext: Nenhuma sessão encontrada')
-          clearSession();
-          setLoading(false);
-          return;
-        }
-<<<<<<< HEAD
-      } catch (error) {
-        console.error('AuthContext: Erro inesperado ao verificar sessão:', error);
-        clearSession();
-        setLoading(false);
-=======
-
+        console.log('🔍 AuthContext: Perfil encontrado:', profileData);
         setUsuarioData(profileData);
         localStorage.setItem("user", JSON.stringify({ ...session.user, ...profileData }));
 
-        const metadataEmpresaId = session.user.user_metadata?.empresa_id;
-        if (!metadataEmpresaId || metadataEmpresaId !== profileData.empresa_id) {
-          await supabase.auth.updateUser({
-            data: { empresa_id: profileData.empresa_id },
-          });
+        // Buscar dados da empresa
+        if (profileData.empresa_id) {
+          const { data: empresaData, error: empresaError } = await supabase
+            .from('empresas')
+            .select('*')
+            .eq('id', profileData.empresa_id)
+            .single();
 
-          // Atualiza localmente a sessão sem forçar novo getSession()
-          setSession((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  user: {
-                    ...prev.user,
-                    user_metadata: {
-                      ...prev.user.user_metadata,
-                      empresa_id: profileData.empresa_id,
-                    },
-                  },
-                }
-              : prev
-          );
-        }
-
-        const { data: empresaInfo, error: empresaError } = await supabase
-          .from("empresas")
-          .select("id, nome, plano")
-          .eq("id", profileData.empresa_id)
-          .single();
-
-
-        if (empresaError || !empresaInfo) {
-          setEmpresaData(null);
-        } else {
-          setEmpresaData(empresaInfo);
+          if (empresaError) {
+            console.error('Erro ao buscar dados da empresa:', empresaError.message);
+          } else if (empresaData) {
+            console.log('🔍 AuthContext: Dados da empresa encontrados:', empresaData);
+            setEmpresaData(empresaData);
+          }
         }
 
         console.log('🔍 AuthContext: Carregamento concluído com sucesso')
         setLoading(false);
         setHasInitialized(true);
-      } else {
-        console.log('🔍 AuthContext: Nenhuma sessão encontrada')
+      } catch (error) {
+        console.error('🔍 AuthContext: Erro inesperado:', error);
         setLoading(false);
         setHasInitialized(true);
-        return;
->>>>>>> stable-version
       }
     };
 
     checkSession();
 
-<<<<<<< HEAD
-    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('AuthContext: Auth state change:', event, session?.user?.email);
-      
-      if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
-        clearSession();
-      } else if (session) {
-        setUser(session.user);
-        setSession(session);
-        // Recarrega dados do usuário e empresa
-        await checkSession();
-      } else {
-        clearSession();
-=======
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log('🔍 onAuthStateChange disparado:', _event, session ? 'Sessão presente' : 'Sessão ausente');
-      
-      // Atualizar apenas o estado básico, não chamar checkSession novamente
-      setUser(session?.user ?? null);
-      setSession(session);
-      
-      // Se a sessão foi removida, limpar dados
-      if (!session) {
-        console.log('🔍 Sessão removida, limpando dados...');
-        setUsuarioData(null);
-        setEmpresaData(null);
-        setLoading(false); // ✅ CORRIGIDO: Definir loading como false quando não há sessão
-      }
-      
-      // NÃO chamar checkSession aqui para evitar loops
-      // Só executar se não foi inicializado ainda
-      if (!hasInitialized && session) {
-        console.log('🔍 onAuthStateChange: Primeira execução, chamando checkSession');
-        checkSession();
-      } else {
-        console.log('🔍 onAuthStateChange: Estado atualizado sem chamar checkSession');
->>>>>>> stable-version
-      }
-    });
+    // Listener para mudanças de autenticação
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('🔍 AuthContext: Mudança de estado de autenticação:', event);
+        
+        if (event === 'SIGNED_IN' && session) {
+          setUser(session.user);
+          setSession(session);
+          
+          // Buscar dados do usuário
+          try {
+            const { data: profileData, error: profileError } = await supabase
+              .from('usuarios')
+              .select('*')
+              .eq('auth_user_id', session.user.id)
+              .single();
 
-    return () => {
-      listener.subscription.unsubscribe();
-    };
+            if (profileError) {
+              console.error('Erro ao buscar perfil do usuário:', profileError.message);
+              return;
+            }
+
+            if (profileData) {
+              setUsuarioData(profileData);
+              localStorage.setItem("user", JSON.stringify({ ...session.user, ...profileData }));
+
+              // Buscar dados da empresa
+              if (profileData.empresa_id) {
+                const { data: empresaData, error: empresaError } = await supabase
+                  .from('empresas')
+                  .select('*')
+                  .eq('id', profileData.empresa_id)
+                  .single();
+
+                if (empresaError) {
+                  console.error('Erro ao buscar dados da empresa:', empresaError.message);
+                } else if (empresaData) {
+                  setEmpresaData(empresaData);
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Erro ao buscar dados do usuário:', error);
+          }
+        } else if (event === 'SIGNED_OUT') {
+          clearSession();
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
       if (error) {
-        console.error('Erro no login:', error.message);
-        throw new Error(error.message);
+        throw error;
       }
-      // O estado será atualizado automaticamente pelo onAuthStateChange
+
+      console.log('🔍 AuthContext: Login realizado com sucesso');
     } catch (error) {
-      console.error('Erro inesperado no login:', error);
+      console.error('🔍 AuthContext: Erro no login:', error);
       throw error;
     }
   };
@@ -332,105 +224,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: {
-            nome: 'Novo usuário',
-            empresa_id: null,
-          },
-        },
       });
 
-      if (error || !data.user) {
-        console.error('Erro no cadastro:', error?.message);
-        throw new Error(error?.message || 'Erro desconhecido ao cadastrar.');
+      if (error) {
+        throw error;
       }
 
-      // Criação bem-sucedida no Supabase Auth, agora salvar na tabela 'usuarios'
-      const { error: insertError } = await supabase.from('usuarios').insert([
-        {
-          auth_user_id: data.user.id,
-          email: email,
-          nome: 'Novo usuário',
-          empresa_id: null, // será vinculada depois
-        },
-      ]);
-
-      if (insertError) {
-        console.error('Erro ao inserir na tabela usuarios:', insertError.message);
-        throw new Error(insertError.message);
-      }
+      console.log('🔍 AuthContext: Cadastro realizado com sucesso');
     } catch (error) {
-      console.error('Erro inesperado no cadastro:', error);
+      console.error('🔍 AuthContext: Erro no cadastro:', error);
       throw error;
     }
   };
 
-  const signOut = async (onError?: (msg: string) => void) => {
-    console.log('🚨 signOut chamado!', {
-      timestamp: new Date().toISOString(),
-      stackTrace: new Error().stack,
-      currentUser: user?.email
-    });
-    
-    setIsLoggingOut(true);
-    setLoading(false); // ✅ CORRIGIDO: Definir loading como false durante logout
-    
+  const signOut = async () => {
     try {
-<<<<<<< HEAD
-      // Limpar dados locais primeiro
+      setIsLoggingOut(true);
+      await supabase.auth.signOut();
       clearSession();
-      
-      // Fazer logout no Supabase
-      const { error } = await supabase.auth.signOut();
-      if (error && error.message !== 'Auth session missing!') {
-        if (onError) onError(error.message);
-        console.error('Erro ao sair:', error.message);
-      }
-      
-      // Garantir que todos os dados sejam limpos
-      localStorage.clear();
-      sessionStorage.clear();
-      
+      console.log('🔍 AuthContext: Logout realizado com sucesso');
     } catch (error) {
-      console.error('Erro inesperado ao sair:', error);
-      // Mesmo com erro, limpar dados locais
-      clearSession();
-      localStorage.clear();
-      sessionStorage.clear();
-=======
-      // Limpar estado local imediatamente para evitar renderização do ProtectedArea
-      setUser(null);
-      setSession(null);
-      setUsuarioData(null);
-      setEmpresaData(null);
-      
-      // Logout simples e direto
-      console.log('🔴 AuthContext: Executando logout...');
-      
-      // 1. Limpar estado local
-      localStorage.clear();
-      sessionStorage.clear();
-      
-      // 2. Fazer logout do Supabase
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.log('⚠️ Erro no logout Supabase:', error.message);
-      } else {
-        console.log('✅ Logout Supabase realizado');
-      }
-      
-      // 3. Forçar limpeza do estado
-      await supabase.auth.setSession(null);
-      
-      // 4. Redirecionar para login
-      window.location.href = '/login';
-      
-    } catch (error) {
-      if (onError) onError(error instanceof Error ? error.message : 'Erro desconhecido');
-      console.error('Erro ao sair:', error);
-      // Mesmo com erro, forçar redirecionamento
-      window.location.href = '/login';
->>>>>>> stable-version
+      console.error('🔍 AuthContext: Erro no logout:', error);
     } finally {
       setIsLoggingOut(false);
     }
@@ -440,35 +254,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email);
       if (error) {
-        console.error('Erro ao enviar email de recuperação:', error.message);
-        throw new Error(error.message);
+        throw error;
       }
+      console.log('🔍 AuthContext: Email de reset enviado com sucesso');
     } catch (error) {
-      console.error('Erro inesperado ao resetar senha:', error);
+      console.error('🔍 AuthContext: Erro ao enviar email de reset:', error);
       throw error;
     }
   };
 
   const updateUsuarioFoto = (fotoUrl: string) => {
-    setUsuarioData((prev) => prev ? { ...prev, foto_url: fotoUrl } : prev);
+    if (usuarioData) {
+      setUsuarioData({ ...usuarioData, foto_url: fotoUrl });
+    }
+  };
+
+  const value = {
+    user,
+    session,
+    usuarioData,
+    empresaData,
+    loading,
+    signIn,
+    signUp,
+    signOut,
+    resetPassword,
+    isLoggingOut,
+    setIsLoggingOut,
+    updateUsuarioFoto,
+    clearSession,
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      session, 
-      usuarioData, 
-      empresaData, 
-      loading, 
-      signIn, 
-      signUp, 
-      signOut, 
-      resetPassword, 
-      isLoggingOut, 
-      setIsLoggingOut, 
-      updateUsuarioFoto,
-      clearSession 
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
@@ -476,16 +294,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useAuth deve ser usado dentro de um AuthProvider');
   }
   return context;
-};
-
-export const useUsuario = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useUsuario deve ser usado dentro de um AuthProvider');
-  }
-  return { usuario: context.usuarioData, empresa: context.empresaData, loading: context.loading };
 };

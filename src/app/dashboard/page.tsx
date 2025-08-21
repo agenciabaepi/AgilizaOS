@@ -12,7 +12,6 @@ import LaudoProntoAlert from '@/components/LaudoProntoAlert';
 import { useRealtimeNotificacoes } from '@/hooks/useRealtimeNotificacoes';
 import NotificacoesFixas from '@/components/NotificacoesFixas';
 import { forceLogout } from '@/lib/supabaseClient';
-import { useRouter } from 'next/navigation';
 
 
 interface DashboardMetrics {
@@ -35,7 +34,6 @@ export default function DashboardPage() {
   const router = useRouter();
   const { usuarioData, empresaData } = useAuth();
   const { notificacoesFixas, marcarClienteAvisado } = useRealtimeNotificacoes(empresaData?.id);
-  const router = useRouter();
   
   
   

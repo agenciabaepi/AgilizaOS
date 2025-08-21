@@ -65,8 +65,6 @@ function AuthContent({ children }: { children: React.ReactNode }) {
     </div>
   ) : (
     <>
-<<<<<<< HEAD
-=======
       {banner && (
         <div style={{
           position: 'sticky', top: 0, zIndex: 60,
@@ -82,7 +80,6 @@ function AuthContent({ children }: { children: React.ReactNode }) {
           {debugInfo}
         </div>
       )}
->>>>>>> stable-version
       {children}
     </>
   );

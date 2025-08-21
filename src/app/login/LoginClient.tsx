@@ -105,13 +105,7 @@ function LoginClientInner() {
       .select('nivel')
       .eq('auth_user_id', userId)
       .single();
-<<<<<<< HEAD
     
-    if (perfilError || !perfil) {
-      setIsSubmitting(false);
-      addToast('error', 'Perfil de usuário não encontrado. Entre em contato com o suporte.');
-      return;
-=======
     if (perfil) {
       const { data: usuario } = await supabase
         .from('usuarios')
@@ -124,12 +118,12 @@ function LoginClientInner() {
       }
       console.log('Debug login - empresa_id:', usuario.empresa_id);
       
-              const { data: empresa, error: empresaError } = await supabase
-          .from('empresas')
-          .select('status, motivobloqueio')
-          .eq('id', usuario.empresa_id)
-          .single();
-        
+      const { data: empresa, error: empresaError } = await supabase
+        .from('empresas')
+        .select('status, motivobloqueio')
+        .eq('id', usuario.empresa_id)
+        .single();
+      
       if (empresaError) {
         console.error('Erro ao buscar empresa:', empresaError);
         addToast('error', 'Erro ao verificar status da empresa.');
@@ -152,11 +146,11 @@ function LoginClientInner() {
       }));
       localStorage.setItem("empresa_id", usuario.empresa_id);
       console.log('Debug login - Dados salvos no localStorage, iniciando redirecionamento...');
-  
+
       // Aguardar um momento para garantir que o estado seja atualizado
       await new Promise(resolve => setTimeout(resolve, 100));
-  
-            // Redirecionar diretamente para o dashboard apropriado usando router.push
+
+      // Redirecionar diretamente para o dashboard apropriado usando router.push
       console.log('Debug login - Executando redirecionamento direto...');
       if (perfil.nivel === 'tecnico') {
         router.push('/dashboard-tecnico');
@@ -168,7 +162,6 @@ function LoginClientInner() {
 
       // ✅ CORRIGIDO: Removido o redirecionamento duplo que causava o loop
       console.log('Debug login - Redirecionamento concluído');
->>>>>>> stable-version
     }
     
     // Verificar empresa
