@@ -14,10 +14,21 @@ export default function Home() {
   // Verificar se usuário está logado e redirecionar se necessário
   useEffect(() => {
     const checkUserAndRedirect = async () => {
+      // Verificar se veio de um redirecionamento recente para evitar loops
+      const lastRedirect = sessionStorage.getItem('lastRedirect');
+      const now = Date.now();
+      if (lastRedirect && (now - parseInt(lastRedirect)) < 3000) {
+        console.log('Redirecionamento recente detectado, evitando loop');
+        return;
+      }
+      
       // Verificar se há sessão ativa
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
+        // Marcar o redirecionamento
+        sessionStorage.setItem('lastRedirect', now.toString());
+        
         // Buscar dados do usuário
         const { data: usuario } = await supabase
           .from('usuarios')
@@ -26,10 +37,8 @@ export default function Home() {
           .single();
         
         if (usuario?.nivel === 'tecnico') {
-          // Técnico logado, redirecionar para dashboard do técnico
           router.push('/dashboard-tecnico');
         } else if (usuario?.nivel === 'admin' || usuario?.nivel === 'atendente') {
-          // Admin ou atendente logado, redirecionar para dashboard admin
           router.push('/dashboard');
         }
       }
@@ -244,7 +253,7 @@ export default function Home() {
               onClick={() => scrollToSection('precos')}
               className="text-white/80 hover:text-white transition-all duration-300 font-light text-lg tracking-wide"
             >
-              Preços
+              Investimento
             </button>
             <button 
               onClick={() => scrollToSection('recursos')}
@@ -384,8 +393,8 @@ export default function Home() {
             >
               Falar com Vendas
             </button>
-            <button 
-              onClick={() => router.push('/cadastro?plano=pro')}
+              <button 
+                onClick={() => router.push('/cadastro?plano=unico')}
               className="px-12 py-5 text-white border border-white/30 rounded-full font-medium text-lg hover:bg-white/10 hover:border-white/50 transition-all duration-500 backdrop-blur-sm"
               style={{
                 background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
@@ -439,7 +448,7 @@ export default function Home() {
                 Interface intuitiva e completa para gerenciar sua assistência de forma eficiente.
               </p>
               <button 
-                onClick={() => router.push('/cadastro?plano=pro')}
+                onClick={() => router.push('/cadastro?plano=unico')}
                 className="px-10 py-4 bg-[#D1FE6E] text-black rounded-full font-medium hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105"
                 style={{
                   boxShadow: '0 4px 20px rgba(209, 254, 110, 0.3)'
@@ -978,15 +987,15 @@ export default function Home() {
             }`}
           >
             <h2 className="text-6xl md:text-7xl font-light mb-8 leading-none tracking-tight text-gradient-accent">
-              Planos que crescem com você
+              Nossos valores
             </h2>
             <p className="text-white/70 text-xl md:text-2xl max-w-4xl mx-auto leading-relaxed font-light">
-              Escolha o plano ideal para o tamanho da sua assistência
+              Acesso completo ao sistema por um valor único mensal
             </p>
           </div>
 
-          {/* Pricing Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          {/* Pricing Card Único */}
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-8 max-w-6xl mx-auto">
             {/* Plano Básico */}
             <div 
               data-animate="pricing-basic"
@@ -995,24 +1004,18 @@ export default function Home() {
               }`}
             >
               <div 
-                className="h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col relative overflow-hidden"
+                className="h-full rounded-2xl p-8 border flex flex-col relative overflow-hidden"
                 style={{
-                  background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  backdropFilter: 'blur(20px)',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  backdropFilter: 'blur(10px)'
                 }}
               >
-                {/* Subtle gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-br from-[#D1FE6E]/5 to-transparent opacity-50"></div>
                 
                 {/* Icon */}
                 <div className="relative z-10 mb-6">
                   <div 
-                    className="w-16 h-16 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-2xl flex items-center justify-center shadow-2xl"
-                    style={{
-                      boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)'
-                    }}
+                    className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center"
                   >
                     <svg className="w-8 h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -1023,20 +1026,24 @@ export default function Home() {
                 {/* Plan Info */}
                 <div className="relative z-10 flex-grow">
                   <div className="mb-4">
-                    <span className="inline-block px-3 py-1 bg-[#D1FE6E]/20 text-[#D1FE6E] text-xs font-medium rounded-full mb-3">
-                      Sistema completo para começar
+                    <span className="inline-block px-2 py-0.5 bg-white/5 text-white/80 text-xs font-medium rounded mb-3">
+                      Acesso completo ao sistema
                     </span>
-                    <h3 className="text-2xl font-light text-white mb-2">Básico</h3>
-                    <p className="text-white/70 text-sm mb-6">1 usuário, 1 técnico, sistema de OS completo</p>
+                    <h3 className="text-2xl font-light text-white mb-1">Acesso Completo</h3>
+                    <p className="text-white/60 text-sm mb-6">Todos os recursos incluídos</p>
                   </div>
 
                   {/* Price */}
-                                  <div className="mb-8">
-                  <div className="flex items-baseline">
-                    <span className="text-4xl font-light text-white">R$ 1,00</span>
-                    <span className="text-white/60 text-sm ml-2">/mês</span>
+                  <div className="mb-8">
+                    <div className="flex items-baseline gap-3">
+                      <div className="flex items-baseline">
+                        <span className="text-white/70 text-base mr-1">R$</span>
+                        <span className="text-6xl font-light text-white leading-none">1</span>
+                        <span className="text-white/60 text-sm ml-1">,00</span>
+                      </div>
+                      <span className="text-white/50 text-sm">/mês</span>
+                    </div>
                   </div>
-                </div>
 
                   {/* Features */}
                   <div className="space-y-4 mb-8">
@@ -1086,19 +1093,16 @@ export default function Home() {
                 {/* CTA Button */}
                 <div className="relative z-10 mt-auto">
                   <button 
-                    onClick={() => router.push('/cadastro?plano=basico')}
-                    className="w-full py-4 bg-[#D1FE6E] text-black rounded-2xl font-medium hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105"
-                    style={{
-                      boxShadow: '0 4px 20px rgba(209, 254, 110, 0.3)'
-                    }}
-                  >
-                    Selecionado
+                    onClick={() => router.push('/cadastro?plano=unico')}
+                    className="w-full py-4 bg-[#D1FE6E] text-black rounded-xl font-medium hover:bg-[#B8E55A] transition-colors duration-300"
+                   >
+                    Assinar agora
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* Plano Pro */}
+            {false && (
             <div 
               data-animate="pricing-pro"
               className={`group relative transition-all duration-1000 ease-out delay-100 ${
@@ -1223,8 +1227,9 @@ export default function Home() {
                 </div>
               </div>
             </div>
+            )}
 
-            {/* Plano Avançado */}
+            {false && (
             <div 
               data-animate="pricing-advanced"
               className={`group relative transition-all duration-1000 ease-out delay-200 ${
@@ -1334,6 +1339,7 @@ export default function Home() {
                 </div>
               </div>
             </div>
+            )}
           </div>
 
           {/* Additional Info */}

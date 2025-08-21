@@ -1,5 +1,4 @@
 'use client';
-export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
@@ -9,6 +8,10 @@ import ProtectedArea from '@/components/ProtectedArea';
 import TrialLimitsAlert from '@/components/TrialLimitsAlert';
 import { FiTrendingUp, FiTrendingDown, FiUsers, FiFileText, FiDollarSign, FiClock, FiCheckCircle, FiAlertCircle } from 'react-icons/fi';
 import LaudoProntoAlert from '@/components/LaudoProntoAlert';
+import { useRealtimeNotificacoes } from '@/hooks/useRealtimeNotificacoes';
+import NotificacoesFixas from '@/components/NotificacoesFixas';
+import { forceLogout } from '@/lib/supabaseClient';
+import { useRouter } from 'next/navigation';
 
 
 interface DashboardMetrics {
@@ -29,6 +32,11 @@ interface DashboardMetrics {
 
 export default function DashboardPage() {
   const { usuarioData, empresaData } = useAuth();
+  const { notificacoesFixas, marcarClienteAvisado } = useRealtimeNotificacoes(empresaData?.id);
+  const router = useRouter();
+  
+  
+  
   const [metrics, setMetrics] = useState<DashboardMetrics>({
     totalOrdens: 0,
     ordensHoje: 0,
@@ -46,6 +54,18 @@ export default function DashboardPage() {
   });
   const [loading, setLoading] = useState(true);
   const [recentOrdens, setRecentOrdens] = useState<any[]>([]);
+
+  // Redirecionamento automático baseado no nível do usuário
+  useEffect(() => {
+    if (usuarioData?.nivel && usuarioData.nivel !== 'admin') {
+      if (usuarioData.nivel === 'atendente') {
+        router.replace('/dashboard-atendente');
+      } else if (usuarioData.nivel === 'tecnico') {
+        router.replace('/dashboard-tecnico');
+      }
+      return;
+    }
+  }, [usuarioData?.nivel, router]);
 
   useEffect(() => {
     if (usuarioData?.empresa_id) {
@@ -190,6 +210,18 @@ export default function DashboardPage() {
     return new Date(dateString).toLocaleDateString('pt-BR');
   };
 
+  // Se não é admin, mostrar loading durante redirecionamento
+  if (usuarioData?.nivel && usuarioData.nivel !== 'admin') {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Redirecionando para seu dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <MenuLayout>
       <ProtectedArea area="dashboard">
@@ -209,6 +241,8 @@ export default function DashboardPage() {
           
           {/* Alertas de limites do trial */}
           <TrialLimitsAlert />
+
+
 
           {/* Cards principais */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -423,6 +457,14 @@ export default function DashboardPage() {
                             {/* Alerta de Laudos Prontos */}
                     <LaudoProntoAlert />
                     
+                    {/* Notificações Fixas */}
+                    
+
+                    
+                    <NotificacoesFixas 
+                      notificacoes={notificacoesFixas}
+                      onMarcarAvisado={marcarClienteAvisado}
+                    />
                     
                   </ProtectedArea>
                 </MenuLayout>

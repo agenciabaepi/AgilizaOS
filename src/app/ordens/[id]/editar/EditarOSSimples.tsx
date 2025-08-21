@@ -290,10 +290,14 @@ export default function EditarOSSimples() {
       
       // Determinar status técnico automático
       let novoStatusTecnico = ordem?.status_tecnico || '';
-      if (statusSelecionado?.nome === 'APROVADO') {
+      const normalize = (s: string) => (s || '').toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ').trim();
+      const sel = normalize(statusSelecionado?.nome || '');
+      if (sel === 'APROVADO') {
         novoStatusTecnico = 'APROVADO';
-      } else if (statusSelecionado?.nome === 'ENTREGUE') {
+      } else if (sel === 'ENTREGUE') {
         novoStatusTecnico = 'FINALIZADA';
+      } else if (sel === 'AGUARDANDO APROVACAO') {
+        novoStatusTecnico = 'AGUARDANDO APROVAÇÃO';
       }
 
       const updateData: any = {
@@ -336,6 +340,17 @@ export default function EditarOSSimples() {
       // Adicionar técnico se selecionado
       if (tecnicoSelecionado?.tecnico_id || tecnicoSelecionado?.auth_user_id) {
         updateData.tecnico_id = tecnicoSelecionado.tecnico_id || tecnicoSelecionado.auth_user_id;
+      }
+
+      // Se ENTREGUE, adiciona datas (tipo date)
+      if (sel === 'ENTREGUE') {
+        const hoje = new Date();
+        const dataStr = new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())).toISOString().slice(0,10);
+        const garantia = new Date(hoje);
+        garantia.setDate(garantia.getDate() + 90);
+        const garantiaStr = new Date(Date.UTC(garantia.getFullYear(), garantia.getMonth(), garantia.getDate())).toISOString().slice(0,10);
+        updateData.data_entrega = dataStr;
+        updateData.vencimento_garantia = garantiaStr;
       }
 
       const { error } = await supabase

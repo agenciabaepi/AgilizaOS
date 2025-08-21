@@ -246,7 +246,7 @@ const VisualizarOrdemServicoPage = () => {
                 Editar
               </button>
               <button
-                onClick={() => router.push(`/ordens/${id}/imprimir`)}
+                onClick={() => window.open(`/ordens/${id}/imprimir`, '_blank')}
                 className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
               >
                 <FiPrinter className="w-4 h-4" />

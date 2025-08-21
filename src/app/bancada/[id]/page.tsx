@@ -14,7 +14,7 @@ import { useConfirm } from '@/components/ConfirmDialog';
 export default function DetalheBancadaPage() {
   const params = useParams();
   const id = params?.id as string;
-  const { addToast } = useToast();
+  const { addToast, showModal } = useToast();
   const confirm = useConfirm();
   interface OrdemServico {
     id: string;
@@ -371,6 +371,50 @@ export default function DetalheBancadaPage() {
 
       // Mostrar toast de sucesso
       addToast('success', 'Dados salvos com sucesso!');
+      // Se enviou orçamento, emite notificação backend
+      try {
+        if (statusTecnico === 'ORÇAMENTO ENVIADO' && empresaId && id) {
+          await fetch('/api/notificacoes/emitir', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              empresa_id: empresaId,
+              tipo: 'orcamento_enviado',
+              os_id: id,
+              mensagem: `OS #${os?.numero_os || ''} - orçamento enviado pelo técnico.`
+            })
+          });
+        }
+        
+        // Se concluiu o reparo, emite notificação mais simples
+        if (statusTecnico === 'REPARO CONCLUÍDO' && empresaId && id) {
+          console.log('Emitindo notificação de reparo concluído para OS:', id);
+          try {
+            const response = await fetch('/api/notificacoes/emitir', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                empresa_id: empresaId,
+                tipo: 'reparo_concluido',
+                os_id: id,
+                mensagem: `OS #${os?.numero_os || ''} - reparo concluído pelo técnico.`
+              })
+            });
+            
+            if (response.ok) {
+              console.log('Notificação de reparo concluído enviada com sucesso');
+              const result = await response.json();
+              console.log('Resposta da API:', result);
+            } else {
+              console.error('Erro ao enviar notificação:', response.status, response.statusText);
+            }
+          } catch (error) {
+            console.error('Erro ao emitir notificação de reparo concluído:', error);
+          }
+        }
+      } catch (e) {
+        console.warn('Falha ao emitir notificação:', e);
+      }
       
     } catch (error) {
       console.error('Erro ao salvar:', error);

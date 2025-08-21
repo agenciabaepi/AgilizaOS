@@ -31,11 +31,6 @@ export default function LaudoProntoAlert() {
     return usuarioData.nivel === 'admin' || usuarioData.nivel === 'atendente';
   };
 
-  // Se o usuário não tem permissão, não renderizar nada
-  if (!podeVerNotificacao()) {
-    return null;
-  }
-
   // Função para tocar som de notificação
   const playNotificationSound = () => {
     try {
@@ -171,7 +166,10 @@ export default function LaudoProntoAlert() {
     }
   }, [isBlinking]);
 
-  if (!isVisible || laudosProntos.length === 0) return null;
+  // Verificar permissões e visibilidade ANTES de renderizar
+  if (!podeVerNotificacao() || !isVisible || laudosProntos.length === 0) {
+    return null;
+  }
 
   return (
     <>
@@ -276,4 +274,4 @@ export default function LaudoProntoAlert() {
       </div>
     </>
   );
-} 
+}

@@ -14,9 +14,10 @@ interface PixQRCodeProps {
   onSuccess?: () => void;
   onError?: (error: string) => void;
   mock?: boolean;
+  planoSlug?: 'basico' | 'pro' | 'avancado' | string;
 }
 
-export default function PixQRCode({ valor, descricao, onSuccess, onError, mock }: PixQRCodeProps) {
+export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, planoSlug }: PixQRCodeProps) {
   const [loading, setLoading] = useState(false);
   const [qrCodeData, setQrCodeData] = useState<{
     qr_code?: string;
@@ -28,6 +29,33 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock }
   const [error, setError] = useState<string | null>(null);
   const [expiresIn, setExpiresIn] = useState<number | null>(null);
   const [manualChecking, setManualChecking] = useState(false);
+  const [celebrated, setCelebrated] = useState(false);
+
+  // Carrega canvas-confetti via CDN somente quando necessário
+  async function loadConfetti(): Promise<void> {
+    if (typeof window === 'undefined') return;
+    if ((window as any).confetti) return;
+    await new Promise<void>((resolve) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js';
+      script.async = true;
+      script.onload = () => resolve();
+      document.body.appendChild(script);
+    });
+  }
+
+  async function triggerConfetti() {
+    if (celebrated) return;
+    setCelebrated(true);
+    try {
+      await loadConfetti();
+      const confetti = (window as any).confetti;
+      if (confetti) {
+        confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
+        setTimeout(() => confetti({ particleCount: 80, spread: 90, origin: { y: 0.7 } }), 300);
+      }
+    } catch {}
+  }
 
   const gerarPIX = async () => {
     setLoading(true);
@@ -50,6 +78,7 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock }
           valor: valor,
           descricao: descricao || `Pagamento - R$ ${valor.toFixed(2)}`,
           mock: !!mock,
+          plano_slug: planoSlug || null,
         }),
         signal: controller.signal,
       });
@@ -58,7 +87,9 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock }
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Erro ao gerar PIX');
+        const details = data?.details ? ` - ${JSON.stringify(data.details)}` : '';
+        const msg = data?.error || data?.code || 'Erro ao gerar PIX';
+        throw new Error(`${msg}${details}`);
       }
 
                     if (data.success) {
@@ -140,17 +171,18 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock }
     if (!qrCodeData?.pagamento_id && !qrCodeData?.payment_id) return;
     setManualChecking(true);
     try {
-      const { data: { session } } = await supabaseBrowser.auth.getSession();
-      const authHeader = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+      const authHeader = {} as Record<string, string>;
       const params = new URLSearchParams();
       if (qrCodeData?.pagamento_id) params.set('pagamento_id', qrCodeData.pagamento_id);
       if (qrCodeData?.payment_id) params.set('payment_id', qrCodeData.payment_id);
-      const res = await fetch(`/api/pagamentos/status?${params.toString()}`, { cache: 'no-store', headers: { ...authHeader } });
+      // Usar rota interna do admin para não depender de sessão do cliente
+      const res = await fetch(`/api/admin-saas/pagamentos/status?${params.toString()}`, { cache: 'no-store', headers: { ...authHeader } });
       const json = await res.json();
       if (res.ok && json?.status) {
         setQrCodeData(prev => prev ? { ...prev, status: json.status } : prev);
         if (json.status === 'approved') {
-          setTimeout(() => (window.location.href = '/dashboard'), 1200);
+          triggerConfetti();
+          setTimeout(() => (window.location.href = '/dashboard'), 10000);
         }
       }
     } catch (_) {
@@ -167,7 +199,7 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock }
       if (qrCodeData?.pagamento_id) params.set('pagamento_id', qrCodeData.pagamento_id);
       if (qrCodeData?.payment_id) params.set('payment_id', qrCodeData.payment_id);
       params.set('mock_approve', '1');
-      const res = await fetch(`/api/pagamentos/status?${params.toString()}`, { cache: 'no-store' });
+      const res = await fetch(`/api/admin-saas/pagamentos/status?${params.toString()}`, { cache: 'no-store' });
       const json = await res.json();
       if (res.ok && json?.status) {
         setQrCodeData(prev => prev ? { ...prev, status: json.status } : prev);
@@ -192,20 +224,21 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock }
     let stopped = false;
     const poll = async () => {
       try {
-        const { data: { session } } = await supabaseBrowser.auth.getSession();
-        const authHeader = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+        const authHeader = {} as Record<string, string>;
         const params = new URLSearchParams();
         if (qrCodeData?.pagamento_id) params.set('pagamento_id', qrCodeData.pagamento_id);
         if (qrCodeData?.payment_id) params.set('payment_id', qrCodeData.payment_id);
-        const res = await fetch(`/api/pagamentos/status?${params.toString()}`, { cache: 'no-store', headers: { ...authHeader } });
+        // Usa rota interna do admin que consulta MP e sincroniza
+        const res = await fetch(`/api/admin-saas/pagamentos/status?${params.toString()}`, { cache: 'no-store', headers: { ...authHeader } });
         const json = await res.json();
         if (res.ok && json?.status) {
           setQrCodeData(prev => prev ? { ...prev, status: json.status } : prev);
           if (json.status === 'approved') {
+            triggerConfetti();
             // pequeno delay para UX e permitir atualização de backend
             setTimeout(() => {
               if (!stopped) window.location.href = '/dashboard';
-            }, 1500);
+            }, 10000);
           }
         } else if (res.status === 401) {
           // para evitar loop quando sessão não é reconhecida

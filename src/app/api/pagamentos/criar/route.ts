@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       NODE_ENV: process.env.NODE_ENV,
     });
     
-    const { valor, ordemServicoId, descricao, mock } = await request.json();
+    const { valor, ordemServicoId, descricao, mock, plano_slug } = await request.json();
     
     // Validar dados
     if (!valor || valor <= 0) {
@@ -139,18 +139,29 @@ export async function POST(request: NextRequest) {
     
     console.log(`URL base (dinâmica): ${baseUrl}`);
     
-    const paymentData = {
+    // Definir notification_url somente se for uma URL https pública (MP exige URL válida)
+    const explicitWebhook = process.env.MERCADOPAGO_WEBHOOK_URL;
+    const candidateWebhook = explicitWebhook || `${baseUrl}/api/pagamentos/webhook`;
+    let useWebhook: string | undefined = undefined;
+    try {
+      const u = new URL(candidateWebhook);
+      const isHttps = u.protocol === 'https:';
+      const isLocal = /localhost|127\.0\.0\.1|0\.0\.0\.0/i.test(u.hostname);
+      if (isHttps && !isLocal) useWebhook = u.toString();
+    } catch {}
+
+    const paymentData: any = {
       transaction_amount: parseFloat(valor),
       description: descricao || 'Pagamento Consert',
       payment_method_id: 'pix',
       external_reference: ordemServicoId || `pagamento_${Date.now()}`,
-      notification_url: `${baseUrl}/api/pagamentos/webhook`,
       payer: {
         email: 'pagamento@consert.app',
         first_name: 'Pagamento',
         last_name: 'Consert',
       },
     };
+    if (useWebhook) paymentData.notification_url = useWebhook;
 
     const response = await payment.create({ body: paymentData });
     
@@ -176,48 +187,74 @@ export async function POST(request: NextRequest) {
     
     // Salvar no banco de dados
     console.log('🔍 Iniciando busca do usuário...');
-    // Inserir pagamento no banco
-    console.log('💾 Inserindo pagamento no banco...');
-    console.log('📊 Dados do pagamento:', {
-      empresa_id: usuario.empresa_id,
-      usuario_id: user.id,
-      ordem_servico_id: ordemServicoId,
-      valor: valor,
-      mercadopago_payment_id: response.id,
-    });
-    
-    const { data: pagamento, error: dbError } = await supabaseAdmin
-      .from('pagamentos')
-      .insert({
-        id: crypto.randomUUID(), // Gerar UUID explicitamente
+    // Inserir pagamento no banco (tolerante a diferenças de schema)
+    console.log('💾 Inserindo pagamento no banco (modo tolerante)...');
+    const baseId = crypto.randomUUID();
+    const nowIso = new Date().toISOString();
+    // Resolver plano_id a partir do slug informado (se houver)
+    let planoId: string | null = null;
+    if (plano_slug) {
+      const slugToNome: Record<string, string> = { basico: 'Básico', pro: 'Pro', avancado: 'Avançado' };
+      const possiveis = [slugToNome[String(plano_slug)] || String(plano_slug), String(plano_slug)];
+      const { data: planoByNome } = await supabaseAdmin
+        .from('planos')
+        .select('id,nome')
+        .in('nome', possiveis as string[])
+        .maybeSingle();
+      if (planoByNome?.id) planoId = planoByNome.id;
+    }
+    const candidatePayloads: Record<string, any>[] = [
+      // Tentativa 1: com plano_id (se a coluna existir)
+      {
+        id: baseId,
         empresa_id: usuario.empresa_id,
         usuario_id: user.id,
-        ordem_servico_id: ordemServicoId,
         valor: valor,
-        mercadopago_payment_id: response.id,
+        plano_id: planoId || undefined,
         status: 'pending',
-        status_detail: 'pending_waiting_payment',
-        // Persistir dados do QR para auditoria/visualização
-        pix_qr_code: response.point_of_interaction?.transaction_data?.qr_code || null,
-        pix_qr_code_base64: response.point_of_interaction?.transaction_data?.qr_code_base64 || null,
-        // Timestamps explícitos (caso o default não esteja configurado no banco)
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        webhook_received: false,
-      })
-      .select()
-      .single();
+        mercadopago_payment_id: response.id,
+        created_at: nowIso,
+        // Campos opcionais comuns
+        pix_qr_code: undefined,
+        external_reference: paymentData.external_reference,
+      },
+      // Tentativa 2: sem plano_id (para schemas sem essa coluna)
+      {
+        id: baseId,
+        empresa_id: usuario.empresa_id,
+        usuario_id: user.id,
+        valor: valor,
+        status: 'pending',
+        mercadopago_payment_id: response.id,
+        created_at: nowIso,
+      },
+      // Tentativa 3: mínima absoluta
+      {
+        id: baseId,
+        valor: valor,
+        status: 'pending',
+        created_at: nowIso,
+      },
+    ];
 
-    if (dbError) {
-      console.error('❌ Erro ao salvar pagamento:', dbError);
-      console.error('❌ Código do erro:', dbError.code);
-      console.error('❌ Mensagem do erro:', dbError.message);
-      console.error('❌ Detalhes do erro:', dbError.details);
-      console.error('❌ Hint do erro:', dbError.hint);
-      return NextResponse.json(
-        { error: 'Erro ao salvar pagamento' },
-        { status: 500 }
-      );
+    let pagamento: any = null;
+    let insertError: any = null;
+    for (const attempt of candidatePayloads) {
+      // Remover chaves undefined para evitar erro de coluna
+      const payload: Record<string, any> = Object.fromEntries(Object.entries(attempt).filter(([, v]) => v !== undefined));
+      const res = await supabaseAdmin.from('pagamentos').insert(payload).select().single();
+      pagamento = res.data;
+      insertError = res.error;
+      if (!insertError) break;
+      // Se erro indicar coluna inexistente (variantes do PostgREST), tenta próxima forma
+      const msg = String(insertError?.message || '').toLowerCase();
+      const isMissingColumn = insertError?.code === '42703' || insertError?.code === 'PGRST204' || msg.includes('column') || msg.includes('schema cache') || msg.includes('not find');
+      if (!isMissingColumn) break;
+    }
+
+    if (insertError) {
+      console.error('❌ Erro ao salvar pagamento (tolerante):', insertError);
+      return NextResponse.json({ code: 'DB_INSERT_ERROR', error: 'Erro ao salvar pagamento', details: insertError }, { status: 500 });
     }
     
         console.log('✅ Pagamento salvo com sucesso:', pagamento);
@@ -231,6 +268,24 @@ export async function POST(request: NextRequest) {
     
     console.log('🔍 QR Code disponível:', !!qrCode);
     console.log('🔍 QR Code Base64 disponível:', !!qrCodeBase64);
+
+    // Tentar atualizar o registro com dados adicionais quando as colunas existirem
+    // Atualizações opcionais com tolerância a colunas
+    const candidateUpdates: Record<string, any>[] = [
+      { pix_qr_code: qrCode, created_at: nowIso },
+      { created_at: nowIso },
+    ];
+    for (const attempt of candidateUpdates) {
+      try {
+        const payload = Object.fromEntries(Object.entries(attempt).filter(([_, v]) => v !== undefined && v !== null));
+        if (Object.keys(payload).length === 0) continue;
+        const res = await supabaseAdmin.from('pagamentos').update(payload).eq('id', pagamento.id);
+        if (!res.error) break;
+        const msg = String(res.error?.message || '').toLowerCase();
+        const isMissingColumn = res.error?.code === '42703' || res.error?.code === 'PGRST204' || msg.includes('column') || msg.includes('schema cache') || msg.includes('not find');
+        if (!isMissingColumn) break;
+      } catch (_) { break; }
+    }
 
     return NextResponse.json({
       success: true,

@@ -43,14 +43,23 @@ export const useSubscription = () => {
   const [limites, setLimites] = useState<Limites | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingLimites, setLoadingLimites] = useState(false);
-
+  
   // Carregar assinatura da empresa
   const carregarAssinatura = async () => {
-    console.log('Debug carregarAssinatura:', {
-      usuarioData,
-      empresaId: usuarioData?.empresa_id,
-      userId: user?.id
-    });
+    // ✅ Mover a verificação para dentro da função
+    if (!user || !usuarioData?.empresa_id) {
+      console.log('Debug: Não há empresa_id no usuarioData');
+      setLoading(false);
+      return;
+    }
+
+    if (process.env.NODE_ENV === 'production') {
+      console.log('Debug carregarAssinatura:', {
+        usuarioData,
+        empresaId: usuarioData?.empresa_id,
+        userId: user?.id
+      });
+    }
 
     if (!usuarioData?.empresa_id) {
       console.log('Debug: Não há empresa_id no usuarioData');
@@ -59,10 +68,14 @@ export const useSubscription = () => {
     }
 
     try {
-      console.log('Debug: Buscando assinatura para empresa_id:', usuarioData.empresa_id);
+      if (process.env.NODE_ENV === 'production') {
+        console.log('Debug: Buscando assinatura para empresa_id:', usuarioData.empresa_id);
+      }
       
       // Usar API route para contornar RLS
-      console.log('Debug: Usando API route para buscar assinatura...');
+      if (process.env.NODE_ENV === 'production') {
+        console.log('Debug: Usando API route para buscar assinatura...');
+      }
       
       try {
         const response = await fetch('/api/assinatura/buscar', {
@@ -76,14 +89,19 @@ export const useSubscription = () => {
         });
 
         const result = await response.json();
-        
-        console.log('Debug: Resposta da API route:', result);
+        if (process.env.NODE_ENV === 'production') {
+          console.log('Debug: Resposta da API route:', result);
+        }
 
         if (response.ok && result.data) {
-          console.log('Debug: Assinatura encontrada via API route:', result.data);
+          if (process.env.NODE_ENV === 'production') {
+            console.log('Debug: Assinatura encontrada via API route:', result.data);
+          }
           setAssinatura(result.data);
         } else {
-          console.log('Debug: Nenhuma assinatura encontrada via API route');
+          if (process.env.NODE_ENV === 'production') {
+            console.log('Debug: Nenhuma assinatura encontrada via API route');
+          }
           setAssinatura(null);
         }
       } catch (apiError) {
@@ -92,7 +110,9 @@ export const useSubscription = () => {
       }
 
       // A API route já tratou tudo, não precisamos mais dessa lógica
-      console.log('Debug: Processamento da API route concluído');
+      if (process.env.NODE_ENV === 'production') {
+        console.log('Debug: Processamento da API route concluído');
+      }
     } catch (error) {
       console.error('Erro ao carregar assinatura:', error);
       setAssinatura(null);
@@ -227,25 +247,66 @@ export const useSubscription = () => {
   };
 
   useEffect(() => {
-    console.log('Debug useSubscription useEffect:', {
-      usuarioData,
+    console.log('🔍 useSubscription useEffect executado:', {
+      usuarioData: usuarioData ? 'PRESENTE' : 'AUSENTE',
       empresaId: usuarioData?.empresa_id,
-      loading: loading
+      loading: loading,
+      timestamp: new Date().toISOString()
     });
     
-    if (usuarioData?.empresa_id) {
-      console.log('Debug: Carregando assinatura para empresa:', usuarioData.empresa_id);
-      carregarAssinatura();
-    } else {
-      console.log('Debug: Não há empresa_id disponível ainda');
+    // ✅ Verificação movida para dentro do useEffect
+    if (!user || !usuarioData?.empresa_id || loading) {
+      console.log('🔍 Não carregando assinatura:', {
+        temUser: !!user,
+        temUsuarioData: !!usuarioData,
+        temEmpresaId: !!usuarioData?.empresa_id,
+        loading: loading
+      });
+      return;
     }
-  }, [usuarioData?.empresa_id]);
+    
+    console.log('🔍 Carregando assinatura para empresa:', usuarioData.empresa_id);
+    carregarAssinatura();
+  }, [user, usuarioData?.empresa_id, loading]);
 
   useEffect(() => {
-    if (assinatura && !loading) {
-      carregarLimites();
+    console.log('🔍 useSubscription useEffect 2 executado:', {
+      assinatura: assinatura ? 'PRESENTE' : 'AUSENTE',
+      assinaturaId: assinatura?.id,
+      loading: loading,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Proteção contra execução desnecessária
+    if (!assinatura?.id || loading) {
+      console.log('🔍 Não carregando limites:', {
+        temAssinatura: !!assinatura,
+        temAssinaturaId: !!assinatura?.id,
+        loading: loading
+      });
+      return;
     }
+    
+    console.log('🔍 Carregando limites para assinatura:', assinatura.id);
+    carregarLimites();
   }, [assinatura?.id, loading]);
+
+  // ✅ Return sempre no final, após todos os hooks
+  // Se não há usuário autenticado, retornar valores padrão
+  if (!user || !usuarioData) {
+    return {
+      assinatura: null,
+      limites: null,
+      loading: true,
+      isTrialExpired: () => false,
+      isSubscriptionActive: () => false,
+      podeCriar: () => false,
+      diasRestantesTrial: () => 0,
+      temRecurso: () => false,
+      carregarAssinatura: () => {},
+      carregarLimites: () => {}
+    };
+  }
 
   return {
     assinatura,
@@ -259,4 +320,4 @@ export const useSubscription = () => {
     carregarAssinatura,
     carregarLimites
   };
-}; 
+};

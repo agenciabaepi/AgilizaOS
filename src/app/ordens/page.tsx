@@ -37,6 +37,7 @@ import { useAuth } from '@/context/AuthContext';
 import ProtectedArea from '@/components/ProtectedArea';
 import DashboardCard from '@/components/ui/DashboardCard';
 import MenuLayout from '@/components/MenuLayout';
+import { useToast } from '@/components/Toast';
 
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
@@ -48,6 +49,7 @@ export default function ListaOrdensPage() {
   const router = useRouter();
   const { empresaData } = useAuth();
   const empresaId = empresaData?.id;
+  const { addToast } = useToast();
 
   // Estados dos cards principais
   const [totalOS, setTotalOS] = useState(0);
@@ -71,13 +73,43 @@ export default function ListaOrdensPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20);
   const [tecnicos, setTecnicos] = useState<string[]>([]);
+  // Modal de entrega
+  const [entregaOpen, setEntregaOpen] = useState(false);
+  const [entregaOs, setEntregaOs] = useState<OrdemTransformada | null>(null);
+  const [entregaHasWarranty, setEntregaHasWarranty] = useState(true);
+  const [entregaSaving, setEntregaSaving] = useState(false);
+  const [entregaAutoPrint] = useState(true);
   
   // Estado para abas
-  const [activeTab, setActiveTab] = useState('abertas');
+  const [activeTab, setActiveTab] = useState('reparo_concluido');
 
   function formatDate(date: string) {
-    return date ? new Date(date).toLocaleDateString('pt-BR') : '';
+    if (!date) return '';
+    // Trata YYYY-MM-DD como data local (evita -1 dia por timezone)
+    const m = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) {
+      const [, y, mm, dd] = m;
+      return `${dd}/${mm}/${y}`;
+    }
+    return new Date(date).toLocaleDateString('pt-BR');
   }
+
+  const toDateOnlyString = (d: Date): string => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const addDaysDateOnly = (dateOnly: string, days: number): string => {
+    const m = dateOnly.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return dateOnly;
+    const y = Number(m[1]);
+    const mm = Number(m[2]);
+    const dd = Number(m[3]);
+    const d = new Date(y, mm - 1, dd + days);
+    return toDateOnlyString(d);
+  };
 
   function formatPhoneNumber(phone: string) {
     const cleaned = ('' + phone).replace(/\D/g, '');
@@ -168,7 +200,7 @@ export default function ListaOrdensPage() {
   const fetchOrdens = async () => {
     if (!empresaId) return;
 
-    setLoading(true);
+      setLoading(true);
     try {
       const { data, error } = await supabase
         .from('ordens_servico')
@@ -194,6 +226,7 @@ export default function ListaOrdensPage() {
           qtd_peca,
           qtd_servico,
           tipo,
+          vencimento_garantia,
           clientes:cliente_id(nome, telefone, email),
           tecnico:usuarios!tecnico_id(nome)
         `)
@@ -222,33 +255,44 @@ export default function ListaOrdensPage() {
           }
         }
 
-        const mapped = data.map((item: any) => ({
+        const mapped = data.map((item: any) => {
+          // manter datas como YYYY-MM-DD para evitar timezone
+          const entregaCalc = item.data_entrega
+            ? item.data_entrega
+            : (item.vencimento_garantia
+              ? addDaysDateOnly(item.vencimento_garantia, -90)
+              : '');
+          const garantiaCalc = item.vencimento_garantia
+            ? item.vencimento_garantia
+            : (item.data_entrega
+              ? addDaysDateOnly(item.data_entrega, 90)
+              : '');
+          return {
           id: item.id,
-          numero: item.numero_os,
-          cliente: item.clientes?.nome || 'Sem nome',
-          clienteTelefone: item.clientes?.telefone ? formatPhoneNumber(item.clientes.telefone) : '',
-          clienteEmail: item.clientes?.email || '',
-          aparelho: item.modelo || item.marca || item.categoria || '',
-          aparelhoCategoria: item.categoria || '',
-          aparelhoMarca: item.marca || '',
-          servico: item.servico || '',
-          statusOS: item.status || '',
-          statusTecnico: item.status_tecnico || '',
-          entrada: item.created_at || '',
-          tecnico: item.tecnico?.nome || tecnicosDict[item.tecnico_id] || item.tecnico_id || '',
-          atendente: item.atendente || '',
-          entrega: item.data_entrega || '',
-          garantia: item.data_entrega
-            ? new Date(new Date(item.data_entrega).setDate(new Date(item.data_entrega).getDate() + 90)).toISOString()
-            : '',
+            numero: item.numero_os,
+            cliente: item.clientes?.nome || 'Sem nome',
+            clienteTelefone: item.clientes?.telefone ? formatPhoneNumber(item.clientes.telefone) : '',
+            clienteEmail: item.clientes?.email || '',
+            aparelho: item.modelo || item.marca || item.categoria || '',
+            aparelhoCategoria: item.categoria || '',
+            aparelhoMarca: item.marca || '',
+            servico: item.servico || '',
+            statusOS: item.status || '',
+            statusTecnico: item.status_tecnico || '',
+            entrada: item.created_at || '',
+            tecnico: item.tecnico?.nome || tecnicosDict[item.tecnico_id] || item.tecnico_id || '',
+            atendente: item.atendente || '',
+            entrega: entregaCalc,
+            garantia: garantiaCalc,
           valorPeca: item.valor_peca || 0,
           valorServico: item.valor_servico || 0,
           desconto: item.desconto || 0,
-          valorTotal: ((item.valor_peca || 0) * (item.qtd_peca || 1)) + ((item.valor_servico || 0) * (item.qtd_servico || 1)),
-          valorComDesconto: (((item.valor_peca || 0) * (item.qtd_peca || 1)) + ((item.valor_servico || 0) * (item.qtd_servico || 1))) - (item.desconto || 0),
+            valorTotal: ((item.valor_peca || 0) * (item.qtd_peca || 1)) + ((item.valor_servico || 0) * (item.qtd_servico || 1)),
+            valorComDesconto: (((item.valor_peca || 0) * (item.qtd_peca || 1)) + ((item.valor_servico || 0) * (item.qtd_servico || 1))) - (item.desconto || 0),
           valorFaturado: item.valor_faturado || 0,
-          tipo: item.tipo || 'Nova',
-        }));
+            tipo: item.tipo || 'Nova',
+          };
+        });
 
         console.log('Dados mapeados:', mapped);
         console.log('Exemplo de dados do técnico:', data[0]?.tecnico, data[0]?.tecnico_id);
@@ -278,11 +322,11 @@ export default function ListaOrdensPage() {
           const data = new Date(o.entrada);
           return data >= mesAnterior && data < inicioMes;
         }).length;
-
-        const calcPercent = (atual: number, anterior: number) => {
-          if (anterior === 0) return atual > 0 ? 100 : 0;
-          return Math.round(((atual - anterior) / anterior) * 100);
-        };
+    
+    const calcPercent = (atual: number, anterior: number) => {
+      if (anterior === 0) return atual > 0 ? 100 : 0;
+      return Math.round(((atual - anterior) / anterior) * 100);
+    };
 
         setTotalOS(totalOS);
         setTotalMes(totalMes);
@@ -339,12 +383,16 @@ export default function ListaOrdensPage() {
   };
 
   useEffect(() => {
-    fetchOrdens();
+      fetchOrdens();
     fetchTecnicos();
   }, [empresaId]);
 
   // Filtros e busca
   const filteredOrdens = useMemo(() => {
+    // Debug: mostrar dados de filtro
+    console.log('🔍 [FILTRO] Aba ativa:', activeTab);
+    console.log('🔍 [FILTRO] Filtros aplicados:', { searchTerm, statusFilter, aparelhoFilter, tecnicoFilter, tipoFilter });
+    
     return ordens.filter(os => {
       const matchesSearch = searchTerm === '' || 
         os.numero.toString().includes(searchTerm) ||
@@ -357,25 +405,50 @@ export default function ListaOrdensPage() {
       const matchesTecnico = tecnicoFilter === '' || os.tecnico.toLowerCase().includes(tecnicoFilter.toLowerCase());
       const matchesTipo = tipoFilter === '' || os.tipo === tipoFilter;
       
-      // Filtro por aba
+      // Filtro por aba - Garantir consistência visual entre todas as abas
       let matchesTab = true;
-      if (activeTab === 'abertas') {
-        // OS abertas: não entregues, não finalizadas
-        const statusAbertos = ['em análise', 'aguardando início', 'aguardando peça', 'em execução', 'orçamento', 'aprovado'];
-        matchesTab = statusAbertos.includes(os.statusOS.toLowerCase());
+      if (activeTab === 'reparo_concluido') {
+        // OS com reparo concluído pelo técnico (status_tecnico)
+        const statusTecnico = (os.statusTecnico || '').toLowerCase();
+        matchesTab = statusTecnico.includes('reparo concluído') || statusTecnico.includes('reparo concluido');
       } else if (activeTab === 'concluidas') {
-        // OS concluídas: entregues, finalizadas
+        // OS concluídas: entregues, finalizadas (status da OS)
         const statusConcluidos = ['entregue', 'finalizado', 'concluído', 'reparo concluído'];
         matchesTab = statusConcluidos.includes(os.statusOS.toLowerCase());
       } else if (activeTab === 'orcamentos') {
-        // OS com orçamento
+        // OS com orçamento (status da OS)
         const statusOrcamento = ['orçamento', 'orçamento enviado', 'aguardando aprovação'];
         matchesTab = statusOrcamento.includes(os.statusOS.toLowerCase());
+      } else if (activeTab === 'aguardando_retirada') {
+        // OS aguardando retirada (status da OS ou técnico)
+        const stOs = (os.statusOS || '').toUpperCase();
+        const stTec = (os.statusTecnico || '').toUpperCase();
+        matchesTab = stOs === 'AGUARDANDO RETIRADA' || stTec === 'AGUARDANDO RETIRADA';
+      } else if (activeTab === 'aprovadas') {
+        // OS aprovadas (status da OS ou técnico)
+        const stOs = (os.statusOS || '').toUpperCase();
+        const stTec = (os.statusTecnico || '').toUpperCase();
+        matchesTab = stOs === 'APROVADO' || stTec === 'APROVADO';
+      } else if (activeTab === 'laudo_pronto') {
+        // OS com laudo pronto (status técnico)
+        const stTec = (os.statusTecnico || '').toUpperCase();
+        matchesTab = stTec === 'ORÇAMENTO ENVIADO' || stTec === 'ORCAMENTO ENVIADO' || stTec === 'AGUARDANDO APROVAÇÃO' || stTec === 'AGUARDANDO APROVACAO';
       }
-      // activeTab === 'todas' não filtra nada
+      // activeTab === 'todas' não filtra nada - mostra todas as OSs
 
       return matchesSearch && matchesStatus && matchesAparelho && matchesTecnico && matchesTipo && matchesTab;
     });
+    
+    // Debug: mostrar resultado do filtro
+    console.log('🔍 [FILTRO] Total de OSs:', ordens.length);
+    console.log('🔍 [FILTRO] OSs após filtro:', filteredOrdens.length);
+    console.log('🔍 [FILTRO] Primeiras 3 OSs filtradas:', filteredOrdens.slice(0, 3).map(os => ({
+      numero: os.numero,
+      statusOS: os.statusOS,
+      statusTecnico: os.statusTecnico,
+      cliente: os.cliente
+    })));
+    
   }, [ordens, searchTerm, statusFilter, aparelhoFilter, tecnicoFilter, tipoFilter, activeTab]);
 
   const totalPages = Math.ceil(filteredOrdens.length / itemsPerPage);
@@ -406,17 +479,68 @@ export default function ListaOrdensPage() {
   const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page);
   }, []);
-  
+
   const handleTabChange = useCallback((tab: string) => {
     setActiveTab(tab);
     setCurrentPage(1);
   }, []);
+
+  const openEntregaModal = (os: OrdemTransformada) => {
+    setEntregaOs(os);
+    setEntregaHasWarranty(true);
+    setEntregaOpen(true);
+  };
+
+  const confirmEntrega = async () => {
+    if (!entregaOs) return;
+    setEntregaSaving(true);
+    try {
+      const hoje = new Date();
+      const dataStr = new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())).toISOString().slice(0,10);
+      let garantiaStr: string | null = null;
+      if (entregaHasWarranty) {
+        const g = new Date(hoje);
+        g.setDate(g.getDate() + 90);
+        garantiaStr = new Date(Date.UTC(g.getFullYear(), g.getMonth(), g.getDate())).toISOString().slice(0,10);
+      }
+      const { error } = await supabase
+        .from('ordens_servico')
+        .update({
+          status: 'ENTREGUE',
+          status_tecnico: 'FINALIZADA',
+          data_entrega: dataStr,
+          vencimento_garantia: garantiaStr,
+        })
+        .eq('id', entregaOs.id);
+      if (error) throw error;
+      // Atualiza lista local
+      setOrdens(prev => prev.map(o => o.id === entregaOs.id ? {
+        ...o,
+        statusOS: 'ENTREGUE',
+        statusTecnico: 'FINALIZADA',
+        entrega: dataStr,
+        garantia: garantiaStr || '',
+      } : o));
+      setEntregaOpen(false);
+      addToast('success', 'Entrega registrada com sucesso');
+      try {
+        if (entregaAutoPrint) {
+          // Abre a OS em nova aba com indicação de impressão (rota já possui lógica de print)
+          window.open(`/ordens/${entregaOs.id}?print=1`, '_blank');
+        }
+      } catch {}
+    } catch (e: any) {
+      addToast('error', 'Erro ao registrar entrega');
+    } finally {
+      setEntregaSaving(false);
+    }
+  };
   
   // Contadores para as abas
   const contadores = useMemo(() => {
-    const abertas = ordens.filter(os => {
-      const statusAbertos = ['em análise', 'aguardando início', 'aguardando peça', 'em execução', 'orçamento', 'aprovado'];
-      return statusAbertos.includes(os.statusOS.toLowerCase());
+    const reparoConcluido = ordens.filter(os => {
+      const statusTecnico = (os.statusTecnico || '').toLowerCase();
+      return statusTecnico.includes('reparo concluído') || statusTecnico.includes('reparo concluido');
     }).length;
     
     const concluidas = ordens.filter(os => {
@@ -428,8 +552,22 @@ export default function ListaOrdensPage() {
       const statusOrcamento = ['orçamento', 'orçamento enviado', 'aguardando aprovação'];
       return statusOrcamento.includes(os.statusOS.toLowerCase());
     }).length;
+    const aguardandoRetirada = ordens.filter(os => {
+      const stOs = (os.statusOS || '').toUpperCase();
+      const stTec = (os.statusTecnico || '').toUpperCase();
+      return stOs === 'AGUARDANDO RETIRADA' || stTec === 'AGUARDANDO RETIRADA';
+    }).length;
+    const aprovadas = ordens.filter(os => {
+      const stOs = (os.statusOS || '').toUpperCase();
+      const stTec = (os.statusTecnico || '').toUpperCase();
+      return stOs === 'APROVADO' || stTec === 'APROVADO';
+    }).length;
+    const laudoPronto = ordens.filter(os => {
+      const stTec = (os.statusTecnico || '').toUpperCase();
+      return stTec === 'ORÇAMENTO ENVIADO' || stTec === 'ORCAMENTO ENVIADO' || stTec === 'AGUARDANDO APROVAÇÃO' || stTec === 'AGUARDANDO APROVACAO';
+    }).length;
     
-    return { abertas, concluidas, orcamentos, todas: ordens.length };
+    return { reparoConcluido, concluidas, orcamentos, aguardandoRetirada, aprovadas, laudoPronto, todas: ordens.length };
   }, [ordens]);
 
   if (!empresaId) {
@@ -447,11 +585,11 @@ export default function ListaOrdensPage() {
           {/* Header com título e botão */}
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Ordens de Serviço</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Ordens de Serviço</h1>
               <p className="text-gray-600 mt-1">
                 Gerencie todas as ordens de serviço da sua empresa
-              </p>
-            </div>
+                </p>
+              </div>
             <Button
               onClick={() => router.push("/nova-os")}
               size="lg"
@@ -502,18 +640,18 @@ export default function ListaOrdensPage() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
             <div className="flex border-b border-gray-200">
               <button
-                onClick={() => handleTabChange('abertas')}
+                onClick={() => handleTabChange('reparo_concluido')}
                 className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
-                  activeTab === 'abertas'
+                  activeTab === 'reparo_concluido'
                     ? 'border-blue-500 text-blue-600 bg-blue-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                🔄 Em Aberto
+                🔧 Reparo Concluído
                 <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-                  activeTab === 'abertas' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                  activeTab === 'reparo_concluido' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
                 }`}>
-                  {contadores.abertas}
+                  {contadores.reparoConcluido}
                 </span>
               </button>
               <button
@@ -529,6 +667,51 @@ export default function ListaOrdensPage() {
                   activeTab === 'orcamentos' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
                 }`}>
                   {contadores.orcamentos}
+                </span>
+              </button>
+              <button
+                onClick={() => handleTabChange('aprovadas')}
+                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
+                  activeTab === 'aprovadas'
+                    ? 'border-blue-500 text-blue-600 bg-blue-50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                ✅ Aprovadas
+                <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
+                  activeTab === 'aprovadas' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                }`}>
+                  {contadores.aprovadas}
+                </span>
+              </button>
+              <button
+                onClick={() => handleTabChange('laudo_pronto')}
+                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
+                  activeTab === 'laudo_pronto'
+                    ? 'border-blue-500 text-blue-600 bg-blue-50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                📄 Laudo Pronto
+                <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
+                  activeTab === 'laudo_pronto' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                }`}>
+                  {contadores.laudoPronto}
+                </span>
+              </button>
+              <button
+                onClick={() => handleTabChange('aguardando_retirada')}
+                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
+                  activeTab === 'aguardando_retirada'
+                    ? 'border-blue-500 text-blue-600 bg-blue-50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                📦 Aguardando Retirada
+                <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
+                  activeTab === 'aguardando_retirada' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                }`}>
+                  {contadores.aguardandoRetirada}
                 </span>
               </button>
               <button
@@ -561,22 +744,22 @@ export default function ListaOrdensPage() {
                   {contadores.todas}
                 </span>
               </button>
-            </div>
           </div>
+        </div>
 
           {/* Filtros e busca */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
             <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
               {/* Busca */}
               <div className="flex-1 relative">
-                <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  type="text"
+                  <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    type="text"
                   placeholder="Buscar por OS, cliente, aparelho ou serviço..."
-                  value={searchTerm}
+                    value={searchTerm}
                   onChange={(e) => handleSearchChange(e.target.value)}
                   className="pl-10 w-full"
-                />
+                  />
               </div>
 
               {/* Filtros */}
@@ -622,7 +805,7 @@ export default function ListaOrdensPage() {
                     setTipoFilter('');
                     setTecnicoFilter('');
                     setAparelhoFilter('');
-                    setActiveTab('abertas');
+                    setActiveTab('reparo_concluido');
                     setCurrentPage(1);
                   }}
                   variant="outline"
@@ -646,183 +829,199 @@ export default function ListaOrdensPage() {
                   <span>Carregando...</span>
                 </div>
               )}
-            </div>
           </div>
+        </div>
 
-          {/* Tabela */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+        {/* Tabela */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+            <div className="w-full">
+              <table className="w-full table-fixed divide-y divide-gray-200">
                 <colgroup>
-                  <col className="w-28" />
-                  <col className="w-16" />
-                  <col className="w-28" />
                   <col className="w-20" />
                   <col className="w-16" />
+                  <col className="w-24" />
+                  <col className="w-20" />
                   <col className="w-16" />
-                  <col className="w-16" />
+                  <col className="w-20" />
                   <col className="w-16" />
                   <col className="w-20" />
                   <col className="w-20" />
-                  <col className="w-10" />
+                  <col className="w-24" />
+                  <col className="w-16" />
                 </colgroup>
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div className="flex items-center gap-1">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <div className="flex items-center gap-1">
                         <FiFileText className="w-3 h-3" />
-                        <span className="hidden sm:inline">OS</span>
-                      </div>
-                    </th>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div className="flex items-center gap-1">
+                      <span className="hidden sm:inline">OS</span>
+                    </div>
+                  </th>
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <div className="flex items-center gap-1">
                         <FiRefreshCw className="w-3 h-3" />
-                        <span className="hidden sm:inline">Tipo</span>
-                      </div>
-                    </th>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div className="flex items-center gap-1">
+                      <span className="hidden sm:inline">Tipo</span>
+                    </div>
+                  </th>
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <div className="flex items-center gap-1">
                         <FiSmartphone className="w-3 h-3" />
-                        <span className="hidden sm:inline">Aparelho</span>
-                      </div>
-                    </th>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <span className="hidden sm:inline">Aparelho</span>
+                    </div>
+                  </th>
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       <span className="hidden sm:inline">Serviço</span>
-                    </th>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div className="flex items-center gap-1">
+                  </th>
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <div className="flex items-center gap-1">
                         <FiClock className="w-3 h-3" />
-                        <span className="hidden sm:inline">Entrega</span>
-                      </div>
-                    </th>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <span className="hidden sm:inline">Entrega</span>
+                    </div>
+                  </th>
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       <span className="hidden sm:inline">Garantia</span>
-                    </th>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div className="flex items-center gap-1">
-                        <FiDollarSign className="w-3 h-3" />
+                  </th>
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <div className="flex items-center gap-1">
+                      <FiDollarSign className="w-3 h-3" />
                         <span className="hidden sm:inline">Total</span>
-                      </div>
-                    </th>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    </div>
+                  </th>
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <div className="flex items-center gap-1">
+                      <FiUser className="w-3 h-3" />
+                      <span className="hidden sm:inline">Técnico</span>
+                    </div>
+                  </th>
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <span className="hidden sm:inline">Status</span>
+                  </th>
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <span className="hidden sm:inline">Status Técnico</span>
+                  </th>
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <span className="hidden sm:inline">Ações</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {paginated.map((os) => (
+                  <tr key={os.id} className={`hover:bg-gray-50 transition-colors ${
+                    os.tipo === 'Retorno' ? 'border-l-4 border-l-red-400 bg-red-50/30' : ''
+                  }`}>
+                    <td className="px-1 py-2">
                       <div className="flex items-center gap-1">
-                        <FiUser className="w-3 h-3" />
-                        <span className="hidden sm:inline">Técnico</span>
-                      </div>
-                    </th>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <span className="hidden sm:inline">Status</span>
-                    </th>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <span className="hidden sm:inline">Status Técnico</span>
-                    </th>
-                    <th className="px-1 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <span className="hidden sm:inline">Ações</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {paginated.map((os) => (
-                    <tr key={os.id} className={`hover:bg-gray-50 transition-colors ${
-                      os.tipo === 'Retorno' ? 'border-l-4 border-l-red-400 bg-red-50/30' : ''
-                    }`}>
-                      <td className="px-2 py-3">
-                        <div className="flex items-center gap-1">
-                          <span className="font-bold text-gray-900 text-xs">#{os.numero}</span>
-                          {os.tipo === 'Retorno' && (
-                            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0"></div>
-                          )}
-                        </div>
-                        <div className="text-xs text-gray-600 font-medium truncate">{os.cliente}</div>
-                        <div className="text-xs text-gray-500 truncate">{os.clienteTelefone}</div>
-                        <div className="text-xs text-gray-400 truncate">{formatDate(os.entrada)}</div>
-                      </td>
-                      <td className="px-2 py-3">
-                        {os.tipo === 'Retorno' ? (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
-                            <FiRefreshCw className="w-3 h-3 mr-0.5" />
-                            <span className="hidden sm:inline">Retorno</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
-                            <FiPlus className="w-3 h-3 mr-0.5" />
-                            <span className="hidden sm:inline">Nova</span>
-                          </span>
+                        <span className="font-bold text-gray-900 text-xs">#{os.numero}</span>
+                        {os.tipo === 'Retorno' && (
+                          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0"></div>
                         )}
-                      </td>
-                      <td className="px-2 py-3">
-                        <div className="text-xs font-medium text-gray-900 truncate">{os.aparelho}</div>
-                        {(os.aparelhoCategoria || os.aparelhoMarca) && (
+                      </div>
+                      <div className="text-xs text-gray-600 font-medium truncate min-w-0">{os.cliente || 'N/A'}</div>
+                      <div className="text-xs text-gray-500 truncate">{os.clienteTelefone || 'N/A'}</div>
+                      <div className="text-xs text-gray-400 truncate">{formatDate(os.entrada) || 'N/A'}</div>
+                    </td>
+                    <td className="px-1 py-2">
+                      {os.tipo === 'Retorno' ? (
+                        <span className="inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
+                          <FiRefreshCw className="w-3 h-3 mr-0.5" />
+                          <span className="hidden sm:inline">Retorno</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+                          <FiPlus className="w-3 h-3 mr-0.5" />
+                          <span className="hidden sm:inline">Nova</span>
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-1 py-2">
+                      <div className="text-xs font-medium text-gray-900 truncate min-w-0">{os.aparelho || 'N/A'}</div>
+                      {(os.aparelhoCategoria || os.aparelhoMarca) && (
+                        <div className="text-xs text-gray-500 truncate">
+                          {[os.aparelhoCategoria, os.aparelhoMarca].filter(Boolean).join(' • ')}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-1 py-2">
+                      <div className="text-xs text-gray-900 min-w-0">
+                        <div className="font-medium truncate">{os.servico || 'N/A'}</div>
+                        <div className="text-gray-600 font-semibold">{formatCurrency(os.valorTotal)}</div>
+                      </div>
+                    </td>
+                    <td className="px-1 py-2">
+                      <div className="text-xs text-gray-600 whitespace-nowrap min-w-0">
+                        {formatDate(os.entrega) || 'N/A'}
+                      </div>
+                    </td>
+                    <td className="px-1 py-2">
+                      <div className={`text-xs font-medium min-w-0 ${
+                        os.garantia && new Date(os.garantia) < new Date()
+                          ? 'text-red-600'
+                          : 'text-green-600'
+                      }`}>
+                        <div className="whitespace-nowrap">{formatDate(os.garantia) || 'N/A'}</div>
+                        {os.garantia && (
                           <div className="text-xs text-gray-500 truncate">
-                            {[os.aparelhoCategoria, os.aparelhoMarca].filter(Boolean).join(' • ')}
+                            {new Date(os.garantia).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)
+                              ? 'Expirada'
+                              : `${Math.max(0, Math.ceil((new Date(os.garantia).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / (1000 * 60 * 60 * 24)))} dias restantes`
+                            }
                           </div>
                         )}
-                      </td>
-                      <td className="px-2 py-3">
-                        <div className="text-xs text-gray-900 truncate">{os.servico}</div>
-                      </td>
-                      <td className="px-2 py-3">
-                        <div className="text-xs text-gray-600 whitespace-nowrap">{formatDate(os.entrega)}</div>
-                      </td>
-                      <td className="px-2 py-3">
-                        <div className={`text-xs font-medium ${
-                          os.garantia && new Date(os.garantia) < new Date()
-                            ? 'text-red-600'
-                            : 'text-green-600'
-                        }`}>
-                          <div className="whitespace-nowrap">{formatDate(os.garantia)}</div>
-                          {os.garantia && (
-                            <div className="text-xs text-gray-500 truncate">
-                              {new Date(os.garantia).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)
-                                ? 'Expirada'
-                                : `${Math.max(0, Math.ceil((new Date(os.garantia).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / (1000 * 60 * 60 * 24)))} dias restantes`
-                              }
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-2 py-3">
-                        <div className="text-xs font-bold text-green-600 whitespace-nowrap">
-                          {formatCurrency(os.valorTotal)}
-                        </div>
-                      </td>
-                      <td className="px-2 py-3">
-                        <div className="text-xs text-gray-900 truncate">{os.tecnico}</div>
-                      </td>
-                      <td className="px-2 py-3">
-                        <div className="flex items-center gap-1">
-                          <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getStatusColor(os.statusOS)}`}>
-                            {os.statusOS}
-                          </span>
-                          {os.tipo === 'Retorno' && (
-                            <div className="w-1.5 h-1.5 bg-red-500 rounded-full flex-shrink-0"></div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-2 py-3">
-                        <div className="flex items-center gap-1">
-                          <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getStatusTecnicoColor(os.statusTecnico)}`}>
-                            {os.statusTecnico || '-'}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-1 py-3">
-                        <div className="flex justify-center">
+                      </div>
+                    </td>
+                    <td className="px-1 py-2">
+                      <div className="text-xs font-bold text-green-600 whitespace-nowrap min-w-0">
+                        {formatCurrency(os.valorTotal) || 'R$ 0,00'}
+                      </div>
+                    </td>
+                    <td className="px-1 py-2">
+                      <div className="text-xs text-gray-900 truncate min-w-0">{os.tecnico || 'N/A'}</div>
+                    </td>
+                    <td className="px-1 py-2">
+                      <div className="flex items-center gap-1 min-w-0">
+                        <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getStatusColor(os.statusOS)}`}>
+                          {os.statusOS || 'N/A'}
+                        </span>
+                        {os.tipo === 'Retorno' && (
+                          <div className="w-1.5 h-1.5 bg-red-500 rounded-full flex-shrink-0"></div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-1 py-2">
+                      <div className="flex items-center gap-1 min-w-0">
+                        <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getStatusTecnicoColor(os.statusTecnico)}`}>
+                            {os.statusTecnico || 'N/A'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-1 py-2">
+                        <div className="flex justify-center gap-2">
                           <Button
                             onClick={() => router.push(`/ordens/${os.id}`)}
                             variant="ghost"
                             size="icon"
-                            className="h-5 w-5 hover:bg-blue-50 hover:text-blue-600"
+                            className="h-4 w-4 hover:bg-blue-50 hover:text-blue-600"
                             title="Visualizar"
                           >
-                            <FiEye size={10} />
+                            <FiEye size={8} />
                           </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                          {(!os.entrega && (os.statusOS?.toUpperCase() !== 'ENTREGUE')) && (
+                            <Button
+                              onClick={() => openEntregaModal(os)}
+                              variant="outline"
+                              size="sm"
+                              className="h-5 px-1 text-xs"
+                              title="Entregar aparelho"
+                            >
+                              Entregar
+                            </Button>
+                          )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
             </div>
 
             {/* Estado vazio */}
@@ -853,12 +1052,12 @@ export default function ListaOrdensPage() {
           {totalPages > 1 && (
             <div className="mt-6 flex justify-center gap-2">
               <Button
-                onClick={() => handlePageChange(currentPage - 1)}
+                  onClick={() => handlePageChange(currentPage - 1)}
                 variant="outline"
                 size="sm"
-                disabled={currentPage === 1}
-              >
-                Anterior
+                  disabled={currentPage === 1}
+                >
+                  Anterior
               </Button>
               
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -876,20 +1075,54 @@ export default function ListaOrdensPage() {
               })}
               
               <Button
-                onClick={() => handlePageChange(currentPage + 1)}
+                  onClick={() => handlePageChange(currentPage + 1)}
                 variant="outline"
                 size="sm"
-                disabled={currentPage === totalPages}
-              >
-                Próxima
+                  disabled={currentPage === totalPages}
+                >
+                  Próxima
               </Button>
-            </div>
+              </div>
           )}
-        </div>
+                </div>
         
         {/* Alerta de Laudos Prontos */}
         <LaudoProntoAlert />
       </MenuLayout>
+
+      {/* Modal Entrega */}
+      {entregaOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md border border-gray-200">
+            <div className="px-6 py-4 border-b">
+              <div className="text-sm font-semibold text-gray-900">Confirmar entrega</div>
+              <div className="text-xs text-gray-500">OS #{entregaOs?.numero} — {entregaOs?.cliente}</div>
+            </div>
+            <div className="p-6 space-y-4">
+                <div>
+                <div className="text-xs text-gray-600 mb-1">Garantia</div>
+                <div className="flex items-center gap-3">
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <input type="radio" name="garantia" checked={entregaHasWarranty} onChange={() => setEntregaHasWarranty(true)} />
+                    Com garantia (90 dias)
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <input type="radio" name="garantia" checked={!entregaHasWarranty} onChange={() => setEntregaHasWarranty(false)} />
+                    Sem garantia
+                  </label>
+                </div>
+              </div>
+              <div className="text-xs text-gray-600">A data de entrega será registrada como hoje.</div>
+            </div>
+            <div className="px-6 py-4 border-t flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setEntregaOpen(false)}>Cancelar</Button>
+              <Button onClick={confirmEntrega} disabled={entregaSaving} className="bg-black text-white hover:bg-gray-900">
+                {entregaSaving ? 'Salvando...' : 'Confirmar Entrega'}
+              </Button>
+        </div>
+      </div>
+    </div>
+      )}
     </ProtectedArea>
   );
 }

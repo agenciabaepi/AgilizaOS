@@ -11,11 +11,11 @@ interface TrialExpiredGuardProps {
 }
 
 export default function TrialExpiredGuard({ children }: TrialExpiredGuardProps) {
-  const { isBlocked } = useTrialBlock();
   const pathname = usePathname();
-  const { user } = useAuth();
   const router = useRouter();
+  const { user } = useAuth();
   const { assinatura, isTrialExpired } = useSubscription();
+  const { isBlocked } = useTrialBlock();
 
   // Se não há usuário autenticado, permitir acesso
   if (!user) {

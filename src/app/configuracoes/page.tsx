@@ -9,14 +9,14 @@ import ProtectedArea from '@/components/ProtectedArea'
 import { ToastProvider } from '@/components/Toast'
 import { ConfirmProvider } from '@/components/ConfirmDialog'
 
-
 // Lazy loading das páginas para melhor performance
 const EmpresaPage = lazy(() => import('./empresa/page'))
 const UsuariosPage = lazy(() => import('./usuarios/page'))
 const TermosPage = lazy(() => import('./termos/page'))
 const StatusPage = lazy(() => import('./status/page'))
 const ComissoesPage = lazy(() => import('./comissoes/page'))
-// Remover importação de PerfilPage
+const CatalogoPage = lazy(() => import('./catalogo/page'))
+const WhatsAppPage = lazy(() => import('./whatsapp/page'))
 
 // Componente de loading para as páginas filhas
 const PageLoader = () => (
@@ -32,41 +32,6 @@ function ConfiguracoesInner() {
   const searchParams = useSearchParams()
   const { user, loading: authLoading, usuarioData } = useAuth()
   const [tabIndex, setTabIndex] = useState(0)
-  const [userLevel, setUserLevel] = useState<string>('')
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const fetchUserLevel = async () => {
-      console.log('fetchUserLevel chamado:', { authLoading, user: !!user, usuarioData: !!usuarioData })
-      
-      // Aguarda o contexto de autenticação carregar
-      if (authLoading) {
-        console.log('Aguardando carregamento da autenticação...')
-        return
-      }
-
-      if (!user) {
-        console.log('Usuário não autenticado')
-        setLoading(false)
-        return
-      }
-
-      // Se já temos dados do contexto, usa imediatamente
-      if (usuarioData?.nivel) {
-        console.log('Usando nível do contexto:', usuarioData.nivel)
-        setUserLevel(usuarioData.nivel)
-        setLoading(false)
-        return
-      }
-
-      // Se não temos dados do contexto, usa fallback imediato
-      console.log('Usando fallback para nível padrão')
-      setUserLevel('atendente')
-      setLoading(false)
-    }
-
-    fetchUserLevel()
-  }, [user, authLoading, usuarioData])
 
   useEffect(() => {
     const tab = searchParams.get('tab')
@@ -89,20 +54,9 @@ function ConfiguracoesInner() {
     )
   }
 
-  // Se o usuário não está autenticado, não mostra nada
-  if (!user && !authLoading) {
-    console.log('Usuário não autenticado, retornando null')
-    return null;
-  }
-
-  // DEBUG: Exibir nível do usuário na interface
-  if (userLevel) {
-    console.log('Nível do usuário:', userLevel);
-  }
-
-  // Se ainda está carregando a autenticação, mostra loading
-  if (authLoading) {
-    console.log('Ainda carregando autenticação, mostrando loading')
+  // Se ainda está carregando a autenticação ou dados do usuário, mostra loading
+  if (authLoading || !usuarioData) {
+    console.log('Aguardando dados do usuário...')
     return (
       <MenuLayout>
         <div className="p-8">
@@ -119,39 +73,21 @@ function ConfiguracoesInner() {
     )
   }
 
-  // Se ainda está carregando o nível do usuário
-  if (loading) {
-    console.log('Ainda carregando nível do usuário, mostrando loading')
-    return (
-      <MenuLayout>
-        <div className="p-8">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-            <div className="space-y-4">
-              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-              <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-            </div>
-          </div>
-        </div>
-      </MenuLayout>
-    )
-  }
+  console.log('Renderizando página de configurações:', { nivel: usuarioData.nivel, user: !!user })
 
-  console.log('Renderizando página de configurações:', { userLevel, user: !!user })
-
-  // Para outros níveis, mostra todas as abas
-  // Se for admin, sempre mostra todas as abas
-  const isAdmin = userLevel === 'admin';
-  const tabs = isAdmin || !userLevel
+  // ✅ CORRIGIDO: Usar diretamente o contexto em vez de estado local
+  const isAdmin = usuarioData.nivel === 'admin';
+  const tabs = isAdmin
     ? [
         { name: 'Empresa', component: <EmpresaPage /> },
         { name: 'Usuários', component: <UsuariosPage /> },
         { name: 'Comissões', component: <ComissoesPage /> },
         { name: 'Termos de Garantia', component: <TermosPage /> },
         { name: 'Status', component: <StatusPage /> },
+        { name: 'Catálogo', component: <CatalogoPage /> },
+        { name: 'WhatsApp', component: <WhatsAppPage /> },
       ]
-    : userLevel === 'atendente'
+    : usuarioData.nivel === 'atendente'
     ? [
         { name: 'Termos de Garantia', component: <TermosPage /> },
       ]
@@ -161,6 +97,8 @@ function ConfiguracoesInner() {
         { name: 'Comissões', component: <ComissoesPage /> },
         { name: 'Termos de Garantia', component: <TermosPage /> },
         { name: 'Status', component: <StatusPage /> },
+        { name: 'Catálogo', component: <CatalogoPage /> },
+        { name: 'WhatsApp', component: <WhatsAppPage /> },
       ];
 
   return (
@@ -168,7 +106,7 @@ function ConfiguracoesInner() {
       <div className="p-8">
         <h1 className="text-2xl font-bold mb-6">Configurações Gerais</h1>
         {/* DEBUG: Exibir nível do usuário na interface */}
-        <div className="mb-4 text-xs text-gray-400">Nível detectado: {userLevel || 'desconhecido'}</div>
+        <div className="mb-4 text-xs text-gray-400">Nível detectado: {usuarioData.nivel || 'desconhecido'}</div>
 
         <Tab.Group selectedIndex={tabIndex} onChange={handleTabChange}>
           <Tab.List className="flex space-x-2 bg-gray-100 p-1 rounded-lg overflow-x-auto">

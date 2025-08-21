@@ -26,56 +26,25 @@ export default function PlanosPage() {
 
   const planos = [
     {
-      id: 'basico',
-      nome: 'Básico',
+      id: 'unico',
+      nome: 'Acesso Completo',
       preco: 'R$ 1,00',
       valor: 1.0,
       periodo: '/mês',
-      descricao: '1 usuário, 1 técnico, sistema de OS completo',
-      badge: 'Sistema completo para começar',
+      descricao: 'Todos os recursos do sistema liberados',
+      badge: 'Preço único para tudo',
       recursos: [
-        'Cadastro de clientes',
-        'Cadastro de produtos e serviços',
-        'Sistema de OS completo',
-        'Relatórios simples de atendimento',
-        'Segurança de dados na nuvem'
-      ],
-      destaque: false
-    },
-    {
-      id: 'pro',
-      nome: 'Pro',
-      preco: 'R$ 2,00',
-      valor: 2.0,
-      periodo: '/mês',
-      descricao: '5 usuários, 5 técnicos e muito mais',
-      badge: 'Mais popular',
-      recursos: [
-        'Controle financeiro',
-        'Comissão por técnico',
-        'Emissão de nota fiscal',
-        'Controle de permissões',
-        'Controle de estoque detalhado',
-        'Gestão de equipe por permissões'
+        'Cadastro de clientes, produtos e serviços',
+        'Ordens de serviço completas com laudos e fotos',
+        'Gestão de técnicos, equipes e comissões',
+        'Relatórios e dashboards operacionais',
+        'Controle de estoque e fornecedores',
+        'Múltiplos usuários com permissões',
+        'Backup e segurança em nuvem',
+        'Integração de pagamentos (PIX e mais)',
+        'Suporte prioritário por WhatsApp'
       ],
       destaque: true
-    },
-    {
-      id: 'avancado',
-      nome: 'Avançado',
-      preco: 'R$ 3,00',
-      valor: 3.0,
-      periodo: '/mês',
-      descricao: 'Múltiplas filiais, recursos ilimitados',
-      badge: 'Para grandes operações',
-      recursos: [
-        'Clientes ilimitados',
-        'Todas as funcionalidades',
-        'Relatórios personalizados',
-        'Suporte 24/7',
-        'API personalizada'
-      ],
-      destaque: false
     }
   ];
 
@@ -203,8 +172,8 @@ export default function PlanosPage() {
             </p>
           </div>
 
-          {/* Pricing Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto mb-20">
+          {/* Pricing Card Único */}
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-8 max-w-3xl mx-auto mb-20">
             {planos.map((plano, index) => (
               <div
                 key={index}

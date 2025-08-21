@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -20,6 +20,27 @@ function LoginClientInner() {
   const auth = useAuth();
   const { addToast } = useToast();
   const confirm = useConfirm();
+  
+  // Proteção client-side: redirecionar se já estiver logado
+  useEffect(() => {
+    // ✅ CORRIGIDO: Só redirecionar se realmente estiver logado e não estiver fazendo logout
+    if (auth.user && auth.session && !auth.loading && !auth.isLoggingOut) {
+      console.log('Usuário já logado, redirecionando para dashboard...');
+      router.replace('/dashboard');
+    }
+  }, [auth.user, auth.session, auth.loading, auth.isLoggingOut, router]);
+  
+  // Se estiver carregando ou já logado, mostrar loading
+  if (auth.loading || (auth.user && auth.session && !auth.isLoggingOut)) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#cffb6d] to-[#e0ffe3] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto"></div>
+          <p className="mt-4 text-gray-600">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
   
   console.log('Debug LoginClient - AuthContext:', {
     user: auth.user,
@@ -107,10 +128,22 @@ function LoginClientInner() {
       }));
       localStorage.setItem("empresa_id", usuario.empresa_id);
       console.log('Debug login - Dados salvos no localStorage, iniciando redirecionamento...');
-      
-      // Forçar reload da página para garantir que o AuthContext seja atualizado
-      console.log('Debug login - Executando window.location.href...');
-      window.location.href = '/';
+  
+      // Aguardar um momento para garantir que o estado seja atualizado
+      await new Promise(resolve => setTimeout(resolve, 100));
+  
+            // Redirecionar diretamente para o dashboard apropriado usando router.push
+      console.log('Debug login - Executando redirecionamento direto...');
+      if (perfil.nivel === 'tecnico') {
+        router.push('/dashboard-tecnico');
+      } else if (perfil.nivel === 'admin' || perfil.nivel === 'atendente') {
+        router.push('/dashboard');
+      } else {
+        router.push('/');
+      }
+
+      // ✅ CORRIGIDO: Removido o redirecionamento duplo que causava o loop
+      console.log('Debug login - Redirecionamento concluído');
     }
   };
 
@@ -249,4 +282,4 @@ export default function LoginClient() {
       </ToastProvider>
     </ConfirmProvider>
   );
-} 
+}

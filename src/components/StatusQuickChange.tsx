@@ -81,19 +81,50 @@ export default function StatusQuickChange({
     setLoading(true);
     try {
       const updateData: any = {};
+      const normalize = (s: string) => (s || '').toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+      const ns = normalize(newStatus);
+      const nst = normalize(newStatusTecnico);
       
       if (newStatus !== currentStatus) {
         updateData.status = newStatus;
         
         // Lógica automática: quando status OS = APROVADO, status técnico = APROVADO
-        if (newStatus === 'APROVADO' && newStatusTecnico !== 'APROVADO') {
+        if (ns === 'APROVADO' && nst !== 'APROVADO') {
           updateData.status_tecnico = 'APROVADO';
           newStatusTecnico = 'APROVADO';
         }
         // Lógica automática: quando status OS = ENTREGUE, status técnico = FINALIZADA
-        else if (newStatus === 'ENTREGUE' && newStatusTecnico !== 'FINALIZADA') {
-          updateData.status_tecnico = 'FINALIZADA';
-          newStatusTecnico = 'FINALIZADA';
+        if (ns === 'ENTREGUE') {
+          if (nst !== 'FINALIZADA') {
+            updateData.status_tecnico = 'FINALIZADA';
+            newStatusTecnico = 'FINALIZADA';
+          }
+          // Perguntar se possui garantia (em UI minimalista via confirm)
+          let possuiGarantia = true;
+          try {
+            possuiGarantia = window.confirm('Este aparelho terá garantia? (OK = Sim, Cancelar = Não)');
+          } catch {}
+          const hoje = new Date();
+          const dataStr = new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())).toISOString().slice(0,10);
+          updateData.data_entrega = dataStr; // sempre grava data da entrega
+          if (possiuGarantia) {
+            const garantia = new Date(hoje);
+            garantia.setDate(garantia.getDate() + 90);
+            const garantiaStr = new Date(Date.UTC(garantia.getFullYear(), garantia.getMonth(), garantia.getDate())).toISOString().slice(0,10);
+            updateData.vencimento_garantia = garantiaStr; // grava garantia somente se SIM
+          } else {
+            updateData.vencimento_garantia = null; // explícito para limpar se existir
+          }
+        }
+        // Lógica automática: quando status OS = AGUARDANDO APROVAÇÃO, status técnico = AGUARDANDO APROVAÇÃO
+        else if (ns === 'AGUARDANDO APROVACAO' && nst !== 'AGUARDANDO APROVACAO') {
+          updateData.status_tecnico = 'AGUARDANDO APROVAÇÃO';
+          newStatusTecnico = 'AGUARDANDO APROVAÇÃO';
+        }
+        // Lógica automática: quando status OS = AGUARDANDO RETIRADA, status técnico = AGUARDANDO RETIRADA
+        else if (ns === 'AGUARDANDO RETIRADA' && nst !== 'AGUARDANDO RETIRADA') {
+          updateData.status_tecnico = 'AGUARDANDO RETIRADA';
+          newStatusTecnico = 'AGUARDANDO RETIRADA';
         }
       }
       

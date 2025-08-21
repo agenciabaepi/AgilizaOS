@@ -70,12 +70,28 @@ export async function PUT(
     
     // Lógica automática para status técnico
     if (updateData.status) {
+      const normalize = (s: string) => (s || '').toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
       dataToUpdate.status = updateData.status;
+      const st = normalize(updateData.status);
       
-      if (updateData.status === 'APROVADO') {
+      if (st === 'APROVADO') {
         dataToUpdate.status_tecnico = 'APROVADO';
-      } else if (updateData.status === 'ENTREGUE') {
+      } else if (st === 'ENTREGUE') {
         dataToUpdate.status_tecnico = 'FINALIZADA';
+        // Se não veio data_entrega explícita, registrar agora e calcular garantia
+        if (!updateData.data_entrega) {
+          const hoje = new Date();
+          const dataStr = new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())).toISOString().slice(0,10);
+          const garantia = new Date(hoje);
+          garantia.setDate(garantia.getDate() + 90);
+          const garantiaStr = new Date(Date.UTC(garantia.getFullYear(), garantia.getMonth(), garantia.getDate())).toISOString().slice(0,10);
+          dataToUpdate.data_entrega = dataStr; // colunas tipo date
+          dataToUpdate.vencimento_garantia = garantiaStr;
+        }
+      } else if (st === 'AGUARDANDO APROVACAO') {
+        dataToUpdate.status_tecnico = 'AGUARDANDO APROVAÇÃO';
+      } else if (st === 'AGUARDANDO RETIRADA') {
+        dataToUpdate.status_tecnico = 'AGUARDANDO RETIRADA';
       }
     }
     

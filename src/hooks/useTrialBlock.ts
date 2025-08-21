@@ -5,10 +5,10 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useSubscription } from './useSubscription';
 
 export function useTrialBlock() {
-  const router = useRouter();
   const pathname = usePathname();
-  const { assinatura, isTrialExpired, loading } = useSubscription();
+  const router = useRouter();
   const [isBlocked, setIsBlocked] = useState(false);
+  const { assinatura, isTrialExpired, loading } = useSubscription();
 
   // Páginas que devem ser bloqueadas quando teste expirar
   const paginasBloqueadas = [
@@ -43,18 +43,9 @@ export function useTrialBlock() {
 
   useEffect(() => {
     // Se ainda está carregando, não fazer nada
-    if (loading) {
-      console.log('Debug useTrialBlock: Ainda carregando...');
-      return;
-    }
+    if (loading) return;
 
-    console.log('Debug useTrialBlock:', {
-      pathname,
-      assinaturaStatus: assinatura?.status,
-      isTrialExpired: isTrialExpired(),
-      dataTrialFim: assinatura?.data_trial_fim,
-      loading
-    });
+    // logs suprimidos em dev/prod para evitar poluição
 
     // Verificar se está em uma página que deve ser bloqueada
     const deveSerBloqueada = paginasBloqueadas.some(pagina => 
@@ -66,29 +57,22 @@ export function useTrialBlock() {
       pathname.startsWith(pagina)
     );
 
-    console.log('Debug páginas:', {
-      deveSerBloqueada,
-      estaPermitida,
-      pathname
-    });
+    // logs suprimidos
 
     // Se está em página permitida, não bloquear (verificar primeiro)
     if (estaPermitida) {
-      console.log('PERMITINDO: Página permitida');
       setIsBlocked(false);
       return;
     }
 
     // Se está no trial e NÃO expirou, permitir acesso normal
     if (assinatura?.status === 'trial' && !isTrialExpired()) {
-      console.log('PERMITINDO: Trial ativo - acesso normal');
       setIsBlocked(false);
       return;
     }
 
     // Se o teste expirou e está em página que deve ser bloqueada
     if (assinatura?.status === 'trial' && isTrialExpired() && deveSerBloqueada) {
-      console.log('BLOQUEANDO: Trial expirado em página bloqueada');
       setIsBlocked(true);
       router.push('/teste-expirado');
       return;
@@ -98,12 +82,10 @@ export function useTrialBlock() {
     if (assinatura?.status === 'trial' && paginasPermitidasTrial.some(pagina => 
       pathname.startsWith(pagina)
     )) {
-      console.log('PERMITINDO: Trial ativo em página permitida para trial');
       setIsBlocked(false);
       return;
     }
 
-    console.log('PERMITINDO: Acesso normal');
     setIsBlocked(false);
   }, [assinatura, isTrialExpired, pathname, router, loading]);
 

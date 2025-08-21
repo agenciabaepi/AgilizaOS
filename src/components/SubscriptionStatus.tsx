@@ -20,17 +20,8 @@ export const SubscriptionStatus = () => {
       const fimTrial = new Date(assinatura.data_trial_fim!);
       const diferenca = fimTrial.getTime() - agora.getTime();
 
-      console.log('Debug Trial:', {
-        agora: agora.toISOString(),
-        fimTrial: fimTrial.toISOString(),
-        diferenca: diferenca,
-        diferencaHoras: diferenca / (1000 * 60 * 60),
-        expirou: diferenca <= 0
-      });
-
       // Verificar se expirou - FORÇAR verificação
       if (diferenca <= 0) {
-        console.log('Teste Grátis EXPIRADO - forçando estado');
         setTempoRestante('Expirado');
         return;
       }
@@ -86,7 +77,7 @@ export const SubscriptionStatus = () => {
 
   // Se teste grátis expirou ou assinatura inativa
   if (testeGratisExpirado || !isSubscriptionActive()) {
-    console.log('Debug: Teste Grátis expirado ou assinatura inativa');
+    // log suprimido
     return (
       <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-1">
         <FiAlertTriangle className="w-4 h-4 text-red-500" />
@@ -99,7 +90,7 @@ export const SubscriptionStatus = () => {
 
   // Se está no teste grátis (e não expirou)
   if (assinatura.status === 'trial' && !testeGratisExpirado) {
-    console.log('Debug: Teste Grátis ativo, tempo restante:', tempoRestante);
+    // log suprimido
     const diasRestantes = diasRestantesTrial();
     const isProximoDoFim = diasRestantes <= 3;
     

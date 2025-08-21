@@ -12,23 +12,11 @@ type PlanoInfo = {
 };
 
 const PLANOS: Record<string, PlanoInfo> = {
-  basico: {
-    id: 'basico',
-    nome: 'Básico',
-    descricao: '1 usuário, 1 técnico, sistema de OS completo',
+  unico: {
+    id: 'unico',
+    nome: 'Acesso Completo',
+    descricao: 'Todos os recursos do sistema liberados',
     valor: 1.0,
-  },
-  pro: {
-    id: 'pro',
-    nome: 'Pro',
-    descricao: '5 usuários, 5 técnicos e muito mais',
-    valor: 2.0,
-  },
-  avancado: {
-    id: 'avancado',
-    nome: 'Avançado',
-    descricao: 'Múltiplas filiais, recursos ilimitados',
-    valor: 3.0,
   },
 };
 
@@ -37,8 +25,8 @@ export default function PagarPlanoPage() {
   const params = useParams();
   const search = useSearchParams();
   const mock = search?.get('mock') === '1';
-  const planoParam = (params?.plano as string) || 'pro';
-  const plano = PLANOS[planoParam] || PLANOS.pro;
+  const planoParam = (params?.plano as string) || 'unico';
+  const plano = PLANOS[planoParam] || PLANOS.unico;
 
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
@@ -108,6 +96,7 @@ export default function PagarPlanoPage() {
                 <PixQRCode
                   valor={plano.valor}
                   descricao={`Plano ${plano.nome}`}
+                  planoSlug={plano.id}
                   mock={mock}
                 />
               )}
