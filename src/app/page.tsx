@@ -1356,7 +1356,7 @@ export default function Home() {
             </h2>
             <p className="text-white/70 text-xl md:text-2xl mb-12 leading-relaxed font-light max-w-4xl mx-auto">
               Junte-se a centenas de assistências que já confiam no Consert para 
-              gerenciar seus negócios de forma mais eficiente e lucrativa.
+              gerenciar seus negócios de forma mais eficiente e lucrativa!
             </p>
             <div className="flex flex-col sm:flex-row gap-8 justify-center items-center">
               <button 
