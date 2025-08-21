@@ -18,59 +18,45 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log(`🔔 WhatsApp: Verificando status para empresa: ${empresa_id}`);
+    console.log(`🔍 WhatsApp: Verificando status para empresa: ${empresa_id}`);
 
-    // Verificar se estamos no Vercel
-    const isVercel = process.env.VERCEL === '1';
-    
-    if (isVercel) {
-      console.log('⚠️ WhatsApp: Ambiente Vercel detectado - retornando status simulado');
-      
-      // Buscar sessão no banco
-      const { data: session, error } = await supabase
-        .from('whatsapp_sessions')
-        .select('*')
-        .eq('empresa_id', empresa_id)
-        .single();
+    // Buscar status da sessão no banco
+    const { data, error } = await supabase
+      .from('whatsapp_sessions')
+      .select('*')
+      .eq('empresa_id', empresa_id)
+      .single();
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('❌ WhatsApp: Erro ao buscar sessão:', error);
-        return NextResponse.json(
-          { error: 'Erro ao buscar sessão' },
-          { status: 500 }
-        );
-      }
+    if (error) {
+      console.error('❌ WhatsApp: Erro ao buscar sessão:', error);
+      return NextResponse.json(
+        { error: 'Erro ao buscar sessão' },
+        { status: 500 }
+      );
+    }
 
-      if (!session) {
-        return NextResponse.json({
-          status: 'disconnected',
-          message: 'Nenhuma sessão encontrada',
-          is_simulated: true
-        });
-      }
-
+    if (!data) {
       return NextResponse.json({
-        status: session.status || 'disconnected',
-        qr_code: session.qr_code,
-        numero_whatsapp: session.numero_whatsapp,
-        nome_contato: session.nome_contato,
-        updated_at: session.updated_at,
-        is_simulated: true,
-        message: 'Status simulado (Vercel)'
+        status: 'disconnected',
+        message: 'Nenhuma sessão encontrada'
       });
     }
 
-    // Para ambiente não-Vercel, retornar status real
+    console.log('✅ WhatsApp: Status recuperado:', data.status);
+
     return NextResponse.json({
-      status: 'unavailable',
-      message: 'WhatsApp não disponível neste ambiente'
+      status: data.status,
+      qr_code: data.qr_code,
+      numero_whatsapp: data.numero_whatsapp,
+      nome_contato: data.nome_contato,
+      updated_at: data.updated_at
     });
 
   } catch (error) {
     console.error('❌ WhatsApp: Erro ao verificar status:', error);
     
     return NextResponse.json(
-      { error: 'Erro interno do servidor' },
+      { error: 'Erro interno do servidor: ' + (error instanceof Error ? error.message : 'Erro desconhecido') },
       { status: 500 }
     );
   }

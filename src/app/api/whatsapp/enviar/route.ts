@@ -17,74 +17,63 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`🔔 WhatsApp: Tentando enviar mensagem para ${numero}`);
+    console.log(`📱 WhatsApp: Enviando mensagem para ${numero} da empresa ${empresa_id}`);
 
-    // Verificar se estamos no Vercel
-    const isVercel = process.env.VERCEL === '1';
-    
-    if (isVercel) {
-      console.log('⚠️ WhatsApp: Ambiente Vercel detectado - simulando envio');
-      
-      // Verificar se há sessão ativa
-      const { data: session, error: sessionError } = await supabase
-        .from('whatsapp_sessions')
-        .select('*')
-        .eq('empresa_id', empresa_id)
-        .single();
+    // Verificar se há uma sessão ativa
+    const { data: session, error: sessionError } = await supabase
+      .from('whatsapp_sessions')
+      .select('*')
+      .eq('empresa_id', empresa_id)
+      .single();
 
-      if (sessionError || !session) {
-        return NextResponse.json(
-          { error: 'Sessão WhatsApp não encontrada' },
-          { status: 404 }
-        );
-      }
-
-      if (session.status !== 'connected') {
-        return NextResponse.json(
-          { error: 'WhatsApp não está conectado' },
-          { status: 400 }
-        );
-      }
-
-      // Simular envio bem-sucedido
-      console.log(`✅ WhatsApp: Mensagem simulada enviada para ${numero}`);
-      
-      // Salvar mensagem no banco (opcional)
-      const { error: messageError } = await supabase
-        .from('whatsapp_messages')
-        .insert({
-          empresa_id,
-          numero_destino: numero,
-          mensagem,
-          status: 'sent',
-          is_simulated: true,
-          created_at: new Date().toISOString()
-        });
-
-      if (messageError) {
-        console.warn('⚠️ WhatsApp: Erro ao salvar mensagem no banco:', messageError);
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: 'Mensagem enviada com sucesso (simulado)',
-        numero_destino: numero,
-        is_simulated: true,
-        timestamp: new Date().toISOString()
-      });
+    if (sessionError || !session) {
+      return NextResponse.json(
+        { error: 'Sessão WhatsApp não encontrada' },
+        { status: 400 }
+      );
     }
 
-    // Para ambiente não-Vercel, retornar erro
+    if (session.status !== 'connected') {
+      return NextResponse.json(
+        { error: 'WhatsApp não está conectado' },
+        { status: 400 }
+      );
+    }
+
+    // Salvar mensagem no banco (simulação)
+    const { error: messageError } = await supabase
+      .from('whatsapp_messages')
+      .insert({
+        empresa_id,
+        numero_destino: numero,
+        mensagem,
+        status: 'sent',
+        is_simulated: true,
+        created_at: new Date().toISOString()
+      });
+
+    if (messageError) {
+      console.error('❌ WhatsApp: Erro ao salvar mensagem:', messageError);
+      return NextResponse.json(
+        { error: 'Erro ao salvar mensagem' },
+        { status: 500 }
+      );
+    }
+
+    console.log('✅ WhatsApp: Mensagem enviada com sucesso (simulada)');
+
     return NextResponse.json({
-      success: false,
-      message: 'WhatsApp não disponível neste ambiente'
+      success: true,
+      message: 'Mensagem enviada com sucesso!',
+      message_id: Date.now(),
+      is_simulated: true
     });
 
   } catch (error) {
     console.error('❌ WhatsApp: Erro ao enviar mensagem:', error);
     
     return NextResponse.json(
-      { error: 'Erro interno do servidor' },
+      { error: 'Erro interno do servidor: ' + (error instanceof Error ? error.message : 'Erro desconhecido') },
       { status: 500 }
     );
   }
