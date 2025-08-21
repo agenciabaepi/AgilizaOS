@@ -79,52 +79,24 @@ export async function POST(request: NextRequest) {
     console.log('✅ WhatsApp: Sessão criada/atualizada no banco');
 
     // Criar novo cliente WhatsApp Web com configurações otimizadas
-    const client = new Client({
-      authStrategy: new LocalAuth({
-        clientId: empresa_id,
-        dataPath: `./whatsapp-sessions/${empresa_id}`
-      }),
-      puppeteer: {
-        headless: true, // Modo invisível para funcionar em background
-        timeout: 120000, // 120 segundos máximo
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--no-first-run',
-          '--no-zygote',
-          '--disable-gpu',
-          '--disable-web-security',
-          '--disable-features=VizDisplayCompositor',
-          '--disable-extensions',
-          '--disable-plugins',
-          '--disable-background-timer-throttling',
-          '--disable-backgrounding-occluded-windows',
-          '--disable-renderer-backgrounding',
-          '--disable-field-trial-config',
-          '--disable-ipc-flooding-protection',
-          '--disable-blink-features=AutomationControlled',
-          '--disable-features=site-per-process',
-          '--single-process',
-          '--disable-gpu-sandbox',
-          '--disable-notifications',
-          '--disable-default-apps',
-          '--disable-sync',
-          '--disable-translate',
-          '--hide-scrollbars',
-          '--mute-audio',
-          '--no-default-browser-check',
-          '--disable-component-extensions-with-policy',
-          '--disable-background-networking',
-          '--disable-client-side-phishing-detection',
-          '--disable-domain-reliability',
-          '--disable-features=TranslateUI',
-          '--no-pings',
-          '--password-store=basic',
-          '--use-mock-keychain'
-        ]
-      }
+    const browser = await puppeteer.launch({
+      headless: true,
+      executablePath: '/usr/bin/chromium-browser',
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox', 
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--disable-software-rasterizer',
+        '--disable-webgl',
+        '--disable-3d-apis',
+        '--disable-accelerated-2d-canvas',
+        '--disable-features=VizDisplayCompositor',
+        '--disable-dbus',
+        '--single-process',
+        '--no-zygote'
+      ],
+      ignoreDefaultArgs: ['--disable-extensions']
     });
 
     let qrCodeData = '';
