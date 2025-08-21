@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import puppeteer from 'puppeteer';
 import { Client, LocalAuth } from 'whatsapp-web.js';
 import { createClient } from '@supabase/supabase-js';
 import path from 'path';
@@ -11,8 +10,9 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Declaração global para clientes ativos
+// Declaração global para clientes ativos
 declare global {
-  var activeClients: Map<string, Client>;
+  let activeClients: Map<string, Client>;
 }
 
 if (!global.activeClients) {
