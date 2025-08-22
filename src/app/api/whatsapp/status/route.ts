@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
     console.log(`🔍 WhatsApp: Verificando status para empresa: ${empresa_id}`);
 
-    // Buscar status da sessão no banco usando os campos corretos
+    // Buscar status da sessão no banco
     const { data, error } = await supabase
       .from('whatsapp_sessions')
       .select('*')
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error('❌ WhatsApp: Erro ao buscar sessão:', error);
       return NextResponse.json(
-        { error: 'Erro ao buscar sessão: ' + error.message },
+        { error: 'Erro ao buscar sessão' },
         { status: 500 }
       );
     }
@@ -45,12 +45,10 @@ export async function GET(request: NextRequest) {
     console.log('✅ WhatsApp: Status recuperado:', data.status);
 
     return NextResponse.json({
-      status: data.status || 'disconnected',
+      status: data.status,
       qr_code: data.qr_code,
       numero_whatsapp: data.numero_whatsapp,
       nome_contato: data.nome_contato,
-      ultima_conexao: data.ultima_conexao,
-      session_data: data.session_data,
       updated_at: data.updated_at
     });
 
@@ -58,7 +56,7 @@ export async function GET(request: NextRequest) {
     console.error('❌ WhatsApp: Erro ao verificar status:', error);
     
     return NextResponse.json(
-      { error: 'Erro interno do servidor: ' + (error instanceof Error ? error.message : 'Erro desconhecido') },
+      { error: 'Erro interno do servidor' },
       { status: 500 }
     );
   }

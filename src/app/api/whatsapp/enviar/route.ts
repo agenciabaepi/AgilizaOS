@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Client } from 'whatsapp-web.js';
 import { createClient } from '@supabase/supabase-js';
 
 // Configuração do Supabase
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Declaração global para clientes ativos
+declare global {
+  // eslint-disable-next-line no-var
+  var activeClients: Map<string, Client>;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,7 +24,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`📱 WhatsApp: Enviando mensagem para ${numero} da empresa ${empresa_id}`);
+    console.log(`📱 WhatsApp: Enviando mensagem para ${numero}`);
 
     // Verificar se há uma sessão ativa
     const { data: session, error: sessionError } = await supabase
@@ -29,7 +36,7 @@ export async function POST(request: NextRequest) {
     if (sessionError || !session) {
       return NextResponse.json(
         { error: 'Sessão WhatsApp não encontrada' },
-        { status: 400 }
+        { status: 404 }
       );
     }
 
@@ -40,40 +47,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Salvar mensagem no banco (simulação)
-    const { error: messageError } = await supabase
-      .from('whatsapp_messages')
-      .insert({
-        empresa_id,
-        numero_destino: numero,
-        mensagem,
-        status: 'sent',
-        is_simulated: true,
-        created_at: new Date().toISOString()
-      });
-
-    if (messageError) {
-      console.error('❌ WhatsApp: Erro ao salvar mensagem:', messageError);
+    // Verificar se o cliente está ativo
+    if (!global.activeClients || !global.activeClients.has(empresa_id)) {
       return NextResponse.json(
-        { error: 'Erro ao salvar mensagem' },
-        { status: 500 }
+        { error: 'Cliente WhatsApp não está ativo' },
+        { status: 400 }
       );
     }
 
-    console.log('✅ WhatsApp: Mensagem enviada com sucesso (simulada)');
+    const client = global.activeClients.get(empresa_id)!;
+
+    // Enviar mensagem
+    const result = await client.sendMessage(numero + '@c.us', mensagem);
+
+    console.log('✅ WhatsApp: Mensagem enviada com sucesso');
 
     return NextResponse.json({
       success: true,
       message: 'Mensagem enviada com sucesso!',
-      message_id: Date.now(),
-      is_simulated: true
+      message_id: result.id._serialized
     });
 
   } catch (error) {
     console.error('❌ WhatsApp: Erro ao enviar mensagem:', error);
     
     return NextResponse.json(
-      { error: 'Erro interno do servidor: ' + (error instanceof Error ? error.message : 'Erro desconhecido') },
+      { error: 'Erro interno do servidor' },
       { status: 500 }
     );
   }
