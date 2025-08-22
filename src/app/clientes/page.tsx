@@ -126,29 +126,52 @@ export default function ClientesPage() {
 
 
   useEffect(() => {
+    console.log('🔍 [CLIENTES] useEffect executado');
+    console.log('🔍 [CLIENTES] empresaData:', empresaData);
+    console.log('🔍 [CLIENTES] empresaData?.id:', empresaData?.id);
+    
     const fetchClientes = async () => {
-      if (!empresaData?.id) return;
-
-      // --- Adicionado: mostrar sessão e UID no console
-      const sessionResult = await supabase.auth.getSession();
-      const session = sessionResult.data.session;
-      console.log('🧪 SESSION:', session);
-      console.log('🔐 USER ID:', session?.user?.id);
-      // ---
-
-      const { data, error } = await supabase
-        .from('clientes')
-        .select('*')
-        .eq('empresa_id', empresaData.id)
-        .order('numero_cliente', { ascending: false });
-
-      if (error) {
-        console.error("Erro ao buscar clientes:", error);
-      } else {
-        setClientes(data);
-        console.log("Total de clientes encontrados:", data.length);
+      if (!empresaData?.id) {
+        console.log('❌ [CLIENTES] empresaData?.id não encontrado, retornando');
+        return;
       }
+
+      // Buscar clientes reais do banco de dados
+      console.log('🔍 [CLIENTES] Buscando clientes reais para empresa:', empresaData.id);
+      
+      try {
+        const { data, error } = await supabase
+          .from('clientes')
+          .select('*')
+          .eq('empresa_id', empresaData.id)
+          .order('numero_cliente', { ascending: false });
+
+        if (error) {
+          console.error("❌ [CLIENTES] Erro ao buscar clientes:", error.message);
+          addToast('error', 'Erro ao carregar clientes do banco de dados');
+          setClientes([]);
+        } else if (data && data.length > 0) {
+          console.log('✅ [CLIENTES] Clientes reais encontrados:', data.length);
+          setClientes(data);
+          setTotalClientes(data.length);
+          setClientesMesAtual(data.length);
+          setClientesUltimos7Dias(data.length);
+        } else {
+          console.log('ℹ️ [CLIENTES] Nenhum cliente encontrado no banco');
+          setClientes([]);
+          setTotalClientes(0);
+          setClientesMesAtual(0);
+          setClientesUltimos7Dias(0);
+        }
+      } catch (error) {
+        console.error("❌ [CLIENTES] Erro inesperado ao buscar clientes:", error);
+        addToast('error', 'Erro inesperado ao carregar clientes');
+        setClientes([]);
+      }
+      
       setCarregando(false);
+
+
     };
 
     fetchClientes();

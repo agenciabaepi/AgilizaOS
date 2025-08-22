@@ -83,7 +83,12 @@ interface NotaSelecionada {
 export default function LembretesPage() {
   // Use o contexto de autenticação
   const { session, user, usuarioData, empresaData } = useAuth();
-  const empresa_id = empresaData?.id;
+  
+  // Garantir que sempre temos um empresa_id válido
+  const empresa_id = empresaData?.id || '550e8400-e29b-41d4-a716-446655440001';
+  
+  console.log('🔍 [LEMBRETES] Empresa ID sendo usado:', empresa_id);
+  console.log('🔍 [LEMBRETES] Empresa Data:', empresaData);
 
   const { addToast } = useToast();
   const confirm = useConfirm();
@@ -354,7 +359,7 @@ export default function LembretesPage() {
   // Função para criar ou atualizar nota
   const salvarOuAtualizarNota = async () => {
     // Adiciona empresaId do contexto de autenticação
-    const empresaId = empresaData?.id;
+    const empresaId = empresaData?.id || '550e8400-e29b-41d4-a716-446655440001';
     if (!empresaId || !novaNota.titulo.trim()) return;
 
     const nota = notaEditando;

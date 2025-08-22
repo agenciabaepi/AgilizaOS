@@ -3,8 +3,7 @@
 import { useAuth } from '@/context/AuthContext';
 import MenuLayout from '@/components/MenuLayout';
 import ProtectedArea from '@/components/ProtectedArea';
-import SimpleDashboard from '@/components/SimpleDashboard';
-import DebugLoading from '@/components/DebugLoading';
+import EmergencyDashboard from '@/components/EmergencyDashboard';
 
 export default function DashboardPage() {
   const { usuarioData } = useAuth();
@@ -23,11 +22,10 @@ export default function DashboardPage() {
   return (
     <MenuLayout>
       <ProtectedArea area="dashboard">
-        <SimpleDashboard />
+        <EmergencyDashboard />
       </ProtectedArea>
       
-      {/* Componente de Debug */}
-      <DebugLoading />
+      
     </MenuLayout>
   );
 }

@@ -43,7 +43,6 @@ export function useRealtimeNotificacoes(empresaId?: string | null) {
     
     if (tipo.includes('reparo_concluido')) {
       // Notificação de reparo concluído - NÃO exibe toast, apenas adiciona à lista fixa
-      console.log('Recebida notificação de reparo concluído:', nova);
       // NÃO chama addToast aqui, pois será exibida como notificação fixa
     } else if (tipo.includes('laudo') || tipo.includes('orcamento')) {
       // Modal para orçamento enviado
@@ -67,40 +66,27 @@ export function useRealtimeNotificacoes(empresaId?: string | null) {
     if (!empresaId || !isBrowser) return;
     
     try {
-      console.log('🔍 [DEBUG] Buscando notificações fixas para empresa:', empresaId);
-      
-      // Busca TODAS as notificações de reparo concluído para debug
-      try {
-        const { data, error } = await supabase
-          .from('notificacoes')
-          .select('*')
-          .eq('empresa_id', empresaId)
-          .eq('tipo', 'reparo_concluido')
-          .order('created_at', { ascending: false });
-          
-        if (error) {
-          console.error('❌ [DEBUG] Erro ao buscar notificações fixas:', error);
-          return;
-        }
-        
-        console.log('✅ [DEBUG] Notificações de reparo concluído encontradas:', data);
-        console.log('✅ [DEBUG] Quantidade:', data?.length || 0);
-        
-        // Para debug, vamos mostrar todas as notificações da empresa
-        const { data: todasNotificacoes } = await supabase
-          .from('notificacoes')
-          .select('*')
-          .eq('empresa_id', empresaId)
-          .order('created_at', { ascending: false });
-        
-        console.log('🔍 [DEBUG] TODAS as notificações da empresa:', todasNotificacoes);
-        
-        setNotificacoesFixas(data || []);
-      } catch (error) {
-        console.error('❌ [DEBUG] Erro ao buscar notificações fixas:', error);
+      // Verifica se o empresaId é um UUID válido
+      if (!empresaId || empresaId === 'mock-empresa-id' || empresaId.length < 10) {
+        console.log('⚠️ [NOTIF] Empresa ID inválido ou mock, pulando busca de notificações');
+        return;
       }
+
+      const { data, error } = await supabase
+        .from('notificacoes')
+        .select('*')
+        .eq('empresa_id', empresaId)
+        .eq('tipo', 'reparo_concluido')
+        .order('created_at', { ascending: false });
+        
+      if (error) {
+        console.warn('⚠️ [NOTIF] Erro ao buscar notificações fixas:', error.message);
+        return;
+      }
+      
+      setNotificacoesFixas(data || []);
     } catch (error) {
-      console.error('❌ [DEBUG] Erro ao buscar notificações fixas:', error);
+      console.warn('⚠️ [NOTIF] Erro ao buscar notificações fixas:', error);
     }
   }
 
@@ -109,8 +95,6 @@ export function useRealtimeNotificacoes(empresaId?: string | null) {
     if (!isBrowser) return;
     
     try {
-      console.log('Marcando notificação como cliente avisado:', notificacaoId);
-      
       const response = await fetch('/api/notificacoes/marcar-avisado', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -121,14 +105,13 @@ export function useRealtimeNotificacoes(empresaId?: string | null) {
         // Remove a notificação da lista local
         setNotificacoesFixas(prev => prev.filter(n => n.id !== notificacaoId));
         addToast('success', 'Cliente marcado como avisado!');
-        console.log('Notificação marcada como avisada com sucesso');
       } else {
         const errorData = await response.json().catch(() => ({}));
-        console.error('Erro na API ao marcar cliente avisado:', response.status, errorData);
+        console.warn('⚠️ [NOTIF] Erro na API ao marcar cliente avisado:', response.status, errorData);
         addToast('error', 'Erro ao marcar cliente como avisado');
       }
     } catch (error) {
-      console.error('Erro ao marcar cliente avisado:', error);
+      console.warn('⚠️ [NOTIF] Erro ao marcar cliente avisado:', error);
       addToast('error', 'Erro ao marcar cliente como avisado');
     }
   }
@@ -162,7 +145,12 @@ export function useRealtimeNotificacoes(empresaId?: string | null) {
       lastSeenIdRef.current = { empresaId, lastId: null };
     }
 
-    try { console.log('[notif] subscribe empresaId', empresaId); } catch {}
+    // Verifica se o empresaId é válido antes de fazer subscribe
+    if (!empresaId || empresaId === 'mock-empresa-id' || empresaId.length < 10) {
+      console.log('⚠️ [NOTIF] Empresa ID inválido ou mock, pulando subscribe realtime');
+      return;
+    }
+
     // --- Realtime via Supabase (sem filtro no canal; filtramos no handler para evitar incompatibilidades) ---
     let channel: any;
     if (isBrowser) {
@@ -171,92 +159,47 @@ export function useRealtimeNotificacoes(empresaId?: string | null) {
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notificacoes' }, (payload) => {
         const nova = (payload as any)?.new;
         if (!nova) return;
-        console.log('[notif][realtime] nova notificação recebida:', { nova, empresaId });
+        
         if (nova.empresa_id !== empresaId) {
-          console.log('[notif][realtime] empresa não confere:', nova.empresa_id, '!==', empresaId);
           return;
         }
-        try { console.log('[notif][realtime] match', { nova }); } catch {}
         
-        // Se for reparo concluído, adiciona à lista de notificações fixas (SEM toast)
+        // Processa a nova notificação
+        presentPopup(nova);
+        
+        // Se for notificação de reparo concluído, atualiza a lista fixa
         if (nova.tipo === 'reparo_concluido') {
-          console.log('Adicionando notificação de reparo concluído à lista fixa:', nova);
-          setNotificacoesFixas(prev => [nova, ...prev]);
-          // NÃO chama presentPopup para evitar toast duplicado
-        } else {
-          presentPopup(nova);
-          startReminderIfNeeded(nova?.os_id);
+          buscarNotificacoesFixas();
         }
-        
-        try { if (isBrowser) localStorage.setItem(`notif_last_seen_${empresaId}`, String(nova.id)); } catch {}
-      });
-      
-      if (channel) {
-        channel.subscribe((status: any) => { try { console.log('[notif][realtime] status', status); } catch {} });
-      }
-    }
-
-    // Busca notificações fixas existentes
-    buscarNotificacoesFixas();
-    
-    // --- Polling de segurança (fallback caso Realtime esteja desligado) ---
-    let pollingTimer: any;
-    async function poll() {
-      if (!isBrowser) return;
-      
-      try {
-        const { data, error } = await supabase
-          .from('notificacoes')
-          .select('id, tipo, mensagem, os_id, created_at')
-          .eq('empresa_id', empresaId)
-          .order('created_at', { ascending: false })
-          .limit(1);
-        if (error) { try { console.warn('[notif][poll] error', error); } catch {}; return; }
-        const nova = data && data[0];
-        if (!nova) return;
-        const stored = (() => { try { return isBrowser ? localStorage.getItem(`notif_last_seen_${empresaId}`) : null; } catch { return null; } })();
-        if (!lastSeenIdRef.current.lastId) lastSeenIdRef.current.lastId = stored || null;
-        if (!lastSeenIdRef.current.lastId) lastSeenIdRef.current.lastId = nova.id as string; // inicializa para evitar loop
-        // Se ainda não vimos este id (no localStorage), exibe agora
-        if (stored !== String(nova.id)) {
-          console.log('[notif][poll] nova notificação via polling:', nova);
-          try { if (isBrowser) localStorage.setItem(`notif_last_seen_${empresaId}`, String(nova.id)); } catch {}
-          presentPopup(nova);
-          startReminderIfNeeded((nova as any)?.os_id);
-          lastSeenIdRef.current.lastId = String(nova.id);
-          return;
-        }
-        if (nova.id !== lastSeenIdRef.current.lastId) {
-          console.log('[notif][poll] nova notificação via polling (diferente ID):', nova);
-          lastSeenIdRef.current.lastId = nova.id as string;
-          presentPopup(nova);
-          startReminderIfNeeded((nova as any)?.os_id);
-          try { if (isBrowser) localStorage.setItem(`notif_last_seen_${empresaId}`, String(nova.id)); } catch {}
-        }
-      } catch (e) { try { console.warn('[notif][poll] exception', e); } catch {} }
-    }
-    if (isBrowser) {
-      pollingTimer = setInterval(poll, 6000);
-      poll();
+      })
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            // Busca notificações existentes ao conectar
+            buscarNotificacoesFixas();
+          }
+        });
     }
 
     return () => {
-      if (isBrowser) {
+      if (channel) {
         supabase.removeChannel(channel);
-        if (pollingTimer) clearInterval(pollingTimer);
-        // limpar intervals
-        Object.keys(intervalsRef.current).forEach((k) => {
-          clearInterval(intervalsRef.current[k]);
-        });
-        intervalsRef.current = {};
       }
     };
-  }, [empresaId]);
+  }, [empresaId, isBrowser]);
 
-  // Retorna as funções e dados necessários
+  // Cleanup dos intervals ao desmontar
+  useEffect(() => {
+    return () => {
+      Object.values(intervalsRef.current).forEach(interval => {
+        if (interval) clearInterval(interval);
+      });
+    };
+  }, []);
+
   return {
     notificacoesFixas,
     marcarClienteAvisado,
+    startReminderIfNeeded,
     buscarNotificacoesFixas
   };
 }

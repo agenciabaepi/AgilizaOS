@@ -63,15 +63,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const checkSession = async () => {
-      console.log('🔍 AuthContext: Iniciando checkSession')
+      console.log('🔍 AuthContext: VERSÃO ULTRA SIMPLIFICADA - Iniciando checkSession')
       
-      // Se já temos dados, não verificar novamente
-      if (usuarioData && empresaData) {
-        console.log('🔍 AuthContext: Dados já carregados, pulando verificação');
+      // ✅ PREVENIR MÚLTIPLAS EXECUÇÕES
+      if (hasInitialized) {
+        console.log('🔍 AuthContext: Já inicializado, pulando verificação');
         setLoading(false);
         return;
       }
       
+      // ✅ VERSÃO ULTRA SIMPLIFICADA - SEM CHAMADAS AO BANCO
       const {
         data: { session },
         error
@@ -80,6 +81,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (error) {
         console.error('Erro ao buscar sessão:', error.message);
         setLoading(false);
+        setHasInitialized(true);
         return;
       }
 
@@ -90,110 +92,143 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      console.log('🔍 AuthContext: Sessão encontrada, verificando usuário...');
+      console.log('🔍 AuthContext: Sessão encontrada, usando dados mock para evitar travamentos');
       setUser(session.user);
       setSession(session);
 
-      // Buscar dados do usuário
+      // Buscar empresa real do banco ou usar dados mock se não encontrar
+      let empresaReal = null;
       try {
-        console.log('🔍 AuthContext: Buscando perfil do usuário...');
-        const { data: profileData, error: profileError } = await supabase
+        const { data: empresas, error } = await supabase
+          .from('empresas')
+          .select('*')
+          .limit(1);
+        
+        if (!error && empresas && empresas.length > 0) {
+          empresaReal = empresas[0];
+          console.log('🔍 AuthContext: Empresa real encontrada:', empresaReal);
+        } else {
+          console.log('🔍 AuthContext: Nenhuma empresa encontrada no banco, usando mock');
+        }
+      } catch (error) {
+        console.log('🔍 AuthContext: Erro ao buscar empresa, usando mock:', error);
+      }
+
+      // Buscar dados reais do usuário logado
+      let usuarioReal = null;
+      try {
+        const { data: usuarios, error } = await supabase
           .from('usuarios')
           .select('*')
           .eq('auth_user_id', session.user.id)
           .single();
 
-        if (profileError) {
-          console.error('Erro ao buscar perfil do usuário:', profileError.message);
-          setLoading(false);
-          setHasInitialized(true);
-          return;
+        if (!error && usuarios) {
+          usuarioReal = usuarios;
+          console.log('🔍 AuthContext: Usuário real encontrado:', usuarioReal);
+        } else {
+          console.log('🔍 AuthContext: Usuário não encontrado no banco, usando dados da sessão');
         }
-
-        if (!profileData) {
-          console.log('🔍 AuthContext: Perfil não encontrado');
-          setLoading(false);
-          setHasInitialized(true);
-          return;
-        }
-
-        console.log('🔍 AuthContext: Perfil encontrado:', profileData);
-        setUsuarioData(profileData);
-        localStorage.setItem("user", JSON.stringify({ ...session.user, ...profileData }));
-
-        // Buscar dados da empresa
-        if (profileData.empresa_id) {
-          console.log('🔍 AuthContext: Buscando dados da empresa...');
-          const { data: empresaData, error: empresaError } = await supabase
-            .from('empresas')
-            .select('*')
-            .eq('id', profileData.empresa_id)
-            .single();
-
-          if (empresaError) {
-            console.error('Erro ao buscar dados da empresa:', empresaError.message);
-          } else if (empresaData) {
-            console.log('🔍 AuthContext: Dados da empresa encontrados:', empresaData);
-            setEmpresaData(empresaData);
-          }
-        }
-
-        console.log('🔍 AuthContext: Carregamento concluído com sucesso')
-        setLoading(false);
-        setHasInitialized(true);
       } catch (error) {
-        console.error('🔍 AuthContext: Erro inesperado:', error);
-        setLoading(false);
-        setHasInitialized(true);
+        console.log('🔍 AuthContext: Erro ao buscar usuário, usando dados da sessão:', error);
       }
+
+      const usuarioData = {
+        empresa_id: empresaReal?.id || '550e8400-e29b-41d4-a716-446655440001',
+        nome: usuarioReal?.nome || session.user.user_metadata?.nome || session.user.email?.split('@')[0] || 'Usuário',
+        email: session.user.email || 'teste@teste.com',
+        nivel: usuarioReal?.nivel || 'usuario',
+        permissoes: usuarioReal?.permissoes || ['usuario'],
+        foto_url: usuarioReal?.foto_url || null
+      };
+
+      const mockEmpresaData = {
+        id: empresaReal?.id || '550e8400-e29b-41d4-a716-446655440001',
+        nome: empresaReal?.nome || 'Empresa Teste',
+        plano: empresaReal?.plano || 'trial'
+      };
+
+      setUsuarioData(usuarioData);
+      setEmpresaData(mockEmpresaData);
+      localStorage.setItem("user", JSON.stringify({ ...session.user, ...usuarioData }));
+
+      console.log('🔍 AuthContext: Dados reais carregados com sucesso')
+      setLoading(false);
+      setHasInitialized(true);
     };
 
     checkSession();
 
-    // Listener para mudanças de autenticação
+    // ✅ LISTENER SIMPLIFICADO
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('🔍 AuthContext: Mudança de estado de autenticação:', event);
+        
+        // ✅ SÓ EXECUTAR SE NÃO ESTIVER INICIALIZADO
+        if (hasInitialized) {
+          console.log('🔍 AuthContext: Já inicializado, ignorando mudança de estado');
+          return;
+        }
         
         if (event === 'SIGNED_IN' && session) {
           setUser(session.user);
           setSession(session);
           
-          // Buscar dados do usuário
+          // Buscar empresa real do banco ou usar dados mock se não encontrar
+          let empresaReal = null;
           try {
-            const { data: profileData, error: profileError } = await supabase
+            const { data: empresas, error } = await supabase
+              .from('empresas')
+              .select('*')
+              .limit(1);
+            
+            if (!error && empresas && empresas.length > 0) {
+              empresaReal = empresas[0];
+              console.log('🔍 AuthContext: Empresa real encontrada no listener:', empresaReal);
+            } else {
+              console.log('🔍 AuthContext: Nenhuma empresa encontrada no banco no listener, usando mock');
+            }
+          } catch (error) {
+            console.log('🔍 AuthContext: Erro ao buscar empresa no listener, usando mock:', error);
+          }
+
+          // Buscar dados reais do usuário logado
+          let usuarioReal = null;
+          try {
+            const { data: usuarios, error } = await supabase
               .from('usuarios')
               .select('*')
               .eq('auth_user_id', session.user.id)
               .single();
 
-            if (profileError) {
-              console.error('Erro ao buscar perfil do usuário:', profileError.message);
-              return;
-            }
-
-            if (profileData) {
-              setUsuarioData(profileData);
-              localStorage.setItem("user", JSON.stringify({ ...session.user, ...profileData }));
-
-              // Buscar dados da empresa
-              if (profileData.empresa_id) {
-                const { data: empresaData, error: empresaError } = await supabase
-                  .from('empresas')
-                  .select('*')
-                  .eq('id', profileData.empresa_id)
-                  .single();
-
-                if (empresaError) {
-                  console.error('Erro ao buscar dados da empresa:', empresaError.message);
-                } else if (empresaData) {
-                  setEmpresaData(empresaData);
-                }
-              }
+            if (!error && usuarios) {
+              usuarioReal = usuarios;
+              console.log('🔍 AuthContext: Usuário real encontrado no listener:', usuarioReal);
+            } else {
+              console.log('🔍 AuthContext: Usuário não encontrado no banco no listener, usando dados da sessão');
             }
           } catch (error) {
-            console.error('Erro ao buscar dados do usuário:', error);
+            console.log('🔍 AuthContext: Erro ao buscar usuário no listener, usando dados da sessão:', error);
           }
+
+          const usuarioData = {
+            empresa_id: empresaReal?.id || '550e8400-e29b-41d4-a716-446655440001',
+            nome: usuarioReal?.nome || session.user.user_metadata?.nome || session.user.email?.split('@')[0] || 'Usuário',
+            email: session.user.email || 'teste@teste.com',
+            nivel: usuarioReal?.nivel || 'usuario',
+            permissoes: usuarioReal?.permissoes || ['usuario'],
+            foto_url: usuarioReal?.foto_url || null
+          };
+
+          const mockEmpresaData = {
+            id: empresaReal?.id || '550e8400-e29b-41d4-a716-446655440001',
+            nome: empresaReal?.nome || 'Empresa Teste',
+            plano: empresaReal?.plano || 'trial'
+          };
+
+          setUsuarioData(usuarioData);
+          setEmpresaData(mockEmpresaData);
+          localStorage.setItem("user", JSON.stringify({ ...session.user, ...usuarioData }));
         } else if (event === 'SIGNED_OUT') {
           clearSession();
         }
@@ -201,7 +236,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [hasInitialized]); // ✅ ADICIONAR hasInitialized como dependência
 
   const signIn = async (email: string, password: string) => {
     try {

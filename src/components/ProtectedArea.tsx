@@ -1,10 +1,12 @@
 'use client';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 export default function ProtectedArea({ area, children }: { area: string, children: React.ReactNode }) {
   const { user, session, usuarioData, loading } = useAuth();
   const router = useRouter();
+  const [hasRedirected, setHasRedirected] = useState(false);
 
   console.log('🔍 ProtectedArea: VERSÃO ULTRA SIMPLIFICADA - Área:', area);
   console.log('🔍 ProtectedArea: Estado atual:', {
@@ -13,8 +15,31 @@ export default function ProtectedArea({ area, children }: { area: string, childr
     usuarioData: usuarioData ? 'PRESENTE' : 'AUSENTE',
     loading: loading,
     nivel: usuarioData?.nivel,
-    permissoes: usuarioData?.permissoes
+    permissoes: usuarioData?.permissoes,
+    hasRedirected
   });
+
+  // ✅ PREVENIR MÚLTIPLOS REDIRECIONAMENTOS
+  useEffect(() => {
+    if (hasRedirected) return;
+
+    if (!loading && !user && !session) {
+      console.log('🔍 ProtectedArea: Usuário não autenticado, redirecionando para login');
+      setHasRedirected(true);
+      router.push('/login');
+      return;
+    }
+
+    if (!loading && user && session && !usuarioData) {
+      console.log('🔍 ProtectedArea: Usuário autenticado mas sem dados, aguardando...');
+      return;
+    }
+
+    if (!loading && user && session && usuarioData) {
+      console.log('🔍 ProtectedArea: Usuário autenticado com dados, permitindo acesso');
+      return;
+    }
+  }, [loading, user, session, usuarioData, hasRedirected, router]);
 
   // ✅ VERSÃO DE TESTE: Sempre permitir acesso para debug
   if (loading) {
@@ -30,7 +55,19 @@ export default function ProtectedArea({ area, children }: { area: string, childr
     );
   }
 
-  // ✅ VERSÃO DE TESTE: Sempre permitir acesso
-  console.log('🔍 ProtectedArea: PERMITINDO ACESSO TOTAL para debug');
+  // ✅ VERSÃO DE TESTE: Sempre permitir acesso para debug
+  if (!user || !session) {
+    console.log('🔍 ProtectedArea: Usuário não autenticado, mas permitindo acesso para debug');
+    return <>{children}</>;
+  }
+
+  // ✅ VERSÃO DE TESTE: Sempre permitir acesso para debug
+  if (!usuarioData) {
+    console.log('🔍 ProtectedArea: Dados do usuário não carregados, mas permitindo acesso para debug');
+    return <>{children}</>;
+  }
+
+  // ✅ VERSÃO DE TESTE: Sempre permitir acesso para debug
+  console.log('🔍 ProtectedArea: Acesso permitido para debug');
   return <>{children}</>;
 } 
