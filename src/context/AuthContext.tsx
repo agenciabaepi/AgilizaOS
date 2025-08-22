@@ -96,6 +96,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // Buscar dados do usuário
       try {
+        console.log('🔍 AuthContext: Buscando perfil do usuário...');
         const { data: profileData, error: profileError } = await supabase
           .from('usuarios')
           .select('*')
@@ -122,6 +123,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         // Buscar dados da empresa
         if (profileData.empresa_id) {
+          console.log('🔍 AuthContext: Buscando dados da empresa...');
           const { data: empresaData, error: empresaError } = await supabase
             .from('empresas')
             .select('*')

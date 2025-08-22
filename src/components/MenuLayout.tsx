@@ -30,18 +30,19 @@ import { useToast } from '@/components/Toast';
 import { SubscriptionStatus } from '@/components/SubscriptionStatus';
 import LogoutScreen from '@/components/LogoutScreen';
 import { useWhatsAppNotification } from '@/hooks/useWhatsAppNotification';
+import { useLogout } from '@/hooks/useLogout';
 
 export default function MenuLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { signOut, usuarioData, empresaData } = useAuth();
   const { addToast } = useToast();
+  const { logout, isLoggingOut } = useLogout();
 
   const [userName, setUserName] = useState<string>('');
   const [userLevel, setUserLevel] = useState<string>('');
   const [menuExpandido, setMenuExpandido] = useState<boolean | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showFinanceiroSub, setShowFinanceiroSub] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -69,27 +70,11 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
   const pathname = usePathname();
 
+  // ✅ VERSÃO SIMPLIFICADA: Pular carregamento de configurações para debug
   useEffect(() => {
-    (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const name = (user.user_metadata as { full_name?: string })?.full_name || user.email || '';
-        setUserName(name);
-        // fetch user level
-        const { data: profile } = await supabase
-          .from('usuarios')
-          .select('nivel')
-          .eq('auth_user_id', user.id)
-          .single();
-        if (profile?.nivel) {
-          setUserLevel(profile.nivel);
-        }
-      }
-    })();
-  }, []);
-
-  // Buscar configuração do catálogo quando a empresa estiver carregada
-  useEffect(() => {
+    console.log('🔍 MenuLayout: PULANDO carregamento de configurações para debug');
+    return;
+    
     (async () => {
       try {
         if (!empresaData?.id) return;
@@ -323,86 +308,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {podeVer('configuracoes') && usuarioData?.nivel !== 'atendente' && (
             <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" isActive={pathname === '/configuracoes'} menuRecolhido={menuRecolhido} />
           )}
-          <SidebarButton path="#logout" icon={<FiLogOut size={20} />} label="Sair" isActive={false} menuRecolhido={menuRecolhido} onClick={async () => {
-            console.log('🔴 Botão Sair clicado!');
-            setIsLoggingOut(true);
-            
-            // Aguardar um momento para mostrar a tela de "Saindo..." bonita
-            setTimeout(async () => {
-              try {
-                console.log('🔴 Executando logout forçado...');
-                
-                // 1. Pegar tokens atuais antes de limpar
-                const { data: { session } } = await supabase.auth.getSession();
-                const access_token = session?.access_token;
-                const refresh_token = session?.refresh_token;
-                
-                // 2. Limpar estado local imediatamente
-                localStorage.clear();
-                sessionStorage.clear();
-                console.log('🔴 Estado local limpo');
-                
-                // 3. Fazer logout do Supabase
-                console.log('🔴 Fazendo logout do Supabase...');
-                const { error } = await supabase.auth.signOut();
-                if (error) {
-                  console.log('⚠️ Erro no logout Supabase:', error.message);
-                } else {
-                  console.log('✅ Logout Supabase realizado');
-                }
-                
-                // 4. FORÇAR LOGOUT NO BACKEND (NOVA FUNCIONALIDADE)
-                if (access_token && session?.user?.id) {
-                  try {
-                    console.log('🔴 Forçando logout no backend...');
-                    console.log('🔴 User ID:', session.user.id);
-                    console.log('🔴 Access Token:', access_token ? 'SIM' : 'NÃO');
-                    
-                    const response = await fetch('/api/auth/force-logout', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ 
-                        access_token, 
-                        refresh_token, 
-                        user_id: session.user.id 
-                      })
-                    });
-                    
-                    console.log('🔴 Resposta da API:', response.status, response.statusText);
-                    
-                    if (response.ok) {
-                      const result = await response.json();
-                      console.log('✅ Logout forçado no backend realizado:', result);
-                    } else {
-                      const error = await response.text();
-                      console.log('⚠️ Erro no logout forçado do backend:', error);
-                    }
-                  } catch (apiError) {
-                    console.log('⚠️ Erro ao chamar API de logout forçado:', apiError);
-                  }
-                } else {
-                  console.log('⚠️ Não foi possível obter access_token ou user_id');
-                  console.log('🔴 Access Token:', access_token ? 'SIM' : 'NÃO');
-                  console.log('🔴 User ID:', session?.user?.id);
-                }
-                
-                // 5. Limpeza final
-                localStorage.clear();
-                sessionStorage.clear();
-                
-                // 6. Redirecionar para login
-                console.log('🔄 Redirecionando para login...');
-                window.location.href = '/login';
-                
-              } catch (error) {
-                console.error('❌ Erro no logout:', error);
-                // Mesmo com erro, forçar redirecionamento
-                localStorage.clear();
-                sessionStorage.clear();
-                window.location.href = '/login';
-              }
-            }, 1500);
-          }} />
+          <SidebarButton path="#logout" icon={<FiLogOut size={20} />} label="Sair" isActive={false} menuRecolhido={menuRecolhido} onClick={logout} />
         </nav>
         {!menuRecolhido && (
           <div className="mt-auto text-center text-xs text-[#D1FE6E] pb-2">
@@ -560,86 +466,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                 label="Sair" 
                 isActive={false} 
                 menuRecolhido={menuRecolhido}
-                onClick={async () => {
-                  console.log('🔴 Botão Sair clicado!');
-                  setIsLoggingOut(true);
-                  
-                  // Aguardar um momento para mostrar a tela de "Saindo..." bonita
-                  setTimeout(async () => {
-                    try {
-                      console.log('🔴 Executando logout forçado...');
-                      
-                      // 1. Pegar tokens atuais antes de limpar
-                      const { data: { session } } = await supabase.auth.getSession();
-                      const access_token = session?.access_token;
-                      const refresh_token = session?.refresh_token;
-                      
-                      // 2. Limpar estado local imediatamente
-                      localStorage.clear();
-                      sessionStorage.clear();
-                      console.log('🔴 Estado local limpo');
-                      
-                      // 3. Fazer logout do Supabase
-                      console.log('🔴 Fazendo logout do Supabase...');
-                      const { error } = await supabase.auth.signOut();
-                      if (error) {
-                        console.log('⚠️ Erro no logout Supabase:', error.message);
-                      } else {
-                        console.log('✅ Logout Supabase realizado');
-                      }
-                      
-                      // 4. FORÇAR LOGOUT NO BACKEND (NOVA FUNCIONALIDADE)
-                      if (access_token && session?.user?.id) {
-                        try {
-                          console.log('🔴 Forçando logout no backend...');
-                          console.log('🔴 User ID:', session.user.id);
-                          console.log('🔴 Access Token:', access_token ? 'SIM' : 'NÃO');
-                          
-                          const response = await fetch('/api/auth/force-logout', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ 
-                              access_token, 
-                              refresh_token, 
-                              user_id: session.user.id 
-                            })
-                          });
-                          
-                          console.log('🔴 Resposta da API:', response.status, response.statusText);
-                          
-                          if (response.ok) {
-                            const result = await response.json();
-                            console.log('✅ Logout forçado no backend realizado:', result);
-                          } else {
-                            const error = await response.text();
-                            console.log('⚠️ Erro no logout forçado do backend:', error);
-                          }
-                        } catch (apiError) {
-                          console.log('⚠️ Erro ao chamar API de logout forçado:', apiError);
-                        }
-                      } else {
-                        console.log('⚠️ Não foi possível obter access_token ou user_id');
-                        console.log('🔴 Access Token:', access_token ? 'SIM' : 'NÃO');
-                        console.log('🔴 User ID:', session?.user?.id);
-                      }
-                      
-                      // 5. Limpeza final
-                      localStorage.clear();
-                      sessionStorage.clear();
-                      
-                      // 6. Redirecionar para login
-                      console.log('🔄 Redirecionando para login...');
-                      window.location.href = '/login';
-                      
-                    } catch (error) {
-                      console.error('❌ Erro no logout:', error);
-                      // Mesmo com erro, forçar redirecionamento
-                      localStorage.clear();
-                      sessionStorage.clear();
-                      window.location.href = '/login';
-                    }
-                  }, 1500);
-                }} 
+                onClick={logout} 
               />
             </nav>
             <div className="mt-auto text-center text-xs text-[#D1FE6E] pb-4">

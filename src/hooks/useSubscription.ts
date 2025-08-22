@@ -46,6 +46,8 @@ export const useSubscription = () => {
   
   // Carregar assinatura da empresa
   const carregarAssinatura = async () => {
+    console.log('🔍 useSubscription: Iniciando carregarAssinatura');
+    
     // ✅ Mover a verificação para dentro da função
     if (!user || !usuarioData?.empresa_id) {
       console.log('Debug: Não há empresa_id no usuarioData');
@@ -77,6 +79,7 @@ export const useSubscription = () => {
         console.log('Debug: Usando API route para buscar assinatura...');
       }
       
+      console.log('🔍 useSubscription: Fazendo chamada para API route...');
       try {
         const response = await fetch('/api/assinatura/buscar', {
           method: 'POST',
@@ -88,6 +91,7 @@ export const useSubscription = () => {
           })
         });
 
+        console.log('🔍 useSubscription: Resposta da API recebida:', response.status);
         const result = await response.json();
         if (process.env.NODE_ENV === 'production') {
           console.log('Debug: Resposta da API route:', result);
@@ -97,11 +101,13 @@ export const useSubscription = () => {
           if (process.env.NODE_ENV === 'production') {
             console.log('Debug: Assinatura encontrada via API route:', result.data);
           }
+          console.log('🔍 useSubscription: Assinatura carregada com sucesso');
           setAssinatura(result.data);
         } else {
           if (process.env.NODE_ENV === 'production') {
             console.log('Debug: Nenhuma assinatura encontrada via API route');
           }
+          console.log('🔍 useSubscription: Nenhuma assinatura encontrada');
           setAssinatura(null);
         }
       } catch (apiError) {
@@ -117,6 +123,7 @@ export const useSubscription = () => {
       console.error('Erro ao carregar assinatura:', error);
       setAssinatura(null);
     } finally {
+      console.log('🔍 useSubscription: Finalizando carregarAssinatura');
       setLoading(false);
     }
   };

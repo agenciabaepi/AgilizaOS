@@ -19,6 +19,70 @@ if (!global.activeClients) {
   global.activeClients = new Map();
 }
 
+// Método GET para verificar status da conexão
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const empresa_id = searchParams.get('empresa_id');
+
+    if (!empresa_id) {
+      return NextResponse.json(
+        { error: 'Empresa ID é obrigatório' },
+        { status: 400 }
+      );
+    }
+
+    console.log(`🔍 WhatsApp: Verificando status da conexão para empresa: ${empresa_id}`);
+
+    // Verificar se há cliente ativo
+    const hasActiveClient = global.activeClients.has(empresa_id);
+    
+    // Buscar status da sessão no banco
+    const { data, error } = await supabase
+      .from('whatsapp_sessions')
+      .select('*')
+      .eq('empresa_id', empresa_id)
+      .single();
+
+    if (error) {
+      console.error('❌ WhatsApp: Erro ao buscar sessão:', error);
+      return NextResponse.json({
+        status: 'disconnected',
+        message: 'Erro ao buscar sessão',
+        hasActiveClient: false
+      });
+    }
+
+    if (!data) {
+      return NextResponse.json({
+        status: 'disconnected',
+        message: 'Nenhuma sessão encontrada',
+        hasActiveClient: false
+      });
+    }
+
+    console.log('✅ WhatsApp: Status da conexão recuperado:', data.status);
+
+    return NextResponse.json({
+      status: data.status,
+      qr_code: data.qr_code,
+      numero_whatsapp: data.numero_whatsapp,
+      nome_contato: data.nome_contato,
+      hasActiveClient,
+      updated_at: data.updated_at
+    });
+
+  } catch (error) {
+    console.error('❌ WhatsApp: Erro ao verificar status da conexão:', error);
+    
+    return NextResponse.json(
+      { error: 'Erro interno do servidor' },
+      { status: 500 }
+    );
+  }
+}
+
+// Método POST para conectar WhatsApp
 export async function POST(request: NextRequest) {
   try {
     const { empresa_id } = await request.json();
