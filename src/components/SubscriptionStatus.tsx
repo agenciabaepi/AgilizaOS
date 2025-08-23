@@ -47,8 +47,8 @@ export const SubscriptionStatus = () => {
     // Calcular imediatamente
     calcularTempoRestante();
 
-    // Atualizar a cada segundo
-    const interval = setInterval(calcularTempoRestante, 1000);
+    // ✅ OTIMIZADO: Atualizar a cada 30 segundos em vez de cada segundo
+    const interval = setInterval(calcularTempoRestante, 30000);
 
     return () => clearInterval(interval);
   }, [assinatura]);

@@ -8,16 +8,8 @@ export default function ProtectedArea({ area, children }: { area: string, childr
   const router = useRouter();
   const [hasRedirected, setHasRedirected] = useState(false);
 
-  console.log('🔍 ProtectedArea: VERSÃO ULTRA SIMPLIFICADA - Área:', area);
-  console.log('🔍 ProtectedArea: Estado atual:', {
-    user: user ? 'PRESENTE' : 'AUSENTE',
-    session: session ? 'PRESENTE' : 'AUSENTE',
-    usuarioData: usuarioData ? 'PRESENTE' : 'AUSENTE',
-    loading: loading,
-    nivel: usuarioData?.nivel,
-    permissoes: usuarioData?.permissoes,
-    hasRedirected
-  });
+  // ✅ OTIMIZADO: Logs reduzidos para melhorar performance
+  console.log('🔍 ProtectedArea: Área:', area, 'Loading:', loading);
 
   // ✅ PREVENIR MÚLTIPLOS REDIRECIONAMENTOS
   useEffect(() => {

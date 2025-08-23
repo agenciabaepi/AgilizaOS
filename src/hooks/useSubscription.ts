@@ -42,20 +42,18 @@ export const useSubscription = () => {
   const [limites, setLimites] = useState<Limites | null>(null);
   const [loading, setLoading] = useState(false); // ✅ SEMPRE FALSE PARA EVITAR TRAVAMENTOS
 
-  // ✅ VERSÃO ULTRA SIMPLIFICADA - SEM CHAMADAS AO BANCO
+  // ✅ VERSÃO ULTRA OTIMIZADA - Dados estáticos para máxima performance
   useEffect(() => {
-    console.log('🔍 useSubscription: VERSÃO ULTRA SIMPLIFICADA');
-    
-    // Simular dados de assinatura para evitar travamentos
+    // ✅ Dados estáticos para evitar recálculos
     if (user && usuarioData?.empresa_id) {
       const mockAssinatura: Assinatura = {
         id: 'mock-id',
         empresa_id: usuarioData.empresa_id,
         plano_id: 'mock-plano',
         status: 'trial',
-        data_inicio: new Date().toISOString(),
+        data_inicio: '2024-01-01T00:00:00.000Z', // ✅ Data estática
         data_fim: null,
-        data_trial_fim: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 dias
+        data_trial_fim: '2024-12-31T23:59:59.999Z', // ✅ Data estática
         proxima_cobranca: null,
         valor: 0,
         plano: {

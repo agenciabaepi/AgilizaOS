@@ -96,6 +96,13 @@ export default function CategoriasPage() {
   }, [usuarioData]);
 
   const carregarDados = async () => {
+    // Verificação de null adicionada
+    if (!usuarioData?.empresa_id) {
+      console.error('Dados do usuário não disponíveis');
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       // Carregar grupos
@@ -140,6 +147,12 @@ export default function CategoriasPage() {
   const salvarGrupo = async () => {
     if (!formGrupo.nome.trim()) {
       addToast('error', 'Nome do grupo é obrigatório');
+      return;
+    }
+
+    // Verificação de null adicionada
+    if (!usuarioData?.empresa_id) {
+      addToast('error', 'Dados do usuário não disponíveis');
       return;
     }
 
@@ -205,6 +218,12 @@ export default function CategoriasPage() {
       return;
     }
 
+    // Verificação de null adicionada
+    if (!usuarioData?.empresa_id) {
+      addToast('error', 'Dados do usuário não disponíveis');
+      return;
+    }
+
     try {
       if (editandoCategoria) {
         await supabase
@@ -266,6 +285,12 @@ export default function CategoriasPage() {
   const salvarSubcategoria = async () => {
     if (!formSubcategoria.nome.trim() || !formSubcategoria.categoria_id) {
       addToast('error', 'Nome e categoria são obrigatórios');
+      return;
+    }
+
+    // Verificação de null adicionada
+    if (!usuarioData?.empresa_id) {
+      addToast('error', 'Dados do usuário não disponíveis');
       return;
     }
 
@@ -732,4 +757,4 @@ export default function CategoriasPage() {
       )}
     </>
   );
-} 
+}

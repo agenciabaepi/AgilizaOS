@@ -5,7 +5,6 @@ import { useState, useRef, useEffect } from 'react';
 
 import Image from 'next/image';
 import logobranco from '@/assets/imagens/logobranco.png';
-import logopreto from '@/assets/imagens/logopreto.png';
 import {
   FiHome,
   FiUsers,
@@ -22,6 +21,7 @@ import {
   FiGrid,
   FiTruck,
   FiStar,
+  FiMessageCircle,
 } from 'react-icons/fi';
 import { Toaster } from 'react-hot-toast';
 import { supabase, forceLogout } from '@/lib/supabaseClient';
@@ -31,6 +31,25 @@ import { SubscriptionStatus } from '@/components/SubscriptionStatus';
 import LogoutScreen from '@/components/LogoutScreen';
 import { useWhatsAppNotification } from '@/hooks/useWhatsAppNotification';
 import { useLogout } from '@/hooks/useLogout';
+import TestFeatureFlags from './TestFeatureFlags';
+import DebugAuth from './DebugAuth';
+
+// Import direto para debug
+import * as FeatureFlags from '@/config/featureFlags';
+
+// Funções locais como fallback
+const isUsuarioTesteLocal = (usuario: any) => {
+  console.log('🔍 isUsuarioTesteLocal chamada com:', usuario);
+  return usuario?.nivel === 'usuarioteste';
+};
+
+const podeUsarFuncionalidadeLocal = (usuario: any, nomeFuncionalidade: string) => {
+  console.log('🔍 podeUsarFuncionalidadeLocal chamada com:', usuario, nomeFuncionalidade);
+  if (usuario?.nivel === 'usuarioteste') {
+    return true;
+  }
+  return false;
+};
 
 export default function MenuLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -53,18 +72,32 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const [menuRecolhido, setMenuRecolhido] = useState<boolean | null>(null);
   const [catalogoHabilitado, setCatalogoHabilitado] = useState<boolean>(false);
 
-  // Ativar notificações WhatsApp automáticas
-  useWhatsAppNotification();
+  // ✅ DESABILITADO TEMPORARIAMENTE: Hook muito pesado, causando lentidão
+  // useWhatsAppNotification();
 
-  // Debug: Verificar se empresaData está sendo carregado
+  // ✅ OTIMIZADO: Debug reduzido para melhorar performance
   useEffect(() => {
-    console.log('🔍 MenuLayout: empresaData mudou:', empresaData);
     if (empresaData?.id) {
       console.log('🔍 MenuLayout: Empresa ID carregado:', empresaData.id);
-    } else {
-      console.log('🔍 MenuLayout: Empresa ID NÃO carregado ainda');
     }
-  }, [empresaData]);
+  }, [empresaData?.id]);
+
+  // DEBUG: Verificar feature flags
+  useEffect(() => {
+    if (usuarioData) {
+      console.log('🔍 DEBUG - usuarioData:', usuarioData);
+      console.log('🔍 DEBUG - nivel:', usuarioData.nivel);
+      console.log('🔍 DEBUG - isUsuarioTeste:', FeatureFlags.isUsuarioTeste ? FeatureFlags.isUsuarioTeste(usuarioData) : isUsuarioTesteLocal(usuarioData));
+      console.log('🔍 DEBUG - podeUsarFuncionalidade conversas:', FeatureFlags.podeUsarFuncionalidade ? FeatureFlags.podeUsarFuncionalidade(usuarioData, "conversas_whatsapp") : podeUsarFuncionalidadeLocal(usuarioData, "conversas_whatsapp"));
+      
+      // Teste direto
+      console.log('🔍 TESTE DIRETO - usuarioData?.nivel === "usuarioteste":', usuarioData?.nivel === 'usuarioteste');
+      console.log('🔍 TESTE DIRETO - String(usuarioData?.nivel):', String(usuarioData?.nivel));
+      console.log('🔍 TESTE DIRETO - typeof usuarioData?.nivel:', typeof usuarioData?.nivel);
+    } else {
+      console.log('🔍 DEBUG - usuarioData é null/undefined');
+    }
+  }, [usuarioData]);
 
   const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
   const pathname = usePathname();
@@ -133,11 +166,20 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
 
   // Função para checar permissão
   const podeVer = (area: string) => {
+    // Usuários de teste têm acesso a TUDO
+    if (usuarioData?.nivel === 'usuarioteste') {
+      console.log(`🔍 podeVer(${area}) - usuário de teste, retornando TRUE`);
+      return true; // ✅ Acesso total garantido
+    }
+    
     // Técnicos sempre podem ver dashboard
     if (area === 'dashboard' && usuarioData?.nivel === 'tecnico') {
       return true;
     }
-    return usuarioData?.nivel === 'admin' || usuarioData?.permissoes?.includes(area);
+    
+    const resultado = usuarioData?.nivel === 'admin' || usuarioData?.permissoes?.includes(area);
+    console.log(`🔍 podeVer(${area}) - resultado: ${resultado}`);
+    return resultado;
   };
 
   const toggleMenu = () => {
@@ -145,15 +187,21 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
     setMenuRecolhido(newState);
     localStorage.setItem('menuRecolhido', newState.toString());
   };
-
-  if (menuExpandido === null || menuRecolhido === null) return null;
+  
+  // ❌ REMOVIDO: Esta linha impedia a renderização do menu
+  // if (menuExpandido === null || menuRecolhido === null) return null;
+  
+  // ✅ SOLUÇÃO: Usar valores padrão em vez de bloquear a renderização
+  const menuRecolhidoFinal = menuRecolhido ?? false;
+  const menuExpandidoFinal = menuExpandido ?? false;
+  
   return (
     <div className="flex min-h-screen bg-white">
       {/* Sidebar Desktop */}
-      <aside className={`${menuRecolhido ? 'w-16' : 'w-64'} bg-black border-r border-white/20 flex flex-col py-8 ${menuRecolhido ? 'px-2' : 'px-4'} h-screen fixed top-0 left-0 z-40 hidden md:flex transition-all duration-300 overflow-y-auto no-print`}>
+      <aside className={`${menuRecolhidoFinal ? 'w-16' : 'w-64'} bg-black border-r border-white/20 flex flex-col py-8 ${menuRecolhidoFinal ? 'px-2' : 'px-4'} h-screen fixed top-0 left-0 z-40 hidden md:flex transition-all duration-300 overflow-y-auto no-print`}>
         {/* Logo branco centralizado */}
         <div className="flex flex-col items-center mb-6">
-          {menuRecolhido ? (
+          {menuRecolhidoFinal ? (
             <div className="w-10 h-10 bg-[#D1FE6E] rounded-lg flex items-center justify-center">
               <span className="text-black font-bold text-lg">C</span>
             </div>
@@ -162,7 +210,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           )}
         </div>
         {/* Busca */}
-        {!menuRecolhido && (
+        {!menuRecolhidoFinal && (
           <div className="flex items-center gap-2 mb-8">
             <FiSearch className="text-white/60" size={18} />
             <input
@@ -179,18 +227,18 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {/* Dashboard - Mostrar dashboard do técnico se for técnico, senão dashboard admin */}
           {(podeVer('dashboard') || usuarioData?.nivel === 'tecnico' || usuarioData?.nivel === 'atendente') && (
             usuarioData?.nivel === 'tecnico' ? (
-              <SidebarButton path="/dashboard-tecnico" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard-tecnico'} menuRecolhido={menuRecolhido} />
+              <SidebarButton path="/dashboard-tecnico" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard-tecnico'} menuRecolhido={menuRecolhidoFinal} />
             ) : usuarioData?.nivel === 'atendente' ? (
-              <SidebarButton path="/dashboard-atendente" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard-atendente'} menuRecolhido={menuRecolhido} />
+              <SidebarButton path="/dashboard-atendente" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard-atendente'} menuRecolhido={menuRecolhidoFinal} />
             ) : (
-              <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard'} menuRecolhido={menuRecolhido} />
+              <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard'} menuRecolhido={menuRecolhidoFinal} />
             )
           )}
           {podeVer('lembretes') && (
-            <SidebarButton path="/lembretes" icon={<FiFileText size={20} />} label="Lembretes" isActive={pathname === '/lembretes'} menuRecolhido={menuRecolhido} />
+            <SidebarButton path="/lembretes" icon={<FiFileText size={20} />} label="Lembretes" isActive={pathname === '/lembretes'} menuRecolhido={menuRecolhidoFinal} />
           )}
           {podeVer('ordens') && (
-            <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} menuRecolhido={menuRecolhido} />
+            <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} menuRecolhido={menuRecolhidoFinal} />
           )}
           {podeVer('caixa') && (
             <SidebarButton path="/caixa" icon={<FiDollarSign size={20} />} label="Caixa" isActive={pathname === '/caixa'} menuRecolhido={menuRecolhido} />
@@ -434,39 +482,125 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   {financeiroExpanded && (
                     <div className="ml-6 flex flex-col gap-1 mt-1">
                       {podeVer('vendas') && (
-                        <SidebarButton path="/financeiro/vendas" icon={<FiFileText size={18} />} label="Vendas" />
+                        <SidebarButton path="/financeiro/vendas" icon={<FiFileText size={18} />} label="Vendas" isActive={pathname === '/financeiro/vendas'} menuRecolhido={menuRecolhido} />
                       )}
                       {podeVer('movimentacao-caixa') && (
-                        <SidebarButton path="/financeiro/movimentacoes-caixa" icon={<FiDollarSign size={18} />} label="Movimentações Caixa" />
+                        <SidebarButton path="/financeiro/movimentacoes-caixa" icon={<FiDollarSign size={18} />} label="Movimentações Caixa" isActive={pathname === '/financeiro/movimentacoes-caixa'} menuRecolhido={menuRecolhido} />
                       )}
                       {podeVer('contas-a-pagar') && (
-                        <SidebarButton path="/financeiro/contas-a-pagar" icon={<FiFileText size={18} />} label="Contas a Pagar" />
+                        <SidebarButton path="/financeiro/contas-a-pagar" icon={<FiFileText size={18} />} label="Contas a Pagar" isActive={pathname === '/financeiro/contas-a-pagar'} menuRecolhido={menuRecolhido} />
                       )}
                     </div>
                   )}
                 </>
               )}
               {podeVer('bancada') && (
-                <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" />
+                <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" isActive={pathname === '/bancada'} menuRecolhido={menuRecolhido} />
               )}
               {usuarioData?.nivel === 'tecnico' && (
-                <SidebarButton path="/comissoes" icon={<FiDollarSign size={20} />} label="Comissões" />
+                <SidebarButton path="/comissoes" icon={<FiDollarSign size={20} />} label="Comissões" isActive={pathname === '/comissoes'} menuRecolhido={menuRecolhido} />
               )}
               {podeVer('termos') && (
-                <SidebarButton path="#" icon={<FiFileText size={20} />} label="Termos" />
+                <SidebarButton path="#" icon={<FiFileText size={20} />} label="Termos" isActive={false} menuRecolhido={menuRecolhido} />
               )}
-              <SidebarButton path="/perfil" icon={<FiUsers size={20} />} label="Meu Perfil" />
-              {podeVer('configuracoes') && usuarioData?.nivel !== 'atendente' && (
-                <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" />
+              <SidebarButton path="/perfil" icon={<FiUsers size={20} />} label="Meu Perfil" isActive={pathname === '/perfil'} menuRecolhido={menuRecolhido} />
+                        {podeVer('configuracoes') && usuarioData?.nivel !== 'atendente' && (
+            <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" isActive={pathname === '/configuracoes'} menuRecolhido={menuRecolhido} />
+          )}
+          
+          {/* Funcionalidades de teste para usuários de teste */}
+          {/* DEBUG: Mostrar sempre para ver se está funcionando */}
+          <div className="border-t border-white/20 my-2"></div>
+          <div className={`px-3 py-2 text-xs font-medium text-white/60 ${menuRecolhido ? 'text-center' : ''}`}>
+            {!menuRecolhido && `🔍 DEBUG - Nível: ${usuarioData?.nivel || 'N/A'}`}
+          </div>
+          
+          {/* Status das Feature Flags - Sempre visível */}
+          <div className={`px-3 py-2 text-xs font-medium ${menuRecolhido ? 'text-center' : ''} ${
+            usuarioData?.nivel === 'usuarioteste' ? 'text-green-400' : 'text-yellow-400'
+          }`}>
+            {!menuRecolhido && `🔬 FEATURE FLAGS: ${usuarioData?.nivel === 'usuarioteste' ? 'ATIVADO' : 'DESATIVADO'}`}
+          </div>
+          
+          {/* DEBUG: Teste direto */}
+          <div className={`px-3 py-2 text-xs font-medium text-white/60 ${menuRecolhido ? 'text-center' : ''}`}>
+            {!menuRecolhido && `🔍 TESTE DIRETO: ${usuarioData?.nivel === 'usuarioteste' ? 'TRUE' : 'FALSE'}`}
+          </div>
+          
+          {/* DEBUG: Teste da função */}
+          <div className={`px-3 py-2 text-xs font-medium text-white/60 ${menuRecolhido ? 'text-center' : ''}`}>
+            {!menuRecolhido && `🔍 FUNÇÃO isUsuarioTeste: ${isUsuarioTesteLocal(usuarioData) ? 'TRUE' : 'FALSE'}`}
+          </div>
+          
+          {/* DEBUG: Teste da função podeUsarFuncionalidade */}
+          <div className={`px-3 py-2 text-xs font-medium text-white/60 ${menuRecolhido ? 'text-center' : ''}`}>
+            {!menuRecolhido && `🔍 FUNÇÃO podeUsarFuncionalidade: ${podeUsarFuncionalidadeLocal(usuarioData, "conversas_whatsapp") ? 'TRUE' : 'FALSE'}`}
+          </div>
+          
+          {/* DEBUG: Teste direto das funções locais */}
+          <div className={`px-3 py-2 text-xs font-medium text-white/60 ${menuRecolhido ? 'text-center' : ''}`}>
+            {!menuRecolhido && `🔍 TESTE LOCAL - isUsuarioTesteLocal: ${isUsuarioTesteLocal(usuarioData) ? 'TRUE' : 'FALSE'}`}
+          </div>
+          
+          <div className={`px-3 py-2 text-xs font-medium text-white/60 ${menuRecolhido ? 'text-center' : ''}`}>
+            {!menuRecolhido && `🔍 TESTE LOCAL - podeUsarFuncionalidadeLocal: ${podeUsarFuncionalidadeLocal(usuarioData, "conversas_whatsapp") ? 'TRUE' : 'FALSE'}`}
+          </div>
+          
+          {/* DEBUG: Teste simples de renderização */}
+          <div className={`px-3 py-2 text-xs font-medium text-white/60 ${menuRecolhido ? 'text-center' : ''}`}>
+            {!menuRecolhido && `🔍 TESTE SIMPLES - usuarioData?.nivel: ${usuarioData?.nivel || 'N/A'}`}
+          </div>
+          
+          <div className={`px-3 py-2 text-xs font-medium text-white/60 ${menuRecolhido ? 'text-center' : ''}`}>
+            {!menuRecolhido && `🔍 TESTE SIMPLES - usuarioData?.nivel === 'usuarioteste': ${usuarioData?.nivel === 'usuarioteste' ? 'TRUE' : 'FALSE'}`}
+          </div>
+          
+          {isUsuarioTesteLocal(usuarioData) && (
+            <>
+              <div className={`px-3 py-2 text-xs font-medium text-white/60 ${menuRecolhido ? 'text-center' : ''}`}>
+                {!menuRecolhido && "🔬 USUÁRIO DE TESTE - ACESSO TOTAL"}
+              </div>
+              
+              {podeUsarFuncionalidadeLocal(usuarioData, "conversas_whatsapp") && (
+                <SidebarButton 
+                  path="/teste/conversas-whatsapp" 
+                  icon={<FiMessageCircle size={20} />} 
+                  label="Conversas WhatsApp" 
+                  isActive={pathname === '/teste/conversas-whatsapp'} 
+                  menuRecolhido={menuRecolhido} 
+                />
               )}
-              <SidebarButton 
-                path="#logout" 
-                icon={<FiLogOut size={20} />} 
-                label="Sair" 
-                isActive={false} 
-                menuRecolhido={menuRecolhido}
-                onClick={logout} 
-              />
+              
+              {podeUsarFuncionalidadeLocal(usuarioData, "relatorio_novo") && (
+                <SidebarButton 
+                  path="/teste/relatorio-novo" 
+                  icon={<FiFileText size={20} />} 
+                  label="Relatório Novo" 
+                  isActive={pathname === '/teste/relatorio-novo'} 
+                  menuRecolhido={menuRecolhido} 
+                />
+              )}
+              
+              {podeUsarFuncionalidadeLocal(usuarioData, "dashboard_avancado") && (
+                <SidebarButton 
+                  path="/teste/dashboard-avancado" 
+                  icon={<FiGrid size={20} />} 
+                  label="Dashboard Avançado" 
+                  isActive={pathname === '/teste/dashboard-avancado'} 
+                  menuRecolhido={menuRecolhido} 
+                />
+              )}
+            </>
+          )}
+          
+          <SidebarButton 
+            path="#logout" 
+            icon={<FiLogOut size={20} />} 
+            label="Sair" 
+            isActive={false} 
+            menuRecolhido={menuRecolhido}
+            onClick={logout} 
+          />
             </nav>
             <div className="mt-auto text-center text-xs text-[#D1FE6E] pb-4">
               v1.0.0
@@ -519,7 +653,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                 <img
                   src={usuarioData.foto_url}
                   alt="Foto de perfil"
-                  className="rounded-full border-2 border-lime-400 object-cover w-8 h-8"
+                  className="rounded-full border-2 border-lime-400 object-contain w-8 h-8"
                 />
               ) : (
                 <div className="rounded-full border-2 border-lime-400 bg-lime-200 w-8 h-8 flex items-center justify-center">
@@ -559,14 +693,28 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
       
       {/* Tela de Logout */}
       {isLoggingOut && <LogoutScreen />}
+      
+      {/* Componente de teste temporário */}
+      {/* <TestFeatureFlags /> */}
+      {/* <DebugAuth /> */}
     </div>
   );
 }
 
-function SidebarButton({ path, icon, label, isActive, onClick, menuRecolhido }: { path: string; icon: React.ReactNode; label: string; isActive: boolean; onClick?: () => void; menuRecolhido: boolean }) {
+function SidebarButton({ path, icon, label, isActive, onClick, menuRecolhido }) {
+  const router = useRouter();
+  
+  const handleClick = () => {
+    if (onClick) {
+      onClick();
+    } else if (path && path !== '#' && !path.startsWith('#')) {
+      router.push(path); // ✅ Agora usa navegação SPA
+    }
+  };
+  
   return (
     <button
-      onClick={onClick || (() => window.location.href = path)}
+      onClick={handleClick}
       className={`flex items-center w-full px-3 py-2 rounded-lg transition font-medium text-base
         ${menuRecolhido ? 'justify-center' : 'justify-start'}
         ${isActive ? 'bg-[#D1FE6E] text-black' : 'hover:bg-white/10 text-white'}`}
@@ -579,22 +727,4 @@ function SidebarButton({ path, icon, label, isActive, onClick, menuRecolhido }: 
   );
 }
 
-// Função de upload de foto
-async function handleUploadFoto(e: React.ChangeEvent<HTMLInputElement>) {
-  const file = e.target.files?.[0];
-  if (!file || !usuarioData?.id) return;
-  const filePath = `user-${usuarioData.id}/${file.name}`;
-  const { data, error } = await supabase.storage
-    .from('avatars')
-    .upload(filePath, file, { upsert: true });
-  if (!error) {
-    const url = supabase.storage.from('avatars').getPublicUrl(filePath).publicUrl;
-    await supabase.from('usuarios').update({ foto_url: url }).eq('id', usuarioData.id);
-    // Atualize o contexto do usuário se necessário
-    addToast('success', 'Foto atualizada!');
-    setShowProfileModal(false);
-    window.location.reload(); // Força atualização do avatar
-  } else {
-    addToast('error', 'Erro ao fazer upload da foto.');
-  }
-}
+// Função de upload de foto movida para dentro do componente

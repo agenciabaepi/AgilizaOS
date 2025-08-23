@@ -3,14 +3,16 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export async function middleware(req: NextRequest) {
-  // Ignorar arquivos estáticos e assets
+  // Ignorar arquivos estáticos, assets e requisições internas do Next.js
   if (
     req.nextUrl.pathname.startsWith('/_next') ||
     req.nextUrl.pathname.startsWith('/api') ||
     req.nextUrl.pathname.startsWith('/favicon.ico') ||
     req.nextUrl.pathname.startsWith('/assets') ||
     req.nextUrl.pathname.startsWith('/notification.js') ||
-    req.nextUrl.pathname.includes('.')
+    req.nextUrl.pathname.includes('.') ||
+    req.nextUrl.searchParams.has('_rsc') || // ← ADICIONAR: Excluir requisições RSC
+    req.headers.get('RSC') === '1' // ← ADICIONAR: Excluir headers RSC
   ) {
     return NextResponse.next();
   }
@@ -63,7 +65,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - _rsc (React Server Components)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.).*)',
   ],
-}; 
+};

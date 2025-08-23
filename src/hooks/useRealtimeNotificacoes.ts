@@ -61,7 +61,7 @@ export function useRealtimeNotificacoes(empresaId?: string | null) {
     }
   }
 
-  // Busca notificações não lidas para exibir como fixas
+  // ✅ OTIMIZADO: Busca notificações apenas quando necessário
   async function buscarNotificacoesFixas() {
     if (!empresaId || !isBrowser) return;
     
@@ -72,12 +72,20 @@ export function useRealtimeNotificacoes(empresaId?: string | null) {
         return;
       }
 
+      // ✅ DEBOUNCE: Buscar apenas a cada 5 segundos para evitar spam
+      const now = Date.now();
+      if (lastSeenIdRef.current.lastSeenTime && (now - lastSeenIdRef.current.lastSeenTime) < 5000) {
+        return;
+      }
+      lastSeenIdRef.current.lastSeenTime = now;
+
       const { data, error } = await supabase
         .from('notificacoes')
         .select('*')
         .eq('empresa_id', empresaId)
         .eq('tipo', 'reparo_concluido')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(10); // ✅ LIMIT: Máximo 10 notificações
         
       if (error) {
         console.warn('⚠️ [NOTIF] Erro ao buscar notificações fixas:', error.message);

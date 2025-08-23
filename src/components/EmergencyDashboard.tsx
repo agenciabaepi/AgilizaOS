@@ -14,8 +14,8 @@ export default function EmergencyDashboard() {
           <p className="text-sm text-green-500 mt-2">Versão Ultra Simplificada</p>
         </div>
       </div>
-    );
-  }
+  );
+}
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 p-8">
