@@ -208,9 +208,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
         
+        // No listener onAuthStateChange, linha ~207
         if (event === 'SIGNED_IN' && session) {
           setUser(session.user);
           setSession(session);
+          setHasInitialized(true); // ← ADICIONAR ESTA LINHA
           
           // ✅ VERSÃO OTIMIZADA: Usar dados da sessão primeiro
           const usuarioData = {

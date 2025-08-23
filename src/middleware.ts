@@ -44,13 +44,10 @@ export async function middleware(req: NextRequest) {
 
     const { data: { user }, error } = await supabase.auth.getUser();
     
-    if (error || !user) {
-      // Se não está autenticado, redirecionar para login
-      return NextResponse.redirect(new URL('/login', req.url));
-    }
-
-    // Se está autenticado, permitir acesso
-    return NextResponse.next();
+    // if (error || !user) {
+    //   return NextResponse.redirect(new URL('/login', req.url));
+    // }
+    return NextResponse.next(); // ← Permitir acesso temporariamente
   } catch (error) {
     // Em caso de erro, redirecionar para login
     return NextResponse.redirect(new URL('/login', req.url));

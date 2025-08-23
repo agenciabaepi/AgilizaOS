@@ -13,12 +13,11 @@ export default function ProtectedArea({ area, children }: { area: string, childr
 
   // ✅ PREVENIR MÚLTIPLOS REDIRECIONAMENTOS
   useEffect(() => {
-    if (hasRedirected) return;
-
-    if (!loading && !user && !session) {
-      console.log('🔍 ProtectedArea: Usuário não autenticado, redirecionando para login');
+    // ✅ SIMPLIFICAR: Só redirecionar se realmente necessário
+    if (!loading && !user && !session && !hasRedirected) {
+      console.log('🔍 ProtectedArea: Redirecionando para login');
       setHasRedirected(true);
-      router.push('/login');
+      router.replace('/login'); // ← Usar replace ao invés de push
       return;
     }
 
@@ -41,25 +40,21 @@ export default function ProtectedArea({ area, children }: { area: string, childr
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 mx-auto"></div>
           <p className="mt-4 text-gray-600">Carregando...</p>
-          <p className="text-xs text-gray-500 mt-2">ProtectedArea - Loading: {loading}</p>
         </div>
       </div>
     );
   }
 
-  // ✅ VERSÃO DE TESTE: Sempre permitir acesso para debug
   if (!user || !session) {
-    console.log('🔍 ProtectedArea: Usuário não autenticado, mas permitindo acesso para debug');
-    return <>{children}</>;
+    console.log('🔍 ProtectedArea: Sem usuário ou sessão, aguardando redirecionamento');
+    return null;
   }
 
-  // ✅ VERSÃO DE TESTE: Sempre permitir acesso para debug
   if (!usuarioData) {
-    console.log('🔍 ProtectedArea: Dados do usuário não carregados, mas permitindo acesso para debug');
-    return <>{children}</>;
+    console.log('🔍 ProtectedArea: Sem dados do usuário, aguardando...');
+    return null;
   }
 
-  // ✅ VERSÃO DE TESTE: Sempre permitir acesso para debug
   console.log('🔍 ProtectedArea: Acesso permitido para debug');
   return <>{children}</>;
-} 
+}

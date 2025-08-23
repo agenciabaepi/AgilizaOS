@@ -266,7 +266,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               
               {contatosExpanded && !menuRecolhido && (
                 <div className="ml-6 flex flex-col gap-1 mt-1">
-                  <SidebarButton path="/clientes" icon={<FiUsers size={18} />} label="Clientes" isActive={pathname === '/clientes'} menuRecolhido={menuRecolhido} />
+                  <SidebarButton path="/clientes" icon={<FiUsers size={18} />} label="Clientes Top" isActive={pathname === '/clientes'} menuRecolhido={menuRecolhido} />
                   {podeVer('fornecedores') && (
                     <SidebarButton path="/fornecedores" icon={<FiTruck size={18} />} label="Fornecedores" isActive={pathname === '/fornecedores'} menuRecolhido={menuRecolhido} />
                   )}
@@ -695,7 +695,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
       {isLoggingOut && <LogoutScreen />}
       
       {/* Componente de teste temporário */}
-      {/* <TestFeatureFlags /> */}
+      // <TestFeatureFlags /> ← Comentar esta linha
       {/* <DebugAuth /> */}
     </div>
   );
