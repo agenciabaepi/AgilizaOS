@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     const mercadopago = configureMercadoPago();
     
     // Buscar informações do pagamento
-    const payment = await mercadopago.payment.findById(paymentId);
+    const payment = await mercadopago.Payment.findById(paymentId);
     
     if (!payment) {
       console.error('Pagamento não encontrado:', paymentId);
