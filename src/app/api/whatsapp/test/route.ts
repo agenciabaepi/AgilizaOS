@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
         };
       }
     } catch (error) {
-      basicProperties = { error: error.message };
+      basicProperties = { error: error instanceof Error ? error.message : 'Erro desconhecido' };
     }
 
     return NextResponse.json({
