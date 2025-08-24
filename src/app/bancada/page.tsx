@@ -84,7 +84,7 @@ export default function BancadaPage() {
           setOrdens(ordensData || []);
           // Debug: mostrar status das OSs carregadas
           console.log('OSs carregadas para o técnico:', ordensData?.length || 0);
-          console.log('Status das OSs:', ordensData?.map(os => ({ id: os.id, numero_os: os.numero_os, status: os.status })) || []);
+          console.log('Status das OSs:', ordensData?.map((os: OrdemServico) => ({ id: os.id, numero_os: os.numero_os, status: os.status })) || []);
         }
 
       } catch (error) {
@@ -99,7 +99,7 @@ export default function BancadaPage() {
   
   // Filtros e contadores por aba
   const filteredOrdens = useMemo(() => {
-    return ordens.filter(os => {
+    return ordens.filter((os: OrdemServico) => {
       const matchesSearch = searchTerm === '' || 
         (os.cliente?.nome?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
         (os.numero_os || os.id).toLowerCase().includes(searchTerm.toLowerCase());
@@ -134,17 +134,17 @@ export default function BancadaPage() {
   
   // Contadores para as abas
   const contadores = useMemo(() => {
-    const pendentes = ordens.filter(os => ['ABERTA', 'EM_ANALISE', 'ORCAMENTO', 'ORÇAMENTO', 'PENDENTE'].includes(os.status)).length;
-    const aprovadas = ordens.filter(os => os.status === 'APROVADO').length;
-    const emAndamento = ordens.filter(os => ['EM_EXECUCAO', 'AGUARDANDO_PECA'].includes(os.status)).length;
-    const concluidas = ordens.filter(os => ['CONCLUIDO', 'ENTREGUE'].includes(os.status)).length;
+    const pendentes = ordens.filter((os: OrdemServico) => ['ABERTA', 'EM_ANALISE', 'ORCAMENTO', 'ORÇAMENTO', 'PENDENTE'].includes(os.status)).length;
+    const aprovadas = ordens.filter((os: OrdemServico) => os.status === 'APROVADO').length;
+    const emAndamento = ordens.filter((os: OrdemServico) => ['EM_EXECUCAO', 'AGUARDANDO_PECA'].includes(os.status)).length;
+    const concluidas = ordens.filter((os: OrdemServico) => ['CONCLUIDO', 'ENTREGUE'].includes(os.status)).length;
     
     return { pendentes, aprovadas, emAndamento, concluidas, todas: ordens.length };
   }, [ordens]);
   
   // OS aprovadas não lidas (para notificações)
   const osAprovadas = useMemo(() => {
-    return ordens.filter(os => 
+    return ordens.filter((os: OrdemServico) => 
       os.status === 'APROVADO' && !notificacoesLidas.includes(os.id)
     );
   }, [ordens, notificacoesLidas]);
@@ -159,7 +159,7 @@ export default function BancadaPage() {
 
   const iniciarOrdem = async (id: string) => {
     // Se a OS está aguardando início, mudar para "em análise" automaticamente
-    const ordem = ordens.find(os => os.id === id);
+    const ordem = ordens.find((os: OrdemServico) => os.id === id);
     if (ordem && ordem.status === 'ABERTA') {
       try {
         console.log('Iniciando ordem:', id);
@@ -199,7 +199,7 @@ export default function BancadaPage() {
             console.log('Status atualizado com sucesso');
             // Atualizar a lista local
             setOrdens(prevOrdens => 
-              prevOrdens.map(os => 
+              prevOrdens.map((os: OrdemServico) => 
                 os.id === id 
                   ? { ...os, status: statusEmAnalise.nome, status_tecnico: 'EM ANÁLISE' }
                   : os
@@ -421,7 +421,7 @@ export default function BancadaPage() {
               ].map((status) => {
                 const count = status.value === 'Todos' 
                   ? ordens.length 
-                  : ordens.filter(os => os.status === status.value).length;
+                  : ordens.filter((os: OrdemServico) => os.status === status.value).length;
                 
                 return (
                   <button
