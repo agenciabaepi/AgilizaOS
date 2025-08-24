@@ -48,6 +48,9 @@ export default function DetalheBancadaPage() {
     status_tecnico: string;
     acessorios: string;
     condicoes_equipamento: string;
+    cliente?: {
+      nome: string;
+    };
     [key: string]: unknown;
   }
   const [os, setOs] = useState<OrdemServico | null>(null);
