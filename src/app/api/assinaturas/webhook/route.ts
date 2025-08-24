@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Salvar no banco de dados
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
     
     // Buscar pagamento pelo external_reference
     const { data: pagamento, error: fetchError } = await supabase
