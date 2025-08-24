@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fallback: se ainda estiver pendente e tivermos paymentId, consultar o Mercado Pago diretamente
-    if (data.status !== 'approved' && paymentId) {
+    if (data && data.status !== 'approved' && paymentId) {
       try {
         const { config, Payment } = configureMercadoPago();
         const mpPayment = await new Payment(config).get({ id: paymentId });
@@ -112,6 +112,10 @@ export async function GET(request: NextRequest) {
       } catch (_) {
         // silencioso
       }
+    }
+
+    if (!data) {
+      return NextResponse.json({ error: 'Pagamento não encontrado' }, { status: 404 });
     }
 
     return NextResponse.json({
