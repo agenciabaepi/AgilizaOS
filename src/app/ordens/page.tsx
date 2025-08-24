@@ -906,17 +906,21 @@ export default function ListaOrdensPage() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {paginated.map((os) => (
-                  <tr key={os.id} className={`hover:bg-gray-50 transition-colors ${
-                    os.tipo === 'Retorno' ? 'border-l-4 border-l-red-400 bg-red-50/30' : ''
-                  }`}>
+                  <tr 
+                    key={os.id} 
+                    className={`hover:bg-blue-50 hover:shadow-sm transition-all duration-200 cursor-pointer group ${
+                      os.tipo === 'Retorno' ? 'border-l-4 border-l-red-400 bg-red-50/30' : ''
+                    }`}
+                    onClick={() => router.push(`/ordens/${os.id}`)}
+                  >
                     <td className="px-1 py-2">
                       <div className="flex items-center gap-1">
-                        <span className="font-bold text-gray-900 text-xs">#{os.numero}</span>
+                        <span className="font-bold text-gray-900 text-xs group-hover:text-blue-600 transition-colors">#{os.numero}</span>
                         {os.tipo === 'Retorno' && (
                           <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0"></div>
                         )}
                       </div>
-                      <div className="text-xs text-gray-600 font-medium truncate min-w-0">{os.cliente || 'N/A'}</div>
+                      <div className="text-xs text-gray-600 font-medium truncate min-w-0 group-hover:text-gray-900 transition-colors">{os.cliente || 'N/A'}</div>
                       <div className="text-xs text-gray-500 truncate">{os.clienteTelefone || 'N/A'}</div>
                       <div className="text-xs text-gray-400 truncate">{formatDate(os.entrada) || 'N/A'}</div>
                     </td>
@@ -995,19 +999,13 @@ export default function ListaOrdensPage() {
                       </div>
                     </td>
                     <td className="px-1 py-2">
-                        <div className="flex justify-center gap-2">
-                          <Button
-                            onClick={() => router.push(`/ordens/${os.id}`)}
-                            variant="ghost"
-                            size="icon"
-                            className="h-4 w-4 hover:bg-blue-50 hover:text-blue-600"
-                            title="Visualizar"
-                          >
-                            <FiEye size={8} />
-                          </Button>
+                        <div className="flex justify-center items-center gap-2">
                           {(!os.entrega && (os.statusOS?.toUpperCase() !== 'ENTREGUE')) && (
                             <Button
-                              onClick={() => openEntregaModal(os)}
+                              onClick={(e) => {
+                                e.stopPropagation(); // Evita que o clique na linha seja acionado
+                                openEntregaModal(os);
+                              }}
                               variant="outline"
                               size="sm"
                               className="h-5 px-1 text-xs"
@@ -1016,6 +1014,11 @@ export default function ListaOrdensPage() {
                               Entregar
                             </Button>
                           )}
+                          <div className="text-gray-400 group-hover:text-blue-500 transition-colors">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </div>
                       </div>
                     </td>
                   </tr>
