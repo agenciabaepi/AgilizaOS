@@ -62,6 +62,13 @@ export default function BancadaPage() {
     [key: string]: unknown;
   }
 
+  interface StatusFixo {
+    id: string;
+    nome: string;
+    tipo: string;
+    [key: string]: unknown;
+  }
+
   useEffect(() => {
     const fetchOrdens = async () => {
       if (!user) return;
@@ -178,7 +185,7 @@ export default function BancadaPage() {
         console.log('Status fixos encontrados:', statusFixos);
 
         // Encontrar o status "EM ANÁLISE" nos status fixos
-        const statusEmAnalise = statusFixos?.find(s => s.nome === 'EM ANÁLISE');
+        const statusEmAnalise = statusFixos?.find((s: StatusFixo) => s.nome === 'EM ANÁLISE');
         
         if (statusEmAnalise) {
           console.log('Status EM ANÁLISE encontrado:', statusEmAnalise);
