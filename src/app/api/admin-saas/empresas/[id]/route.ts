@@ -19,11 +19,11 @@ async function isAuthorized(req: NextRequest) {
   return allowed.includes(email.toLowerCase());
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const ok = await isAuthorized(req);
     if (!ok) return NextResponse.json({ ok: false, reason: 'unauthorized' }, { status: 401 });
-    const id = params.id;
+    const { id } = await params;
     const body = await req.json();
     const { status, motivoBloqueio, ativo } = body;
 

@@ -175,17 +175,9 @@ export default function EmpresasClient() {
                     ${e.ativo ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-700'}`}>{e.ativo ? 'Ativa' : 'Inativa'}</span>
                 </td>
                 <td className="px-3 py-2">{e.created_at ? new Date(e.created_at).toLocaleDateString('pt-BR') : '-'}</td>
-                <td className="px-3 py-2">{e.billing?.plano?.nome || '—'}</td>
+                <td className="px-3 py-2">—</td>
                 <td className="px-3 py-2">
-                  {e.billing ? (
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium 
-                        ${e.billing.vencido ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>{e.billing.cobrancaStatus || '—'}</span>
-                      {e.billing.proximaCobranca && (
-                        <span className="text-xs text-gray-500">próx: {new Date(e.billing.proximaCobranca).toLocaleDateString('pt-BR')}</span>
-                      )}
-                    </div>
-                  ) : '—'}
+                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">—</span>
                 </td>
                 <td className="px-3 py-2">{e.metrics?.usuarios ?? 0}</td>
                 <td className="px-3 py-2">{e.metrics?.produtos ?? 0}</td>

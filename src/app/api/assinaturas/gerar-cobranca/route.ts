@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
     
     // Buscar dados da assinatura
     const { data: assinatura, error: fetchError } = await supabase
@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
     const preference = {
       items: [
         {
+          id: `assinatura_${assinaturaId}`,
           title: `Assinatura ${assinatura.planos.nome} - ${assinatura.empresas.nome}`,
           unit_price: parseFloat(assinatura.valor),
           quantity: 1,
@@ -75,7 +76,8 @@ export async function POST(request: NextRequest) {
       expiration_date_to: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 dias
     };
 
-    const response = await mercadopago.preferences.create(preference);
+    const preferenceInstance = new mercadopago.Preference(mercadopago.config);
+    const response = await preferenceInstance.create({ body: preference });
     
     // Salvar pagamento no banco
     const { data: pagamento, error: dbError } = await supabase
@@ -84,7 +86,7 @@ export async function POST(request: NextRequest) {
         empresa_id: assinatura.empresa_id,
         usuario_id: assinatura.empresa_id, // Usar empresa_id como usuário
         valor: assinatura.valor,
-        mercadopago_preference_id: response.body.id,
+        mercadopago_preference_id: response.id,
         mercadopago_external_reference: preference.external_reference,
         status: 'pending',
         status_detail: 'pending_waiting_payment',
@@ -116,9 +118,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      preference_id: response.body.id,
-      init_point: response.body.init_point,
-      sandbox_init_point: response.body.sandbox_init_point,
+      preference_id: response.id,
+      init_point: response.init_point,
+      sandbox_init_point: response.sandbox_init_point,
       pagamento_id: pagamento.id,
       assinatura_id: assinaturaId,
     });

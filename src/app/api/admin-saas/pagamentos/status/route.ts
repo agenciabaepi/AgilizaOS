@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
             }
           }
         }
-        return NextResponse.json({ ok: true, payment_id, status: mp.status, ...mp });
+        return NextResponse.json({ ok: true, payment_id, ...mp });
       } catch (e: any) {
         return NextResponse.json({ ok: false, payment_id, error: e?.message || 'Falha ao consultar MP' }, { status: 500 });
       }
@@ -128,7 +128,7 @@ export async function GET(req: NextRequest) {
         .from('pagamentos')
         .update(updates)
         .eq('id', data.id)
-        .select('id, mercadopago_payment_id, status, paid_at, empresa_id, valor')
+        .select('id, mercadopago_payment_id, status, paid_at, empresa_id, valor, plano_id')
         .single();
 
       // Ativar assinatura quando aprovado
@@ -162,7 +162,7 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      return NextResponse.json({ ok: true, pagamento_id: data.id, payment_id: data.mercadopago_payment_id, status: updated?.status, paid_at: updated?.paid_at, ...mp });
+      return NextResponse.json({ ok: true, pagamento_id: data.id, payment_id: data.mercadopago_payment_id, paid_at: updated?.paid_at, ...mp });
     } catch (e: any) {
       return NextResponse.json({ ok: false, pagamento_id: data.id, error: e?.message || 'Falha ao consultar MP' }, { status: 500 });
     }
