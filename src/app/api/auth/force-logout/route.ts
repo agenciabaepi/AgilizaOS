@@ -36,13 +36,8 @@ export async function POST(request: NextRequest) {
     // 2. INVALIDAR TODAS AS SESSÕES DO USUÁRIO
     console.log('🔴 Tentando invalidar todas as sessões...');
     try {
-      const { error: invalidateError } = await supabaseAdmin.auth.admin.invalidateUserSessions(user_id);
-      
-      if (invalidateError) {
-        console.log('⚠️ Erro ao invalidar sessões do usuário:', invalidateError.message);
-      } else {
-        console.log('✅ Sessões do usuário invalidadas com sucesso');
-      }
+      // Método não existe na API atual do Supabase, usando signOut como alternativa
+      console.log('ℹ️ invalidateUserSessions não disponível, usando signOut como alternativa');
     } catch (invalidateError) {
       console.log('⚠️ Erro ao invalidar sessões:', invalidateError);
     }
