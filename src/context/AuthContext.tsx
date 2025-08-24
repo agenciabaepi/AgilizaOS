@@ -1,14 +1,10 @@
 "use client";
 
-// AuthContext revisado para centralizar a lógica de sessão
-
-// src/context/AuthContext.tsx
+// AuthContext otimizado para produção
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-// import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { supabase, forceLogout } from '@/lib/supabaseClient';
 import { Session, User } from '@supabase/supabase-js';
 import { podeUsarFuncionalidade as podeUsarFuncionalidadeUtil, isUsuarioTeste as isUsuarioTesteUtil } from '@/config/featureFlags';
-// import { ToastProvider, useToast } from '@/components/Toast'; // Remover import de useToast/ToastProvider
 
 interface UsuarioData {
   empresa_id: string;
@@ -18,6 +14,7 @@ interface UsuarioData {
   permissoes?: string[];
   foto_url?: string;
 }
+
 interface EmpresaData {
   id: string;
   nome: string;
@@ -38,7 +35,6 @@ interface AuthContextType {
   setIsLoggingOut: (value: boolean) => void;
   updateUsuarioFoto: (fotoUrl: string) => void;
   clearSession: () => void;
-  // Funções para feature flags
   podeUsarFuncionalidade: (nomeFuncionalidade: string) => boolean;
   isUsuarioTeste: () => boolean;
 }
@@ -52,9 +48,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [empresaData, setEmpresaData] = useState<EmpresaData | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
-
   const [loading, setLoading] = useState(true);
-  // Remover const { addToast } = useToast ? useToast() : { addToast: () => {} };
 
   // Funções para feature flags
   const podeUsarFuncionalidade = (nomeFuncionalidade: string): boolean => {
@@ -76,215 +70,197 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const checkSession = async () => {
-      console.log('🔍 AuthContext: VERSÃO ULTRA SIMPLIFICADA - Iniciando checkSession')
-      
       // ✅ PREVENIR MÚLTIPLAS EXECUÇÕES
       if (hasInitialized) {
-        console.log('🔍 AuthContext: Já inicializado, pulando verificação');
         setLoading(false);
         return;
       }
       
-      // ✅ VERSÃO ULTRA SIMPLIFICADA - SEM CHAMADAS AO BANCO
-      const {
-        data: { session },
-        error
-      } = await supabase.auth.getSession();
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
 
-      if (error) {
-        console.error('Erro ao buscar sessão:', error.message);
-        setLoading(false);
-        setHasInitialized(true);
-        return;
-      }
+        if (error) {
+          console.error('Erro ao buscar sessão:', error.message);
+          setLoading(false);
+          setHasInitialized(true);
+          return;
+        }
 
-      if (!session) {
-        console.log('🔍 AuthContext: Nenhuma sessão encontrada');
-        setLoading(false);
-        setHasInitialized(true);
-        return;
-      }
-
-      console.log('🔍 AuthContext: Sessão encontrada, usando dados mock para evitar travamentos');
-      setUser(session.user);
-      setSession(session);
-
-      // ✅ VERSÃO OTIMIZADA: Usar dados da sessão primeiro, consultar banco apenas se necessário
-      let empresaReal = null;
-      let usuarioReal = null;
-      
-      // Usar dados da sessão como fallback imediato
-      const usuarioData = {
-        empresa_id: '550e8400-e29b-41d4-a716-446655440001',
-        nome: session.user.user_metadata?.nome || session.user.email?.split('@')[0] || 'Usuário',
-        email: session.user.email || 'teste@teste.com',
-        nivel: 'usuarioteste', // ← PROBLEMA: deveria ser 'admin' para usuários admin
-        permissoes: ['usuarioteste'],
-        foto_url: undefined
-      };
-
-      const mockEmpresaData = {
-        id: '550e8400-e29b-41d4-a716-446655440001',
-        nome: 'Empresa Teste',
-        plano: 'trial'
-      };
-
-      // Definir dados imediatamente para evitar delay
-      setUsuarioData(usuarioData);
-      setEmpresaData(mockEmpresaData);
-      localStorage.setItem("user", JSON.stringify({ ...session.user, ...usuarioData }));
-
-      // ✅ CONSULTAS ASSÍNCRONAS EM BACKGROUND (não bloqueiam renderização)
-      (async () => {
-        try {
-          // Buscar empresa real em background
-          const { data: empresas, error: empresaError } = await supabase
-            .from('empresas')
-            .select('*')
-            .limit(1);
+        if (session) {
+          setSession(session);
+          setUser(session.user);
           
-          if (!empresaError && empresas && empresas.length > 0) {
-            empresaReal = empresas[0];
-            console.log('🔍 AuthContext: Empresa real encontrada em background:', empresaReal);
-            
-            // Atualizar empresa se encontrada
-            const empresaAtualizada = {
-              id: empresaReal.id,
-              nome: empresaReal.nome,
-              plano: empresaReal.plano || 'trial'
+          // ✅ BUSCAR DADOS REAIS DO USUÁRIO E EMPRESA
+          try {
+            const { data: usuarioData, error: usuarioError } = await supabase
+              .from('usuarios')
+              .select('empresa_id, nome, email, nivel, permissoes, foto_url')
+              .eq('auth_user_id', session.user.id)
+              .single();
+
+            if (usuarioError) {
+              console.warn('Usuário não encontrado, usando dados mock');
+              // ✅ FALLBACK PARA DADOS MOCK
+              const mockUsuarioData: UsuarioData = {
+                empresa_id: '550e8400-e29b-41d4-a716-446655440001',
+                nome: 'Usuário Teste',
+                email: session.user.email || '',
+                nivel: 'usuarioteste',
+                permissoes: ['dashboard', 'ordens', 'clientes', 'equipamentos', 'financeiro', 'bancada', 'comissoes', 'termos', 'perfil', 'configuracoes']
+              };
+              setUsuarioData(mockUsuarioData);
+              
+              const mockEmpresaData: EmpresaData = {
+                id: '550e8400-e29b-41d4-a716-446655440001',
+                nome: 'Empresa Teste',
+                plano: 'trial'
+              };
+              setEmpresaData(mockEmpresaData);
+            } else if (usuarioData) {
+              setUsuarioData(usuarioData);
+              
+              // ✅ BUSCAR DADOS DA EMPRESA
+              const { data: empresaData, error: empresaError } = await supabase
+                .from('empresas')
+                .select('id, nome, plano')
+                .eq('id', usuarioData.empresa_id)
+                .single();
+
+              if (empresaError) {
+                console.warn('Empresa não encontrada, usando dados mock');
+                const mockEmpresaData: EmpresaData = {
+                  id: usuarioData.empresa_id,
+                  nome: 'Empresa Teste',
+                  plano: 'trial'
+                };
+                setEmpresaData(mockEmpresaData);
+              } else if (empresaData) {
+                setEmpresaData(empresaData);
+              }
+            }
+          } catch (error) {
+            console.warn('Erro ao buscar dados do usuário/empresa, usando mock');
+            // ✅ FALLBACK PARA DADOS MOCK
+            const mockUsuarioData: UsuarioData = {
+              empresa_id: '550e8400-e29b-41d4-a716-446655440001',
+              nome: 'Usuário Teste',
+              email: session.user.email || '',
+              nivel: 'usuarioteste',
+              permissoes: ['dashboard', 'ordens', 'clientes', 'equipamentos', 'financeiro', 'bancada', 'comissoes', 'termos', 'perfil', 'configuracoes']
             };
-            setEmpresaData(empresaAtualizada);
-          }
-        } catch (error) {
-          console.log('🔍 AuthContext: Erro ao buscar empresa em background:', error);
-        }
-
-        try {
-          // Buscar usuário real em background
-          const { data: usuarios, error: usuarioError } = await supabase
-            .from('usuarios')
-            .select('*')
-            .eq('auth_user_id', session.user.id)
-            .single();
-
-          if (!usuarioError && usuarios) {
-            usuarioReal = usuarios;
-            console.log('🔍 AuthContext: Usuário real encontrado em background:', usuarioReal);
+            setUsuarioData(mockUsuarioData);
             
-            // Atualizar usuário se encontrado
-            const usuarioAtualizado = {
-              empresa_id: usuarioReal.empresa_id || usuarioData.empresa_id,
-              nome: usuarioReal.nome || usuarioData.nome,
-              email: usuarioReal.email || usuarioData.email,
-              nivel: usuarioReal.nivel || usuarioData.nivel,
-              permissoes: usuarioReal.permissoes || usuarioData.permissoes,
-              foto_url: usuarioReal.foto_url || usuarioData.foto_url
+            const mockEmpresaData: EmpresaData = {
+              id: '550e8400-e29b-41d4-a716-446655440001',
+              nome: 'Empresa Teste',
+              plano: 'trial'
             };
-            setUsuarioData(usuarioAtualizado);
-            localStorage.setItem("user", JSON.stringify({ ...session.user, ...usuarioAtualizado }));
+            setEmpresaData(mockEmpresaData);
           }
-        } catch (error) {
-          console.log('🔍 AuthContext: Erro ao buscar usuário em background:', error);
         }
-      })();
-
-      // Dados já definidos acima
-
-      console.log('🔍 AuthContext: Dados reais carregados com sucesso')
-      setLoading(false);
-      setHasInitialized(true);
+        
+        setLoading(false);
+        setHasInitialized(true);
+      } catch (error) {
+        console.error('Erro no checkSession:', error);
+        setLoading(false);
+        setHasInitialized(true);
+      }
     };
 
     checkSession();
+  }, [hasInitialized]);
 
-    // ✅ LISTENER SIMPLIFICADO
+  useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: string, session: Session | null) => {
-        console.log('🔍 AuthContext: Mudança de estado de autenticação:', event);
-        
-        // ✅ SÓ EXECUTAR SE NÃO ESTIVER INICIALIZADO
-        if (hasInitialized) {
-          console.log('🔍 AuthContext: Já inicializado, ignorando mudança de estado');
+        // ✅ PREVENIR MÚLTIPLAS EXECUÇÕES
+        if (hasInitialized && event === 'SIGNED_IN') {
           return;
         }
-        
-        // No listener onAuthStateChange, linha ~207
+
         if (event === 'SIGNED_IN' && session) {
-          setUser(session.user);
           setSession(session);
-          setHasInitialized(true); // ← ADICIONAR ESTA LINHA
+          setUser(session.user);
+          setHasInitialized(true);
           
-          // ✅ VERSÃO OTIMIZADA: Usar dados da sessão primeiro
-          const usuarioData = {
-            empresa_id: '550e8400-e29b-41d4-a716-446655440001',
-            nome: session.user.user_metadata?.nome || session.user.email?.split('@')[0] || 'Usuário',
-            email: session.user.email || 'teste@teste.com',
-            nivel: 'admin', // ← CORRIGIDO: era 'usuarioteste', agora é 'admin'
-            permissoes: ['admin'], // ← CORRIGIDO: era ['usuarioteste'], agora é ['admin']
-            foto_url: undefined
-          };
-          
-          const mockEmpresaData = {
-            id: '550e8400-e29b-41d4-a716-446655440001',
-            nome: 'Empresa Teste',
-            plano: 'trial'
-          };
+          // ✅ BUSCAR DADOS REAIS DO USUÁRIO E EMPRESA
+          try {
+            const { data: usuarioData, error: usuarioError } = await supabase
+              .from('usuarios')
+              .select('empresa_id, nome, email, nivel, permissoes, foto_url')
+              .eq('auth_user_id', session.user.id)
+              .single();
 
-          setUsuarioData(usuarioData);
-          setEmpresaData(mockEmpresaData);
-          localStorage.setItem("user", JSON.stringify({ ...session.user, ...usuarioData }));
-
-          // ✅ CONSULTAS EM BACKGROUND (não bloqueiam)
-          (async () => {
-            try {
-              const { data: empresas, error: empresaError } = await supabase
-                .from('empresas')
-                .select('*')
-                .limit(1);
+            if (usuarioError) {
+              console.warn('Usuário não encontrado, usando dados mock');
+              // ✅ FALLBACK PARA DADOS MOCK
+              const mockUsuarioData: UsuarioData = {
+                empresa_id: '550e8400-e29b-41d4-a716-446655440001',
+                nome: 'Usuário Teste',
+                email: session.user.email || '',
+                nivel: 'usuarioteste',
+                permissoes: ['dashboard', 'ordens', 'clientes', 'equipamentos', 'financeiro', 'bancada', 'comissoes', 'termos', 'perfil', 'configuracoes']
+              };
+              setUsuarioData(mockUsuarioData);
               
-              if (!empresaError && empresas && empresas.length > 0) {
-                const empresaAtualizada = {
-                  id: empresas[0].id,
-                  nome: empresas[0].nome,
-                  plano: empresas[0].plano || 'trial'
-                };
-                setEmpresaData(empresaAtualizada);
-              }
-            } catch (error) {
-              console.log('🔍 AuthContext: Erro ao buscar empresa em background:', error);
-            }
-
-            try {
-              const { data: usuarios, error: usuarioError } = await supabase
-                .from('usuarios')
-                .select('*')
-                .eq('auth_user_id', session.user.id)
+              const mockEmpresaData: EmpresaData = {
+                id: '550e8400-e29b-41d4-a716-446655440001',
+                nome: 'Empresa Teste',
+                plano: 'trial'
+              };
+              setEmpresaData(mockEmpresaData);
+            } else if (usuarioData) {
+              setUsuarioData(usuarioData);
+              
+              // ✅ BUSCAR DADOS DA EMPRESA
+              const { data: empresaData, error: empresaError } = await supabase
+                .from('empresas')
+                .select('id, nome, plano')
+                .eq('id', usuarioData.empresa_id)
                 .single();
 
-              if (!usuarioError && usuarios) {
-                const usuarioAtualizado = {
-                  empresa_id: usuarios.empresa_id || usuarioData.empresa_id,
-                  nome: usuarios.nome || usuarioData.nome,
-                  email: usuarios.email || usuarioData.email,
-                  nivel: usuarios.nivel || usuarioData.nivel,
-                  permissoes: usuarios.permissoes || usuarioData.permissoes,
-                  foto_url: usuarios.foto_url || usuarioData.foto_url
+              if (empresaError) {
+                console.warn('Empresa não encontrada, usando dados mock');
+                const mockEmpresaData: EmpresaData = {
+                  id: usuarioData.empresa_id,
+                  nome: 'Empresa Teste',
+                  plano: 'trial'
                 };
-                setUsuarioData(usuarioAtualizado);
-                localStorage.setItem("user", JSON.stringify({ ...session.user, ...usuarioAtualizado }));
+                setEmpresaData(mockEmpresaData);
+              } else if (empresaData) {
+                setEmpresaData(empresaData);
               }
-            } catch (error) {
-              console.log('🔍 AuthContext: Erro ao buscar usuário em background:', error);
             }
-          })();
+          } catch (error) {
+            console.warn('Erro ao buscar dados do usuário/empresa, usando mock');
+            // ✅ FALLBACK PARA DADOS MOCK
+            const mockUsuarioData: UsuarioData = {
+              empresa_id: '550e8400-e29b-41d4-a716-446655440001',
+              nome: 'Usuário Teste',
+              email: session.user.email || '',
+              nivel: 'usuarioteste',
+              permissoes: ['dashboard', 'ordens', 'clientes', 'equipamentos', 'financeiro', 'bancada', 'comissoes', 'termos', 'perfil', 'configuracoes']
+            };
+            setUsuarioData(mockUsuarioData);
+            
+            const mockEmpresaData: EmpresaData = {
+              id: '550e8400-e29b-41d4-a716-446655440001',
+              nome: 'Empresa Teste',
+              plano: 'trial'
+            };
+            setEmpresaData(mockEmpresaData);
+          }
         } else if (event === 'SIGNED_OUT') {
           clearSession();
         }
+        
+        setLoading(false);
       }
     );
 
     return () => subscription.unsubscribe();
-  }, [hasInitialized]); // ✅ ADICIONAR hasInitialized como dependência
+  }, [hasInitialized]);
 
   const signIn = async (email: string, password: string) => {
     try {
