@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { Client } from 'whatsapp-web.js';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,7 +9,7 @@ const supabase = createClient(
 
 // Importar o mapa de clientes ativos (em produção, use Redis)
 declare global {
-  var activeClients: Map<string, any>;
+  var activeClients: Map<string, Client>;
 }
 
 if (!global.activeClients) {
