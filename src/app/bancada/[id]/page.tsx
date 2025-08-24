@@ -111,7 +111,7 @@ export default function DetalheBancadaPage() {
         
         // Carregar imagens existentes
         if (data.imagens) {
-          const urls = data.imagens.split(',').filter(url => url.trim() !== '');
+          const urls = data.imagens.split(',').filter((url: string) => url.trim() !== '');
           setImagensExistentes(urls);
         }
         
