@@ -31,7 +31,7 @@ import { SubscriptionStatus } from '@/components/SubscriptionStatus';
 import LogoutScreen from '@/components/LogoutScreen';
 import { useWhatsAppNotification } from '@/hooks/useWhatsAppNotification';
 import { useLogout } from '@/hooks/useLogout';
-import TestFeatureFlags from './TestFeatureFlags';
+// import TestFeatureFlags from './TestFeatureFlags'; // Removido
 import DebugAuth from './DebugAuth';
 
 // Import direto para debug
@@ -241,7 +241,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} menuRecolhido={menuRecolhidoFinal} />
           )}
           {podeVer('caixa') && (
-            <SidebarButton path="/caixa" icon={<FiDollarSign size={20} />} label="Caixa" isActive={pathname === '/caixa'} menuRecolhido={menuRecolhido} />
+                            <SidebarButton path="/caixa" icon={<FiDollarSign size={20} />} label="Caixa" isActive={pathname === '/caixa'} menuRecolhido={menuRecolhido || false} />
           )}
           {podeVer('clientes') && (
             <>
@@ -266,9 +266,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               
               {contatosExpanded && !menuRecolhido && (
                 <div className="ml-6 flex flex-col gap-1 mt-1">
-                  <SidebarButton path="/clientes" icon={<FiUsers size={18} />} label="Clientes Top" isActive={pathname === '/clientes'} menuRecolhido={menuRecolhido} />
+                  <SidebarButton path="/clientes" icon={<FiUsers size={18} />} label="Clientes Top" isActive={pathname === '/clientes'} menuRecolhido={menuRecolhido || false} />
                   {podeVer('fornecedores') && (
-                    <SidebarButton path="/fornecedores" icon={<FiTruck size={18} />} label="Fornecedores" isActive={pathname === '/fornecedores'} menuRecolhido={menuRecolhido} />
+                    <SidebarButton path="/fornecedores" icon={<FiTruck size={18} />} label="Fornecedores" isActive={pathname === '/fornecedores'} menuRecolhido={menuRecolhido || false} />
                   )}
                 </div>
               )}
@@ -297,7 +297,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               
               {equipamentosExpanded && !menuRecolhido && (
                 <div className="ml-6 flex flex-col gap-1 mt-1">
-                  <SidebarButton path="/equipamentos" icon={<FiBox size={18} />} label="Produtos" isActive={pathname === '/equipamentos'} menuRecolhido={menuRecolhido} />
+                  <SidebarButton path="/equipamentos" icon={<FiBox size={18} />} label="Produtos" isActive={pathname === '/equipamentos'} menuRecolhido={menuRecolhido || false} />
                   <SidebarButton path="/equipamentos/categorias" icon={<FiGrid size={18} />} label="Categorias" isActive={pathname === '/equipamentos/categorias'} menuRecolhido={menuRecolhido} />
                   {catalogoHabilitado && (
                     <SidebarButton path="/catalogo" icon={<FiStar size={18} />} label="Catálogo" isActive={pathname === '/catalogo'} menuRecolhido={menuRecolhido} />
@@ -694,14 +694,27 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
       {/* Tela de Logout */}
       {isLoggingOut && <LogoutScreen />}
       
-      {/* Componente de teste temporário */}
-      // <TestFeatureFlags /> ← Comentar esta linha
+      {/* Componente de teste temporário removido */}
       {/* <DebugAuth /> */}
     </div>
   );
 }
 
-function SidebarButton({ path, icon, label, isActive, onClick, menuRecolhido }) {
+function SidebarButton({ 
+  path, 
+  icon, 
+  label, 
+  isActive, 
+  onClick, 
+  menuRecolhido 
+}: { 
+  path: string; 
+  icon: React.ReactNode; 
+  label: string; 
+  isActive: boolean; 
+  onClick?: () => void; 
+  menuRecolhido: boolean; 
+}) {
   const router = useRouter();
   
   const handleClick = () => {

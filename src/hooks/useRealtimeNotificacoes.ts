@@ -12,7 +12,7 @@ export function useRealtimeNotificacoes(empresaId?: string | null) {
   // Verificar se estamos no browser
   const isBrowser = typeof window !== 'undefined';
   // Mantém o último ID visto para evitar duplicidade e permitir fallback por polling
-  const lastSeenIdRef = useRef<{ empresaId?: string | null; lastId?: string | null }>({ empresaId: null, lastId: null });
+  const lastSeenIdRef = useRef<{ empresaId?: string | null; lastId?: string | null; lastSeenTime?: number }>({ empresaId: null, lastId: null });
   const intervalsRef = useRef<Record<string, any>>({});
   const [notificacoesFixas, setNotificacoesFixas] = useState<any[]>([]);
 

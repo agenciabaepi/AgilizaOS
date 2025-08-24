@@ -123,7 +123,7 @@ export default function ProdutoServicoSearch({
         }).slice(0, 8);
         
         console.log('Usando dados de teste como fallback:', resultadosFiltrados);
-        setResults(resultadosFiltrados);
+        setResults(resultadosFiltrados as ProdutoServico[]);
         setIsOpen(resultadosFiltrados.length > 0);
       } catch (error) {
         console.error('Erro geral ao buscar produtos (usando fallback):', error);

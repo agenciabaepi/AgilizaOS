@@ -1,21 +1,26 @@
 'use client';
 
 import { useAuth } from '@/context/AuthContext';
-import { usePreventInfiniteLoop } from '@/hooks/usePreventInfiniteLoop';
+// import { usePreventInfiniteLoop } from '@/hooks/usePreventInfiniteLoop';
 
 export default function SimpleDashboard() {
   const { user, session, usuarioData, empresaData, loading } = useAuth();
   
   // ✅ USAR HOOK DE PREVENÇÃO DE LOOPS INFINITOS
-  const { renderCount, isLoopDetected, resetCounter } = usePreventInfiniteLoop({
-    maxRenders: 50,
-    maxTime: 5000,
-    onLoopDetected: () => {
-      console.error('🚨 SimpleDashboard: Loop infinito detectado!');
-      // Forçar re-render com dados limpos
-      window.location.reload();
-    }
-  });
+  // const { renderCount, isLoopDetected, resetCounter } = usePreventInfiniteLoop({
+  //   maxRenders: 50,
+  //   maxTime: 5000,
+  //   onLoopDetected: () => {
+  //     console.error('🚨 SimpleDashboard: Loop infinito detectado!');
+  //     // Forçar re-render com dados limpos
+  //     window.location.reload();
+  //   }
+  // });
+  
+  // ✅ VERSÃO SIMPLIFICADA SEM HOOK REMOVIDO
+  const renderCount = 0;
+  const isLoopDetected = false;
+  const resetCounter = () => {};
 
   console.log('🔍 SimpleDashboard: Renderizando #', renderCount, {
     user: !!user,

@@ -199,7 +199,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // ✅ LISTENER SIMPLIFICADO
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (event: string, session: Session | null) => {
         console.log('🔍 AuthContext: Mudança de estado de autenticação:', event);
         
         // ✅ SÓ EXECUTAR SE NÃO ESTIVER INICIALIZADO

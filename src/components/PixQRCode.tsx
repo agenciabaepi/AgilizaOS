@@ -73,7 +73,7 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, 
         headers: {
           'Content-Type': 'application/json',
           ...authHeader,
-        },
+        } as HeadersInit,
         body: JSON.stringify({
           valor: valor,
           descricao: descricao || `Pagamento - R$ ${valor.toFixed(2)}`,
@@ -121,7 +121,7 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, 
           const authHeader = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
           const resMock = await fetch('/api/pagamentos/criar', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...authHeader },
+            headers: { 'Content-Type': 'application/json', ...authHeader } as HeadersInit,
             body: JSON.stringify({ valor, descricao: descricao || `Pagamento - R$ ${valor.toFixed(2)}`, mock: true }),
           });
           const dataMock = await resMock.json();

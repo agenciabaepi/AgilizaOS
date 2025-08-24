@@ -107,7 +107,7 @@ export default function StatusQuickChange({
           const hoje = new Date();
           const dataStr = new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())).toISOString().slice(0,10);
           updateData.data_entrega = dataStr; // sempre grava data da entrega
-          if (possiuGarantia) {
+          if (possuiGarantia) {
             const garantia = new Date(hoje);
             garantia.setDate(garantia.getDate() + 90);
             const garantiaStr = new Date(Date.UTC(garantia.getFullYear(), garantia.getMonth(), garantia.getDate())).toISOString().slice(0,10);

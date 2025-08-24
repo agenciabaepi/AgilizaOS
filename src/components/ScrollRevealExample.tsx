@@ -3,13 +3,7 @@
 import { useScrollReveal } from '@/hooks/useScrollReveal';
 
 export default function ScrollRevealExample() {
-  const { isAnimated } = useScrollReveal({
-    threshold: 0.1,
-    rootMargin: '0px 0px -50px 0px',
-    delay: 0,
-    duration: 800,
-    stagger: 100
-  });
+  const { isAnimated } = useScrollReveal();
 
   return (
     <div className="min-h-screen bg-black p-8">

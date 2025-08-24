@@ -103,7 +103,6 @@ export const SubscriptionStatus = () => {
             : 'bg-orange-50 border-orange-200'
         }`}
         title={`Teste Grátis expira em ${tempoRestante || `${diasRestantes} dias`}. Clique para ver planos.`}
-        onClick={() => router.push('/planos')}
       >
         <FiClock className={`w-4 h-4 ${
           isProximoDoFim ? 'text-red-500' : 'text-orange-500'
