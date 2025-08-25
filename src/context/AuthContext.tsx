@@ -189,6 +189,91 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setHasInitialized(false);
   }, []);
 
+  // ✅ IMPLEMENTAR: Funções de autenticação que estavam faltando
+  const signIn = useCallback(async (email: string, password: string) => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data.session) {
+        setSession(data.session);
+        setUser(data.session.user);
+        await fetchUserData(data.session.user.id, data.session);
+        setHasInitialized(true);
+      }
+    } catch (error) {
+      console.error('Erro no login:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchUserData]);
+
+  const signUp = useCallback(async (email: string, password: string) => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Erro no registro:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const signOut = useCallback(async () => {
+    try {
+      setIsLoggingOut(true);
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        throw error;
+      }
+      
+      clearSession();
+    } catch (error) {
+      console.error('Erro no logout:', error);
+      throw error;
+    } finally {
+      setIsLoggingOut(false);
+    }
+  }, [clearSession]);
+
+  const resetPassword = useCallback(async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      console.error('Erro ao resetar senha:', error);
+      throw error;
+    }
+  }, []);
+
+  const updateUsuarioFoto = useCallback((fotoUrl: string) => {
+    setUsuarioData(prev => prev ? { ...prev, foto_url: fotoUrl } : null);
+  }, []);
+
   // ✅ MEMOIZAR VALUE para evitar re-renders
   const value = useMemo(() => ({
     user,
@@ -206,7 +291,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     clearSession,
     podeUsarFuncionalidade,
     isUsuarioTeste,
-  }), [user, session, usuarioData, empresaData, loading, isLoggingOut, podeUsarFuncionalidade, isUsuarioTeste, clearSession]);
+  }), [user, session, usuarioData, empresaData, loading, isLoggingOut, signIn, signUp, signOut, resetPassword, updateUsuarioFoto, clearSession, podeUsarFuncionalidade, isUsuarioTeste]);
 
   return (
     <AuthContext.Provider value={value}>
