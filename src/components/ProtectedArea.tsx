@@ -8,33 +8,17 @@ export default function ProtectedArea({ area, children }: { area: string, childr
   const router = useRouter();
   const [hasRedirected, setHasRedirected] = useState(false);
 
-  // ✅ OTIMIZADO: Logs reduzidos para melhorar performance
-  console.log('🔍 ProtectedArea: Área:', area, 'Loading:', loading);
-
-  // ✅ PREVENIR MÚLTIPLOS REDIRECIONAMENTOS
+  // ✅ OTIMIZADO: Redirecionamento simplificado
   useEffect(() => {
-    // ✅ SIMPLIFICAR: Só redirecionar se realmente necessário
     if (!loading && !user && !session && !hasRedirected) {
-      console.log('🔍 ProtectedArea: Redirecionando para login');
       setHasRedirected(true);
-      router.replace('/login'); // ← Usar replace ao invés de push
+      router.replace('/login');
       return;
     }
+  }, [loading, user, session, hasRedirected, router]);
 
-    if (!loading && user && session && !usuarioData) {
-      console.log('🔍 ProtectedArea: Usuário autenticado mas sem dados, aguardando...');
-      return;
-    }
-
-    if (!loading && user && session && usuarioData) {
-      console.log('🔍 ProtectedArea: Usuário autenticado com dados, permitindo acesso');
-      return;
-    }
-  }, [loading, user, session, usuarioData, hasRedirected, router]);
-
-  // ✅ VERSÃO DE TESTE: Sempre permitir acesso para debug
+  // ✅ LOADING STATE
   if (loading) {
-    console.log('🔍 ProtectedArea: Loading... aguardando');
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -45,16 +29,15 @@ export default function ProtectedArea({ area, children }: { area: string, childr
     );
   }
 
+  // ✅ VERIFICAÇÃO SIMPLES
   if (!user || !session) {
-    console.log('🔍 ProtectedArea: Sem usuário ou sessão, aguardando redirecionamento');
-    return null;
+    return null; // Aguardando redirecionamento
   }
 
   if (!usuarioData) {
-    console.log('🔍 ProtectedArea: Sem dados do usuário, aguardando...');
-    return null;
+    return null; // Aguardando dados do usuário
   }
 
-  console.log('🔍 ProtectedArea: Acesso permitido para debug');
+  // ✅ ACESSO PERMITIDO
   return <>{children}</>;
 }

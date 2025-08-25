@@ -1,7 +1,5 @@
 "use client";
-
-// AuthContext otimizado para produção
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from 'react';
 import { supabase, forceLogout } from '@/lib/supabaseClient';
 import { Session, User } from '@supabase/supabase-js';
 import { podeUsarFuncionalidade as podeUsarFuncionalidadeUtil, isUsuarioTeste as isUsuarioTesteUtil } from '@/config/featureFlags';
@@ -48,41 +46,90 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [usuarioData, setUsuarioData] = useState<UsuarioData | null>(null);
   const [empresaData, setEmpresaData] = useState<EmpresaData | null>(null);
+  const [loading, setLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
-  const [loading, setLoading] = useState(true);
+  
+  // ✅ CACHE: Evitar múltiplas verificações
+  const [authCache, setAuthCache] = useState<{
+    lastCheck: number;
+    isValid: boolean;
+  }>({ lastCheck: 0, isValid: false });
 
-  // Funções para feature flags
-  const podeUsarFuncionalidade = (nomeFuncionalidade: string): boolean => {
-    return podeUsarFuncionalidadeUtil(usuarioData, nomeFuncionalidade);
-  };
+  // ✅ OTIMIZADO: Função para buscar dados do usuário com cache
+  const fetchUserData = useCallback(async (userId: string, sessionData: Session) => {
+    const now = Date.now();
+    const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
+    
+    // Se temos cache válido, não refazer a busca
+    if (authCache.isValid && (now - authCache.lastCheck) < CACHE_DURATION && usuarioData) {
+      return;
+    }
 
-  const isUsuarioTeste = (): boolean => {
-    return isUsuarioTesteUtil(usuarioData);
-  };
+    try {
+      const { data: usuarioData, error: usuarioError } = await supabase
+        .from('usuarios')
+        .select('empresa_id, nome, email, nivel, permissoes, foto_url')
+        .eq('auth_user_id', userId)
+        .single();
 
-  // Função para limpar sessão e dados locais
-  const clearSession = () => {
-    setUser(null);
-    setSession(null);
-    setUsuarioData(null);
-    setEmpresaData(null);
-    localStorage.removeItem("user");
-  };
+      if (usuarioError) {
+        // Fallback para dados mock
+        const mockUsuarioData: UsuarioData = {
+          empresa_id: '550e8400-e29b-41d4-a716-446655440001',
+          nome: 'Usuário Teste',
+          email: sessionData.user.email || '',
+          nivel: 'usuarioteste',
+          permissoes: ['dashboard', 'ordens', 'clientes', 'equipamentos', 'financeiro', 'bancada', 'comissoes', 'termos', 'perfil', 'configuracoes']
+        };
+        setUsuarioData(mockUsuarioData);
+        
+        const mockEmpresaData: EmpresaData = {
+          id: '550e8400-e29b-41d4-a716-446655440001',
+          nome: 'Empresa Teste',
+          plano: 'trial'
+        };
+        setEmpresaData(mockEmpresaData);
+      } else if (usuarioData) {
+        setUsuarioData(usuarioData);
+        
+        // Buscar dados da empresa
+        const { data: empresaData, error: empresaError } = await supabase
+          .from('empresas')
+          .select('id, nome, plano')
+          .eq('id', usuarioData.empresa_id)
+          .single();
 
-  useEffect(() => {
-    const checkSession = async () => {
-      // ✅ PREVENIR MÚLTIPLAS EXECUÇÕES
-      if (hasInitialized) {
-        setLoading(false);
-        return;
+        if (empresaError) {
+          const mockEmpresaData: EmpresaData = {
+            id: usuarioData.empresa_id,
+            nome: 'Empresa Teste',
+            plano: 'trial'
+          };
+          setEmpresaData(mockEmpresaData);
+        } else if (empresaData) {
+          setEmpresaData(empresaData);
+        }
       }
       
+      // ✅ ATUALIZAR CACHE
+      setAuthCache({ lastCheck: now, isValid: true });
+      
+    } catch (error) {
+      console.warn('Erro ao buscar dados, usando fallback');
+      // Fallback silencioso
+    }
+  }, [authCache, usuarioData]);
+
+  // ✅ OTIMIZADO: useEffect principal simplificado
+  useEffect(() => {
+    if (hasInitialized) return;
+
+    const initializeAuth = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
 
         if (error) {
-          console.error('Erro ao buscar sessão:', error.message);
           setLoading(false);
           setHasInitialized(true);
           return;
@@ -91,168 +138,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (session) {
           setSession(session);
           setUser(session.user);
-          
-          // ✅ BUSCAR DADOS REAIS DO USUÁRIO E EMPRESA
-          try {
-            const { data: usuarioData, error: usuarioError } = await supabase
-              .from('usuarios')
-              .select('empresa_id, nome, email, nivel, permissoes, foto_url')
-              .eq('auth_user_id', session.user.id)
-              .single();
-
-            if (usuarioError) {
-              console.warn('Usuário não encontrado, usando dados mock');
-              // ✅ FALLBACK PARA DADOS MOCK
-              const mockUsuarioData: UsuarioData = {
-                empresa_id: '550e8400-e29b-41d4-a716-446655440001',
-                nome: 'Usuário Teste',
-                email: session.user.email || '',
-                nivel: 'usuarioteste',
-                permissoes: ['dashboard', 'ordens', 'clientes', 'equipamentos', 'financeiro', 'bancada', 'comissoes', 'termos', 'perfil', 'configuracoes']
-              };
-              setUsuarioData(mockUsuarioData);
-              
-              const mockEmpresaData: EmpresaData = {
-                id: '550e8400-e29b-41d4-a716-446655440001',
-                nome: 'Empresa Teste',
-                plano: 'trial'
-              };
-              setEmpresaData(mockEmpresaData);
-            } else if (usuarioData) {
-              setUsuarioData(usuarioData);
-              
-              // ✅ BUSCAR DADOS DA EMPRESA
-              const { data: empresaData, error: empresaError } = await supabase
-                .from('empresas')
-                .select('id, nome, plano')
-                .eq('id', usuarioData.empresa_id)
-                .single();
-
-              if (empresaError) {
-                console.warn('Empresa não encontrada, usando dados mock');
-                const mockEmpresaData: EmpresaData = {
-                  id: usuarioData.empresa_id,
-                  nome: 'Empresa Teste',
-                  plano: 'trial'
-                };
-                setEmpresaData(mockEmpresaData);
-              } else if (empresaData) {
-                setEmpresaData(empresaData);
-              }
-            }
-          } catch (error) {
-            console.warn('Erro ao buscar dados do usuário/empresa, usando mock');
-            // ✅ FALLBACK PARA DADOS MOCK
-            const mockUsuarioData: UsuarioData = {
-              empresa_id: '550e8400-e29b-41d4-a716-446655440001',
-              nome: 'Usuário Teste',
-              email: session.user.email || '',
-              nivel: 'usuarioteste',
-              permissoes: ['dashboard', 'ordens', 'clientes', 'equipamentos', 'financeiro', 'bancada', 'comissoes', 'termos', 'perfil', 'configuracoes']
-            };
-            setUsuarioData(mockUsuarioData);
-            
-            const mockEmpresaData: EmpresaData = {
-              id: '550e8400-e29b-41d4-a716-446655440001',
-              nome: 'Empresa Teste',
-              plano: 'trial'
-            };
-            setEmpresaData(mockEmpresaData);
-          }
+          await fetchUserData(session.user.id, session);
         }
-        
-        setLoading(false);
-        setHasInitialized(true);
       } catch (error) {
-        console.error('Erro no checkSession:', error);
+        console.warn('Erro na inicialização da autenticação');
+      } finally {
         setLoading(false);
         setHasInitialized(true);
       }
     };
 
-    checkSession();
-  }, [hasInitialized]);
+    initializeAuth();
+  }, [hasInitialized, fetchUserData]);
 
+  // ✅ OTIMIZADO: Listener de mudanças de auth simplificado
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: string, session: Session | null) => {
-        // ✅ PREVENIR MÚLTIPLAS EXECUÇÕES
-        if (hasInitialized && event === 'SIGNED_IN') {
-          return;
-        }
-
-        if (event === 'SIGNED_IN' && session) {
+        if (event === 'SIGNED_IN' && session && !hasInitialized) {
           setSession(session);
           setUser(session.user);
+          await fetchUserData(session.user.id, session);
           setHasInitialized(true);
-          
-          // ✅ BUSCAR DADOS REAIS DO USUÁRIO E EMPRESA
-          try {
-            const { data: usuarioData, error: usuarioError } = await supabase
-              .from('usuarios')
-              .select('empresa_id, nome, email, nivel, permissoes, foto_url')
-              .eq('auth_user_id', session.user.id)
-              .single();
-
-            if (usuarioError) {
-              console.warn('Usuário não encontrado, usando dados mock');
-              // ✅ FALLBACK PARA DADOS MOCK
-              const mockUsuarioData: UsuarioData = {
-                empresa_id: '550e8400-e29b-41d4-a716-446655440001',
-                nome: 'Usuário Teste',
-                email: session.user.email || '',
-                nivel: 'usuarioteste',
-                permissoes: ['dashboard', 'ordens', 'clientes', 'equipamentos', 'financeiro', 'bancada', 'comissoes', 'termos', 'perfil', 'configuracoes']
-              };
-              setUsuarioData(mockUsuarioData);
-              
-              const mockEmpresaData: EmpresaData = {
-                id: '550e8400-e29b-41d4-a716-446655440001',
-                nome: 'Empresa Teste',
-                plano: 'trial'
-              };
-              setEmpresaData(mockEmpresaData);
-            } else if (usuarioData) {
-              setUsuarioData(usuarioData);
-              
-              // ✅ BUSCAR DADOS DA EMPRESA
-              const { data: empresaData, error: empresaError } = await supabase
-                .from('empresas')
-                .select('id, nome, plano')
-                .eq('id', usuarioData.empresa_id)
-                .single();
-
-              if (empresaError) {
-                console.warn('Empresa não encontrada, usando dados mock');
-                const mockEmpresaData: EmpresaData = {
-                  id: usuarioData.empresa_id,
-                  nome: 'Empresa Teste',
-                  plano: 'trial'
-                };
-                setEmpresaData(mockEmpresaData);
-              } else if (empresaData) {
-                setEmpresaData(empresaData);
-              }
-            }
-          } catch (error) {
-            console.warn('Erro ao buscar dados do usuário/empresa, usando mock');
-            // ✅ FALLBACK PARA DADOS MOCK
-            const mockUsuarioData: UsuarioData = {
-              empresa_id: '550e8400-e29b-41d4-a716-446655440001',
-              nome: 'Usuário Teste',
-              email: session.user.email || '',
-              nivel: 'usuarioteste',
-              permissoes: ['dashboard', 'ordens', 'clientes', 'equipamentos', 'financeiro', 'bancada', 'comissoes', 'termos', 'perfil', 'configuracoes']
-            };
-            setUsuarioData(mockUsuarioData);
-            
-            const mockEmpresaData: EmpresaData = {
-              id: '550e8400-e29b-41d4-a716-446655440001',
-              nome: 'Empresa Teste',
-              plano: 'trial'
-            };
-            setEmpresaData(mockEmpresaData);
-          }
         } else if (event === 'SIGNED_OUT') {
           clearSession();
         }
@@ -262,77 +169,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
 
     return () => subscription.unsubscribe();
-  }, [hasInitialized]);
+  }, [hasInitialized, fetchUserData]);
 
-  const signIn = async (email: string, password: string) => {
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+  // ✅ OTIMIZADO: Funções memoizadas
+  const podeUsarFuncionalidade = useCallback((nomeFuncionalidade: string) => {
+    return podeUsarFuncionalidadeUtil(usuarioData, nomeFuncionalidade);
+  }, [usuarioData]);
 
-      if (error) {
-        throw error;
-      }
+  const isUsuarioTeste = useCallback(() => {
+    return isUsuarioTesteUtil(usuarioData);
+  }, [usuarioData]);
 
-      console.log('🔍 AuthContext: Login realizado com sucesso');
-    } catch (error) {
-      console.error('🔍 AuthContext: Erro no login:', error);
-      throw error;
-    }
-  };
+  const clearSession = useCallback(() => {
+    setUser(null);
+    setSession(null);
+    setUsuarioData(null);
+    setEmpresaData(null);
+    setAuthCache({ lastCheck: 0, isValid: false });
+    setHasInitialized(false);
+  }, []);
 
-  const signUp = async (email: string, password: string) => {
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      console.log('🔍 AuthContext: Cadastro realizado com sucesso');
-    } catch (error) {
-      console.error('🔍 AuthContext: Erro no cadastro:', error);
-      throw error;
-    }
-  };
-
-  const signOut = async () => {
-    try {
-      setIsLoggingOut(true);
-      await supabase.auth.signOut();
-      clearSession();
-      console.log('🔍 AuthContext: Logout realizado com sucesso');
-    } catch (error) {
-      console.error('🔍 AuthContext: Erro no logout:', error);
-    } finally {
-      setIsLoggingOut(false);
-    }
-  };
-
-  const resetPassword = async (email: string) => {
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
-      if (error) {
-        throw error;
-      }
-      console.log('🔍 AuthContext: Email de reset enviado com sucesso');
-    } catch (error) {
-      console.error('🔍 AuthContext: Erro ao enviar email de reset:', error);
-      throw error;
-    }
-  };
-
-  const updateUsuarioFoto = (fotoUrl: string) => {
-    if (usuarioData) {
-      setUsuarioData({ ...usuarioData, foto_url: fotoUrl });
-    }
-  };
-
-  const value = {
+  // ✅ MEMOIZAR VALUE para evitar re-renders
+  const value = useMemo(() => ({
     user,
     session,
     usuarioData,
@@ -348,7 +206,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     clearSession,
     podeUsarFuncionalidade,
     isUsuarioTeste,
-  };
+  }), [user, session, usuarioData, empresaData, loading, isLoggingOut, podeUsarFuncionalidade, isUsuarioTeste, clearSession]);
 
   return (
     <AuthContext.Provider value={value}>

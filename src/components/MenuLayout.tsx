@@ -51,6 +51,7 @@ const podeUsarFuncionalidadeLocal = (usuario: any, nomeFuncionalidade: string) =
   return false;
 };
 
+// ✅ REMOVER logs desnecessários
 export default function MenuLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { signOut, usuarioData, empresaData } = useAuth();
