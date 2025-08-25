@@ -101,7 +101,7 @@ export default function VisualizarOSModal({ isOpen, onClose, ordem, onIniciar }:
       console.log('Status fixos encontrados no modal:', statusFixos);
 
       // Encontrar o status "EM ANÁLISE" nos status fixos
-      const statusEmAnalise = statusFixos?.find(s => s.nome === 'EM ANÁLISE');
+      const statusEmAnalise = statusFixos?.find((s: any) => s.nome === 'EM ANÁLISE');
       
       if (statusEmAnalise) {
         console.log('Status EM ANÁLISE encontrado no modal:', statusEmAnalise);

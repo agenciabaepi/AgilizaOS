@@ -7,7 +7,7 @@ import { FiCheckCircle, FiMail, FiLock, FiArrowRight } from 'react-icons/fi';
 
 export default function CadastroSucessoPage() {
   const router = useRouter();
-  const [countdown, setCountdown] = useState();
+  const [countdown, setCountdown] = useState<number>(15);
 
   useEffect(() => {
     const timer = setInterval(() => {

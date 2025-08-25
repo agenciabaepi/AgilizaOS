@@ -164,7 +164,7 @@ export function useRealtimeNotificacoes(empresaId?: string | null) {
     if (isBrowser) {
       channel = supabase
         .channel(`notificacoes_realtime_${empresaId}`)
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notificacoes' }, (payload) => {
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notificacoes' }, (payload: any) => {
         const nova = (payload as any)?.new;
         if (!nova) return;
         
@@ -180,7 +180,7 @@ export function useRealtimeNotificacoes(empresaId?: string | null) {
           buscarNotificacoesFixas();
         }
       })
-        .subscribe((status) => {
+        .subscribe((status: any) => {
           if (status === 'SUBSCRIBED') {
             // Busca notificações existentes ao conectar
             buscarNotificacoesFixas();

@@ -69,7 +69,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const [contatosExpanded, setContatosExpanded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [menuRecolhido, setMenuRecolhido] = useState<boolean | null>(null);
+  const [menuRecolhido, setMenuRecolhido] = useState<boolean>(false);
   const [catalogoHabilitado, setCatalogoHabilitado] = useState<boolean>(false);
 
   // ✅ DESABILITADO TEMPORARIAMENTE: Hook muito pesado, causando lentidão
@@ -298,9 +298,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               {equipamentosExpanded && !menuRecolhido && (
                 <div className="ml-6 flex flex-col gap-1 mt-1">
                   <SidebarButton path="/equipamentos" icon={<FiBox size={18} />} label="Produtos" isActive={pathname === '/equipamentos'} menuRecolhido={menuRecolhido || false} />
-                  <SidebarButton path="/equipamentos/categorias" icon={<FiGrid size={18} />} label="Categorias" isActive={pathname === '/equipamentos/categorias'} menuRecolhido={menuRecolhido} />
+                  <SidebarButton path="/equipamentos/categorias" icon={<FiGrid size={18} />} label="Categorias" isActive={pathname === '/equipamentos/categorias'} menuRecolhido={menuRecolhido || false} />
                   {catalogoHabilitado && (
-                    <SidebarButton path="/catalogo" icon={<FiStar size={18} />} label="Catálogo" isActive={pathname === '/catalogo'} menuRecolhido={menuRecolhido} />
+                                          <SidebarButton path="/catalogo" icon={<FiStar size={18} />} label="Catálogo" isActive={pathname === '/catalogo'} menuRecolhido={menuRecolhido || false} />
                   )}
                 </div>
               )}

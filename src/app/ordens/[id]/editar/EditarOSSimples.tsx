@@ -183,7 +183,7 @@ export default function EditarOSSimples() {
       
       // Processar imagens
       if (data.imagens) {
-        const imagensArray = data.imagens.split(',').filter(img => img.trim());
+        const imagensArray = data.imagens.split(',').filter((img: string) => img.trim());
         setImagens(imagensArray);
       }
       
@@ -328,7 +328,6 @@ export default function EditarOSSimples() {
         condicoes_equipamento: condicoesEquipamento,
         // Relatos (campos reais da tabela)
         relato: relato,
-        observacao: observacao,
         laudo: laudo,
         // Datas (comentado - colunas não existem ainda)
         // data_entrada: dataEntrada ? new Date(dataEntrada).toISOString() : null,

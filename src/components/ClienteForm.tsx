@@ -37,7 +37,7 @@ interface Cliente {
   origem: string;
   aniversario: string;
   status?: string;
-  numero_cliente?: number;
+  numero_cliente?: string;
 }
 
 export default function ClienteForm({ cliente, returnToOS }: { cliente?: Cliente; returnToOS?: boolean }) {
@@ -361,7 +361,7 @@ export default function ClienteForm({ cliente, returnToOS }: { cliente?: Cliente
                   numericOnly: true
                 }}
                 value={form.documento}
-                onChange={(e) => setForm({ ...form, documento: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, documento: e.target.value })}
                 placeholder="CPF/CNPJ"
                 className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />

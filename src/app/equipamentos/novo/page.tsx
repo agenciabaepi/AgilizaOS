@@ -185,7 +185,7 @@ export default function NovoProdutoPage() {
         .select('*')
         .eq('id', produtoId)
         .single()
-        .then(({ data, error }) => {
+        .then(({ data, error }: { data: any; error: any }) => {
           if (data && !error) {
             setFormData({
               nome: data.nome || '',

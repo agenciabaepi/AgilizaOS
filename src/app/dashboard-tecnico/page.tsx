@@ -107,20 +107,20 @@ export default function DashboardTecnicoPage() {
 
       // Calcular métricas
       const totalOS = ordensData.length;
-      const finalizadasMes = ordensData.filter(o => 
+      const finalizadasMes = ordensData.filter((o: any) => 
         o.status === 'ENTREGUE' && 
         new Date(o.created_at) >= inicioMes
       ).length;
       
-      const pendentes = ordensData.filter(o => o.status === 'ABERTA').length;
-      const emAnalise = ordensData.filter(o => o.status === 'EM_ANALISE').length;
-      const aguardandoPeca = ordensData.filter(o => o.status === 'AGUARDANDO_PECA').length;
+      const pendentes = ordensData.filter((o: any) => o.status === 'ABERTA').length;
+      const emAnalise = ordensData.filter((o: any) => o.status === 'EM_ANALISE').length;
+      const aguardandoPeca = ordensData.filter((o: any) => o.status === 'AGUARDANDO_PECA').length;
       
-      const osHoje = ordensData.filter(o => 
+      const osHoje = ordensData.filter((o: any) => 
         new Date(o.created_at).toDateString() === hoje.toDateString()
       ).length;
       
-      const osSemana = ordensData.filter(o => 
+      const osSemana = ordensData.filter((o: any) => 
         new Date(o.created_at) >= inicioSemana
       ).length;
 
@@ -143,17 +143,17 @@ export default function DashboardTecnicoPage() {
       
       // Calcular comissão do mês atual
       const comissaoMes = comissoes
-        .filter(c => new Date(c.data_entrega) >= inicioMes)
-        .reduce((total, c) => total + parseFloat(c.valor_comissao || '0'), 0);
+        .filter((c: any) => new Date(c.data_entrega) >= inicioMes)
+        .reduce((total: number, c: any) => total + parseFloat(c.valor_comissao || '0'), 0);
 
       // Comissão do mês anterior
       const fimMesAnterior = new Date(mesAnterior.getFullYear(), mesAnterior.getMonth() + 1, 0);
       const comissaoAnterior = comissoes
-        .filter(c => {
+        .filter((c: any) => {
           const dataComissao = new Date(c.data_entrega);
           return dataComissao >= mesAnterior && dataComissao <= fimMesAnterior;
         })
-        .reduce((total, c) => total + parseFloat(c.valor_comissao || '0'), 0);
+        .reduce((total: number, c: any) => total + parseFloat(c.valor_comissao || '0'), 0);
 
       const crescimentoComissao = comissaoAnterior > 0 
         ? ((comissaoMes - comissaoAnterior) / comissaoAnterior) * 100 
@@ -166,15 +166,15 @@ export default function DashboardTecnicoPage() {
       const taxaConclusao = totalOS > 0 ? Math.round((finalizadasMes / totalOS) * 100) : 0;
 
       // Clientes atendidos (únicos)
-      const clientesUnicos = new Set(ordensData.map(o => o.cliente_id)).size;
+      const clientesUnicos = new Set(ordensData.map((o: any) => o.cliente_id)).size;
 
       // Ticket médio
-      const osFinalizadasMes = ordensData.filter(o => 
+      const osFinalizadasMes = ordensData.filter((o: any) => 
         o.status === 'ENTREGUE' && 
         new Date(o.created_at) >= inicioMes
       );
       const ticketMedio = finalizadasMes > 0 
-        ? osFinalizadasMes.reduce((total, os) => total + parseFloat(os.valor_faturado || '0'), 0) / finalizadasMes
+        ? osFinalizadasMes.reduce((total: number, os: any) => total + parseFloat(os.valor_faturado || '0'), 0) / finalizadasMes
         : 0;
 
       // Ranking do técnico (simulado)

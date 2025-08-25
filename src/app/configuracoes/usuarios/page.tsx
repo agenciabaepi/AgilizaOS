@@ -65,7 +65,7 @@ export default function UsuariosPage() {
 
       if (error) throw error
 
-      const usuariosFiltrados = data.filter((u) => u.auth_user_id !== session?.user?.id)
+      const usuariosFiltrados = data.filter((u: any) => u.auth_user_id !== session?.user?.id)
       setUsuarios(usuariosFiltrados)
     } catch (error) {
       console.error('Erro ao buscar usuários:', error)

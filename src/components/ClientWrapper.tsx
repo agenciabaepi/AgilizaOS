@@ -1,14 +1,14 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useUsuario } from '@/context/AuthContext'
+import { useAuth } from '@/context/AuthContext'
 
 interface Props {
   children: React.ReactNode
 }
 
 export default function ClientWrapper({ children }: Props) {
-  const usuarioData = useUsuario()
+  const { usuarioData } = useAuth()
 
   useEffect(() => {
     // verificações temporariamente removidas

@@ -62,7 +62,7 @@ export default function StickyOrcamentoPopup() {
             // assina updates para fechar quando mudar
             channel = supabase
               .channel(`sticky_os_${os.id}`)
-              .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'ordens_servico', filter: `id=eq.${os.id}` }, (payload) => {
+              .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'ordens_servico', filter: `id=eq.${os.id}` }, (payload: any) => {
                 const novo = (payload as any)?.new;
                 if (!novo || novo.id !== os.id) return;
                 if (!isPendente(novo.status, novo.status_tecnico)) {

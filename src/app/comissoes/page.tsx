@@ -116,7 +116,7 @@ export default function ComissoesPage() {
       
       // Buscar detalhes adicionais das OSs
       if (comissoesArray.length > 0) {
-        const osIds = comissoesArray.map(c => c.ordem_servico_id);
+        const osIds = comissoesArray.map((c: any) => c.ordem_servico_id);
         
         const { data: osData, error: osError } = await supabase
           .from('ordens_servico')
@@ -130,8 +130,8 @@ export default function ComissoesPage() {
 
         if (!osError && osData) {
           // Combinar dados
-          const comissoesDetalhadas = comissoesArray.map(comissao => {
-            const osInfo = osData.find(os => os.id === comissao.ordem_servico_id);
+          const comissoesDetalhadas = comissoesArray.map((comissao: any) => {
+            const osInfo = osData.find((os: any) => os.id === comissao.ordem_servico_id);
             return {
               ...comissao,
               numero_os: osInfo?.numero_os || 'N/A',

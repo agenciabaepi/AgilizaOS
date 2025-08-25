@@ -196,7 +196,7 @@ export default function PerfilPage() {
         return;
       }
 
-      const avatarsBucket = buckets.find(b => b.id === 'avatars');
+      const avatarsBucket = buckets.find((b: any) => b.id === 'avatars');
       
       if (!avatarsBucket) {
         console.error('Bucket avatars não encontrado');
@@ -217,7 +217,7 @@ export default function PerfilPage() {
         return;
       }
 
-      const filePath = `user-${perfil.id}/${Date.now()}-${file.name}`;
+      let filePath = `user-${perfil.id}/${Date.now()}-${file.name}`;
       
       console.log('Fazendo upload para:', filePath);
       

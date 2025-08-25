@@ -188,7 +188,7 @@ export default function CaixaPage() {
   const categoriasUnicas = [
     'Todos',
     ...Array.from(new Set(produtos.map(p => p.categoria).filter(Boolean)))
-  ];
+  ].filter((category): category is string => category !== undefined);
 
   // Filtro de produtos incluindo busca parcial por código de barras
   const filteredProducts = selectedCategory === 'Todos'
@@ -280,7 +280,7 @@ export default function CaixaPage() {
   const [modalImprimir, setModalImprimir] = useState(false);
   interface UltimaVenda {
     numeroVenda: number;
-    cliente: Cliente | null;
+    cliente: Cliente | undefined;
     produtos: (Produto & { qty: number })[];
     total: number;
     desconto: number;
@@ -386,7 +386,7 @@ export default function CaixaPage() {
     addToast('success', 'Venda finalizada com sucesso!');
     setUltimaVenda({
       numeroVenda: numeroVenda,
-      cliente: clienteSelecionado,
+      cliente: clienteSelecionado || undefined,
       produtos: cart,
       total: total - desconto + acrescimo,
       desconto,

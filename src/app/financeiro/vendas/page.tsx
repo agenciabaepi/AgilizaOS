@@ -92,7 +92,7 @@ export default function ListaVendasPage() {
         `)
         .order('data_venda', { ascending: false });
       if (data) {
-        setVendas(data.map((v) => ({
+        setVendas(data.map((v: any) => ({
           ...v,
           cliente_nome: v.cliente?.nome || '---',
         })));

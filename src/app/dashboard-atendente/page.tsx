@@ -406,7 +406,7 @@ export default function DashboardAtendentePage() {
                             <FiFileText className="h-5 w-5 text-blue-600" />
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900">OS #{os.numero_os}</p>
+                            <p className="font-medium text-gray-900">OS #{os.numero_os as string}</p>
                             <p className="text-sm text-gray-600">{os.servico as string || 'N/A'}</p>
                             <p className="text-xs text-gray-500">
                               Cliente: {(os.clientes as Record<string, unknown>)?.nome as string || 'N/A'}
@@ -420,7 +420,7 @@ export default function DashboardAtendentePage() {
                             os.status === 'EM ANÁLISE' ? 'bg-blue-100 text-blue-800' :
                             'bg-gray-100 text-gray-800'
                           }`}>
-                            {os.status}
+                            {os.status as string}
                           </span>
                           <p className="text-sm text-gray-600 mt-1">
                             {os.valor_faturado ? `R$ ${(os.valor_faturado as number).toFixed(2)}` : 'N/A'}

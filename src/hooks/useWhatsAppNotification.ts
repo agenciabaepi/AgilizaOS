@@ -26,13 +26,13 @@ export function useWhatsAppNotification() {
         event: '*',
         schema: 'public',
         table: 'ordens_servico'
-      }, (payload) => {
+      }, (payload: any) => {
         console.log('🔔 WhatsApp: 🚨 MUDANÇA DETECTADA! 🚨');
         console.log('🔔 WhatsApp: Evento:', payload.eventType);
         console.log('🔔 WhatsApp: Tabela:', payload.table);
         console.log('🔔 WhatsApp: Dados:', payload.new);
       })
-      .subscribe((status) => {
+      .subscribe((status: any) => {
         console.log('🔔 WhatsApp: Status do canal de teste:', status);
       });
 
@@ -47,7 +47,7 @@ export function useWhatsAppNotification() {
           table: 'ordens_servico',
           filter: `empresa_id=eq.${empresaData.id}`
         },
-        async (payload) => {
+        async (payload: any) => {
           try {
             console.log('🔔 WhatsApp: 🚨 NOVA OS DETECTADA! 🚨');
             console.log('🔔 WhatsApp: Payload completo:', payload);
@@ -171,7 +171,7 @@ export function useWhatsAppNotification() {
             } catch (fetchError) {
               console.error('❌ WhatsApp: Erro na chamada da API:', fetchError);
               console.error('❌ WhatsApp: Tipo do erro:', typeof fetchError);
-              console.error('❌ WhatsApp: Mensagem do erro:', fetchError.message);
+              console.error('❌ WhatsApp: Mensagem do erro:', (fetchError as any)?.message || 'Erro desconhecido');
             }
 
           } catch (error) {
@@ -179,7 +179,7 @@ export function useWhatsAppNotification() {
           }
         }
       )
-      .subscribe((status) => {
+      .subscribe((status: any) => {
         console.log('🔔 WhatsApp: Status do canal:', status);
       });
 

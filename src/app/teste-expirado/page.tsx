@@ -365,7 +365,7 @@ export default function TesteExpiradoPage() {
               <PixQRCode
                 valor={selectedPlano.valor}
                 descricao={`Plano ${selectedPlano.nome} - Teste Expirado`}
-                onSuccess={handlePaymentSuccess}
+                onSuccess={() => handlePaymentSuccess('')}
                 onError={handlePaymentError}
               />
 

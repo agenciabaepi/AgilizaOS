@@ -71,8 +71,8 @@ export default function LaudoProntoAlert() {
       
       // Filtrar apenas OSs com status "ORÇAMENTO ENVIADO"
       const laudos = data
-        .filter(os => os.status_tecnico === 'ORÇAMENTO ENVIADO')
-        .map(os => ({
+        .filter((os: any) => os.status_tecnico === 'ORÇAMENTO ENVIADO')
+        .map((os: any) => ({
           id: os.id,
           numero_os: os.numero_os,
           cliente: (os.clientes as any)?.nome || 'Cliente não identificado',
@@ -121,10 +121,10 @@ export default function LaudoProntoAlert() {
         event: '*',
         schema: 'public',
         table: 'ordens_servico'
-      }, (payload) => {
+      }, (payload: any) => {
         console.log('Teste de conexão - mudança detectada:', payload);
       })
-      .subscribe((status) => {
+      .subscribe((status: any) => {
         console.log('Status da conexão de teste:', status);
       });
 
@@ -139,13 +139,13 @@ export default function LaudoProntoAlert() {
           table: 'ordens_servico',
           filter: `empresa_id=eq.${empresaData.id}`
         },
-        (payload) => {
+        (payload: any) => {
           console.log('Mudança detectada:', payload);
           // Atualizar dados quando houver mudanças
           fetchLaudosProntos();
         }
       )
-      .subscribe((status) => {
+      .subscribe((status: any) => {
         console.log('Status da subscription:', status);
       });
 

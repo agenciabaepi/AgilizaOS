@@ -168,7 +168,7 @@ function NovaOS2Content() {
         // Verificar se há clienteId na URL para selecionar automaticamente
         const clienteIdFromURL = searchParams.get('clienteId');
         console.log('ClienteId da URL:', clienteIdFromURL);
-        if (clienteIdFromURL && clienteIdFromURL !== 'null' && data.find(c => c.id === clienteIdFromURL)) {
+        if (clienteIdFromURL && clienteIdFromURL !== 'null' && data.find((c: any) => c.id === clienteIdFromURL)) {
           console.log('Selecionando cliente:', clienteIdFromURL);
           setClienteSelecionado(clienteIdFromURL);
         }
@@ -190,11 +190,11 @@ function NovaOS2Content() {
       
       if (!error && data) {
         setUsuarios(data);
-        setTecnicos(data.filter(u => u.nivel === 'tecnico'));
+        setTecnicos(data.filter((u: any) => u.nivel === 'tecnico'));
         
         // Auto-atribuir baseado no usuário logado
         if (usuarioData) {
-          const usuarioLogado = data.find(u => u.auth_user_id === usuarioData.auth_user_id);
+          const usuarioLogado = data.find((u: any) => u.auth_user_id === usuarioData.auth_user_id);
           if (usuarioLogado && usuarioLogado.nivel === 'tecnico') {
             setTecnicoResponsavel(usuarioLogado.tecnico_id || usuarioLogado.auth_user_id);
           }
@@ -278,7 +278,7 @@ function NovaOS2Content() {
       // Selecionar automaticamente o primeiro termo ativo como padrão
       if (data.length > 0) {
         // Se não há termo selecionado OU se o termo selecionado não existe mais na lista
-        if (!termoSelecionado || !data.find(t => t.id === termoSelecionado)) {
+        if (!termoSelecionado || !data.find((t: any) => t.id === termoSelecionado)) {
           setTermoSelecionado(data[0].id);
           console.log('Termo padrão selecionado:', data[0].nome);
         }
@@ -764,7 +764,7 @@ function NovaOS2Content() {
                             .from('clientes')
                             .select('id')
                             .ilike('nome', `%${e.target.value}%`);
-                          const clienteIds = clientesBusca?.map(c => c.id) || [];
+                          const clienteIds = clientesBusca?.map((c: any) => c.id) || [];
 
                           // 2. Buscar OS por modelo
                           const { data: osPorModelo } = await supabase
@@ -828,12 +828,13 @@ function NovaOS2Content() {
                                   tipo: osTyped.categoria,
                                   marca: osTyped.marca,
                                   modelo: osTyped.modelo,
+                                  cor: '',
                                   numero_serie: osTyped.numero_serie,
                                   descricao_problema: ''
                                 });
                               }}
                             >
-                              <span className="font-semibold">OS #{osTyped.numero_os ?? osTyped.id}</span> — {osTyped.clientes?.nome || 'Cliente'} — {osTyped.modelo}
+                              <span className="font-semibold">OS #{osTyped.id}</span> — {osTyped.clientes?.nome || 'Cliente'} — {osTyped.modelo}
                             </li>
                           );
                         })}
@@ -1222,17 +1223,17 @@ function NovaOS2Content() {
                       <ul className="bg-white border rounded shadow max-h-48 overflow-auto mt-1">
                         {osGarantiaResultados.map(os => (
                           <li
-                            key={os.id}
+                            key={os.id as string}
                             className={`px-4 py-2 cursor-pointer hover:bg-lime-100 ${osGarantiaSelecionada?.id === os.id ? 'bg-lime-200' : ''}`}
                             onClick={() => setOsGarantiaSelecionada(os)}
                           >
-                            <span className="font-semibold">OS #{os.numero_os ?? os.id}</span> — {os.cliente?.nome || 'Cliente'} — {os.modelo}
+                            <span className="font-semibold">OS #{os.id as string}</span> — Cliente — {os.modelo as string}
                           </li>
                         ))}
                       </ul>
                     )}
                     {osGarantiaSelecionada && (
-                      <div className="mt-2 text-xs text-green-700">OS original selecionada: <span className="font-bold">#{osGarantiaSelecionada.numero_os ?? osGarantiaSelecionada.id}</span></div>
+                      <div className="mt-2 text-xs text-green-700">OS original selecionada: <span className="font-bold">#{osGarantiaSelecionada.id as string}</span></div>
                     )}
                   </div>
                 )}

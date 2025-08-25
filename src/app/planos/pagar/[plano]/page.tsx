@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import PixQRCode from '@/components/PixQRCode';
 
 type PlanoInfo = {
-  id: 'basico' | 'pro' | 'avancado';
+  id: 'basico' | 'pro' | 'avancado' | 'unico';
   nome: string;
   descricao: string;
   valor: number;

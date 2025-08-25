@@ -13,12 +13,14 @@ interface UsuarioData {
   nivel: string;
   permissoes?: string[];
   foto_url?: string;
+  auth_user_id?: string;
 }
 
 interface EmpresaData {
   id: string;
   nome: string;
   plano: string;
+  logo_url?: string;
 }
 
 interface AuthContextType {

@@ -44,6 +44,8 @@ interface ProdutoServico {
   estoque_minimo?: number | null;
   fornecedor?: string;
   codigo_barras?: string;
+  categoria?: string;
+  marca?: string;
   ativo: boolean;
 }
 
@@ -128,7 +130,7 @@ export default function ProdutosServicosPage() {
         .eq("empresa_id", empresaId);
 
       // Sort by criado_em descending (newest first)
-      const sortedData = (produtosServicosData || []).slice().sort((a, b) => {
+      const sortedData = (produtosServicosData || []).slice().sort((a: any, b: any) => {
         const aTime = new Date((b as any).criado_em).getTime();
         const bTime = new Date((a as any).criado_em).getTime();
         return aTime - bTime;
@@ -402,7 +404,7 @@ export default function ProdutosServicosPage() {
           {
             key: 'estoque_atual',
             header: 'Estoque',
-            render: row => (
+            render: (row: any) => (
               <span>
                 {row.tipo === 'produto' ? (
                   <div className="flex items-center gap-2">
@@ -645,11 +647,10 @@ export default function ProdutosServicosPage() {
                   {/* Removido campo "Cadastrado por" */}
                 </div>
                 <div className="flex justify-end gap-2">
-                  <Button variant="secundario" onClick={() => setMostrarModalFornecedor(false)}>
+                  <Button variant="secondary" onClick={() => setMostrarModalFornecedor(false)}>
                     Cancelar
                   </Button>
                   <Button
-                    icone
                     onClick={async () => {
                       if (!novoFornecedor || !empresaId) {
                         setMensagemAviso('Preencha o nome do fornecedor e verifique o ID da empresa.');

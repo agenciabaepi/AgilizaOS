@@ -52,7 +52,7 @@ export default function ClientesPage() {
 
   const optionsPizza = {
     chart: {
-      type: 'donut',
+      type: 'donut' as const,
       animations: {
         enabled: true,
         easing: 'easeinout',
@@ -85,11 +85,11 @@ export default function ClientesPage() {
     labels: ['Total', 'Este mês', 'Últimos 7 dias'],
     colors: ['#6366F1', '#10B981', '#F59E0B'],
     legend: {
-      position: 'bottom',
+      position: 'bottom' as const,
     },
     dataLabels: {
       enabled: true,
-      formatter: function (val) {
+      formatter: function (val: number) {
         return val.toFixed(1) + "%";
       },
       style: {
@@ -117,7 +117,7 @@ export default function ClientesPage() {
 
   const router = useRouter();
 
-  const { empresaData, usuario } = useAuth();
+  const { empresaData, user } = useAuth();
   const { carregarLimites, limites, podeCriar, assinatura, isTrialExpired } = useSubscription();
 
   // Verificar se está no trial e não pode criar clientes
@@ -148,7 +148,7 @@ export default function ClientesPage() {
 
         if (error) {
           console.error("❌ [CLIENTES] Erro ao buscar clientes:", error.message);
-          addToast('error', 'Erro ao carregar clientes do banco de dados');
+          toast.error('Erro ao carregar clientes do banco de dados');
           setClientes([]);
         } else if (data && data.length > 0) {
           console.log('✅ [CLIENTES] Clientes reais encontrados:', data.length);
@@ -165,7 +165,7 @@ export default function ClientesPage() {
         }
       } catch (error) {
         console.error("❌ [CLIENTES] Erro inesperado ao buscar clientes:", error);
-        addToast('error', 'Erro inesperado ao carregar clientes');
+        toast.error('Erro inesperado ao carregar clientes');
         setClientes([]);
       }
       
@@ -183,15 +183,15 @@ export default function ClientesPage() {
       (statusFiltro ? c.status === statusFiltro : true) &&
       (cidadeFiltro ? c.cidade === cidadeFiltro : true) &&
       (
-        dataFiltro
+        dataFiltro && c.created_at
           ? new Date(c.created_at) >= new Date(Date.now() - Number(dataFiltro) * 24 * 60 * 60 * 1000)
           : true
       ) &&
       (
         c.nome.toLowerCase().includes(busca.toLowerCase()) ||
         c.telefone.includes(busca) ||
-        c.celular.includes(busca) ||
-        c.email.toLowerCase().includes(busca.toLowerCase()) ||
+        (c.celular && c.celular.includes(busca)) ||
+        (c.email && c.email.toLowerCase().includes(busca.toLowerCase())) ||
         c.documento.includes(busca)
       )
     );
@@ -266,7 +266,7 @@ export default function ClientesPage() {
         <h1 className="text-2xl font-semibold text-gray-800">Clientes</h1>
         {!cannotCreateClients && (
           <Link
-            href={`/clientes/novo?atendente=${usuario?.nome || ''}`}
+            href={`/clientes/novo?atendente=${user?.email || ''}`}
             className="flex items-center gap-2 bg-[#cffb6d] text-black shadow-lg px-4 py-2 rounded-md hover:bg-[#e5ffa1] backdrop-blur-md"
           >
             <FiPlus className="w-6 h-6" />
@@ -442,7 +442,7 @@ export default function ClientesPage() {
                   <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.celular}</td>
                   <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.email}</td>
                   <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.documento}</td>
-                  <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.cadastrado_por || '—'}</td>
+                  <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.created_at ? new Date(c.created_at).toLocaleDateString('pt-BR') : '—'}</td>
                   <td className="px-1 py-4 align-middle">
                     <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                       c.status === 'ativo' ? 'bg-green-100 text-green-800' :
@@ -452,7 +452,7 @@ export default function ClientesPage() {
                       {c.status}
                     </span>
                   </td>
-                  <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{new Date(c.created_at).toLocaleDateString()}</td>
+                  <td className="px-1 py-4 font-medium text-gray-700 text-sm align-middle">{c.created_at ? new Date(c.created_at).toLocaleDateString() : '—'}</td>
                   <td className="px-1 py-4 flex justify-end gap-3 align-middle">
                     <Link
                       href={`/clientes/${c.id}`}

@@ -236,7 +236,7 @@ export default function ListaOrdensPage() {
         console.error('Erro ao carregar OS:', error);
       } else if (data) {
         console.log('Dados recebidos do Supabase:', data);
-        data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        data.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         // Buscar nomes dos técnicos se necessário
         const tecnicoIds = [...new Set(data.filter((item: any) => item.tecnico_id).map((item: any) => item.tecnico_id))];
         let tecnicosDict: Record<string, string> = {};
@@ -248,7 +248,7 @@ export default function ListaOrdensPage() {
             .in('id', tecnicoIds);
           
           if (tecnicosData) {
-            tecnicosDict = tecnicosData.reduce((acc, tecnico) => {
+            tecnicosDict = tecnicosData.reduce((acc: Record<string, string>, tecnico: any) => {
               acc[tecnico.id] = tecnico.nome;
               return acc;
             }, {} as Record<string, string>);
@@ -305,20 +305,20 @@ export default function ListaOrdensPage() {
         const mesAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
 
         const totalOS = mapped.length;
-        const totalMes = mapped.filter(o => new Date(o.entrada) >= inicioMes).length;
-        const retornosMes = mapped.filter(o => o.tipo === 'Retorno' && new Date(o.entrada) >= inicioMes).length;
+        const totalMes = mapped.filter((o: any) => new Date(o.entrada) >= inicioMes).length;
+        const retornosMes = mapped.filter((o: any) => o.tipo === 'Retorno' && new Date(o.entrada) >= inicioMes).length;
         const percentualRetornos = totalOS > 0 ? Math.round((retornosMes / totalOS) * 100) : 0;
 
         // Calcular crescimento
-        const ordensSemana = mapped.filter(o => new Date(o.entrada) >= inicioSemana).length;
-        const ordensSemanaAnterior = mapped.filter(o => {
+        const ordensSemana = mapped.filter((o: any) => new Date(o.entrada) >= inicioSemana).length;
+        const ordensSemanaAnterior = mapped.filter((o: any) => {
           const data = new Date(o.entrada);
           const semanaAnterior = new Date(inicioSemana);
           semanaAnterior.setDate(semanaAnterior.getDate() - 7);
           return data >= semanaAnterior && data < inicioSemana;
         }).length;
 
-        const ordensMesAnterior = mapped.filter(o => {
+        const ordensMesAnterior = mapped.filter((o: any) => {
           const data = new Date(o.entrada);
           return data >= mesAnterior && data < inicioMes;
         }).length;
@@ -337,11 +337,11 @@ export default function ListaOrdensPage() {
 
         // Calcular faturamento e ticket médio
         const faturamentoMes = mapped
-          .filter(o => new Date(o.entrada) >= inicioMes)
-          .reduce((sum, o) => sum + o.valorTotal, 0);
+          .filter((o: any) => new Date(o.entrada) >= inicioMes)
+          .reduce((sum: number, o: any) => sum + o.valorTotal, 0);
         
         const ticketMedio = mapped.length > 0 
-          ? mapped.reduce((sum, o) => sum + o.valorTotal, 0) / mapped.length 
+          ? mapped.reduce((sum: number, o: any) => sum + o.valorTotal, 0) / mapped.length 
           : 0;
 
         setFaturamentoMes(faturamentoMes);
@@ -375,7 +375,7 @@ export default function ListaOrdensPage() {
         .eq('nivel', 'tecnico');
 
       if (!error && data) {
-        setTecnicos(data.map(u => u.nome).filter(Boolean));
+        setTecnicos(data.map((u: any) => u.nome).filter(Boolean));
       }
     } catch (error) {
       console.error('Erro ao carregar técnicos:', error);

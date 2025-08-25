@@ -16,10 +16,8 @@ export default function DashboardPage() {
     if (usuarioData?.nivel && usuarioData.nivel !== 'admin') {
       if (usuarioData.nivel === 'atendente') {
         window.location.href = '/dashboard-atendente';
-        return null;
       } else if (usuarioData.nivel === 'tecnico') {
         window.location.href = '/dashboard-tecnico';
-        return null;
       }
     }
   }, [usuarioData?.nivel, router]);

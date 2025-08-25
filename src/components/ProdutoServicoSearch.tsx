@@ -79,7 +79,7 @@ export default function ProdutoServicoSearch({
         if (!error && data && data.length > 0) {
           console.log('Produtos/serviços reais encontrados:', data);
           // Mapear os dados para o formato esperado
-          const resultadosMapeados = data.map(item => ({
+          const resultadosMapeados = data.map((item: any) => ({
             ...item,
             descricao: item.obs || `${item.categoria || ''} ${item.marca || ''}`.trim() || 'Sem descrição'
           }));
