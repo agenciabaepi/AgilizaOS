@@ -174,8 +174,8 @@ export default function EditarOSSimples() {
       setNumeroSerie(data.numero_serie || '');
       setAcessorios(data.acessorios || '');
       setCondicoesEquipamento(data.condicoes_equipamento || '');
-      setRelato(data.relato || '');
-      console.log('🔍 Debug - Campo relato carregado:', data.relato);
+      setRelato(data.problema_relatado || '');
+      console.log('🔍 Debug - Campo problema_relatado carregado:', data.problema_relatado);
       setObservacao(data.observacao || '');
       setLaudo(data.laudo || '');
       // setDataEntrada(data.data_entrada ? data.data_entrada.split('T')[0] : '');
@@ -329,7 +329,7 @@ export default function EditarOSSimples() {
         acessorios: acessorios,
         condicoes_equipamento: condicoesEquipamento,
         // Relatos (campos reais da tabela)
-        relato: relato,
+        problema_relatado: relato,
         laudo: laudo,
         // Datas (comentado - colunas não existem ainda)
         // data_entrada: dataEntrada ? new Date(dataEntrada).toISOString() : null,
@@ -748,10 +748,7 @@ export default function EditarOSSimples() {
                   rows={3}
                   placeholder="O que o cliente relatou sobre o problema..."
                 />
-                {/* Debug: mostrar valor atual */}
-                <div className="text-xs text-gray-500 mt-1">
-                  Valor atual: "{relato || 'VAZIO'}"
-                </div>
+
               </div>
               
               <div>
@@ -763,10 +760,7 @@ export default function EditarOSSimples() {
                   rows={3}
                   placeholder="Observações internas sobre a ordem de serviço (visível apenas para equipe)..."
                 />
-                {/* Debug: mostrar valor atual */}
-                <div className="text-xs text-gray-500 mt-1">
-                  Valor atual: "{observacoesInternas || 'VAZIO'}"
-                </div>
+
               </div>
             </div>
           </div>
