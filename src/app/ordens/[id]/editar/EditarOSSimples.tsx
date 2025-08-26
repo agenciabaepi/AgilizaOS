@@ -99,6 +99,8 @@ export default function EditarOSSimples() {
   
   // Estados de anexos
   const [imagens, setImagens] = useState<string[]>([]);
+  const [novasImagens, setNovasImagens] = useState<File[]>([]);
+  const [uploadingImagens, setUploadingImagens] = useState(false);
   
   // Listas
   const [status, setStatus] = useState<Status[]>([]);
@@ -288,6 +290,19 @@ export default function EditarOSSimples() {
 
     setSaving(true);
     try {
+      // Fazer upload das novas imagens primeiro
+      let novasUrls: string[] = [];
+      if (novasImagens.length > 0) {
+        novasUrls = await uploadImagens();
+        if (novasUrls.length === 0) {
+          setSaving(false);
+          return;
+        }
+      }
+
+      // Combinar imagens existentes com novas
+      const todasImagens = [...imagens, ...novasUrls];
+
       const totais = calcularTotais();
       
       // Determinar status técnico automático
@@ -331,6 +346,8 @@ export default function EditarOSSimples() {
         // Relatos (campos reais da tabela)
         problema_relatado: relato,
         laudo: laudo,
+        // Anexos
+        imagens: todasImagens.join(','),
         // Datas (comentado - colunas não existem ainda)
         // data_entrada: dataEntrada ? new Date(dataEntrada).toISOString() : null,
         // data_saida: dataSaida ? new Date(dataSaida).toISOString() : null,
@@ -379,6 +396,58 @@ export default function EditarOSSimples() {
       style: 'currency',
       currency: 'BRL'
     }).format(value);
+  };
+
+  // Função para fazer upload de imagens
+  const uploadImagens = async () => {
+    if (novasImagens.length === 0) return [];
+    
+    setUploadingImagens(true);
+    const uploadedUrls: string[] = [];
+    
+    try {
+      const formData = new FormData();
+      formData.append('ordemId', id);
+      
+      novasImagens.forEach((file) => {
+        formData.append('files', file);
+      });
+
+      const uploadResponse = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      const uploadResult = await uploadResponse.json();
+
+      if (!uploadResponse.ok) {
+        console.error('Erro no upload das imagens:', uploadResult.error);
+        addToast('error', 'Erro ao fazer upload das imagens: ' + uploadResult.error);
+        return [];
+      }
+
+      uploadedUrls.push(...uploadResult.files.map((file: any) => file.url));
+      addToast('success', `✅ ${uploadedUrls.length} anexo(s) enviado(s) com sucesso!`);
+      
+      // Limpar arquivos selecionados após upload bem-sucedido
+      setNovasImagens([]);
+      
+    } catch (error) {
+      console.error('Erro no upload das imagens:', error);
+      addToast('error', 'Erro inesperado no upload das imagens');
+    } finally {
+      setUploadingImagens(false);
+    }
+    
+    return uploadedUrls;
+  };
+
+  // Função para remover anexo
+  const removerAnexo = (index: number) => {
+    const novasImagensList = [...imagens];
+    novasImagensList.splice(index, 1);
+    setImagens(novasImagensList);
+    addToast('success', 'Anexo removido com sucesso!');
   };
 
   // Função para converter texto em itens estruturados
@@ -870,10 +939,11 @@ export default function EditarOSSimples() {
                     accept="image/*,.pdf"
                     className="hidden"
                     id="file-upload"
+                    disabled={uploadingImagens}
                     onChange={(e) => {
-                      // TODO: Implementar upload de arquivos
                       const files = Array.from(e.target.files || []);
-                      console.log('Arquivos selecionados:', files);
+                      setNovasImagens(prev => [...prev, ...files]);
+                      addToast('success', `${files.length} arquivo(s) selecionado(s)`);
                     }}
                   />
                   <label
@@ -882,7 +952,7 @@ export default function EditarOSSimples() {
                   >
                     <FiFileText className="w-8 h-8 text-gray-400 mb-2" />
                     <span className="text-sm text-gray-600">
-                      Clique para adicionar fotos ou documentos
+                      {uploadingImagens ? 'Fazendo upload...' : 'Clique para adicionar fotos ou documentos'}
                     </span>
                     <span className="text-xs text-gray-400 mt-1">
                       Formatos: JPG, PNG, PDF
@@ -890,6 +960,39 @@ export default function EditarOSSimples() {
                   </label>
                 </div>
               </div>
+
+              {/* Novas imagens selecionadas */}
+              {novasImagens.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">
+                    Novos Anexos Selecionados ({novasImagens.length})
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {novasImagens.map((file, index) => (
+                      <div key={`new-${index}`} className="relative group">
+                        <div className="w-full h-32 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
+                          <div className="text-center">
+                            <FiFileText className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                            <p className="text-xs text-gray-600 truncate px-2">
+                              {file.name}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setNovasImagens(prev => prev.filter((_, i) => i !== index));
+                            addToast('success', 'Arquivo removido da seleção');
+                          }}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
+                          title="Remover arquivo"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Imagens existentes */}
               {imagens.length > 0 && (
