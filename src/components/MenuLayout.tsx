@@ -178,7 +178,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
       return true;
     }
     
-    const resultado = usuarioData?.nivel === 'admin' || usuarioData?.permissoes?.includes(area);
+    const resultado = usuarioData?.nivel === 'admin' || (usuarioData?.permissoes && usuarioData.permissoes.includes(area));
     console.log(`🔍 podeVer(${area}) - resultado: ${resultado}`);
     return resultado;
   };
@@ -353,7 +353,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             <SidebarButton path="#" icon={<FiFileText size={20} />} label="Termos" isActive={pathname === '/termos'} menuRecolhido={menuRecolhido} />
           )}
           <SidebarButton path="/perfil" icon={<FiUsers size={20} />} label="Meu Perfil" isActive={pathname === '/perfil'} menuRecolhido={menuRecolhido} />
-          {podeVer('configuracoes') && ['admin', 'usuarioteste'].includes(usuarioData?.nivel) && (
+          {podeVer('configuracoes') && usuarioData?.nivel && ['admin', 'usuarioteste'].includes(usuarioData.nivel) && (
             <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" isActive={pathname === '/configuracoes'} menuRecolhido={menuRecolhido} />
           )}
           <SidebarButton path="#logout" icon={<FiLogOut size={20} />} label="Sair" isActive={false} menuRecolhido={menuRecolhido} onClick={logout} />
