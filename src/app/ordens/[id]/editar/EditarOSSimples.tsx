@@ -164,6 +164,7 @@ export default function EditarOSSimples() {
       }
 
       setOrdem(data);
+      console.log('🔍 Debug - Todos os dados recebidos:', data);
       
       // Preencher todos os campos (usando campos reais da tabela)
       setObservacoesInternas(data.observacao || ''); // Campo observacao (singular) da tabela
@@ -174,6 +175,7 @@ export default function EditarOSSimples() {
       setAcessorios(data.acessorios || '');
       setCondicoesEquipamento(data.condicoes_equipamento || '');
       setRelato(data.relato || '');
+      console.log('🔍 Debug - Campo relato carregado:', data.relato);
       setObservacao(data.observacao || '');
       setLaudo(data.laudo || '');
       // setDataEntrada(data.data_entrada ? data.data_entrada.split('T')[0] : '');
@@ -737,7 +739,7 @@ export default function EditarOSSimples() {
             
             {/* Campos de Relato e Observações */}
             <div className="mt-6 space-y-4">
-              <div>
+                            <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Relato do Cliente</label>
                 <textarea
                   value={relato}
@@ -746,17 +748,25 @@ export default function EditarOSSimples() {
                   rows={3}
                   placeholder="O que o cliente relatou sobre o problema..."
                 />
+                {/* Debug: mostrar valor atual */}
+                <div className="text-xs text-gray-500 mt-1">
+                  Valor atual: "{relato || 'VAZIO'}"
+                </div>
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Observações do Técnico</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Observações Internas do Atendente</label>
                 <textarea
-                  value={observacao}
-                  onChange={(e) => setObservacao(e.target.value.toUpperCase())}
+                  value={observacoesInternas}
+                  onChange={(e) => setObservacoesInternas(e.target.value.toUpperCase())}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase"
                   rows={3}
-                  placeholder="Observações técnicas sobre o equipamento..."
+                  placeholder="Observações internas sobre a ordem de serviço (visível apenas para equipe)..."
                 />
+                {/* Debug: mostrar valor atual */}
+                <div className="text-xs text-gray-500 mt-1">
+                  Valor atual: "{observacoesInternas || 'VAZIO'}"
+                </div>
               </div>
             </div>
           </div>
@@ -917,17 +927,7 @@ export default function EditarOSSimples() {
             </div>
           </div>
 
-          {/* Observações Internas do Atendente */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Observações Internas do Atendente</h3>
-            <textarea
-              value={observacoesInternas}
-              onChange={(e) => setObservacoesInternas(e.target.value.toUpperCase())}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase"
-              rows={4}
-              placeholder="Observações internas sobre a ordem de serviço (visível apenas para equipe)..."
-            />
-          </div>
+
         </div>
       </MenuLayout>
     </ProtectedArea>
