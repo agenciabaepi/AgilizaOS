@@ -154,7 +154,7 @@ function LoginClientInner() {
       console.log('Debug login - Executando redirecionamento direto...');
       if (perfil.nivel === 'tecnico') {
         router.push('/dashboard-tecnico');
-      } else if (perfil.nivel === 'admin' || perfil.nivel === 'atendente') {
+      } else if (perfil.nivel === 'admin' || perfil.nivel === 'atendente' || perfil.nivel === 'usuarioteste') {
         router.push('/dashboard');
       } else {
         router.push('/');

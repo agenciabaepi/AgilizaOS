@@ -19,6 +19,7 @@ interface OrdemTransformada {
   tecnico: string;
   atendente: string;
   entrega: string;
+  prazoEntrega: string;
   garantia: string;
   valorPeca: number;
   valorServico: number;
@@ -219,6 +220,7 @@ export default function ListaOrdensPage() {
           tecnico_id,
           atendente,
           data_entrega,
+          prazo_entrega,
           valor_peca,
           valor_servico,
           desconto,
@@ -283,6 +285,7 @@ export default function ListaOrdensPage() {
             tecnico: item.tecnico?.nome || tecnicosDict[item.tecnico_id] || item.tecnico_id || '',
             atendente: item.atendente || '',
             entrega: entregaCalc,
+            prazoEntrega: item.prazo_entrega || '',
             garantia: garantiaCalc,
           valorPeca: item.valor_peca || 0,
           valorServico: item.valor_servico || 0,
@@ -875,7 +878,7 @@ export default function ListaOrdensPage() {
                   <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     <div className="flex items-center gap-1">
                         <FiClock className="w-3 h-3" />
-                      <span className="hidden sm:inline">Entrega</span>
+                      <span className="hidden sm:inline">Prazo</span>
                     </div>
                   </th>
                   <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -952,8 +955,19 @@ export default function ListaOrdensPage() {
                       </div>
                     </td>
                     <td className="px-1 py-2">
-                      <div className="text-xs text-gray-600 whitespace-nowrap min-w-0">
-                        {formatDate(os.entrega) || 'N/A'}
+                      <div className="text-xs text-gray-600 min-w-0">
+                        <div className="mb-1">
+                          <span className="font-medium text-gray-700">
+                            {formatDate(os.prazoEntrega) || 'Não definido'}
+                          </span>
+                        </div>
+                        <div className={`text-xs ${
+                          os.entrega && os.entrega !== 'Aguardando retirada' 
+                            ? 'text-green-600' 
+                            : 'text-gray-500'
+                        }`}>
+                          {formatDate(os.entrega) || 'Aguardando'}
+                        </div>
                       </div>
                     </td>
                     <td className="px-1 py-2">
@@ -962,7 +976,7 @@ export default function ListaOrdensPage() {
                           ? 'text-red-600'
                           : 'text-green-600'
                       }`}>
-                        <div className="whitespace-nowrap">{formatDate(os.garantia) || 'N/A'}</div>
+                        <div className="whitespace-nowrap">{formatDate(os.garantia) || 'Aguardando'}</div>
                         {os.garantia && (
                           <div className="text-xs text-gray-500 truncate">
                             {new Date(os.garantia).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)

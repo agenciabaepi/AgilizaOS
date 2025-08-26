@@ -251,9 +251,14 @@ function OrdemPDF({ ordem }: { ordem: any }) {
           <View style={styles.osBlock}>
             <Text style={styles.osText}>Número da OS: {ordem.numero_os || ordem.id}</Text>
             <Text style={styles.osText}>Entrada: {formatDate(ordem.created_at)}</Text>
-            <Text style={styles.osText}>Entrega: {formatDate(ordem.data_entrega)}</Text>
+            <Text style={styles.osText}>Prazo de Entrega: {formatDate(ordem.prazo_entrega)}</Text>
+            {ordem.status !== 'ORÇAMENTO' && (
+              <>
+                <Text style={styles.osText}>Data de Entrega: {formatDate(ordem.data_entrega)}</Text>
+                <Text style={styles.osText}>Venc. Garantia: {formatDate(ordem.vencimento_garantia)}</Text>
+              </>
+            )}
             <Text style={styles.osText}>Status: {ordem.status}</Text>
-            <Text style={styles.osText}>Venc. Garantia: {formatDate(ordem.vencimento_garantia)}</Text>
           </View>
         </View>
         <View style={styles.divider} />

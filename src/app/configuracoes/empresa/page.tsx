@@ -2,7 +2,25 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import ProtectedRoute from '@/components/ProtectedRoute';
+import ProtectedArea from '@/components/ProtectedArea';
+import { Button } from '@/components/Button';
+import { Input } from '@/components/Input';
+import { useToast } from '@/components/Toast';
+import { useConfirm } from '@/components/ConfirmDialog';
+import { 
+  BuildingOfficeIcon as FiBuilding,
+  PhotoIcon as FiImage,
+  ArrowUpTrayIcon as FiUpload,
+  XMarkIcon as FiX,
+  TrashIcon as FiTrash2,
+  DocumentTextIcon as FiFileText,
+  PencilIcon as FiEdit2,
+  CheckIcon as FiSave,
+  MapPinIcon as FiMapPin,
+  PhoneIcon as FiPhone,
+  EnvelopeIcon as FiMail,
+  GlobeAltIcon as FiGlobe
+} from '@heroicons/react/24/outline';
 
 interface SupabaseError { message: string }
 interface SupabaseUser { id: string }
@@ -19,163 +37,355 @@ interface Empresa {
 }
 
 export default function ConfigEmpresa() {
-  const [form, setForm] = useState({
-    nome: '', cnpj: '', endereco: '', logoUrl: '', telefone: '', email: '', website: ''
-  });
-  const [empresaId, setEmpresaId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const [empresa, setEmpresa] = useState<Empresa | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [editMode, setEditMode] = useState(false);
+  const [formData, setFormData] = useState<Partial<Empresa>>({});
+  const [uploading, setUploading] = useState(false);
+  const { addToast } = useToast();
+  const confirm = useConfirm();
 
   useEffect(() => {
-    const fetchEmpresa = async () => {
-      setLoading(true);
-      try {
-        const { data: { user }, error: userError } = await supabase.auth.getUser() as { data: { user: SupabaseUser }, error: SupabaseError | null };
-        if (userError) throw new Error('Erro ao obter usuário: ' + userError.message);
-        if (!user) { setLoading(false); return; }
-        const { data, error } = await supabase
-          .from('empresas')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle();
-        if (error) {
-          setError(error.message || JSON.stringify(error) || 'Erro ao buscar dados');
-        } else if (data) {
-          setForm({
-            nome: data.nome || '',
-            cnpj: data.cnpj || '',
-            endereco: data.endereco || '',
-            logoUrl: data.logo_url || '',
-            telefone: data.telefone || '',
-            email: data.email || '',
-            website: data.website || ''
-          });
-          setEmpresaId(data.id);
-        }
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Erro ao buscar dados');
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchEmpresa();
   }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
+  const fetchEmpresa = async () => {
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser() as { data: { user: SupabaseUser }, error: SupabaseError | null };
-      if (userError) throw new Error('Erro ao obter usuário: ' + userError.message);
-      if (!user) throw new Error('Usuário não autenticado');
-      if (empresaId) {
-        const { data: empresa, error: empresaError } = await supabase
-          .from('empresas')
-          .select('user_id')
-          .eq('id', empresaId)
-          .maybeSingle();
-        if (empresaError) throw new Error('Erro ao verificar propriedade da empresa: ' + empresaError.message);
-        if (empresa && empresa.user_id !== user.id) throw new Error('Você não tem permissão para editar esta empresa.');
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        addToast('error', 'Usuário não autenticado');
+        return;
       }
-      const empresaData: Partial<Empresa> = { 
-        user_id: user.id,
-        nome: form.nome, cnpj: form.cnpj, endereco: form.endereco, logo_url: form.logoUrl,
-        telefone: form.telefone, email: form.email, website: form.website
-      };
-      if (empresaId) empresaData.id = empresaId;
-      const { error } = await supabase.from('empresas').upsert([empresaData]);
-      if (error) { setError(error.message || JSON.stringify(error) || 'Erro desconhecido'); }
-      else { alert('Configurações salvas com sucesso!'); setIsEditing(false); }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Erro desconhecido');
+
+      const { data, error } = await supabase
+        .from('empresas')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Erro ao buscar empresa:', error);
+        addToast('error', 'Erro ao carregar dados da empresa');
+        return;
+      }
+
+      if (data) {
+        setEmpresa(data);
+        setFormData(data);
+      }
+    } catch (error) {
+      console.error('Erro:', error);
+      addToast('error', 'Erro inesperado');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-    await handleDeleteLogo();
-    const file = e.target.files[0];
-    const filePath = `logos/${Date.now()}_${file.name}`;
-    const { error: uploadError } = await supabase.storage.from('logos').upload(filePath, file);
-    if (uploadError) { setError(uploadError.message); return; }
-    const { data } = supabase.storage.from('logos').getPublicUrl(filePath);
-    setForm({ ...form, logoUrl: data.publicUrl });
+  const handleSave = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        addToast('error', 'Usuário não autenticado');
+        return;
+      }
+
+      if (empresa) {
+        const { error } = await supabase
+          .from('empresas')
+          .update(formData)
+          .eq('id', empresa.id);
+
+        if (error) {
+          console.error('Erro ao atualizar empresa:', error);
+          addToast('error', 'Erro ao salvar dados');
+          return;
+        }
+      } else {
+        const { error } = await supabase
+          .from('empresas')
+          .insert({ ...formData, user_id: user.id });
+
+        if (error) {
+          console.error('Erro ao criar empresa:', error);
+          addToast('error', 'Erro ao salvar dados');
+          return;
+        }
+      }
+
+      addToast('success', 'Dados salvos com sucesso!');
+      setEditMode(false);
+      fetchEmpresa();
+    } catch (error) {
+      console.error('Erro inesperado:', error);
+      addToast('error', 'Erro inesperado');
+    }
   };
 
-  const handleDeleteLogo = async () => {
-    if (!form.logoUrl) return;
-    const parts = form.logoUrl.split('/');
-    const fileName = parts.slice(parts.indexOf('logos')).join('/');
-    const { error: deleteError } = await supabase.storage.from('logos').remove([fileName]);
-    if (deleteError) setError(deleteError.message); else setForm({ ...form, logoUrl: '' });
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        addToast('error', 'Usuário não autenticado');
+        return;
+      }
+
+      setUploading(true);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const filePath = `logos/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        console.error('Erro no upload:', uploadError);
+        addToast('error', 'Erro ao fazer upload da imagem');
+        return;
+      }
+
+      const { data } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      const logoUrl = data.publicUrl;
+      setFormData(prev => ({ ...prev, logo_url: logoUrl }));
+      addToast('success', 'Logo enviado com sucesso!');
+    } catch (error) {
+      console.error('Erro inesperado:', error);
+      addToast('error', 'Erro inesperado');
+    } finally {
+      setUploading(false);
+    }
   };
+
+  const handleRemoveLogo = async () => {
+    try {
+      setFormData(prev => ({ ...prev, logo_url: '' }));
+      addToast('success', 'Logo removido com sucesso!');
+    } catch (error) {
+      console.error('Erro inesperado:', error);
+      addToast('error', 'Erro inesperado');
+    }
+  };
+
+  if (loading) {
+    return (
+      <ProtectedArea area="configuracoes">
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      </ProtectedArea>
+    );
+  }
 
   return (
-    <ProtectedRoute allowedLevels={['admin', 'tecnico', 'financeiro']}>
-      <div className="w-full px-6 pt-1 pb-6">
-        <h1 className="text-2xl font-semibold mb-6 text-black text-center">Configurações da Empresa</h1>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl shadow p-5 space-y-2">
-            <h2 className="text-base font-semibold text-gray-800">Dados Atuais</h2>
-            <ul className="text-sm text-gray-700 space-y-1">
-              <li><strong>Nome:</strong> {form.nome || '-'}</li>
-              <li><strong>CNPJ:</strong> {form.cnpj || '-'}</li>
-              <li><strong>Endereço:</strong> {form.endereco || '-'}</li>
-              <li><strong>Telefone:</strong> {form.telefone || '-'}</li>
-              <li><strong>Email:</strong> {form.email || '-'}</li>
-              <li><strong>Website:</strong> {form.website || '-'}</li>
-              <li><strong>Logo:</strong> {form.logoUrl ? <a href={form.logoUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Ver Logo</a> : '-'}</li>
-            </ul>
-            {form.logoUrl && (
-              <div className="mt-3">
-                <img src={form.logoUrl} alt="Logo" className="h-20 rounded shadow" />
-                {isEditing && (
-                  <button type="button" onClick={handleDeleteLogo} className="text-red-500 text-xs mt-1 hover:underline">Remover Logo</button>
-                )}
-              </div>
-            )}
+    <ProtectedArea area="configuracoes">
+      <div className="p-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <FiBuilding className="text-blue-600 h-7 w-7" />
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Configurações da Empresa</h1>
+            <p className="text-gray-600">Gerencie as informações da sua empresa</p>
+          </div>
+        </div>
+
+        {/* Logo Section */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <FiImage className="text-blue-600 h-5 w-5" />
+              <h2 className="text-lg font-semibold text-gray-900">Logo da Empresa</h2>
+            </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow p-5">
-            <div className="flex justify-between items-center mb-3">
-              <h2 className="text-base font-semibold text-gray-800">Editar Dados</h2>
-              <button onClick={() => setIsEditing(!isEditing)} className="px-3 py-1.5 bg-black text-white text-xs rounded hover:bg-gray-800">{isEditing ? 'Cancelar' : 'Editar'}</button>
+          <div className="flex items-center gap-6">
+            {formData.logo_url ? (
+              <div className="relative">
+                <img 
+                  src={formData.logo_url} 
+                  alt="Logo da empresa" 
+                  className="w-24 h-24 object-contain border border-gray-200 rounded-lg"
+                />
+                <button
+                  onClick={handleRemoveLogo}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
+                >
+                  <FiX className="h-3 w-3" />
+                </button>
+              </div>
+            ) : (
+              <div className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center">
+                <FiImage className="text-gray-400 h-6 w-6" />
+              </div>
+            )}
+
+            <div className="flex-1">
+              <label className="block">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleUpload}
+                  className="hidden"
+                  disabled={uploading}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={uploading}
+                  className="cursor-pointer"
+                  onClick={(e) => {
+                    const input = e.currentTarget.parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
+                    input?.click();
+                  }}
+                >
+                  <FiUpload className="h-4 w-4 mr-2" />
+                  {uploading ? 'Enviando...' : 'Enviar Logo'}
+                </Button>
+              </label>
+              <p className="text-sm text-gray-500 mt-1">
+                Formatos aceitos: JPG, PNG, GIF. Tamanho máximo: 2MB
+              </p>
             </div>
-            {error && <p className="text-red-500 mb-2 text-sm">Erro: {error}</p>}
-            {loading && <p className="text-gray-500 mb-2 text-sm">Salvando...</p>}
-            <form onSubmit={handleSubmit} className="space-y-3">
-              {Object.entries({
-                nome: 'Nome da Empresa', cnpj: 'CNPJ', endereco: 'Endereço', logoUrl: 'URL da Logo', telefone: 'Telefone', email: 'Email', website: 'Website'
-              }).map(([field, label]) => (
-                <div key={field} className="flex flex-col">
-                  <label htmlFor={field} className="text-xs font-medium text-gray-700 mb-1">{label}</label>
-                  <input id={field} name={field} value={(form as Record<string, string>)[field]} onChange={handleChange} disabled={!isEditing} className={`p-2 rounded border text-sm ${isEditing ? 'border-gray-300 focus:border-blue-400 focus:ring focus:ring-blue-200' : 'bg-gray-100 cursor-not-allowed'}`} />
-                </div>
-              ))}
-              <div className="flex flex-col">
-                <label className="text-xs font-medium text-gray-700 mb-1">Upload da Logo</label>
-                <div className={`relative border-2 border-dashed rounded-lg p-3 text-center ${!isEditing ? 'bg-gray-100 opacity-60 cursor-not-allowed' : 'hover:border-blue-500'}`}>
-                  <input type="file" accept="image/*" onChange={handleLogoUpload} disabled={!isEditing} className="absolute inset-0 opacity-0 cursor-pointer" />
-                  <span className="text-gray-500 text-xs">{form.logoUrl ? 'Clique para trocar a logo' : 'Clique para enviar uma imagem'}</span>
-                </div>
-              </div>
-              <div className="pt-3 border-t flex justify-end">
-                <button type="submit" className="px-4 py-2 rounded text-black bg-[#cffb6d] hover:bg-[#b9e84e]" disabled={!isEditing}>Salvar</button>
-              </div>
-            </form>
+          </div>
+        </div>
+
+        {/* Company Info Section */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2">
+              <FiFileText className="text-blue-600 h-5 w-5" />
+              <h2 className="text-lg font-semibold text-gray-900">Informações da Empresa</h2>
+            </div>
+            <Button
+              onClick={() => editMode ? handleSave() : setEditMode(true)}
+              variant={editMode ? "default" : "outline"}
+            >
+              {editMode ? (
+                <>
+                  <FiSave className="h-4 w-4 mr-2" />
+                  Salvar
+                </>
+              ) : (
+                <>
+                  <FiEdit2 className="h-4 w-4 mr-2" />
+                  Editar
+                </>
+              )}
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Nome */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Nome da Empresa
+              </label>
+              {editMode ? (
+                <Input
+                  value={formData.nome || ''}
+                  onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                  placeholder="Nome da empresa"
+                />
+              ) : (
+                <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{empresa?.nome || 'Não informado'}</p>
+              )}
+            </div>
+
+            {/* CNPJ */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                CNPJ
+              </label>
+              {editMode ? (
+                <Input
+                  value={formData.cnpj || ''}
+                  onChange={(e) => setFormData({ ...formData, cnpj: e.target.value })}
+                  placeholder="00.000.000/0000-00"
+                />
+              ) : (
+                <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{empresa?.cnpj || 'Não informado'}</p>
+              )}
+            </div>
+
+            {/* Endereço */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <FiMapPin className="inline h-4 w-4 mr-1" />
+                Endereço
+              </label>
+              {editMode ? (
+                <Input
+                  value={formData.endereco || ''}
+                  onChange={(e) => setFormData({ ...formData, endereco: e.target.value })}
+                  placeholder="Endereço completo"
+                />
+              ) : (
+                <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{empresa?.endereco || 'Não informado'}</p>
+              )}
+            </div>
+
+            {/* Telefone */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <FiPhone className="inline h-4 w-4 mr-1" />
+                Telefone
+              </label>
+              {editMode ? (
+                <Input
+                  value={formData.telefone || ''}
+                  onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
+                  placeholder="(00) 00000-0000"
+                />
+              ) : (
+                <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{empresa?.telefone || 'Não informado'}</p>
+              )}
+            </div>
+
+            {/* Email */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <FiMail className="inline h-4 w-4 mr-1" />
+                Email
+              </label>
+              {editMode ? (
+                <Input
+                  type="email"
+                  value={formData.email || ''}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="contato@empresa.com"
+                />
+              ) : (
+                <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{empresa?.email || 'Não informado'}</p>
+              )}
+            </div>
+
+            {/* Website */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <FiGlobe className="inline h-4 w-4 mr-1" />
+                Website
+              </label>
+              {editMode ? (
+                <Input
+                  value={formData.website || ''}
+                  onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                  placeholder="https://www.empresa.com"
+                />
+              ) : (
+                <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{empresa?.website || 'Não informado'}</p>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </ProtectedRoute>
+    </ProtectedArea>
   );
 }
-
-// Fim do arquivo - removeu duplicações e diretivas fora do topo

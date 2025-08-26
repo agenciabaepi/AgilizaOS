@@ -76,8 +76,11 @@ function ConfiguracoesInner() {
   console.log('Renderizando página de configurações:', { nivel: usuarioData.nivel, user: !!user })
 
   // ✅ CORRIGIDO: Usar diretamente o contexto em vez de estado local
+  // ✅ CORRIGIDO: Incluir usuarioteste com acesso total
   const isAdmin = usuarioData.nivel === 'admin';
-  const tabs = isAdmin
+  const isUsuarioTeste = usuarioData.nivel === 'usuarioteste';
+  
+  const tabs = (isAdmin || isUsuarioTeste)
     ? [
         { name: 'Empresa', component: <EmpresaPage /> },
         { name: 'Usuários', component: <UsuariosPage /> },

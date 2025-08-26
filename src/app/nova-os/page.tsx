@@ -109,6 +109,9 @@ function NovaOS2Content() {
   const [osGarantiaSelecionada, setOsGarantiaSelecionada] = useState<Record<string, unknown> | null>(null);
   const [buscandoOsGarantia, setBuscandoOsGarantia] = useState(false);
   
+  // Estado para prazo de entrega
+  const [prazoEntrega, setPrazoEntrega] = useState<string>('');
+  
   // Estado para produtos e serviços aprovados
   const [produtosServicos, setProdutosServicos] = useState<ProdutoServico[]>([]);
   const [loadingProdutos, setLoadingProdutos] = useState(false);
@@ -569,7 +572,9 @@ function NovaOS2Content() {
         data_cadastro: new Date().toISOString(),
         os_garantia_id: tipoEntrada === 'garantia' && osGarantiaSelecionada ? osGarantiaSelecionada.id : null,
         termo_garantia_id: termoSelecionado || null,
-        tipo: 'Normal'
+        tipo: 'Normal',
+        // Adicionar campo de prazo de entrega
+        prazo_entrega: prazoEntrega ? new Date(prazoEntrega).toISOString() : null
         // Agora usando os nomes corretos das colunas da tabela
       };
 
@@ -1253,6 +1258,21 @@ function NovaOS2Content() {
                   </p>
                 </div>
 
+                {/* Campo de Prazo de Entrega */}
+                <div className="mt-6 w-full max-w-lg mx-auto">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Prazo de Entrega</label>
+                  <input
+                    type="datetime-local"
+                    className="w-full border border-gray-300 rounded px-3 py-2"
+                    value={prazoEntrega}
+                    onChange={(e) => setPrazoEntrega(e.target.value)}
+                    min={new Date().toISOString().slice(0, 16)} // Não permite datas passadas
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Defina quando o aparelho deve ser entregue ao cliente. Este prazo será usado para controle pelos técnicos e atendentes.
+                  </p>
+                </div>
+
                 {/* Seleção de Termo de Garantia */}
                 <div className="mt-6 w-full max-w-lg mx-auto">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Termo de Garantia</label>
@@ -1784,4 +1804,4 @@ export default function NovaOS2Page() {
       <NovaOS2Content />
     </Suspense>
   );
-} 
+}

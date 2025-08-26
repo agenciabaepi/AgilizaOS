@@ -16,8 +16,7 @@ import StickyOrcamentoPopup from '@/components/StickyOrcamentoPopup';
 // Metadata removida conforme exigência do Next.js para arquivos com "use client"
 
 function AuthContent({ children }: { children: React.ReactNode }) {
-  const { isLoggingOut } = useAuth();
-  const { session, empresaData } = useAuth();
+  const { isLoggingOut, session, empresaData } = useAuth();
   // Ativar notificações realtime em toda a app quando empresa for conhecida
   useRealtimeNotificacoes(empresaData?.id);
   // Banner simples de aviso de vencimento (frontend)

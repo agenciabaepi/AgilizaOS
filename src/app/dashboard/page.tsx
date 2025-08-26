@@ -13,7 +13,7 @@ export default function DashboardPage() {
 
   // Redirecionamento automático baseado no nível do usuário
   useEffect(() => {
-    if (usuarioData?.nivel && usuarioData.nivel !== 'admin') {
+    if (usuarioData?.nivel && usuarioData.nivel !== 'admin' && usuarioData.nivel !== 'usuarioteste') {
       if (usuarioData.nivel === 'atendente') {
         window.location.href = '/dashboard-atendente';
       } else if (usuarioData.nivel === 'tecnico') {

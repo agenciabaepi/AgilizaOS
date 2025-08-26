@@ -18,12 +18,15 @@ const VisualizarOrdemServicoPage = () => {
     const fetchOrdem = async () => {
       setLoading(true);
       try {
+        // Na consulta do banco (linha 23), adicionar o campo prazo_entrega:
         const { data, error } = await supabase
           .from('ordens_servico')
           .select(`
             id,
             numero_os,
             created_at,
+            prazo_entrega,
+            data_entrega,
             cliente:cliente_id (
               nome,
               telefone,
@@ -445,6 +448,51 @@ const VisualizarOrdemServicoPage = () => {
                   <div className="flex justify-between">
                     <span className="text-gray-600">Venc. Garantia:</span>
                     <span className="font-medium text-gray-900">{formatDate(ordem.vencimento_garantia)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Datas Importantes - Versão Compacta */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <FiCalendar className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <h2 className="text-xl font-semibold text-gray-900">Prazos</h2>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  {/* Prazo de Entrega */}
+                  <div>
+                    <span className="text-gray-600 block mb-1">Prazo:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900">
+                        {ordem.prazo_entrega ? formatDate(ordem.prazo_entrega) : 'Não definido'}
+                      </span>
+                      {ordem.prazo_entrega && !ordem.data_entrega && (
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          new Date(ordem.prazo_entrega) < new Date()
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-green-100 text-green-700'
+                        }`}>
+                          {new Date(ordem.prazo_entrega) < new Date() ? 'Vencido' : 'No prazo'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Data de Retirada */}
+                  <div>
+                    <span className="text-gray-600 block mb-1">Retirada:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900">
+                        {ordem.data_entrega ? formatDate(ordem.data_entrega) : 'Aguardando'}
+                      </span>
+                      {ordem.data_entrega && (
+                        <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">
+                          Entregue
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
