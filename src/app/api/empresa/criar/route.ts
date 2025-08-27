@@ -115,8 +115,7 @@ export async function POST(request: Request) {
       email,
       usuario: email.split('@')[0], // Usar parte do email como usuário
       empresa_id: empresa.id,
-      nivel: 'admin',
-      tipo: 'principal'
+      nivel: 'admin'
     });
 
   if (usuarioError) {

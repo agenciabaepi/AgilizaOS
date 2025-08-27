@@ -28,6 +28,8 @@ interface OrdemTransformada {
   valorComDesconto: number;
   valorFaturado: number;
   tipo: string;
+  foiFaturada: boolean;
+  formaPagamento: string;
 }
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -74,12 +76,7 @@ export default function ListaOrdensPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20);
   const [tecnicos, setTecnicos] = useState<string[]>([]);
-  // Modal de entrega
-  const [entregaOpen, setEntregaOpen] = useState(false);
-  const [entregaOs, setEntregaOs] = useState<OrdemTransformada | null>(null);
-  const [entregaHasWarranty, setEntregaHasWarranty] = useState(true);
-  const [entregaSaving, setEntregaSaving] = useState(false);
-  const [entregaAutoPrint] = useState(true);
+
   
   // Estado para abas
   const [activeTab, setActiveTab] = useState('todas');
@@ -119,6 +116,19 @@ export default function ListaOrdensPage() {
       return `(${match[1]}) ${match[2]}-${match[3]}`;
     }
     return phone;
+  }
+
+  function formatFormaPagamento(forma: string) {
+    const formas: Record<string, string> = {
+      'dinheiro': 'Dinheiro',
+      'pix': 'PIX',
+      'cartao_debito': 'Cartão Débito',
+      'cartao_credito': 'Cartão Crédito',
+      'transferencia': 'Transferência',
+      'boleto': 'Boleto',
+      'cheque': 'Cheque'
+    };
+    return formas[forma] || forma;
   }
 
   function formatCurrency(value: number) {
@@ -237,7 +247,7 @@ export default function ListaOrdensPage() {
       if (error) {
         console.error('Erro ao carregar OS:', error);
       } else if (data) {
-        console.log('Dados recebidos do Supabase:', data);
+
         data.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         // Buscar nomes dos técnicos se necessário
         const tecnicoIds = [...new Set(data.filter((item: any) => item.tecnico_id).map((item: any) => item.tecnico_id))];
@@ -257,6 +267,49 @@ export default function ListaOrdensPage() {
           }
         }
 
+        // IMPORTANTE: Uma O.S. só deve aparecer como "faturada" se ela própria foi entregue
+        // Não por vendas anteriores do mesmo cliente
+        let vendasDict: Record<string, any> = {};
+        
+        // SOLUÇÃO SIMPLES: Buscar vendas igual à página de vendas
+        const { data: todasVendas, error: errorVendas } = await supabase
+          .from('vendas')
+          .select('id, cliente_id, forma_pagamento, total, status, data_venda')
+          .order('data_venda', { ascending: false });
+        
+        if (errorVendas) {
+          console.log('❌ Erro ao buscar vendas:', errorVendas);
+        } else if (todasVendas) {
+          console.log('✅ Vendas encontradas:', todasVendas.length);
+          
+          // Para cada O.S. entregue, buscar a venda correspondente
+          data.forEach((os: any) => {
+            if (os.valor_faturado > 0 && 
+                (os.status === 'ENTREGUE' || os.status_tecnico === 'FINALIZADA')) {
+              
+              // Buscar a venda mais recente deste cliente
+              const vendaCliente = todasVendas
+                .filter((v: any) => v.cliente_id === os.cliente_id)
+                .sort((a: any, b: any) => new Date(b.data_venda || 0).getTime() - new Date(a.data_venda || 0).getTime())[0];
+              
+              if (vendaCliente) {
+                console.log(`✅ Venda encontrada para O.S. ${os.id}:`, vendaCliente);
+                vendasDict[os.id] = {
+                  id: vendaCliente.id,
+                  cliente_id: vendaCliente.cliente_id,
+                  forma_pagamento: vendaCliente.forma_pagamento,
+                  total: vendaCliente.total,
+                  status: vendaCliente.status
+                };
+              } else {
+                console.log(`❌ Nenhuma venda encontrada para cliente ${os.cliente_id}`);
+              }
+            }
+          });
+        }
+        
+        console.log('📊 vendasDict final:', vendasDict);
+
         const mapped = data.map((item: any) => {
           // manter datas como YYYY-MM-DD para evitar timezone
           const entregaCalc = item.data_entrega
@@ -269,6 +322,10 @@ export default function ListaOrdensPage() {
             : (item.data_entrega
               ? addDaysDateOnly(item.data_entrega, 90)
               : '');
+          
+          const valorFaturado = item.valor_faturado || 0;
+          const vendaCliente = vendasDict[item.id];
+          
           return {
           id: item.id,
             numero: item.numero_os,
@@ -292,13 +349,14 @@ export default function ListaOrdensPage() {
           desconto: item.desconto || 0,
             valorTotal: ((item.valor_peca || 0) * (item.qtd_peca || 1)) + ((item.valor_servico || 0) * (item.qtd_servico || 1)),
             valorComDesconto: (((item.valor_peca || 0) * (item.qtd_peca || 1)) + ((item.valor_servico || 0) * (item.qtd_servico || 1))) - (item.desconto || 0),
-          valorFaturado: item.valor_faturado || 0,
+          valorFaturado: valorFaturado,
             tipo: item.tipo || 'Nova',
+            foiFaturada: valorFaturado > 0 && (item.status === 'ENTREGUE' || item.status_tecnico === 'FINALIZADA'),
+            formaPagamento: vendasDict[item.id]?.forma_pagamento || 'N/A',
           };
         });
 
-        console.log('Dados mapeados:', mapped);
-        console.log('Exemplo de dados do técnico:', data[0]?.tecnico, data[0]?.tecnico_id);
+
         setOrdens(mapped);
 
         // Calcular métricas dos cards
@@ -393,8 +451,7 @@ export default function ListaOrdensPage() {
   // Filtros e busca
   const filteredOrdens = useMemo(() => {
     // Debug: mostrar dados de filtro
-    console.log('🔍 [FILTRO] Aba ativa:', activeTab);
-    console.log('🔍 [FILTRO] Filtros aplicados:', { searchTerm, statusFilter, aparelhoFilter, tecnicoFilter, tipoFilter });
+    
     
     return ordens.filter(os => {
       const matchesSearch = searchTerm === '' || 
@@ -442,15 +499,7 @@ export default function ListaOrdensPage() {
       return matchesSearch && matchesStatus && matchesAparelho && matchesTecnico && matchesTipo && matchesTab;
     });
     
-    // Debug: mostrar resultado do filtro
-    console.log('🔍 [FILTRO] Total de OSs:', ordens.length);
-    console.log('🔍 [FILTRO] OSs após filtro:', filteredOrdens.length);
-    console.log('🔍 [FILTRO] Primeiras 3 OSs filtradas:', filteredOrdens.slice(0, 3).map(os => ({
-      numero: os.numero,
-      statusOS: os.statusOS,
-      statusTecnico: os.statusTecnico,
-      cliente: os.cliente
-    })));
+    
     
   }, [ordens, searchTerm, statusFilter, aparelhoFilter, tecnicoFilter, tipoFilter, activeTab]);
 
@@ -488,56 +537,7 @@ export default function ListaOrdensPage() {
     setCurrentPage(1);
   }, []);
 
-  const openEntregaModal = (os: OrdemTransformada) => {
-    setEntregaOs(os);
-    setEntregaHasWarranty(true);
-    setEntregaOpen(true);
-  };
 
-  const confirmEntrega = async () => {
-    if (!entregaOs) return;
-    setEntregaSaving(true);
-    try {
-      const hoje = new Date();
-      const dataStr = new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())).toISOString().slice(0,10);
-      let garantiaStr: string | null = null;
-      if (entregaHasWarranty) {
-        const g = new Date(hoje);
-        g.setDate(g.getDate() + 90);
-        garantiaStr = new Date(Date.UTC(g.getFullYear(), g.getMonth(), g.getDate())).toISOString().slice(0,10);
-      }
-      const { error } = await supabase
-        .from('ordens_servico')
-        .update({
-          status: 'ENTREGUE',
-          status_tecnico: 'FINALIZADA',
-          data_entrega: dataStr,
-          vencimento_garantia: garantiaStr,
-        })
-        .eq('id', entregaOs.id);
-      if (error) throw error;
-      // Atualiza lista local
-      setOrdens(prev => prev.map(o => o.id === entregaOs.id ? {
-        ...o,
-        statusOS: 'ENTREGUE',
-        statusTecnico: 'FINALIZADA',
-        entrega: dataStr,
-        garantia: garantiaStr || '',
-      } : o));
-      setEntregaOpen(false);
-      addToast('success', 'Entrega registrada com sucesso');
-      try {
-        if (entregaAutoPrint) {
-          // Abre a OS em nova aba com indicação de impressão (rota já possui lógica de print)
-          window.open(`/ordens/${entregaOs.id}?print=1`, '_blank');
-        }
-      } catch {}
-    } catch (e: any) {
-      addToast('error', 'Erro ao registrar entrega');
-    } finally {
-      setEntregaSaving(false);
-    }
-  };
   
   // Contadores para as abas
   const contadores = useMemo(() => {
@@ -650,7 +650,7 @@ export default function ListaOrdensPage() {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                📋 Todas
+                Todas
                 <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
                   activeTab === 'todas' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
                 }`}>
@@ -665,7 +665,7 @@ export default function ListaOrdensPage() {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                🔧 Reparo Concluído
+                Reparo Concluído
                 <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
                   activeTab === 'reparo_concluido' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
                 }`}>
@@ -680,7 +680,7 @@ export default function ListaOrdensPage() {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                💰 Orçamentos
+                Orçamentos
                 <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
                   activeTab === 'orcamentos' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
                 }`}>
@@ -695,7 +695,7 @@ export default function ListaOrdensPage() {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                ✅ Aprovadas
+                Aprovadas
                 <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
                   activeTab === 'aprovadas' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
                 }`}>
@@ -710,7 +710,7 @@ export default function ListaOrdensPage() {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                📄 Laudo Pronto
+                Laudo Pronto
                 <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
                   activeTab === 'laudo_pronto' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
                 }`}>
@@ -725,7 +725,7 @@ export default function ListaOrdensPage() {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                📦 Aguardando Retirada
+                                 Aguardando Retirada
                 <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
                   activeTab === 'aguardando_retirada' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
                 }`}>
@@ -740,7 +740,7 @@ export default function ListaOrdensPage() {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                ✅ Concluídas
+                                 Concluídas
                 <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
                   activeTab === 'concluidas' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
                 }`}>
@@ -773,11 +773,11 @@ export default function ListaOrdensPage() {
                   className="w-48"
                 >
                   <option value="">Todos os Status</option>
-                  <option value="concluido">✅ Concluído</option>
-                  <option value="pendente">⏳ Pendente</option>
-                  <option value="orcamento">💰 Orçamento</option>
-                  <option value="analise">🔍 Análise</option>
-                  <option value="nao aprovado">❌ Não Aprovado</option>
+                                     <option value="concluido">Concluído</option>
+                   <option value="pendente">Pendente</option>
+                   <option value="orcamento">Orçamento</option>
+                   <option value="analise">Análise</option>
+                   <option value="nao aprovado">Não Aprovado</option>
                 </Select>
 
                 <Select
@@ -786,8 +786,8 @@ export default function ListaOrdensPage() {
                   className="w-40"
                 >
                   <option value="">Todos os Tipos</option>
-                  <option value="Nova">🟢 Nova</option>
-                  <option value="Retorno">🔴 Retorno</option>
+                                     <option value="Nova">Nova</option>
+                   <option value="Retorno">Retorno</option>
                 </Select>
 
                 <Select
@@ -849,7 +849,7 @@ export default function ListaOrdensPage() {
                   <col className="w-16" />
                   <col className="w-20" />
                   <col className="w-20" />
-                  <col className="w-24" />
+                  <col className="w-20" />
                   <col className="w-16" />
                 </colgroup>
               <thead className="bg-gray-50">
@@ -903,7 +903,10 @@ export default function ListaOrdensPage() {
                     <span className="hidden sm:inline">Status Técnico</span>
                   </th>
                   <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <span className="hidden sm:inline">Ações</span>
+                    <div className="flex items-center gap-1">
+                      <FiDollarSign className="w-3 h-3" />
+                      <span className="hidden sm:inline">Faturado</span>
+                    </div>
                   </th>
                 </tr>
               </thead>
@@ -1013,26 +1016,23 @@ export default function ListaOrdensPage() {
                       </div>
                     </td>
                     <td className="px-1 py-2">
-                        <div className="flex justify-center items-center gap-2">
-                          {(!os.entrega && (os.statusOS?.toUpperCase() !== 'ENTREGUE')) && (
-                            <Button
-                              onClick={(e) => {
-                                e.stopPropagation(); // Evita que o clique na linha seja acionado
-                                openEntregaModal(os);
-                              }}
-                              variant="outline"
-                              size="sm"
-                              className="h-5 px-1 text-xs"
-                              title="Entregar aparelho"
-                            >
-                              Entregar
-                            </Button>
-                          )}
-                          <div className="text-gray-400 group-hover:text-blue-500 transition-colors">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                          </div>
+                      <div className="text-xs min-w-0">
+                        {os.foiFaturada ? (
+                          <>
+                            <div className="font-bold text-green-600">
+                              Faturado
+                            </div>
+                            <div className="text-xs text-blue-600 font-medium mt-1">
+                              {formatFormaPagamento(os.formaPagamento)}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="text-gray-500 font-medium">
+                              Aguardando
+                            </div>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1107,39 +1107,7 @@ export default function ListaOrdensPage() {
         <LaudoProntoAlert />
       </MenuLayout>
 
-      {/* Modal Entrega */}
-      {entregaOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center px-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md border border-gray-200">
-            <div className="px-6 py-4 border-b">
-              <div className="text-sm font-semibold text-gray-900">Confirmar entrega</div>
-              <div className="text-xs text-gray-500">OS #{entregaOs?.numero} — {entregaOs?.cliente}</div>
-            </div>
-            <div className="p-6 space-y-4">
-                <div>
-                <div className="text-xs text-gray-600 mb-1">Garantia</div>
-                <div className="flex items-center gap-3">
-                  <label className="inline-flex items-center gap-2 text-sm">
-                    <input type="radio" name="garantia" checked={entregaHasWarranty} onChange={() => setEntregaHasWarranty(true)} />
-                    Com garantia (90 dias)
-                  </label>
-                  <label className="inline-flex items-center gap-2 text-sm">
-                    <input type="radio" name="garantia" checked={!entregaHasWarranty} onChange={() => setEntregaHasWarranty(false)} />
-                    Sem garantia
-                  </label>
-                </div>
-              </div>
-              <div className="text-xs text-gray-600">A data de entrega será registrada como hoje.</div>
-            </div>
-            <div className="px-6 py-4 border-t flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setEntregaOpen(false)}>Cancelar</Button>
-              <Button onClick={confirmEntrega} disabled={entregaSaving} className="bg-black text-white hover:bg-gray-900">
-                {entregaSaving ? 'Salvando...' : 'Confirmar Entrega'}
-              </Button>
-        </div>
-      </div>
-    </div>
-      )}
+
     </ProtectedArea>
   );
 }

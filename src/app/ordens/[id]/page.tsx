@@ -7,12 +7,22 @@ import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { FiArrowLeft, FiEdit, FiPrinter, FiDollarSign, FiMessageCircle, FiUser, FiSmartphone, FiFileText, FiCalendar, FiShield, FiTool, FiPackage, FiCheckCircle, FiClock, FiRefreshCw } from 'react-icons/fi';
 import ImagensOS from '@/components/ImagensOS';
+import { useToast } from '@/components/Toast';
 
 const VisualizarOrdemServicoPage = () => {
   const router = useRouter();
   const { id } = useParams();
+  const { addToast } = useToast();
   const [ordem, setOrdem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // Estados para sistema de entrega
+  const [modalEntrega, setModalEntrega] = useState(false);
+  const [termoGarantiaSelecionado, setTermoGarantiaSelecionado] = useState<any>(null);
+  const [formaPagamento, setFormaPagamento] = useState('');
+  const [valorRecebido, setValorRecebido] = useState('');
+  const [processandoEntrega, setProcessandoEntrega] = useState(false);
+  const [termosGarantia, setTermosGarantia] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchOrdem = async () => {
@@ -24,6 +34,8 @@ const VisualizarOrdemServicoPage = () => {
           .select(`
             id,
             numero_os,
+            empresa_id,
+            cliente_id,
             created_at,
             prazo_entrega,
             data_entrega,
@@ -111,6 +123,10 @@ const VisualizarOrdemServicoPage = () => {
     if (id) fetchOrdem();
   }, [id]);
 
+  useEffect(() => {
+    fetchTermosGarantia();
+  }, []);
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -142,6 +158,175 @@ const VisualizarOrdemServicoPage = () => {
   const isRetorno = (ordem: any) => {
     const tipo = ordem?.tipo?.toLowerCase();
     return tipo === 'retorno' || tipo === 'Retorno';
+  };
+
+  const fetchTermosGarantia = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('termos_garantia')
+        .select('*')
+        .order('nome');
+      
+      if (error) {
+        console.error('Erro ao carregar termos de garantia:', error);
+        return;
+      }
+      
+      setTermosGarantia(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar termos de garantia:', error);
+    }
+  };
+
+  // Função para processar entrega da O.S.
+  const processarEntrega = async () => {
+    if (!termoGarantiaSelecionado) {
+      addToast('error', 'Selecione um termo de garantia');
+      return;
+    }
+
+    if (!formaPagamento) {
+      addToast('error', 'Selecione a forma de pagamento');
+      return;
+    }
+
+    const valorOS = calcularValores().valorFinal;
+    const valorRecebidoNum = parseFloat(valorRecebido.replace(',', '.'));
+
+    if (isNaN(valorRecebidoNum) || valorRecebidoNum < valorOS) {
+      addToast('error', `Valor recebido deve ser pelo menos R$ ${valorOS.toFixed(2)}`);
+      return;
+    }
+
+    setProcessandoEntrega(true);
+
+    try {
+      // 1. Atualizar O.S. para ENTREGUE
+      const { error: updateError } = await supabase
+        .from('ordens_servico')
+        .update({
+          status: 'ENTREGUE',
+          status_tecnico: 'FINALIZADA',
+          termo_garantia_id: termoGarantiaSelecionado.id,
+          data_entrega: new Date().toISOString().split('T')[0],
+          vencimento_garantia: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        })
+        .eq('id', id);
+
+      if (updateError) {
+        addToast('error', 'Erro ao atualizar O.S.: ' + updateError.message);
+        return;
+      }
+
+      // 2. Se houver valor, criar venda
+      if (valorOS > 0) {
+        const numeroVenda = await criarVenda();
+        if (!numeroVenda) {
+          addToast('error', 'Erro ao criar venda');
+          return;
+        }
+        addToast('success', `✅ Venda #${numeroVenda} criada com sucesso!`);
+      }
+
+      addToast('success', '✅ O.S. entregue com sucesso!');
+      setModalEntrega(false);
+      router.push('/ordens');
+
+    } catch (error) {
+      console.error('Erro ao processar entrega:', error);
+      addToast('error', 'Erro inesperado ao processar entrega');
+    } finally {
+      setProcessandoEntrega(false);
+    }
+  };
+
+  // Função para criar venda
+  const criarVenda = async () => {
+    try {
+      const valores = calcularValores();
+      
+      console.log('Debug - Iniciando criação de venda:', {
+        valores,
+        ordem: {
+          id: ordem?.id,
+          cliente_id: ordem?.cliente_id,
+          numero_os: ordem?.numero_os,
+          clientes: ordem?.clientes
+        },
+        formaPagamento
+      });
+      
+      // Buscar próximo número de venda
+      const { data: ultimaVenda, error: errorUltimaVenda } = await supabase
+        .from('vendas')
+        .select('numero_venda')
+        .order('numero_venda', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (errorUltimaVenda && errorUltimaVenda.code !== 'PGRST116') {
+        console.error('Erro ao buscar última venda:', errorUltimaVenda);
+        return null;
+      }
+
+      const proximoNumero = (ultimaVenda?.numero_venda || 0) + 1;
+      console.log('Debug - Próximo número de venda:', proximoNumero);
+
+      // Criar venda
+      const payload = {
+        numero_venda: proximoNumero,
+        data_venda: new Date().toISOString(),
+        cliente_id: ordem?.cliente_id,
+        total: valores.valorFinal,
+        forma_pagamento: formaPagamento,
+        status: 'finalizada',
+        desconto: 0,
+        acrescimo: 0,
+        tipo_pedido: 'Ordem de Serviço',
+        observacoes: `O.S. #${ordem?.numero_os} - ${ordem?.clientes?.nome}`,
+        produtos: [], // Campo obrigatório para vendas
+        usuario_id: null, // Campo obrigatório para vendas
+        empresa_id: ordem?.empresa_id || '550e8400-e29b-41d4-a716-446655440001' // Campo obrigatório para vendas
+      };
+
+      console.log('Debug - Payload da venda:', payload);
+
+      // Tentar inserir sem select primeiro para ver se há erro na inserção
+      const { error: insertError } = await supabase
+        .from('vendas')
+        .insert([payload]);
+
+      if (insertError) {
+        console.error('Erro detalhado ao criar venda:', {
+          message: insertError.message,
+          details: insertError.details,
+          hint: insertError.hint,
+          code: insertError.code,
+          fullError: insertError
+        });
+        return null;
+      }
+
+      // Se inserção funcionou, buscar a venda criada
+      const { data: vendaCriada, error: selectError } = await supabase
+        .from('vendas')
+        .select('*')
+        .eq('numero_venda', proximoNumero)
+        .single();
+
+      if (selectError) {
+        console.error('Erro ao buscar venda criada:', selectError);
+        // Mesmo com erro na busca, a venda foi criada
+        return proximoNumero;
+      }
+
+      console.log('Debug - Venda criada com sucesso:', vendaCriada);
+      return proximoNumero;
+
+    } catch (error) {
+      console.error('Erro inesperado ao criar venda:', error);
+      return null;
+    }
   };
 
   // Calcular valores
@@ -264,6 +449,15 @@ const VisualizarOrdemServicoPage = () => {
                 <FiPrinter className="w-4 h-4" />
                 Imprimir
               </button>
+              {calcularValores().valorFinal > 0 && ordem.status !== 'ENTREGUE' && (
+                <button
+                  onClick={() => setModalEntrega(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <FiPackage className="w-4 h-4" />
+                  Entregar O.S.
+                </button>
+              )}
             </div>
           </div>
 
@@ -637,6 +831,118 @@ const VisualizarOrdemServicoPage = () => {
               </div>
             </div>
           </div>
+
+          {/* Modal de Entrega */}
+          {modalEntrega && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <FiPackage className="w-6 h-6 text-green-600" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900">Entregar O.S.</h3>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Termo de Garantia */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Termo de Garantia *
+                    </label>
+                    <select
+                      value={termoGarantiaSelecionado?.id || ''}
+                      onChange={(e) => {
+                        const termo = termosGarantia.find(t => t.id === e.target.value);
+                        setTermoGarantiaSelecionado(termo || null);
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">Selecione um termo...</option>
+                      {termosGarantia.map((termo) => (
+                        <option key={termo.id} value={termo.id}>
+                          {termo.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Forma de Pagamento */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Forma de Pagamento *
+                    </label>
+                    <select
+                      value={formaPagamento}
+                      onChange={(e) => setFormaPagamento(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">Selecione...</option>
+                      <option value="dinheiro">Dinheiro</option>
+                      <option value="pix">PIX</option>
+                      <option value="cartao_debito">Cartão de Débito</option>
+                      <option value="cartao_credito">Cartão de Crédito</option>
+                      <option value="transferencia">Transferência</option>
+                    </select>
+                  </div>
+
+                  {/* Valor Recebido */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Valor Recebido *
+                    </label>
+                    <input
+                      type="text"
+                      value={valorRecebido}
+                      onChange={(e) => setValorRecebido(e.target.value)}
+                      placeholder={`Mínimo: R$ ${calcularValores().valorFinal.toFixed(2)}`}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Valor da O.S.: R$ {calcularValores().valorFinal.toFixed(2)}
+                    </p>
+                  </div>
+
+                  {/* Resumo */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-medium text-gray-900 mb-2">Resumo da Entrega</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span>Cliente:</span>
+                        <span className="font-medium">{ordem?.clientes?.nome}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>O.S.:</span>
+                        <span className="font-medium">#{ordem?.numero_os}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Total:</span>
+                        <span className="font-medium text-green-600">
+                          R$ {calcularValores().valorFinal.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Botões */}
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={() => setModalEntrega(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={processarEntrega}
+                    disabled={processandoEntrega || !termoGarantiaSelecionado || !formaPagamento || !valorRecebido}
+                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {processandoEntrega ? 'Processando...' : 'Confirmar Entrega'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </MenuLayout>
     </ProtectedArea>

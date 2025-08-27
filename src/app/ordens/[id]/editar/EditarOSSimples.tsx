@@ -101,6 +101,8 @@ export default function EditarOSSimples() {
   const [imagens, setImagens] = useState<string[]>([]);
   const [novasImagens, setNovasImagens] = useState<File[]>([]);
   const [uploadingImagens, setUploadingImagens] = useState(false);
+
+
   
   // Listas
   const [status, setStatus] = useState<Status[]>([]);
@@ -115,6 +117,8 @@ export default function EditarOSSimples() {
       fetchOrdem();
     }
   }, [id]);
+
+
 
   useEffect(() => {
     fetchStatus();
@@ -253,6 +257,8 @@ export default function EditarOSSimples() {
       console.error('Erro ao carregar técnicos:', error);
     }
   };
+
+
 
   const calcularTotais = () => {
     const totalServicos = servicos.reduce((acc, s) => {
@@ -449,6 +455,8 @@ export default function EditarOSSimples() {
     setImagens(novasImagensList);
     addToast('success', 'Anexo removido com sucesso!');
   };
+
+
 
   // Função para converter texto em itens estruturados
   const parseTextToItems = (texto: string, tipo: 'produto' | 'servico') => {
@@ -1023,6 +1031,7 @@ export default function EditarOSSimples() {
               )}
             </div>
           </div>
+
 
 
         </div>
