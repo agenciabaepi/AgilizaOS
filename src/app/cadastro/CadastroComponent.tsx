@@ -156,7 +156,7 @@ export default function CadastroEmpresa() {
       return false;
     }
     if (!form.confirmarSenha?.trim()) {
-      toast.error("Confirme sua senha.");
+      toast.error("Confirme sua senha digitada.");
       return false;
     }
     if (!form.whatsapp?.trim()) {
