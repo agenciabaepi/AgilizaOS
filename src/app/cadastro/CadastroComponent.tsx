@@ -345,7 +345,7 @@ export default function CadastroEmpresa() {
                     {mostrarSenha ? <FaEyeSlash /> : <FaEye />}
                   </div>
                 </div>
-                <label className={`text-sm ${senhasIguais ? 'text-white/70' : 'text-red-400'}`}>{senhasIguais ? 'Repita sua senha para confirmar. *' : 'As senhas não coincidem.'}</label>
+                <label className={`text-sm ${senhasIguais ? 'text-white/70' : 'text-red-400'}`}>{senhasIguais ? 'Repita sua senha para confirmar por favor' : 'As senhas não coincidem.'}</label>
                 <div className="relative">
                   <input
                     type={mostrarConfirmarSenha ? 'text' : 'password'}
