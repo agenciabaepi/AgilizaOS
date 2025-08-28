@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase/admin'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Buscar código válido
-    const { data: codigoVerificacao, error: codigoError } = await supabaseAdmin
+    const { data: codigoVerificacao, error: codigoError } = await getSupabaseAdmin()
       .from('codigo_verificacao')
       .select(`
         id,
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Marcar código como usado
-    const { error: updateCodigoError } = await supabaseAdmin
+    const { error: updateCodigoError } = await getSupabaseAdmin()
       .from('codigo_verificacao')
       .update({
         usado: true,
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Marcar email como verificado
-    const { error: updateUsuarioError } = await supabaseAdmin
+    const { error: updateUsuarioError } = await getSupabaseAdmin()
       .from('usuarios')
       .update({ email_verificado: true })
       .eq('id', codigoVerificacao.usuario_id)

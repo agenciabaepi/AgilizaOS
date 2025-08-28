@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase/admin'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { enviarEmailVerificacao, gerarCodigoVerificacao } from '@/lib/email'
 
 export async function POST(request: NextRequest) {
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Buscar usuário pelo email
-    const { data: usuario, error: usuarioError } = await supabaseAdmin
+    const { data: usuario, error: usuarioError } = await getSupabaseAdmin()
       .from('usuarios')
       .select(`
         id,
@@ -41,14 +41,14 @@ export async function POST(request: NextRequest) {
     const codigo = gerarCodigoVerificacao()
 
     // Invalidar códigos anteriores do usuário
-    await supabaseAdmin
+    await getSupabaseAdmin()
       .from('codigo_verificacao')
       .update({ usado: true })
       .eq('usuario_id', usuario.id)
       .eq('usado', false)
 
     // Salvar novo código no banco
-    const { error: codigoError } = await supabaseAdmin
+    const { error: codigoError } = await getSupabaseAdmin()
       .from('codigo_verificacao')
       .insert({
         usuario_id: usuario.id,
