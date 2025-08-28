@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { FiMail, FiCheck, FiAlertCircle } from 'react-icons/fi'
 import { useToast } from '@/hooks/useToast'
 
-export default function VerificarEmail() {
+function VerificarEmailContent() {
   const [codigo, setCodigo] = useState('')
   const [loading, setLoading] = useState(false)
   const [email, setEmail] = useState('')
@@ -192,5 +192,20 @@ export default function VerificarEmail() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function VerificarEmail() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4">
+        <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-8 w-full max-w-md text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando...</p>
+        </div>
+      </div>
+    }>
+      <VerificarEmailContent />
+    </Suspense>
   )
 }
