@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
         nome,
         email,
         email_verificado,
-        empresas (
+        empresas!inner (
           nome
         )
       `)
