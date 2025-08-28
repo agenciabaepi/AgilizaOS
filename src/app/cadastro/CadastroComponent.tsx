@@ -9,9 +9,9 @@ import {
   FaEye,
   FaEyeSlash,
   FaBuilding,
-  FaMapMarkerAlt,
-  FaGlobe,
-  FaCheckCircle
+  FaCheckCircle,
+  FaArrowRight,
+  FaArrowLeft
 } from 'react-icons/fa';
 import { mask as masker } from 'remask';
 
@@ -39,7 +39,6 @@ export default function CadastroEmpresa() {
   // Inicializa o plano da URL de forma segura
   useEffect(() => {
     try {
-      const planoFromUrl = searchParams?.get('plano') || 'unico';
       // Força modelo de preço único
       setForm(prev => ({ ...prev, plano: 'unico' }));
     } catch (error) {
@@ -244,7 +243,7 @@ export default function CadastroEmpresa() {
 
       try {
         result = JSON.parse(text);
-      } catch (e) {
+      } catch {
         console.error('Resposta não é um JSON válido:', text);
         toast.error('Erro inesperado no servidor.');
         return;
@@ -290,27 +289,88 @@ export default function CadastroEmpresa() {
       </div>
       <div className="relative z-20 w-full max-w-4xl space-y-6">
         <div className="flex justify-center mb-6">
-          <Image src={logo} alt="" width={200} height={60} priority className="mx-auto" />
+          <button 
+            onClick={() => router.push('/')}
+            className="transition-all duration-300 hover:scale-105 hover:brightness-110"
+          >
+            <Image src={logo} alt="" width={200} height={60} priority className="mx-auto" />
+          </button>
         </div>
         <p className="text-center text-[#D1FE6E]/80 font-medium text-sm mb-4">
           Experimente gratuitamente por 15 dias. Sem cartão de crédito!
         </p>
+        
+        {/* Indicador de Etapas */}
+        <div className="flex justify-center mb-6">
+          <div className="flex items-center space-x-6 bg-white/5 backdrop-blur-sm rounded-2xl p-3 border border-white/10">
+            <div className={`flex items-center space-x-3 px-4 py-2 rounded-xl transition-all duration-300 ${
+              step === 1 
+                ? 'bg-[#D1FE6E]/10 border border-[#D1FE6E]/20 text-[#D1FE6E]' 
+                : 'text-white/60'
+            }`}>
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                step === 1 
+                  ? 'bg-[#D1FE6E] text-black' 
+                  : 'bg-white/20 text-white/60'
+              }`}>
+                1
+              </div>
+              <span className="text-sm font-medium">Dados Pessoais</span>
+              {step === 1 && <FaUser className="text-[#D1FE6E] ml-1" />}
+            </div>
+            
+            <div className="w-8 h-px bg-white/20"></div>
+            
+            <div className={`flex items-center space-x-3 px-4 py-2 rounded-xl transition-all duration-300 ${
+              step === 2 
+                ? 'bg-[#D1FE6E]/10 border border-[#D1FE6E]/20 text-[#D1FE6E]' 
+                : 'text-white/60'
+            }`}>
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                step === 2 
+                  ? 'bg-[#D1FE6E] text-black' 
+                  : 'bg-white/20 text-white/60'
+              }`}>
+                2
+              </div>
+              <span className="text-sm font-medium">Dados da Empresa</span>
+              {step === 2 && <FaBuilding className="text-[#D1FE6E] ml-1" />}
+            </div>
+          </div>
+        </div>
+
         <div className="w-full max-w-7xl mx-auto p-8 rounded-3xl overflow-visible min-h-[760px] border" style={{
           background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)',
           border: '1px solid rgba(255,255,255,0.12)',
           backdropFilter: 'blur(12px)'
         }}>
           <h1 className="text-4xl font-semibold tracking-tight text-white text-center mb-4">Crie sua conta</h1>
-          <div className="relative mb-6 h-2 bg-white/10 rounded-full overflow-hidden">
-            <div
-              className="absolute top-0 left-0 h-full bg-[#D1FE6E] transition-all"
-              style={{ width: `${progress}%` }}
-            />
+          
+          {/* Barra de Progresso */}
+          <div className="relative mb-8">
+            <div className="flex justify-between text-xs text-white/60 mb-2">
+              <span>Etapa {step} de 2</span>
+              <span>{Math.round(progress)}%</span>
+            </div>
+            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-[#D1FE6E] transition-all duration-500"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
           </div>
+
           <div className="h-auto min-h-[560px] overflow-visible relative transition-all">
             {step === 1 && (
               <div key={`step1-${step}`} className="w-full gap-3 flex flex-col transition-opacity duration-200">
-                <h2 className="text-xl font-light text-white mb-4">Seus dados</h2>
+                {/* Header da Etapa 1 */}
+                <div className="text-center mb-6 p-4 rounded-2xl bg-[#D1FE6E]/5 border border-[#D1FE6E]/20">
+                  <h2 className="text-2xl font-semibold text-white mb-2 flex items-center justify-center">
+                    <FaUser className="text-[#D1FE6E] mr-3" />
+                    Etapa 1: Seus Dados Pessoais
+                  </h2>
+                  <p className="text-[#D1FE6E]/80 text-sm">Preencha suas informações pessoais para criar sua conta</p>
+                </div>
                 
                 <label className="text-sm text-white/70">Nome completo *</label>
                 <input
@@ -388,7 +448,13 @@ export default function CadastroEmpresa() {
                   autoComplete="off"
                 />
                 <div className="flex justify-end mt-6">
-                  <button onClick={handleNext} className="px-6 py-3 rounded-lg transition font-medium bg-[#D1FE6E] text-black hover:bg-[#B8E55A]">Continuar</button>
+                  <button 
+                    onClick={handleNext} 
+                    className="px-6 py-3 rounded-lg transition font-medium bg-[#D1FE6E] text-black hover:bg-[#B8E55A] flex items-center space-x-2"
+                  >
+                    <span>Próxima Etapa</span>
+                    <FaArrowRight className="text-sm" />
+                  </button>
                 </div>
               </div>
             )}
@@ -398,7 +464,14 @@ export default function CadastroEmpresa() {
                 key={`step2-${step}`}
                 className="w-full gap-3 flex flex-col transition-opacity duration-200"
               >
-                <h2 className="text-xl font-light text-white mb-4">Dados da Empresa</h2>
+                {/* Header da Etapa 2 */}
+                <div className="text-center mb-6 p-4 rounded-2xl bg-[#D1FE6E]/5 border border-[#D1FE6E]/20">
+                  <h2 className="text-2xl font-semibold text-white mb-2 flex items-center justify-center">
+                    <FaBuilding className="text-[#D1FE6E] mr-3" />
+                    Etapa 2: Dados da Empresa
+                  </h2>
+                  <p className="text-[#D1FE6E]/80 text-sm">Agora preencha as informações da sua empresa</p>
+                </div>
                 
                 <label className="text-sm text-white/70">Nome da empresa *</label>
                 <input
@@ -464,9 +537,10 @@ export default function CadastroEmpresa() {
                 <div className="flex justify-between mt-6">
                   <button
                     onClick={handleBack}
-                    className="px-4 py-2 rounded bg-white/10 text-white hover:bg-white/15 transition"
+                    className="px-4 py-2 rounded bg-white/10 text-white hover:bg-white/15 transition flex items-center space-x-2"
                   >
-                    Voltar
+                    <FaArrowLeft className="text-sm" />
+                    <span>Voltar</span>
                   </button>
                   <button
                     type="submit"
@@ -486,7 +560,7 @@ export default function CadastroEmpresa() {
                       !form.cidade?.trim() ||
                       !form.endereco?.trim()
                     }
-                    className={`px-6 py-3 rounded-lg transition font-medium ${
+                    className={`px-6 py-3 rounded-lg transition font-medium flex items-center space-x-2 ${
                       !form.nome?.trim() ||
                       !form.email?.trim() ||
                       !form.senha?.trim() ||
@@ -504,17 +578,91 @@ export default function CadastroEmpresa() {
                         : 'bg-[#D1FE6E] text-black hover:bg-[#B8E55A]'
                     }`}
                   >
-                    Finalizar Cadastro
+                    <span>Finalizar Cadastro</span>
+                    <FaCheckCircle className="text-sm" />
                   </button>
                 </div>
               </div>
             )}
           </div>
         </div>
-        <footer className="text-xs text-gray-400 text-center mt-8">
-          © 2025 ConsertOS. Todos os direitos reservados.
-        </footer>
       </div>
+
+      {/* Rodapé */}
+      <footer className="relative z-10 w-full mt-16 border-t border-white/10 bg-gradient-to-b from-transparent to-black/30 backdrop-blur-sm">
+        <div className="mx-auto max-w-7xl px-8 py-12">
+          {/* Grid de 4 colunas */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
+            {/* Coluna 1 - Logo e Descrição */}
+            <div className="flex flex-col items-center md:items-start">
+              <button 
+                onClick={() => router.push('/')}
+                className="transition-all duration-300 hover:scale-105 hover:brightness-110 mb-6"
+              >
+                <Image 
+                  src={logo} 
+                  alt="CONSERT Logo" 
+                  width={140} 
+                  height={140}
+                />
+              </button>
+              <p className="text-white/60 text-sm leading-relaxed max-w-xs text-center md:text-left">
+                Sistema completo para gestão de assistências técnicas. Simplifique processos, aumente a produtividade e encante seus clientes.
+              </p>
+            </div>
+            
+            {/* Coluna 2 - Produto */}
+            <div className="flex flex-col items-center md:items-start">
+              <h3 className="text-white font-semibold mb-4 text-center md:text-left">Produto</h3>
+              <div className="space-y-3 text-center md:text-left">
+                <a href="/planos" className="block text-white/60 hover:text-[#D1FE6E] transition-colors text-sm">Planos</a>
+                <a href="/funcionalidades" className="block text-white/60 hover:text-[#D1FE6E] transition-colors text-sm">Funcionalidades</a>
+                <a href="/precos" className="block text-white/60 hover:text-[#D1FE6E] transition-colors text-sm">Preços</a>
+                <a href="/demo" className="block text-white/60 hover:text-[#D1FE6E] transition-colors text-sm">Demonstração</a>
+              </div>
+            </div>
+            
+            {/* Coluna 3 - Suporte */}
+            <div className="flex flex-col items-center md:items-start">
+              <h3 className="text-white font-semibold mb-4 text-center md:text-left">Suporte</h3>
+              <div className="space-y-3 text-center md:text-left">
+                <a href="/ajuda" className="block text-white/60 hover:text-[#D1FE6E] transition-colors text-sm">Central de Ajuda</a>
+                <a href="/contato" className="block text-white/60 hover:text-[#D1FE6E] transition-colors text-sm">Contato</a>
+                <a href="/documentacao" className="block text-white/60 hover:text-[#D1FE6E] transition-colors text-sm">Documentação</a>
+                <a href="/status" className="block text-white/60 hover:text-[#D1FE6E] transition-colors text-sm">Status do Sistema</a>
+              </div>
+            </div>
+            
+            {/* Coluna 4 - Empresa */}
+            <div className="flex flex-col items-center md:items-start">
+              <h3 className="text-white font-semibold mb-4 text-center md:text-left">Empresa</h3>
+              <div className="space-y-3 text-center md:text-left">
+                <a href="/sobre" className="block text-white/60 hover:text-[#D1FE6E] transition-colors text-sm">Sobre Nós</a>
+                <a href="/blog" className="block text-white/60 hover:text-[#D1FE6E] transition-colors text-sm">Blog</a>
+                <a href="/carreiras" className="block text-white/60 hover:text-[#D1FE6E] transition-colors text-sm">Carreiras</a>
+                <a href="/imprensa" className="block text-white/60 hover:text-[#D1FE6E] transition-colors text-sm">Imprensa</a>
+              </div>
+            </div>
+          </div>
+          
+          {/* Linha de separação */}
+          <div className="border-t border-white/10 pt-8">
+            <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+              {/* Copyright */}
+              <div className="text-white/60 text-sm">
+                © 2025 ConsertOS. Todos os direitos reservados.
+              </div>
+              
+              {/* Links legais */}
+              <div className="flex space-x-6 text-sm">
+                <a href="/privacidade" className="text-white/60 hover:text-[#D1FE6E] transition-colors">Privacidade</a>
+                <a href="/termos" className="text-white/60 hover:text-[#D1FE6E] transition-colors">Termos de Uso</a>
+                <a href="/cookies" className="text-white/60 hover:text-[#D1FE6E] transition-colors">Cookies</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
