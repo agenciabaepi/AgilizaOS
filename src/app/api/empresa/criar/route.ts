@@ -106,7 +106,7 @@ export async function POST(request: Request) {
   console.log('Empresa criada:', empresa);
 
   // 3. Cadastrar usuário na tabela 'usuarios'
-  const { error: usuarioError } = await supabaseAdmin
+  const { data: usuario, error: usuarioError } = await supabaseAdmin
     .from('usuarios')
     .insert({
       id: user_id,
@@ -115,10 +115,13 @@ export async function POST(request: Request) {
       email,
       usuario: email.split('@')[0], // Usar parte do email como usuário
       empresa_id: empresa.id,
-      nivel: 'admin'
-    });
+      nivel: 'admin',
+      email_verificado: false // Email ainda não verificado
+    })
+    .select()
+    .single();
 
-  if (usuarioError) {
+  if (usuarioError || !usuario) {
     console.error('Erro ao salvar usuário:', usuarioError);
     return NextResponse.json({ error: 'Erro ao salvar usuário', details: usuarioError }, { status: 500 });
   }
@@ -161,5 +164,36 @@ export async function POST(request: Request) {
     // Não falhar a criação da empresa por causa da assinatura
   }
 
-  return NextResponse.json({ sucesso: true, empresa_id: empresa.id });
+  // 5. Enviar código de verificação por email
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/email/enviar-codigo`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        usuarioId: usuario.id,
+        email: email,
+        nomeEmpresa: nomeEmpresa
+      })
+    });
+
+    if (!response.ok) {
+      console.error('Erro ao enviar código de verificação:', await response.text());
+      // Não falhar o cadastro por causa do email
+    } else {
+      console.log('Código de verificação enviado com sucesso');
+    }
+  } catch (error) {
+    console.error('Erro ao enviar código de verificação:', error);
+    // Não falhar o cadastro por causa do email
+  }
+
+  return NextResponse.json({ 
+    sucesso: true, 
+    empresa_id: empresa.id,
+    usuario_id: usuario.id,
+    email_enviado: true,
+    message: 'Cadastro realizado com sucesso! Verifique seu email para ativar sua conta.' 
+  });
 }

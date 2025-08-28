@@ -26,7 +26,8 @@ export async function middleware(req: NextRequest) {
     '/teste-expirado',
     '/termos',
     '/planos',
-    '/periodo-teste'
+    '/periodo-teste',
+    '/verificar-email'
   ];
 
   const isPublicPage = publicPages.some(page => req.nextUrl.pathname.startsWith(page));
@@ -47,9 +48,30 @@ export async function middleware(req: NextRequest) {
     if (error || !user) {
       return NextResponse.redirect(new URL('/login', req.url));
     }
+
+    // Verificar se o email foi verificado
+    const { data: usuario, error: usuarioError } = await supabase
+      .from('usuarios')
+      .select('email_verificado, email')
+      .eq('auth_user_id', user.id)
+      .single();
+
+    if (usuarioError) {
+      console.error('Erro ao buscar dados do usuário:', usuarioError);
+      return NextResponse.redirect(new URL('/login', req.url));
+    }
+
+    // Se o email não foi verificado, redirecionar para verificação
+    if (usuario && !usuario.email_verificado) {
+      const verificarEmailUrl = new URL('/verificar-email', req.url);
+      verificarEmailUrl.searchParams.set('email', usuario.email);
+      return NextResponse.redirect(verificarEmailUrl);
+    }
+
     return NextResponse.next();
   } catch (error) {
     // Em caso de erro, redirecionar para login
+    console.error('Erro no middleware:', error);
     return NextResponse.redirect(new URL('/login', req.url));
   }
 }

@@ -266,12 +266,12 @@ export default function CadastroEmpresa() {
         return;
       }
       
-      toast.success('Cadastro realizado com sucesso!');
+      toast.success(result.message || 'Cadastro realizado com sucesso!');
       
-      // Aguarda um pouco antes de redirecionar
+      // Aguarda um pouco antes de redirecionar para verificação de email
       setTimeout(() => {
-        router.push('/cadastro/sucesso');
-      }, 3000);
+        router.push(`/verificar-email?email=${encodeURIComponent(form.email)}`);
+      }, 2000);
       
     } catch (error: unknown) {
       console.error('Erro no try/catch:', error);
@@ -345,7 +345,7 @@ export default function CadastroEmpresa() {
                     {mostrarSenha ? <FaEyeSlash /> : <FaEye />}
                   </div>
                 </div>
-                <label className={`text-sm ${senhasIguais ? 'text-white/70' : 'text-red-400'}`}>{senhasIguais ? 'Repita sua senha para confirmar por favor' : 'As senhas não coincidem.'}</label>
+                <label className={`text-sm ${senhasIguais ? 'text-white/70' : 'text-red-400'}`}>{senhasIguais ? 'Repita sua senha para confirmar' : 'As senhas não coincidem.'}</label>
                 <div className="relative">
                   <input
                     type={mostrarConfirmarSenha ? 'text' : 'password'}
