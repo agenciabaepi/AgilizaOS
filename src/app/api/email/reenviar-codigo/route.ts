@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Enviar email
-    const nomeEmpresa = usuario.empresas?.nome || 'Empresa'
+    const nomeEmpresa = usuario.empresas?.[0]?.nome || 'Empresa'
     const emailEnviado = await enviarEmailVerificacao(email, codigo, nomeEmpresa)
 
     if (!emailEnviado) {
