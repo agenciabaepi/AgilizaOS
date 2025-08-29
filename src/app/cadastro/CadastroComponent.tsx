@@ -16,6 +16,7 @@ import {
 import { mask as masker } from 'remask';
 
 export default function CadastroEmpresa() {
+  // Teste GitHub Actions - deploy automático
   const [step, setStep] = useState(1);
   const router = useRouter();
   const searchParams = useSearchParams();
