@@ -1,27 +1,5 @@
-# Multi-stage build para garantir build de produção
-FROM node:18-alpine AS builder
-
-# Instalar dependências do sistema
-RUN apk add --no-cache libc6-compat
-
-# Criar diretório da aplicação
-WORKDIR /app
-
-# Copiar arquivos de dependências
-COPY package*.json ./
-
-# Instalar TODAS as dependências
-RUN npm ci
-
-# Copiar código fonte
-COPY . .
-
-# Construir a aplicação Next.js
-ENV NEXT_TELEMETRY_DISABLED 1
-RUN npm run build
-
-# Stage de produção
-FROM node:18-alpine AS runner
+# Build de produção simples e funcional
+FROM node:18-alpine
 
 # Instalar dependências do sistema para Puppeteer
 RUN apk add --no-cache \
@@ -31,31 +9,37 @@ RUN apk add --no-cache \
     freetype-dev \
     harfbuzz \
     ca-certificates \
-    ttf-freefont
+    ttf-freefont \
+    libc6-compat
 
 # Definir variáveis de ambiente para Puppeteer
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
+# Criar diretório da aplicação
 WORKDIR /app
 
-# Configurar usuário não-root
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+# Copiar arquivos de dependências
+COPY package*.json ./
 
-# Copiar arquivos necessários do builder
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+# Instalar dependências
+RUN npm ci
 
-# Mudar proprietário dos arquivos
-USER nextjs
+# Copiar código da aplicação
+COPY . .
+
+# Construir a aplicação
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build
+
+# Limpar cache e dependências desnecessárias
+RUN npm prune --production
 
 # Expor porta
 EXPOSE 3000
 
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
-# Comando para iniciar a aplicação
-CMD ["node", "server.js"]
+# Comando para iniciar
+CMD ["npm", "start"]
