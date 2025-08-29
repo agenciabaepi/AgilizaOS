@@ -16,7 +16,6 @@ import {
 import { mask as masker } from 'remask';
 
 export default function CadastroEmpresa() {
-  // Teste GitHub Actions - deploy automático
   const [step, setStep] = useState(1);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -56,40 +55,6 @@ export default function CadastroEmpresa() {
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [mostrarConfirmarSenha, setMostrarConfirmarSenha] = useState(false);
   const progress = (step / 2) * 100; // Agora são 2 passos
-
-  // Funções para estilizar cada etapa
-  const getStepBackground = (step: number) => {
-    switch (step) {
-      case 1:
-        return 'bg-gradient-to-br from-blue-50 to-blue-100 border-l-4 border-blue-500';
-      case 2:
-        return 'bg-gradient-to-br from-green-50 to-green-100 border-l-4 border-green-500';
-      default:
-        return 'bg-white';
-    }
-  };
-
-  const getStepTitle = (step: number) => {
-    switch (step) {
-      case 1:
-        return 'Etapa 1: Seus Dados Pessoais';
-      case 2:
-        return 'Etapa 2: Dados da Empresa';
-      default:
-        return '';
-    }
-  };
-
-  const getStepIcon = (step: number) => {
-    switch (step) {
-      case 1:
-        return <FaUser className="text-blue-600 text-xl" />;
-      case 2:
-        return <FaBuilding className="text-green-600 text-xl" />;
-      default:
-        return null;
-    }
-  };
 
   const handleNext = () => setStep((s) => s + 1);
   const handleBack = () => setStep((s) => s - 1);
@@ -368,7 +333,7 @@ export default function CadastroEmpresa() {
               }`}>
                 2
               </div>
-              <span className="text-sm font-medium">Dados da sua Empresa</span>
+              <span className="text-sm font-medium">Dados da Empresa</span>
               {step === 2 && <FaBuilding className="text-[#D1FE6E] ml-1" />}
             </div>
           </div>
@@ -397,13 +362,7 @@ export default function CadastroEmpresa() {
 
           <div className="h-auto min-h-[560px] overflow-visible relative transition-all">
             {step === 1 && (
-              <div key={`step1-${step}`} className={`w-full gap-3 flex flex-col transition-opacity duration-200 p-6 rounded-lg shadow-md ${getStepBackground(step)}`}>
-                <div className="flex items-center gap-3 mb-4">
-                  {getStepIcon(step)}
-                  <h2 className="text-xl font-semibold text-gray-800">
-                    {getStepTitle(step)}
-                  </h2>
-                </div>
+              <div key={`step1-${step}`} className="w-full gap-3 flex flex-col transition-opacity duration-200">
                 {/* Header da Etapa 1 */}
                 <div className="text-center mb-6 p-4 rounded-2xl bg-[#D1FE6E]/5 border border-[#D1FE6E]/20">
                   <h2 className="text-2xl font-semibold text-white mb-2 flex items-center justify-center">
@@ -503,14 +462,8 @@ export default function CadastroEmpresa() {
             {step === 2 && (
               <div
                 key={`step2-${step}`}
-                className={`w-full gap-3 flex flex-col transition-opacity duration-200 p-6 rounded-lg shadow-md ${getStepBackground(step)}`}
+                className="w-full gap-3 flex flex-col transition-opacity duration-200"
               >
-                <div className="flex items-center gap-3 mb-4">
-                  {getStepIcon(step)}
-                  <h2 className="text-xl font-semibold text-gray-800">
-                    {getStepTitle(step)}
-                  </h2>
-                </div>
                 {/* Header da Etapa 2 */}
                 <div className="text-center mb-6 p-4 rounded-2xl bg-[#D1FE6E]/5 border border-[#D1FE6E]/20">
                   <h2 className="text-2xl font-semibold text-white mb-2 flex items-center justify-center">
@@ -712,5 +665,5 @@ export default function CadastroEmpresa() {
       </footer>
     </div>
   );
-}// Teste deploy automático GitHub Actions
-// Teste final GitHub Actions - SSH configurado
+}
+// Teste site funcionando após limpeza de disco
