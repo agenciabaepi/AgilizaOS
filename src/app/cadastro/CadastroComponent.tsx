@@ -713,3 +713,4 @@ export default function CadastroEmpresa() {
     </div>
   );
 }// Teste deploy automático GitHub Actions
+// Teste final GitHub Actions - SSH configurado
