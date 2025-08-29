@@ -51,7 +51,15 @@ export default function Home() {
     
     checkUserAndRedirect();
   }, [router]);
-  
+
+  // Auto-rotate do carrossel
+  useEffect(() => {
+    const carouselImages = 3; // número de cards
+    const interval = setInterval(() => {
+      setCurrentCardIndex((prev) => (prev + 1) % carouselImages);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Inicializa a posição do mouse com valores negativos para que o efeito não apareça inicialmente
   const [mousePosition, setMousePosition] = useState({ x: -100, y: -100 });
@@ -65,6 +73,9 @@ export default function Home() {
   const [reduction, setReduction] = useState(45);
   const [satisfaction, setSatisfaction] = useState(89);
   const [numbersAnimated, setNumbersAnimated] = useState(false);
+  
+  // Carrossel state
+  const [currentCardIndex, setCurrentCardIndex] = useState(0);
 
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
@@ -398,10 +409,10 @@ export default function Home() {
       <div id="solucoes" className="relative z-10 px-4 sm:px-6 md:px-8 pb-20 md:pb-32 lg:px-12">
         <div className="mx-auto max-w-6xl">
           <div className="flex flex-col items-center justify-center">
-            {/* MacBook Pro Image */}
+            {/* MacBook Image */}
             <div 
               data-reveal="macbook"
-              className={`relative mb-16 flex justify-center scroll-reveal-scale scroll-reveal-delay-300 ${
+              className={`relative mb-20 flex justify-center scroll-reveal-scale scroll-reveal-delay-300 ${
                 isAnimated('macbook') ? 'revealed' : ''
               }`}
             >
@@ -417,6 +428,179 @@ export default function Home() {
                   transition: 'transform 0.1s ease-out'
                 }}
               />
+            </div>
+
+                        {/* Seção Carrossel + Texto */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center mb-16">
+              
+              {/* Lado Esquerdo - Carrossel de Cards */}
+              <div className="relative flex justify-center lg:justify-end">
+                <div className="relative w-full max-w-md h-[600px] flex items-center justify-center">
+                  {/* Cards do Carrossel */}
+                  {[
+                    {
+                      title: 'Ordens de Serviço',
+                      subtitle: 'Gestão Completa',
+                      description: 'Controle total de ordens, status e acompanhamento em tempo real',
+                      icon: '📋',
+                      gradient: 'from-blue-500/20 via-purple-500/20 to-indigo-500/20'
+                    },
+                    {
+                      title: 'Dashboard Analytics',
+                      subtitle: 'Métricas em Tempo Real',
+                      description: 'Relatórios detalhados e insights para tomada de decisões',
+                      icon: '📊',
+                      gradient: 'from-green-500/20 via-emerald-500/20 to-teal-500/20'
+                    },
+                    {
+                      title: 'Gestão de Clientes',
+                      subtitle: 'Relacionamento Inteligente',
+                      description: 'CRM completo com histórico e comunicação integrada',
+                      icon: '👥',
+                      gradient: 'from-orange-500/20 via-red-500/20 to-pink-500/20'
+                    }
+                  ].map((card, index) => {
+                    const isActive = index === currentCardIndex;
+                    const isPrev = index === (currentCardIndex - 1 + 3) % 3;
+                    const isNext = index === (currentCardIndex + 1) % 3;
+                    
+                    let cardStyle = 'opacity-0 scale-75 translate-x-0 z-0';
+                    
+                    if (isActive) {
+                      cardStyle = 'opacity-100 scale-100 translate-x-0 z-30';
+                    } else if (isPrev) {
+                      cardStyle = 'opacity-40 scale-90 -translate-x-8 z-20';
+                    } else if (isNext) {
+                      cardStyle = 'opacity-40 scale-90 translate-x-8 z-20';
+                    }
+                    
+                    return (
+                    <div
+                      key={index}
+                      className={`absolute transition-all duration-700 ease-in-out transform ${cardStyle}`}
+                    >
+                      <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-3xl p-8 shadow-2xl border border-gray-700/50 backdrop-blur-sm w-80 h-[500px] flex flex-col justify-center items-center text-center">
+                        {/* Ícone */}
+                        <div className="text-6xl mb-6">
+                          {card.icon}
+                        </div>
+                        
+                        {/* Título */}
+                        <h3 className="text-2xl font-bold text-white mb-3 tracking-tight">
+                          <span className="bg-gradient-to-r from-[#D1FE6E] to-[#B8E55A] bg-clip-text text-transparent">
+                            {card.title}
+                          </span>
+                        </h3>
+                        
+                        {/* Subtítulo */}
+                        <h4 className="text-lg text-gray-300 mb-4 font-light">
+                          {card.subtitle}
+                        </h4>
+                        
+                        {/* Descrição */}
+                        <p className="text-gray-400 leading-relaxed text-sm">
+                          {card.description}
+                        </p>
+                        
+                        {/* Decoração */}
+                        <div className="absolute top-6 right-6 w-3 h-3 bg-[#D1FE6E] rounded-full opacity-60"></div>
+                        <div className="absolute bottom-6 left-6 w-2 h-2 bg-[#B8E55A] rounded-full opacity-40"></div>
+                      </div>
+                    </div>
+                    );
+                  })}
+
+                  {/* Indicadores do Carrossel */}
+                  <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-3 z-40">
+                    {[0, 1, 2].map((index) => (
+                      <button
+                        key={index}
+                        onClick={() => setCurrentCardIndex(index)}
+                        className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                          index === currentCardIndex 
+                            ? 'bg-[#D1FE6E] scale-125 shadow-lg' 
+                            : 'bg-gray-600 hover:bg-gray-500'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Lado Direito - Conteúdo Textual */}
+              <div className="space-y-8">
+                <div>
+                  <h2 className="text-4xl md:text-5xl font-light mb-6 leading-tight tracking-tight text-white">
+                    Funcionalidades que 
+                    <span className="bg-gradient-to-r from-[#D1FE6E] to-[#B8E55A] bg-clip-text text-transparent font-medium">
+                      {' '}transformam{' '}
+                    </span>
+                    seu negócio
+                  </h2>
+                  <p className="text-white/70 text-lg md:text-xl leading-relaxed font-light">
+                    Uma plataforma completa que integra todas as operações da sua assistência técnica em um só lugar.
+                  </p>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="flex items-start space-x-4">
+                    <div className="w-12 h-12 bg-[#D1FE6E]/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <svg className="w-6 h-6 text-[#D1FE6E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-white font-medium text-lg mb-2">Gestão Inteligente</h3>
+                      <p className="text-white/60 leading-relaxed">
+                        Automação de processos que reduz erros e aumenta a produtividade da sua equipe.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start space-x-4">
+                    <div className="w-12 h-12 bg-[#D1FE6E]/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <svg className="w-6 h-6 text-[#D1FE6E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-white font-medium text-lg mb-2">Performance Otimizada</h3>
+                      <p className="text-white/60 leading-relaxed">
+                        Interface responsiva e rápida, desenvolvida para máxima eficiência no dia a dia.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start space-x-4">
+                    <div className="w-12 h-12 bg-[#D1FE6E]/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <svg className="w-6 h-6 text-[#D1FE6E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-white font-medium text-lg mb-2">Segurança Garantida</h3>
+                      <p className="text-white/60 leading-relaxed">
+                        Seus dados protegidos com criptografia de ponta e backups automáticos.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-6">
+                  <button 
+                    onClick={() => router.push('/cadastro?plano=unico')}
+                    className="inline-flex items-center px-8 py-4 bg-[#D1FE6E] text-black rounded-full font-medium hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105"
+                    style={{
+                      boxShadow: '0 4px 20px rgba(209, 254, 110, 0.3)'
+                    }}
+                  >
+                    <span>Começar Agora</span>
+                    <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Call to Action */}

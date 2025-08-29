@@ -5,9 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
 import logo from '@/assets/imagens/logopreto.png';
-import bgImage from '@/assets/imagens/background-login.png';
 import { ToastProvider, useToast } from '@/components/Toast';
 import { ConfirmProvider, useConfirm } from '@/components/ConfirmDialog';
+import { FaEye, FaEyeSlash, FaArrowLeft, FaArrowRight } from 'react-icons/fa';
 
 function LoginClientInner() {
   const [loginInput, setLoginInput] = useState('');
@@ -15,10 +15,40 @@ function LoginClientInner() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const auth = useAuth();
   const { addToast } = useToast();
   const confirm = useConfirm();
+
+  // Imagens para o carrossel
+  const carouselImages = [
+    {
+      src: '/assets/imagens/pageordens.png',
+      alt: 'Consert Dashboard',
+      title: 'Potencialize',
+      subtitle: 'sua gestão de assistência técnica',
+      description: 'Sistema completo para controle de ordens de serviço, clientes e equipe técnica com interface moderna e intuitiva.',
+      isScreenshot: true
+    },
+    {
+      src: '/assets/imagens/logobranco.png',
+      alt: 'Consert Analytics',
+      title: 'Analytics',
+      subtitle: 'em tempo real',
+      description: 'Acompanhe métricas importantes, relatórios detalhados e tome decisões baseadas em dados reais do seu negócio.',
+      isScreenshot: false
+    },
+    {
+      src: '/assets/imagens/logobranco.png',
+      alt: 'Consert Mobile',
+      title: 'Mobilidade',
+      subtitle: 'total para sua equipe',
+      description: 'Acesse o sistema de qualquer dispositivo, mantenha a produtividade e gerencie tudo de onde estiver.',
+      isScreenshot: false
+    }
+  ];
   
   // Proteção client-side: redirecionar se já estiver logado
   useEffect(() => {
@@ -28,6 +58,14 @@ function LoginClientInner() {
       router.replace('/dashboard');
     }
   }, [auth.user, auth.session, auth.loading, auth.isLoggingOut, router]);
+
+  // Auto-rotate do carrossel
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % carouselImages.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [carouselImages.length]);
   
   // Se estiver carregando ou já logado, mostrar loading
   if (auth.loading || (auth.user && auth.session && !auth.isLoggingOut)) {
@@ -279,51 +317,179 @@ function LoginClientInner() {
     }
   };
 
+  const nextImage = () => {
+    setCurrentImageIndex((prev) => (prev + 1) % carouselImages.length);
+  };
+
+  const prevImage = () => {
+    setCurrentImageIndex((prev) => (prev - 1 + carouselImages.length) % carouselImages.length);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#cffb6d] to-[#e0ffe3] relative overflow-hidden">
-      {/* Background Image */}
-      <div className="absolute inset-0 z-0">
-        <img
-          src={bgImage.src}
-          alt="Background Login"
-          className="w-full h-full object-cover opacity-40"
-          style={{ mixBlendMode: 'overlay' }}
-        />
+    <div className="min-h-screen flex">
+      {/* Lado Esquerdo - Carrossel de Cards */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-black">
+        {/* Cards Sobrepostos */}
+        <div className="relative w-full h-full flex items-center justify-center p-8">
+          {carouselImages.map((image, index) => {
+            const isActive = index === currentImageIndex;
+            const isPrev = index === (currentImageIndex - 1 + carouselImages.length) % carouselImages.length;
+            const isNext = index === (currentImageIndex + 1) % carouselImages.length;
+            
+            let cardStyle = 'opacity-0 scale-75 translate-x-0 z-0';
+            
+            if (isActive) {
+              cardStyle = 'opacity-100 scale-100 translate-x-0 z-30';
+            } else if (isPrev) {
+              cardStyle = 'opacity-40 scale-90 -translate-x-16 z-20';
+            } else if (isNext) {
+              cardStyle = 'opacity-40 scale-90 translate-x-16 z-20';
+            }
+            
+            return (
+              <div
+                key={index}
+                className={`absolute transition-all duration-700 ease-in-out transform ${cardStyle}`}
+              >
+                {/* Card Principal */}
+                <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-3xl p-16 shadow-2xl border border-gray-700/50 backdrop-blur-sm w-[480px] h-[650px] flex flex-col justify-center items-center text-center">
+                  {/* Ícone Grande */}
+                  <div className="text-8xl mb-8 opacity-90">
+                    {index === 0 ? '📋' : index === 1 ? '📊' : '🚀'}
+                  </div>
+                  
+                  {/* Título */}
+                  <h1 className="text-5xl font-bold text-white mb-6 tracking-tight leading-tight">
+                    <span className="bg-gradient-to-r from-[#D1FE6E] to-[#B8E55A] bg-clip-text text-transparent">
+                      {image.title}
+                    </span>
+                  </h1>
+                  
+                  {/* Subtítulo */}
+                  <h2 className="text-2xl text-white/90 mb-8 font-light">
+                    {image.subtitle}
+                  </h2>
+                  
+                  {/* Descrição */}
+                  <p className="text-white/70 leading-relaxed text-lg max-w-md">
+                    {image.description}
+                  </p>
+                  
+                  {/* Features List */}
+                  <div className="mt-8 space-y-3">
+                    {index === 0 && (
+                      <>
+                        <div className="flex items-center text-white/60 text-sm">
+                          <div className="w-2 h-2 bg-[#D1FE6E] rounded-full mr-3"></div>
+                          <span>Controle total de status</span>
+                        </div>
+                        <div className="flex items-center text-white/60 text-sm">
+                          <div className="w-2 h-2 bg-[#D1FE6E] rounded-full mr-3"></div>
+                          <span>Histórico completo</span>
+                        </div>
+                        <div className="flex items-center text-white/60 text-sm">
+                          <div className="w-2 h-2 bg-[#D1FE6E] rounded-full mr-3"></div>
+                          <span>Notificações automáticas</span>
+                        </div>
+                      </>
+                    )}
+                    {index === 1 && (
+                      <>
+                        <div className="flex items-center text-white/60 text-sm">
+                          <div className="w-2 h-2 bg-[#D1FE6E] rounded-full mr-3"></div>
+                          <span>Relatórios detalhados</span>
+                        </div>
+                        <div className="flex items-center text-white/60 text-sm">
+                          <div className="w-2 h-2 bg-[#D1FE6E] rounded-full mr-3"></div>
+                          <span>Métricas de performance</span>
+                        </div>
+                        <div className="flex items-center text-white/60 text-sm">
+                          <div className="w-2 h-2 bg-[#D1FE6E] rounded-full mr-3"></div>
+                          <span>Dashboard intuitivo</span>
+                        </div>
+                      </>
+                    )}
+                    {index === 2 && (
+                      <>
+                        <div className="flex items-center text-white/60 text-sm">
+                          <div className="w-2 h-2 bg-[#D1FE6E] rounded-full mr-3"></div>
+                          <span>Acesso em qualquer lugar</span>
+                        </div>
+                        <div className="flex items-center text-white/60 text-sm">
+                          <div className="w-2 h-2 bg-[#D1FE6E] rounded-full mr-3"></div>
+                          <span>Interface responsiva</span>
+                        </div>
+                        <div className="flex items-center text-white/60 text-sm">
+                          <div className="w-2 h-2 bg-[#D1FE6E] rounded-full mr-3"></div>
+                          <span>Sincronização em tempo real</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  
+                  {/* Decoração */}
+                  <div className="absolute top-8 right-8 w-4 h-4 bg-[#D1FE6E] rounded-full opacity-60"></div>
+                  <div className="absolute bottom-8 left-8 w-3 h-3 bg-[#B8E55A] rounded-full opacity-40"></div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Controles do Carrossel */}
+        <div className="absolute bottom-12 left-1/2 transform -translate-x-1/2 flex space-x-6 z-40">
+          <button
+            onClick={prevImage}
+            className="w-14 h-14 rounded-full bg-gray-800/80 backdrop-blur-sm border border-gray-600 text-white hover:bg-gray-700/80 hover:border-[#D1FE6E]/50 transition-all duration-300 flex items-center justify-center"
+          >
+            <FaArrowLeft className="text-lg" />
+          </button>
+          
+          <button
+            onClick={nextImage}
+            className="w-14 h-14 rounded-full bg-gray-800/80 backdrop-blur-sm border border-gray-600 text-white hover:bg-gray-700/80 hover:border-[#D1FE6E]/50 transition-all duration-300 flex items-center justify-center"
+          >
+            <FaArrowRight className="text-lg" />
+          </button>
+        </div>
+
+        {/* Indicadores de página */}
+        <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 flex space-x-4 z-40">
+          {carouselImages.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => setCurrentImageIndex(index)}
+              className={`w-4 h-4 rounded-full transition-all duration-300 ${
+                index === currentImageIndex 
+                  ? 'bg-[#D1FE6E] scale-125 shadow-lg' 
+                  : 'bg-gray-600 hover:bg-gray-500'
+              }`}
+            />
+          ))}
+        </div>
       </div>
       
-      {/* Enhanced Gradient Overlays */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
-      <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-transparent"></div>
-
-      {/* Login Container */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 sm:px-6">
+      {/* Lado Direito - Formulário de Login */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gradient-to-br from-gray-50 to-white">
         <div className="w-full max-w-md">
-          {/* Logo with Enhanced Animation */}
+          {/* Logo */}
           <div className="flex justify-center mb-12">
             <div className="relative group">
-              <div className="absolute inset-0 bg-gradient-to-r from-[#D1FE6E] to-[#B8E55A] rounded-full blur-xl opacity-20 group-hover:opacity-40 transition-all duration-500"></div>
               <Image 
                 src={logo} 
                 alt="Consert Logo" 
-                width={160} 
-                height={160}
-                className="relative transition-all duration-500 ease-out hover:scale-110 hover:brightness-110"
+                width={140} 
+                height={140}
+                className="transition-all duration-300 hover:scale-105"
               />
             </div>
           </div>
 
-          {/* Modern Login Form */}
-          <div className="relative group">
-            {/* Glow Effect */}
-            <div className="absolute inset-0 bg-gradient-to-r from-[#D1FE6E] to-[#B8E55A] rounded-3xl blur-xl opacity-20 group-hover:opacity-30 transition-all duration-500"></div>
-            
+          {/* Login Form */}
+          <div className="relative">
             <form
               onSubmit={handleLogin}
-              className="relative bg-white/95 backdrop-blur-xl p-8 rounded-3xl border border-white/30 shadow-2xl"
-              style={{
-                background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%)',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.2)'
-              }}
+              className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100"
             >
               {/* Header */}
               <div className="text-center mb-8">
@@ -335,71 +501,103 @@ function LoginClientInner() {
                 </p>
               </div>
               
-              <div className="space-y-6">
+              <div className="space-y-5">
                 {/* Email/Username Input */}
-                <div className="relative group">
-                  <div className={`absolute inset-0 rounded-2xl transition-all duration-300 ${
-                    focusedField === 'login' 
-                      ? 'bg-gradient-to-r from-[#D1FE6E]/20 to-[#B8E55A]/20' 
-                      : 'bg-white/50'
-                  }`} />
+                <div className="relative">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    E-mail ou Usuário
+                  </label>
                   <input
                     type="text"
-                    placeholder="E-mail ou Usuário"
+                    placeholder="Digite seu e-mail ou usuário"
                     value={loginInput}
                     onChange={(e) => setLoginInput(e.target.value)}
                     onFocus={() => setFocusedField('login')}
                     onBlur={() => setFocusedField(null)}
-                    className="relative w-full px-6 py-4 bg-transparent border border-gray-200 rounded-2xl text-gray-900 placeholder-gray-500 focus:outline-none focus:border-[#D1FE6E] focus:ring-2 focus:ring-[#D1FE6E]/20 transition-all duration-300 backdrop-blur-sm"
+                    className={`w-full px-4 py-3 bg-gray-50 border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:bg-white transition-all duration-200 ${
+                      focusedField === 'login' 
+                        ? 'border-gray-900 shadow-sm' 
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
                     required
                   />
                 </div>
                 
                 {/* Password Input */}
-                <div className="relative group">
-                  <div className={`absolute inset-0 rounded-2xl transition-all duration-300 ${
-                    focusedField === 'password' 
-                      ? 'bg-gradient-to-r from-[#D1FE6E]/20 to-[#B8E55A]/20' 
-                      : 'bg-white/50'
-                  }`} />
+                <div className="relative">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Senha
+                  </label>
                   <input
-                    type="password"
-                    placeholder="Senha"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Digite sua senha"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     onFocus={() => setFocusedField('password')}
                     onBlur={() => setFocusedField(null)}
-                    className="relative w-full px-6 py-4 bg-transparent border border-gray-200 rounded-2xl text-gray-900 placeholder-gray-500 focus:outline-none focus:border-[#D1FE6E] focus:ring-2 focus:ring-[#D1FE6E]/20 transition-all duration-300 backdrop-blur-sm"
+                    className={`w-full px-4 py-3 bg-gray-50 border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:bg-white transition-all duration-200 pr-12 ${
+                      focusedField === 'password' 
+                        ? 'border-gray-900 shadow-sm' 
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
                     required
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors mt-8"
+                  >
+                    {showPassword ? <FaEyeSlash size={18} /> : <FaEye size={18} />}
+                  </button>
                 </div>
                 
                 {/* Login Button */}
                 <button
                   type="submit"
-                  className="w-full bg-gradient-to-r from-[#D1FE6E] to-[#B8E55A] text-black font-medium py-4 rounded-2xl hover:from-[#B8E55A] hover:to-[#A5D44A] transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden group"
+                  className="w-full bg-gray-900 text-white font-medium py-3 rounded-lg hover:bg-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-6"
                   disabled={isSubmitting}
-                  style={{
-                    boxShadow: '0 4px 20px rgba(209, 254, 110, 0.3)'
-                  }}
                 >
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-                  <span className="relative">
                     {isSubmitting ? 'Entrando...' : 'Entrar'}
-                  </span>
                 </button>
                 
                 {/* Forgot Password Button */}
                 <button
                   type="button"
-                  className="w-full bg-gray-100 border border-gray-200 text-gray-700 font-medium py-4 rounded-2xl hover:bg-gray-200 hover:border-gray-300 transition-all duration-300 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-gray-100 text-gray-700 font-medium py-3 rounded-lg hover:bg-gray-200 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={handlePasswordReset}
                   disabled={isRecovering}
                 >
                   {isRecovering ? 'Enviando...' : 'Esqueci minha senha'}
                 </button>
               </div>
+
+              {/* Link para cadastro */}
+              <div className="text-center mt-6">
+                <p className="text-gray-600">
+                  Não tem uma conta?{' '}
+                  <button
+                    type="button"
+                    onClick={() => router.push('/cadastro')}
+                    className="text-gray-900 hover:text-gray-700 font-medium underline transition-colors"
+                  >
+                    Crie a sua agora
+                  </button>
+                </p>
+              </div>
             </form>
+          </div>
+
+          {/* Footer Links */}
+          <div className="text-center mt-8 space-x-6 text-sm">
+            <a href="/privacidade" className="text-gray-500 hover:text-gray-700 transition-colors">
+              Política de Privacidade
+            </a>
+            <a href="/termos" className="text-gray-500 hover:text-gray-700 transition-colors">
+              Termos de Uso
+            </a>
+            <a href="/ajuda" className="text-gray-500 hover:text-gray-700 transition-colors">
+              Ajuda
+            </a>
           </div>
         </div>
       </div>

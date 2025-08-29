@@ -103,23 +103,36 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
   const pathname = usePathname();
 
-  // ✅ VERSÃO SIMPLIFICADA: Pular carregamento de configurações para debug
+  // Carregar configurações do catálogo
   useEffect(() => {
-    console.log('🔍 MenuLayout: PULANDO carregamento de configurações para debug');
-    return;
-    
     (async () => {
       try {
         if (!empresaData?.id) return;
-        const { data } = await supabase
+        
+        console.log('🔍 MenuLayout: Carregando configurações do catálogo para empresa:', empresaData.id);
+        
+        const { data, error } = await supabase
           .from('configuracoes_empresa')
           .select('catalogo_habilitado')
           .eq('empresa_id', empresaData.id)
           .single();
-        if (data && typeof data.catalogo_habilitado === 'boolean') {
-          setCatalogoHabilitado(data.catalogo_habilitado);
+          
+        if (error) {
+          console.log('🔍 MenuLayout: Erro ao carregar configurações:', error);
+          // Se não encontrar configurações, assumir que está habilitado por padrão
+          setCatalogoHabilitado(true);
+          return;
         }
-      } catch {}
+        
+        const habilitado = data?.catalogo_habilitado === true;
+        console.log('🔍 MenuLayout: Catálogo habilitado:', habilitado);
+        setCatalogoHabilitado(habilitado);
+        
+      } catch (error) {
+        console.error('🔍 MenuLayout: Erro ao carregar configurações:', error);
+        // Em caso de erro, assumir que está habilitado
+        setCatalogoHabilitado(true);
+      }
     })();
   }, [empresaData?.id]);
 

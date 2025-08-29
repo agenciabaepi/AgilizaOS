@@ -273,116 +273,283 @@ export default function CatalogoPage() {
   return (
     <ProtectedArea area="ordens">
       <MenuLayout>
-        <div className="p-8 print:p-6">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6 print:hidden">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Catálogo de Serviços</h1>
-              <p className="text-gray-600">Visualize e imprima os valores dos serviços da sua empresa.</p>
-            </div>
-            <div className="flex gap-2">
-              <button className="px-4 py-2 rounded-md bg-black text-white hover:bg-gray-900" onClick={() => window.print()}>
-                Imprimir / PDF
-              </button>
-            </div>
-          </div>
-
-          {!habilitado && (
-            <div className="mb-6 p-4 rounded-lg border border-yellow-200 bg-yellow-50 text-yellow-800 print:hidden">
-              O catálogo está desabilitado nas configurações da empresa.
-            </div>
-          )}
-
-          {/* Gestão rápida do catálogo (somente admin) */}
-          {podeGerenciar && (
-            <div className="mb-6 rounded-xl border border-gray-200 p-4 bg-white print:hidden">
-              <div className="font-medium text-gray-900 mb-3">Adicionar item ao catálogo</div>
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                <label className="block">
-                  <div className="text-xs text-gray-600 mb-1">Imagem</div>
-                  <div className="border border-dashed border-gray-300 rounded-lg p-3 text-center hover:border-gray-400">
-                    {form.imagemPreview ? (
-                      <img src={form.imagemPreview} alt="preview" className="w-full h-28 object-cover rounded" />
-                    ) : (
-                      <div className="text-gray-400 text-sm">Clique para selecionar</div>
-                    )}
-                    <input type="file" accept="image/*" onChange={onSelectImage} className="mt-2 text-xs" />
-                  </div>
-                </label>
-                <label className="block">
-                  <div className="text-xs text-gray-600 mb-1">Nome do serviço</div>
-                  <input value={form.titulo} onChange={e => setForm(prev => ({ ...prev, titulo: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="Ex.: Formatação completa" />
-                </label>
-                <label className="block">
-                  <div className="text-xs text-gray-600 mb-1">Preço</div>
-                  <input value={form.preco} onChange={e => setForm(prev => ({ ...prev, preco: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="Ex.: 120,00" />
-                </label>
-                <label className="block">
-                  <div className="text-xs text-gray-600 mb-1">Categoria</div>
-                  <select value={form.categoriaNome} onChange={e => setForm(prev => ({ ...prev, categoriaNome: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                    <option value="">Sem categoria</option>
-                    {categorias.map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block">
-                  <div className="text-xs text-gray-600 mb-1">Descrição</div>
-                  <textarea value={form.descricao} onChange={e => setForm(prev => ({ ...prev, descricao: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg min-h-[42px]" placeholder="Opcional" />
-                </label>
+        <div className="p-6 lg:p-8 print:p-6 bg-gray-50 min-h-screen">
+          {/* Header Melhorado */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6 print:hidden">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-lg flex items-center justify-center">
+                  <svg className="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">Catálogo de Serviços</h1>
+                  <p className="text-gray-600 mt-1">Gerencie e visualize os valores dos serviços da sua empresa de forma organizada</p>
+                </div>
               </div>
-              <div className="mt-3 text-right">
-                <button onClick={salvarItem} disabled={salvandoItem} className="px-4 py-2 rounded-md bg-black text-white hover:bg-gray-900 disabled:opacity-50">
-                  {salvandoItem ? 'Salvando...' : 'Adicionar'}
+              <div className="flex gap-3">
+                <button 
+                  className="inline-flex items-center px-4 py-2 bg-black text-white rounded-lg hover:bg-neutral-800 transition-colors"
+                  onClick={() => {
+                    // Garantir que os dados estão no localStorage antes de abrir
+                    if (empresaData) {
+                      localStorage.setItem('empresaData', JSON.stringify(empresaData));
+                    }
+                    if (usuarioData) {
+                      localStorage.setItem('usuarioData', JSON.stringify(usuarioData));
+                    }
+                    console.log('Dados salvos no localStorage antes de abrir PDF');
+                    window.open('/catalogo/imprimir', '_blank');
+                  }}
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                  </svg>
+                  Imprimir / PDF
                 </button>
               </div>
-              <div className="mt-4 border-t pt-4">
-                <div className="text-sm font-medium text-gray-900 mb-2">Categorias</div>
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {categorias.map(c => (
-                    <span key={c} className="px-2 py-1 text-xs rounded-full border border-gray-200 bg-gray-50 text-gray-700">{c}</span>
-                  ))}
+            </div>
+
+            {!habilitado && (
+              <div className="mt-4 p-4 rounded-lg border border-yellow-200 bg-yellow-50 text-yellow-800">
+                <div className="flex items-center">
+                  <svg className="w-5 h-5 mr-2 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  O catálogo está desabilitado nas configurações da empresa.
                 </div>
-                <div className="flex items-center gap-2">
-                  <input value={novaCategoria} onChange={e => setNovaCategoria(e.target.value)} placeholder="Nova categoria" className="px-3 py-2 border border-gray-300 rounded-lg flex-1" />
-                  <button onClick={adicionarCategoria} disabled={salvandoCategoria} className="px-3 py-2 rounded-md border border-gray-200 hover:bg-gray-50">{salvandoCategoria ? 'Salvando...' : 'Adicionar categoria'}</button>
+              </div>
+            )}
+          </div>
+
+          {/* Formulário de Adição Melhorado (somente admin) */}
+          {podeGerenciar && (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6 print:hidden">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-lg flex items-center justify-center">
+                  <svg className="w-4 h-4 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
                 </div>
+                <h2 className="text-lg font-semibold text-gray-900">Adicionar Novo Serviço</h2>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Informações básicas */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Nome do Serviço *</label>
+                    <input 
+                      value={form.titulo} 
+                      onChange={e => setForm(prev => ({ ...prev, titulo: e.target.value }))} 
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D1FE6E] focus:border-[#D1FE6E] transition-colors" 
+                      placeholder="Ex.: Formatação completa do sistema" 
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Preço *</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-3 text-gray-500">R$</span>
+                        <input 
+                          value={form.preco} 
+                          onChange={e => setForm(prev => ({ ...prev, preco: e.target.value }))} 
+                          className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D1FE6E] focus:border-[#D1FE6E] transition-colors" 
+                          placeholder="120,00" 
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Categoria</label>
+                      <select 
+                        value={form.categoriaNome} 
+                        onChange={e => setForm(prev => ({ ...prev, categoriaNome: e.target.value }))} 
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D1FE6E] focus:border-[#D1FE6E] transition-colors"
+                      >
+                        <option value="">Selecione uma categoria</option>
+                        {categorias.map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Descrição</label>
+                    <textarea 
+                      value={form.descricao} 
+                      onChange={e => setForm(prev => ({ ...prev, descricao: e.target.value }))} 
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D1FE6E] focus:border-[#D1FE6E] transition-colors" 
+                      rows={3}
+                      placeholder="Descreva os detalhes do serviço (opcional)" 
+                    />
+                  </div>
+                </div>
+
+                {/* Upload de imagem e categorias */}
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Imagem do Serviço</label>
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+                      {form.imagemPreview ? (
+                        <div className="space-y-4">
+                          <img src={form.imagemPreview} alt="preview" className="w-full h-32 object-cover rounded-lg" />
+                          <p className="text-sm text-gray-500">Clique para alterar a imagem</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <svg className="w-12 h-12 text-gray-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <p className="text-gray-500">Clique para selecionar uma imagem</p>
+                        </div>
+                      )}
+                      <input type="file" accept="image/*" onChange={onSelectImage} className="mt-2 text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                    </div>
+                  </div>
+
+                  {/* Gestão de Categorias */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">Categorias Existentes</label>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {categorias.map(c => (
+                        <span key={c} className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-700 border border-gray-200">
+                          {c}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <input 
+                        value={novaCategoria} 
+                        onChange={e => setNovaCategoria(e.target.value)} 
+                        placeholder="Nome da nova categoria" 
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D1FE6E] focus:border-[#D1FE6E] transition-colors" 
+                      />
+                      <button 
+                        onClick={adicionarCategoria} 
+                        disabled={salvandoCategoria || !novaCategoria.trim()} 
+                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors border border-gray-300"
+                      >
+                        {salvandoCategoria ? 'Salvando...' : 'Adicionar'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 pt-6 border-t border-gray-200 flex justify-end">
+                <button 
+                  onClick={salvarItem} 
+                  disabled={salvandoItem || !form.titulo.trim() || !form.preco.trim()} 
+                  className="inline-flex items-center px-6 py-3 bg-black text-white rounded-lg hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                >
+                  {salvandoItem ? (
+                    <>
+                      <svg className="w-4 h-4 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                      Adicionar Serviço
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           )}
 
-          {/* Filtros */}
-          <div className="flex gap-3 items-center mb-6 print:hidden">
-            <input
-              value={busca}
-              onChange={e => setBusca(e.target.value)}
-              placeholder="Buscar serviço..."
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
-            />
-            <select
-              value={categoria}
-              onChange={e => setCategoria(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg"
-            >
-              <option value="">Todas as categorias</option>
-              {categorias.map(c => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
+          {/* Filtros Melhorados */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6 print:hidden">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.414A1 1 0 013 6.707V4z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Filtros e Busca</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Buscar Serviço</label>
+                <div className="relative">
+                  <svg className="absolute left-3 top-3 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <input
+                    value={busca}
+                    onChange={e => setBusca(e.target.value)}
+                    placeholder="Digite o nome do serviço..."
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D1FE6E] focus:border-[#D1FE6E] transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Filtrar por Categoria</label>
+                <select
+                  value={categoria}
+                  onChange={e => setCategoria(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D1FE6E] focus:border-[#D1FE6E] transition-colors"
+                >
+                  <option value="">📋 Todas as categorias</option>
+                  {categorias.map(c => (
+                    <option key={c} value={c}>📁 {c}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-end">
+                <div className="w-full">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Resultados</label>
+                  <div className="px-4 py-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <span className="text-sm text-gray-600">
+                      {itens.length} {itens.length === 1 ? 'serviço encontrado' : 'serviços encontrados'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Cabeçalho para impressão */}
           <div className="hidden print:block print-container">
             <div className="print-header">
               <div>
-                <div className="empresa">{empresaData?.nome}</div>
+                <div className="empresa">{empresaData?.nome || 'Consert Assistência Técnica'}</div>
                 <div className="subtitle">Catálogo de Serviços</div>
+                {empresaData?.cnpj && (
+                  <div style={{ fontSize: '9pt', color: '#6b7280', marginTop: '2pt' }}>
+                    CNPJ: {empresaData.cnpj}
+                  </div>
+                )}
+                {empresaData?.endereco && (
+                  <div style={{ fontSize: '9pt', color: '#6b7280' }}>
+                    {empresaData.endereco}
+                  </div>
+                )}
+                {empresaData?.telefone && (
+                  <div style={{ fontSize: '9pt', color: '#6b7280' }}>
+                    Telefone: {empresaData.telefone}
+                  </div>
+                )}
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex flex-col items-end gap-2">
                 {empresaData?.logo_url && (
                   <img src={empresaData.logo_url} alt="Logo" className="print-logo" />
                 )}
-                <div className="text-sm text-gray-500">{new Date().toLocaleDateString('pt-BR')}</div>
+                <div style={{ fontSize: '10pt', color: '#6b7280', textAlign: 'right' }}>
+                  <div>Gerado em: {new Date().toLocaleDateString('pt-BR')}</div>
+                  <div>{new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
+                </div>
               </div>
             </div>
             {/* Bloco estilo menu para impressão */}
