@@ -333,7 +333,7 @@ export default function CadastroEmpresa() {
               }`}>
                 2
               </div>
-              <span className="text-sm font-medium">Dados da Empresa</span>
+              <span className="text-sm font-medium">Dados da sua Empresa</span>
               {step === 2 && <FaBuilding className="text-[#D1FE6E] ml-1" />}
             </div>
           </div>
