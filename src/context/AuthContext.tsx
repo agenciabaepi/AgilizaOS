@@ -19,6 +19,10 @@ interface EmpresaData {
   nome: string;
   plano: string;
   logo_url?: string;
+  cnpj?: string;
+  endereco?: string;
+  telefone?: string;
+  email?: string;
 }
 
 interface AuthContextType {
@@ -96,7 +100,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Buscar dados da empresa
         const { data: empresaData, error: empresaError } = await supabase
           .from('empresas')
-          .select('id, nome, plano')
+          .select('id, nome, plano, logo_url, cnpj, endereco, telefone, email')
           .eq('id', usuarioData.empresa_id)
           .single();
 
