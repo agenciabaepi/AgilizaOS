@@ -1,6 +1,6 @@
 "use client";
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from 'react';
-import { supabase, forceLogout } from '@/lib/supabaseClient';
+import { supabase, forceLogout, fetchUserDataOptimized } from '@/lib/supabaseClient';
 import { Session, User } from '@supabase/supabase-js';
 import { podeUsarFuncionalidade as podeUsarFuncionalidadeUtil, isUsuarioTeste as isUsuarioTesteUtil } from '@/config/featureFlags';
 
@@ -54,76 +54,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
   
-  // ✅ CACHE: Evitar múltiplas verificações
-  const [authCache, setAuthCache] = useState<{
-    lastCheck: number;
-    isValid: boolean;
-  }>({ lastCheck: 0, isValid: false });
-
-  // ✅ OTIMIZADO: Função para buscar dados do usuário com cache
+  // ✅ OTIMIZADO: Função para buscar dados do usuário com timeout
   const fetchUserData = useCallback(async (userId: string, sessionData: Session) => {
-    const now = Date.now();
-    const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
-    
-    // Se temos cache válido, não refazer a busca
-    if (authCache.isValid && (now - authCache.lastCheck) < CACHE_DURATION && usuarioData) {
+    // Evitar chamadas duplicadas
+    if (usuarioData && empresaData) {
+      console.log('✅ Dados já carregados, pulando busca');
       return;
     }
 
     try {
-      const { data: usuarioData, error: usuarioError } = await supabase
-        .from('usuarios')
-        .select('empresa_id, nome, email, nivel, permissoes, foto_url')
-        .eq('auth_user_id', userId)
-        .single();
-
-      if (usuarioError) {
-        // Fallback para dados mock
-        const mockUsuarioData: UsuarioData = {
-          empresa_id: '550e8400-e29b-41d4-a716-446655440001',
-          nome: 'Usuário Teste',
-          email: sessionData.user.email || '',
-          nivel: 'usuarioteste',
-          permissoes: ['dashboard', 'ordens', 'clientes', 'equipamentos', 'financeiro', 'bancada', 'comissoes', 'termos', 'perfil', 'configuracoes']
-        };
-        setUsuarioData(mockUsuarioData);
-        
-        const mockEmpresaData: EmpresaData = {
-          id: '550e8400-e29b-41d4-a716-446655440001',
-          nome: 'Empresa Teste',
-          plano: 'trial'
-        };
-        setEmpresaData(mockEmpresaData);
-      } else if (usuarioData) {
-        setUsuarioData(usuarioData);
-        
-        // Buscar dados da empresa
-        const { data: empresaData, error: empresaError } = await supabase
-          .from('empresas')
-          .select('id, nome, plano, logo_url, cnpj, endereco, telefone, email')
-          .eq('id', usuarioData.empresa_id)
-          .single();
-
-        if (empresaError) {
-          const mockEmpresaData: EmpresaData = {
-            id: usuarioData.empresa_id,
-            nome: 'Empresa Teste',
-            plano: 'trial'
-          };
-          setEmpresaData(mockEmpresaData);
-        } else if (empresaData) {
-          setEmpresaData(empresaData);
-        }
-      }
+      console.log('🚀 Iniciando busca otimizada de dados...');
       
-      // ✅ ATUALIZAR CACHE
-      setAuthCache({ lastCheck: now, isValid: true });
+      // Usar função otimizada com JOIN
+      const { userData, empresaData: companyData } = await fetchUserDataOptimized(userId);
+      
+      console.log('✅ Dados carregados com sucesso');
+      setUsuarioData(userData);
+      setEmpresaData(companyData);
       
     } catch (error) {
-      console.warn('Erro ao buscar dados, usando fallback');
-      // Fallback silencioso
+      console.warn('⚠️ Erro na busca otimizada, usando fallback:', error);
+      
+      // Fallback para dados mock
+      const mockUsuarioData: UsuarioData = {
+        empresa_id: '550e8400-e29b-41d4-a716-446655440001',
+        nome: 'Usuário Teste',
+        email: sessionData.user.email || '',
+        nivel: 'usuarioteste',
+        permissoes: ['dashboard', 'ordens', 'clientes', 'equipamentos', 'financeiro', 'bancada', 'comissoes', 'termos', 'perfil', 'configuracoes']
+      };
+      setUsuarioData(mockUsuarioData);
+      
+      const mockEmpresaData: EmpresaData = {
+        id: '550e8400-e29b-41d4-a716-446655440001',
+        nome: 'Empresa Teste',
+        plano: 'trial'
+      };
+      setEmpresaData(mockEmpresaData);
     }
-  }, [authCache, usuarioData]);
+  }, [usuarioData, empresaData]);
 
   // ✅ OTIMIZADO: useEffect principal simplificado
   useEffect(() => {
@@ -155,25 +124,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     initializeAuth();
   }, [hasInitialized, fetchUserData]);
 
-  // ✅ OTIMIZADO: Listener de mudanças de auth simplificado
+  // ✅ SIMPLIFICADO: Listener de mudanças de auth
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: string, session: Session | null) => {
-        if (event === 'SIGNED_IN' && session && !hasInitialized) {
-          setSession(session);
-          setUser(session.user);
-          await fetchUserData(session.user.id, session);
-          setHasInitialized(true);
-        } else if (event === 'SIGNED_OUT') {
-          clearSession();
-        }
+        console.log('🔄 Auth state change:', event);
         
-        setLoading(false);
+        if (event === 'SIGNED_OUT') {
+          clearSession();
+          setLoading(false);
+        }
       }
     );
 
     return () => subscription.unsubscribe();
-  }, [hasInitialized, fetchUserData]);
+  }, [clearSession]);
 
   // ✅ OTIMIZADO: Funções memoizadas
   const podeUsarFuncionalidade = useCallback((nomeFuncionalidade: string) => {
@@ -185,11 +150,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [usuarioData]);
 
   const clearSession = useCallback(() => {
+    console.log('🧹 Limpando sessão...');
     setUser(null);
     setSession(null);
     setUsuarioData(null);
     setEmpresaData(null);
-    setAuthCache({ lastCheck: 0, isValid: false });
     setHasInitialized(false);
   }, []);
 
