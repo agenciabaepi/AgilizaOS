@@ -94,6 +94,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [usuarioData, empresaData]);
 
+  // ✅ DEFINIR clearSession ANTES dos useEffects
+  const clearSession = useCallback(() => {
+    console.log('🧹 Limpando sessão...');
+    setUser(null);
+    setSession(null);
+    setUsuarioData(null);
+    setEmpresaData(null);
+    setHasInitialized(false);
+  }, []);
+
   // ✅ OTIMIZADO: useEffect principal simplificado
   useEffect(() => {
     if (hasInitialized) return;
@@ -148,15 +158,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const isUsuarioTeste = useCallback(() => {
     return isUsuarioTesteUtil(usuarioData);
   }, [usuarioData]);
-
-  const clearSession = useCallback(() => {
-    console.log('🧹 Limpando sessão...');
-    setUser(null);
-    setSession(null);
-    setUsuarioData(null);
-    setEmpresaData(null);
-    setHasInitialized(false);
-  }, []);
 
   // ✅ IMPLEMENTAR: Funções de autenticação que estavam faltando
   const signIn = useCallback(async (email: string, password: string) => {
