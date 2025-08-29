@@ -144,7 +144,7 @@ export const fetchUserDataOptimized = async (userId: string) => {
       .eq('auth_user_id', userId)
       .single();
 
-    const result = await queryWithTimeout(userQuery, 8000);
+    const result: any = await queryWithTimeout(userQuery, 8000);
     
     if (result.error) {
       throw result.error;
