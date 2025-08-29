@@ -21,14 +21,17 @@ WORKDIR /app
 # Copiar package.json e package-lock.json
 COPY package*.json ./
 
-# Instalar dependências
-RUN npm ci --only=production
+# Instalar TODAS as dependências (incluindo devDependencies para build)
+RUN npm ci
 
 # Copiar código da aplicação
 COPY . .
 
 # Construir a aplicação
 RUN npm run build
+
+# Remover devDependencies após o build para reduzir tamanho
+RUN npm prune --production
 
 # Expor porta
 EXPOSE 3000
