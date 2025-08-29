@@ -46,38 +46,86 @@ export default function CatalogoPage() {
     { imagemFile: null, imagemPreview: null, titulo: '', preco: '', descricao: '', categoriaNome: '' }
   );
   const [salvandoEdicao, setSalvandoEdicao] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!empresaId) return;
+    if (!empresaId) {
+      setLoading(false);
+      return;
+    }
+
+    // Timeout para evitar travamento infinito
+    const timeoutId = setTimeout(() => {
+      setError('Tempo limite excedido. Tente recarregar a página.');
+      setLoading(false);
+    }, 15000); // 15 segundos
+
     (async () => {
-      // buscar toggle
-      const { data: conf } = await supabase
-        .from('configuracoes_empresa')
-        .select('catalogo_habilitado')
-        .eq('empresa_id', empresaId)
-        .single();
-      if (conf && typeof conf.catalogo_habilitado === 'boolean') setHabilitado(conf.catalogo_habilitado);
+      try {
+        setLoading(true);
+        setError(null);
+        
+        console.log('Carregando catálogo para empresa:', empresaId);
+        
+        // buscar toggle
+        const { data: conf, error: confError } = await supabase
+          .from('configuracoes_empresa')
+          .select('catalogo_habilitado')
+          .eq('empresa_id', empresaId)
+          .single();
+        
+        if (confError) {
+          console.warn('Erro ao buscar configuração:', confError);
+        } else if (conf && typeof conf.catalogo_habilitado === 'boolean') {
+          setHabilitado(conf.catalogo_habilitado);
+        }
 
-      // buscar itens
-      const { data } = await supabase
-        .from('catalogo_itens')
-        .select('id, empresa_id, titulo, descricao, preco, categoria, ativo, updated_at, imagem_url')
-        .eq('empresa_id', empresaId)
-        .eq('ativo', true)
-        .order('categoria', { ascending: true })
-        .order('titulo', { ascending: true });
-      setItens((data || []) as CatalogoItem[]);
+        // buscar itens
+        const { data: itensData, error: itensError } = await supabase
+          .from('catalogo_itens')
+          .select('id, empresa_id, titulo, descricao, preco, categoria, ativo, updated_at, imagem_url')
+          .eq('empresa_id', empresaId)
+          .eq('ativo', true)
+          .order('categoria', { ascending: true })
+          .order('titulo', { ascending: true });
+        
+        if (itensError) {
+          console.error('Erro ao buscar itens:', itensError);
+          setError(`Erro ao carregar itens: ${itensError.message}`);
+        } else {
+          setItens((itensData || []) as CatalogoItem[]);
+          console.log('Itens carregados:', itensData?.length || 0);
+        }
 
-      // buscar categorias do catálogo
-      const { data: cats } = await supabase
-        .from('catalogo_categorias')
-        .select('id, empresa_id, nome, ordem, ativo')
-        .eq('empresa_id', empresaId)
-        .eq('ativo', true)
-        .order('ordem', { ascending: true })
-        .order('nome', { ascending: true });
-      setCategoriasDb((cats || []) as CatalogoCategoria[]);
+        // buscar categorias do catálogo
+        const { data: cats, error: catsError } = await supabase
+          .from('catalogo_categorias')
+          .select('id, empresa_id, nome, ordem, ativo')
+          .eq('empresa_id', empresaId)
+          .eq('ativo', true)
+          .order('ordem', { ascending: true })
+          .order('nome', { ascending: true });
+        
+        if (catsError) {
+          console.warn('Erro ao buscar categorias:', catsError);
+        } else {
+          setCategoriasDb((cats || []) as CatalogoCategoria[]);
+          console.log('Categorias carregadas:', cats?.length || 0);
+        }
+        
+        clearTimeout(timeoutId);
+        setLoading(false);
+        
+      } catch (error) {
+        console.error('Erro geral no carregamento:', error);
+        setError(`Erro inesperado: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+        setLoading(false);
+        clearTimeout(timeoutId);
+      }
     })();
+
+    return () => clearTimeout(timeoutId);
   }, [empresaId]);
 
   const categorias = useMemo(() => {
@@ -268,6 +316,52 @@ export default function CatalogoPage() {
 
   if (!empresaId) {
     return <div className="p-6 text-gray-500">Carregando...</div>;
+  }
+
+  if (loading) {
+    return (
+      <ProtectedArea area="ordens">
+        <MenuLayout>
+          <div className="p-6 lg:p-8 bg-gray-50 min-h-screen">
+            <div className="flex items-center justify-center min-h-[400px]">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#D1FE6E] mx-auto mb-4"></div>
+                <p className="text-gray-600">Carregando catálogo...</p>
+                <p className="text-sm text-gray-500 mt-2">Isso pode levar alguns segundos</p>
+              </div>
+            </div>
+          </div>
+        </MenuLayout>
+      </ProtectedArea>
+    );
+  }
+
+  if (error) {
+    return (
+      <ProtectedArea area="ordens">
+        <MenuLayout>
+          <div className="p-6 lg:p-8 bg-gray-50 min-h-screen">
+            <div className="flex items-center justify-center min-h-[400px]">
+              <div className="text-center max-w-md">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Erro ao carregar</h3>
+                <p className="text-gray-600 mb-4">{error}</p>
+                <button 
+                  onClick={() => window.location.reload()} 
+                  className="px-4 py-2 bg-[#D1FE6E] text-black rounded-lg hover:bg-[#B8E55A] transition-colors"
+                >
+                  Tentar novamente
+                </button>
+              </div>
+            </div>
+          </div>
+        </MenuLayout>
+      </ProtectedArea>
+    );
   }
 
   return (
