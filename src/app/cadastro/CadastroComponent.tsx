@@ -712,4 +712,4 @@ export default function CadastroEmpresa() {
       </footer>
     </div>
   );
-}
+}// Teste deploy automático GitHub Actions
