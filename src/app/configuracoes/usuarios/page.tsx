@@ -3,6 +3,13 @@
 import {
   Pencil,
   Trash2,
+  UserPlus,
+  Users,
+  Eye,
+  EyeOff,
+  CheckCircle,
+  AlertCircle,
+  XCircle
 } from 'lucide-react'
 
 import { useState, useEffect } from 'react'
@@ -15,19 +22,34 @@ import { useRouter } from 'next/navigation';
 import TrialLimitGuard from '@/components/TrialLimitGuard';
 import { useSubscription } from '@/hooks/useSubscription';
 import { FiAlertTriangle } from 'react-icons/fi';
+import { ToastProvider, useToast } from '@/components/Toast';
+import { ConfirmProvider, useConfirm } from '@/components/ConfirmDialog';
 
-export default function UsuariosPage() {
+function UsuariosPageInner() {
   const { session } = useAuth()
   const router = useRouter();
   const { carregarLimites, limites, podeCriar, assinatura, isTrialExpired } = useSubscription();
+  const { addToast } = useToast();
+  const confirm = useConfirm();
 
+  // Estados do formulário
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [cpf, setCpf] = useState('')
   const [whatsapp, setWhatsapp] = useState('')
   const [nivel, setNivel] = useState('tecnico')
+  const [usuario, setUsuario] = useState('')
   const [empresaId, setEmpresaId] = useState('')
+  
+  // Estados de validação
+  const [emailValido, setEmailValido] = useState(true)
+  const [cpfValido, setCpfValido] = useState(true)
+  const [usuarioValido, setUsuarioValido] = useState(true)
+  const [senhaVisivel, setSenhaVisivel] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // Estados da lista
   const [usuarios, setUsuarios] = useState<Array<{
     id: string
     nome: string
@@ -38,7 +60,112 @@ export default function UsuariosPage() {
     auth_user_id: string
   }>>([])
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
-  const [usuario, setUsuario] = useState('')
+
+  // Função para validar CPF
+  const validarCPF = (cpf: string) => {
+    const cpfLimpo = cpf.replace(/\D/g, '');
+    if (cpfLimpo.length !== 11) return false;
+    
+    // Verificar se todos os dígitos são iguais
+    if (/^(\d)\1+$/.test(cpfLimpo)) return false;
+    
+    // Validar primeiro dígito verificador
+    let soma = 0;
+    for (let i = 0; i < 9; i++) {
+      soma += parseInt(cpfLimpo.charAt(i)) * (10 - i);
+    }
+    let resto = 11 - (soma % 11);
+    let dv1 = resto < 2 ? 0 : resto;
+    
+    // Validar segundo dígito verificador
+    soma = 0;
+    for (let i = 0; i < 10; i++) {
+      soma += parseInt(cpfLimpo.charAt(i)) * (11 - i);
+    }
+    resto = 11 - (soma % 11);
+    let dv2 = resto < 2 ? 0 : resto;
+    
+    return cpfLimpo.charAt(9) === dv1.toString() && cpfLimpo.charAt(10) === dv2.toString();
+  };
+
+  // Função para validar email
+  const validarEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  // Função para validar usuário único
+  const validarUsuarioUnico = async (usuario: string) => {
+    if (!usuario.trim()) return false;
+    
+    try {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('usuario', usuario.trim().toLowerCase())
+        .eq('empresa_id', empresaId)
+        .single();
+      
+      return !data; // Retorna true se não existir (válido)
+    } catch {
+      return true; // Se não encontrar, é válido
+    }
+  };
+
+  // Função para validar email único
+  const validarEmailUnico = async (email: string) => {
+    if (!email.trim()) return false;
+    
+    try {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('email', email.trim().toLowerCase())
+        .eq('empresa_id', empresaId)
+        .single();
+      
+      return !data; // Retorna true se não existir (válido)
+    } catch {
+      return true; // Se não encontrar, é válido
+    }
+  };
+
+  // Função para validar CPF único
+  const validarCPFUnico = async (cpf: string) => {
+    if (!cpf.trim()) return false;
+    
+    try {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('cpf', cpf.replace(/\D/g, ''))
+        .eq('empresa_id', empresaId)
+        .single();
+      
+      return !data; // Retorna true se não existir (válido)
+    } catch {
+      return true; // Se não encontrar, é válido
+    }
+  };
+
+  // Validação em tempo real
+  useEffect(() => {
+    if (email) {
+      setEmailValido(validarEmail(email));
+    }
+  }, [email]);
+
+  useEffect(() => {
+    if (cpf) {
+      setCpfValido(validarCPF(cpf));
+    }
+  }, [cpf]);
+
+  useEffect(() => {
+    if (usuario) {
+      validarUsuarioUnico(usuario).then(setUsuarioValido);
+    }
+  }, [usuario, empresaId]);
 
   const fetchUsuarios = async () => {
     try {
@@ -69,16 +196,25 @@ export default function UsuariosPage() {
       setUsuarios(usuariosFiltrados)
     } catch (error) {
       console.error('Erro ao buscar usuários:', error)
+      addToast('error', 'Erro ao carregar lista de usuários');
     }
   }
 
   const handleDeleteUsuario = async (id: string) => {
     if (id === session?.user?.id) {
-      alert('Você não pode excluir seu próprio usuário.')
-      return
+      addToast('error', 'Você não pode excluir seu próprio usuário.');
+      return;
     }
-    const confirmar = confirm('Tem certeza que deseja excluir este usuário?')
-    if (!confirmar) return
+
+    const confirmar = await confirm({
+      title: 'Excluir Usuário',
+      message: 'Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.',
+      confirmText: 'Excluir',
+      cancelText: 'Cancelar',
+      type: 'danger'
+    });
+
+    if (!confirmar) return;
 
     try {
       const response = await fetch('/api/usuarios/excluir', {
@@ -93,12 +229,12 @@ export default function UsuariosPage() {
         throw new Error(data.error || 'Erro ao excluir usuário')
       }
 
-      alert('Usuário excluído com sucesso!')
+      addToast('success', 'Usuário excluído com sucesso!');
       fetchUsuarios()
       carregarLimites()
     } catch (error: unknown) {
       console.error('Erro ao excluir usuário:', error instanceof Error ? error.message : 'Erro desconhecido')
-      alert('Erro ao excluir usuário: ' + (error instanceof Error ? error.message : 'Erro desconhecido'))
+      addToast('error', 'Erro ao excluir usuário: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
     }
   }
 
@@ -110,6 +246,45 @@ export default function UsuariosPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validações finais
+    if (!emailValido) {
+      addToast('error', 'E-mail inválido');
+      return;
+    }
+    
+    if (!cpfValido) {
+      addToast('error', 'CPF inválido');
+      return;
+    }
+    
+    if (!usuarioValido) {
+      addToast('error', 'Nome de usuário já existe');
+      return;
+    }
+
+    // Validações de unicidade
+    const emailUnico = await validarEmailUnico(email);
+    const cpfUnico = await validarCPFUnico(cpf);
+    const usuarioUnico = await validarUsuarioUnico(usuario);
+
+    if (!emailUnico) {
+      addToast('error', 'E-mail já cadastrado');
+      return;
+    }
+
+    if (!cpfUnico) {
+      addToast('error', 'CPF já cadastrado');
+      return;
+    }
+
+    if (!usuarioUnico) {
+      addToast('error', 'Nome de usuário já existe');
+      return;
+    }
+
+    setIsSubmitting(true);
+    
     try {
       const usuarioPadronizado = usuario.trim().toLowerCase();
       const response = await fetch('/api/usuarios/cadastrar', {
@@ -134,12 +309,15 @@ export default function UsuariosPage() {
       } catch {
         data = { raw: text };
       }
+      
       if (!response.ok) {
         console.error('Erro detalhado:', data);
         throw new Error(data.error || data.message || data.raw || 'Erro ao cadastrar usuário.');
       }
 
-      alert('Usuário cadastrado com sucesso!')
+      addToast('success', 'Usuário cadastrado com sucesso!');
+      
+      // Limpar formulário
       setNome('')
       setEmail('')
       setSenha('')
@@ -147,12 +325,15 @@ export default function UsuariosPage() {
       setWhatsapp('')
       setNivel('tecnico')
       setUsuario('')
+      setMostrarFormulario(false)
 
       // Atualiza lista e limites
       fetchUsuarios()
       carregarLimites()
     } catch (error: unknown) {
-      alert(error instanceof Error ? error.message : 'Erro desconhecido ao cadastrar usuário.')
+      addToast('error', error instanceof Error ? error.message : 'Erro desconhecido ao cadastrar usuário.');
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -163,151 +344,315 @@ export default function UsuariosPage() {
   return (
     <ProtectedRoute>
       <main className="p-8">
-        <Card>
-          <CardHeader>
+        <Card className="border-0 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
             <div className="flex justify-between items-center">
-              <CardTitle>Gerenciar Usuários</CardTitle>
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gray-900 rounded-lg">
+                  <Users className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-2xl font-semibold text-gray-900">
+                    Gerenciar Usuários
+                  </CardTitle>
+                  <p className="text-gray-600 text-sm mt-1">
+                    Aqui você poderá adicionar, editar e remover usuários vinculados à empresa.
+                  </p>
+                </div>
+              </div>
+              
               {!cannotCreateUsers && (
                 <button
                   onClick={() => setMostrarFormulario(!mostrarFormulario)}
-                  className="bg-black text-white px-4 py-2 rounded-md text-sm hover:bg-gray-800 transition"
+                  className="bg-gray-900 text-white px-6 py-3 rounded-lg text-sm font-medium hover:bg-gray-800 transition-all duration-200 flex items-center gap-2 shadow-md hover:shadow-lg"
                 >
-                  + Adicionar novo usuário
+                  <UserPlus className="w-4 h-4" />
+                  {mostrarFormulario ? 'Cancelar' : '+ Adicionar usuário'}
                 </button>
               )}
             </div>
-            <p className="text-gray-600 text-sm">
-              Aqui você poderá adicionar, editar e remover usuários vinculados à empresa.
-            </p>
             
             {/* Aviso único quando limite for atingido */}
             {cannotCreateUsers && (
-              <div className="mt-4 bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-4 text-center">
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <div className="w-5 h-5 bg-gray-400 rounded-full flex items-center justify-center">
-                    <FiAlertTriangle className="w-3 h-3 text-white" />
+              <div className="mt-6 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-6 text-center">
+                <div className="flex items-center justify-center gap-3 mb-3">
+                  <div className="w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center">
+                    <FiAlertTriangle className="w-4 h-4 text-white" />
                   </div>
-                  <span className="text-gray-700 font-medium text-sm">
+                  <span className="text-amber-800 font-semibold text-sm">
                     Limite de usuários atingido
                   </span>
                 </div>
-                <p className="text-gray-600 text-xs mb-3">
+                <p className="text-amber-700 text-sm mb-4">
                   Para criar mais usuários, escolha um plano adequado às suas necessidades.
                 </p>
                 <button 
                   onClick={() => window.location.href = '/planos'}
-                  className="bg-black text-white px-4 py-2 rounded-md text-sm hover:bg-gray-800 transition-colors"
+                  className="bg-amber-600 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-amber-700 transition-colors shadow-md"
                 >
                   Ver planos disponíveis
                 </button>
               </div>
             )}
           </CardHeader>
-          <CardContent>
+          
+          <CardContent className="p-6">
             {mostrarFormulario && !cannotCreateUsers && (
-              <form className="mt-4 space-y-4 bg-gray-100 p-4 rounded" onSubmit={handleSubmit}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm text-gray-700">Nome</label>
-                    <input
-                      type="text"
-                      value={nome}
-                      onChange={(e) => setNome(e.target.value)}
-                      className="w-full border px-3 py-2 rounded"
-                      required
-                    />
+              <div className="mb-8 bg-gradient-to-r from-gray-50 to-white border border-gray-200 rounded-xl p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <UserPlus className="w-5 h-5" />
+                  Cadastrar Novo Usuário
+                </h3>
+                
+                <form className="space-y-6" onSubmit={handleSubmit}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Nome */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">
+                        Nome Completo *
+                      </label>
+                      <input
+                        type="text"
+                        value={nome}
+                        onChange={(e) => setNome(e.target.value)}
+                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
+                        placeholder="Digite o nome completo"
+                        required
+                      />
+                    </div>
+
+                    {/* Usuário */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">
+                        Nome de Usuário *
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={usuario}
+                          onChange={(e) => setUsuario(e.target.value)}
+                          className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
+                            usuarioValido 
+                              ? 'border-gray-300 focus:ring-gray-900' 
+                              : 'border-red-500 focus:ring-red-500'
+                          }`}
+                          placeholder="Digite o nome de usuário"
+                          required
+                        />
+                        {usuario && (
+                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                            {usuarioValido ? (
+                              <CheckCircle className="w-5 h-5 text-green-500" />
+                            ) : (
+                              <XCircle className="w-5 h-5 text-red-500" />
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {usuario && !usuarioValido && (
+                        <p className="text-red-500 text-xs">Nome de usuário já existe</p>
+                      )}
+                    </div>
+
+                    {/* E-mail */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">
+                        E-mail *
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
+                            emailValido 
+                              ? 'border-gray-300 focus:ring-gray-900' 
+                              : 'border-red-500 focus:ring-red-500'
+                          }`}
+                          placeholder="Digite o e-mail"
+                          required
+                        />
+                        {email && (
+                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                            {emailValido ? (
+                              <CheckCircle className="w-5 h-5 text-green-500" />
+                            ) : (
+                              <XCircle className="w-5 h-5 text-red-500" />
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {email && !emailValido && (
+                        <p className="text-red-500 text-xs">E-mail inválido</p>
+                      )}
+                    </div>
+
+                    {/* Senha */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">
+                        Senha *
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={senhaVisivel ? 'text' : 'password'}
+                          value={senha}
+                          onChange={(e) => setSenha(e.target.value)}
+                          className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200 pr-12"
+                          placeholder="Digite a senha"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setSenhaVisivel(!senhaVisivel)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                          {senhaVisivel ? (
+                            <EyeOff className="w-5 h-5" />
+                          ) : (
+                            <Eye className="w-5 h-5" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* CPF */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">
+                        CPF *
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={cpf}
+                          onChange={(e) => setCpf(e.target.value)}
+                          className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
+                            cpfValido 
+                              ? 'border-gray-300 focus:ring-gray-900' 
+                              : 'border-red-500 focus:ring-red-500'
+                          }`}
+                          placeholder="000.000.000-00"
+                          required
+                        />
+                        {cpf && (
+                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                            {cpfValido ? (
+                              <CheckCircle className="w-5 h-5 text-green-500" />
+                            ) : (
+                              <XCircle className="w-5 h-5 text-red-500" />
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {cpf && !cpfValido && (
+                        <p className="text-red-500 text-xs">CPF inválido</p>
+                      )}
+                    </div>
+
+                    {/* WhatsApp */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">
+                        WhatsApp
+                      </label>
+                      <input
+                        type="text"
+                        value={whatsapp}
+                        onChange={(e) => setWhatsapp(e.target.value)}
+                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
+                        placeholder="(00) 00000-0000"
+                      />
+                    </div>
+
+                    {/* Nível */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">
+                        Nível de Acesso *
+                      </label>
+                      <select
+                        value={nivel}
+                        onChange={(e) => setNivel(e.target.value)}
+                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
+                        required
+                      >
+                        <option value="tecnico">Técnico</option>
+                        <option value="atendente">Atendente</option>
+                        <option value="financeiro">Financeiro</option>
+                        <option value="admin">Administrador</option>
+                      </select>
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-sm text-gray-700">Usuário</label>
-                    <input
-                      type="text"
-                      value={usuario}
-                      onChange={(e) => setUsuario(e.target.value)}
-                      className="w-full border px-3 py-2 rounded"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-700">E-mail</label>
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full border px-3 py-2 rounded"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-700">Senha</label>
-                    <input
-                      type="password"
-                      value={senha}
-                      onChange={(e) => setSenha(e.target.value)}
-                      className="w-full border px-3 py-2 rounded"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-700">CPF</label>
-                    <input
-                      type="text"
-                      value={cpf}
-                      onChange={(e) => setCpf(e.target.value)}
-                      className="w-full border px-3 py-2 rounded"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-700">WhatsApp</label>
-                    <input
-                      type="text"
-                      value={whatsapp}
-                      onChange={(e) => setWhatsapp(e.target.value)}
-                      className="w-full border px-3 py-2 rounded"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm text-gray-700">Nível</label>
-                    <select
-                      value={nivel}
-                      onChange={(e) => setNivel(e.target.value)}
-                      className="w-full border px-3 py-2 rounded"
-                      required
+                  
+                  <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                    <button
+                      type="button"
+                      onClick={() => setMostrarFormulario(false)}
+                      className="px-6 py-3 text-gray-700 bg-gray-100 rounded-lg font-medium hover:bg-gray-200 transition-all duration-200"
                     >
-                      <option value="tecnico">Técnico</option>
-                      <option value="atendente">Atendente</option>
-                      <option value="financeiro">Financeiro</option>
-                      <option value="admin">Administrador</option>
-                    </select>
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSubmitting || !emailValido || !cpfValido || !usuarioValido}
+                      className="bg-gray-900 text-white px-8 py-3 rounded-lg font-medium hover:bg-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          Cadastrando...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="w-4 h-4" />
+                          Cadastrar Usuário
+                        </>
+                      )}
+                    </button>
                   </div>
-                </div>
-                <button
-                  type="submit"
-                  className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800 transition"
-                >
-                  Cadastrar usuário
-                </button>
-              </form>
+                </form>
+              </div>
             )}
+
+            {/* Lista de Usuários */}
             {empresaId && (
-              <div className="space-y-2 mt-4">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  Usuários Cadastrados ({usuarios.length})
+                </h3>
+                
                 {usuarios.map((usuario) => (
-                  <div key={usuario.id} className="flex items-center justify-between p-4 bg-white rounded shadow hover:shadow-md transition">
+                  <div key={usuario.id} className="flex items-center justify-between p-6 bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200">
                     <div className="flex items-center gap-4">
-                      <div className="flex items-center justify-center w-10 h-10 bg-black text-white rounded-full">
+                      <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-gray-900 to-gray-800 text-white rounded-full font-semibold text-lg shadow-md">
                         {usuario.nome.charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-gray-900">{usuario.nome}</p>
-                        <p className="text-xs text-gray-500">{usuario.email}</p>
-                        <p className="text-xs text-gray-400 capitalize">{usuario.nivel}</p>
+                        <p className="text-base font-semibold text-gray-900">{usuario.nome}</p>
+                        <p className="text-sm text-gray-600">{usuario.email}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            usuario.nivel === 'admin' ? 'bg-red-100 text-red-800' :
+                            usuario.nivel === 'financeiro' ? 'bg-blue-100 text-blue-800' :
+                            usuario.nivel === 'atendente' ? 'bg-green-100 text-green-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {usuario.nivel.charAt(0).toUpperCase() + usuario.nivel.slice(1)}
+                          </span>
+                          {usuario.whatsapp && (
+                            <span className="text-xs text-gray-500">
+                              📱 {usuario.whatsapp}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <div className="flex gap-3">
+                    
+                    <div className="flex gap-2">
                       <button
                         title="Editar"
-                        className={`text-gray-600 transition ${usuario.id === session?.user?.id ? 'opacity-40 cursor-not-allowed' : 'hover:text-blue-600'}`}
+                        className={`p-2 rounded-lg transition-all duration-200 ${
+                          usuario.id === session?.user?.id 
+                            ? 'opacity-40 cursor-not-allowed bg-gray-100' 
+                            : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
+                        }`}
                         onClick={() => {
                           if (usuario.id !== session?.user?.id) {
                             router.push(`/configuracoes/usuarios/${usuario.id}/editar`)
@@ -317,24 +662,14 @@ export default function UsuariosPage() {
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
-                      {/* Botões de ativar/desativar e permissões só serão exibidos quando modo de edição estiver implementado */}
-                      {/* <button
-                        title="Ativar/Desativar"
-                        className="text-gray-600 hover:text-yellow-600 transition"
-                        onClick={() => alert('Função de ativar/desativar ainda não implementada')}
-                      >
-                        <RotateCcw className="w-4 h-4" />
-                      </button>
-                      <button
-                        title="Permissões"
-                        className="text-gray-600 hover:text-indigo-600 transition"
-                        onClick={() => alert('Função de permissões ainda não implementada')}
-                      >
-                        <Shield className="w-4 h-4" />
-                      </button> */}
+                      
                       <button
                         title="Excluir"
-                        className={`text-gray-600 transition ${usuario.id === session?.user?.id ? 'opacity-40 cursor-not-allowed' : 'hover:text-red-600'}`}
+                        className={`p-2 rounded-lg transition-all duration-200 ${
+                          usuario.id === session?.user?.id 
+                            ? 'opacity-40 cursor-not-allowed bg-gray-100' 
+                            : 'text-gray-600 hover:text-red-600 hover:bg-red-50'
+                        }`}
                         onClick={() => {
                           if (usuario.id !== session?.user?.id) {
                             handleDeleteUsuario(usuario.id)
@@ -347,6 +682,14 @@ export default function UsuariosPage() {
                     </div>
                   </div>
                 ))}
+                
+                {usuarios.length === 0 && (
+                  <div className="text-center py-12 text-gray-500">
+                    <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p className="text-lg font-medium">Nenhum usuário cadastrado</p>
+                    <p className="text-sm">Comece adicionando o primeiro usuário da sua empresa</p>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
@@ -354,4 +697,14 @@ export default function UsuariosPage() {
       </main>
     </ProtectedRoute>
   )
+}
+
+export default function UsuariosPage() {
+  return (
+    <ConfirmProvider>
+      <ToastProvider>
+        <UsuariosPageInner />
+      </ToastProvider>
+    </ConfirmProvider>
+  );
 }
