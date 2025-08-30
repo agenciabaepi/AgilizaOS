@@ -134,21 +134,52 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     initializeAuth();
   }, [hasInitialized, fetchUserData]);
 
-  // ✅ SIMPLIFICADO: Listener de mudanças de auth
+  // ✅ CORRIGIDO: Listener de mudanças de auth com tratamento completo
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: string, session: Session | null) => {
-        console.log('🔄 Auth state change:', event);
+        console.log('🔄 Auth state change:', event, session?.user?.email);
         
-        if (event === 'SIGNED_OUT') {
-          clearSession();
-          setLoading(false);
+        switch (event) {
+          case 'SIGNED_IN':
+            console.log('✅ Usuário logado, configurando sessão...');
+            if (session) {
+              setSession(session);
+              setUser(session.user);
+              await fetchUserData(session.user.id, session);
+            }
+            break;
+            
+          case 'TOKEN_REFRESHED':
+            console.log('🔄 Token renovado, atualizando sessão...');
+            if (session) {
+              setSession(session);
+              setUser(session.user);
+            }
+            break;
+            
+          case 'SIGNED_OUT':
+            console.log('🚪 Usuário deslogado, limpando sessão...');
+            clearSession();
+            setLoading(false);
+            break;
+            
+          case 'USER_UPDATED':
+            console.log('👤 Usuário atualizado, atualizando dados...');
+            if (session) {
+              setSession(session);
+              setUser(session.user);
+            }
+            break;
+            
+          default:
+            console.log('ℹ️ Evento não tratado:', event);
         }
       }
     );
 
     return () => subscription.unsubscribe();
-  }, [clearSession]);
+  }, [clearSession, fetchUserData]);
 
   // ✅ OTIMIZADO: Funções memoizadas
   const podeUsarFuncionalidade = useCallback((nomeFuncionalidade: string) => {
