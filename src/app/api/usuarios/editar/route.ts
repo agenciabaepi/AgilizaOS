@@ -4,10 +4,23 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    console.log('Dados recebidos para edição:', body);
+    
     const supabaseAdmin = getSupabaseAdmin();
     const { id, nome, email, usuario, telefone, cpf, whatsapp, nivel, permissoes, senha, auth_user_id } = body;
     if (!id) {
       return NextResponse.json({ error: 'ID do usuário não informado' }, { status: 400 });
+    }
+
+    // Atualiza e-mail no Supabase Auth se fornecido
+    if (email && auth_user_id) {
+      console.log('Atualizando e-mail no Auth:', { auth_user_id, email });
+      const { error: emailError } = await supabaseAdmin.auth.admin.updateUserById(auth_user_id, { email: email });
+      if (emailError) {
+        console.error('Erro ao atualizar e-mail no Auth:', emailError);
+        return NextResponse.json({ error: 'Erro ao atualizar e-mail: ' + emailError.message }, { status: 400 });
+      }
+      console.log('E-mail atualizado no Auth com sucesso');
     }
 
     // Atualiza senha no Supabase Auth se fornecida
