@@ -45,7 +45,7 @@ function UsuariosPageInner() {
   const [usuarioValido, setUsuarioValido] = useState(true)
   const [senhaVisivel, setSenhaVisivel] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [verificandoEmail, setVerificandoEmail] = useState(false)
+
   
   // Estados da lista
   const [usuarios, setUsuarios] = useState<Array<{
@@ -153,19 +153,15 @@ function UsuariosPageInner() {
       
       if (!emailFormatValido) {
         setEmailValido(false);
-        setVerificandoEmail(false);
         return;
       }
       
       // Verificar se email já existe apenas se o formato for válido
-      setVerificandoEmail(true);
       validarEmailUnico(email).then((emailUnico) => {
         setEmailValido(emailUnico);
-        setVerificandoEmail(false);
       });
     } else {
       setEmailValido(true);
-      setVerificandoEmail(false);
     }
   }, [email, empresaId]);
 
@@ -245,6 +241,8 @@ function UsuariosPageInner() {
     if (!confirmar) return;
 
     try {
+      console.log('Tentando excluir usuário com ID:', id);
+      
       const response = await fetch('/api/usuarios/excluir', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
@@ -252,6 +250,7 @@ function UsuariosPageInner() {
       })
 
       const data = await response.json()
+      console.log('Response da exclusão:', { status: response.status, data });
 
       if (!response.ok) {
         throw new Error(data.error || 'Erro ao excluir usuário')

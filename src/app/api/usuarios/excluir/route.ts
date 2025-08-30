@@ -72,7 +72,12 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Verificar permissões (apenas admin pode excluir)
+    console.log('Nível do usuário atual:', usuarioAtual.nivel);
+    console.log('ID do usuário a ser excluído:', id);
+    console.log('Auth user ID do usuário a ser excluído:', usuarioParaExcluir.auth_user_id);
+    
     if (usuarioAtual.nivel !== 'admin') {
+      console.log('Usuário não é admin, nível:', usuarioAtual.nivel);
       return NextResponse.json({ error: 'Apenas administradores podem excluir usuários' }, { status: 403 });
     }
 
