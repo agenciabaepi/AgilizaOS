@@ -87,7 +87,6 @@ function EditarUsuarioPageInner() {
     email: '',
     usuario: '',
     senha: '',
-    telefone: '',
     cpf: '',
     whatsapp: '',
     nivel: '',
@@ -203,7 +202,6 @@ function EditarUsuarioPageInner() {
             nome, 
             email, 
             usuario, 
-            telefone, 
             cpf, 
             whatsapp, 
             nivel, 
@@ -264,7 +262,6 @@ function EditarUsuarioPageInner() {
           email: usuarioData.email || '',
           usuario: usuarioData.usuario || '',
           senha: '',
-          telefone: usuarioData.telefone || '',
           cpf: usuarioData.cpf || '',
           whatsapp: usuarioData.whatsapp || '',
           nivel: usuarioData.nivel || '',
@@ -355,7 +352,6 @@ function EditarUsuarioPageInner() {
         nome: form.nome,
         email: form.email,
         usuario: form.usuario.trim().toLowerCase(),
-        telefone: form.telefone,
         cpf: form.cpf,
         whatsapp: form.whatsapp,
         nivel: form.nivel,
@@ -607,20 +603,7 @@ function EditarUsuarioPageInner() {
                     )}
                   </div>
 
-                  {/* Telefone */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">
-                      Telefone
-                    </label>
-                    <input
-                      type="text"
-                      name="telefone"
-                      value={form.telefone}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
-                      placeholder="(00) 0000-0000"
-                    />
-                  </div>
+
 
                   {/* WhatsApp */}
                   <div className="space-y-2">
