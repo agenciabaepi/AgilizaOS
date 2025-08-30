@@ -309,8 +309,8 @@ function EditarUsuarioPageInner() {
     }
 
     // Validações de unicidade
-    const emailUnico = await validarEmailUnico(email);
-    const usuarioUnico = await validarUsuarioUnico(usuario);
+    const emailUnico = await validarEmailUnico(form.email);
+    const usuarioUnico = await validarUsuarioUnico(form.usuario);
 
     if (!emailUnico) {
       addToast('error', 'E-mail já cadastrado');
