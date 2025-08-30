@@ -8,7 +8,6 @@ import {
   Eye,
   EyeOff,
   CheckCircle,
-  AlertCircle,
   XCircle
 } from 'lucide-react'
 
@@ -16,10 +15,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuth } from '@/context/AuthContext'
-import { Session } from '@supabase/supabase-js'
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useRouter } from 'next/navigation';
-import TrialLimitGuard from '@/components/TrialLimitGuard';
 import { useSubscription } from '@/hooks/useSubscription';
 import { FiAlertTriangle } from 'react-icons/fi';
 import { ToastProvider, useToast } from '@/components/Toast';
@@ -48,6 +45,7 @@ function UsuariosPageInner() {
   const [usuarioValido, setUsuarioValido] = useState(true)
   const [senhaVisivel, setSenhaVisivel] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [verificandoEmail, setVerificandoEmail] = useState(false)
   
   // Estados da lista
   const [usuarios, setUsuarios] = useState<Array<{
@@ -75,7 +73,7 @@ function UsuariosPageInner() {
       soma += parseInt(cpfLimpo.charAt(i)) * (10 - i);
     }
     let resto = 11 - (soma % 11);
-    let dv1 = resto < 2 ? 0 : resto;
+    const dv1 = resto < 2 ? 0 : resto;
     
     // Validar segundo dígito verificador
     soma = 0;
@@ -83,7 +81,7 @@ function UsuariosPageInner() {
       soma += parseInt(cpfLimpo.charAt(i)) * (11 - i);
     }
     resto = 11 - (soma % 11);
-    let dv2 = resto < 2 ? 0 : resto;
+    const dv2 = resto < 2 ? 0 : resto;
     
     return cpfLimpo.charAt(9) === dv1.toString() && cpfLimpo.charAt(10) === dv2.toString();
   };
@@ -99,7 +97,7 @@ function UsuariosPageInner() {
     if (!usuario.trim()) return false;
     
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('usuarios')
         .select('id')
         .eq('usuario', usuario.trim().toLowerCase())
@@ -117,7 +115,7 @@ function UsuariosPageInner() {
     if (!email.trim()) return false;
     
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('usuarios')
         .select('id')
         .eq('email', email.trim().toLowerCase())
@@ -135,7 +133,7 @@ function UsuariosPageInner() {
     if (!cpf.trim()) return false;
     
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('usuarios')
         .select('id')
         .eq('cpf', cpf.replace(/\D/g, ''))
@@ -152,26 +150,38 @@ function UsuariosPageInner() {
   useEffect(() => {
     if (email) {
       const emailFormatValido = validarEmail(email);
-      setEmailValido(emailFormatValido);
+      
+      if (!emailFormatValido) {
+        setEmailValido(false);
+        setVerificandoEmail(false);
+        return;
+      }
       
       // Verificar se email já existe apenas se o formato for válido
-      if (emailFormatValido) {
-        validarEmailUnico(email).then(setEmailValido);
-      }
+      setVerificandoEmail(true);
+      validarEmailUnico(email).then((emailUnico) => {
+        setEmailValido(emailUnico);
+        setVerificandoEmail(false);
+      });
     } else {
       setEmailValido(true);
+      setVerificandoEmail(false);
     }
   }, [email, empresaId]);
 
   useEffect(() => {
     if (cpf) {
       const cpfFormatValido = validarCPF(cpf);
-      setCpfValido(cpfFormatValido);
+      
+      if (!cpfFormatValido) {
+        setCpfValido(false);
+        return;
+      }
       
       // Verificar se CPF já existe apenas se o formato for válido
-      if (cpfFormatValido) {
-        validarCPFUnico(cpf).then(setCpfValido);
-      }
+      validarCPFUnico(cpf).then((cpfUnico) => {
+        setCpfValido(cpfUnico);
+      });
     } else {
       setCpfValido(true); // CPF vazio é válido (não obrigatório)
     }
@@ -201,6 +211,7 @@ function UsuariosPageInner() {
         .single()
 
       if (erroUsuario) throw erroUsuario
+      console.log('Empresa ID carregado:', meuUsuario?.empresa_id);
       setEmpresaId(meuUsuario?.empresa_id)
 
       const { data, error } = await supabase
@@ -210,7 +221,7 @@ function UsuariosPageInner() {
 
       if (error) throw error
 
-      const usuariosFiltrados = data.filter((u: any) => u.auth_user_id !== session?.user?.id)
+      const usuariosFiltrados = data.filter((u: { auth_user_id: string }) => u.auth_user_id !== session?.user?.id)
       setUsuarios(usuariosFiltrados)
     } catch (error) {
       console.error('Erro ao buscar usuários:', error)
@@ -284,32 +295,43 @@ function UsuariosPageInner() {
     
     try {
       const usuarioPadronizado = usuario.trim().toLowerCase();
+      const payload = {
+        nome,
+        email,
+        senha,
+        cpf: cpf.trim() || null, // Enviar null se CPF estiver vazio
+        whatsapp,
+        nivel,
+        empresa_id: empresaId,
+        usuario: usuarioPadronizado,
+      };
+      
+      console.log('Payload sendo enviado:', payload);
+      
       const response = await fetch('/api/usuarios/cadastrar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nome,
-          email,
-          senha,
-          cpf: cpf.trim() || null, // Enviar null se CPF estiver vazio
-          whatsapp,
-          nivel,
-          empresa_id: empresaId,
-          usuario: usuarioPadronizado,
-        }),
+        body: JSON.stringify(payload),
       })
 
       const text = await response.text();
+      console.log('Response status:', response.status);
+      console.log('Response text:', text);
+      
       let data;
       try {
         data = JSON.parse(text);
-      } catch {
+        console.log('Parsed data:', data);
+      } catch (parseError) {
+        console.log('Parse error:', parseError);
         data = { raw: text };
       }
       
       if (!response.ok) {
         console.error('Erro detalhado:', data);
-        throw new Error(data.error || data.message || data.raw || 'Erro ao cadastrar usuário.');
+        console.error('Response status:', response.status);
+        console.error('Response headers:', response.headers);
+        throw new Error(data.error || data.message || data.raw || `Erro ao cadastrar usuário (${response.status}).`);
       }
 
       addToast('success', 'Usuário cadastrado com sucesso!');
@@ -408,15 +430,15 @@ function UsuariosPageInner() {
                       <label className="text-sm font-medium text-gray-700">
                         Nome Completo *
                       </label>
-                      <input
-                        type="text"
-                        value={nome}
-                        onChange={(e) => setNome(e.target.value)}
+                    <input
+                      type="text"
+                      value={nome}
+                      onChange={(e) => setNome(e.target.value)}
                         className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
                         placeholder="Digite o nome completo"
-                        required
-                      />
-                    </div>
+                      required
+                    />
+                  </div>
 
                     {/* Usuário */}
                     <div className="space-y-2">
@@ -424,18 +446,18 @@ function UsuariosPageInner() {
                         Nome de Usuário *
                       </label>
                       <div className="relative">
-                        <input
-                          type="text"
-                          value={usuario}
-                          onChange={(e) => setUsuario(e.target.value)}
+                    <input
+                      type="text"
+                      value={usuario}
+                      onChange={(e) => setUsuario(e.target.value)}
                           className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
                             usuarioValido 
                               ? 'border-gray-300 focus:ring-gray-900' 
                               : 'border-red-500 focus:ring-red-500'
                           }`}
                           placeholder="Digite o nome de usuário"
-                          required
-                        />
+                      required
+                    />
                         {usuario && (
                           <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                             {usuarioValido ? (
@@ -449,7 +471,7 @@ function UsuariosPageInner() {
                       {usuario && !usuarioValido && (
                         <p className="text-red-500 text-xs">Nome de usuário já existe</p>
                       )}
-                    </div>
+                  </div>
 
                     {/* E-mail */}
                     <div className="space-y-2">
@@ -457,18 +479,18 @@ function UsuariosPageInner() {
                         E-mail *
                       </label>
                       <div className="relative">
-                        <input
-                          type="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                           className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
                             emailValido 
                               ? 'border-gray-300 focus:ring-gray-900' 
                               : 'border-red-500 focus:ring-red-500'
                           }`}
                           placeholder="Digite o e-mail"
-                          required
-                        />
+                      required
+                    />
                         {email && (
                           <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                             {emailValido ? (
@@ -484,7 +506,7 @@ function UsuariosPageInner() {
                           {!validarEmail(email) ? 'E-mail inválido' : 'E-mail já cadastrado'}
                         </p>
                       )}
-                    </div>
+                  </div>
 
                     {/* Senha */}
                     <div className="space-y-2">
@@ -492,14 +514,14 @@ function UsuariosPageInner() {
                         Senha *
                       </label>
                       <div className="relative">
-                        <input
+                    <input
                           type={senhaVisivel ? 'text' : 'password'}
-                          value={senha}
-                          onChange={(e) => setSenha(e.target.value)}
+                      value={senha}
+                      onChange={(e) => setSenha(e.target.value)}
                           className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200 pr-12"
                           placeholder="Digite a senha"
-                          required
-                        />
+                      required
+                    />
                         <button
                           type="button"
                           onClick={() => setSenhaVisivel(!senhaVisivel)}
@@ -512,7 +534,7 @@ function UsuariosPageInner() {
                           )}
                         </button>
                       </div>
-                    </div>
+                  </div>
 
                     {/* CPF */}
                     <div className="space-y-2">
@@ -520,10 +542,10 @@ function UsuariosPageInner() {
                         CPF
                       </label>
                       <div className="relative">
-                        <input
-                          type="text"
-                          value={cpf}
-                          onChange={(e) => setCpf(e.target.value)}
+                    <input
+                      type="text"
+                      value={cpf}
+                      onChange={(e) => setCpf(e.target.value)}
                           className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
                             cpfValido 
                               ? 'border-gray-300 focus:ring-gray-900' 
@@ -546,40 +568,40 @@ function UsuariosPageInner() {
                           {cpf.replace(/\D/g, '').length !== 11 ? 'CPF inválido' : 'CPF já cadastrado'}
                         </p>
                       )}
-                    </div>
+                  </div>
 
                     {/* WhatsApp */}
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">
                         WhatsApp
                       </label>
-                      <input
-                        type="text"
-                        value={whatsapp}
-                        onChange={(e) => setWhatsapp(e.target.value)}
+                    <input
+                      type="text"
+                      value={whatsapp}
+                      onChange={(e) => setWhatsapp(e.target.value)}
                         className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
                         placeholder="(00) 00000-0000"
-                      />
-                    </div>
+                    />
+                  </div>
 
                     {/* Nível */}
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">
                         Nível de Acesso *
                       </label>
-                      <select
-                        value={nivel}
-                        onChange={(e) => setNivel(e.target.value)}
+                    <select
+                      value={nivel}
+                      onChange={(e) => setNivel(e.target.value)}
                         className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
-                        required
-                      >
-                        <option value="tecnico">Técnico</option>
-                        <option value="atendente">Atendente</option>
-                        <option value="financeiro">Financeiro</option>
-                        <option value="admin">Administrador</option>
-                      </select>
-                    </div>
+                      required
+                    >
+                      <option value="tecnico">Técnico</option>
+                      <option value="atendente">Atendente</option>
+                      <option value="financeiro">Financeiro</option>
+                      <option value="admin">Administrador</option>
+                    </select>
                   </div>
+                </div>
                   
                   <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
                     <button
@@ -589,8 +611,8 @@ function UsuariosPageInner() {
                     >
                       Cancelar
                     </button>
-                    <button
-                      type="submit"
+                <button
+                  type="submit"
                       disabled={isSubmitting || !emailValido || !cpfValido || !usuarioValido}
                       className="bg-gray-900 text-white px-8 py-3 rounded-lg font-medium hover:bg-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
@@ -605,9 +627,9 @@ function UsuariosPageInner() {
                           Cadastrar Usuário
                         </>
                       )}
-                    </button>
+                </button>
                   </div>
-                </form>
+              </form>
               </div>
             )}
 
