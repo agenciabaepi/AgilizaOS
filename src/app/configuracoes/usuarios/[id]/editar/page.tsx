@@ -165,6 +165,24 @@ function EditarUsuarioPageInner() {
     }
   };
 
+  // Função para validar CPF único (excluindo o usuário atual)
+  const validarCPFUnico = async (cpf: string) => {
+    if (!cpf.trim()) return false;
+    
+    try {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('cpf', cpf.replace(/\D/g, ''))
+        .neq('id', userId)
+        .single();
+      
+      return !data; // Retorna true se não existir (válido)
+    } catch {
+      return true; // Se não encontrar, é válido
+    }
+  };
+
   // Validação em tempo real
   useEffect(() => {
     if (form.email) {
@@ -333,6 +351,7 @@ function EditarUsuarioPageInner() {
     // Validações de unicidade
     const emailUnico = await validarEmailUnico(form.email);
     const usuarioUnico = await validarUsuarioUnico(form.usuario);
+    const cpfUnico = form.cpf ? await validarCPFUnico(form.cpf) : true;
 
     if (!emailUnico) {
       addToast('error', 'E-mail já cadastrado');
@@ -341,6 +360,11 @@ function EditarUsuarioPageInner() {
 
     if (!usuarioUnico) {
       addToast('error', 'Nome de usuário já existe');
+      return;
+    }
+
+    if (!cpfUnico) {
+      addToast('error', 'CPF já cadastrado');
       return;
     }
 
