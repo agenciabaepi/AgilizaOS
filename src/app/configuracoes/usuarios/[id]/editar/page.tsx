@@ -168,22 +168,22 @@ function EditarUsuarioPageInner() {
 
   // Validação em tempo real
   useEffect(() => {
-    if (email) {
-      setEmailValido(validarEmail(email));
+    if (form.email) {
+      setEmailValido(validarEmail(form.email));
     }
-  }, [email]);
+  }, [form.email]);
 
   useEffect(() => {
-    if (cpf) {
-      setCpfValido(validarCPF(cpf));
+    if (form.cpf) {
+      setCpfValido(validarCPF(form.cpf));
     }
-  }, [cpf]);
+  }, [form.cpf]);
 
   useEffect(() => {
-    if (usuario) {
-      validarUsuarioUnico(usuario).then(setUsuarioValido);
+    if (form.usuario) {
+      validarUsuarioUnico(form.usuario).then(setUsuarioValido);
     }
-  }, [usuario, userId]);
+  }, [form.usuario, userId]);
 
   useEffect(() => {
     const fetchUsuario = async () => {
