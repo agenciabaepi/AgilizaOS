@@ -192,7 +192,17 @@ function EditarUsuarioPageInner() {
 
   useEffect(() => {
     if (form.cpf) {
-      setCpfValido(validarCPF(form.cpf));
+      const cpfValido = validarCPF(form.cpf);
+      setCpfValido(cpfValido);
+      
+      // Se o CPF for válido, verificar se já existe no banco
+      if (cpfValido && form.cpf.trim()) {
+        validarCPFUnico(form.cpf).then((cpfUnico) => {
+          if (!cpfUnico) {
+            setCpfValido(false); // CPF válido mas já existe
+          }
+        });
+      }
     }
   }, [form.cpf]);
 
@@ -622,7 +632,9 @@ function EditarUsuarioPageInner() {
                       )}
                     </div>
                     {form.cpf && !cpfValido && (
-                      <p className="text-red-500 text-xs">CPF inválido</p>
+                      <p className="text-red-500 text-xs">
+                        {form.cpf && validarCPF(form.cpf) ? 'CPF já cadastrado' : 'CPF inválido'}
+                      </p>
                     )}
                   </div>
 
