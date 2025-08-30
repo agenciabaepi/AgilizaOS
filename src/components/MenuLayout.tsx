@@ -33,6 +33,7 @@ import { useWhatsAppNotification } from '@/hooks/useWhatsAppNotification';
 import { useLogout } from '@/hooks/useLogout';
 // import TestFeatureFlags from './TestFeatureFlags'; // Removido
 import DebugAuth from './DebugAuth';
+import AutoRouteProtection from './AutoRouteProtection';
 
 // Import direto para debug
 import * as FeatureFlags from '@/config/featureFlags';
@@ -210,9 +211,10 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const menuExpandidoFinal = menuExpandido ?? false;
   
   return (
-    <div className="flex min-h-screen bg-white">
-      {/* Sidebar Desktop */}
-      <aside className={`${menuRecolhidoFinal ? 'w-16' : 'w-64'} bg-black border-r border-white/20 flex flex-col py-8 ${menuRecolhidoFinal ? 'px-2' : 'px-4'} h-screen fixed top-0 left-0 z-40 hidden md:flex transition-all duration-300 overflow-y-auto no-print`}>
+    <AutoRouteProtection>
+      <div className="flex min-h-screen bg-white">
+        {/* Sidebar Desktop */}
+        <aside className={`${menuRecolhidoFinal ? 'w-16' : 'w-64'} bg-black border-r border-white/20 flex flex-col py-8 ${menuRecolhidoFinal ? 'px-2' : 'px-4'} h-screen fixed top-0 left-0 z-40 hidden md:flex transition-all duration-300 overflow-y-auto no-print`}>
         {/* Logo branco centralizado */}
         <div className="flex flex-col items-center mb-6">
           {menuRecolhidoFinal ? (
@@ -723,6 +725,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
       
       {/* Componente de teste temporário removido */}
       {/* <DebugAuth /> */}
+      </AutoRouteProtection>
     </div>
   );
 }
