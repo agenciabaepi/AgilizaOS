@@ -40,20 +40,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Usuário já cadastrado.' }, { status: 409 });
     }
 
-    // Verifica se já existe um usuário com esse CPF
-    const { data: existingCPF } = await supabaseAdmin
-      .from('usuarios')
-      .select('id')
-      .eq('cpf', cpf)
-      .single();
+    // Verifica se já existe um usuário com esse CPF (apenas se CPF foi fornecido)
+    if (cpf && cpf.trim()) {
+      const { data: existingCPF } = await supabaseAdmin
+        .from('usuarios')
+        .select('id')
+        .eq('cpf', cpf)
+        .single();
 
-    if (existingCPF) {
-      console.error('CPF já cadastrado:', cpf);
-      return NextResponse.json({ error: 'CPF já cadastrado.' }, { status: 409 });
+      if (existingCPF) {
+        console.error('CPF já cadastrado:', cpf);
+        return NextResponse.json({ error: 'CPF já cadastrado.' }, { status: 409 });
+      }
     }
 
-    if (!nome || !email || !senha || !cpf || !usuario) {
-      console.error('Campos obrigatórios ausentes:', { nome, email, senha, cpf, usuario });
+    if (!nome || !email || !senha || !usuario) {
+      console.error('Campos obrigatórios ausentes:', { nome, email, senha, usuario });
       return NextResponse.json({ error: 'Campos obrigatórios ausentes' }, { status: 400 });
     }
 
