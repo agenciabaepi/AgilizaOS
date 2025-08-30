@@ -151,19 +151,37 @@ function UsuariosPageInner() {
   // Validação em tempo real
   useEffect(() => {
     if (email) {
-      setEmailValido(validarEmail(email));
+      const emailFormatValido = validarEmail(email);
+      setEmailValido(emailFormatValido);
+      
+      // Verificar se email já existe apenas se o formato for válido
+      if (emailFormatValido) {
+        validarEmailUnico(email).then(setEmailValido);
+      }
+    } else {
+      setEmailValido(true);
     }
-  }, [email]);
+  }, [email, empresaId]);
 
   useEffect(() => {
     if (cpf) {
-      setCpfValido(validarCPF(cpf));
+      const cpfFormatValido = validarCPF(cpf);
+      setCpfValido(cpfFormatValido);
+      
+      // Verificar se CPF já existe apenas se o formato for válido
+      if (cpfFormatValido) {
+        validarCPFUnico(cpf).then(setCpfValido);
+      }
+    } else {
+      setCpfValido(true); // CPF vazio é válido (não obrigatório)
     }
-  }, [cpf]);
+  }, [cpf, empresaId]);
 
   useEffect(() => {
     if (usuario) {
       validarUsuarioUnico(usuario).then(setUsuarioValido);
+    } else {
+      setUsuarioValido(true);
     }
   }, [usuario, empresaId]);
 
@@ -248,36 +266,16 @@ function UsuariosPageInner() {
     
     // Validações finais
     if (!emailValido) {
-      addToast('error', 'E-mail inválido');
+      addToast('error', 'E-mail inválido ou já cadastrado');
       return;
     }
     
     if (!cpfValido) {
-      addToast('error', 'CPF inválido');
+      addToast('error', 'CPF inválido ou já cadastrado');
       return;
     }
     
     if (!usuarioValido) {
-      addToast('error', 'Nome de usuário já existe');
-      return;
-    }
-
-    // Validações de unicidade
-    const emailUnico = await validarEmailUnico(email);
-    const cpfUnico = await validarCPFUnico(cpf);
-    const usuarioUnico = await validarUsuarioUnico(usuario);
-
-    if (!emailUnico) {
-      addToast('error', 'E-mail já cadastrado');
-      return;
-    }
-
-    if (!cpfUnico) {
-      addToast('error', 'CPF já cadastrado');
-      return;
-    }
-
-    if (!usuarioUnico) {
       addToast('error', 'Nome de usuário já existe');
       return;
     }
@@ -293,7 +291,7 @@ function UsuariosPageInner() {
           nome,
           email,
           senha,
-          cpf,
+          cpf: cpf.trim() || null, // Enviar null se CPF estiver vazio
           whatsapp,
           nivel,
           empresa_id: empresaId,
@@ -482,7 +480,9 @@ function UsuariosPageInner() {
                         )}
                       </div>
                       {email && !emailValido && (
-                        <p className="text-red-500 text-xs">E-mail inválido</p>
+                        <p className="text-red-500 text-xs">
+                          {!validarEmail(email) ? 'E-mail inválido' : 'E-mail já cadastrado'}
+                        </p>
                       )}
                     </div>
 
@@ -517,7 +517,7 @@ function UsuariosPageInner() {
                     {/* CPF */}
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">
-                        CPF *
+                        CPF
                       </label>
                       <div className="relative">
                         <input
@@ -529,8 +529,7 @@ function UsuariosPageInner() {
                               ? 'border-gray-300 focus:ring-gray-900' 
                               : 'border-red-500 focus:ring-red-500'
                           }`}
-                          placeholder="000.000.000-00"
-                          required
+                          placeholder="000.000.000-00 (opcional)"
                         />
                         {cpf && (
                           <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -543,7 +542,9 @@ function UsuariosPageInner() {
                         )}
                       </div>
                       {cpf && !cpfValido && (
-                        <p className="text-red-500 text-xs">CPF inválido</p>
+                        <p className="text-red-500 text-xs">
+                          {cpf.replace(/\D/g, '').length !== 11 ? 'CPF inválido' : 'CPF já cadastrado'}
+                        </p>
                       )}
                     </div>
 
