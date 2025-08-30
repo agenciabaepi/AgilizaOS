@@ -5,13 +5,6 @@ export async function DELETE(request: NextRequest) {
   try {
     const supabaseAdmin = getSupabaseAdmin();
     
-    // Pegar o ID do usuário a ser excluído do body
-    const { id } = await request.json();
-    
-    if (!id) {
-      return NextResponse.json({ error: 'ID do usuário é obrigatório' }, { status: 400 });
-    }
-
     // Buscar dados do usuário atual usando o token de autorização
     const authHeader = request.headers.get('authorization');
     if (!authHeader) {
@@ -38,9 +31,6 @@ export async function DELETE(request: NextRequest) {
     if (userError || !usuarioAtual) {
       return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
     }
-
-    // Pegar o ID do usuário a ser excluído do body
-    const { id } = await request.json();
     
     if (!id) {
       return NextResponse.json({ error: 'ID do usuário é obrigatório' }, { status: 400 });
