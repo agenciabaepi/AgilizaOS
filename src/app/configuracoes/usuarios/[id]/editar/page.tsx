@@ -530,8 +530,7 @@ function EditarUsuarioPageInner() {
       title: 'Cancelar Edição',
       message: 'Tem certeza que deseja cancelar? As alterações não salvas serão perdidas.',
       confirmText: 'Sim, Cancelar',
-      cancelText: 'Continuar Editando',
-      type: 'warning'
+      cancelText: 'Continuar Editando'
     });
 
     if (confirmar) {
