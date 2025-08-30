@@ -193,16 +193,17 @@ function EditarUsuarioPageInner() {
   useEffect(() => {
     if (form.cpf) {
       const cpfValido = validarCPF(form.cpf);
-      setCpfValido(cpfValido);
       
       // Se o CPF for válido, verificar se já existe no banco
       if (cpfValido && form.cpf.trim()) {
         validarCPFUnico(form.cpf).then((cpfUnico) => {
-          if (!cpfUnico) {
-            setCpfValido(false); // CPF válido mas já existe
-          }
+          setCpfValido(cpfUnico); // true se único, false se duplicado
         });
+      } else {
+        setCpfValido(cpfValido); // false se formato inválido
       }
+    } else {
+      setCpfValido(true); // CPF vazio é válido
     }
   }, [form.cpf]);
 
@@ -298,7 +299,7 @@ function EditarUsuarioPageInner() {
         });
 
         console.log('✅ Formulário preenchido com sucesso');
-        addToast('success', 'Usuário carregado com sucesso!');
+        // Removido toast de sucesso para evitar spam
       } catch (error) {
         console.error('💥 Erro inesperado ao carregar usuário:', error);
         addToast('error', `Erro inesperado ao carregar usuário: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
