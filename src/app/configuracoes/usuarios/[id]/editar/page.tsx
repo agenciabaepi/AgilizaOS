@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
-import ProtectedRoute from '@/components/ProtectedRoute';
+import MenuLayout from '@/components/MenuLayout';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { 
@@ -320,7 +320,7 @@ function EditarUsuarioPageInner() {
       return;
     }
     
-    if (!cpfValido) {
+    if (form.cpf && !cpfValido) {
       addToast('error', 'CPF inválido');
       return;
     }
@@ -403,7 +403,7 @@ function EditarUsuarioPageInner() {
 
   if (loading) {
     return (
-      <ProtectedRoute>
+      <MenuLayout>
         <main className="p-8">
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
@@ -412,12 +412,12 @@ function EditarUsuarioPageInner() {
             </div>
           </div>
         </main>
-      </ProtectedRoute>
+      </MenuLayout>
     );
   }
 
   return (
-    <ProtectedRoute>
+    <MenuLayout>
       <main className="p-8">
         <Card className="border-0 shadow-lg">
           <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
@@ -572,7 +572,7 @@ function EditarUsuarioPageInner() {
                   {/* CPF */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700">
-                      CPF *
+                      CPF
                     </label>
                     <div className="relative">
                       <input
@@ -585,8 +585,7 @@ function EditarUsuarioPageInner() {
                             ? 'border-gray-300 focus:ring-gray-900' 
                             : 'border-red-500 focus:ring-red-500'
                         }`}
-                        placeholder="000.000.000-00"
-                        required
+                        placeholder="000.000.000-00 (opcional)"
                       />
                       {form.cpf && (
                         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -712,7 +711,7 @@ function EditarUsuarioPageInner() {
                 </button>
                 <button
                   type="submit"
-                  disabled={saving || !emailValido || !cpfValido || !usuarioValido}
+                  disabled={saving || !emailValido || !usuarioValido}
                   className="bg-gray-900 text-white px-8 py-3 rounded-lg font-medium hover:bg-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {saving ? (
@@ -732,14 +731,10 @@ function EditarUsuarioPageInner() {
           </CardContent>
         </Card>
       </main>
-    </ProtectedRoute>
+    </MenuLayout>
   );
 }
 
 export default function EditarUsuarioPage() {
-  return (
-    <ProtectedRoute>
-      <EditarUsuarioPageInner />
-    </ProtectedRoute>
-  );
+  return <EditarUsuarioPageInner />;
 } 
