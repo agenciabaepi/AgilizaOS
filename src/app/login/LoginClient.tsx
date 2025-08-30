@@ -17,7 +17,6 @@ function LoginClientInner() {
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
   const router = useRouter();
   const auth = useAuth();
   const { addToast } = useToast();
@@ -51,14 +50,20 @@ function LoginClientInner() {
     }
   ];
   
-  // Proteção client-side: redirecionar se já estiver logado
+  // 🔒 BLOQUEIO TOTAL: Usuários logados NÃO podem acessar a página de login
   useEffect(() => {
-    // ✅ CORRIGIDO: Só redirecionar se realmente estiver logado e não estiver fazendo logout
-    if (auth.user && auth.session && !auth.loading && !auth.isLoggingOut) {
-      console.log('Usuário já logado, redirecionando para dashboard...');
-      router.replace('/dashboard');
+    // Se o usuário já estiver logado, redirecionar IMEDIATAMENTE
+    if (auth.user && auth.session && !auth.loading) {
+      console.log('🚫 Usuário já logado - ACESSO BLOQUEADO à página de login');
+      
+      // Redirecionar baseado no nível do usuário
+      if (auth.usuarioData?.nivel === 'tecnico') {
+        router.replace('/dashboard-tecnico');
+      } else {
+        router.replace('/dashboard');
+      }
     }
-  }, [auth.user, auth.session, auth.loading, auth.isLoggingOut, router]);
+  }, [auth.user, auth.session, auth.loading, auth.usuarioData?.nivel, router]);
 
   // Auto-rotate do carrossel
   useEffect(() => {
@@ -68,13 +73,13 @@ function LoginClientInner() {
     return () => clearInterval(interval);
   }, [carouselImages.length]);
   
-  // Se estiver carregando ou já logado, mostrar loading
-  if (auth.loading || (auth.user && auth.session && !auth.isLoggingOut)) {
+  // 🔒 PROTEÇÃO EXTRA: Se já estiver logado, não renderizar NADA
+  if (auth.user && auth.session && !auth.loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#cffb6d] to-[#e0ffe3] flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto"></div>
-          <p className="mt-4 text-gray-600">Carregando...</p>
+          <p className="mt-4 text-gray-600">Redirecionando...</p>
         </div>
       </div>
     );
