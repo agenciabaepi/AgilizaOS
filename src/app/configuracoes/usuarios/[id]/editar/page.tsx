@@ -187,9 +187,14 @@ function EditarUsuarioPageInner() {
 
   useEffect(() => {
     const fetchUsuario = async () => {
-      if (!userId) return;
+      if (!userId) {
+        console.log('❌ userId não fornecido:', userId);
+        return;
+      }
       
+      console.log('🔍 Buscando usuário com ID:', userId);
       setLoading(true);
+      
       try {
         // Buscar dados do usuário
         const { data: usuarioData, error: usuarioError } = await supabase
@@ -209,18 +214,23 @@ function EditarUsuarioPageInner() {
           .eq('id', userId)
           .single();
 
+        console.log('📊 Resultado da busca:', { usuarioData, usuarioError });
+
         if (usuarioError) {
-          console.error('Erro ao buscar usuário:', usuarioError);
-          addToast('error', 'Erro ao carregar dados do usuário');
+          console.error('❌ Erro ao buscar usuário:', usuarioError);
+          addToast('error', `Erro ao carregar dados do usuário: ${usuarioError.message || 'Erro desconhecido'}`);
           setLoading(false);
           return;
         }
 
         if (!usuarioData) {
+          console.log('❌ Usuário não encontrado para ID:', userId);
           addToast('error', 'Usuário não encontrado');
           setLoading(false);
           return;
         }
+
+        console.log('✅ Usuário encontrado:', usuarioData);
 
         // Buscar dados da empresa para validação
         if (usuarioData.empresa_id) {
@@ -231,8 +241,22 @@ function EditarUsuarioPageInner() {
             .single();
 
           if (empresaError) {
-            console.error('Erro ao buscar empresa:', empresaError);
+            console.error('⚠️ Erro ao buscar empresa:', empresaError);
+          } else {
+            console.log('🏢 Empresa encontrada:', empresaData);
           }
+        }
+
+        // Verificar se campos obrigatórios existem
+        if (!usuarioData.nome || !usuarioData.email || !usuarioData.usuario) {
+          console.error('❌ Campos obrigatórios ausentes:', {
+            nome: usuarioData.nome,
+            email: usuarioData.email,
+            usuario: usuarioData.usuario
+          });
+          addToast('error', 'Dados do usuário incompletos ou inválidos');
+          setLoading(false);
+          return;
         }
 
         setForm({
@@ -244,14 +268,15 @@ function EditarUsuarioPageInner() {
           cpf: usuarioData.cpf || '',
           whatsapp: usuarioData.whatsapp || '',
           nivel: usuarioData.nivel || '',
-          permissoes: usuarioData.permissoes || [],
+          permissoes: Array.isArray(usuarioData.permissoes) ? usuarioData.permissoes : [],
           auth_user_id: usuarioData.auth_user_id || '',
         });
 
+        console.log('✅ Formulário preenchido com sucesso');
         addToast('success', 'Usuário carregado com sucesso!');
       } catch (error) {
-        console.error('Erro ao carregar usuário:', error);
-        addToast('error', 'Erro inesperado ao carregar usuário');
+        console.error('💥 Erro inesperado ao carregar usuário:', error);
+        addToast('error', `Erro inesperado ao carregar usuário: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
       } finally {
         setLoading(false);
       }
