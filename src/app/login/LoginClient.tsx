@@ -144,62 +144,10 @@ function LoginClientInner() {
       .eq('auth_user_id', userId)
       .single();
     
-    if (perfil) {
-      const { data: usuario } = await supabase
-        .from('usuarios')
-        .select('empresa_id')
-        .eq('auth_user_id', userId)
-        .single();
-      if (!usuario || !usuario.empresa_id) {
-        router.replace('/criar-empresa');
-        return;
-      }
-      console.log('Debug login - empresa_id:', usuario.empresa_id);
-      
-      const { data: empresa, error: empresaError } = await supabase
-        .from('empresas')
-        .select('status, motivobloqueio')
-        .eq('id', usuario.empresa_id)
-        .single();
-      
-      if (empresaError) {
-        console.error('Erro ao buscar empresa:', empresaError);
-        addToast('error', 'Erro ao verificar status da empresa.');
-        setIsSubmitting(false);
-        return;
-      }
-      if (empresa?.status === 'bloqueado') {
-        await confirm({
-          title: 'Acesso bloqueado',
-          message: empresa.motivobloqueio || 'Entre em contato com o suporte.',
-          confirmText: 'OK',
-        });
-        return;
-      }
-      console.log('Debug login - Login bem-sucedido, redirecionando...');
-      localStorage.setItem("user", JSON.stringify({
-        id: userId,
-        email: emailToLogin,
-        nivel: perfil.nivel
-      }));
-      localStorage.setItem("empresa_id", usuario.empresa_id);
-      console.log('Debug login - Dados salvos no localStorage, iniciando redirecionamento...');
-
-      // Aguardar um momento para garantir que o estado seja atualizado
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Redirecionar diretamente para o dashboard apropriado usando router.push
-      console.log('Debug login - Executando redirecionamento direto...');
-      if (perfil.nivel === 'tecnico') {
-        router.push('/dashboard-tecnico');
-      } else if (perfil.nivel === 'admin' || perfil.nivel === 'atendente' || perfil.nivel === 'usuarioteste') {
-        router.push('/dashboard');
-      } else {
-        router.push('/');
-      }
-
-      // ✅ CORRIGIDO: Removido o redirecionamento duplo que causava o loop
-      console.log('Debug login - Redirecionamento concluído');
+    if (perfilError || !perfil) {
+      setIsSubmitting(false);
+      addToast('error', 'Erro ao buscar perfil do usuário. Tente novamente.');
+      return;
     }
     
     // Verificar empresa
@@ -260,20 +208,19 @@ function LoginClientInner() {
     }));
     localStorage.setItem("empresa_id", usuario.empresa_id);
     
-          // Aguardar um pouco para mostrar a mensagem de sucesso
-      setTimeout(() => {
-        // Redirecionar baseado no nível do usuário
-        if (perfil.nivel === 'tecnico') {
-          window.location.href = '/dashboard-tecnico';
-        } else if (perfil.nivel === 'atendente') {
-          window.location.href = '/dashboard-atendente';
-        } else if (perfil.nivel === 'admin') {
-          window.location.href = '/dashboard';
-        } else {
-          window.location.href = '/dashboard';
-        }
-      }, 1500);
+    // Aguardar um pouco para mostrar a mensagem de sucesso
+    setTimeout(() => {
+      // Redirecionar baseado no nível do usuário
+      if (perfil.nivel === 'tecnico') {
+        router.push('/dashboard-tecnico');
+      } else if (perfil.nivel === 'admin' || perfil.nivel === 'atendente' || perfil.nivel === 'usuarioteste') {
+        router.push('/dashboard');
+      } else {
+        router.push('/dashboard');
+      }
+    }, 1500);
     
+    // Resetar o estado de loading após o redirecionamento
     setIsSubmitting(false);
   };
 
