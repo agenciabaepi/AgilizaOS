@@ -17,6 +17,7 @@ function LoginClientInner() {
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const router = useRouter();
   const auth = useAuth();
   const { addToast } = useToast();
