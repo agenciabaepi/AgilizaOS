@@ -470,7 +470,7 @@ function EditarUsuarioPageInner() {
                         placeholder="Digite o nome de usuário"
                         required
                       />
-                      {usuario && (
+                      {form.usuario && (
                         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                           {usuarioValido ? (
                             <FiCheck className="w-5 h-5 text-green-500" />
@@ -480,7 +480,7 @@ function EditarUsuarioPageInner() {
                         </div>
                       )}
                     </div>
-                    {usuario && !usuarioValido && (
+                    {form.usuario && !usuarioValido && (
                       <p className="text-red-500 text-xs">Nome de usuário já existe</p>
                     )}
                   </div>
@@ -504,7 +504,7 @@ function EditarUsuarioPageInner() {
                         placeholder="Digite o e-mail"
                         required
                       />
-                      {email && (
+                      {form.email && (
                         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                           {emailValido ? (
                             <FiCheck className="w-5 h-5 text-green-500" />
@@ -514,7 +514,7 @@ function EditarUsuarioPageInner() {
                         </div>
                       )}
                     </div>
-                    {email && !emailValido && (
+                    {form.email && !emailValido && (
                       <p className="text-red-500 text-xs">E-mail inválido</p>
                     )}
                   </div>
@@ -567,7 +567,7 @@ function EditarUsuarioPageInner() {
                         placeholder="000.000.000-00"
                         required
                       />
-                      {cpf && (
+                      {form.cpf && (
                         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                           {cpfValido ? (
                             <FiCheck className="w-5 h-5 text-green-500" />
@@ -577,7 +577,7 @@ function EditarUsuarioPageInner() {
                         </div>
                       )}
                     </div>
-                    {cpf && !cpfValido && (
+                    {form.cpf && !cpfValido && (
                       <p className="text-red-500 text-xs">CPF inválido</p>
                     )}
                   </div>
