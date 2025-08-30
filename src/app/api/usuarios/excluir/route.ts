@@ -1,39 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 export async function DELETE(request: NextRequest) {
   try {
-    // cookies() não é necessário aqui
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        auth: {
-          persistSession: false
-        }
-      }
-    );
+    const supabaseAdmin = getSupabaseAdmin();
     
-    // Criar cliente admin para operações de Auth
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    );
+    // Pegar o ID do usuário a ser excluído do body
+    const { id } = await request.json();
+    
+    if (!id) {
+      return NextResponse.json({ error: 'ID do usuário é obrigatório' }, { status: 400 });
+    }
+
+    // Buscar dados do usuário atual usando o token de autorização
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json({ error: 'Token de autorização não fornecido' }, { status: 401 });
+    }
+
+    // Extrair o token do header Authorization
+    const token = authHeader.replace('Bearer ', '');
     
     // Verificar se o usuário está autenticado
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
     if (authError || !user) {
+      console.log('Erro de autenticação:', authError);
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
     // Buscar dados do usuário atual
-    const { data: usuarioAtual, error: userError } = await supabase
+    const { data: usuarioAtual, error: userError } = await supabaseAdmin
       .from('usuarios')
       .select('empresa_id, nivel')
       .eq('auth_user_id', user.id)
@@ -56,7 +52,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Buscar dados do usuário a ser excluído
-    const { data: usuarioParaExcluir, error: fetchError } = await supabase
+    const { data: usuarioParaExcluir, error: fetchError } = await supabaseAdmin
       .from('usuarios')
       .select('auth_user_id, empresa_id, nivel')
       .eq('id', id)
@@ -82,7 +78,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Excluir o usuário da tabela usuarios
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await supabaseAdmin
       .from('usuarios')
       .delete()
       .eq('id', id);

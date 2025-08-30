@@ -243,9 +243,20 @@ function UsuariosPageInner() {
     try {
       console.log('Tentando excluir usuário com ID:', id);
       
+      // Pegar o token de sessão
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
+      if (!token) {
+        throw new Error('Usuário não autenticado');
+      }
+      
       const response = await fetch('/api/usuarios/excluir', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ id })
       })
 
