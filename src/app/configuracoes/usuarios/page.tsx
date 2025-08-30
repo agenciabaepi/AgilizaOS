@@ -210,8 +210,7 @@ function UsuariosPageInner() {
       title: 'Excluir Usuário',
       message: 'Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.',
       confirmText: 'Excluir',
-      cancelText: 'Cancelar',
-      type: 'danger'
+      cancelText: 'Cancelar'
     });
 
     if (!confirmar) return;
