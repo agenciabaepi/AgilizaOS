@@ -35,7 +35,10 @@ import {
   Bell,
   Shield,
   Eye,
-  EyeOff
+  EyeOff,
+  Truck,
+  Grid,
+  Star
 } from 'lucide-react';
 
 // Sistema de permissões em cascata
