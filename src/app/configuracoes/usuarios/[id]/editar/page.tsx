@@ -338,7 +338,7 @@ function EditarUsuarioPageInner() {
       return;
     }
     
-    if (form.cpf && !cpfValido) {
+    if (form.cpf && form.cpf.trim() && !cpfValido) {
       addToast('error', 'CPF inválido');
       return;
     }
@@ -351,7 +351,7 @@ function EditarUsuarioPageInner() {
     // Validações de unicidade
     const emailUnico = await validarEmailUnico(form.email);
     const usuarioUnico = await validarUsuarioUnico(form.usuario);
-    const cpfUnico = form.cpf ? await validarCPFUnico(form.cpf) : true;
+    const cpfUnico = form.cpf && form.cpf.trim() ? await validarCPFUnico(form.cpf) : true;
 
     if (!emailUnico) {
       addToast('error', 'E-mail já cadastrado');
@@ -376,7 +376,7 @@ function EditarUsuarioPageInner() {
         nome: form.nome,
         email: form.email,
         usuario: form.usuario.trim().toLowerCase(),
-        cpf: form.cpf,
+        cpf: form.cpf?.trim() || null, // ⭐ Envia null se CPF estiver vazio
         whatsapp: form.whatsapp,
         nivel: form.nivel,
         permissoes: form.permissoes,
