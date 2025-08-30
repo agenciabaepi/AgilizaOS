@@ -3,7 +3,9 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 export async function DELETE(request: NextRequest) {
   try {
+    console.log('Iniciando exclusão de usuário...');
     const supabaseAdmin = getSupabaseAdmin();
+    console.log('SupabaseAdmin inicializado');
     
     // Buscar dados do usuário atual usando o token de autorização
     const authHeader = request.headers.get('authorization');
@@ -31,10 +33,18 @@ export async function DELETE(request: NextRequest) {
     if (userError || !usuarioAtual) {
       return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
     }
+
+    // Pegar o ID do usuário a ser excluído do body
+    const body = await request.json();
+    console.log('Body recebido:', body);
+    const { id } = body;
     
     if (!id) {
+      console.log('ID não fornecido');
       return NextResponse.json({ error: 'ID do usuário é obrigatório' }, { status: 400 });
     }
+    
+    console.log('ID do usuário a ser excluído:', id);
 
     // Verificar se não está tentando excluir a si mesmo
     if (id === user.id) {
@@ -99,9 +109,10 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ message: 'Usuário excluído com sucesso' });
 
   } catch (error) {
-    console.error('Erro ao excluir usuário:', error);
+    console.error('Erro detalhado ao excluir usuário:', error);
+    console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
     return NextResponse.json(
-      { error: 'Erro interno do servidor' }, 
+      { error: error instanceof Error ? error.message : 'Erro interno do servidor' }, 
       { status: 500 }
     );
   }
