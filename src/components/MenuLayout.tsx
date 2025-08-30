@@ -725,8 +725,8 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
       
       {/* Componente de teste temporário removido */}
       {/* <DebugAuth /> */}
-      </AutoRouteProtection>
     </div>
+    </AutoRouteProtection>
   );
 }
 
