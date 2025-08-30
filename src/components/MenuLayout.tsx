@@ -569,6 +569,19 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             {!menuRecolhido && `🔍 TESTE SIMPLES - usuarioData?.nivel === 'usuarioteste': ${usuarioData?.nivel === 'usuarioteste' ? 'TRUE' : 'FALSE'}`}
           </div>
           
+          {/* DEBUG: Permissões específicas */}
+          <div className={`px-3 py-2 text-xs font-medium text-white/60 ${menuRecolhido ? 'text-center' : ''}`}>
+            {!menuRecolhido && `🔍 PERMISSÕES - vendas: ${podeVer('vendas') ? 'SIM' : 'NÃO'}`}
+          </div>
+          
+          <div className={`px-3 py-2 text-xs font-medium text-white/60 ${menuRecolhido ? 'text-center' : ''}`}>
+            {!menuRecolhido && `🔍 PERMISSÕES - financeiro: ${podeVer('financeiro') ? 'SIM' : 'NÃO'}`}
+          </div>
+          
+          <div className={`px-3 py-2 text-xs font-medium text-white/60 ${menuRecolhido ? 'text-center' : ''}`}>
+            {!menuRecolhido && `🔍 PERMISSÕES - Array: ${JSON.stringify(usuarioData?.permissoes || [])}`}
+          </div>
+          
           {isUsuarioTesteLocal(usuarioData) && (
             <>
               <div className={`px-3 py-2 text-xs font-medium text-white/60 ${menuRecolhido ? 'text-center' : ''}`}>
