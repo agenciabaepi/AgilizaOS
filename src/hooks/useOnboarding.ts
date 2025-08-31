@@ -84,10 +84,16 @@ export const useOnboarding = () => {
         .eq('tipo', 'servico')
         .limit(1);
 
-      console.log('🔍 Debug Onboarding:', {
+      console.log('🔍 Debug Onboarding Hook:', {
+        empresaData: empresaData,
+        usuarioData: usuarioData,
         empresa: {
           nome: empresaData?.nome,
           cnpj: empresaData?.cnpj,
+          nomeTrim: empresaData?.nome?.trim(),
+          cnpjTrim: empresaData?.cnpj?.trim(),
+          nomeVazio: empresaData?.nome?.trim() === '',
+          cnpjVazio: empresaData?.cnpj?.trim() === '',
           status: !!empresa
         },
         tecnicos: {

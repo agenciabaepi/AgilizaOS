@@ -133,9 +133,16 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
   };
 
   const handleComplete = () => {
-    addToast('success', 'Onboarding concluído com sucesso!');
-    onComplete();
-    onClose();
+    // Verificar se realmente está completo antes de fechar
+    const isComplete = onboardingItems.every(item => item.status === 'completed');
+    
+    if (isComplete) {
+      addToast('success', 'Onboarding concluído com sucesso!');
+      onComplete();
+      onClose();
+    } else {
+      addToast('warning', 'Complete todos os itens obrigatórios antes de concluir o onboarding.');
+    }
   };
 
   const getStatusIcon = (status: string) => {
@@ -263,10 +270,10 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
           <div className="flex space-x-3">
             <Button
               onClick={handleComplete}
-              disabled={completedItems === 0}
-              className="bg-green-600 hover:bg-green-700 text-white"
+              disabled={completedItems < totalItems}
+              className="bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              Concluir Onboarding
+              Concluir Onboarding ({completedItems}/{totalItems})
             </Button>
           </div>
         </div>

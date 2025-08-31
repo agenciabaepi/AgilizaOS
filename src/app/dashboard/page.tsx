@@ -89,17 +89,23 @@ export default function DashboardPage() {
     }
   }, [usuarioData?.nivel, router]);
 
-  // Mostrar onboarding no primeiro login
+  // Mostrar onboarding sempre que não estiver completo
   useEffect(() => {
-    if (usuarioData && !showOnboarding && !onboardingStatus.hasCompletedOnboarding) {
-      // Verificar se é o primeiro login
-      const isFirstLogin = !localStorage.getItem('onboarding_shown');
-      if (isFirstLogin) {
+    if (usuarioData && !showOnboarding) {
+      // Verificar se o onboarding está completo
+      const isComplete = onboardingStatus.empresa && onboardingStatus.tecnicos && onboardingStatus.servicos;
+      
+      if (!isComplete) {
+        console.log('🔍 Dashboard: Onboarding não completo, mostrando modal', {
+          empresa: onboardingStatus.empresa,
+          tecnicos: onboardingStatus.tecnicos,
+          servicos: onboardingStatus.servicos,
+          isComplete
+        });
         setShowOnboarding(true);
-        localStorage.setItem('onboarding_shown', 'true');
       }
     }
-  }, [usuarioData, showOnboarding, onboardingStatus.hasCompletedOnboarding, setShowOnboarding]);
+  }, [usuarioData, showOnboarding, onboardingStatus, setShowOnboarding]);
 
   // Buscar dados reais do banco
   useEffect(() => {
