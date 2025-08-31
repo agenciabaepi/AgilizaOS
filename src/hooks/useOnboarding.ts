@@ -28,6 +28,12 @@ export const useOnboarding = () => {
 
   // Verificar status das configurações
   useEffect(() => {
+    console.log('🔍 useOnboarding useEffect - Verificando status:', {
+      usuarioData: !!usuarioData,
+      empresaData: !!empresaData,
+      empresaId: usuarioData?.empresa_id
+    });
+    
     if (usuarioData?.empresa_id) {
       checkOnboardingStatus();
     }

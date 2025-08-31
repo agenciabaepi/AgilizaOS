@@ -107,7 +107,7 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
         status: servicosStatus,
         action: () => {
           onClose(); // Fechar modal primeiro
-          router.push('/configuracoes?tab=2'); // Aba de produtos/serviços
+          router.push('/produtos-servicos'); // Página de cadastrar produtos/serviços
         },
         required: false
       });

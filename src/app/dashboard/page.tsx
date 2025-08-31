@@ -91,6 +91,13 @@ export default function DashboardPage() {
 
   // Mostrar onboarding sempre que não estiver completo
   useEffect(() => {
+    console.log('🔍 Dashboard useEffect - Onboarding:', {
+      usuarioData: !!usuarioData,
+      showOnboarding,
+      onboardingStatus,
+      wasSkipped: localStorage.getItem('onboarding_skipped') === 'true'
+    });
+
     if (usuarioData && !showOnboarding) {
       // Verificar se o usuário pulou o onboarding nesta sessão
       const wasSkipped = localStorage.getItem('onboarding_skipped') === 'true';
@@ -103,17 +110,20 @@ export default function DashboardPage() {
       // Verificar se o onboarding está completo
       const isComplete = onboardingStatus.empresa && onboardingStatus.tecnicos && onboardingStatus.servicos;
       
+      console.log('🔍 Dashboard: Verificando se deve mostrar onboarding:', {
+        empresa: onboardingStatus.empresa,
+        tecnicos: onboardingStatus.tecnicos,
+        servicos: onboardingStatus.servicos,
+        isComplete,
+        shouldShow: !isComplete
+      });
+      
       if (!isComplete) {
-        console.log('🔍 Dashboard: Onboarding não completo, mostrando modal', {
-          empresa: onboardingStatus.empresa,
-          tecnicos: onboardingStatus.tecnicos,
-          servicos: onboardingStatus.servicos,
-          isComplete
-        });
+        console.log('🔍 Dashboard: Onboarding não completo, mostrando modal');
         setShowOnboarding(true);
       }
     }
-  }, [usuarioData, showOnboarding, onboardingStatus, setShowOnboarding]);
+  }, [usuarioData, showOnboarding, onboardingStatus.empresa, onboardingStatus.tecnicos, onboardingStatus.servicos, setShowOnboarding]);
 
   // Buscar dados reais do banco
   useEffect(() => {
