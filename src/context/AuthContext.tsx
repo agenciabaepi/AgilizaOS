@@ -40,6 +40,7 @@ interface AuthContextType {
   isLoggingOut: boolean;
   setIsLoggingOut: (value: boolean) => void;
   updateUsuarioFoto: (fotoUrl: string) => void;
+  refreshEmpresaData: () => Promise<void>;
   clearSession: () => void;
   podeUsarFuncionalidade: (nomeFuncionalidade: string) => boolean;
   isUsuarioTeste: () => boolean;
@@ -52,6 +53,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [usuarioData, setUsuarioData] = useState<UsuarioData | null>(null);
   const [empresaData, setEmpresaData] = useState<EmpresaData | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<number>(Date.now());
   const [loading, setLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
@@ -278,6 +280,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUsuarioData(prev => prev ? { ...prev, foto_url: fotoUrl } : null);
   }, []);
 
+  const refreshEmpresaData = useCallback(async () => {
+    if (!user?.id) return;
+    
+    try {
+      const { userData, empresaData } = await fetchUserDataOptimized(user.id);
+      setUsuarioData(userData);
+      setEmpresaData(empresaData);
+      setLastUpdate(Date.now());
+    } catch (error) {
+      console.error('Erro ao atualizar dados da empresa:', error);
+    }
+  }, [user?.id]);
+
   // ✅ MEMOIZAR VALUE para evitar re-renders
   const value = useMemo(() => ({
     user,
@@ -294,10 +309,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     isLoggingOut,
     setIsLoggingOut,
     updateUsuarioFoto,
+    refreshEmpresaData,
     clearSession,
     podeUsarFuncionalidade,
     isUsuarioTeste,
-  }), [user, session, usuarioData, empresaData, loading, showOnboarding, signIn, signUp, signOut, resetPassword, updateUsuarioFoto, clearSession, podeUsarFuncionalidade, isUsuarioTeste]);
+  }), [user, session, usuarioData, empresaData, loading, showOnboarding, signIn, signUp, signOut, resetPassword, updateUsuarioFoto, refreshEmpresaData, clearSession, podeUsarFuncionalidade, isUsuarioTeste]);
 
   return (
     <AuthContext.Provider value={value}>

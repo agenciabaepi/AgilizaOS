@@ -45,6 +45,7 @@ export default function ConfigEmpresa() {
   const [uploading, setUploading] = useState(false);
   const { addToast } = useToast();
   const confirm = useConfirm();
+  const { refreshEmpresaData } = useAuth();
 
   useEffect(() => {
     fetchEmpresa();
@@ -172,6 +173,9 @@ export default function ConfigEmpresa() {
         }
       }
       
+      // Atualizar contexto em tempo real
+      await refreshEmpresaData();
+      
       addToast('success', 'Logo enviado e salvo com sucesso!');
     } catch (error) {
       console.error('Erro inesperado:', error);
@@ -184,6 +188,24 @@ export default function ConfigEmpresa() {
   const handleRemoveLogo = async () => {
     try {
       setFormData(prev => ({ ...prev, logo_url: '' }));
+      
+      // Remover logo do banco automaticamente
+      if (empresa) {
+        const { error: updateError } = await supabase
+          .from('empresas')
+          .update({ logo_url: '' })
+          .eq('id', empresa.id);
+
+        if (updateError) {
+          console.error('Erro ao remover logo do banco:', updateError);
+          addToast('error', 'Erro ao remover logo do banco');
+          return;
+        }
+      }
+      
+      // Atualizar contexto em tempo real
+      await refreshEmpresaData();
+      
       addToast('success', 'Logo removido com sucesso!');
     } catch (error) {
       console.error('Erro inesperado:', error);
