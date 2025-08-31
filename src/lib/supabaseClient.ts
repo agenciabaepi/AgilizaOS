@@ -103,23 +103,7 @@ export const isValidSession = async () => {
   }
 };
 
-// Função para executar queries com timeout
-export const queryWithTimeout = async <T>(
-  queryPromise: Promise<T>, 
-  timeoutMs: number = 10000
-): Promise<T> => {
-  console.log('⏱️ Iniciando query com timeout de', timeoutMs, 'ms');
-  
-  return Promise.race([
-    queryPromise,
-    new Promise<never>((_, reject) => 
-      setTimeout(() => {
-        console.error('⏱️ Query timeout após', timeoutMs, 'ms');
-        reject(new Error('Query timeout'));
-      }, timeoutMs)
-    )
-  ]);
-};
+
 
 // Função otimizada para buscar dados do usuário
 export const fetchUserDataOptimized = async (userId: string) => {
@@ -159,23 +143,13 @@ export const fetchUserDataOptimized = async (userId: string) => {
         email, 
         nivel, 
         permissoes, 
-        foto_url,
-        empresas!inner (
-          id,
-          nome,
-          plano,
-          logo_url,
-          cnpj,
-          endereco,
-          telefone,
-          email
-        )
+        foto_url
       `)
       .eq('auth_user_id', userId)
       .single();
 
-    console.log('🔍 Query construída, executando com timeout...');
-    const result: any = await queryWithTimeout(userQuery, 30000); // Aumentar timeout para 30s
+    console.log('🔍 Query construída, executando...');
+    const result: any = await userQuery; // Executar diretamente sem timeout
     
     if (result.error) {
       throw result.error;
@@ -190,7 +164,7 @@ export const fetchUserDataOptimized = async (userId: string) => {
         permissoes: result.data.permissoes,
         foto_url: result.data.foto_url
       },
-      empresaData: result.data.empresas
+      empresaData: null // Dados da empresa serão buscados separadamente se necessário
     };
     
   } catch (error) {
