@@ -284,10 +284,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!user?.id) return;
     
     try {
+      console.log('🔄 Atualizando dados da empresa...');
       const { userData, empresaData } = await fetchUserDataOptimized(user.id);
       setUsuarioData(userData);
       setEmpresaData(empresaData);
       setLastUpdate(Date.now());
+      console.log('✅ Dados da empresa atualizados:', empresaData);
     } catch (error) {
       console.error('Erro ao atualizar dados da empresa:', error);
     }

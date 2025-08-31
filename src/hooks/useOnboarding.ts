@@ -45,6 +45,20 @@ export const useOnboarding = () => {
       });
     }
   }, [usuarioData, empresaData]);
+  
+  // Re-verificar onboarding quando empresaData mudar especificamente
+  useEffect(() => {
+    if (empresaData && usuarioData?.empresa_id) {
+      console.log('🔍 DADOS DA EMPRESA MUDARAM, RE-VERIFICANDO ONBOARDING:', {
+        logo_url: empresaData?.logo_url,
+        nome: empresaData?.nome,
+        endereco: empresaData?.endereco,
+        cnpj: empresaData?.cnpj,
+        telefone: empresaData?.telefone
+      });
+      checkOnboardingStatus();
+    }
+  }, [empresaData?.logo_url, empresaData?.nome, empresaData?.endereco, empresaData?.cnpj, empresaData?.telefone]);
 
   const checkFirstLogin = async () => {
     if (!usuarioData?.auth_user_id) return;
