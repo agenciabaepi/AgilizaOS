@@ -164,7 +164,11 @@ export const fetchUserDataOptimized = async (userId: string) => {
         permissoes: result.data.permissoes,
         foto_url: result.data.foto_url
       },
-      empresaData: null // Dados da empresa serão buscados separadamente se necessário
+      empresaData: {
+        id: result.data.empresa_id,
+        nome: 'Empresa',
+        plano: 'trial'
+      }
     };
     
   } catch (error) {
