@@ -584,13 +584,35 @@ export default function ListaOrdensPage() {
   const hoje = new Date();
   const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
   const inicioSemana = new Date(hoje.setDate(hoje.getDate() - hoje.getDay()));
-  const mesAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+  const mesAnterior = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
 
-  const osHoje = ordens.filter(os => new Date(os.entrada) >= inicioMes && new Date(os.entrada) < new Date(hoje.setHours(0,0,0,0))).length;
-  const faturamentoHoje = ordens.filter(os => new Date(os.entrada) >= inicioMes && new Date(os.entrada) < new Date(hoje.setHours(0,0,0,0))).reduce((sum: number, o: any) => sum + o.valorTotal, 0);
+  // Corrigir cálculo das métricas diárias
+  const inicioDia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+  const fimDia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + 1);
+
+  const osHoje = ordens.filter(os => {
+    const dataOS = new Date(os.entrada);
+    return dataOS >= inicioDia && dataOS < fimDia;
+  }).length;
+
+  const faturamentoHoje = ordens.filter(os => {
+    const dataOS = new Date(os.entrada);
+    return dataOS >= inicioDia && dataOS < fimDia && os.valorFaturado;
+  }).reduce((sum: number, o: any) => sum + (o.valorFaturado || 0), 0);
+
   const ticketMedioHoje = osHoje > 0 ? faturamentoHoje / osHoje : 0;
-  const retornosHoje = ordens.filter(os => new Date(os.entrada) >= inicioMes && new Date(os.entrada) < new Date(hoje.setHours(0,0,0,0)) && os.tipo === 'Retorno').length;
-  const aprovadosHoje = ordens.filter(os => new Date(os.entrada) >= inicioMes && new Date(os.entrada) < new Date(hoje.setHours(0,0,0,0)) && (os.statusOS === 'APROVADO' || os.statusTecnico === 'APROVADO')).length;
+
+  const retornosHoje = ordens.filter(os => {
+    const dataOS = new Date(os.entrada);
+    return dataOS >= inicioDia && dataOS < fimDia && os.tipo === 'Retorno';
+  }).length;
+
+  const aprovadosHoje = ordens.filter(os => {
+    const dataOS = new Date(os.entrada);
+    return dataOS >= inicioDia && dataOS < fimDia && 
+           (os.statusOS?.toLowerCase() === 'aprovado' || 
+            os.statusTecnico?.toLowerCase() === 'aprovado');
+  }).length;
 
   return (
     <ProtectedArea area="ordens">
