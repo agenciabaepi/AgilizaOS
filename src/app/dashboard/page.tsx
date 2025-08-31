@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import MenuLayout from '@/components/MenuLayout';
 import ProtectedArea from '@/components/ProtectedArea';
+import OnboardingModal from '@/components/OnboardingModal';
+import { useOnboarding } from '@/hooks/useOnboarding';
 import { supabase } from '@/lib/supabaseClient';
 import { 
   FiFileText, 
@@ -13,7 +15,6 @@ import {
   FiUsers, 
   FiTrendingUp, 
   FiStar, 
-  FiTool, 
   FiDollarSign,
   FiSettings,
   FiUser
@@ -54,8 +55,9 @@ interface ClienteData {
 }
 
 export default function DashboardPage() {
-  const { usuarioData, empresaData } = useAuth();
+  const { usuarioData, empresaData, showOnboarding, setShowOnboarding } = useAuth();
   const router = useRouter();
+  const { onboardingStatus, markOnboardingCompleted } = useOnboarding();
   const [metrics, setMetrics] = useState<AdminMetrics>({
     totalOS: 0,
     osPendentes: 0,
@@ -86,6 +88,18 @@ export default function DashboardPage() {
       }
     }
   }, [usuarioData?.nivel, router]);
+
+  // Mostrar onboarding no primeiro login
+  useEffect(() => {
+    if (usuarioData && !showOnboarding && !onboardingStatus.hasCompletedOnboarding) {
+      // Verificar se é o primeiro login
+      const isFirstLogin = !localStorage.getItem('onboarding_shown');
+      if (isFirstLogin) {
+        setShowOnboarding(true);
+        localStorage.setItem('onboarding_shown', 'true');
+      }
+    }
+  }, [usuarioData, showOnboarding, onboardingStatus.hasCompletedOnboarding, setShowOnboarding]);
 
   // Buscar dados reais do banco
   useEffect(() => {
@@ -550,6 +564,16 @@ export default function DashboardPage() {
           </div>
         </div>
       </ProtectedArea>
+
+      {/* Modal de Onboarding */}
+      <OnboardingModal
+        isOpen={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+        onComplete={async () => {
+          await markOnboardingCompleted();
+          setShowOnboarding(false);
+        }}
+      />
     </MenuLayout>
   );
 }

@@ -11,6 +11,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Suspense } from 'react';
 import { useToast } from '@/components/Toast';
+import { useOnboarding } from '@/hooks/useOnboarding';
+import OnboardingModal from '@/components/OnboardingModal';
 
 const etapas = ["Cliente", "Aparelho", "Técnico", "Status", "Imagens"];
 
@@ -68,12 +70,15 @@ interface Termo {
 
 
 function NovaOS2Content() {
+  const { usuarioData } = useAuth();
+  const { canCreateOS, onboardingStatus } = useOnboarding();
   const [etapaAtual, setEtapaAtual] = useState(1);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clienteSelecionado, setClienteSelecionado] = useState<string | null>(null);
   const [loadingClientes, setLoadingClientes] = useState(false);
   const [showCadastroCliente, setShowCadastroCliente] = useState(false);
   const [cadastrando, setCadastrando] = useState(false);
+  const [showOnboardingModal, setShowOnboardingModal] = useState(false);
   
 
   
@@ -89,6 +94,13 @@ function NovaOS2Content() {
 
   // Estado para acessórios
   const [acessorios, setAcessorios] = useState('');
+
+  // Verificar se pode criar OS
+  useEffect(() => {
+    if (!canCreateOS && !onboardingStatus.loading) {
+      setShowOnboardingModal(true);
+    }
+  }, [canCreateOS, onboardingStatus.loading]);
 
 
   
@@ -1792,6 +1804,17 @@ function NovaOS2Content() {
               </div>
             </div>
           )}
+
+          {/* Modal de Onboarding para bloqueio inteligente */}
+          <OnboardingModal
+            isOpen={showOnboardingModal}
+            onClose={() => setShowOnboardingModal(false)}
+            onComplete={() => {
+              setShowOnboardingModal(false);
+              // Recarregar a página para verificar se agora pode criar OS
+              window.location.reload();
+            }}
+          />
         </div>
       </ProtectedArea>
     </MenuLayout>

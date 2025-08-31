@@ -31,6 +31,8 @@ interface AuthContextType {
   usuarioData: UsuarioData | null;
   empresaData: EmpresaData | null;
   loading: boolean;
+  showOnboarding: boolean;
+  setShowOnboarding: (show: boolean) => void;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -53,6 +55,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   
   // ✅ OTIMIZADO: Função para buscar dados do usuário com timeout
   const fetchUserData = useCallback(async (userId: string, sessionData: Session) => {
@@ -282,6 +285,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     usuarioData,
     empresaData,
     loading,
+    showOnboarding,
+    setShowOnboarding,
     signIn,
     signUp,
     signOut,
@@ -292,7 +297,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     clearSession,
     podeUsarFuncionalidade,
     isUsuarioTeste,
-  }), [user, session, usuarioData, empresaData, loading, isLoggingOut, signIn, signUp, signOut, resetPassword, updateUsuarioFoto, clearSession, podeUsarFuncionalidade, isUsuarioTeste]);
+  }), [user, session, usuarioData, empresaData, loading, showOnboarding, signIn, signUp, signOut, resetPassword, updateUsuarioFoto, clearSession, podeUsarFuncionalidade, isUsuarioTeste]);
 
   return (
     <AuthContext.Provider value={value}>
