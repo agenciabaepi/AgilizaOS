@@ -7,6 +7,7 @@ import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
+import { useAuth } from '@/context/AuthContext';
 import { 
   BuildingOfficeIcon as FiBuilding,
   PhotoIcon as FiImage,
