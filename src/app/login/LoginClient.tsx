@@ -209,7 +209,7 @@ function LoginClientInner() {
     // 🔒 VERIFICAÇÃO CRÍTICA: Verificar se o email foi confirmado ANTES de tentar login
     const { data: usuarioVerificacao, error: verificacaoError } = await supabase
       .from('usuarios')
-      .select('email_verificado, auth_user_id')
+      .select('email_verificado, auth_user_id, nivel, empresa_id')
       .eq('email', emailToLogin)
       .single();
     
@@ -219,13 +219,35 @@ function LoginClientInner() {
       return;
     }
     
-    // Se o email não foi verificado, mostrar formulário de verificação
-    if (!usuarioVerificacao?.email_verificado) {
+    // Se o usuário é ADMIN (criador da empresa), verificar se o email foi confirmado
+    if (usuarioVerificacao?.nivel === 'admin' && !usuarioVerificacao?.email_verificado) {
       setIsSubmitting(false);
       setPendingEmail(emailToLogin);
       setShowVerification(true);
       addToast('warning', 'Email não verificado. Digite o código enviado para seu email.');
       return;
+    }
+    
+    // Se o usuário NÃO é admin, verificar se a empresa foi verificada
+    if (usuarioVerificacao?.nivel !== 'admin' && usuarioVerificacao?.empresa_id) {
+      const { data: empresa, error: empresaError } = await supabase
+        .from('empresas')
+        .select('email_verificado')
+        .eq('id', usuarioVerificacao.empresa_id)
+        .single();
+      
+      if (empresaError) {
+        setIsSubmitting(false);
+        addToast('error', 'Erro ao verificar empresa. Tente novamente.');
+        return;
+      }
+      
+      // Se a empresa não foi verificada, o usuário não pode fazer login
+      if (!empresa?.email_verificado) {
+        setIsSubmitting(false);
+        addToast('error', 'Empresa não verificada. Entre em contato com o administrador.');
+        return;
+      }
     }
     
     // Tentar fazer login (apenas se email foi verificado)
@@ -565,7 +587,7 @@ function LoginClientInner() {
                     Verificar Email
                   </h1>
                   <p className="text-gray-600 font-light">
-                    Seu email precisa ser verificado antes do login.
+                    Como administrador, seu email precisa ser verificado.
                   </p>
                   <p className="text-gray-600 font-light">
                     Digite o código enviado para:
