@@ -6,12 +6,11 @@ import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/Toast';
 import { Button } from '@/components/Button';
 import { useRouter } from 'next/navigation';
-import { 
-  FiCheckCircle, 
-  FiCircle, 
-  FiHome, 
-  FiUsers, 
-  FiTool, 
+import {
+  FiCheckCircle,
+  FiCircle,
+  FiHome,
+  FiUsers,
   FiArrowRight,
   FiX
 } from 'react-icons/fi';
@@ -90,33 +89,12 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
         required: true
       });
 
-      // 3. Serviços básicos
-      const { data: servicos } = await supabase
-        .from('produtos_servicos')
-        .select('id')
-        .eq('empresa_id', usuarioData?.empresa_id)
-        .eq('tipo', 'servico')
-        .limit(1);
 
-      const servicosStatus = servicos && servicos.length > 0 ? 'completed' : 'pending';
-      items.push({
-        id: 'servicos',
-        title: 'Serviços Básicos',
-        description: 'Configure serviços padrão da empresa (opcional)',
-        icon: <FiTool className="w-5 h-5" />,
-        status: servicosStatus,
-        action: () => {
-          onClose(); // Fechar modal primeiro
-          router.push('/produtos-servicos'); // Página de cadastrar produtos/serviços
-        },
-        required: false
-      });
 
       console.log('🔍 Debug OnboardingModal:', {
         empresaData,
         empresaStatus,
-        tecnicos: tecnicos?.length || 0,
-        servicos: servicos?.length || 0
+        tecnicos: tecnicos?.length || 0
       });
 
       setOnboardingItems(items);

@@ -89,13 +89,7 @@ export const useOnboarding = () => {
         .eq('nivel', 'tecnico')
         .eq('empresa_id', usuarioData.empresa_id);
 
-      // 3. Verificar serviços
-      const { data: servicos } = await supabase
-        .from('produtos_servicos')
-        .select('id')
-        .eq('empresa_id', usuarioData.empresa_id)
-        .eq('tipo', 'servico')
-        .limit(1);
+
 
       console.log('🔍 Debug Onboarding Hook:', {
         empresaData: empresaData,
@@ -113,17 +107,13 @@ export const useOnboarding = () => {
           count: tecnicos?.length || 0,
           status: !!(tecnicos && tecnicos.length > 0)
         },
-        servicos: {
-          count: servicos?.length || 0,
-          status: !!(servicos && servicos.length > 0)
-        }
+
       });
 
       setOnboardingStatus(prev => ({
         ...prev,
         empresa: !!empresa,
-        tecnicos: !!(tecnicos && tecnicos.length > 0),
-        servicos: !!(servicos && servicos.length > 0)
+        tecnicos: !!(tecnicos && tecnicos.length > 0)
       }));
     } catch (error) {
       console.error('Erro ao verificar status do onboarding:', error);
