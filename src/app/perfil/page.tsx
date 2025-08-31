@@ -262,18 +262,37 @@ export default function PerfilPage() {
     setUploading(true);
     
     try {
-      console.log('Iniciando upload da foto:', {
+      console.log('🔍 Iniciando upload da foto:', {
         fileName: file.name,
         fileSize: file.size,
         fileType: file.type,
         userId: perfil.id
       });
+      
+      // Verificar se o usuário está autenticado
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      console.log('🔍 Sessão atual:', { session: !!session, error: sessionError });
+      
+      if (sessionError || !session) {
+        console.error('❌ Usuário não autenticado:', sessionError);
+        addToast('error', 'Usuário não autenticado. Faça login novamente.');
+        setUploading(false);
+        return;
+      }
 
       // Verificar se o bucket existe
+      console.log('🔍 Tentando listar buckets...');
+      console.log('🔍 Cliente Supabase:', supabase);
+      console.log('🔍 URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
+      console.log('🔍 ANON KEY:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? '✅ Configurada' : '❌ Não configurada');
+      console.log('🔍 Sessão ativa:', !!session);
+      
       const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
       
+      console.log('🔍 Resultado listBuckets:', { buckets, bucketsError });
+      
       if (bucketsError) {
-        console.error('Erro ao verificar buckets:', bucketsError);
+        console.error('❌ Erro ao verificar buckets:', bucketsError);
         addToast('error', 'Erro ao verificar configuração do storage');
         setUploading(false);
         return;
