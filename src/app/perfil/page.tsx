@@ -5,6 +5,9 @@ import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import MenuLayout from '@/components/MenuLayout';
 import { useToast } from '@/components/Toast';
+import { ConfirmProvider, useConfirm } from '@/components/ConfirmDialog';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { User, Camera, Trash2, Edit, Save, X, Eye, EyeOff } from 'lucide-react';
 
 interface UsuarioPerfil {
   id: string;
@@ -36,7 +39,13 @@ export default function PerfilPage() {
   });
   const [fotoUrl, setFotoUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [senhaVisivel, setSenhaVisivel] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Estados de validação
+  const [emailValido, setEmailValido] = useState(true);
+  const [usuarioValido, setUsuarioValido] = useState(true);
+  const [cpfValido, setCpfValido] = useState(true);
 
   useEffect(() => {
     const fetchPerfil = async () => {
@@ -86,12 +95,128 @@ export default function PerfilPage() {
     fetchPerfil();
   }, [user, authLoading, usuarioData, addToast]);
 
+  // Validação em tempo real
+  useEffect(() => {
+    if (form.email) {
+      const emailFormatValido = validarEmail(form.email);
+      if (!emailFormatValido) {
+        setEmailValido(false);
+        return;
+      }
+      validarEmailUnico(form.email).then(setEmailValido);
+    } else {
+      setEmailValido(true);
+    }
+  }, [form.email]);
+
+  useEffect(() => {
+    if (form.usuario) {
+      validarUsuarioUnico(form.usuario).then(setUsuarioValido);
+    } else {
+      setUsuarioValido(true);
+    }
+  }, [form.usuario]);
+
+  useEffect(() => {
+    if (form.cpf) {
+      setCpfValido(validarCPF(form.cpf));
+    } else {
+      setCpfValido(true);
+    }
+  }, [form.cpf]);
+
+  // Função para validar email
+  const validarEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  // Função para validar CPF
+  const validarCPF = (cpf: string) => {
+    const cpfLimpo = cpf.replace(/\D/g, '');
+    if (cpfLimpo.length !== 11) return false;
+    
+    // Verificar se todos os dígitos são iguais
+    if (/^(\d)\1+$/.test(cpfLimpo)) return false;
+    
+    // Validar primeiro dígito verificador
+    let soma = 0;
+    for (let i = 0; i < 9; i++) {
+      soma += parseInt(cpfLimpo.charAt(i)) * (10 - i);
+    }
+    let resto = 11 - (soma % 11);
+    const dv1 = resto < 2 ? 0 : resto;
+    
+    // Validar segundo dígito verificador
+    soma = 0;
+    for (let i = 0; i < 10; i++) {
+      soma += parseInt(cpfLimpo.charAt(i)) * (11 - i);
+    }
+    resto = 11 - (soma % 11);
+    const dv2 = resto < 2 ? 0 : resto;
+    
+    return cpfLimpo.charAt(9) === dv1.toString() && cpfLimpo.charAt(10) === dv2.toString();
+  };
+
+  // Função para validar usuário único
+  const validarUsuarioUnico = async (usuario: string) => {
+    if (!usuario.trim() || !perfil?.id) return true;
+    
+    try {
+      const { data } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('usuario', usuario.trim().toLowerCase())
+        .neq('id', perfil.id)
+        .single();
+      
+      return !data; // Retorna true se não existir (válido)
+    } catch {
+      return true; // Se não encontrar, é válido
+    }
+  };
+
+  // Função para validar email único
+  const validarEmailUnico = async (email: string) => {
+    if (!email.trim() || !perfil?.id) return true;
+    
+    try {
+      const { data } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('email', email.trim().toLowerCase())
+        .neq('id', perfil.id)
+        .single();
+      
+      return !data; // Retorna true se não existir (válido)
+    } catch {
+      return true; // Se não encontrar, é válido
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validações finais
+    if (!emailValido) {
+      addToast('error', 'E-mail inválido ou já cadastrado');
+      return;
+    }
+    
+    if (!usuarioValido) {
+      addToast('error', 'Nome de usuário já existe');
+      return;
+    }
+    
+    if (!cpfValido) {
+      addToast('error', 'CPF inválido');
+      return;
+    }
+    
     setSaving(true);
     try {
       if (!user?.id) {
@@ -99,43 +224,40 @@ export default function PerfilPage() {
         setSaving(false);
         return;
       }
+      
       // Padronizar username
       const usuarioPadronizado = form.usuario.trim().toLowerCase();
-      // Atualizar senha se fornecida
-      if (form.senha) {
-        const response = await fetch('/api/usuarios/editar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: perfil?.id,
-            auth_user_id: user.id,
-            senha: form.senha,
-          }),
-        });
-        const result = await response.json();
-        if (!response.ok) {
-          addToast('error', result.error || 'Erro ao atualizar senha');
-          setSaving(false);
-          return;
-        }
-      }
-      const { error } = await supabase
-        .from('usuarios')
-        .update({
+      
+      // Usar API de edição para sincronizar Auth
+      const response = await fetch('/api/usuarios/editar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: perfil?.id,
+          auth_user_id: user.id,
           nome: form.nome,
           email: form.email,
           usuario: usuarioPadronizado,
           cpf: form.cpf || null,
           telefone: form.telefone || null,
           whatsapp: form.whatsapp || null,
-        })
-        .eq('auth_user_id', user.id);
-      if (error) {
-        addToast('error', 'Erro ao salvar alterações');
+          senha: form.senha || undefined,
+        }),
+      });
+      
+      const result = await response.json();
+      if (!response.ok) {
+        addToast('error', result.error || 'Erro ao atualizar perfil');
         setSaving(false);
         return;
       }
+      
+      // Atualizar estado local
       setPerfil(prev => prev ? { ...prev, ...form, usuario: usuarioPadronizado } : null);
+      
+      // Limpar senha do formulário
+      setForm(prev => ({ ...prev, senha: '' }));
+      
       addToast('success', 'Perfil atualizado com sucesso!');
       setIsEditing(false);
     } catch (err) {
@@ -389,13 +511,32 @@ export default function PerfilPage() {
     return (
       <MenuLayout>
         <div className="p-8">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-            <div className="space-y-4">
-              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-              <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-            </div>
+          <div className="max-w-4xl mx-auto">
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
+                <div className="animate-pulse">
+                  <div className="h-8 bg-gray-200 rounded w-1/4 mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="animate-pulse space-y-6">
+                  <div className="flex justify-center">
+                    <div className="w-32 h-32 bg-gray-200 rounded-full"></div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                      <div className="h-12 bg-gray-200 rounded"></div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                      <div className="h-12 bg-gray-200 rounded"></div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </MenuLayout>
@@ -405,235 +546,321 @@ export default function PerfilPage() {
   return (
     <MenuLayout>
       <div className="p-8">
-        <div className="max-w-2xl mx-auto">
-          {/* Bloco de avatar e upload */}
-          <div className="flex flex-col items-center mb-8">
-            <div className="relative">
-              {fotoUrl ? (
-                <img
-                  src={fotoUrl}
-                  alt="Foto de perfil"
-                  className="w-28 h-28 rounded-full border-4 border-lime-400 object-cover shadow-lg"
-                />
-              ) : (
-                <div className="w-28 h-28 rounded-full border-4 border-lime-400 bg-lime-200 flex items-center justify-center shadow-lg">
-                  <span className="text-5xl font-bold text-lime-700">
-                    {perfil?.nome?.[0]?.toUpperCase() || 'U'}
-                  </span>
+        <div className="max-w-4xl mx-auto">
+          <Card className="border-0 shadow-lg">
+            <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-gray-900 rounded-lg">
+                    <User className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-2xl font-semibold text-gray-900">
+                      Meu Perfil
+                    </CardTitle>
+                    <p className="text-gray-600 text-sm mt-1">
+                      Gerencie suas informações pessoais e configurações de conta.
+                    </p>
+                  </div>
                 </div>
-              )}
-              <button
-                className="absolute bottom-0 right-0 bg-blue-600 text-white rounded-full p-2 shadow hover:bg-blue-700 transition"
-                onClick={() => fileInputRef.current?.click()}
-                title="Trocar foto"
-                disabled={uploading}
-              >
-                {uploading ? (
-                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="white" strokeWidth="4" fill="none" /></svg>
-                ) : (
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 12v6m0 0l-3-3m3 3l3-3m-6-6a4 4 0 118 0 4 4 0 01-8 0z" /></svg>
+                
+                <button
+                  onClick={() => setIsEditing(!isEditing)}
+                  className="bg-gray-900 text-white px-6 py-3 rounded-lg text-sm font-medium hover:bg-gray-800 transition-all duration-200 flex items-center gap-2 shadow-md hover:shadow-lg"
+                >
+                  {isEditing ? (
+                    <>
+                      <X className="w-4 h-4" />
+                      Cancelar
+                    </>
+                  ) : (
+                    <>
+                      <Edit className="w-4 h-4" />
+                      Editar Perfil
+                    </>
+                  )}
+                </button>
+              </div>
+            </CardHeader>
+            
+            <CardContent className="p-6">
+              {/* Bloco de avatar e upload */}
+              <div className="flex flex-col items-center mb-8">
+                <div className="relative">
+                  {fotoUrl ? (
+                    <img
+                      src={fotoUrl}
+                      alt="Foto de perfil"
+                      className="w-32 h-32 rounded-full border-4 border-gray-900 object-cover shadow-lg"
+                    />
+                  ) : (
+                    <div className="w-32 h-32 rounded-full border-4 border-gray-900 bg-gray-200 flex items-center justify-center shadow-lg">
+                      <span className="text-6xl font-bold text-gray-700">
+                        {perfil?.nome?.[0]?.toUpperCase() || 'U'}
+                      </span>
+                    </div>
+                  )}
+                  <button
+                    className="absolute bottom-0 right-0 bg-gray-900 text-white rounded-full p-3 shadow-lg hover:bg-gray-800 transition-all duration-200"
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Trocar foto"
+                    disabled={uploading}
+                  >
+                    {uploading ? (
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    ) : (
+                      <Camera className="w-5 h-5" />
+                    )}
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleUploadFoto}
+                    disabled={uploading}
+                  />
+                </div>
+                {fotoUrl && (
+                  <button
+                    className="mt-3 text-sm text-red-600 hover:text-red-700 hover:underline disabled:opacity-50 flex items-center gap-1"
+                    onClick={handleRemoverFoto}
+                    disabled={uploading}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Remover foto
+                  </button>
                 )}
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleUploadFoto}
-                disabled={uploading}
-              />
-            </div>
-            {fotoUrl && (
-              <button
-                className="mt-2 text-xs text-red-600 hover:underline disabled:opacity-50"
-                onClick={handleRemoverFoto}
-                disabled={uploading}
-              >
-                Remover foto
-              </button>
-            )}
-            <span className="mt-2 text-sm text-gray-600">Clique no ícone para trocar a foto</span>
-          </div>
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">Meu Perfil</h1>
-            <button
-              onClick={() => setIsEditing(!isEditing)}
-              className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 transition-colors"
-            >
-              {isEditing ? 'Cancelar' : 'Editar'}
-            </button>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nome Completo
-                  </label>
-                  <input
-                    type="text"
-                    name="nome"
-                    value={form.nome}
-                    onChange={handleChange}
-                    disabled={!isEditing}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isEditing 
-                        ? 'border-gray-300 bg-white' 
-                        : 'border-gray-200 bg-gray-50 cursor-not-allowed'
-                    }`}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    E-mail
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={form.email}
-                    onChange={handleChange}
-                    disabled={!isEditing}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isEditing 
-                        ? 'border-gray-300 bg-white' 
-                        : 'border-gray-200 bg-gray-50 cursor-not-allowed'
-                    }`}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Usuário
-                  </label>
-                  <input
-                    type="text"
-                    name="usuario"
-                    value={form.usuario}
-                    onChange={handleChange}
-                    disabled={!isEditing}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isEditing 
-                        ? 'border-gray-300 bg-white' 
-                        : 'border-gray-200 bg-gray-50 cursor-not-allowed'
-                    }`}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    WhatsApp
-                  </label>
-                  <input
-                    type="text"
-                    name="whatsapp"
-                    value={form.whatsapp}
-                    onChange={handleChange}
-                    disabled={!isEditing}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isEditing 
-                        ? 'border-gray-300 bg-white' 
-                        : 'border-gray-200 bg-gray-50 cursor-not-allowed'
-                    }`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nova Senha (deixe em branco para não alterar)
-                  </label>
-                  <input
-                    type="password"
-                    name="senha"
-                    value={form.senha}
-                    onChange={handleChange}
-                    disabled={!isEditing}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isEditing 
-                        ? 'border-gray-300 bg-white' 
-                        : 'border-gray-200 bg-gray-50 cursor-not-allowed'
-                    }`}
-                    autoComplete="new-password"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    CPF
-                  </label>
-                  <input
-                    type="text"
-                    name="cpf"
-                    value={form.cpf}
-                    onChange={handleChange}
-                    disabled={!isEditing}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isEditing 
-                        ? 'border-gray-300 bg-white' 
-                        : 'border-gray-200 bg-gray-50 cursor-not-allowed'
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Telefone
-                  </label>
-                  <input
-                    type="text"
-                    name="telefone"
-                    value={form.telefone}
-                    onChange={handleChange}
-                    disabled={!isEditing}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isEditing 
-                        ? 'border-gray-300 bg-white' 
-                        : 'border-gray-200 bg-gray-50 cursor-not-allowed'
-                    }`}
-                  />
-                </div>
+                <span className="mt-2 text-sm text-gray-600">Clique no ícone para trocar a foto</span>
               </div>
 
-              <div className="bg-gray-50 rounded-md p-4">
-                <h3 className="text-sm font-medium text-gray-700 mb-2">Informações do Sistema</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-gray-500">Nível de Acesso:</span>
-                    <span className="ml-2 font-medium text-gray-900 capitalize">
-                      {perfil?.nivel || 'Não definido'}
-                    </span>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Nome */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">
+                      Nome Completo *
+                    </label>
+                    <input
+                      type="text"
+                      name="nome"
+                      value={form.nome}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                      className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
+                        isEditing 
+                          ? 'border-gray-300 focus:ring-gray-900' 
+                          : 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                      }`}
+                      placeholder="Digite seu nome completo"
+                      required
+                    />
                   </div>
-                  <div>
-                    <span className="text-gray-500">ID do Usuário:</span>
-                    <span className="ml-2 font-medium text-gray-900">
-                      {perfil?.id || 'Não disponível'}
-                    </span>
-                  </div>
-                </div>
-              </div>
 
-              {isEditing && (
-                <div className="flex justify-end space-x-3 pt-4 border-t">
-                  <button
-                    type="button"
-                    onClick={() => setIsEditing(false)}
-                    className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  >
-                    {saving ? 'Salvando...' : 'Salvar Alterações'}
-                  </button>
+                  {/* E-mail */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">
+                      E-mail *
+                    </label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={form.email}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                      className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
+                        isEditing 
+                          ? emailValido ? 'border-gray-300 focus:ring-gray-900' : 'border-red-500 focus:ring-red-500'
+                          : 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                      }`}
+                      placeholder="Digite seu e-mail"
+                      required
+                    />
+                    {isEditing && form.email && !emailValido && (
+                      <p className="text-red-500 text-xs">
+                        {!validarEmail(form.email) ? 'E-mail inválido' : 'E-mail já cadastrado'}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Usuário */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">
+                      Nome de Usuário *
+                    </label>
+                    <input
+                      type="text"
+                      name="usuario"
+                      value={form.usuario}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                      className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
+                        isEditing 
+                          ? usuarioValido ? 'border-gray-300 focus:ring-gray-900' : 'border-red-500 focus:ring-red-500'
+                          : 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                      }`}
+                      placeholder="Digite seu nome de usuário"
+                      required
+                    />
+                    {isEditing && form.usuario && !usuarioValido && (
+                      <p className="text-red-500 text-xs">Nome de usuário já existe</p>
+                    )}
+                  </div>
+
+                  {/* WhatsApp */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">
+                      WhatsApp
+                    </label>
+                    <input
+                      type="text"
+                      name="whatsapp"
+                      value={form.whatsapp}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                      className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
+                        isEditing 
+                          ? 'border-gray-300 focus:ring-gray-900' 
+                          : 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                      }`}
+                      placeholder="(00) 00000-0000"
+                    />
+                  </div>
+
+                  {/* Senha */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">
+                      Nova Senha
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={senhaVisivel ? 'text' : 'password'}
+                        name="senha"
+                        value={form.senha}
+                        onChange={handleChange}
+                        disabled={!isEditing}
+                        className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 pr-12 ${
+                          isEditing 
+                            ? 'border-gray-300 focus:ring-gray-900' 
+                            : 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                        }`}
+                        placeholder="Deixe em branco para não alterar"
+                        autoComplete="new-password"
+                      />
+                      {isEditing && (
+                        <button
+                          type="button"
+                          onClick={() => setSenhaVisivel(!senhaVisivel)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                          {senhaVisivel ? (
+                            <EyeOff className="w-5 h-5" />
+                          ) : (
+                            <Eye className="w-5 h-5" />
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* CPF */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">
+                      CPF
+                    </label>
+                    <input
+                      type="text"
+                      name="cpf"
+                      value={form.cpf}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                      className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
+                        isEditing 
+                          ? cpfValido ? 'border-gray-300 focus:ring-gray-900' : 'border-red-500 focus:ring-red-500'
+                          : 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                      }`}
+                      placeholder="000.000.000-00"
+                    />
+                    {isEditing && form.cpf && !cpfValido && (
+                      <p className="text-red-500 text-xs">CPF inválido</p>
+                    )}
+                  </div>
+
+                  {/* Telefone */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">
+                      Telefone
+                    </label>
+                    <input
+                      type="text"
+                      name="telefone"
+                      value={form.telefone}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                      className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
+                        isEditing 
+                          ? 'border-gray-300 focus:ring-gray-900' 
+                          : 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                      }`}
+                      placeholder="(00) 0000-0000"
+                    />
+                  </div>
                 </div>
-              )}
-            </form>
-          </div>
+
+                {/* Informações do Sistema */}
+                <div className="bg-gradient-to-r from-gray-50 to-white border border-gray-200 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <User className="w-5 h-5" />
+                    Informações do Sistema
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                    <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
+                      <span className="text-gray-600">Nível de Acesso:</span>
+                      <span className="font-medium text-gray-900 capitalize">
+                        {perfil?.nivel || 'Não definido'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
+                      <span className="text-gray-600">ID do Usuário:</span>
+                      <span className="font-medium text-gray-900 font-mono text-xs">
+                        {perfil?.id || 'Não disponível'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Botões de ação */}
+                {isEditing && (
+                  <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditing(false)}
+                      className="px-6 py-3 text-gray-700 bg-gray-100 rounded-lg font-medium hover:bg-gray-200 transition-all duration-200"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={saving || !emailValido || !usuarioValido || !cpfValido}
+                      className="bg-gray-900 text-white px-8 py-3 rounded-lg font-medium hover:bg-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      {saving ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          Salvando...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4" />
+                          Salvar Alterações
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </form>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </MenuLayout>
