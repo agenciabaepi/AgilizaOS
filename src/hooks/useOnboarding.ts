@@ -78,13 +78,13 @@ export const useOnboarding = () => {
     setLoading(true);
     
     try {
-      // 1. Verificar dados da empresa - verificação mais simples e robusta
+      // 1. Verificar dados da empresa - campos que realmente existem na tabela
       const empresaFields = {
         logo: empresaData?.logo_url ? empresaData.logo_url.trim().length > 0 : false,
         nome: empresaData?.nome ? empresaData.nome.trim().length > 0 : false,
         endereco: empresaData?.endereco ? empresaData.endereco.trim().length > 0 : false,
         cnpj: empresaData?.cnpj ? empresaData.cnpj.trim().length > 0 : false,
-        whatsapp: empresaData?.whatsapp ? empresaData.whatsapp.trim().length > 0 : false
+        telefone: empresaData?.telefone ? empresaData.telefone.trim().length > 0 : false
       };
       
       const empresa = Object.values(empresaFields).every(field => field);
@@ -97,7 +97,7 @@ export const useOnboarding = () => {
             nome: 'Nome da Empresa',
             endereco: 'Endereço',
             cnpj: 'CNPJ',
-            whatsapp: 'WhatsApp'
+            telefone: 'Telefone'
           };
           return fieldNames[key] || key;
         });
@@ -140,14 +140,14 @@ export const useOnboarding = () => {
           resultado: empresaFields.cnpj,
           validacao: `empresaData?.cnpj ? empresaData.cnpj.trim().length > 0 : false`
         },
-        whatsapp: {
-          valor: empresaData?.whatsapp,
-          tipo: typeof empresaData?.whatsapp,
-          existe: !!empresaData?.whatsapp,
-          trim: empresaData?.whatsapp?.trim(),
-          length: empresaData?.whatsapp?.trim()?.length,
-          resultado: empresaFields.whatsapp,
-          validacao: `empresaData?.whatsapp ? empresaData.whatsapp.trim().length > 0 : false`
+        telefone: {
+          valor: empresaData?.telefone,
+          tipo: typeof empresaData?.telefone,
+          existe: !!empresaData?.telefone,
+          trim: empresaData?.telefone?.trim(),
+          length: empresaData?.telefone?.trim()?.length,
+          resultado: empresaFields.telefone,
+          validacao: `empresaData?.telefone ? empresaData.telefone.trim().length > 0 : false`
         }
       });
       
@@ -168,7 +168,7 @@ export const useOnboarding = () => {
         nome: empresaData?.nome,
         endereco: empresaData?.endereco,
         cnpj: empresaData?.cnpj,
-        whatsapp: empresaData?.whatsapp,
+        telefone: empresaData?.telefone,
         empresa_id: usuarioData?.empresa_id
       });
 

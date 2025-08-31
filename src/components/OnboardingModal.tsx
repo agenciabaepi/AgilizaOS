@@ -59,7 +59,7 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
         nome: !!empresaData?.nome && empresaData.nome.trim() !== '',
         endereco: !!empresaData?.endereco && empresaData.endereco.trim() !== '',
         cnpj: !!empresaData?.cnpj && empresaData.cnpj.trim() !== '',
-        whatsapp: !!empresaData?.whatsapp && empresaData.whatsapp.trim() !== ''
+        telefone: !!empresaData?.telefone && empresaData.telefone.trim() !== ''
       };
       
       const empresaStatus = Object.values(empresaFields).every(field => field) ? 'completed' : 'pending';
@@ -72,7 +72,7 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
             nome: 'Nome da Empresa',
             endereco: 'Endereço',
             cnpj: 'CNPJ',
-            whatsapp: 'WhatsApp'
+            telefone: 'Telefone'
           };
           return fieldNames[key] || key;
         });
@@ -80,7 +80,7 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
       items.push({
         id: 'empresa',
         title: 'Dados da Empresa',
-        description: 'Configure logo, nome, endereço, CNPJ e WhatsApp',
+        description: 'Configure logo, nome, endereço, CNPJ e telefone',
         icon: <FiHome className="w-5 h-5" />,
         status: empresaStatus,
         action: () => {
