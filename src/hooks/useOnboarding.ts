@@ -85,11 +85,11 @@ export const useOnboarding = () => {
     
     try {
       // 1. Verificação SIMPLES e DIRETA dos dados da empresa
-      const logoPreenchido = empresaData?.logo_url && empresaData.logo_url.length > 0;
-      const nomePreenchido = empresaData?.nome && empresaData.nome.length > 0;
-      const enderecoPreenchido = empresaData?.endereco && empresaData.endereco.length > 0;
-      const cnpjPreenchido = empresaData?.cnpj && empresaData.cnpj.length > 0;
-      const telefonePreenchido = empresaData?.telefone && empresaData.telefone.length > 0;
+      const logoPreenchido = Boolean(empresaData?.logo_url);
+      const nomePreenchido = Boolean(empresaData?.nome);
+      const enderecoPreenchido = Boolean(empresaData?.endereco);
+      const cnpjPreenchido = Boolean(empresaData?.cnpj);
+      const telefonePreenchido = Boolean(empresaData?.telefone);
       
       const empresaFields = {
         logo: logoPreenchido,
@@ -100,6 +100,13 @@ export const useOnboarding = () => {
       };
       
       const empresa = Object.values(empresaFields).every(field => field);
+      
+      console.log('🔍 VERIFICAÇÃO FINAL:', {
+        empresaFields: empresaFields,
+        todosCampos: Object.values(empresaFields),
+        empresa: empresa,
+        todosPreenchidos: Object.values(empresaFields).every(field => field)
+      });
       const missingFields = Object.entries(empresaFields)
         .filter(([, value]) => !value)
         .map(([key]) => {

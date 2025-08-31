@@ -126,6 +126,11 @@ export const fetchUserDataOptimized = async (userId: string) => {
     }
 
     // Buscar dados reais da empresa
+    console.log('🔍 BUSCANDO EMPRESA:', {
+      empresa_id: data.empresa_id,
+      query: `SELECT * FROM empresas WHERE id = '${data.empresa_id}'`
+    });
+    
     const { data: empresaData, error: empresaError } = await supabase
       .from('empresas')
       .select('*')
