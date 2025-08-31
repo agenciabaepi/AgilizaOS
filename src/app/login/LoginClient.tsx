@@ -137,12 +137,15 @@ function LoginClientInner() {
       const data = await response.json();
 
       if (response.ok) {
-        addToast('success', 'Email verificado com sucesso!');
+        addToast('success', 'Email verificado com sucesso! Agora você pode fazer login.');
         // Limpar URL e voltar para modo de login
         window.history.replaceState({}, '', '/login');
         setShowVerification(false);
         setVerificationCode('');
         setPendingEmail('');
+        // Limpar campos do formulário de login
+        setLoginInput('');
+        setPassword('');
       } else {
         addToast('error', data.error || 'Código inválido ou expirado');
       }
@@ -203,7 +206,29 @@ function LoginClientInner() {
       emailToLogin = usuario.email;
     }
     
-    // Tentar fazer login
+    // 🔒 VERIFICAÇÃO CRÍTICA: Verificar se o email foi confirmado ANTES de tentar login
+    const { data: usuarioVerificacao, error: verificacaoError } = await supabase
+      .from('usuarios')
+      .select('email_verificado, auth_user_id')
+      .eq('email', emailToLogin)
+      .single();
+    
+    if (verificacaoError) {
+      setIsSubmitting(false);
+      addToast('error', 'Usuário não encontrado. Verifique suas credenciais.');
+      return;
+    }
+    
+    // Se o email não foi verificado, mostrar formulário de verificação
+    if (!usuarioVerificacao?.email_verificado) {
+      setIsSubmitting(false);
+      setPendingEmail(emailToLogin);
+      setShowVerification(true);
+      addToast('warning', 'Email não verificado. Digite o código enviado para seu email.');
+      return;
+    }
+    
+    // Tentar fazer login (apenas se email foi verificado)
     const {
       data: { session },
       error
@@ -539,6 +564,9 @@ function LoginClientInner() {
                   <h1 className="text-3xl font-light text-gray-900 mb-3 tracking-tight">
                     Verificar Email
                   </h1>
+                  <p className="text-gray-600 font-light">
+                    Seu email precisa ser verificado antes do login.
+                  </p>
                   <p className="text-gray-600 font-light">
                     Digite o código enviado para:
                   </p>
