@@ -37,4 +37,15 @@ FOR DELETE USING (
 SELECT * FROM storage.buckets WHERE id = 'avatars';
 
 -- 7. Verificar as políticas criadas
-SELECT * FROM storage.policies WHERE bucket_id = 'avatars'; 
+SELECT 
+  schemaname,
+  tablename,
+  policyname,
+  permissive,
+  roles,
+  cmd,
+  qual,
+  with_check
+FROM pg_policies 
+WHERE tablename = 'objects' 
+AND schemaname = 'storage'; 
