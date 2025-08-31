@@ -108,10 +108,15 @@ export const queryWithTimeout = async <T>(
   queryPromise: Promise<T>, 
   timeoutMs: number = 10000
 ): Promise<T> => {
+  console.log('⏱️ Iniciando query com timeout de', timeoutMs, 'ms');
+  
   return Promise.race([
     queryPromise,
     new Promise<never>((_, reject) => 
-      setTimeout(() => reject(new Error('Query timeout')), timeoutMs)
+      setTimeout(() => {
+        console.error('⏱️ Query timeout após', timeoutMs, 'ms');
+        reject(new Error('Query timeout'));
+      }, timeoutMs)
     )
   ]);
 };
@@ -120,6 +125,31 @@ export const queryWithTimeout = async <T>(
 export const fetchUserDataOptimized = async (userId: string) => {
   try {
     console.log('🔍 Buscando dados otimizados para:', userId);
+    
+    // Verificar se o cliente Supabase está funcionando
+    console.log('🔍 Verificando cliente Supabase...');
+    console.log('🔍 URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
+    console.log('🔍 Cliente:', supabase);
+    
+    // Teste básico de conexão
+    try {
+      const { data: testData, error: testError } = await supabase
+        .from('usuarios')
+        .select('id')
+        .limit(1);
+      
+      if (testError) {
+        console.error('❌ Erro no teste de conexão:', testError);
+        throw new Error(`Falha na conexão com Supabase: ${testError.message}`);
+      }
+      
+      console.log('✅ Teste de conexão bem-sucedido');
+    } catch (testError) {
+      console.error('❌ Falha no teste de conexão:', testError);
+      throw new Error(`Não foi possível conectar ao Supabase: ${testError}`);
+    }
+    
+    console.log('🔍 Construindo query para usuário:', userId);
     
     const userQuery = supabase
       .from('usuarios')
@@ -144,7 +174,8 @@ export const fetchUserDataOptimized = async (userId: string) => {
       .eq('auth_user_id', userId)
       .single();
 
-    const result: any = await queryWithTimeout(userQuery, 8000);
+    console.log('🔍 Query construída, executando com timeout...');
+    const result: any = await queryWithTimeout(userQuery, 15000); // Aumentar timeout para 15s
     
     if (result.error) {
       throw result.error;
