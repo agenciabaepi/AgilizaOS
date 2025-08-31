@@ -128,7 +128,7 @@ export const fetchUserDataOptimized = async (userId: string) => {
     // Buscar dados reais da empresa
     const { data: empresaData, error: empresaError } = await supabase
       .from('empresas')
-      .select('id, nome, cnpj, endereco, telefone, email')
+      .select('id, nome, cnpj, endereco, telefone, email, whatsapp')
       .eq('id', data.empresa_id)
       .single();
 
@@ -168,6 +168,7 @@ export const fetchUserDataOptimized = async (userId: string) => {
         endereco: empresaData.endereco || '',
         telefone: empresaData.telefone || '',
         email: empresaData.email || '',
+        whatsapp: empresaData.whatsapp || '',
         plano: 'trial'
       }
     };

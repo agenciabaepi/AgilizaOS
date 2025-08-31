@@ -78,9 +78,19 @@ export const useOnboarding = () => {
     setLoading(true);
     
     try {
-      // 1. Verificar dados da empresa - mais robusto
-      const empresa = empresaData?.nome && empresaData?.nome.trim() !== '' && 
-                     empresaData?.cnpj && empresaData?.cnpj.trim() !== '';
+      // 1. Verificar dados da empresa - todos os campos obrigatórios
+      const empresaFields = {
+        logo: !!empresaData?.logo_url && empresaData.logo_url.trim() !== '',
+        nome: !!empresaData?.nome && empresaData.nome.trim() !== '',
+        endereco: !!empresaData?.endereco && empresaData.endereco.trim() !== '',
+        cnpj: !!empresaData?.cnpj && empresaData.cnpj.trim() !== '',
+        whatsapp: !!empresaData?.whatsapp && empresaData.whatsapp.trim() !== ''
+      };
+      
+      const empresa = Object.values(empresaFields).every(field => field);
+      const missingFields = Object.entries(empresaFields)
+        .filter(([_, value]) => !value)
+        .map(([key, _]) => key);
 
       // 2. Verificar técnicos
       const { data: tecnicos } = await supabase
@@ -95,12 +105,13 @@ export const useOnboarding = () => {
         empresaData: empresaData,
         usuarioData: usuarioData,
         empresa: {
+          logo: empresaData?.logo_url,
           nome: empresaData?.nome,
+          endereco: empresaData?.endereco,
           cnpj: empresaData?.cnpj,
-          nomeTrim: empresaData?.nome?.trim(),
-          cnpjTrim: empresaData?.cnpj?.trim(),
-          nomeVazio: empresaData?.nome?.trim() === '',
-          cnpjVazio: empresaData?.cnpj?.trim() === '',
+          whatsapp: empresaData?.whatsapp,
+          camposPreenchidos: empresaFields,
+          camposFaltando: missingFields,
           status: !!empresa
         },
         tecnicos: {

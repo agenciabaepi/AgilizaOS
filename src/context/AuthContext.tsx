@@ -23,6 +23,7 @@ interface EmpresaData {
   endereco?: string;
   telefone?: string;
   email?: string;
+  whatsapp?: string;
 }
 
 interface AuthContextType {

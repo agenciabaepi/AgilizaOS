@@ -23,6 +23,7 @@ interface OnboardingItem {
   status: 'pending' | 'completed' | 'warning';
   action?: () => void;
   required: boolean;
+  missingFields?: string[];
 }
 
 interface OnboardingModalProps {
@@ -52,21 +53,32 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
     try {
       const items: OnboardingItem[] = [];
 
-      // 1. Dados da empresa - verificação mais robusta
-      const empresaStatus = empresaData?.nome && empresaData?.nome.trim() !== '' && 
-                           empresaData?.cnpj && empresaData?.cnpj.trim() !== '' 
-                           ? 'completed' : 'pending';
+            // 1. Dados da empresa - verificação de todos os campos obrigatórios
+      const empresaFields = {
+        logo: !!empresaData?.logo_url && empresaData.logo_url.trim() !== '',
+        nome: !!empresaData?.nome && empresaData.nome.trim() !== '',
+        endereco: !!empresaData?.endereco && empresaData.endereco.trim() !== '',
+        cnpj: !!empresaData?.cnpj && empresaData.cnpj.trim() !== '',
+        whatsapp: !!empresaData?.whatsapp && empresaData.whatsapp.trim() !== ''
+      };
+      
+      const empresaStatus = Object.values(empresaFields).every(field => field) ? 'completed' : 'pending';
+      const missingFields = Object.entries(empresaFields)
+        .filter(([, value]) => !value)
+        .map(([key]) => key);
+      
       items.push({
         id: 'empresa',
         title: 'Dados da Empresa',
-        description: 'Configure nome, CNPJ e informações básicas',
+        description: 'Configure logo, nome, endereço, CNPJ e WhatsApp',
         icon: <FiHome className="w-5 h-5" />,
         status: empresaStatus,
         action: () => {
           onClose(); // Fechar modal primeiro
           router.push('/configuracoes?tab=0'); // Aba de empresa
         },
-        required: true
+        required: true,
+        missingFields: missingFields
       });
 
       // 2. Cadastro de técnicos
@@ -233,6 +245,11 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
                 {item.required && item.status !== 'completed' && (
                   <div className="mt-2 text-xs text-red-600 font-medium">
                     ⚠️ Este item é obrigatório para criar Ordens de Serviço
+                    {item.missingFields && item.missingFields.length > 0 && (
+                      <div className="mt-1 text-red-500">
+                        Campos faltando: {item.missingFields.join(', ')}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
