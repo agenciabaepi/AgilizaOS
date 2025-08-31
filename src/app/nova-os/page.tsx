@@ -70,7 +70,7 @@ interface Termo {
 
 
 function NovaOS2Content() {
-  const { usuarioData } = useAuth();
+  const { usuarioData, empresaData } = useAuth();
   const { canCreateOS, onboardingStatus } = useOnboarding();
   const [etapaAtual, setEtapaAtual] = useState(1);
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -163,7 +163,6 @@ function NovaOS2Content() {
   const [salvando, setSalvando] = useState(false);
   
   const router = useRouter();
-  const { empresaData, usuarioData } = useAuth();
   const searchParams = useSearchParams();
   const { addToast } = useToast();
   const { register, handleSubmit, reset, formState: { errors } } = useForm<{ nome: string; whatsapp: string; cpf: string; numero_reserva?: string; email?: string }>();
