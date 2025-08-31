@@ -80,11 +80,11 @@ export const useOnboarding = () => {
     try {
       // 1. Verificar dados da empresa - campos que realmente existem na tabela
       const empresaFields = {
-        logo: empresaData?.logo_url ? empresaData.logo_url.trim().length > 0 : false,
-        nome: empresaData?.nome ? empresaData.nome.trim().length > 0 : false,
-        endereco: empresaData?.endereco ? empresaData.endereco.trim().length > 0 : false,
-        cnpj: empresaData?.cnpj ? empresaData.cnpj.trim().length > 0 : false,
-        telefone: empresaData?.telefone ? empresaData.telefone.trim().length > 0 : false
+        logo: Boolean(empresaData?.logo_url && empresaData.logo_url.trim() !== ''),
+        nome: Boolean(empresaData?.nome && empresaData.nome.trim() !== ''),
+        endereco: Boolean(empresaData?.endereco && empresaData.endereco.trim() !== ''),
+        cnpj: Boolean(empresaData?.cnpj && empresaData.cnpj.trim() !== ''),
+        telefone: Boolean(empresaData?.telefone && empresaData.telefone.trim() !== '')
       };
       
       const empresa = Object.values(empresaFields).every(field => field);
@@ -111,7 +111,14 @@ export const useOnboarding = () => {
           trim: empresaData?.logo_url?.trim(),
           length: empresaData?.logo_url?.trim()?.length,
           resultado: empresaFields.logo,
-          validacao: `empresaData?.logo_url ? empresaData.logo_url.trim().length > 0 : false`
+          validacao: `empresaData?.logo_url ? empresaData.logo_url.trim().length > 0 : false`,
+          debug: {
+            empresaDataLogo: empresaData?.logo_url,
+            isTruthy: !!empresaData?.logo_url,
+            afterTrim: empresaData?.logo_url?.trim(),
+            trimLength: empresaData?.logo_url?.trim()?.length,
+            finalResult: empresaFields.logo
+          }
         },
         nome: {
           valor: empresaData?.nome,
