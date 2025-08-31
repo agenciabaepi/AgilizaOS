@@ -78,13 +78,13 @@ export const useOnboarding = () => {
     setLoading(true);
     
     try {
-      // 1. Verificar dados da empresa - todos os campos obrigatórios
+      // 1. Verificar dados da empresa - verificação mais simples e robusta
       const empresaFields = {
-        logo: Boolean(empresaData?.logo_url && empresaData.logo_url.trim() !== ''),
-        nome: Boolean(empresaData?.nome && empresaData.nome.trim() !== ''),
-        endereco: Boolean(empresaData?.endereco && empresaData.endereco.trim() !== ''),
-        cnpj: Boolean(empresaData?.cnpj && empresaData.cnpj.trim() !== ''),
-        whatsapp: Boolean(empresaData?.whatsapp && empresaData.whatsapp.trim() !== '')
+        logo: empresaData?.logo_url ? empresaData.logo_url.trim().length > 0 : false,
+        nome: empresaData?.nome ? empresaData.nome.trim().length > 0 : false,
+        endereco: empresaData?.endereco ? empresaData.endereco.trim().length > 0 : false,
+        cnpj: empresaData?.cnpj ? empresaData.cnpj.trim().length > 0 : false,
+        whatsapp: empresaData?.whatsapp ? empresaData.whatsapp.trim().length > 0 : false
       };
       
       const empresa = Object.values(empresaFields).every(field => field);
@@ -102,51 +102,74 @@ export const useOnboarding = () => {
           return fieldNames[key] || key;
         });
       
-      // Debug individual de cada campo
-      console.log('🔍 Debug Individual dos Campos:', {
+      // Debug individual de cada campo - VERIFICAÇÃO DETALHADA
+      console.log('🔍 VERIFICAÇÃO DETALHADA DOS CAMPOS:', {
         logo: {
           valor: empresaData?.logo_url,
+          tipo: typeof empresaData?.logo_url,
           existe: !!empresaData?.logo_url,
           trim: empresaData?.logo_url?.trim(),
+          length: empresaData?.logo_url?.trim()?.length,
           resultado: empresaFields.logo,
-          validacao: `${!!empresaData?.logo_url} && ${empresaData?.logo_url?.trim() !== ''}`
+          validacao: `empresaData?.logo_url ? empresaData.logo_url.trim().length > 0 : false`
         },
         nome: {
           valor: empresaData?.nome,
+          tipo: typeof empresaData?.nome,
           existe: !!empresaData?.nome,
           trim: empresaData?.nome?.trim(),
+          length: empresaData?.nome?.trim()?.length,
           resultado: empresaFields.nome,
-          validacao: `${!!empresaData?.nome} && ${empresaData?.nome?.trim() !== ''}`
+          validacao: `empresaData?.nome ? empresaData.nome.trim().length > 0 : false`
         },
         endereco: {
           valor: empresaData?.endereco,
+          tipo: typeof empresaData?.endereco,
           existe: !!empresaData?.endereco,
           trim: empresaData?.endereco?.trim(),
+          length: empresaData?.endereco?.trim()?.length,
           resultado: empresaFields.endereco,
-          validacao: `${!!empresaData?.endereco} && ${empresaData?.endereco?.trim() !== ''}`
+          validacao: `empresaData?.endereco ? empresaData.endereco.trim().length > 0 : false`
         },
         cnpj: {
           valor: empresaData?.cnpj,
+          tipo: typeof empresaData?.cnpj,
           existe: !!empresaData?.cnpj,
           trim: empresaData?.cnpj?.trim(),
+          length: empresaData?.cnpj?.trim()?.length,
           resultado: empresaFields.cnpj,
-          validacao: `${!!empresaData?.cnpj} && ${empresaData?.cnpj?.trim() !== ''}`
+          validacao: `empresaData?.cnpj ? empresaData.cnpj.trim().length > 0 : false`
         },
         whatsapp: {
           valor: empresaData?.whatsapp,
+          tipo: typeof empresaData?.whatsapp,
           existe: !!empresaData?.whatsapp,
           trim: empresaData?.whatsapp?.trim(),
+          length: empresaData?.whatsapp?.trim()?.length,
           resultado: empresaFields.whatsapp,
-          validacao: `${!!empresaData?.whatsapp} && ${empresaData?.whatsapp?.trim() !== ''}`
+          validacao: `empresaData?.whatsapp ? empresaData.whatsapp.trim().length > 0 : false`
         }
       });
       
       // Debug completo dos dados
-      console.log('🔍 Debug Completo:', {
+      console.log('🔍 DADOS COMPLETOS DA EMPRESA:', {
         empresaData: empresaData,
         empresaFields: empresaFields,
         missingFields: missingFields,
-        empresa: empresa
+        empresa: empresa,
+        totalCampos: Object.keys(empresaFields).length,
+        camposPreenchidos: Object.values(empresaFields).filter(Boolean).length,
+        camposVazios: Object.values(empresaFields).filter(field => !field).length
+      });
+      
+      // Verificação adicional - dados brutos
+      console.log('🔍 DADOS BRUTOS DO BANCO:', {
+        logo_url: empresaData?.logo_url,
+        nome: empresaData?.nome,
+        endereco: empresaData?.endereco,
+        cnpj: empresaData?.cnpj,
+        whatsapp: empresaData?.whatsapp,
+        empresa_id: usuarioData?.empresa_id
       });
 
       // 2. Verificar técnicos
