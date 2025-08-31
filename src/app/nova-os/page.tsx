@@ -11,8 +11,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Suspense } from 'react';
 import { useToast } from '@/components/Toast';
-import { useOnboarding } from '@/hooks/useOnboarding';
-import OnboardingModal from '@/components/OnboardingModal';
+
 
 const etapas = ["Cliente", "Aparelho", "Técnico", "Status", "Imagens"];
 
@@ -71,14 +70,14 @@ interface Termo {
 
 function NovaOS2Content() {
   const { usuarioData, empresaData } = useAuth();
-  const { canCreateOS, onboardingStatus, loading: onboardingLoading } = useOnboarding();
   const [etapaAtual, setEtapaAtual] = useState(1);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clienteSelecionado, setClienteSelecionado] = useState<string | null>(null);
   const [loadingClientes, setLoadingClientes] = useState(false);
   const [showCadastroCliente, setShowCadastroCliente] = useState(false);
   const [cadastrando, setCadastrando] = useState(false);
-  const [showOnboardingModal, setShowOnboardingModal] = useState(false);
+  const [hasTecnicos, setHasTecnicos] = useState(false);
+  const [loadingTecnicos, setLoadingTecnicos] = useState(true);
   
 
   
@@ -95,12 +94,29 @@ function NovaOS2Content() {
   // Estado para acessórios
   const [acessorios, setAcessorios] = useState('');
 
-  // Verificar se pode criar OS
+  // Verificar se há técnicos cadastrados
   useEffect(() => {
-    if (!canCreateOS && !onboardingLoading) {
-      setShowOnboardingModal(true);
+    async function checkTecnicos() {
+      if (!empresaData?.id) return;
+      
+      try {
+        const { data: tecnicos } = await supabase
+          .from('usuarios')
+          .select('id')
+          .eq('nivel', 'tecnico')
+          .eq('empresa_id', empresaData.id);
+        
+        setHasTecnicos(!!(tecnicos && tecnicos.length > 0));
+      } catch (error) {
+        console.error('Erro ao verificar técnicos:', error);
+        setHasTecnicos(false);
+      } finally {
+        setLoadingTecnicos(false);
+      }
     }
-  }, [canCreateOS, onboardingLoading]);
+    
+    checkTecnicos();
+  }, [empresaData?.id]);
 
 
   
@@ -1804,16 +1820,44 @@ function NovaOS2Content() {
             </div>
           )}
 
-          {/* Modal de Onboarding para bloqueio inteligente */}
-          <OnboardingModal
-            isOpen={showOnboardingModal}
-            onClose={() => setShowOnboardingModal(false)}
-            onComplete={() => {
-              setShowOnboardingModal(false);
-              // Recarregar a página para verificar se agora pode criar OS
-              window.location.reload();
-            }}
-          />
+          {/* Aviso se não há técnicos */}
+          {!loadingTecnicos && !hasTecnicos && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div className="p-6">
+                  <div className="flex items-center mb-4">
+                    <div className="p-2 bg-yellow-100 rounded-lg mr-3">
+                      <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Técnico Necessário
+                    </h3>
+                  </div>
+                  
+                  <p className="text-gray-600 mb-6">
+                    Para criar Ordens de Serviço, você precisa cadastrar pelo menos um técnico na empresa.
+                  </p>
+                  
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={() => window.location.href = '/configuracoes/usuarios'}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium"
+                    >
+                      Cadastrar Técnico
+                    </button>
+                    <button
+                      onClick={() => window.history.back()}
+                      className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg font-medium"
+                    >
+                      Voltar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </ProtectedArea>
     </MenuLayout>
