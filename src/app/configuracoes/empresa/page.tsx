@@ -253,12 +253,14 @@ export default function ConfigEmpresa() {
                   alt="Logo da empresa" 
                   className="w-24 h-24 object-contain border border-gray-200 rounded-lg"
                 />
-                <button
-                  onClick={handleRemoveLogo}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
-                >
-                  <FiX className="h-3 w-3" />
-                </button>
+                {editMode && (
+                  <button
+                    onClick={handleRemoveLogo}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
+                  >
+                    <FiX className="h-3 w-3" />
+                  </button>
+                )}
               </div>
             ) : (
               <div className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center">
@@ -266,33 +268,41 @@ export default function ConfigEmpresa() {
               </div>
             )}
 
-            <div className="flex-1">
-              <label className="block">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleUpload}
-                  className="hidden"
-                  disabled={uploading}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={uploading}
-                  className="cursor-pointer"
-                  onClick={(e) => {
-                    const input = e.currentTarget.parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
-                    input?.click();
-                  }}
-                >
-                  <FiUpload className="h-4 w-4 mr-2" />
-                  {uploading ? 'Enviando...' : 'Enviar Logo'}
-                </Button>
-              </label>
-              <p className="text-sm text-gray-500 mt-1">
-                Formatos aceitos: JPG, PNG, GIF. Tamanho máximo: 2MB
-              </p>
-            </div>
+            {editMode ? (
+              <div className="flex-1">
+                <label className="block">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleUpload}
+                    className="hidden"
+                    disabled={uploading}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={uploading}
+                    className="cursor-pointer"
+                    onClick={(e) => {
+                      const input = e.currentTarget.parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
+                      input?.click();
+                    }}
+                  >
+                    <FiUpload className="h-4 w-4 mr-2" />
+                    {uploading ? 'Enviando...' : 'Enviar Logo'}
+                  </Button>
+                </label>
+                <p className="text-sm text-gray-500 mt-1">
+                  Formatos aceitos: JPG, PNG, GIF. Tamanho máximo: 2MB
+                </p>
+              </div>
+            ) : (
+              <div className="flex-1">
+                <p className="text-sm text-gray-500">
+                  Clique em "Editar" para modificar o logo da empresa
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
