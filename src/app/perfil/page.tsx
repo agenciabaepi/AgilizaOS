@@ -33,7 +33,6 @@ export default function PerfilPage() {
     email: '',
     usuario: '',
     cpf: '',
-    telefone: '',
     whatsapp: '',
     senha: '',
   });
@@ -45,7 +44,6 @@ export default function PerfilPage() {
   // Estados de validação
   const [emailValido, setEmailValido] = useState(true);
   const [usuarioValido, setUsuarioValido] = useState(true);
-  const [cpfValido, setCpfValido] = useState(true);
 
   useEffect(() => {
     const fetchPerfil = async () => {
@@ -72,7 +70,6 @@ export default function PerfilPage() {
           email: data.email || '',
           usuario: data.usuario || '',
           cpf: data.cpf || '',
-          telefone: data.telefone || '',
           whatsapp: data.whatsapp || '',
           nivel: data.nivel || 'atendente',
         });
@@ -81,7 +78,6 @@ export default function PerfilPage() {
           email: data.email || '',
           usuario: data.usuario || '',
           cpf: data.cpf || '',
-          telefone: data.telefone || '',
           whatsapp: data.whatsapp || '',
           senha: '',
         });
@@ -117,13 +113,7 @@ export default function PerfilPage() {
     }
   }, [form.usuario]);
 
-  useEffect(() => {
-    if (form.cpf) {
-      setCpfValido(validarCPF(form.cpf));
-    } else {
-      setCpfValido(true);
-    }
-  }, [form.cpf]);
+
 
   // Função para validar email
   const validarEmail = (email: string) => {
@@ -131,32 +121,7 @@ export default function PerfilPage() {
     return emailRegex.test(email);
   };
 
-  // Função para validar CPF
-  const validarCPF = (cpf: string) => {
-    const cpfLimpo = cpf.replace(/\D/g, '');
-    if (cpfLimpo.length !== 11) return false;
-    
-    // Verificar se todos os dígitos são iguais
-    if (/^(\d)\1+$/.test(cpfLimpo)) return false;
-    
-    // Validar primeiro dígito verificador
-    let soma = 0;
-    for (let i = 0; i < 9; i++) {
-      soma += parseInt(cpfLimpo.charAt(i)) * (10 - i);
-    }
-    let resto = 11 - (soma % 11);
-    const dv1 = resto < 2 ? 0 : resto;
-    
-    // Validar segundo dígito verificador
-    soma = 0;
-    for (let i = 0; i < 10; i++) {
-      soma += parseInt(cpfLimpo.charAt(i)) * (11 - i);
-    }
-    resto = 11 - (soma % 11);
-    const dv2 = resto < 2 ? 0 : resto;
-    
-    return cpfLimpo.charAt(9) === dv1.toString() && cpfLimpo.charAt(10) === dv2.toString();
-  };
+
 
   // Função para validar usuário único
   const validarUsuarioUnico = async (usuario: string) => {
@@ -212,10 +177,7 @@ export default function PerfilPage() {
       return;
     }
     
-    if (!cpfValido) {
-      addToast('error', 'CPF inválido');
-      return;
-    }
+
     
     setSaving(true);
     try {
@@ -239,7 +201,6 @@ export default function PerfilPage() {
           email: form.email,
           usuario: usuarioPadronizado,
           cpf: form.cpf || null,
-          telefone: form.telefone || null,
           whatsapp: form.whatsapp || null,
           senha: form.senha || undefined,
         }),
@@ -774,27 +735,20 @@ export default function PerfilPage() {
                       value={form.cpf}
                       onChange={handleChange}
                       disabled={!isEditing}
-                      className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
-                        isEditing 
-                          ? cpfValido ? 'border-gray-300 focus:ring-gray-900' : 'border-red-500 focus:ring-red-500'
-                          : 'border-gray-200 bg-gray-50 cursor-not-allowed'
-                      }`}
-                      placeholder="000.000.000-00"
+                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
+                      placeholder="000.000.000-00 (opcional)"
                     />
-                    {isEditing && form.cpf && !cpfValido && (
-                      <p className="text-red-500 text-xs">CPF inválido</p>
-                    )}
                   </div>
 
-                  {/* Telefone */}
+                  {/* WhatsApp */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700">
-                      Telefone
+                      WhatsApp *
                     </label>
                     <input
                       type="text"
-                      name="telefone"
-                      value={form.telefone}
+                      name="whatsapp"
+                      value={form.whatsapp}
                       onChange={handleChange}
                       disabled={!isEditing}
                       className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
@@ -802,7 +756,8 @@ export default function PerfilPage() {
                           ? 'border-gray-300 focus:ring-gray-900' 
                           : 'border-gray-200 bg-gray-50 cursor-not-allowed'
                       }`}
-                      placeholder="(00) 0000-0000"
+                      placeholder="(00) 00000-0000"
+                      required
                     />
                   </div>
                 </div>
@@ -841,7 +796,7 @@ export default function PerfilPage() {
                     </button>
                     <button
                       type="submit"
-                      disabled={saving || !emailValido || !usuarioValido || !cpfValido}
+                      disabled={saving || !emailValido || !usuarioValido}
                       className="bg-gray-900 text-white px-8 py-3 rounded-lg font-medium hover:bg-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                       {saving ? (
