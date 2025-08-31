@@ -157,7 +157,22 @@ export default function ConfigEmpresa() {
 
       const logoUrl = data.publicUrl;
       setFormData(prev => ({ ...prev, logo_url: logoUrl }));
-      addToast('success', 'Logo enviado com sucesso!');
+      
+      // Salvar logo automaticamente no banco
+      if (empresa) {
+        const { error: updateError } = await supabase
+          .from('empresas')
+          .update({ logo_url: logoUrl })
+          .eq('id', empresa.id);
+
+        if (updateError) {
+          console.error('Erro ao salvar logo no banco:', updateError);
+          addToast('error', 'Erro ao salvar logo no banco');
+          return;
+        }
+      }
+      
+      addToast('success', 'Logo enviado e salvo com sucesso!');
     } catch (error) {
       console.error('Erro inesperado:', error);
       addToast('error', 'Erro inesperado');
