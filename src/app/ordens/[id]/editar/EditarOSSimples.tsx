@@ -8,6 +8,7 @@ import ProtectedArea from '@/components/ProtectedArea';
 import ProdutoServicoManager from '@/components/ProdutoServicoManager';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
+import { useAuth } from '@/context/AuthContext';
 import { FiArrowLeft, FiSave, FiUser, FiCheckCircle, FiTool, FiFileText } from 'react-icons/fi';
 
 interface Item {
@@ -68,6 +69,7 @@ export default function EditarOSSimples() {
   const id = params?.id as string;
   const { addToast } = useToast();
   const confirm = useConfirm();
+  const { usuarioData } = useAuth();
 
   const [ordem, setOrdem] = useState<Ordem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -241,10 +243,17 @@ export default function EditarOSSimples() {
   const fetchTecnicos = async () => {
     try {
       console.log('🔄 Buscando técnicos...');
+      
+      if (!usuarioData?.empresa_id) {
+        console.error('❌ Usuário não tem empresa_id');
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('usuarios')
         .select('id, nome, tecnico_id, auth_user_id')
         .eq('nivel', 'tecnico')
+        .eq('empresa_id', usuarioData.empresa_id) // Filtrar por empresa do usuário logado
         .order('nome');
       
       console.log('👨‍🔧 Técnicos recebidos:', data);
