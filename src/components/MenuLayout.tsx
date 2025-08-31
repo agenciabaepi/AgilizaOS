@@ -40,12 +40,10 @@ import * as FeatureFlags from '@/config/featureFlags';
 
 // Funções locais como fallback
 const isUsuarioTesteLocal = (usuario: any) => {
-  console.log('🔍 isUsuarioTesteLocal chamada com:', usuario);
   return usuario?.nivel === 'usuarioteste';
 };
 
 const podeUsarFuncionalidadeLocal = (usuario: any, nomeFuncionalidade: string) => {
-  console.log('🔍 podeUsarFuncionalidadeLocal chamada com:', usuario, nomeFuncionalidade);
   if (usuario?.nivel === 'usuarioteste') {
     return true;
   }
@@ -80,24 +78,14 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   // ✅ OTIMIZADO: Debug reduzido para melhorar performance
   useEffect(() => {
     if (empresaData?.id) {
-      console.log('🔍 MenuLayout: Empresa ID carregado:', empresaData.id);
+      // Debug removido para limpeza
     }
   }, [empresaData?.id]);
 
   // DEBUG: Verificar feature flags
   useEffect(() => {
     if (usuarioData) {
-      console.log('🔍 DEBUG - usuarioData:', usuarioData);
-      console.log('🔍 DEBUG - nivel:', usuarioData.nivel);
-      console.log('🔍 DEBUG - isUsuarioTeste:', FeatureFlags.isUsuarioTeste ? FeatureFlags.isUsuarioTeste(usuarioData) : isUsuarioTesteLocal(usuarioData));
-      console.log('🔍 DEBUG - podeUsarFuncionalidade conversas:', FeatureFlags.podeUsarFuncionalidade ? FeatureFlags.podeUsarFuncionalidade(usuarioData, "conversas_whatsapp") : podeUsarFuncionalidadeLocal(usuarioData, "conversas_whatsapp"));
-      
-      // Teste direto
-      console.log('🔍 TESTE DIRETO - usuarioData?.nivel === "usuarioteste":', usuarioData?.nivel === 'usuarioteste');
-      console.log('🔍 TESTE DIRETO - String(usuarioData?.nivel):', String(usuarioData?.nivel));
-      console.log('🔍 TESTE DIRETO - typeof usuarioData?.nivel:', typeof usuarioData?.nivel);
-    } else {
-      console.log('🔍 DEBUG - usuarioData é null/undefined');
+      // Debug removido para limpeza
     }
   }, [usuarioData]);
 
@@ -110,8 +98,6 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
       try {
         if (!empresaData?.id) return;
         
-        console.log('🔍 MenuLayout: Carregando configurações do catálogo para empresa:', empresaData.id);
-        
         const { data, error } = await supabase
           .from('configuracoes_empresa')
           .select('catalogo_habilitado')
@@ -119,18 +105,15 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           .single();
           
         if (error) {
-          console.log('🔍 MenuLayout: Erro ao carregar configurações:', error);
           // Se não encontrar configurações, assumir que está habilitado por padrão
           setCatalogoHabilitado(true);
           return;
         }
         
         const habilitado = data?.catalogo_habilitado === true;
-        console.log('🔍 MenuLayout: Catálogo habilitado:', habilitado);
         setCatalogoHabilitado(habilitado);
         
       } catch (error) {
-        console.error('🔍 MenuLayout: Erro ao carregar configurações:', error);
         // Em caso de erro, assumir que está habilitado
         setCatalogoHabilitado(true);
       }
@@ -183,7 +166,6 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const podeVer = (area: string) => {
     // Usuários de teste têm acesso a TUDO
     if (usuarioData?.nivel === 'usuarioteste') {
-      console.log(`🔍 podeVer(${area}) - usuário de teste, retornando TRUE`);
       return true; // ✅ Acesso total garantido
     }
     
@@ -193,7 +175,6 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
     }
     
     const resultado = usuarioData?.nivel === 'admin' || (usuarioData?.permissoes && usuarioData.permissoes.includes(area));
-    console.log(`🔍 podeVer(${area}) - resultado: ${resultado}`);
     return resultado;
   };
 
