@@ -87,6 +87,21 @@ export const useOnboarding = () => {
         whatsapp: Boolean(empresaData?.whatsapp && empresaData.whatsapp.trim() !== '')
       };
       
+      const empresa = Object.values(empresaFields).every(field => field);
+      const missingFields = Object.entries(empresaFields)
+        .filter(([, value]) => !value)
+        .map(([key]) => {
+          // Mapear nomes mais amigáveis para os campos
+          const fieldNames: { [key: string]: string } = {
+            logo: 'Logo',
+            nome: 'Nome da Empresa',
+            endereco: 'Endereço',
+            cnpj: 'CNPJ',
+            whatsapp: 'WhatsApp'
+          };
+          return fieldNames[key] || key;
+        });
+      
       // Debug individual de cada campo
       console.log('🔍 Debug Individual dos Campos:', {
         logo: {
@@ -133,21 +148,6 @@ export const useOnboarding = () => {
         missingFields: missingFields,
         empresa: empresa
       });
-      
-      const empresa = Object.values(empresaFields).every(field => field);
-      const missingFields = Object.entries(empresaFields)
-        .filter(([, value]) => !value)
-        .map(([key]) => {
-          // Mapear nomes mais amigáveis para os campos
-          const fieldNames: { [key: string]: string } = {
-            logo: 'Logo',
-            nome: 'Nome da Empresa',
-            endereco: 'Endereço',
-            cnpj: 'CNPJ',
-            whatsapp: 'WhatsApp'
-          };
-          return fieldNames[key] || key;
-        });
 
       // 2. Verificar técnicos
       const { data: tecnicos } = await supabase
