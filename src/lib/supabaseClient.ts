@@ -175,7 +175,7 @@ export const fetchUserDataOptimized = async (userId: string) => {
       .single();
 
     console.log('🔍 Query construída, executando com timeout...');
-    const result: any = await queryWithTimeout(userQuery, 15000); // Aumentar timeout para 15s
+    const result: any = await queryWithTimeout(userQuery, 30000); // Aumentar timeout para 30s
     
     if (result.error) {
       throw result.error;
