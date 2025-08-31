@@ -128,7 +128,7 @@ export const fetchUserDataOptimized = async (userId: string) => {
     // Buscar dados reais da empresa
     const { data: empresaData, error: empresaError } = await supabase
       .from('empresas')
-      .select('id, nome, cnpj, endereco, telefone, email, logo_url')
+      .select('*')
       .eq('id', data.empresa_id)
       .single();
 
@@ -151,6 +151,16 @@ export const fetchUserDataOptimized = async (userId: string) => {
         }
       };
     }
+    
+    // Debug dos dados da empresa
+    console.log('🔍 DADOS DA EMPRESA BUSCADOS:', {
+      empresaData: empresaData,
+      logo_url: empresaData?.logo_url,
+      nome: empresaData?.nome,
+      cnpj: empresaData?.cnpj,
+      endereco: empresaData?.endereco,
+      telefone: empresaData?.telefone
+    });
 
     return {
       userData: {

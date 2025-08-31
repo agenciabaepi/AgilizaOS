@@ -176,7 +176,21 @@ export const useOnboarding = () => {
         endereco: empresaData?.endereco,
         cnpj: empresaData?.cnpj,
         telefone: empresaData?.telefone,
-        empresa_id: usuarioData?.empresa_id
+        empresa_id: usuarioData?.empresa_id,
+        empresaDataCompleto: empresaData
+      });
+      
+      // Verificação específica do logo
+      console.log('🔍 VERIFICAÇÃO ESPECÍFICA DO LOGO:', {
+        logo_url: empresaData?.logo_url,
+        tipo: typeof empresaData?.logo_url,
+        existe: !!empresaData?.logo_url,
+        naoVazio: empresaData?.logo_url !== '',
+        naoNull: empresaData?.logo_url !== null,
+        naoUndefined: empresaData?.logo_url !== undefined,
+        trim: empresaData?.logo_url?.trim(),
+        trimNaoVazio: empresaData?.logo_url?.trim() !== '',
+        resultadoFinal: empresaFields.logo
       });
 
       // 2. Verificar técnicos
