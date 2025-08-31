@@ -23,6 +23,16 @@ export async function enviarEmailVerificacao(
   nomeEmpresa: string
 ): Promise<boolean> {
   try {
+    console.log('🔍 Debug - Configurações SMTP:', {
+      host: process.env.SMTP_HOST || 'smtp.hostinger.com',
+      port: process.env.SMTP_PORT || '465',
+      secure: process.env.SMTP_SECURE === 'true' || true,
+      user: process.env.SMTP_USER || 'suporte@gestaoconsert.com.br',
+      pass: process.env.SMTP_PASS ? '***CONFIGURADO***' : '***NÃO CONFIGURADO***'
+    })
+    
+    console.log('🔍 Debug - Tentando enviar email para:', email)
+    
     const info = await transporter.sendMail({
       from: '"Gestão Concert" <suporte@gestaoconsert.com.br>',
       to: email,

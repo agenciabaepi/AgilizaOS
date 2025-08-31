@@ -83,19 +83,16 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Enviar email
-    console.log('🔍 Debug - Enviando email:', { email, codigo, nomeEmpresa })
-    const emailEnviado = await enviarEmailVerificacao(email, codigo, nomeEmpresa)
-
-    if (!emailEnviado) {
-      console.log('❌ Debug - Falha ao enviar email')
-      return NextResponse.json(
-        { error: 'Erro ao enviar email de verificação' },
-        { status: 500 }
-      )
-    }
+    // TESTE: Por enquanto, vamos apenas salvar o código sem enviar email
+    console.log('🔍 Debug - TESTE: Salvando código sem enviar email')
+    console.log('🔍 Debug - Código gerado:', codigo)
+    console.log('🔍 Debug - Email:', email)
+    console.log('🔍 Debug - Nome da empresa:', nomeEmpresa)
     
-    console.log('✅ Debug - Email enviado com sucesso')
+    // Simular sucesso para testar se o problema é no email
+    const emailEnviado = true
+    
+    console.log('✅ Debug - TESTE: Código salvo com sucesso (email simulado)')
 
     return NextResponse.json({
       success: true,
