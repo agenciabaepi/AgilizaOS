@@ -283,7 +283,7 @@ export default function PerfilPage() {
       
       if (!avatarsBucket) {
         console.error('Bucket avatars não encontrado');
-        addToast('error', 'Bucket de avatars não está configurado. Execute o script SQL primeiro.');
+        addToast('error', 'Bucket de avatars não está configurado. Entre em contato com o administrador.');
         setUploading(false);
         return;
       }
