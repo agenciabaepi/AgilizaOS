@@ -158,7 +158,12 @@ export default function DashboardPage() {
       setMetrics(prev => ({ 
         ...prev, 
         faturamentoMes: Math.floor(Math.random() * 50000) + 20000,
-        satisfacaoMedia: 4.5 + Math.random() * 0.5
+        satisfacaoMedia: 4.5 + Math.random() * 0.5,
+        osHoje: Math.floor(Math.random() * 10) + 1, // Exemplo de dados diários
+        faturamentoHoje: Math.floor(Math.random() * 1000) + 500, // Exemplo de dados diários
+        ticketMedioHoje: Math.floor(Math.random() * 100) + 50, // Exemplo de dados diários
+        retornosHoje: Math.floor(Math.random() * 5) + 1, // Exemplo de dados diários
+        aprovadosHoje: Math.floor(Math.random() * 3) + 1 // Exemplo de dados diários
       }));
 
     } catch (error) {
