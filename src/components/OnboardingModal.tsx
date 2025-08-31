@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/Toast';
 import { Button } from '@/components/Button';
+import { useRouter } from 'next/navigation';
 import { 
   FiCheckCircle, 
   FiCircle, 
@@ -34,6 +35,7 @@ interface OnboardingModalProps {
 export default function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModalProps) {
   const { usuarioData, empresaData } = useAuth();
   const { addToast } = useToast();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [onboardingItems, setOnboardingItems] = useState<OnboardingItem[]>([]);
   const [showTecnicoModal, setShowTecnicoModal] = useState(false);
@@ -61,7 +63,10 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
         description: 'Configure nome, CNPJ e informações básicas',
         icon: <FiHome className="w-5 h-5" />,
         status: empresaStatus,
-        action: () => window.open('/configuracoes/empresa', '_blank'),
+        action: () => {
+          onClose(); // Fechar modal primeiro
+          router.push('/configuracoes?tab=0'); // Aba de empresa
+        },
         required: true
       });
 
@@ -100,7 +105,10 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
         description: 'Configure serviços padrão da empresa',
         icon: <FiTool className="w-5 h-5" />,
         status: servicosStatus,
-        action: () => window.open('/configuracoes/servicos', '_blank'),
+        action: () => {
+          onClose(); // Fechar modal primeiro
+          router.push('/configuracoes?tab=2'); // Aba de produtos/serviços
+        },
         required: false
       });
 
@@ -284,15 +292,16 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
                 >
                   Cancelar
                 </Button>
-                <Button
-                  onClick={() => {
-                    setShowTecnicoModal(false);
-                    window.open('/configuracoes/usuarios', '_blank');
-                  }}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  Cadastrar Técnico
-                </Button>
+                                  <Button
+                    onClick={() => {
+                      setShowTecnicoModal(false);
+                      onClose(); // Fechar modal de onboarding
+                      router.push('/configuracoes?tab=1'); // Aba de usuários
+                    }}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    Cadastrar Técnico
+                  </Button>
               </div>
             </div>
           </div>
