@@ -5,9 +5,11 @@ import { enviarEmailVerificacao, gerarCodigoVerificacao } from '@/lib/email'
 export async function POST(request: NextRequest) {
   try {
     const { email } = await request.json()
+    console.log('🔍 Debug - Reenvio de código para:', email)
 
     // Validar parâmetros obrigatórios
     if (!email) {
+      console.log('❌ Debug - Email não fornecido')
       return NextResponse.json(
         { error: 'Email é obrigatório' },
         { status: 400 }
@@ -22,15 +24,16 @@ export async function POST(request: NextRequest) {
         nome,
         email,
         email_verificado,
-        empresas!inner (
-          nome
-        )
+        empresa_id
       `)
       .eq('email', email)
       .eq('email_verificado', false)
       .single()
 
+    console.log('🔍 Debug - Busca de usuário:', { usuario, usuarioError })
+    
     if (usuarioError || !usuario) {
+      console.log('❌ Debug - Usuário não encontrado ou email já verificado')
       return NextResponse.json(
         { error: 'Usuário não encontrado ou email já verificado' },
         { status: 404 }
@@ -66,16 +69,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Buscar nome da empresa se tiver empresa_id
+    let nomeEmpresa = 'Empresa'
+    if (usuario.empresa_id) {
+      const { data: empresa } = await getSupabaseAdmin()
+        .from('empresas')
+        .select('nome')
+        .eq('id', usuario.empresa_id)
+        .single()
+      
+      if (empresa?.nome) {
+        nomeEmpresa = empresa.nome
+      }
+    }
+    
     // Enviar email
-    const nomeEmpresa = usuario.empresas?.[0]?.nome || 'Empresa'
+    console.log('🔍 Debug - Enviando email:', { email, codigo, nomeEmpresa })
     const emailEnviado = await enviarEmailVerificacao(email, codigo, nomeEmpresa)
 
     if (!emailEnviado) {
+      console.log('❌ Debug - Falha ao enviar email')
       return NextResponse.json(
         { error: 'Erro ao enviar email de verificação' },
         { status: 500 }
       )
     }
+    
+    console.log('✅ Debug - Email enviado com sucesso')
 
     return NextResponse.json({
       success: true,
