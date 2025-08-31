@@ -3,23 +3,6 @@
 import { useAuth } from '@/context/AuthContext';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  FiUsers, 
-  FiTool, 
-  FiDollarSign, 
-  FiFileText, 
-  FiTrendingUp, 
-  FiAlertCircle,
-  FiCheckCircle,
-  FiClock,
-  FiBarChart3,
-  FiSettings,
-  FiPlus,
-  FiArrowRight,
-  FiCalendar,
-  FiStar,
-  FiActivity
-} from 'react-icons/fi';
 
 export default function EmergencyDashboard() {
   const { usuarioData, empresaData, loading } = useAuth();
@@ -84,7 +67,7 @@ export default function EmergencyDashboard() {
                   onClick={() => router.push('/configuracoes')}
                   className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
                 >
-                  <FiSettings className="w-4 h-4 mr-2" />
+                  <span className="mr-2">⚙️</span>
                   Configurações
                 </button>
               </div>
@@ -105,7 +88,7 @@ export default function EmergencyDashboard() {
                 <p className="text-xs text-green-600 mt-1">+12% este mês</p>
               </div>
               <div className="p-3 bg-blue-100 rounded-lg">
-                <FiFileText className="w-6 h-6 text-blue-600" />
+                <span className="text-2xl">📝</span>
               </div>
             </div>
           </div>
@@ -119,7 +102,7 @@ export default function EmergencyDashboard() {
                 <p className="text-xs text-orange-600 mt-1">Requer atenção</p>
               </div>
               <div className="p-3 bg-orange-100 rounded-lg">
-                <FiClock className="w-6 h-6 text-orange-600" />
+                <span className="text-2xl">⏰</span>
               </div>
             </div>
           </div>
@@ -135,7 +118,7 @@ export default function EmergencyDashboard() {
                 <p className="text-xs text-green-600 mt-1">+8% este mês</p>
               </div>
               <div className="p-3 bg-green-100 rounded-lg">
-                <FiTrendingUp className="w-6 h-6 text-green-600" />
+                <span className="text-2xl">📈</span>
               </div>
             </div>
           </div>
@@ -149,17 +132,19 @@ export default function EmergencyDashboard() {
                   <p className="text-2xl font-bold text-yellow-600">{stats.satisfacaoMedia}</p>
                   <div className="flex ml-2">
                     {[...Array(5)].map((_, i) => (
-                      <FiStar 
+                      <span 
                         key={i} 
-                        className={`w-4 h-4 ${i < Math.floor(stats.satisfacaoMedia) ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} 
-                      />
+                        className={`text-lg ${i < Math.floor(stats.satisfacaoMedia) ? 'text-yellow-400' : 'text-gray-300'}`}
+                      >
+                        ⭐
+                      </span>
                     ))}
                   </div>
                 </div>
                 <p className="text-xs text-yellow-600 mt-1">Excelente</p>
               </div>
               <div className="p-3 bg-yellow-100 rounded-lg">
-                <FiStar className="w-6 h-6 text-yellow-600" />
+                <span className="text-2xl">⭐</span>
               </div>
             </div>
           </div>
@@ -170,7 +155,7 @@ export default function EmergencyDashboard() {
           {/* Ações Rápidas */}
           <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <FiActivity className="w-5 h-5 mr-2 text-blue-600" />
+              <span className="mr-2">🚀</span>
               Ações Rápidas
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -184,7 +169,7 @@ export default function EmergencyDashboard() {
                     <h3 className="font-semibold">Nova OS</h3>
                     <p className="text-sm opacity-90">Criar ordem de serviço</p>
                   </div>
-                  <FiArrowRight className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity">→</span>
                 </div>
               </button>
 
@@ -198,7 +183,7 @@ export default function EmergencyDashboard() {
                     <h3 className="font-semibold">Novo Cliente</h3>
                     <p className="text-sm opacity-90">Cadastrar cliente</p>
                   </div>
-                  <FiArrowRight className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity">→</span>
                 </div>
               </button>
 
@@ -212,7 +197,7 @@ export default function EmergencyDashboard() {
                     <h3 className="font-semibold">Usuários</h3>
                     <p className="text-sm opacity-90">Gerenciar usuários</p>
                   </div>
-                  <FiArrowRight className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity">→</span>
                 </div>
               </button>
 
@@ -226,7 +211,7 @@ export default function EmergencyDashboard() {
                     <h3 className="font-semibold">Relatórios</h3>
                     <p className="text-sm opacity-90">Ver estatísticas</p>
                   </div>
-                  <FiArrowRight className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity">→</span>
                 </div>
               </button>
             </div>
@@ -235,13 +220,13 @@ export default function EmergencyDashboard() {
           {/* Status do Sistema */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <FiBarChart3 className="w-5 h-5 mr-2 text-green-600" />
+              <span className="mr-2">📊</span>
               Status do Sistema
             </h2>
             <div className="space-y-4">
               <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                 <div className="flex items-center">
-                  <FiCheckCircle className="w-5 h-5 text-green-600 mr-3" />
+                  <span className="text-green-600 mr-3">✅</span>
                   <span className="text-sm font-medium text-green-800">Sistema Online</span>
                 </div>
                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -249,7 +234,7 @@ export default function EmergencyDashboard() {
               
               <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
                 <div className="flex items-center">
-                  <FiUsers className="w-5 h-5 text-blue-600 mr-3" />
+                  <span className="text-blue-600 mr-3">👥</span>
                   <span className="text-sm font-medium text-blue-800">Usuários Ativos</span>
                 </div>
                 <span className="text-sm font-semibold text-blue-600">{stats.totalTecnicos}</span>
@@ -257,7 +242,7 @@ export default function EmergencyDashboard() {
               
               <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
                 <div className="flex items-center">
-                  <FiTool className="w-5 h-5 text-purple-600 mr-3" />
+                  <span className="text-purple-600 mr-3">🔧</span>
                   <span className="text-sm font-medium text-purple-800">OS Concluídas</span>
                 </div>
                 <span className="text-sm font-semibold text-purple-600">{stats.osConcluidas}</span>
@@ -265,7 +250,7 @@ export default function EmergencyDashboard() {
               
               <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
                 <div className="flex items-center">
-                  <FiAlertCircle className="w-5 h-5 text-orange-600 mr-3" />
+                  <span className="text-orange-600 mr-3">⚠️</span>
                   <span className="text-sm font-medium text-orange-800">OS Pendentes</span>
                 </div>
                 <span className="text-sm font-semibold text-orange-600">{stats.osPendentes}</span>
@@ -277,7 +262,7 @@ export default function EmergencyDashboard() {
         {/* Gráfico de Atividade */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
           <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <FiTrendingUp className="w-5 h-5 mr-2 text-blue-600" />
+            <span className="mr-2">📈</span>
             Atividade dos Últimos 7 Dias
           </h2>
           <div className="h-64 flex items-end justify-center space-x-2">
@@ -300,7 +285,7 @@ export default function EmergencyDashboard() {
           {/* Clientes Recentes */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <FiUsers className="w-5 h-5 mr-2 text-green-600" />
+              <span className="mr-2">👥</span>
               Clientes Recentes
             </h2>
             <div className="space-y-3">
@@ -323,7 +308,7 @@ export default function EmergencyDashboard() {
           {/* Próximas Ações */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <FiCalendar className="w-5 h-5 mr-2 text-purple-600" />
+              <span className="mr-2">📅</span>
               Próximas Ações
             </h2>
             <div className="space-y-3">
