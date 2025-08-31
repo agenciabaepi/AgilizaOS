@@ -125,6 +125,33 @@ export const fetchUserDataOptimized = async (userId: string) => {
       throw error;
     }
 
+    // Buscar dados reais da empresa
+    const { data: empresaData, error: empresaError } = await supabase
+      .from('empresas')
+      .select('id, nome, cnpj, endereco, telefone, email')
+      .eq('id', data.empresa_id)
+      .single();
+
+    if (empresaError) {
+      console.warn('⚠️ Erro ao buscar dados da empresa, usando fallback:', empresaError);
+      // Fallback para dados básicos
+      return {
+        userData: {
+          empresa_id: data.empresa_id,
+          nome: data.nome,
+          email: data.email,
+          nivel: data.nivel,
+          permissoes: data.permissoes,
+          foto_url: data.foto_url
+        },
+        empresaData: {
+          id: data.empresa_id,
+          nome: 'Empresa',
+          plano: 'trial'
+        }
+      };
+    }
+
     return {
       userData: {
         empresa_id: data.empresa_id,
@@ -135,8 +162,12 @@ export const fetchUserDataOptimized = async (userId: string) => {
         foto_url: data.foto_url
       },
       empresaData: {
-        id: data.empresa_id,
-        nome: 'Empresa',
+        id: empresaData.id,
+        nome: empresaData.nome || '',
+        cnpj: empresaData.cnpj || '',
+        endereco: empresaData.endereco || '',
+        telefone: empresaData.telefone || '',
+        email: empresaData.email || '',
         plano: 'trial'
       }
     };
