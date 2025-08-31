@@ -65,7 +65,17 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
       const empresaStatus = Object.values(empresaFields).every(field => field) ? 'completed' : 'pending';
       const missingFields = Object.entries(empresaFields)
         .filter(([, value]) => !value)
-        .map(([key]) => key);
+        .map(([key]) => {
+          // Mapear nomes mais amigáveis para os campos
+          const fieldNames: { [key: string]: string } = {
+            logo: 'Logo',
+            nome: 'Nome da Empresa',
+            endereco: 'Endereço',
+            cnpj: 'CNPJ',
+            whatsapp: 'WhatsApp'
+          };
+          return fieldNames[key] || key;
+        });
       
       items.push({
         id: 'empresa',

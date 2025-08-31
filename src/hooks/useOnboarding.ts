@@ -89,8 +89,18 @@ export const useOnboarding = () => {
       
       const empresa = Object.values(empresaFields).every(field => field);
       const missingFields = Object.entries(empresaFields)
-        .filter(([_, value]) => !value)
-        .map(([key, _]) => key);
+        .filter(([, value]) => !value)
+        .map(([key]) => {
+          // Mapear nomes mais amigáveis para os campos
+          const fieldNames: { [key: string]: string } = {
+            logo: 'Logo',
+            nome: 'Nome da Empresa',
+            endereco: 'Endereço',
+            cnpj: 'CNPJ',
+            whatsapp: 'WhatsApp'
+          };
+          return fieldNames[key] || key;
+        });
 
       // 2. Verificar técnicos
       const { data: tecnicos } = await supabase
@@ -105,11 +115,31 @@ export const useOnboarding = () => {
         empresaData: empresaData,
         usuarioData: usuarioData,
         empresa: {
-          logo: empresaData?.logo_url,
-          nome: empresaData?.nome,
-          endereco: empresaData?.endereco,
-          cnpj: empresaData?.cnpj,
-          whatsapp: empresaData?.whatsapp,
+          logo: {
+            valor: empresaData?.logo_url,
+            preenchido: empresaFields.logo,
+            trim: empresaData?.logo_url?.trim()
+          },
+          nome: {
+            valor: empresaData?.nome,
+            preenchido: empresaFields.nome,
+            trim: empresaData?.nome?.trim()
+          },
+          endereco: {
+            valor: empresaData?.endereco,
+            preenchido: empresaFields.endereco,
+            trim: empresaData?.endereco?.trim()
+          },
+          cnpj: {
+            valor: empresaData?.cnpj,
+            preenchido: empresaFields.cnpj,
+            trim: empresaData?.cnpj?.trim()
+          },
+          whatsapp: {
+            valor: empresaData?.whatsapp,
+            preenchido: empresaFields.whatsapp,
+            trim: empresaData?.whatsapp?.trim()
+          },
           camposPreenchidos: empresaFields,
           camposFaltando: missingFields,
           status: !!empresa
@@ -118,7 +148,6 @@ export const useOnboarding = () => {
           count: tecnicos?.length || 0,
           status: !!(tecnicos && tecnicos.length > 0)
         },
-
       });
 
       setOnboardingStatus(prev => ({
