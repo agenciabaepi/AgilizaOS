@@ -80,11 +80,11 @@ export const useOnboarding = () => {
     try {
       // 1. Verificar dados da empresa - todos os campos obrigatórios
       const empresaFields = {
-        logo: !!empresaData?.logo_url && empresaData.logo_url.trim() !== '',
-        nome: !!empresaData?.nome && empresaData.nome.trim() !== '',
-        endereco: !!empresaData?.endereco && empresaData.endereco.trim() !== '',
-        cnpj: !!empresaData?.cnpj && empresaData.cnpj.trim() !== '',
-        whatsapp: !!empresaData?.whatsapp && empresaData.whatsapp.trim() !== ''
+        logo: Boolean(empresaData?.logo_url && empresaData.logo_url.trim() !== ''),
+        nome: Boolean(empresaData?.nome && empresaData.nome.trim() !== ''),
+        endereco: Boolean(empresaData?.endereco && empresaData.endereco.trim() !== ''),
+        cnpj: Boolean(empresaData?.cnpj && empresaData.cnpj.trim() !== ''),
+        whatsapp: Boolean(empresaData?.whatsapp && empresaData.whatsapp.trim() !== '')
       };
       
       // Debug individual de cada campo
@@ -93,32 +93,45 @@ export const useOnboarding = () => {
           valor: empresaData?.logo_url,
           existe: !!empresaData?.logo_url,
           trim: empresaData?.logo_url?.trim(),
-          resultado: empresaFields.logo
+          resultado: empresaFields.logo,
+          validacao: `${!!empresaData?.logo_url} && ${empresaData?.logo_url?.trim() !== ''}`
         },
         nome: {
           valor: empresaData?.nome,
           existe: !!empresaData?.nome,
           trim: empresaData?.nome?.trim(),
-          resultado: empresaFields.nome
+          resultado: empresaFields.nome,
+          validacao: `${!!empresaData?.nome} && ${empresaData?.nome?.trim() !== ''}`
         },
         endereco: {
           valor: empresaData?.endereco,
           existe: !!empresaData?.endereco,
           trim: empresaData?.endereco?.trim(),
-          resultado: empresaFields.endereco
+          resultado: empresaFields.endereco,
+          validacao: `${!!empresaData?.endereco} && ${empresaData?.endereco?.trim() !== ''}`
         },
         cnpj: {
           valor: empresaData?.cnpj,
           existe: !!empresaData?.cnpj,
           trim: empresaData?.cnpj?.trim(),
-          resultado: empresaFields.cnpj
+          resultado: empresaFields.cnpj,
+          validacao: `${!!empresaData?.cnpj} && ${empresaData?.cnpj?.trim() !== ''}`
         },
         whatsapp: {
           valor: empresaData?.whatsapp,
           existe: !!empresaData?.whatsapp,
           trim: empresaData?.whatsapp?.trim(),
-          resultado: empresaFields.whatsapp
+          resultado: empresaFields.whatsapp,
+          validacao: `${!!empresaData?.whatsapp} && ${empresaData?.whatsapp?.trim() !== ''}`
         }
+      });
+      
+      // Debug completo dos dados
+      console.log('🔍 Debug Completo:', {
+        empresaData: empresaData,
+        empresaFields: empresaFields,
+        missingFields: missingFields,
+        empresa: empresa
       });
       
       const empresa = Object.values(empresaFields).every(field => field);

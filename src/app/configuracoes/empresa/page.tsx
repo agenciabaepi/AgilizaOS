@@ -33,6 +33,7 @@ interface Empresa {
   telefone: string;
   email: string;
   website: string;
+  whatsapp: string;
   user_id: string;
 }
 
@@ -346,6 +347,23 @@ export default function ConfigEmpresa() {
                 />
               ) : (
                 <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{empresa?.telefone || 'Não informado'}</p>
+              )}
+            </div>
+
+            {/* WhatsApp */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <FiPhone className="inline h-4 w-4 mr-1" />
+                WhatsApp
+              </label>
+              {editMode ? (
+                <Input
+                  value={formData.whatsapp || ''}
+                  onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
+                  placeholder="(00) 00000-0000"
+                />
+              ) : (
+                <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{empresa?.whatsapp || 'Não informado'}</p>
               )}
             </div>
 
