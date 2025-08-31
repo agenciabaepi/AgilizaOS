@@ -70,6 +70,7 @@ export default function PerfilPage() {
           email: data.email || '',
           usuario: data.usuario || '',
           cpf: data.cpf || '',
+          telefone: data.telefone || '',
           whatsapp: data.whatsapp || '',
           nivel: data.nivel || 'atendente',
         });
