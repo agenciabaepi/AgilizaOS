@@ -668,25 +668,7 @@ export default function PerfilPage() {
                     )}
                   </div>
 
-                  {/* WhatsApp */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">
-                      WhatsApp
-                    </label>
-                    <input
-                      type="text"
-                      name="whatsapp"
-                      value={form.whatsapp}
-                      onChange={handleChange}
-                      disabled={!isEditing}
-                      className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
-                        isEditing 
-                          ? 'border-gray-300 focus:ring-gray-900' 
-                          : 'border-gray-200 bg-gray-50 cursor-not-allowed'
-                      }`}
-                      placeholder="(00) 00000-0000"
-                    />
-                  </div>
+
 
                   {/* Senha */}
                   <div className="space-y-2">
