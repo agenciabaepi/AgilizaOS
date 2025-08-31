@@ -77,6 +77,7 @@ export default function DashboardPage() {
   const [recentOS, setRecentOS] = useState<OSData[]>([]);
   const [recentClientes, setRecentClientes] = useState<ClienteData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
 
   // Redirecionamento automático baseado no nível do usuário
   useEffect(() => {
@@ -96,15 +97,17 @@ export default function DashboardPage() {
       empresaData: !!empresaData,
       showOnboarding,
       onboardingStatus,
+      onboardingChecked,
       wasSkipped: localStorage.getItem('onboarding_skipped') === 'true'
     });
 
-    if (usuarioData && empresaData && !showOnboarding) {
+    if (usuarioData && empresaData && !onboardingChecked) {
       // Verificar se o usuário pulou o onboarding nesta sessão
       const wasSkipped = localStorage.getItem('onboarding_skipped') === 'true';
       
       if (wasSkipped) {
         console.log('🔍 Dashboard: Onboarding foi pulado, não mostrando modal');
+        setOnboardingChecked(true);
         return;
       }
       
@@ -125,29 +128,28 @@ export default function DashboardPage() {
         console.log('🔍 Dashboard: Onboarding completo, ocultando modal');
         setShowOnboarding(false);
       }
+      
+      setOnboardingChecked(true);
     }
-  }, [usuarioData, empresaData, showOnboarding, onboardingStatus.empresa, onboardingStatus.tecnicos, setShowOnboarding]);
+  }, [usuarioData, empresaData, onboardingStatus.empresa, onboardingStatus.tecnicos, setShowOnboarding, onboardingChecked]);
 
-  // Forçar verificação do onboarding quando dados mudarem
+  // Re-verificar onboarding quando dados mudarem (apenas se já foi verificado)
   useEffect(() => {
-    if (usuarioData && empresaData) {
-      console.log('🔍 Dashboard: Dados carregados, forçando verificação do onboarding');
-      // Pequeno delay para garantir que o hook useOnboarding já processou os dados
-      setTimeout(() => {
-        const wasSkipped = localStorage.getItem('onboarding_skipped') === 'true';
-        if (!wasSkipped) {
-          const isComplete = onboardingStatus.empresa && onboardingStatus.tecnicos;
-          if (!isComplete) {
-            console.log('🔍 Dashboard: Forçando exibição do onboarding');
-            setShowOnboarding(true);
-          } else {
-            console.log('🔍 Dashboard: Onboarding completo, ocultando modal');
-            setShowOnboarding(false);
-          }
+    if (usuarioData && empresaData && onboardingChecked) {
+      console.log('🔍 Dashboard: Dados mudaram, re-verificando onboarding');
+      const wasSkipped = localStorage.getItem('onboarding_skipped') === 'true';
+      if (!wasSkipped) {
+        const isComplete = onboardingStatus.empresa && onboardingStatus.tecnicos;
+        if (!isComplete) {
+          console.log('🔍 Dashboard: Re-exibindo onboarding');
+          setShowOnboarding(true);
+        } else {
+          console.log('🔍 Dashboard: Ocultando onboarding (agora completo)');
+          setShowOnboarding(false);
         }
-      }, 1000);
+      }
     }
-  }, [usuarioData, empresaData, onboardingStatus, showOnboarding, setShowOnboarding]);
+  }, [usuarioData, empresaData, onboardingStatus, onboardingChecked, setShowOnboarding]);
 
   // Buscar dados reais do banco
   useEffect(() => {
