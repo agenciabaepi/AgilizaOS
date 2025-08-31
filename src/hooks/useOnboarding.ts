@@ -11,7 +11,7 @@ interface OnboardingStatus {
 }
 
 export const useOnboarding = () => {
-  const { usuarioData, empresaData } = useAuth();
+  const { usuarioData, empresaData, lastUpdate } = useAuth();
   const [onboardingStatus, setOnboardingStatus] = useState<OnboardingStatus>({
     empresa: false,
     tecnicos: false,
@@ -59,6 +59,14 @@ export const useOnboarding = () => {
       checkOnboardingStatus();
     }
   }, [empresaData?.logo_url, empresaData?.nome, empresaData?.endereco, empresaData?.cnpj, empresaData?.telefone]);
+  
+  // Re-verificar onboarding quando lastUpdate mudar (força atualização)
+  useEffect(() => {
+    if (lastUpdate && empresaData && usuarioData?.empresa_id) {
+      console.log('🔄 LAST UPDATE MUDOU, FORÇANDO RE-VERIFICAÇÃO:', lastUpdate);
+      checkOnboardingStatus();
+    }
+  }, [lastUpdate]);
 
   const checkFirstLogin = async () => {
     if (!usuarioData?.auth_user_id) return;

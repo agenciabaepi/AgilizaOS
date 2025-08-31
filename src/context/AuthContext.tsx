@@ -30,6 +30,7 @@ interface AuthContextType {
   session: Session | null;
   usuarioData: UsuarioData | null;
   empresaData: EmpresaData | null;
+  lastUpdate: number;
   loading: boolean;
   showOnboarding: boolean;
   setShowOnboarding: (show: boolean) => void;
@@ -290,6 +291,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setEmpresaData(empresaData);
       setLastUpdate(Date.now());
       console.log('✅ Dados da empresa atualizados:', empresaData);
+      
+      // Forçar re-render de componentes que dependem dos dados da empresa
+      setTimeout(() => {
+        setLastUpdate(Date.now());
+      }, 100);
     } catch (error) {
       console.error('Erro ao atualizar dados da empresa:', error);
     }
@@ -301,6 +307,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     session,
     usuarioData,
     empresaData,
+    lastUpdate,
     loading,
     showOnboarding,
     setShowOnboarding,
@@ -315,7 +322,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     clearSession,
     podeUsarFuncionalidade,
     isUsuarioTeste,
-  }), [user, session, usuarioData, empresaData, loading, showOnboarding, signIn, signUp, signOut, resetPassword, updateUsuarioFoto, refreshEmpresaData, clearSession, podeUsarFuncionalidade, isUsuarioTeste]);
+  }), [user, session, usuarioData, empresaData, lastUpdate, loading, showOnboarding, signIn, signUp, signOut, resetPassword, updateUsuarioFoto, refreshEmpresaData, clearSession, podeUsarFuncionalidade, isUsuarioTeste]);
 
   return (
     <AuthContext.Provider value={value}>
