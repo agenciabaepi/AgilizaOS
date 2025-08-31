@@ -51,8 +51,10 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
     try {
       const items: OnboardingItem[] = [];
 
-      // 1. Dados da empresa
-      const empresaStatus = empresaData?.nome && empresaData?.cnpj ? 'completed' : 'pending';
+      // 1. Dados da empresa - verificação mais robusta
+      const empresaStatus = empresaData?.nome && empresaData?.nome.trim() !== '' && 
+                           empresaData?.cnpj && empresaData?.cnpj.trim() !== '' 
+                           ? 'completed' : 'pending';
       items.push({
         id: 'empresa',
         title: 'Dados da Empresa',
@@ -85,9 +87,10 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
 
       // 3. Serviços básicos
       const { data: servicos } = await supabase
-        .from('servicos')
+        .from('produtos_servicos')
         .select('id')
         .eq('empresa_id', usuarioData?.empresa_id)
+        .eq('tipo', 'servico')
         .limit(1);
 
       const servicosStatus = servicos && servicos.length > 0 ? 'completed' : 'pending';
@@ -99,6 +102,13 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
         status: servicosStatus,
         action: () => window.open('/configuracoes/servicos', '_blank'),
         required: false
+      });
+
+      console.log('🔍 Debug OnboardingModal:', {
+        empresaData,
+        empresaStatus,
+        tecnicos: tecnicos?.length || 0,
+        servicos: servicos?.length || 0
       });
 
       setOnboardingItems(items);

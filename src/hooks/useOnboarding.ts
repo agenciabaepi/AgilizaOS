@@ -65,8 +65,9 @@ export const useOnboarding = () => {
     setLoading(true);
     
     try {
-      // 1. Verificar dados da empresa
-      const empresa = empresaData?.nome && empresaData?.cnpj;
+      // 1. Verificar dados da empresa - mais robusto
+      const empresa = empresaData?.nome && empresaData?.nome.trim() !== '' && 
+                     empresaData?.cnpj && empresaData?.cnpj.trim() !== '';
 
       // 2. Verificar técnicos
       const { data: tecnicos } = await supabase
@@ -77,10 +78,27 @@ export const useOnboarding = () => {
 
       // 3. Verificar serviços
       const { data: servicos } = await supabase
-        .from('servicos')
+        .from('produtos_servicos')
         .select('id')
         .eq('empresa_id', usuarioData.empresa_id)
+        .eq('tipo', 'servico')
         .limit(1);
+
+      console.log('🔍 Debug Onboarding:', {
+        empresa: {
+          nome: empresaData?.nome,
+          cnpj: empresaData?.cnpj,
+          status: !!empresa
+        },
+        tecnicos: {
+          count: tecnicos?.length || 0,
+          status: !!(tecnicos && tecnicos.length > 0)
+        },
+        servicos: {
+          count: servicos?.length || 0,
+          status: !!(servicos && servicos.length > 0)
+        }
+      });
 
       setOnboardingStatus(prev => ({
         ...prev,
