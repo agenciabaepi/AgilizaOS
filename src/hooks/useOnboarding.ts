@@ -75,16 +75,28 @@ export const useOnboarding = () => {
   const checkOnboardingStatus = async () => {
     if (!usuarioData?.empresa_id) return;
 
+    console.log('🔍 INICIANDO VERIFICAÇÃO:', {
+      usuarioData: usuarioData,
+      empresaData: empresaData,
+      empresa_id: usuarioData?.empresa_id
+    });
+
     setLoading(true);
     
     try {
-      // 1. Verificar dados da empresa - campos que realmente existem na tabela
+      // 1. Verificação SIMPLES e DIRETA dos dados da empresa
+      const logoPreenchido = empresaData?.logo_url && empresaData.logo_url.length > 0;
+      const nomePreenchido = empresaData?.nome && empresaData.nome.length > 0;
+      const enderecoPreenchido = empresaData?.endereco && empresaData.endereco.length > 0;
+      const cnpjPreenchido = empresaData?.cnpj && empresaData.cnpj.length > 0;
+      const telefonePreenchido = empresaData?.telefone && empresaData.telefone.length > 0;
+      
       const empresaFields = {
-        logo: Boolean(empresaData?.logo_url && empresaData.logo_url.trim() !== ''),
-        nome: Boolean(empresaData?.nome && empresaData.nome.trim() !== ''),
-        endereco: Boolean(empresaData?.endereco && empresaData.endereco.trim() !== ''),
-        cnpj: Boolean(empresaData?.cnpj && empresaData.cnpj.trim() !== ''),
-        telefone: Boolean(empresaData?.telefone && empresaData.telefone.trim() !== '')
+        logo: logoPreenchido,
+        nome: nomePreenchido,
+        endereco: enderecoPreenchido,
+        cnpj: cnpjPreenchido,
+        telefone: telefonePreenchido
       };
       
       const empresa = Object.values(empresaFields).every(field => field);
@@ -101,6 +113,24 @@ export const useOnboarding = () => {
           };
           return fieldNames[key] || key;
         });
+      
+      // Log SIMPLES e DIRETO
+      console.log('🔍 VERIFICAÇÃO SIMPLES:', {
+        empresaData: empresaData,
+        logo_url: empresaData?.logo_url,
+        nome: empresaData?.nome,
+        endereco: empresaData?.endereco,
+        cnpj: empresaData?.cnpj,
+        telefone: empresaData?.telefone
+      });
+      
+      console.log('🔍 CAMPOS PREENCHIDOS:', {
+        logo: logoPreenchido,
+        nome: nomePreenchido,
+        endereco: enderecoPreenchido,
+        cnpj: cnpjPreenchido,
+        telefone: telefonePreenchido
+      });
       
       // Debug individual de cada campo - VERIFICAÇÃO DETALHADA
       console.log('🔍 VERIFICAÇÃO DETALHADA DOS CAMPOS:', {
