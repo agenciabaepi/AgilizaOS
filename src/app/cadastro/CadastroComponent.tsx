@@ -267,9 +267,9 @@ export default function CadastroEmpresa() {
       
       toast.success(result.message || 'Cadastro realizado com sucesso!');
       
-      // Aguarda um pouco antes de redirecionar para verificação de email
+      // Aguarda um pouco antes de redirecionar para instruções de verificação
       setTimeout(() => {
-        router.push(`/verificar-email?email=${encodeURIComponent(form.email)}`);
+        router.push(`/instrucoes-verificacao?email=${encodeURIComponent(form.email)}`);
       }, 2000);
       
     } catch (error: unknown) {

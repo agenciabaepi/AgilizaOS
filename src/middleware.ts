@@ -27,7 +27,7 @@ export async function middleware(req: NextRequest) {
     '/termos',
     '/planos',
     '/periodo-teste',
-    '/verificar-email'
+    '/instrucoes-verificacao'
   ];
 
   const isPublicPage = publicPages.some(page => req.nextUrl.pathname.startsWith(page));
@@ -61,11 +61,11 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL('/login', req.url));
     }
 
-    // Se o email não foi verificado, redirecionar para verificação
+    // Se o email não foi verificado, redirecionar para instruções de verificação
     if (usuario && !usuario.email_verificado) {
-      const verificarEmailUrl = new URL('/verificar-email', req.url);
-      verificarEmailUrl.searchParams.set('email', usuario.email);
-      return NextResponse.redirect(verificarEmailUrl);
+      const instrucoesUrl = new URL('/instrucoes-verificacao', req.url);
+      instrucoesUrl.searchParams.set('email', usuario.email);
+      return NextResponse.redirect(instrucoesUrl);
     }
 
     return NextResponse.next();

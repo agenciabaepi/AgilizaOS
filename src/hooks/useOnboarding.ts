@@ -285,10 +285,10 @@ export const useOnboarding = () => {
             preenchido: empresaFields.cnpj,
             trim: empresaData?.cnpj?.trim()
           },
-          whatsapp: {
-            valor: empresaData?.whatsapp,
-            preenchido: empresaFields.whatsapp,
-            trim: empresaData?.whatsapp?.trim()
+          telefone: {
+            valor: empresaData?.telefone,
+            preenchido: empresaFields.telefone,
+            trim: empresaData?.telefone?.trim()
           },
           camposPreenchidos: empresaFields,
           camposFaltando: missingFields,

@@ -17,6 +17,13 @@ function LoginClientInner() {
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
+  
+  // Estados para verificação de código
+  const [showVerification, setShowVerification] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [verifyingCode, setVerifyingCode] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState('');
+  
   const router = useRouter();
   const auth = useAuth();
   const { addToast } = useToast();
@@ -73,6 +80,18 @@ function LoginClientInner() {
     return () => clearInterval(interval);
   }, [carouselImages.length]);
   
+  // Verificar se deve mostrar modo de verificação
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const email = searchParams.get('email');
+    const verificacao = searchParams.get('verificacao');
+    
+    if (email && verificacao === 'pending') {
+      setPendingEmail(email);
+      setShowVerification(true);
+    }
+  }, []);
+  
   // 🔒 PROTEÇÃO EXTRA: Se já estiver logado, não renderizar NADA
   if (auth.user && auth.session && !auth.loading) {
     return (
@@ -92,6 +111,75 @@ function LoginClientInner() {
     empresaData: auth.empresaData,
     loading: auth.loading
   });
+
+  const handleVerificarCodigo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!verificationCode || verificationCode.length !== 6) {
+      addToast('error', 'Digite o código de 6 dígitos');
+      return;
+    }
+
+    setVerifyingCode(true);
+
+    try {
+      const response = await fetch('/api/email/verificar-codigo', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: pendingEmail,
+          codigo: verificationCode
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        addToast('success', 'Email verificado com sucesso!');
+        // Limpar URL e voltar para modo de login
+        window.history.replaceState({}, '', '/login');
+        setShowVerification(false);
+        setVerificationCode('');
+        setPendingEmail('');
+      } else {
+        addToast('error', data.error || 'Código inválido ou expirado');
+      }
+    } catch (error) {
+      console.error('Erro ao verificar código:', error);
+      addToast('error', 'Erro ao verificar código');
+    } finally {
+      setVerifyingCode(false);
+    }
+  };
+
+  const handleReenviarCodigo = async () => {
+    setVerifyingCode(true);
+
+    try {
+      const response = await fetch('/api/email/reenviar-codigo', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: pendingEmail })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        addToast('success', 'Novo código enviado para seu email!');
+      } else {
+        addToast('error', data.error || 'Erro ao reenviar código');
+      }
+    } catch (error) {
+      console.error('Erro ao reenviar código:', error);
+      addToast('error', 'Erro ao reenviar código');
+    } finally {
+      setVerifyingCode(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -440,104 +528,196 @@ function LoginClientInner() {
 
           {/* Login Form */}
           <div className="relative">
-            <form
-              onSubmit={handleLogin}
-              className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100"
-            >
-              {/* Header */}
-              <div className="text-center mb-8">
-                <h1 className="text-3xl font-light text-gray-900 mb-3 tracking-tight">
-                  Bem-vindo de volta
-                </h1>
-                <p className="text-gray-600 font-light">
-                  Acesse sua conta para continuar
-                </p>
-              </div>
-              
-              <div className="space-y-5">
-                {/* Email/Username Input */}
-                <div className="relative">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    E-mail ou Usuário
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Digite seu e-mail ou usuário"
-                    value={loginInput}
-                    onChange={(e) => setLoginInput(e.target.value)}
-                    onFocus={() => setFocusedField('login')}
-                    onBlur={() => setFocusedField(null)}
-                    className={`w-full px-4 py-3 bg-gray-50 border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:bg-white transition-all duration-200 ${
-                      focusedField === 'login' 
-                        ? 'border-gray-900 shadow-sm' 
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                    required
-                  />
+            {showVerification ? (
+              // Formulário de verificação de código
+              <form
+                onSubmit={handleVerificarCodigo}
+                className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100"
+              >
+                {/* Header */}
+                <div className="text-center mb-8">
+                  <h1 className="text-3xl font-light text-gray-900 mb-3 tracking-tight">
+                    Verificar Email
+                  </h1>
+                  <p className="text-gray-600 font-light">
+                    Digite o código enviado para:
+                  </p>
+                  <p className="text-blue-600 font-medium mt-1">
+                    {pendingEmail}
+                  </p>
                 </div>
                 
-                {/* Password Input */}
-                <div className="relative">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Senha
-                  </label>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Digite sua senha"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    onFocus={() => setFocusedField('password')}
-                    onBlur={() => setFocusedField(null)}
-                    className={`w-full px-4 py-3 bg-gray-50 border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:bg-white transition-all duration-200 pr-12 ${
-                      focusedField === 'password' 
-                        ? 'border-gray-900 shadow-sm' 
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                    required
-                  />
+                <div className="space-y-5">
+                  {/* Código de Verificação Input */}
+                  <div className="relative">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Código de Verificação
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="000000"
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      onFocus={() => setFocusedField('code')}
+                      onBlur={() => setFocusedField(null)}
+                      className={`w-full px-4 py-3 bg-gray-50 border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:bg-white transition-all duration-200 text-center text-lg font-mono ${
+                        focusedField === 'code' 
+                          ? 'border-gray-900 shadow-sm' 
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                      maxLength={6}
+                      required
+                    />
+                  </div>
+                  
+                  {/* Verificar Button */}
+                  <button
+                    type="submit"
+                    className="w-full bg-gray-900 text-white font-medium py-3 rounded-lg hover:bg-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-6"
+                    disabled={verifyingCode}
+                  >
+                    {verifyingCode ? 'Verificando...' : 'Verificar Código'}
+                  </button>
+                  
+                  {/* Reenviar Código Button */}
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors mt-8"
+                    className="w-full bg-gray-100 text-gray-700 font-medium py-3 rounded-lg hover:bg-gray-200 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={handleReenviarCodigo}
+                    disabled={verifyingCode}
                   >
-                    {showPassword ? <FaEyeSlash size={18} /> : <FaEye size={18} />}
+                    {verifyingCode ? 'Enviando...' : 'Reenviar código'}
+                  </button>
+                  
+                  {/* Voltar para Login */}
+                  <button
+                    type="button"
+                    className="w-full text-blue-600 font-medium py-2 hover:text-blue-700 transition-colors"
+                    onClick={() => {
+                      setShowVerification(false);
+                      setVerificationCode('');
+                      setPendingEmail('');
+                      window.history.replaceState({}, '', '/login');
+                    }}
+                  >
+                    ← Voltar para o login
                   </button>
                 </div>
-                
-                {/* Login Button */}
-                <button
-                  type="submit"
-                  className="w-full bg-gray-900 text-white font-medium py-3 rounded-lg hover:bg-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-6"
-                  disabled={isSubmitting}
-                >
-                    {isSubmitting ? 'Entrando...' : 'Entrar'}
-                </button>
-                
-                {/* Forgot Password Button */}
-                <button
-                  type="button"
-                  className="w-full bg-gray-100 text-gray-700 font-medium py-3 rounded-lg hover:bg-gray-200 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={handlePasswordReset}
-                  disabled={isRecovering}
-                >
-                  {isRecovering ? 'Enviando...' : 'Esqueci minha senha'}
-                </button>
-              </div>
 
-              {/* Link para cadastro */}
-              <div className="text-center mt-6">
-                <p className="text-gray-600">
-                  Não tem uma conta?{' '}
+                {/* Informações */}
+                <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-5 h-5 bg-yellow-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-yellow-600 text-xs font-bold">!</span>
+                    </div>
+                    <div className="text-sm">
+                      <p className="text-yellow-800 font-medium">Código válido por 24 horas</p>
+                      <p className="text-yellow-700 mt-1">Verifique sua caixa de spam se não encontrar o email.</p>
+                    </div>
+                  </div>
+                </div>
+              </form>
+            ) : (
+              // Formulário de login normal
+              <form
+                onSubmit={handleLogin}
+                className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100"
+              >
+                {/* Header */}
+                <div className="text-center mb-8">
+                  <h1 className="text-3xl font-light text-gray-900 mb-3 tracking-tight">
+                    Bem-vindo de volta
+                  </h1>
+                  <p className="text-gray-600 font-light">
+                    Acesse sua conta para continuar
+                  </p>
+                </div>
+                
+                <div className="space-y-5">
+                  {/* Email/Username Input */}
+                  <div className="relative">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      E-mail ou Usuário
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Digite seu e-mail ou usuário"
+                      value={loginInput}
+                      onChange={(e) => setLoginInput(e.target.value)}
+                      onFocus={() => setFocusedField('login')}
+                      onBlur={() => setFocusedField(null)}
+                      className={`w-full px-4 py-3 bg-gray-50 border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:bg-white transition-all duration-200 ${
+                        focusedField === 'login' 
+                          ? 'border-gray-900 shadow-sm' 
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                      required
+                    />
+                  </div>
+                  
+                  {/* Password Input */}
+                  <div className="relative">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Senha
+                    </label>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Digite sua senha"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      onFocus={() => setFocusedField('password')}
+                      onBlur={() => setFocusedField(null)}
+                      className={`w-full px-4 py-3 bg-gray-50 border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:bg-white transition-all duration-200 pr-12 ${
+                        focusedField === 'password' 
+                          ? 'border-gray-900 shadow-sm' 
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors mt-8"
+                    >
+                      {showPassword ? <FaEyeSlash size={18} /> : <FaEye size={18} />}
+                    </button>
+                  </div>
+                  
+                  {/* Login Button */}
+                  <button
+                    type="submit"
+                    className="w-full bg-gray-900 text-white font-medium py-3 rounded-lg hover:bg-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-6"
+                    disabled={isSubmitting}
+                  >
+                      {isSubmitting ? 'Entrando...' : 'Entrar'}
+                  </button>
+                  
+                  {/* Forgot Password Button */}
                   <button
                     type="button"
-                    onClick={() => router.push('/cadastro')}
-                    className="text-gray-900 hover:text-gray-700 font-medium underline transition-colors"
+                    className="w-full bg-gray-100 text-gray-700 font-medium py-3 rounded-lg hover:bg-gray-200 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={handlePasswordReset}
+                    disabled={isRecovering}
                   >
-                    Crie a sua agora
+                    {isRecovering ? 'Enviando...' : 'Esqueci minha senha'}
                   </button>
-                </p>
-              </div>
-            </form>
+                </div>
+
+                {/* Link para cadastro */}
+                <div className="text-center mt-6">
+                  <p className="text-gray-600">
+                    Não tem uma conta?{' '}
+                    <button
+                      type="button"
+                      onClick={() => router.push('/cadastro')}
+                      className="text-gray-900 hover:text-gray-700 font-medium underline transition-colors"
+                    >
+                      Crie a sua agora
+                    </button>
+                  </p>
+                </div>
+              </form>
+            )}
           </div>
 
           {/* Footer Links */}
