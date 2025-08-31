@@ -364,9 +364,6 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {usuarioData?.nivel === 'tecnico' && (
             <SidebarButton path="/comissoes" icon={<FiDollarSign size={20} />} label="Comissões" isActive={pathname === '/comissoes'} menuRecolhido={menuRecolhido} />
           )}
-          {podeVer('termos') && (
-            <SidebarButton path="#" icon={<FiFileText size={20} />} label="Termos" isActive={pathname === '/termos'} menuRecolhido={menuRecolhido} />
-          )}
           <SidebarButton path="/perfil" icon={<FiUsers size={20} />} label="Meu Perfil" isActive={pathname === '/perfil'} menuRecolhido={menuRecolhido} />
           {podeVer('configuracoes') && usuarioData?.nivel && ['admin', 'usuarioteste'].includes(usuarioData.nivel) && (
             <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" isActive={pathname === '/configuracoes'} menuRecolhido={menuRecolhido} />
@@ -515,9 +512,6 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               )}
               {usuarioData?.nivel === 'tecnico' && (
                 <SidebarButton path="/comissoes" icon={<FiDollarSign size={20} />} label="Comissões" isActive={pathname === '/comissoes'} menuRecolhido={menuRecolhido} />
-              )}
-              {podeVer('termos') && (
-                <SidebarButton path="#" icon={<FiFileText size={20} />} label="Termos" isActive={false} menuRecolhido={menuRecolhido} />
               )}
               <SidebarButton path="/perfil" icon={<FiUsers size={20} />} label="Meu Perfil" isActive={pathname === '/perfil'} menuRecolhido={menuRecolhido} />
                         {podeVer('configuracoes') && usuarioData?.nivel !== 'atendente' && (
