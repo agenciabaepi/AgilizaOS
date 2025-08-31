@@ -8,7 +8,7 @@ import { Button } from '@/components/Button';
 import { 
   FiCheckCircle, 
   FiCircle, 
-  FiBuilding, 
+  FiHome, 
   FiUsers, 
   FiTool, 
   FiArrowRight,
@@ -57,7 +57,7 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
         id: 'empresa',
         title: 'Dados da Empresa',
         description: 'Configure nome, CNPJ e informações básicas',
-        icon: <FiBuilding className="w-5 h-5" />,
+        icon: <FiHome className="w-5 h-5" />,
         status: empresaStatus,
         action: () => window.open('/configuracoes/empresa', '_blank'),
         required: true

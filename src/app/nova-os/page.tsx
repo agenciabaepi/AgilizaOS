@@ -71,7 +71,7 @@ interface Termo {
 
 function NovaOS2Content() {
   const { usuarioData, empresaData } = useAuth();
-  const { canCreateOS, onboardingStatus } = useOnboarding();
+  const { canCreateOS, onboardingStatus, loading: onboardingLoading } = useOnboarding();
   const [etapaAtual, setEtapaAtual] = useState(1);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clienteSelecionado, setClienteSelecionado] = useState<string | null>(null);
@@ -97,10 +97,10 @@ function NovaOS2Content() {
 
   // Verificar se pode criar OS
   useEffect(() => {
-    if (!canCreateOS && !onboardingStatus.loading) {
+    if (!canCreateOS && !onboardingLoading) {
       setShowOnboardingModal(true);
     }
-  }, [canCreateOS, onboardingStatus.loading]);
+  }, [canCreateOS, onboardingLoading]);
 
 
   
