@@ -164,10 +164,12 @@ export const fetchUserDataOptimized = async (userId: string) => {
       nome: empresaData?.nome,
       cnpj: empresaData?.cnpj,
       endereco: empresaData?.endereco,
-      telefone: empresaData?.telefone
+      telefone: empresaData?.telefone,
+      error: empresaError,
+      success: !empresaError
     });
 
-    return {
+    const result = {
       userData: {
         empresa_id: data.empresa_id,
         nome: data.nome,
@@ -183,9 +185,18 @@ export const fetchUserDataOptimized = async (userId: string) => {
         endereco: empresaData.endereco || '',
         telefone: empresaData.telefone || '',
         email: empresaData.email || '',
+        logo_url: empresaData.logo_url || '',
         plano: 'trial'
       }
     };
+    
+    console.log('🔍 RETORNO DA FUNÇÃO:', {
+      result: result,
+      empresaData: result.empresaData,
+      logo_url: result.empresaData.logo_url
+    });
+    
+    return result;
     
   } catch (error) {
     console.error('❌ Erro ao buscar dados otimizados:', error);
