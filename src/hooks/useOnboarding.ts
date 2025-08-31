@@ -87,6 +87,40 @@ export const useOnboarding = () => {
         whatsapp: !!empresaData?.whatsapp && empresaData.whatsapp.trim() !== ''
       };
       
+      // Debug individual de cada campo
+      console.log('🔍 Debug Individual dos Campos:', {
+        logo: {
+          valor: empresaData?.logo_url,
+          existe: !!empresaData?.logo_url,
+          trim: empresaData?.logo_url?.trim(),
+          resultado: empresaFields.logo
+        },
+        nome: {
+          valor: empresaData?.nome,
+          existe: !!empresaData?.nome,
+          trim: empresaData?.nome?.trim(),
+          resultado: empresaFields.nome
+        },
+        endereco: {
+          valor: empresaData?.endereco,
+          existe: !!empresaData?.endereco,
+          trim: empresaData?.endereco?.trim(),
+          resultado: empresaFields.endereco
+        },
+        cnpj: {
+          valor: empresaData?.cnpj,
+          existe: !!empresaData?.cnpj,
+          trim: empresaData?.cnpj?.trim(),
+          resultado: empresaFields.cnpj
+        },
+        whatsapp: {
+          valor: empresaData?.whatsapp,
+          existe: !!empresaData?.whatsapp,
+          trim: empresaData?.whatsapp?.trim(),
+          resultado: empresaFields.whatsapp
+        }
+      });
+      
       const empresa = Object.values(empresaFields).every(field => field);
       const missingFields = Object.entries(empresaFields)
         .filter(([, value]) => !value)
