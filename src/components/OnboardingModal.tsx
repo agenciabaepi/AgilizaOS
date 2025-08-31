@@ -199,7 +199,7 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-gray-700">
-              Progresso: {completedItems}/{totalItems} itens
+              Progresso: {completedRequiredItems}/{totalRequiredItems} itens obrigatórios
             </span>
             <span className="text-sm text-gray-500">{Math.round(progress)}%</span>
           </div>
