@@ -34,7 +34,7 @@ interface OrdemTransformada {
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { FiEye, FiRefreshCw, FiPlus, FiSearch, FiFilter, FiCalendar, FiUser, FiSmartphone, FiDollarSign, FiClock, FiAlertCircle, FiFileText } from 'react-icons/fi';
+import { FiEye, FiRefreshCw, FiPlus, FiSearch, FiFilter, FiCalendar, FiUser, FiSmartphone, FiDollarSign, FiClock, FiAlertCircle, FiFileText, FiCheckCircle } from 'react-icons/fi';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import ProtectedArea from '@/components/ProtectedArea';
@@ -581,6 +581,17 @@ export default function ListaOrdensPage() {
     );
   }
 
+  const hoje = new Date();
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const inicioSemana = new Date(hoje.setDate(hoje.getDate() - hoje.getDay()));
+  const mesAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+
+  const osHoje = ordens.filter(os => new Date(os.entrada) >= inicioMes && new Date(os.entrada) < new Date(hoje.setHours(0,0,0,0))).length;
+  const faturamentoHoje = ordens.filter(os => new Date(os.entrada) >= inicioMes && new Date(os.entrada) < new Date(hoje.setHours(0,0,0,0))).reduce((sum: number, o: any) => sum + o.valorTotal, 0);
+  const ticketMedioHoje = osHoje > 0 ? faturamentoHoje / osHoje : 0;
+  const retornosHoje = ordens.filter(os => new Date(os.entrada) >= inicioMes && new Date(os.entrada) < new Date(hoje.setHours(0,0,0,0)) && os.tipo === 'Retorno').length;
+  const aprovadosHoje = ordens.filter(os => new Date(os.entrada) >= inicioMes && new Date(os.entrada) < new Date(hoje.setHours(0,0,0,0)) && (os.statusOS === 'APROVADO' || os.statusTecnico === 'APROVADO')).length;
+
   return (
     <ProtectedArea area="ordens">
       <MenuLayout>
@@ -603,40 +614,76 @@ export default function ListaOrdensPage() {
             </Button>
           </div>
 
-          {/* Cards principais */}
+          {/* Cards principais - Dados Diários */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <DashboardCard
-              title="Total de OS"
-              value={totalOS}
-              description={`+${crescimentoSemana}% na última semana`}
-              descriptionColorClass={crescimentoSemana >= 0 ? "text-green-500" : "text-red-500"}
+              title="OS do Dia"
+              value={osHoje}
+              description={`Total: ${totalOS}`}
+              descriptionColorClass="text-gray-600"
               icon={<FiFileText className="w-5 h-5" />}
               svgPolyline={{ color: '#84cc16', points: '0,20 10,15 20,17 30,10 40,12 50,8 60,10 70,6' }}
-            />
+            >
+              <div className="mt-2">
+                <button 
+                  onClick={() => router.push('/financeiro/detalhamento-mes')}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  Ver mês completo →
+                </button>
+              </div>
+            </DashboardCard>
             <DashboardCard
-              title="OS no Mês"
-              value={totalMes}
-              description={`+${crescimentoMes}% vs mês anterior`}
-              descriptionColorClass={crescimentoMes >= 0 ? "text-green-500" : "text-red-500"}
-              icon={<FiCalendar className="w-5 h-5" />}
-              svgPolyline={{ color: '#4ade80', points: '0,18 10,16 20,14 30,10 40,11 50,9 60,10 70,6' }}
-            />
-            <DashboardCard
-              title="Faturamento"
-              value={formatCurrency(faturamentoMes)}
-              description={`Ticket médio: ${formatCurrency(ticketMedio)}`}
-              descriptionColorClass="text-blue-500"
+              title="Faturamento do Dia"
+              value={formatCurrency(faturamentoHoje)}
+              description={`Ticket médio: ${formatCurrency(ticketMedioHoje)}`}
+              descriptionColorClass="text-green-600"
               icon={<FiDollarSign className="w-5 h-5" />}
-              svgPolyline={{ color: '#60a5fa', points: '0,20 10,16 20,14 30,10 40,11 50,8 60,6 70,4' }}
-            />
+              svgPolyline={{ color: '#4ade80', points: '0,18 10,16 20,14 30,10 40,11 50,9 60,10 70,6' }}
+            >
+              <div className="mt-2">
+                <button 
+                  onClick={() => router.push('/financeiro/detalhamento-mes')}
+                  className="text-xs text-green-600 hover:text-green-800 font-medium"
+                >
+                  Ver mês completo →
+                </button>
+              </div>
+            </DashboardCard>
             <DashboardCard
-              title="Retornos"
-              value={retornosMes}
+              title="Retornos do Dia"
+              value={retornosHoje}
               description={`${percentualRetornos}% do total`}
               descriptionColorClass="text-red-500"
               icon={<FiRefreshCw className="w-5 h-5" />}
               svgPolyline={{ color: '#f87171', points: '0,12 10,14 20,16 30,18 40,20 50,17 60,15 70,16' }}
-            />
+            >
+              <div className="mt-2">
+                <button 
+                  onClick={() => router.push('/financeiro/detalhamento-mes')}
+                  className="text-xs text-red-600 hover:text-red-800 font-medium"
+                >
+                  Ver mês completo →
+                </button>
+              </div>
+            </DashboardCard>
+            <DashboardCard
+              title="Aprovados do Dia"
+              value={aprovadosHoje}
+              description={`OS aprovadas hoje`}
+              descriptionColorClass="text-purple-600"
+              icon={<FiCheckCircle className="w-5 h-5" />}
+              svgPolyline={{ color: '#a855f7', points: '0,15 10,18 20,16 30,19 40,17 50,20 60,18 70,20' }}
+            >
+              <div className="mt-2">
+                <button 
+                  onClick={() => router.push('/financeiro/detalhamento-mes')}
+                  className="text-xs text-purple-600 hover:text-purple-800 font-medium"
+                >
+                  Ver mês completo →
+                </button>
+              </div>
+            </DashboardCard>
           </div>
 
           {/* Abas */}

@@ -29,6 +29,12 @@ interface AdminMetrics {
   satisfacaoMedia: number;
   osCriadasMes: number;
   clientesNovos: number;
+  // Métricas diárias
+  osHoje: number;
+  faturamentoHoje: number;
+  retornosHoje: number;
+  aprovadosHoje: number;
+  ticketMedioHoje: number;
 }
 
 interface OSData {
@@ -59,7 +65,12 @@ export default function DashboardPage() {
     faturamentoMes: 0,
     satisfacaoMedia: 0,
     osCriadasMes: 0,
-    clientesNovos: 0
+    clientesNovos: 0,
+    osHoje: 0,
+    faturamentoHoje: 0,
+    retornosHoje: 0,
+    aprovadosHoje: 0,
+    ticketMedioHoje: 0
   });
   const [recentOS, setRecentOS] = useState<OSData[]>([]);
   const [recentClientes, setRecentClientes] = useState<ClienteData[]>([]);
@@ -90,6 +101,7 @@ export default function DashboardPage() {
       setLoading(true);
       const hoje = new Date();
       const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      const inicioDia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
       
       // Buscar OS
       const { data: osData, error: osError } = await supabase
@@ -111,13 +123,59 @@ export default function DashboardPage() {
           return dataCriacao >= inicioMes;
         }).length;
 
+        // OS criadas hoje
+        const osHoje = osData.filter((os: OSData) => {
+          const dataCriacao = new Date(os.created_at || '');
+          return dataCriacao >= inicioDia;
+        }).length;
+
+        // Faturamento hoje
+        const faturamentoHoje = osData
+          .filter((os: OSData) => {
+            const dataCriacao = new Date(os.created_at || '');
+            return dataCriacao >= inicioDia && os.valor_faturado;
+          })
+          .reduce((acc: number, os: OSData) => acc + (os.valor_faturado || 0), 0);
+
+        // Ticket médio hoje
+        const osComValorHoje = osData.filter((os: OSData) => {
+          const dataCriacao = new Date(os.created_at || '');
+          return dataCriacao >= inicioDia && os.valor_faturado;
+        });
+        const ticketMedioHoje = osComValorHoje.length > 0 
+          ? faturamentoHoje / osComValorHoje.length 
+          : 0;
+
+        // Retornos hoje (OS com status de retorno)
+        const retornosHoje = osData.filter((os: OSData) => {
+          const dataCriacao = new Date(os.created_at || '');
+          return dataCriacao >= inicioDia && os.status === 'retorno';
+        }).length;
+
+        // Aprovados hoje (OS aprovadas hoje)
+        const aprovadosHoje = osData.filter((os: OSData) => {
+          const dataCriacao = new Date(os.created_at || '');
+          return dataCriacao >= inicioDia && os.status === 'aprovado';
+        }).length;
+
         // Buscar OS recentes
         const recentOSData = osData
           .sort((a: OSData, b: OSData) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
           .slice(0, 5);
 
         setRecentOS(recentOSData);
-        setMetrics(prev => ({ ...prev, totalOS, osPendentes, osConcluidas, osCriadasMes }));
+        setMetrics(prev => ({ 
+          ...prev, 
+          totalOS, 
+          osPendentes, 
+          osConcluidas, 
+          osCriadasMes,
+          osHoje,
+          faturamentoHoje,
+          retornosHoje,
+          aprovadosHoje,
+          ticketMedioHoje
+        }));
       }
 
       // Buscar clientes
@@ -192,53 +250,104 @@ export default function DashboardPage() {
               <p className="text-gray-600">Bem-vindo, {usuarioData?.nome}!</p>
             </div>
 
-            {/* Métricas principais */}
+            {/* Métricas principais - Dados Diários */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                <div className="flex items-center">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <FiFileText className="h-6 w-6 text-blue-600" />
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <FiFileText className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">OS do Dia</p>
+                      <p className="text-2xl font-semibold text-gray-900">{metrics.osHoje}</p>
+                    </div>
                   </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Total de OS</p>
-                    <p className="text-2xl font-semibold text-gray-900">{metrics.totalOS}</p>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">Total: {metrics.totalOS}</p>
                   </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-600">Criadas hoje</p>
+                  <button 
+                    onClick={() => router.push('/financeiro/detalhamento-mes')}
+                    className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    Ver mês completo →
+                  </button>
                 </div>
               </div>
 
               <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                <div className="flex items-center">
-                  <div className="p-2 bg-orange-100 rounded-lg">
-                    <FiClock className="h-6 w-6 text-orange-600" />
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <FiDollarSign className="h-6 w-6 text-green-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">Faturamento do Dia</p>
+                      <p className="text-2xl font-semibold text-gray-900">
+                        R$ {metrics.faturamentoHoje.toFixed(2)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">OS Pendentes</p>
-                    <p className="text-2xl font-semibold text-gray-900">{metrics.osPendentes}</p>
-                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-600">
+                    Ticket médio: R$ {metrics.ticketMedioHoje.toFixed(2)}
+                  </p>
+                  <button 
+                    onClick={() => router.push('/financeiro/detalhamento-mes')}
+                    className="text-xs text-green-600 hover:text-green-800 font-medium"
+                  >
+                    Ver mês completo →
+                  </button>
                 </div>
               </div>
 
               <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                <div className="flex items-center">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <FiCheckCircle className="h-6 w-6 text-green-600" />
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center">
+                    <div className="p-2 bg-orange-100 rounded-lg">
+                      <FiClock className="h-6 w-6 text-orange-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">Retornos do Dia</p>
+                      <p className="text-2xl font-semibold text-gray-900">{metrics.retornosHoje}</p>
+                    </div>
                   </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">OS Concluídas</p>
-                    <p className="text-2xl font-semibold text-gray-900">{metrics.osConcluidas}</p>
-                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-600">OS com retorno</p>
+                  <button 
+                    onClick={() => router.push('/financeiro/detalhamento-mes')}
+                    className="text-xs text-orange-600 hover:text-orange-800 font-medium"
+                  >
+                    Ver mês completo →
+                  </button>
                 </div>
               </div>
 
               <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                <div className="flex items-center">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <FiUsers className="h-6 w-6 text-purple-600" />
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <FiCheckCircle className="h-6 w-6 text-purple-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">Aprovados do Dia</p>
+                      <p className="text-2xl font-semibold text-gray-900">{metrics.aprovadosHoje}</p>
+                    </div>
                   </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Total de Clientes</p>
-                    <p className="text-2xl font-semibold text-gray-900">{metrics.totalClientes}</p>
-                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-600">OS aprovadas</p>
+                  <button 
+                    onClick={() => router.push('/financeiro/detalhamento-mes')}
+                    className="text-xs text-purple-600 hover:text-purple-800 font-medium"
+                  >
+                    Ver mês completo →
+                  </button>
                 </div>
               </div>
             </div>
