@@ -34,8 +34,15 @@ export const useOnboarding = () => {
       empresaId: usuarioData?.empresa_id
     });
     
-    if (usuarioData?.empresa_id) {
+    if (usuarioData?.empresa_id && empresaData) {
+      console.log('🔍 useOnboarding: Dados disponíveis, verificando status...');
       checkOnboardingStatus();
+    } else {
+      console.log('🔍 useOnboarding: Aguardando dados...', {
+        temUsuario: !!usuarioData,
+        temEmpresa: !!empresaData,
+        empresaId: usuarioData?.empresa_id
+      });
     }
   }, [usuarioData, empresaData]);
 

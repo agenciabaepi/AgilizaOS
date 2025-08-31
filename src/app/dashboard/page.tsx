@@ -93,12 +93,13 @@ export default function DashboardPage() {
   useEffect(() => {
     console.log('🔍 Dashboard useEffect - Onboarding:', {
       usuarioData: !!usuarioData,
+      empresaData: !!empresaData,
       showOnboarding,
       onboardingStatus,
       wasSkipped: localStorage.getItem('onboarding_skipped') === 'true'
     });
 
-    if (usuarioData && !showOnboarding) {
+    if (usuarioData && empresaData && !showOnboarding) {
       // Verificar se o usuário pulou o onboarding nesta sessão
       const wasSkipped = localStorage.getItem('onboarding_skipped') === 'true';
       
@@ -123,7 +124,25 @@ export default function DashboardPage() {
         setShowOnboarding(true);
       }
     }
-  }, [usuarioData, showOnboarding, onboardingStatus.empresa, onboardingStatus.tecnicos, onboardingStatus.servicos, setShowOnboarding]);
+  }, [usuarioData, empresaData, showOnboarding, onboardingStatus.empresa, onboardingStatus.tecnicos, onboardingStatus.servicos, setShowOnboarding]);
+
+  // Forçar verificação do onboarding quando dados mudarem
+  useEffect(() => {
+    if (usuarioData && empresaData && !showOnboarding) {
+      console.log('🔍 Dashboard: Dados carregados, forçando verificação do onboarding');
+      // Pequeno delay para garantir que o hook useOnboarding já processou os dados
+      setTimeout(() => {
+        const wasSkipped = localStorage.getItem('onboarding_skipped') === 'true';
+        if (!wasSkipped) {
+          const isComplete = onboardingStatus.empresa && onboardingStatus.tecnicos && onboardingStatus.servicos;
+          if (!isComplete) {
+            console.log('🔍 Dashboard: Forçando exibição do onboarding');
+            setShowOnboarding(true);
+          }
+        }
+      }, 1000);
+    }
+  }, [usuarioData, empresaData, onboardingStatus, showOnboarding, setShowOnboarding]);
 
   // Buscar dados reais do banco
   useEffect(() => {
