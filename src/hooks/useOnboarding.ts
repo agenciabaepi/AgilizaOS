@@ -158,8 +158,7 @@ export const useOnboarding = () => {
   const canCreateOS = onboardingStatus.empresa && onboardingStatus.tecnicos;
   const onboardingProgress = [
     onboardingStatus.empresa,
-    onboardingStatus.tecnicos,
-    onboardingStatus.servicos
+    onboardingStatus.tecnicos
   ].filter(Boolean).length;
 
   return {

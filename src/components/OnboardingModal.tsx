@@ -102,7 +102,7 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
       items.push({
         id: 'servicos',
         title: 'Serviços Básicos',
-        description: 'Configure serviços padrão da empresa',
+        description: 'Configure serviços padrão da empresa (opcional)',
         icon: <FiTool className="w-5 h-5" />,
         status: servicosStatus,
         action: () => {
@@ -135,15 +135,17 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
   };
 
   const handleComplete = () => {
-    // Verificar se realmente está completo antes de fechar
-    const isComplete = onboardingItems.every(item => item.status === 'completed');
+    // Verificar se todos os itens obrigatórios estão completos
+    const requiredItems = onboardingItems.filter(item => item.required);
+    const isComplete = requiredItems.every(item => item.status === 'completed');
     
     if (isComplete) {
       addToast('success', 'Onboarding concluído com sucesso!');
       onComplete();
       onClose();
     } else {
-      addToast('warning', 'Complete todos os itens obrigatórios antes de concluir o onboarding.');
+      const pendingRequired = requiredItems.filter(item => item.status !== 'completed').length;
+      addToast('warning', `Complete ${pendingRequired} item(s) obrigatório(s) antes de concluir o onboarding.`);
     }
   };
 
@@ -169,9 +171,10 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
     }
   };
 
-  const completedItems = onboardingItems.filter(item => item.status === 'completed').length;
-  const totalItems = onboardingItems.length;
-  const progress = totalItems > 0 ? (completedItems / totalItems) * 100 : 0;
+  const requiredItems = onboardingItems.filter(item => item.required);
+  const completedRequiredItems = requiredItems.filter(item => item.status === 'completed').length;
+  const totalRequiredItems = requiredItems.length;
+  const progress = totalRequiredItems > 0 ? (completedRequiredItems / totalRequiredItems) * 100 : 0;
 
   if (!isOpen) return null;
 
@@ -270,13 +273,13 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
           </Button>
           
           <div className="flex space-x-3">
-            <Button
-              onClick={handleComplete}
-              disabled={completedItems < totalItems}
-              className="bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              Concluir Onboarding ({completedItems}/{totalItems})
-            </Button>
+                          <Button
+                onClick={handleComplete}
+                disabled={completedRequiredItems < totalRequiredItems}
+                className="bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                Concluir Onboarding ({completedRequiredItems}/{totalRequiredItems})
+              </Button>
           </div>
         </div>
       </div>

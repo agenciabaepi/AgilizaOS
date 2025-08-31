@@ -108,8 +108,8 @@ export default function DashboardPage() {
         return;
       }
       
-      // Verificar se o onboarding está completo
-      const isComplete = onboardingStatus.empresa && onboardingStatus.tecnicos && onboardingStatus.servicos;
+      // Verificar se o onboarding está completo (apenas itens obrigatórios)
+      const isComplete = onboardingStatus.empresa && onboardingStatus.tecnicos;
       
       console.log('🔍 Dashboard: Verificando se deve mostrar onboarding:', {
         empresa: onboardingStatus.empresa,
