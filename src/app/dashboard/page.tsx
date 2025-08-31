@@ -92,6 +92,14 @@ export default function DashboardPage() {
   // Mostrar onboarding sempre que não estiver completo
   useEffect(() => {
     if (usuarioData && !showOnboarding) {
+      // Verificar se o usuário pulou o onboarding nesta sessão
+      const wasSkipped = localStorage.getItem('onboarding_skipped') === 'true';
+      
+      if (wasSkipped) {
+        console.log('🔍 Dashboard: Onboarding foi pulado, não mostrando modal');
+        return;
+      }
+      
       // Verificar se o onboarding está completo
       const isComplete = onboardingStatus.empresa && onboardingStatus.tecnicos && onboardingStatus.servicos;
       

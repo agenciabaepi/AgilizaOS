@@ -130,6 +130,8 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
   const handleSkip = () => {
     addToast('info', 'Onboarding pulado. Você pode completar as configurações depois.');
     onClose();
+    // Marcar como pulado para não aparecer novamente nesta sessão
+    localStorage.setItem('onboarding_skipped', 'true');
   };
 
   const handleComplete = () => {

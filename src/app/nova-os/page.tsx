@@ -1842,7 +1842,7 @@ function NovaOS2Content() {
                   
                   <div className="flex space-x-3">
                     <button
-                      onClick={() => window.location.href = '/configuracoes/usuarios'}
+                      onClick={() => window.location.href = '/configuracoes?tab=1'}
                       className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium"
                     >
                       Cadastrar Técnico
