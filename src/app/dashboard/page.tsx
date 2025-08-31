@@ -111,20 +111,19 @@ export default function DashboardPage() {
       // Verificar se o onboarding está completo (apenas itens obrigatórios)
       const isComplete = onboardingStatus.empresa && onboardingStatus.tecnicos;
       
-      console.log('🔍 Dashboard: Verificando se deve mostrar onboarding:', {
-        empresa: onboardingStatus.empresa,
-        tecnicos: onboardingStatus.tecnicos,
-        servicos: onboardingStatus.servicos,
-        isComplete,
-        shouldShow: !isComplete
-      });
+              console.log('🔍 Dashboard: Verificando se deve mostrar onboarding:', {
+          empresa: onboardingStatus.empresa,
+          tecnicos: onboardingStatus.tecnicos,
+          isComplete,
+          shouldShow: !isComplete
+        });
       
       if (!isComplete) {
         console.log('🔍 Dashboard: Onboarding não completo, mostrando modal');
         setShowOnboarding(true);
       }
     }
-  }, [usuarioData, empresaData, showOnboarding, onboardingStatus.empresa, onboardingStatus.tecnicos, onboardingStatus.servicos, setShowOnboarding]);
+  }, [usuarioData, empresaData, showOnboarding, onboardingStatus.empresa, onboardingStatus.tecnicos, setShowOnboarding]);
 
   // Forçar verificação do onboarding quando dados mudarem
   useEffect(() => {
@@ -134,7 +133,7 @@ export default function DashboardPage() {
       setTimeout(() => {
         const wasSkipped = localStorage.getItem('onboarding_skipped') === 'true';
         if (!wasSkipped) {
-          const isComplete = onboardingStatus.empresa && onboardingStatus.tecnicos && onboardingStatus.servicos;
+          const isComplete = onboardingStatus.empresa && onboardingStatus.tecnicos;
           if (!isComplete) {
             console.log('🔍 Dashboard: Forçando exibição do onboarding');
             setShowOnboarding(true);
