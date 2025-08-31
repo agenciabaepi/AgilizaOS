@@ -228,26 +228,44 @@ function LoginClientInner() {
       return;
     }
     
-    // Se o usuário NÃO é admin, verificar se a empresa foi verificada
+    // Se o usuário NÃO é admin, verificar se o ADMIN da empresa foi verificado
     if (usuarioVerificacao?.nivel !== 'admin' && usuarioVerificacao?.empresa_id) {
-      const { data: empresa, error: empresaError } = await supabase
-        .from('empresas')
+      console.log('🔍 Debug - Usuário não-admin:', {
+        nivel: usuarioVerificacao?.nivel,
+        empresa_id: usuarioVerificacao?.empresa_id,
+        email: emailToLogin
+      });
+      
+      // Buscar o admin da empresa para verificar se ele foi verificado
+      const { data: adminEmpresa, error: adminError } = await supabase
+        .from('usuarios')
         .select('email_verificado')
-        .eq('id', usuarioVerificacao.empresa_id)
+        .eq('empresa_id', usuarioVerificacao.empresa_id)
+        .eq('nivel', 'admin')
         .single();
       
-      if (empresaError) {
+      console.log('🔍 Debug - Dados do admin da empresa:', {
+        adminEmpresa,
+        adminError,
+        email_verificado: adminEmpresa?.email_verificado
+      });
+      
+      if (adminError) {
+        console.error('🔍 Debug - Erro ao buscar admin da empresa:', adminError);
         setIsSubmitting(false);
         addToast('error', 'Erro ao verificar empresa. Tente novamente.');
         return;
       }
       
-      // Se a empresa não foi verificada, o usuário não pode fazer login
-      if (!empresa?.email_verificado) {
+      // Se o admin da empresa não foi verificado, o usuário não pode fazer login
+      if (!adminEmpresa?.email_verificado) {
+        console.log('🔍 Debug - Admin da empresa não verificado, bloqueando login');
         setIsSubmitting(false);
         addToast('error', 'Empresa não verificada. Entre em contato com o administrador.');
         return;
       }
+      
+      console.log('🔍 Debug - Admin da empresa verificado, permitindo login');
     }
     
     // Tentar fazer login (apenas se email foi verificado)
