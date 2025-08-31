@@ -280,34 +280,9 @@ export default function PerfilPage() {
         return;
       }
 
-      // Verificar se o bucket existe
-      console.log('🔍 Tentando listar buckets...');
-      console.log('🔍 Cliente Supabase:', supabase);
-      console.log('🔍 URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
-      console.log('🔍 ANON KEY:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? '✅ Configurada' : '❌ Não configurada');
-      console.log('🔍 Sessão ativa:', !!session);
-      
-      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
-      
-      console.log('🔍 Resultado listBuckets:', { buckets, bucketsError });
-      
-      if (bucketsError) {
-        console.error('❌ Erro ao verificar buckets:', bucketsError);
-        addToast('error', 'Erro ao verificar configuração do storage');
-        setUploading(false);
-        return;
-      }
-
-      const avatarsBucket = buckets.find((b: any) => b.id === 'avatars');
-      
-      if (!avatarsBucket) {
-        console.error('Bucket avatars não encontrado');
-        addToast('error', 'Bucket de avatars não está configurado. Entre em contato com o administrador.');
-        setUploading(false);
-        return;
-      }
-
-      console.log('Bucket avatars encontrado:', avatarsBucket);
+      // Pular verificação de bucket (problema de permissões)
+      console.log('🔍 Pulando verificação de bucket devido a problemas de permissão...');
+      console.log('🔍 Tentando upload direto para bucket avatars...');
 
       // Validar extensões permitidas
       const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
