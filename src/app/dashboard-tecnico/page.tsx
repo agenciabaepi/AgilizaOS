@@ -233,18 +233,87 @@ export default function DashboardTecnicoPage() {
     return new Date(dateString).toLocaleDateString('pt-BR');
   };
 
-  if (loading && !timeoutReached) {
+  // Renderização de emergência se timeout foi atingido
+  if (timeoutReached) {
     return (
-      <ProtectedArea area="bancada">
-        <MenuLayout>
-          <div className="p-6 flex justify-center items-center min-h-[400px]">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-gray-900 mx-auto mb-4"></div>
-              <span className="text-gray-500">Carregando dashboard...</span>
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Dashboard do Técnico (Modo de Emergência)
+            </h1>
+            <p className="text-gray-600">
+              Bem-vindo! Dados carregando em segundo plano...
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Finalizadas no Mês</p>
+                  <p className="text-2xl font-bold text-gray-900">-</p>
+                </div>
+                <div className="p-3 bg-green-50 rounded-full">
+                  <FiCheckCircle className="w-6 h-6 text-green-600" />
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Pendentes</p>
+                  <p className="text-2xl font-bold text-gray-900">-</p>
+                </div>
+                <div className="p-3 bg-yellow-50 rounded-full">
+                  <FiClock className="w-6 h-6 text-yellow-600" />
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Comissão do Mês</p>
+                  <p className="text-2xl font-bold text-gray-900">R$ 0,00</p>
+                </div>
+                <div className="p-3 bg-blue-50 rounded-full">
+                  <FiDollarSign className="w-6 h-6 text-blue-600" />
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Taxa de Conclusão</p>
+                  <p className="text-2xl font-bold text-gray-900">-</p>
+                </div>
+                <div className="p-3 bg-purple-50 rounded-full">
+                  <FiTarget className="w-6 h-6 text-purple-600" />
+                </div>
+              </div>
             </div>
           </div>
-        </MenuLayout>
-      </ProtectedArea>
+          
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Status do Sistema</h3>
+            <p className="text-gray-600">Página carregada em modo de emergência. Os dados estão sendo carregados em segundo plano.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex justify-center items-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <span className="text-gray-500">Carregando dashboard...</span>
+        </div>
+      </div>
     );
   }
 
