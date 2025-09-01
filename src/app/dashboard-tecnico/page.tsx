@@ -50,18 +50,12 @@ export default function DashboardTecnicoPage() {
   const [loading, setLoading] = useState(true);
   const [recentOS, setRecentOS] = useState<any[]>([]);
 
-  // ✅ VERIFICAÇÃO: Apenas técnicos podem acessar esta dashboard
+  // ✅ SIMPLIFICADO: Carregar dados quando usuário estiver disponível
   useEffect(() => {
-    if (usuarioData?.nivel && usuarioData.nivel !== 'tecnico') {
-      console.log('🚫 Usuário não é técnico, redirecionando para dashboard admin...');
-      router.replace('/dashboard');
-      return;
-    }
-    
     if (user && usuarioData?.nivel === 'tecnico') {
       fetchTecnicoData();
     }
-  }, [user, usuarioData?.nivel, router]);
+  }, [user, usuarioData?.nivel]);
 
   const fetchTecnicoData = async () => {
     if (!user) return;
@@ -80,7 +74,7 @@ export default function DashboardTecnicoPage() {
         .eq('auth_user_id', user.id)
         .single();
 
-      console.log('Dashboard - Dados do usuário:', userData);
+      console.log('Dashboard Técnico - Dados do usuário:', userData);
 
       if (!userData?.id) {
         console.error('Usuário não encontrado na tabela usuarios');
@@ -99,7 +93,7 @@ export default function DashboardTecnicoPage() {
         .order('created_at', { ascending: false });
 
       const ordensData = ordens || [];
-      console.log('Dashboard - OSs encontradas:', ordensData.length);
+      console.log('Dashboard Técnico - OSs encontradas:', ordensData.length);
 
       // Calcular métricas
       const totalOS = ordensData.length;
@@ -120,19 +114,17 @@ export default function DashboardTecnicoPage() {
         new Date(o.created_at) >= inicioSemana
       ).length;
 
-      // userData já foi buscado acima
-
       // Buscar comissões usando função RPC que funciona
-      console.log('Dashboard - Usando função RPC que funciona...');
+      console.log('Dashboard Técnico - Usando função RPC que funciona...');
       
       const { data: comissoesJSON, error: comissoesError } = await supabase
         .rpc('buscar_comissoes_tecnico', { 
           tecnico_id_param: user.id 
         });
 
-      console.log('Dashboard - Resultado RPC:', comissoesJSON);
-      console.log('Dashboard - Erro RPC:', comissoesError);
-      console.log('Dashboard - ID usado na busca:', user.id);
+      console.log('Dashboard Técnico - Resultado RPC:', comissoesJSON);
+      console.log('Dashboard Técnico - Erro RPC:', comissoesError);
+      console.log('Dashboard Técnico - ID usado na busca:', user.id);
 
       // Converter JSON para array se necessário
       const comissoes = Array.isArray(comissoesJSON) ? comissoesJSON : (comissoesJSON || []);
@@ -179,7 +171,7 @@ export default function DashboardTecnicoPage() {
       // OSs recentes
       const recentOSData = ordensData.slice(0, 5);
 
-      console.log('Dashboard - Métricas calculadas:', {
+      console.log('Dashboard Técnico - Métricas calculadas:', {
         totalOS,
         finalizadasMes,
         comissaoMes,
@@ -225,273 +217,258 @@ export default function DashboardTecnicoPage() {
     return new Date(dateString).toLocaleDateString('pt-BR');
   };
 
-
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex justify-center items-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <span className="text-gray-500">Carregando dashboard...</span>
+          <span className="text-gray-500">Carregando dashboard do técnico...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <ProtectedArea area="bancada">
-      <MenuLayout>
-        <div className="p-6">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Dashboard do Técnico
-            </h1>
-            <p className="text-gray-600">
-              Bem-vindo, {usuarioData?.nome}! Aqui você pode acompanhar seu desempenho e métricas de trabalho.
-            </p>
-          </div>
+    <MenuLayout>
+      <ProtectedArea area="dashboard">
+        <div className="p-6 bg-gray-50 min-h-screen">
+          <div className="max-w-7xl mx-auto">
+            {/* Header */}
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard do Técnico</h1>
+              <p className="text-gray-600">Bem-vindo, {usuarioData?.nome}!</p>
+            </div>
 
-          {/* Cards principais */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {/* OSs Finalizadas */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Finalizadas no Mês</p>
-                  <p className="text-2xl font-bold text-gray-900">{metrics.finalizadasMes}</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {metrics.totalOS} total
+            {/* Métricas principais */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <FiCheckCircle className="h-6 w-6 text-green-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">Finalizadas no Mês</p>
+                      <p className="text-2xl font-semibold text-gray-900">{metrics.finalizadasMes}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-600">Total: {metrics.totalOS}</p>
+                  <button 
+                    onClick={() => router.push('/ordens')}
+                    className="text-xs text-green-600 hover:text-green-800 font-medium"
+                  >
+                    Ver todas →
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center">
+                    <div className="p-2 bg-yellow-100 rounded-lg">
+                      <FiClock className="h-6 w-6 text-yellow-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">Pendentes</p>
+                      <p className="text-2xl font-semibold text-gray-900">{metrics.pendentes}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-600">Aguardando atendimento</p>
+                  <button 
+                    onClick={() => router.push('/ordens')}
+                    className="text-xs text-yellow-600 hover:text-yellow-800 font-medium"
+                  >
+                    Ver pendentes →
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <FiDollarSign className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">Comissão do Mês</p>
+                      <p className="text-2xl font-semibold text-gray-900">
+                        {formatCurrency(metrics.comissaoMes)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-600">
+                    {metrics.crescimentoComissao > 0 ? '+' : ''}{metrics.crescimentoComissao.toFixed(1)}% vs mês anterior
                   </p>
+                  <button 
+                    onClick={() => router.push('/comissoes')}
+                    className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    Ver detalhes →
+                  </button>
                 </div>
-                <div className="p-3 bg-green-50 rounded-full">
-                  <FiCheckCircle className="w-6 h-6 text-green-600" />
+              </div>
+
+              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <FiTarget className="h-6 w-6 text-purple-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">Taxa de Conclusão</p>
+                      <p className="text-2xl font-semibold text-gray-900">{metrics.taxaConclusao}%</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-600">Eficiência geral</p>
+                  <button 
+                    onClick={() => router.push('/relatorios')}
+                    className="text-xs text-purple-600 hover:text-purple-800 font-medium"
+                  >
+                    Ver relatório →
+                  </button>
                 </div>
               </div>
             </div>
 
-            {/* Pendentes */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Pendentes</p>
-                  <p className="text-2xl font-bold text-gray-900">{metrics.pendentes}</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {metrics.emAnalise} em análise
-                  </p>
+            {/* Métricas secundárias */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">OS Hoje</p>
+                    <p className="text-2xl font-bold text-gray-900">{metrics.osHoje}</p>
+                  </div>
+                  <div className="p-3 bg-green-50 rounded-full">
+                    <FiCalendar className="w-6 h-6 text-green-600" />
+                  </div>
                 </div>
-                <div className="p-3 bg-yellow-50 rounded-full">
-                  <FiClock className="w-6 h-6 text-yellow-600" />
+              </div>
+              
+              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">OS Esta Semana</p>
+                    <p className="text-2xl font-bold text-gray-900">{metrics.osSemana}</p>
+                  </div>
+                  <div className="p-3 bg-blue-50 rounded-full">
+                    <FiTrendingUp className="w-6 h-6 text-blue-600" />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Clientes Atendidos</p>
+                    <p className="text-2xl font-bold text-gray-900">{metrics.clientesAtendidos}</p>
+                  </div>
+                  <div className="p-3 bg-purple-50 rounded-full">
+                    <FiUsers className="w-6 h-6 text-purple-600" />
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Comissão */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Comissão do Mês</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {formatCurrency(metrics.comissaoMes)}
-                  </p>
-                  <div className="flex items-center mt-1">
-                    {metrics.crescimentoComissao >= 0 ? (
-                      <FiTrendingUp className="w-4 h-4 text-green-500 mr-1" />
-                    ) : (
-                      <FiTrendingUp className="w-4 h-4 text-red-500 mr-1" style={{ transform: 'rotate(180deg)' }} />
-                    )}
-                    <span className={`text-xs font-medium ${
-                      metrics.crescimentoComissao >= 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {metrics.crescimentoComissao.toFixed(1)}% vs mês anterior
-                    </span>
+            {/* Ações rápidas */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <button
+                onClick={() => router.push('/nova-os')}
+                className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow text-left"
+              >
+                <div className="flex items-center mb-3">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <FiFileText className="h-6 w-6 text-blue-600" />
                   </div>
+                  <h3 className="ml-3 font-semibold text-gray-900">Nova OS</h3>
                 </div>
-                <div className="p-3 bg-blue-50 rounded-full">
-                  <FiDollarSign className="w-6 h-6 text-blue-600" />
+                <p className="text-sm text-gray-600">Criar nova ordem de serviço</p>
+              </button>
+
+              <button
+                onClick={() => router.push('/ordens')}
+                className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow text-left"
+              >
+                <div className="flex items-center mb-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <FiCheckCircle className="h-6 w-6 text-green-600" />
+                  </div>
+                  <h3 className="ml-3 font-semibold text-gray-900">Minhas OS</h3>
                 </div>
-              </div>
+                <p className="text-sm text-gray-600">Visualizar ordens de serviço</p>
+              </button>
+
+              <button
+                onClick={() => router.push('/comissoes')}
+                className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow text-left"
+              >
+                <div className="flex items-center mb-3">
+                  <div className="p-2 bg-yellow-100 rounded-lg">
+                    <FiDollarSign className="h-6 w-6 text-yellow-600" />
+                  </div>
+                  <h3 className="ml-3 font-semibold text-gray-900">Comissões</h3>
+                </div>
+                <p className="text-sm text-gray-600">Ver comissões e ganhos</p>
+              </button>
+
+              <button
+                onClick={() => router.push('/perfil')}
+                className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow text-left"
+              >
+                <div className="flex items-center mb-3">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <FiUsers className="h-6 w-6 text-purple-600" />
+                  </div>
+                  <h3 className="ml-3 font-semibold text-gray-900">Meu Perfil</h3>
+                </div>
+                <p className="text-sm text-gray-600">Gerenciar dados pessoais</p>
+              </button>
             </div>
 
-            {/* Taxa de Conclusão */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Taxa de Conclusão</p>
-                  <p className="text-2xl font-bold text-gray-900">{metrics.taxaConclusao}%</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Eficiência geral
-                  </p>
-                </div>
-                <div className="p-3 bg-purple-50 rounded-full">
-                  <FiTarget className="w-6 h-6 text-purple-600" />
-                </div>
+            {/* OSs Recentes */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+              <div className="p-6 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">OSs Recentes</h3>
               </div>
-            </div>
-          </div>
-
-          {/* Métricas secundárias */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            {/* Performance */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Performance</h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <FiCalendar className="w-4 h-4 text-blue-500 mr-2" />
-                    <span className="text-sm text-gray-600">OSs Hoje</span>
-                  </div>
-                  <span className="font-semibold text-gray-900">{metrics.osHoje}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <FiClock className="w-4 h-4 text-yellow-500 mr-2" />
-                    <span className="text-sm text-gray-600">Tempo Médio</span>
-                  </div>
-                  <span className="font-semibold text-gray-900">{metrics.tempoMedioConclusao} dias</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <FiUsers className="w-4 h-4 text-green-500 mr-2" />
-                    <span className="text-sm text-gray-600">Clientes Atendidos</span>
-                  </div>
-                  <span className="font-semibold text-gray-900">{metrics.clientesAtendidos}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <FiDollarSign className="w-4 h-4 text-purple-500 mr-2" />
-                    <span className="text-sm text-gray-600">Ticket Médio</span>
-                  </div>
-                  <span className="font-semibold text-gray-900">{formatCurrency(metrics.ticketMedio)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Status das OSs */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Status das OSs</h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
-                    <span className="text-sm text-gray-600">Aguardando Início</span>
-                  </div>
-                  <span className="font-semibold text-gray-900">{metrics.pendentes}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
-                    <span className="text-sm text-gray-600">Em Análise</span>
-                  </div>
-                  <span className="font-semibold text-gray-900">{metrics.emAnalise}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-orange-500 rounded-full mr-2"></div>
-                    <span className="text-sm text-gray-600">Aguardando Peça</span>
-                  </div>
-                  <span className="font-semibold text-gray-900">{metrics.aguardandoPeca}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
-                    <span className="text-sm text-gray-600">Concluídas</span>
-                  </div>
-                  <span className="font-semibold text-gray-900">{metrics.finalizadasMes}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Ranking */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Seu Ranking</h3>
-              <div className="text-center">
-                <div className="text-4xl font-bold text-blue-600 mb-2">
-                  #{metrics.tecnicoRanking}
-                </div>
-                <p className="text-sm text-gray-600 mb-4">Entre os técnicos da empresa</p>
-                <div className="flex items-center justify-center">
-                  <FiTrendingUp className="w-5 h-5 text-green-500 mr-1" />
-                  <span className="text-sm text-green-600 font-medium">+2 posições este mês</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Detalhes de Comissões */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <FiDollarSign className="w-5 h-5 text-green-600" />
-              Detalhes de Comissões
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-green-50 p-4 rounded-lg">
-                <p className="text-sm text-green-600 font-medium">Total do Mês</p>
-                <p className="text-2xl font-bold text-green-900">{formatCurrency(metrics.comissaoMes)}</p>
-                <p className="text-xs text-green-700 mt-1">
-                  {metrics.crescimentoComissao >= 0 ? '+' : ''}{metrics.crescimentoComissao.toFixed(1)}% vs mês anterior
-                </p>
-              </div>
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <p className="text-sm text-blue-600 font-medium">Mês Anterior</p>
-                <p className="text-2xl font-bold text-blue-900">{formatCurrency(metrics.comissaoAnterior)}</p>
-                <p className="text-xs text-blue-700 mt-1">Para comparação</p>
-              </div>
-              <div className="bg-orange-50 p-4 rounded-lg">
-                <p className="text-sm text-orange-600 font-medium">OSs com Comissão</p>
-                <p className="text-2xl font-bold text-orange-900">{metrics.finalizadasMes}</p>
-                <p className="text-xs text-orange-700 mt-1">Entregas do mês</p>
-              </div>
-            </div>
-          </div>
-
-          {/* OSs Recentes */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">OSs Recentes</h3>
-            {recentOS.length === 0 ? (
-              <p className="text-gray-500 text-center py-4">Nenhuma OS encontrada</p>
-            ) : (
-              <div className="space-y-3">
-                {recentOS.map((os) => (
-                  <div key={os.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center">
-                      <FiFileText className="w-4 h-4 text-blue-500 mr-3" />
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          #{os.numero_os || os.id} - {os.cliente?.nome || 'Cliente não informado'}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          {os.categoria} {os.marca} {os.modelo}
-                        </p>
+              <div className="p-6">
+                {recentOS.length > 0 ? (
+                  <div className="space-y-4">
+                    {recentOS.map((os) => (
+                      <div key={os.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                        <div className="flex items-center space-x-4">
+                          <div className="p-2 bg-blue-100 rounded-lg">
+                            <FiFileText className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">OS #{os.numero_os || os.id.slice(0, 8)}</p>
+                            <p className="text-sm text-gray-600">{os.cliente?.nome || 'Cliente não informado'}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-medium text-gray-900">{os.status}</p>
+                          <p className="text-xs text-gray-500">{formatDate(os.created_at)}</p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        os.status === 'ABERTA' ? 'bg-yellow-100 text-yellow-800' :
-                        os.status === 'EM_ANALISE' ? 'bg-blue-100 text-blue-800' :
-                        os.status === 'AGUARDANDO_PECA' ? 'bg-orange-100 text-orange-800' :
-                        os.status === 'ENTREGUE' ? 'bg-green-100 text-green-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {os.status === 'ABERTA' ? 'Aguardando' :
-                         os.status === 'EM_ANALISE' ? 'Em Análise' :
-                         os.status === 'AGUARDANDO_PECA' ? 'Aguardando Peça' :
-                         os.status === 'ENTREGUE' ? 'Entregue' : os.status}
-                      </span>
-                      <span className="text-sm text-gray-500">
-                        {formatDate(os.created_at)}
-                      </span>
-                    </div>
+                    ))}
                   </div>
-                ))}
+                ) : (
+                  <div className="text-center py-8">
+                    <FiFileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500">Nenhuma OS encontrada</p>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
-        
-        {/* Alerta de Laudos Prontos */}
-        <LaudoProntoAlert />
-      </MenuLayout>
-    </ProtectedArea>
+      </ProtectedArea>
+    </MenuLayout>
   );
 } 
