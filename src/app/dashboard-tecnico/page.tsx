@@ -50,14 +50,18 @@ export default function DashboardTecnicoPage() {
   const [loading, setLoading] = useState(true);
   const [recentOS, setRecentOS] = useState<any[]>([]);
 
+  // ✅ VERIFICAÇÃO: Apenas técnicos podem acessar esta dashboard
   useEffect(() => {
-    // Removido redirecionamento automático para evitar loops
-    // Cada usuário pode acessar a dashboard que quiser
+    if (usuarioData?.nivel && usuarioData.nivel !== 'tecnico') {
+      console.log('🚫 Usuário não é técnico, redirecionando para dashboard admin...');
+      router.replace('/dashboard');
+      return;
+    }
     
-    if (user && usuarioData?.nivel) {
+    if (user && usuarioData?.nivel === 'tecnico') {
       fetchTecnicoData();
     }
-  }, [user, usuarioData?.nivel]);
+  }, [user, usuarioData?.nivel, router]);
 
   const fetchTecnicoData = async () => {
     if (!user) return;
