@@ -62,12 +62,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   
   // ✅ OTIMIZADO: Função para buscar dados do usuário com timeout
   const fetchUserData = useCallback(async (userId: string, sessionData: Session) => {
-    // Evitar chamadas duplicadas
-    if (usuarioData && empresaData) {
-      console.log('✅ Dados já carregados, pulando busca');
-      return;
-    }
-
     try {
       console.log('🚀 Iniciando busca otimizada de dados...');
       
@@ -98,7 +92,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       };
       setEmpresaData(mockEmpresaData);
     }
-  }, [usuarioData, empresaData]);
+  }, []);
 
   // ✅ DEFINIR clearSession ANTES dos useEffects
   const clearSession = useCallback(() => {
@@ -124,7 +118,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
 
-        if (session) {
+        if (session && !usuarioData && !empresaData) {
           setSession(session);
           setUser(session.user);
           await fetchUserData(session.user.id, session);
@@ -138,7 +132,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     initializeAuth();
-  }, [hasInitialized, fetchUserData]);
+  }, [hasInitialized, fetchUserData, usuarioData, empresaData]);
 
   // ✅ CORRIGIDO: Listener de mudanças de auth com tratamento completo
   useEffect(() => {
