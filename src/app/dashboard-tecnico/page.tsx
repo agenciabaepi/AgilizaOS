@@ -48,7 +48,19 @@ export default function DashboardTecnicoPage() {
     tecnicoRanking: 0
   });
   const [loading, setLoading] = useState(true);
+  const [timeoutReached, setTimeoutReached] = useState(false);
   const [recentOS, setRecentOS] = useState<any[]>([]);
+
+  // Timeout para evitar tela em branco
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      console.log('⚠️ Timeout atingido, forçando carregamento da página');
+      setLoading(false);
+      setTimeoutReached(true);
+    }, 5000); // 5 segundos
+
+    return () => clearTimeout(timeout);
+  }, []);
 
   useEffect(() => {
     // Removido redirecionamento automático para evitar loops
@@ -221,12 +233,15 @@ export default function DashboardTecnicoPage() {
     return new Date(dateString).toLocaleDateString('pt-BR');
   };
 
-  if (loading) {
+  if (loading && !timeoutReached) {
     return (
       <ProtectedArea area="bancada">
         <MenuLayout>
           <div className="p-6 flex justify-center items-center min-h-[400px]">
-            <span className="text-gray-500">Carregando dashboard...</span>
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-gray-900 mx-auto mb-4"></div>
+              <span className="text-gray-500">Carregando dashboard...</span>
+            </div>
           </div>
         </MenuLayout>
       </ProtectedArea>
