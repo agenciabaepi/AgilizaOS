@@ -118,7 +118,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
 
-        if (session && !usuarioData && !empresaData) {
+        if (session) {
           setSession(session);
           setUser(session.user);
           await fetchUserData(session.user.id, session);
@@ -132,7 +132,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     initializeAuth();
-  }, [hasInitialized, fetchUserData, usuarioData, empresaData]);
+  }, [hasInitialized, fetchUserData]);
 
   // ✅ CORRIGIDO: Listener de mudanças de auth com tratamento completo
   useEffect(() => {
@@ -179,7 +179,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
 
     return () => subscription.unsubscribe();
-  }, [clearSession, fetchUserData]);
+  }, [clearSession]);
 
   // ✅ OTIMIZADO: Funções memoizadas
   const podeUsarFuncionalidade = useCallback((nomeFuncionalidade: string) => {
