@@ -84,14 +84,25 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
         missingFields: missingFields
       });
 
-      // 2. Cadastro de técnicos
-      const { data: tecnicos } = await supabase
-        .from('usuarios')
-        .select('id')
-        .eq('nivel', 'tecnico')
-        .eq('empresa_id', usuarioData?.empresa_id);
+      // 2. Cadastro de técnicos com timeout
+      let tecnicosStatus: 'pending' | 'completed' | 'warning' = 'pending';
+      try {
+        const { data: tecnicos } = await Promise.race([
+          supabase
+            .from('usuarios')
+            .select('id')
+            .eq('nivel', 'tecnico')
+            .eq('empresa_id', usuarioData?.empresa_id),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout')), 5000)
+          )
+        ]);
 
-      const tecnicosStatus = tecnicos && tecnicos.length > 0 ? 'completed' : 'pending';
+        tecnicosStatus = tecnicos && tecnicos.length > 0 ? 'completed' : 'pending';
+      } catch (error) {
+        console.warn('⚠️ Timeout ao buscar técnicos:', error);
+        tecnicosStatus = 'pending'; // Assume que não há técnicos em caso de timeout
+      }
       
       items.push({
         id: 'tecnicos',

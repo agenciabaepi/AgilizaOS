@@ -1,6 +1,6 @@
 "use client";
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from 'react';
-import { supabase, forceLogout, fetchUserDataOptimized } from '@/lib/supabaseClient';
+import { supabase, fetchUserDataOptimized } from '@/lib/supabaseClient';
 import { Session, User } from '@supabase/supabase-js';
 import { podeUsarFuncionalidade as podeUsarFuncionalidadeUtil, isUsuarioTeste as isUsuarioTesteUtil } from '@/config/featureFlags';
 
@@ -57,41 +57,55 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [lastUpdate, setLastUpdate] = useState<number>(Date.now());
   const [loading, setLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [hasInitialized, setHasInitialized] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   
-  // ✅ OTIMIZADO: Função para buscar dados do usuário com timeout
+  // ✅ OTIMIZADO: Função para buscar dados do usuário com timeout e retry
   const fetchUserData = useCallback(async (userId: string, sessionData: Session) => {
-    try {
-      console.log('🚀 Iniciando busca otimizada de dados...');
-      
-      // Usar função otimizada com JOIN
-      const { userData, empresaData: companyData } = await fetchUserDataOptimized(userId);
-      
-      console.log('✅ Dados carregados com sucesso');
-      setUsuarioData(userData);
-      setEmpresaData(companyData);
-      
-    } catch (error) {
-      console.warn('⚠️ Erro na busca otimizada, usando fallback:', error);
-      
-      // Fallback para dados mock
-      const mockUsuarioData: UsuarioData = {
-        empresa_id: '550e8400-e29b-41d4-a716-446655440001',
-        nome: 'Usuário Teste',
-        email: sessionData.user.email || '',
-        nivel: 'usuarioteste',
-        permissoes: ['dashboard', 'ordens', 'clientes', 'equipamentos', 'financeiro', 'bancada', 'comissoes', 'termos', 'perfil', 'configuracoes']
-      };
-      setUsuarioData(mockUsuarioData);
-      
-      const mockEmpresaData: EmpresaData = {
-        id: '550e8400-e29b-41d4-a716-446655440001',
-        nome: 'Empresa Teste',
-        plano: 'trial'
-      };
-      setEmpresaData(mockEmpresaData);
-    }
+    let retryCount = 0;
+    const maxRetries = 3;
+    
+    const attemptFetch = async (): Promise<void> => {
+      try {
+        console.log(`🚀 Tentativa ${retryCount + 1} de busca otimizada de dados...`);
+        
+        // Usar função otimizada com JOIN
+        const { userData, empresaData: companyData } = await fetchUserDataOptimized(userId);
+        
+        console.log('✅ Dados carregados com sucesso');
+        setUsuarioData(userData);
+        setEmpresaData(companyData);
+        
+      } catch (error) {
+        console.warn(`⚠️ Erro na busca otimizada (tentativa ${retryCount + 1}):`, error);
+        
+        if (retryCount < maxRetries - 1) {
+          retryCount++;
+          console.log(`🔄 Tentando novamente em 2 segundos... (${retryCount}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          return attemptFetch();
+        }
+        
+        // Fallback para dados mock após todas as tentativas
+        console.log('🔄 Usando dados mock após falhas...');
+        const mockUsuarioData: UsuarioData = {
+          empresa_id: '550e8400-e29b-41d4-a716-446655440001',
+          nome: 'Usuário Teste',
+          email: sessionData.user.email || '',
+          nivel: 'usuarioteste',
+          permissoes: ['dashboard', 'ordens', 'clientes', 'equipamentos', 'financeiro', 'bancada', 'comissoes', 'termos', 'perfil', 'configuracoes']
+        };
+        setUsuarioData(mockUsuarioData);
+        
+        const mockEmpresaData: EmpresaData = {
+          id: '550e8400-e29b-41d4-a716-446655440001',
+          nome: 'Empresa Teste',
+          plano: 'trial'
+        };
+        setEmpresaData(mockEmpresaData);
+      }
+    };
+    
+    await attemptFetch();
   }, []);
 
   // ✅ DEFINIR clearSession ANTES dos useEffects
@@ -101,20 +115,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setSession(null);
     setUsuarioData(null);
     setEmpresaData(null);
-    setHasInitialized(false);
   }, []);
 
-  // ✅ OTIMIZADO: useEffect principal simplificado
+  // ✅ OTIMIZADO: useEffect principal com timeout
   useEffect(() => {
+    let isMounted = true;
+    let authTimeout: NodeJS.Timeout;
+    
     const initializeAuth = async () => {
       try {
         console.log('🔄 Inicializando autenticação...');
+        
+        // Timeout para evitar loading infinito
+        authTimeout = setTimeout(() => {
+          if (isMounted && loading) {
+            console.warn('⚠️ Timeout na inicialização da autenticação');
+            setLoading(false);
+          }
+        }, 20000); // 20 segundos
+        
         const { data: { session }, error } = await supabase.auth.getSession();
+
+        if (!isMounted) return;
 
         if (error) {
           console.error('❌ Erro ao obter sessão:', error);
           setLoading(false);
-          setHasInitialized(true);
           return;
         }
 
@@ -129,14 +155,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } catch (error) {
         console.error('❌ Erro na inicialização da autenticação:', error);
       } finally {
-        setLoading(false);
-        setHasInitialized(true);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
-    // Sempre executar, não importa se já foi inicializado
     initializeAuth();
-  }, [fetchUserData]);
+    
+    return () => {
+      isMounted = false;
+      if (authTimeout) {
+        clearTimeout(authTimeout);
+      }
+    };
+  }, []); // Removido fetchUserData das dependências para evitar loops
 
   // ✅ CORRIGIDO: Listener de mudanças de auth com tratamento completo
   useEffect(() => {
@@ -186,13 +219,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, [clearSession]);
 
-  // ✅ ADICIONADO: useEffect para garantir carregamento de dados quando usuário estiver disponível
-  useEffect(() => {
-    if (user && !usuarioData && !empresaData) {
-      console.log('🔄 Usuário disponível mas dados não carregados, carregando...');
-      fetchUserData(user.id, session!);
-    }
-  }, [user, usuarioData, empresaData, fetchUserData, session]);
+  // ✅ REMOVIDO: useEffect que causava loops infinitos
+  // Os dados são carregados apenas uma vez no useEffect principal
 
   // ✅ OTIMIZADO: Funções memoizadas
   const podeUsarFuncionalidade = useCallback((nomeFuncionalidade: string) => {
@@ -220,7 +248,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(data.session);
         setUser(data.session.user);
         // Removido fetchUserData daqui para evitar duplicação
-        setHasInitialized(true);
       }
     } catch (error) {
       console.error('Erro no login:', error);
