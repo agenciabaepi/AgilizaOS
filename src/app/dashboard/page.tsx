@@ -91,6 +91,14 @@ export default function DashboardPage() {
     }
   }, [usuarioData]);
 
+  // ✅ PROTEÇÃO: Apenas admins podem acessar esta dashboard
+  useEffect(() => {
+    if (usuarioData?.nivel && usuarioData.nivel !== 'admin') {
+      console.log('🚫 Acesso negado: Usuário não é admin, redirecionando...');
+      router.replace('/dashboard-tecnico');
+    }
+  }, [usuarioData?.nivel, router]);
+
 
 
   // Removido redirecionamento automático para evitar loops
