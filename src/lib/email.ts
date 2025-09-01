@@ -1,15 +1,17 @@
 import nodemailer from 'nodemailer'
 
-// Configuração do transportador SMTP da Hostinger
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.hostinger.com',
-  port: parseInt(process.env.SMTP_PORT || '465'),
-  secure: process.env.SMTP_SECURE === 'true' || true, // true para 465, false para outros
-  auth: {
-    user: process.env.SMTP_USER || 'suporte@gestaoconsert.com.br',
-    pass: process.env.SMTP_PASS
-  }
-})
+// Função para criar o transportador SMTP dinamicamente
+function criarTransporter() {
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.hostinger.com',
+    port: parseInt(process.env.SMTP_PORT || '465'),
+    secure: process.env.SMTP_SECURE === 'true' || true, // true para 465, false para outros
+    auth: {
+      user: process.env.SMTP_USER || 'suporte@gestaoconsert.com.br',
+      pass: process.env.SMTP_PASS
+    }
+  })
+}
 
 // Gerar código de verificação de 6 dígitos
 export function gerarCodigoVerificacao(): string {
@@ -33,6 +35,7 @@ export async function enviarEmailVerificacao(
     
     console.log('🔍 Debug - Tentando enviar email para:', email)
     
+    const transporter = criarTransporter()
     const info = await transporter.sendMail({
       from: '"Gestão Concert" <suporte@gestaoconsert.com.br>',
       to: email,
@@ -102,6 +105,7 @@ export async function enviarEmailVerificacao(
 // Verificar se as configurações estão corretas
 export async function verificarConfiguracao(): Promise<boolean> {
   try {
+    const transporter = criarTransporter()
     await transporter.verify()
     console.log('✅ Configuração SMTP verificada com sucesso')
     return true

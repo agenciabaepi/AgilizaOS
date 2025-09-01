@@ -22,7 +22,7 @@ SMTP_HOST=smtp.hostinger.com
 SMTP_PORT=465
 SMTP_SECURE=true
 SMTP_USER=suporte@gestaoconsert.com.br
-SMTP_PASS=A_SENHA_DA_SUA_CAIXA_DE_EMAIL
+SMTP_PASS=@Deusefiel7loja2025
 ```
 
 ### **2. Executar SQL no Supabase:**

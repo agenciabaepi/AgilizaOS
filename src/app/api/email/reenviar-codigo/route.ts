@@ -83,19 +83,6 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Verificar configuração SMTP antes de enviar
-    console.log('🔍 Debug - Verificando configuração SMTP...')
-    const { verificarConfiguracao } = await import('@/lib/email')
-    const configuracaoOk = await verificarConfiguracao()
-    
-    if (!configuracaoOk) {
-      console.log('❌ Debug - Configuração SMTP inválida')
-      return NextResponse.json(
-        { error: 'Configuração de email inválida. Entre em contato com o suporte.' },
-        { status: 500 }
-      )
-    }
-    
     // Enviar email
     console.log('🔍 Debug - Enviando email:', { email, codigo, nomeEmpresa })
     const emailEnviado = await enviarEmailVerificacao(email, codigo, nomeEmpresa)

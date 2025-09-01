@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verificarConfiguracao, enviarEmailVerificacao } from '@/lib/email'
+import { enviarEmailVerificacao } from '@/lib/email'
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,38 +12,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('🔍 Debug - Teste de configuração SMTP para:', email)
+           console.log('🔍 Debug - Teste de envio de email para:', email)
 
-    // Teste 1: Verificar configuração SMTP
-    console.log('🔍 Debug - Teste 1: Verificando configuração SMTP...')
-    const configuracaoOk = await verificarConfiguracao()
-    
-    if (!configuracaoOk) {
-      console.log('❌ Debug - Configuração SMTP inválida')
-      return NextResponse.json({
-        success: false,
-        error: 'Configuração SMTP inválida',
-        details: 'As configurações de email não estão corretas'
-      }, { status: 500 })
-    }
+              // Tentar enviar email de teste
+       console.log('🔍 Debug - Tentando enviar email de teste...')
+       const codigoTeste = '123456'
+       const emailEnviado = await enviarEmailVerificacao(email, codigoTeste, 'TESTE')
 
-    console.log('✅ Debug - Configuração SMTP válida')
+       if (!emailEnviado) {
+         console.log('❌ Debug - Falha ao enviar email de teste')
+         return NextResponse.json({
+           success: false,
+           error: 'Falha ao enviar email',
+           details: 'O email não foi enviado'
+         }, { status: 500 })
+       }
 
-    // Teste 2: Tentar enviar email de teste
-    console.log('🔍 Debug - Teste 2: Tentando enviar email de teste...')
-    const codigoTeste = '123456'
-    const emailEnviado = await enviarEmailVerificacao(email, codigoTeste, 'TESTE')
-
-    if (!emailEnviado) {
-      console.log('❌ Debug - Falha ao enviar email de teste')
-      return NextResponse.json({
-        success: false,
-        error: 'Falha ao enviar email',
-        details: 'O email não foi enviado, mas a configuração SMTP está correta'
-      }, { status: 500 })
-    }
-
-    console.log('✅ Debug - Email de teste enviado com sucesso')
+       console.log('✅ Debug - Email de teste enviado com sucesso')
 
     return NextResponse.json({
       success: true,
