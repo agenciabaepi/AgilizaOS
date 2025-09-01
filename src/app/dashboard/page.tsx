@@ -79,6 +79,18 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
 
+  // ✅ DEBUG: Mostrar nível do usuário atual
+  useEffect(() => {
+    if (usuarioData) {
+      console.log('🔍 Usuário atual:', {
+        nome: usuarioData.nome,
+        email: usuarioData.email,
+        nivel: usuarioData.nivel,
+        empresa_id: usuarioData.empresa_id
+      });
+    }
+  }, [usuarioData]);
+
   // Removido redirecionamento automático para evitar loops
   // Cada usuário pode acessar a dashboard que quiser
 
