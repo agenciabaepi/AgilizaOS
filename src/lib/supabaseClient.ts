@@ -108,6 +108,8 @@ export const isValidSession = async () => {
 // Função otimizada para buscar dados do usuário
 export const fetchUserDataOptimized = async (userId: string) => {
   try {
+    console.log('🔍 Iniciando busca de dados para userId:', userId);
+    
     const { data, error } = await supabase
       .from('usuarios')
       .select(`
@@ -122,9 +124,32 @@ export const fetchUserDataOptimized = async (userId: string) => {
       .single();
 
     if (error) {
+      console.error('❌ Erro ao buscar usuário:', error);
       throw error;
     }
+    
+    console.log('✅ Usuário encontrado:', data);
 
+    // Verificar se o usuário tem empresa_id
+    if (!data.empresa_id) {
+      console.warn('⚠️ Usuário sem empresa_id, retornando dados básicos');
+      return {
+        userData: {
+          empresa_id: null,
+          nome: data.nome,
+          email: data.email,
+          nivel: data.nivel,
+          permissoes: data.permissoes,
+          foto_url: data.foto_url
+        },
+        empresaData: {
+          id: null,
+          nome: 'Empresa',
+          plano: 'trial'
+        }
+      };
+    }
+    
     // Buscar dados reais da empresa
     console.log('🔍 BUSCANDO EMPRESA:', {
       empresa_id: data.empresa_id,
@@ -199,7 +224,11 @@ export const fetchUserDataOptimized = async (userId: string) => {
     return result;
     
   } catch (error) {
-    console.error('❌ Erro ao buscar dados otimizados:', error);
+    console.error('❌ Erro ao buscar dados otimizados:', {
+      error: error,
+      message: error instanceof Error ? error.message : 'Erro desconhecido',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     throw error;
   }
 };
