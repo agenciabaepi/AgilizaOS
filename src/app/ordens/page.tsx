@@ -710,10 +710,10 @@ export default function ListaOrdensPage() {
 
           {/* Abas */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
-            <div className="flex border-b border-gray-200 overflow-x-auto">
+            <div className="flex flex-col md:flex-row border-b md:border-b-0 border-gray-200">
               <button
                 onClick={() => handleTabChange('todas')}
-                className={`px-3 md:px-6 py-3 md:py-4 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${
+                className={`px-4 md:px-6 py-3 md:py-4 font-medium text-sm border-b-2 md:border-b-2 border-r-0 md:border-r-0 transition-colors ${
                   activeTab === 'todas'
                     ? 'border-blue-500 text-blue-600 bg-blue-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
@@ -904,10 +904,10 @@ export default function ListaOrdensPage() {
           </div>
         </div>
 
-        {/* Tabela */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
-            <div className="w-full min-w-[800px]">
-              <table className="w-full table-fixed divide-y divide-gray-200">
+        {/* Tabela - Desktop */}
+        <div className="hidden md:block bg-white rounded-xl shadow-sm border border-gray-200">
+          <div className="w-full">
+            <table className="w-full table-fixed divide-y divide-gray-200">
                 <colgroup>
                   <col className="w-20" />
                   <col className="w-16" />
@@ -1109,8 +1109,73 @@ export default function ListaOrdensPage() {
               </tbody>
             </table>
             </div>
+          </div>
 
-            {/* Estado vazio */}
+          {/* Cards Mobile - Layout responsivo para mobile */}
+          <div className="md:hidden space-y-4">
+            {paginated.map((os) => (
+              <div 
+                key={os.id} 
+                className={`bg-white rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer ${
+                  os.tipo === 'Retorno' ? 'border-l-4 border-l-red-400 bg-red-50/30' : ''
+                }`}
+                onClick={() => router.push(`/ordens/${os.id}`)}
+              >
+                {/* Header do card */}
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-gray-900">#{os.numero}</span>
+                    {os.tipo === 'Retorno' && (
+                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                    )}
+                  </div>
+                  <div className={`px-2 py-1 text-xs rounded-full font-medium ${getStatusColor(os.statusOS)}`}>
+                    {os.statusOS}
+                  </div>
+                </div>
+
+                {/* Cliente */}
+                <div className="mb-3">
+                  <div className="text-sm font-medium text-gray-900">{os.cliente || 'N/A'}</div>
+                  <div className="text-xs text-gray-600">{os.clienteTelefone || 'N/A'}</div>
+                </div>
+
+                {/* Aparelho e Serviço */}
+                <div className="mb-3">
+                  <div className="text-sm font-medium text-gray-800">{os.aparelho || 'N/A'}</div>
+                  <div className="text-xs text-gray-600">{os.servico || 'N/A'}</div>
+                </div>
+
+                {/* Informações técnicas */}
+                <div className="grid grid-cols-2 gap-4 mb-3 text-xs">
+                  <div>
+                    <div className="text-gray-500">Técnico</div>
+                    <div className="font-medium text-gray-900">{os.tecnico || 'N/A'}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500">Total</div>
+                    <div className="font-medium text-gray-900">{formatCurrency(os.valorTotal)}</div>
+                  </div>
+                </div>
+
+                {/* Status técnico e faturado */}
+                <div className="flex items-center justify-between text-xs">
+                  <div>
+                    <div className="text-gray-500">Status Técnico</div>
+                    <div className="font-medium text-gray-900">{os.statusTecnico || 'N/A'}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-gray-500">Faturado</div>
+                    <div className={`font-medium ${os.foiFaturada ? 'text-green-600' : 'text-gray-500'}`}>
+                      {os.foiFaturada ? 'Faturado' : 'Aguardando'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Estado vazio */}
             {!loading && paginated.length === 0 && (
               <div className="text-center py-12">
                 <FiAlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -1170,7 +1235,6 @@ export default function ListaOrdensPage() {
               </Button>
               </div>
           )}
-                </div>
         
         {/* Alerta de Laudos Prontos */}
         <LaudoProntoAlert />
