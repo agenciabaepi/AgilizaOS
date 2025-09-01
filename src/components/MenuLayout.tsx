@@ -515,7 +515,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
         </div>
       )}
       {/* Main area with header and content */}
-      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ml-0 md:${menuRecolhido ? 'ml-16' : 'ml-64'}`}>
+      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ml-0 ${menuRecolhido ? 'md:ml-16' : 'md:ml-64'}`}>
         {/* TopHeader */}
         <header className="w-full h-16 bg-white border-b border-zinc-200 flex items-center justify-between px-4 md:px-6 sticky top-0 z-30 no-print">
           {/* Botão menu mobile */}
