@@ -40,28 +40,13 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
   const [onboardingItems, setOnboardingItems] = useState<OnboardingItem[]>([]);
   const [showTecnicoModal, setShowTecnicoModal] = useState(false);
 
-  // Verificar status dos itens de onboarding
-  useEffect(() => {
-    if (isOpen) {
-      checkOnboardingStatus();
-    }
-  }, [isOpen, usuarioData, empresaData]);
-
-  // ✅ VERIFICAÇÃO: Mostrar onboarding apenas para admins
-  const isAdmin = usuarioData?.nivel === 'admin';
-  
-  // Se não for admin, não mostrar o modal
-  if (!isAdmin) {
-    return null;
-  }
-
   const checkOnboardingStatus = async () => {
     setLoading(true);
     
     try {
       const items: OnboardingItem[] = [];
 
-            // 1. Dados da empresa - verificação de todos os campos obrigatórios
+      // 1. Dados da empresa - verificação de todos os campos obrigatórios
       const empresaFields = {
         logo: !!empresaData?.logo_url && empresaData.logo_url.trim() !== '',
         nome: !!empresaData?.nome && empresaData.nome.trim() !== '',
@@ -106,34 +91,36 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
         .eq('nivel', 'tecnico')
         .eq('empresa_id', usuarioData?.empresa_id);
 
-      const tecnicosStatus = tecnicos && tecnicos.length > 0 ? 'completed' : 'warning';
+      const tecnicosStatus = tecnicos && tecnicos.length > 0 ? 'completed' : 'pending';
+      
       items.push({
         id: 'tecnicos',
         title: 'Cadastro de Técnicos',
-        description: tecnicos && tecnicos.length > 0 
-          ? `${tecnicos.length} técnico(s) cadastrado(s)`
-          : 'Cadastre pelo menos 1 técnico para criar OS',
+        description: 'Cadastre pelo menos um técnico para criar Ordens de Serviço',
         icon: <FiUsers className="w-5 h-5" />,
         status: tecnicosStatus,
-        action: () => setShowTecnicoModal(true),
+        action: () => {
+          onClose(); // Fechar modal primeiro
+          router.push('/configuracoes?tab=1'); // Aba de usuários
+        },
         required: true
-      });
-
-
-
-      console.log('🔍 Debug OnboardingModal:', {
-        empresaData,
-        empresaStatus,
-        tecnicos: tecnicos?.length || 0
       });
 
       setOnboardingItems(items);
     } catch (error) {
       console.error('Erro ao verificar status do onboarding:', error);
+      addToast('error', 'Erro ao carregar status do onboarding');
     } finally {
       setLoading(false);
     }
   };
+
+  // Verificar status dos itens de onboarding
+  useEffect(() => {
+    if (isOpen) {
+      checkOnboardingStatus();
+    }
+  }, [isOpen, usuarioData, empresaData]);
 
   const handleSkip = () => {
     addToast('info', 'Onboarding pulado. Você pode completar as configurações depois.');
@@ -184,7 +171,13 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
   const totalRequiredItems = requiredItems.length;
   const progress = totalRequiredItems > 0 ? (completedRequiredItems / totalRequiredItems) * 100 : 0;
 
-  if (!isOpen) return null;
+  // ✅ VERIFICAÇÃO: Mostrar onboarding apenas para admins
+  const isAdmin = usuarioData?.nivel === 'admin';
+  
+  // Se não for admin ou não estiver aberto, não mostrar o modal
+  if (!isOpen || !isAdmin) {
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -286,13 +279,13 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
           </Button>
           
           <div className="flex space-x-3">
-                          <Button
-                onClick={handleComplete}
-                disabled={completedRequiredItems < totalRequiredItems}
-                className="bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
-              >
-                Concluir Onboarding ({completedRequiredItems}/{totalRequiredItems})
-              </Button>
+            <Button
+              onClick={handleComplete}
+              disabled={completedRequiredItems < totalRequiredItems}
+              className="bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              Concluir Onboarding ({completedRequiredItems}/{totalRequiredItems})
+            </Button>
           </div>
         </div>
       </div>
@@ -317,16 +310,16 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
                 >
                   Cancelar
                 </Button>
-                                  <Button
-                    onClick={() => {
-                      setShowTecnicoModal(false);
-                      onClose(); // Fechar modal de onboarding
-                      router.push('/configuracoes?tab=1'); // Aba de usuários
-                    }}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    Cadastrar Técnico
-                  </Button>
+                <Button
+                  onClick={() => {
+                    setShowTecnicoModal(false);
+                    onClose(); // Fechar modal de onboarding
+                    router.push('/configuracoes?tab=1'); // Aba de usuários
+                  }}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  Cadastrar Técnico
+                </Button>
               </div>
             </div>
           </div>
