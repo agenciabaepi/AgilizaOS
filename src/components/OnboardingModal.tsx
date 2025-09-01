@@ -47,6 +47,14 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
     }
   }, [isOpen, usuarioData, empresaData]);
 
+  // ✅ VERIFICAÇÃO: Mostrar onboarding apenas para admins
+  const isAdmin = usuarioData?.nivel === 'admin';
+  
+  // Se não for admin, não mostrar o modal
+  if (!isAdmin) {
+    return null;
+  }
+
   const checkOnboardingStatus = async () => {
     setLoading(true);
     
