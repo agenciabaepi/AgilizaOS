@@ -29,7 +29,7 @@ interface TecnicoMetrics {
 
 export default function DashboardTecnicoPage() {
   const router = useRouter();
-  const { user, usuarioData } = useAuth();
+  const { user, usuarioData, empresaData } = useAuth();
   const [metrics, setMetrics] = useState<TecnicoMetrics>({
     totalOS: 0,
     finalizadasMes: 0,
@@ -51,8 +51,8 @@ export default function DashboardTecnicoPage() {
   const [recentOS, setRecentOS] = useState<any[]>([]);
 
   useEffect(() => {
-    // Verificar se o usuário tem permissão para acessar esta dashboard
-    if (usuarioData?.nivel) {
+    // Só verificar permissões se os dados estiverem completamente carregados
+    if (usuarioData?.nivel && empresaData?.id) {
       if (usuarioData.nivel === 'admin') {
         router.replace('/dashboard');
         return;
@@ -62,10 +62,10 @@ export default function DashboardTecnicoPage() {
       }
     }
 
-    if (user) {
+    if (user && usuarioData?.nivel) {
       fetchTecnicoData();
     }
-  }, [user, usuarioData?.nivel, router]);
+  }, [user, usuarioData?.nivel, empresaData?.id, router]);
 
   const fetchTecnicoData = async () => {
     if (!user) return;

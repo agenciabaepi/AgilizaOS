@@ -81,14 +81,15 @@ export default function DashboardPage() {
 
   // Redirecionamento automático baseado no nível do usuário
   useEffect(() => {
-    if (usuarioData?.nivel && usuarioData.nivel !== 'admin' && usuarioData.nivel !== 'usuarioteste') {
+    // Só redirecionar se os dados do usuário estiverem completamente carregados
+    if (usuarioData?.nivel && empresaData?.id) {
       if (usuarioData.nivel === 'atendente') {
         window.location.href = '/dashboard-atendente';
       } else if (usuarioData.nivel === 'tecnico') {
         window.location.href = '/dashboard-tecnico';
       }
     }
-  }, [usuarioData?.nivel, router]);
+  }, [usuarioData?.nivel, empresaData?.id, router]);
 
   // Mostrar onboarding sempre que não estiver completo
   useEffect(() => {
