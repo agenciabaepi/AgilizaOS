@@ -656,7 +656,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             </div>
             
             {/* Navegação mobile */}
-            <nav className="flex flex-col p-4 space-y-2 overflow-y-auto">
+            <nav className="flex flex-col p-4 space-y-2 overflow-y-auto flex-1">
               {/* Dashboard */}
               {(podeVer('dashboard') || usuarioData?.nivel === 'tecnico' || usuarioData?.nivel === 'atendente') && (
                 <MobileMenuItem
@@ -910,9 +910,11 @@ function MobileMenuItem({
   const router = useRouter();
   
   const handleClick = () => {
+    console.log('🔄 MobileMenuItem clicked:', { path, label, hasOnClick: !!onClick });
     if (onClick) {
       onClick();
     } else if (path && path !== '#' && !path.startsWith('#')) {
+      console.log('🚀 Navigating to:', path);
       router.push(path);
     }
   };
