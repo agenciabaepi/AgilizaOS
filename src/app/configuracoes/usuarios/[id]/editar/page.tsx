@@ -267,7 +267,7 @@ function EditarUsuarioPageInner() {
       try {
         // Buscar dados do usuário
         const { data: usuarioData, error: usuarioError } = await supabase
-          .from('usuarios')
+        .from('usuarios')
           .select(`
             nome, 
             email, 
@@ -279,7 +279,7 @@ function EditarUsuarioPageInner() {
             auth_user_id,
             empresa_id
           `)
-          .eq('id', userId)
+        .eq('id', userId)
           .single();
 
         console.log('📊 Resultado da busca:', { usuarioData, usuarioError });
@@ -323,15 +323,15 @@ function EditarUsuarioPageInner() {
             usuario: usuarioData.usuario
           });
           addToast('error', 'Dados do usuário incompletos ou inválidos');
-          setLoading(false);
-          return;
-        }
+        setLoading(false);
+        return;
+      }
 
-        setForm({
+      setForm({
           nome: usuarioData.nome || '',
           email: usuarioData.email || '',
           usuario: usuarioData.usuario || '',
-          senha: '',
+        senha: '',
           cpf: usuarioData.cpf || '',
           whatsapp: usuarioData.whatsapp || '',
           nivel: usuarioData.nivel || '',
@@ -345,7 +345,7 @@ function EditarUsuarioPageInner() {
         console.error('💥 Erro inesperado ao carregar usuário:', error);
         addToast('error', `Erro inesperado ao carregar usuário: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
       } finally {
-        setLoading(false);
+      setLoading(false);
       }
     };
 
@@ -507,32 +507,32 @@ function EditarUsuarioPageInner() {
     setSaving(true);
     
     try {
-      const updateData: any = {
-        id: userId,
-        nome: form.nome,
-        email: form.email,
-        usuario: form.usuario.trim().toLowerCase(),
+    const updateData: any = {
+      id: userId,
+      nome: form.nome,
+      email: form.email,
+      usuario: form.usuario.trim().toLowerCase(),
         cpf: form.cpf?.trim() || null, // ⭐ Envia null se CPF estiver vazio
-        whatsapp: form.whatsapp,
-        nivel: form.nivel,
-        permissoes: form.permissoes,
-        auth_user_id: form.auth_user_id,
-      };
+      whatsapp: form.whatsapp,
+      nivel: form.nivel,
+      permissoes: form.permissoes,
+      auth_user_id: form.auth_user_id,
+    };
       
-      if (form.senha) {
-        updateData.senha = form.senha;
-      }
+    if (form.senha) {
+      updateData.senha = form.senha;
+    }
 
-      // Chama a API de edição
-      const response = await fetch('/api/usuarios/editar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData),
-      });
+    // Chama a API de edição
+    const response = await fetch('/api/usuarios/editar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updateData),
+    });
       
-      const result = await response.json();
+    const result = await response.json();
       
-      if (!response.ok) {
+    if (!response.ok) {
         throw new Error(result.error || 'Erro ao salvar alterações');
       }
       
@@ -602,7 +602,7 @@ function EditarUsuarioPageInner() {
                   </div>
                 </div>
               </div>
-            </div>
+        </div>
           </CardHeader>
           
           <CardContent className="p-6">
@@ -620,16 +620,16 @@ function EditarUsuarioPageInner() {
                     <label className="text-sm font-medium text-gray-700">
                       Nome Completo *
                     </label>
-                    <input
-                      type="text"
-                      name="nome"
-                      value={form.nome}
-                      onChange={handleChange}
+              <input
+                type="text"
+                name="nome"
+                value={form.nome}
+                onChange={handleChange}
                       className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
                       placeholder="Digite o nome completo"
-                      required
-                    />
-                  </div>
+                required
+              />
+            </div>
 
                   {/* Usuário */}
                   <div className="space-y-2">
@@ -637,19 +637,19 @@ function EditarUsuarioPageInner() {
                       Nome de Usuário *
                     </label>
                     <div className="relative">
-                      <input
-                        type="text"
-                        name="usuario"
-                        value={form.usuario}
-                        onChange={handleChange}
+              <input
+                type="text"
+                name="usuario"
+                value={form.usuario}
+                onChange={handleChange}
                         className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
                           usuarioValido 
                             ? 'border-gray-300 focus:ring-gray-900' 
                             : 'border-red-500 focus:ring-red-500'
                         }`}
                         placeholder="Digite o nome de usuário"
-                        required
-                      />
+                required
+              />
                       {form.usuario && (
                         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                           {usuarioValido ? (
@@ -663,7 +663,7 @@ function EditarUsuarioPageInner() {
                     {form.usuario && !usuarioValido && (
                       <p className="text-red-500 text-xs">Nome de usuário já existe</p>
                     )}
-                  </div>
+            </div>
 
                   {/* E-mail */}
                   <div className="space-y-2">
@@ -671,19 +671,19 @@ function EditarUsuarioPageInner() {
                       E-mail *
                     </label>
                     <div className="relative">
-                      <input
-                        type="email"
-                        name="email"
-                        value={form.email}
-                        onChange={handleChange}
+              <input
+                type="email"
+                name="email"
+                value={form.email}
+                onChange={handleChange}
                         className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
                           emailValido 
                             ? 'border-gray-300 focus:ring-gray-900' 
                             : 'border-red-500 focus:ring-red-500'
                         }`}
                         placeholder="Digite o e-mail"
-                        required
-                      />
+                required
+              />
                       {form.email && (
                         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                           {emailValido ? (
@@ -697,7 +697,7 @@ function EditarUsuarioPageInner() {
                     {form.email && !emailValido && (
                       <p className="text-red-500 text-xs">E-mail inválido</p>
                     )}
-                  </div>
+            </div>
 
                   {/* Senha */}
                   <div className="space-y-2">
@@ -705,11 +705,11 @@ function EditarUsuarioPageInner() {
                       Nova Senha
                     </label>
                     <div className="relative">
-                      <input
+              <input
                         type={senhaVisivel ? 'text' : 'password'}
-                        name="senha"
-                        value={form.senha}
-                        onChange={handleChange}
+                name="senha"
+                value={form.senha}
+                onChange={handleChange}
                         className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200 pr-12"
                         placeholder="Deixe em branco para não alterar"
                       />
@@ -724,9 +724,9 @@ function EditarUsuarioPageInner() {
                           <Eye className="w-5 h-5" />
                         )}
                       </button>
-                    </div>
+            </div>
                     <p className="text-xs text-gray-500">Deixe em branco para manter a senha atual</p>
-                  </div>
+            </div>
 
                   {/* CPF */}
                   <div className="space-y-2">
@@ -734,11 +734,11 @@ function EditarUsuarioPageInner() {
                       CPF
                     </label>
                     <div className="relative">
-                      <input
-                        type="text"
-                        name="cpf"
-                        value={form.cpf}
-                        onChange={handleChange}
+              <input
+                type="text"
+                name="cpf"
+                value={form.cpf}
+                onChange={handleChange}
                         className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
                           cpfValido 
                             ? 'border-gray-300 focus:ring-gray-900' 
@@ -761,7 +761,7 @@ function EditarUsuarioPageInner() {
                         {form.cpf && validarCPF(form.cpf) ? 'CPF já cadastrado' : 'CPF inválido'}
                       </p>
                     )}
-                  </div>
+            </div>
 
 
 
@@ -770,35 +770,35 @@ function EditarUsuarioPageInner() {
                     <label className="text-sm font-medium text-gray-700">
                       WhatsApp
                     </label>
-                    <input
-                      type="text"
-                      name="whatsapp"
-                      value={form.whatsapp}
-                      onChange={handleChange}
+              <input
+                type="text"
+                name="whatsapp"
+                value={form.whatsapp}
+                onChange={handleChange}
                       className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
                       placeholder="(00) 00000-0000"
-                    />
-                  </div>
+              />
+            </div>
 
                   {/* Nível */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700">
                       Nível de Acesso *
                     </label>
-                    <select
-                      name="nivel"
-                      value={form.nivel}
-                      onChange={handleChange}
+              <select
+                name="nivel"
+                value={form.nivel}
+                onChange={handleChange}
                       className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
-                      required
-                    >
+                required
+              >
                       <option value="">Selecione o nível...</option>
-                      <option value="admin">Administrador</option>
-                      <option value="tecnico">Técnico</option>
-                      <option value="atendente">Atendente</option>
-                      <option value="financeiro">Financeiro</option>
-                    </select>
-                  </div>
+                <option value="admin">Administrador</option>
+                <option value="tecnico">Técnico</option>
+                <option value="atendente">Atendente</option>
+                <option value="financeiro">Financeiro</option>
+              </select>
+            </div>
                 </div>
               </div>
 
@@ -1073,7 +1073,7 @@ function EditarUsuarioPageInner() {
                   </div>
 
                   {/* Módulos Avançados */}
-                  <div>
+            <div>
                     <h4 className="text-md font-semibold text-gray-800 mb-3">Módulos Avançados</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {PERMISSOES_CASCATA.avancadas.map((permissao) => {
@@ -1089,8 +1089,8 @@ function EditarUsuarioPageInner() {
                                 : 'border-gray-200 bg-white hover:border-gray-300'
                             }`}
                           >
-                            <input
-                              type="checkbox"
+                    <input
+                      type="checkbox"
                               checked={isChecked}
                               onChange={() => handlePermissaoChange(permissao.key)}
                               className="mt-1 w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
@@ -1106,7 +1106,7 @@ function EditarUsuarioPageInner() {
                                 {permissao.description}
                               </p>
                             </div>
-                          </label>
+                  </label>
                         );
                       })}
                     </div>
@@ -1133,14 +1133,14 @@ function EditarUsuarioPageInner() {
               {/* Botões de Ação */}
               <div className="flex justify-end gap-4 pt-6 border-t border-gray-200">
                 <button
-                  type="button"
+                type="button"
                   onClick={handleCancel}
                   className="px-6 py-3 text-gray-700 bg-gray-100 rounded-lg font-medium hover:bg-gray-200 transition-all duration-200"
-                >
-                  Cancelar
+              >
+                Cancelar
                 </button>
                 <button
-                  type="submit"
+                type="submit"
                   disabled={saving || !emailValido || !usuarioValido}
                   className="bg-gray-900 text-white px-8 py-3 rounded-lg font-medium hover:bg-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
@@ -1156,8 +1156,8 @@ function EditarUsuarioPageInner() {
                     </>
                   )}
                 </button>
-              </div>
-            </form>
+            </div>
+          </form>
           </CardContent>
         </Card>
       </main>
