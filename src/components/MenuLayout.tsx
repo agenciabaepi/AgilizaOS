@@ -676,6 +676,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   icon={<FiFileText size={20} />}
                   label="Lembretes"
                   isActive={pathname === '/lembretes'}
+                  onNavigate={() => setMobileMenuOpen(false)}
                 />
               )}
               
@@ -686,7 +687,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   icon={<FiFileText size={20} />}
                   label="Ordens de Serviço"
                   isActive={pathname === '/ordens'}
-                  onClick={() => setMobileMenuOpen(false)}
+                  onNavigate={() => setMobileMenuOpen(false)}
                 />
               )}
               
@@ -697,7 +698,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   icon={<FiDollarSign size={20} />}
                   label="Caixa"
                   isActive={pathname === '/caixa'}
-                  onClick={() => setMobileMenuOpen(false)}
+                  onNavigate={() => setMobileMenuOpen(false)}
                 />
               )}
               
@@ -709,7 +710,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                     icon={<FiUsers size={20} />}
                     label="Clientes"
                     isActive={pathname === '/clientes'}
-                    onClick={() => setMobileMenuOpen(false)}
+                    onNavigate={() => setMobileMenuOpen(false)}
                   />
                   {podeVer('fornecedores') && (
                     <MobileMenuItem
@@ -717,7 +718,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                       icon={<FiTruck size={20} />}
                       label="Fornecedores"
                       isActive={pathname === '/fornecedores'}
-                      onClick={() => setMobileMenuOpen(false)}
+                      onNavigate={() => setMobileMenuOpen(false)}
                     />
                   )}
                 </>
@@ -731,22 +732,22 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                     icon={<FiBox size={20} />}
                     label="Produtos"
                     isActive={pathname === '/equipamentos'}
-                    onClick={() => setMobileMenuOpen(false)}
+                    onNavigate={() => setMobileMenuOpen(false)}
                   />
-                  <MobileMenuItem
-                    path="/equipamentos/categorias"
-                    icon={<FiGrid size={20} />}
-                    label="Categorias"
-                    isActive={pathname === '/equipamentos/categorias'}
-                    onClick={() => setMobileMenuOpen(false)}
-                  />
+                                      <MobileMenuItem
+                      path="/equipamentos/categorias"
+                      icon={<FiGrid size={20} />}
+                      label="Categorias"
+                      isActive={pathname === '/equipamentos/categorias'}
+                      onNavigate={() => setMobileMenuOpen(false)}
+                    />
                   {catalogoHabilitado && (
                     <MobileMenuItem
                       path="/catalogo"
                       icon={<FiStar size={20} />}
                       label="Catálogo"
                       isActive={pathname === '/catalogo'}
-                      onClick={() => setMobileMenuOpen(false)}
+                      onNavigate={() => setMobileMenuOpen(false)}
                     />
                   )}
                 </>
@@ -760,21 +761,21 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                     icon={<FiFileText size={20} />}
                     label="Vendas"
                     isActive={pathname === '/financeiro/vendas'}
-                    onClick={() => setMobileMenuOpen(false)}
+                    onNavigate={() => setMobileMenuOpen(false)}
                   />
                   <MobileMenuItem
                     path="/financeiro/movimentacoes-caixa"
                     icon={<FiDollarSign size={20} />}
                     label="Movimentações Caixa"
                     isActive={pathname === '/financeiro/movimentacoes-caixa'}
-                    onClick={() => setMobileMenuOpen(false)}
+                    onNavigate={() => setMobileMenuOpen(false)}
                   />
                   <MobileMenuItem
                     path="/financeiro/contas-a-pagar"
                     icon={<FiFileText size={20} />}
                     label="Contas a Pagar"
                     isActive={pathname === '/financeiro/contas-a-pagar'}
-                    onClick={() => setMobileMenuOpen(false)}
+                    onNavigate={() => setMobileMenuOpen(false)}
                   />
                 </>
               )}
@@ -786,7 +787,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   icon={<FiTool size={20} />}
                   label="Bancada"
                   isActive={pathname === '/bancada'}
-                  onClick={() => setMobileMenuOpen(false)}
+                  onNavigate={() => setMobileMenuOpen(false)}
                 />
               )}
               
@@ -797,7 +798,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   icon={<FiDollarSign size={20} />}
                   label="Comissões"
                   isActive={pathname === '/comissoes'}
-                  onClick={() => setMobileMenuOpen(false)}
+                  onNavigate={() => setMobileMenuOpen(false)}
                 />
               )}
               
@@ -807,7 +808,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                 icon={<FiUsers size={20} />}
                 label="Meu Perfil"
                 isActive={pathname === '/perfil'}
-                onClick={() => setMobileMenuOpen(false)}
+                onNavigate={() => setMobileMenuOpen(false)}
               />
               
               {/* Configurações */}
@@ -817,7 +818,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   icon={<FiTool size={20} />}
                   label="Configurações"
                   isActive={pathname === '/configuracoes'}
-                  onClick={() => setMobileMenuOpen(false)}
+                  onNavigate={() => setMobileMenuOpen(false)}
                 />
               )}
               
