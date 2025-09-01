@@ -59,6 +59,8 @@ export default function ListaOrdensPage() {
   // Estados da lista
   const [ordens, setOrdens] = useState<OrdemTransformada[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingOrdens, setLoadingOrdens] = useState(false);
+  const [loadingTecnicos, setLoadingTecnicos] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [aparelhoFilter, setAparelhoFilter] = useState('');
@@ -200,9 +202,13 @@ export default function ListaOrdensPage() {
   };
 
   const fetchOrdens = async () => {
-    if (!empresaId) return;
+    if (!empresaId || !empresaId.trim()) {
+      console.warn('empresaId inválido:', empresaId);
+      setLoading(false);
+      return;
+    }
 
-      setLoading(true);
+    setLoadingOrdens(true);
     try {
       const { data, error } = await supabase
         .from('ordens_servico')
@@ -385,8 +391,13 @@ export default function ListaOrdensPage() {
       }
     } catch (error) {
       console.error('Erro ao carregar ordens:', error);
+      // Retry logic - tentar novamente em caso de erro
+      if (error instanceof Error && error.message.includes('network')) {
+        console.log('Erro de rede detectado, tentando novamente...');
+        setTimeout(() => fetchOrdens(), 2000);
+      }
     } finally {
-      setLoading(false);
+      setLoadingOrdens(false);
     }
   };
 
@@ -401,8 +412,12 @@ export default function ListaOrdensPage() {
   };
 
   const fetchTecnicos = async () => {
-    if (!empresaId) return;
+    if (!empresaId || !empresaId.trim()) {
+      console.warn('empresaId inválido para buscar técnicos:', empresaId);
+      return;
+    }
 
+    setLoadingTecnicos(true);
     try {
       const { data, error } = await supabase
         .from('usuarios')
@@ -415,16 +430,42 @@ export default function ListaOrdensPage() {
       }
     } catch (error) {
       console.error('Erro ao carregar técnicos:', error);
+      // Retry logic para técnicos
+      if (error instanceof Error && error.message.includes('network')) {
+        console.log('Erro de rede ao carregar técnicos, tentando novamente...');
+        setTimeout(() => fetchTecnicos(), 2000);
+      }
+    } finally {
+      setLoadingTecnicos(false);
     }
   };
 
   useEffect(() => {
     let isMounted = true;
+    let abortController = new AbortController();
     
     const fetchData = async () => {
-      if (isMounted && empresaId) {
-        await fetchOrdens();
-        await fetchTecnicos();
+      if (!isMounted || !empresaId || !empresaId.trim()) {
+        console.warn('empresaId inválido ou componente desmontado:', empresaId);
+        if (isMounted) setLoading(false);
+        return;
+      }
+      
+      try {
+        setLoading(true);
+        await Promise.all([
+          fetchOrdens(),
+          fetchTecnicos()
+        ]);
+      } catch (error) {
+        if (isMounted) {
+          console.error('Erro ao carregar dados:', error);
+          setLoading(false);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
     
@@ -432,8 +473,23 @@ export default function ListaOrdensPage() {
     
     return () => {
       isMounted = false;
+      abortController.abort();
     };
   }, [empresaId]);
+
+  // Timeout de loading para evitar loading infinito
+  useEffect(() => {
+    const loadingTimeout = setTimeout(() => {
+      if (loading) {
+        console.warn('⚠️ Loading timeout - resetando estado após 10 segundos');
+        setLoading(false);
+        setLoadingOrdens(false);
+        setLoadingTecnicos(false);
+      }
+    }, 10000); // 10 segundos
+
+    return () => clearTimeout(loadingTimeout);
+  }, [loading]);
 
   // Filtros e busca
   const filteredOrdens = useMemo(() => {
@@ -600,6 +656,24 @@ export default function ListaOrdensPage() {
            (os.statusOS?.toLowerCase() === 'aprovado' || 
             os.statusTecnico?.toLowerCase() === 'aprovado');
   }).length;
+
+  // Validação de dados da empresa
+  if (!empresaData?.id) {
+    console.warn('⚠️ Dados da empresa não carregados');
+    return (
+      <ProtectedArea area="ordens">
+        <MenuLayout>
+          <div className="p-4 md:p-8">
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Carregando dados da empresa...</h3>
+              <p className="text-gray-600">Aguarde enquanto carregamos suas informações</p>
+            </div>
+          </div>
+        </MenuLayout>
+      </ProtectedArea>
+    );
+  }
 
   return (
     <ProtectedArea area="ordens">
