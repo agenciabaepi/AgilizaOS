@@ -617,19 +617,19 @@ export default function ListaOrdensPage() {
   return (
     <ProtectedArea area="ordens">
       <MenuLayout>
-        <div className="p-8">
+        <div className="p-4 md:p-8">
           {/* Header com título e botão */}
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 md:mb-8 gap-4">
             <div>
-          <h1 className="text-3xl font-bold text-gray-900">Ordens de Serviço</h1>
-              <p className="text-gray-600 mt-1">
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Ordens de Serviço</h1>
+              <p className="text-gray-600 mt-1 text-sm md:text-base">
                 Gerencie todas as ordens de serviço da sua empresa
-                </p>
-              </div>
+              </p>
+            </div>
             <Button
               onClick={() => router.push("/nova-os")}
               size="lg"
-              className="bg-black text-white hover:bg-neutral-800 px-8 py-3 text-base font-semibold shadow-lg"
+              className="bg-black text-white hover:bg-neutral-800 px-6 md:px-8 py-3 text-sm md:text-base font-semibold shadow-lg w-full md:w-auto"
             >
               <FiPlus className="w-5 h-5 mr-2" />
               Nova OS
@@ -637,7 +637,7 @@ export default function ListaOrdensPage() {
           </div>
 
           {/* Cards principais - Dados Diários */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
             <DashboardCard
               title="OS do Dia"
               value={osHoje}
@@ -710,10 +710,10 @@ export default function ListaOrdensPage() {
 
           {/* Abas */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
-            <div className="flex border-b border-gray-200">
+            <div className="flex border-b border-gray-200 overflow-x-auto">
               <button
                 onClick={() => handleTabChange('todas')}
-                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
+                className={`px-3 md:px-6 py-3 md:py-4 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === 'todas'
                     ? 'border-blue-500 text-blue-600 bg-blue-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
@@ -905,8 +905,8 @@ export default function ListaOrdensPage() {
         </div>
 
         {/* Tabela */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-            <div className="w-full">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+            <div className="w-full min-w-[800px]">
               <table className="w-full table-fixed divide-y divide-gray-200">
                 <colgroup>
                   <col className="w-20" />
