@@ -210,36 +210,42 @@ export default function ListaOrdensPage() {
 
     setLoadingOrdens(true);
     try {
-      const { data, error } = await supabase
-        .from('ordens_servico')
-        .select(`
-          id,
-          numero_os,
-          cliente_id,
-          categoria,
-          marca,
-          modelo,
-          cor,
-          servico,
-          status,
-          status_tecnico,
-          created_at,
-          tecnico_id,
-          atendente,
-          data_entrega,
-          prazo_entrega,
-          valor_peca,
-          valor_servico,
-          desconto,
-          valor_faturado,
-          qtd_peca,
-          qtd_servico,
-          tipo,
-          vencimento_garantia,
-          clientes:cliente_id(nome, telefone, email),
-          tecnico:usuarios!tecnico_id(nome)
-        `)
-        .eq("empresa_id", empresaId);
+      // ✅ TIMEOUT: Evitar loading infinito na query principal
+      const { data, error } = await Promise.race([
+        supabase
+          .from('ordens_servico')
+          .select(`
+            id,
+            numero_os,
+            cliente_id,
+            categoria,
+            marca,
+            modelo,
+            cor,
+            servico,
+            status,
+            status_tecnico,
+            created_at,
+            tecnico_id,
+            atendente,
+            data_entrega,
+            prazo_entrega,
+            valor_peca,
+            valor_servico,
+            desconto,
+            valor_faturado,
+            qtd_peca,
+            qtd_servico,
+            tipo,
+            vencimento_garantia,
+            clientes:cliente_id(nome, telefone, email),
+            tecnico:usuarios!tecnico_id(nome)
+          `)
+          .eq("empresa_id", empresaId),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Query timeout')), 15000) // 15 segundos
+        )
+      ]);
 
       if (error) {
         console.error('Erro ao carregar OS:', error);
@@ -264,33 +270,38 @@ export default function ListaOrdensPage() {
           }
         }
 
-        // IMPORTANTE: Uma O.S. só deve aparecer como "faturada" se ela própria foi entregue
-        // Não por vendas anteriores do mesmo cliente
-        let vendasDict: Record<string, any> = {};
+        // ✅ OTIMIZADO: Busca de vendas com timeout e simplificação
+        const vendasDict: Record<string, any> = {};
         
-        // SOLUÇÃO SIMPLES: Buscar vendas igual à página de vendas
-        const { data: todasVendas, error: errorVendas } = await supabase
-          .from('vendas')
-          .select('id, cliente_id, forma_pagamento, total, status, data_venda')
-          .order('data_venda', { ascending: false });
-        
-        if (errorVendas) {
-          console.log('❌ Erro ao buscar vendas:', errorVendas);
-        } else if (todasVendas) {
-          console.log('✅ Vendas encontradas:', todasVendas.length);
+        try {
+          const { data: todasVendas, error: errorVendas } = await Promise.race([
+            supabase
+              .from('vendas')
+              .select('id, cliente_id, forma_pagamento, total, status, data_venda')
+              .order('data_venda', { ascending: false }),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Vendas timeout')), 8000) // 8 segundos
+            )
+          ]);
           
-          // Para cada O.S. entregue, buscar a venda correspondente
-          data.forEach((os: any) => {
-            if (os.valor_faturado > 0 && 
-                (os.status === 'ENTREGUE' || os.status_tecnico === 'FINALIZADA')) {
-              
+          if (errorVendas) {
+            console.log('❌ Erro ao buscar vendas:', errorVendas);
+          } else if (todasVendas) {
+            console.log('✅ Vendas encontradas:', todasVendas.length);
+            
+            // ✅ OTIMIZADO: Processar apenas OSs que realmente precisam de venda
+            const osEntregues = data.filter((os: any) => 
+              os.valor_faturado > 0 && 
+              (os.status === 'ENTREGUE' || os.status_tecnico === 'FINALIZADA')
+            );
+            
+            osEntregues.forEach((os: any) => {
               // Buscar a venda mais recente deste cliente
               const vendaCliente = todasVendas
                 .filter((v: any) => v.cliente_id === os.cliente_id)
                 .sort((a: any, b: any) => new Date(b.data_venda || 0).getTime() - new Date(a.data_venda || 0).getTime())[0];
               
               if (vendaCliente) {
-                console.log(`✅ Venda encontrada para O.S. ${os.id}:`, vendaCliente);
                 vendasDict[os.id] = {
                   id: vendaCliente.id,
                   cliente_id: vendaCliente.cliente_id,
@@ -298,14 +309,13 @@ export default function ListaOrdensPage() {
                   total: vendaCliente.total,
                   status: vendaCliente.status
                 };
-              } else {
-                console.log(`❌ Nenhuma venda encontrada para cliente ${os.cliente_id}`);
               }
-            }
-          });
+            });
+          }
+        } catch (error) {
+          console.warn('⚠️ Timeout na busca de vendas:', error);
+          // Continuar sem dados de vendas
         }
-        
-        console.log('📊 vendasDict final:', vendasDict);
 
         const mapped = data.map((item: any) => {
           // manter datas como YYYY-MM-DD para evitar timezone
@@ -391,11 +401,7 @@ export default function ListaOrdensPage() {
       }
     } catch (error) {
       console.error('Erro ao carregar ordens:', error);
-      // Retry logic - tentar novamente em caso de erro
-      if (error instanceof Error && error.message.includes('network')) {
-        console.log('Erro de rede detectado, tentando novamente...');
-        setTimeout(() => fetchOrdens(), 2000);
-      }
+      // ✅ REMOVIDO: Retry automático que causava loops infinitos
     } finally {
       setLoadingOrdens(false);
     }
@@ -419,22 +425,24 @@ export default function ListaOrdensPage() {
 
     setLoadingTecnicos(true);
     try {
-      const { data, error } = await supabase
-        .from('usuarios')
-        .select('nome')
-        .eq('empresa_id', empresaId)
-        .eq('nivel', 'tecnico');
+      // ✅ TIMEOUT: Evitar loading infinito na busca de técnicos
+      const { data, error } = await Promise.race([
+        supabase
+          .from('usuarios')
+          .select('nome')
+          .eq('empresa_id', empresaId)
+          .eq('nivel', 'tecnico'),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Técnicos timeout')), 5000) // 5 segundos
+        )
+      ]);
 
       if (!error && data) {
         setTecnicos(data.map((u: any) => u.nome).filter(Boolean));
       }
     } catch (error) {
       console.error('Erro ao carregar técnicos:', error);
-      // Retry logic para técnicos
-      if (error instanceof Error && error.message.includes('network')) {
-        console.log('Erro de rede ao carregar técnicos, tentando novamente...');
-        setTimeout(() => fetchTecnicos(), 2000);
-      }
+      // ✅ REMOVIDO: Retry automático que causava loops
     } finally {
       setLoadingTecnicos(false);
     }
@@ -477,16 +485,16 @@ export default function ListaOrdensPage() {
     };
   }, [empresaId]);
 
-  // Timeout de loading para evitar loading infinito
+  // ✅ TIMEOUT: Loading timeout aumentado para queries complexas
   useEffect(() => {
     const loadingTimeout = setTimeout(() => {
       if (loading) {
-        console.warn('⚠️ Loading timeout - resetando estado após 10 segundos');
+        console.warn('⚠️ Loading timeout - resetando estado após 20 segundos');
         setLoading(false);
         setLoadingOrdens(false);
         setLoadingTecnicos(false);
       }
-    }, 10000); // 10 segundos
+    }, 20000); // 20 segundos para queries complexas
 
     return () => clearTimeout(loadingTimeout);
   }, [loading]);

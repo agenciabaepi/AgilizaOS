@@ -70,39 +70,66 @@ export default function BancadaPage() {
   }
 
   useEffect(() => {
+    let isMounted = true;
+    
     const fetchOrdens = async () => {
       if (!user) return;
       setLoading(true);
       
       try {
-        // Buscar ordens atribuídas ao técnico OU sem técnico definido (para poder assumir)
-        const { data: ordensData, error: ordensError } = await supabase
-          .from('ordens_servico')
-          .select(`
-            *,
-            cliente:cliente_id(nome, telefone)
-          `)
-          .or(`tecnico_id.eq.${user.id},tecnico_id.is.null`)
-          .order('created_at', { ascending: false });
+        // ✅ TIMEOUT: Evitar loading infinito na bancada
+        const { data: ordensData, error: ordensError } = await Promise.race([
+          supabase
+            .from('ordens_servico')
+            .select(`
+              *,
+              cliente:cliente_id(nome, telefone)
+            `)
+            .or(`tecnico_id.eq.${user.id},tecnico_id.is.null`)
+            .order('created_at', { ascending: false }),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Bancada timeout')), 10000) // 10 segundos
+          )
+        ]);
+
+        if (!isMounted) return;
 
         if (ordensError) {
           console.error('Erro ao buscar ordens:', ordensError);
         } else {
           setOrdens(ordensData || []);
-          // Debug: mostrar status das OSs carregadas
           console.log('OSs carregadas para o técnico:', ordensData?.length || 0);
-          console.log('Status das OSs:', ordensData?.map((os: OrdemServico) => ({ id: os.id, numero_os: os.numero_os, status: os.status })) || []);
         }
 
       } catch (error) {
-        console.error('Erro ao carregar dados:', error);
+        if (isMounted) {
+          console.error('Erro ao carregar dados:', error);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
     
     if (user && !authLoading) fetchOrdens();
+    
+    return () => {
+      isMounted = false;
+    };
   }, [user, authLoading]);
+  
+  // ✅ TIMEOUT: Loading timeout para bancada
+  useEffect(() => {
+    const loadingTimeout = setTimeout(() => {
+      if (loading) {
+        console.warn('⚠️ Loading timeout na bancada - resetando após 15 segundos');
+        setLoading(false);
+      }
+    }, 15000); // 15 segundos
+
+    return () => clearTimeout(loadingTimeout);
+  }, [loading]);
   
   // Filtros e contadores por aba
   const filteredOrdens = useMemo(() => {
