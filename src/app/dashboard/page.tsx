@@ -91,13 +91,7 @@ export default function DashboardPage() {
     }
   }, [usuarioData]);
 
-  // ✅ VERIFICAÇÃO: Redirecionar técnicos para dashboard correta
-  useEffect(() => {
-    if (usuarioData?.nivel === 'tecnico') {
-      console.log('🔄 Técnico detectado, redirecionando para dashboard-tecnico...');
-      router.replace('/dashboard-tecnico');
-    }
-  }, [usuarioData?.nivel, router]);
+
 
   // Removido redirecionamento automático para evitar loops
   // Cada usuário pode acessar a dashboard que quiser
