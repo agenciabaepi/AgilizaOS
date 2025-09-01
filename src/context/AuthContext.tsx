@@ -106,33 +106,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // ✅ OTIMIZADO: useEffect principal simplificado
   useEffect(() => {
-    if (hasInitialized) return;
-
     const initializeAuth = async () => {
       try {
+        console.log('🔄 Inicializando autenticação...');
         const { data: { session }, error } = await supabase.auth.getSession();
 
         if (error) {
+          console.error('❌ Erro ao obter sessão:', error);
           setLoading(false);
           setHasInitialized(true);
           return;
         }
 
         if (session) {
+          console.log('✅ Sessão encontrada, carregando dados...');
           setSession(session);
           setUser(session.user);
           await fetchUserData(session.user.id, session);
+        } else {
+          console.log('ℹ️ Nenhuma sessão encontrada');
         }
       } catch (error) {
-        console.warn('Erro na inicialização da autenticação');
+        console.error('❌ Erro na inicialização da autenticação:', error);
       } finally {
         setLoading(false);
         setHasInitialized(true);
       }
     };
 
+    // Sempre executar, não importa se já foi inicializado
     initializeAuth();
-  }, [hasInitialized, fetchUserData]);
+  }, [fetchUserData]);
 
   // ✅ CORRIGIDO: Listener de mudanças de auth com tratamento completo
   useEffect(() => {
@@ -146,7 +150,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             if (session) {
               setSession(session);
               setUser(session.user);
-              // Removido fetchUserData daqui para evitar duplicação
+              // Carregar dados quando usuário logar
+              await fetchUserData(session.user.id, session);
             }
             break;
             
@@ -180,6 +185,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     return () => subscription.unsubscribe();
   }, [clearSession]);
+
+  // ✅ ADICIONADO: useEffect para garantir carregamento de dados quando usuário estiver disponível
+  useEffect(() => {
+    if (user && !usuarioData && !empresaData) {
+      console.log('🔄 Usuário disponível mas dados não carregados, carregando...');
+      fetchUserData(user.id, session!);
+    }
+  }, [user, usuarioData, empresaData, fetchUserData, session]);
 
   // ✅ OTIMIZADO: Funções memoizadas
   const podeUsarFuncionalidade = useCallback((nomeFuncionalidade: string) => {
