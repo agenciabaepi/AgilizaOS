@@ -110,9 +110,11 @@ export const fetchUserDataOptimized = async (userId: string) => {
   try {
     console.log('🔍 Iniciando busca de dados para userId:', userId);
     
-    const { data, error } = await supabase
+    // Tentar primeiro com auth_user_id, depois com id
+    let { data, error } = await supabase
       .from('usuarios')
       .select(`
+        id,
         empresa_id, 
         nome, 
         email, 
@@ -122,6 +124,32 @@ export const fetchUserDataOptimized = async (userId: string) => {
       `)
       .eq('auth_user_id', userId)
       .single();
+
+    // Se não encontrar com auth_user_id, tentar com id
+    if (error && error.code === 'PGRST116') {
+      console.log('🔍 Usuário não encontrado com auth_user_id, tentando com id...');
+      const { data: dataById, error: errorById } = await supabase
+        .from('usuarios')
+        .select(`
+          id,
+          empresa_id, 
+          nome, 
+          email, 
+          nivel, 
+          permissoes, 
+          foto_url
+        `)
+        .eq('id', userId)
+        .single();
+      
+      if (errorById) {
+        console.error('❌ Erro ao buscar usuário com id:', errorById);
+        throw errorById;
+      }
+      
+      data = dataById;
+      error = null;
+    }
 
     if (error) {
       console.error('❌ Erro ao buscar usuário:', error);
