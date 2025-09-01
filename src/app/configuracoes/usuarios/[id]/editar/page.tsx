@@ -368,12 +368,24 @@ function EditarUsuarioPageInner() {
       } else if (value === 'admin') {
         permissoesPadrao = PERMISSOES_SISTEMA.map(p => p.key);
       }
+      
+      // ✅ GARANTIR: Dashboard sempre presente nas permissões padrão
+      if (!permissoesPadrao.includes('dashboard')) {
+        permissoesPadrao.push('dashboard');
+      }
+      
       setForm((prev) => ({ ...prev, permissoes: permissoesPadrao }));
     }
   };
 
   // Função para gerenciar permissões em cascata
   const handlePermissaoChange = (key: string) => {
+    // ✅ PROTEÇÃO: Dashboard é permissão fixa e obrigatória
+    if (key === 'dashboard') {
+      addToast('warning', 'Dashboard é uma permissão obrigatória e não pode ser removida');
+      return;
+    }
+
     setForm((prev) => {
       const novasPermissoes = [...prev.permissoes];
       const permissaoAtual = novasPermissoes.includes(key);
@@ -381,6 +393,11 @@ function EditarUsuarioPageInner() {
       if (permissaoAtual) {
         // Desmarcando permissão principal
         const permissaoRemovida = novasPermissoes.filter((p) => p !== key);
+        
+        // ✅ GARANTIR: Dashboard sempre presente
+        if (!permissaoRemovida.includes('dashboard')) {
+          permissaoRemovida.push('dashboard');
+        }
         
         // Se for financeiro, remover também sub-permissões
         if (key === 'financeiro') {
@@ -410,6 +427,11 @@ function EditarUsuarioPageInner() {
       } else {
         // Marcando permissão principal
         novasPermissoes.push(key);
+        
+        // ✅ GARANTIR: Dashboard sempre presente
+        if (!novasPermissoes.includes('dashboard')) {
+          novasPermissoes.push('dashboard');
+        }
         
         // Se for financeiro, adicionar também sub-permissões
         if (key === 'financeiro') {
@@ -795,30 +817,39 @@ function EditarUsuarioPageInner() {
                       {PERMISSOES_CASCATA.principais.map((permissao) => {
                         const IconComponent = permissao.icon;
                         const isChecked = form.permissoes.includes(permissao.key);
+                        const isDashboard = permissao.key === 'dashboard';
                         
                         return (
                           <label 
                             key={permissao.key} 
-                            className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
-                              isChecked 
-                                ? 'border-gray-900 bg-gray-50' 
-                                : 'border-gray-200 bg-white hover:border-gray-300'
+                            className={`flex items-start gap-3 p-4 rounded-lg border-2 transition-all duration-200 ${
+                              isDashboard 
+                                ? 'border-green-600 bg-green-50 cursor-not-allowed' 
+                                : isChecked 
+                                  ? 'border-gray-900 bg-gray-50 cursor-pointer' 
+                                  : 'border-gray-200 bg-white hover:border-gray-300 cursor-pointer'
                             }`}
                           >
                             <input
                               type="checkbox"
                               checked={isChecked}
+                              disabled={isDashboard}
                               onChange={() => handlePermissaoChange(permissao.key)}
-                              className="mt-1 w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
+                              className={`mt-1 w-4 h-4 rounded focus:ring-gray-900 ${
+                                isDashboard 
+                                  ? 'text-green-600 border-green-300 bg-green-100' 
+                                  : 'text-gray-900 border-gray-300'
+                              }`}
                             />
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-1">
-                                <IconComponent className="w-4 h-4 text-gray-600" />
-                                <span className="font-medium text-gray-900">
+                                <IconComponent className={`w-4 h-4 ${isDashboard ? 'text-green-600' : 'text-gray-600'}`} />
+                                <span className={`font-medium ${isDashboard ? 'text-green-900' : 'text-gray-900'}`}>
                                   {permissao.label}
+                                  {isDashboard && <span className="text-xs text-green-600 font-medium ml-1">(Obrigatório)</span>}
                                 </span>
                               </div>
-                              <p className="text-xs text-gray-600">
+                              <p className={`text-xs ${isDashboard ? 'text-green-700' : 'text-gray-600'}`}>
                                 {permissao.description}
                               </p>
                             </div>
