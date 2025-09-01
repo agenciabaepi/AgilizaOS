@@ -515,15 +515,16 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
         </div>
       )}
       {/* Main area with header and content */}
-      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${menuRecolhido ? 'ml-16' : 'ml-64'}`}>
+      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${menuRecolhido ? 'ml-16' : 'ml-64'} md:ml-0`}>
         {/* TopHeader */}
-        <header className="w-full h-16 bg-white border-b border-zinc-200 flex items-center justify-between px-6 sticky top-0 z-30 no-print">
+        <header className="w-full h-16 bg-white border-b border-zinc-200 flex items-center justify-between px-4 md:px-6 sticky top-0 z-30 no-print">
           {/* Botão menu mobile */}
-          <div className="md:hidden">
-            <button onClick={() => setMobileMenuOpen(true)} className="text-zinc-700">
-              <FiMenu size={28} />
+          <div className="flex md:hidden items-center">
+            <button onClick={() => setMobileMenuOpen(true)} className="text-zinc-700 p-2">
+              <FiMenu size={24} />
             </button>
           </div>
+          
           {/* Botão hambúrguer desktop */}
           <div className="hidden md:flex items-center">
             <button
@@ -532,28 +533,44 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               title={menuRecolhido ? "Expandir menu" : "Recolher menu"}
             >
               {menuRecolhido ? (
-                // Ícone hambúrguer
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               ) : (
-                // Ícone seta esquerda
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               )}
             </button>
           </div>
-          <div className="flex items-center gap-4">
-            <SubscriptionStatus />
-            <div className="flex items-center gap-2 bg-zinc-100 rounded-lg px-3 py-2">
+          
+          {/* Área central - Busca */}
+          <div className="flex-1 max-w-md mx-4 hidden sm:flex">
+            <div className="flex items-center gap-2 bg-zinc-100 rounded-lg px-3 py-2 w-full">
               <FiSearch className="text-zinc-400" size={18} />
               <input
                 type="text"
                 placeholder="Buscar..."
-                className="bg-transparent text-zinc-700 text-sm focus:outline-none w-32 md:w-48"
+                className="bg-transparent text-zinc-700 text-sm focus:outline-none w-full"
               />
             </div>
+          </div>
+          
+          {/* Área direita - Usuário e notificações */}
+          <div className="flex items-center gap-2 md:gap-4">
+            {/* Status da assinatura - oculto em mobile */}
+            <div className="hidden md:block">
+              <SubscriptionStatus />
+            </div>
+            
+            {/* Busca mobile */}
+            <div className="sm:hidden">
+              <button className="text-zinc-500 p-2">
+                <FiSearch size={20} />
+              </button>
+            </div>
+            
+            {/* Avatar e nome do usuário */}
             <div className="flex items-center gap-2">
               {usuarioData?.foto_url ? (
                 <img
@@ -568,8 +585,10 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   </span>
                 </div>
               )}
-              <span className="text-zinc-700 text-sm font-medium">{usuarioData?.nome || 'Usuário'}</span>
+              <span className="text-zinc-700 text-sm font-medium hidden sm:block">{usuarioData?.nome || 'Usuário'}</span>
             </div>
+            
+            {/* Notificações */}
             <div className="relative">
               <FiBell
                 className="text-zinc-500 hover:text-lime-500 cursor-pointer transition-colors"
@@ -596,6 +615,233 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {children}
         </main>
       </div>
+      
+      {/* Menu Mobile Overlay */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black bg-opacity-50"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          
+          {/* Menu Mobile */}
+          <div className="absolute left-0 top-0 h-full w-80 bg-gray-900 shadow-xl transform transition-transform duration-300">
+            {/* Header do menu mobile */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-700">
+              <div className="flex items-center gap-3">
+                <Image src={logobranco} alt="Consert Logo" className="h-8 w-auto" />
+                <span className="text-white font-semibold">Menu</span>
+              </div>
+              <button 
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-white p-2 hover:bg-gray-800 rounded-lg"
+              >
+                <FiX size={24} />
+              </button>
+            </div>
+            
+            {/* Busca mobile */}
+            <div className="p-4 border-b border-gray-700">
+              <div className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-2">
+                <FiSearch className="text-gray-400" size={18} />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  placeholder="Buscar no menu..."
+                  className="w-full bg-transparent text-white placeholder-gray-400 text-sm focus:outline-none"
+                />
+              </div>
+            </div>
+            
+            {/* Navegação mobile */}
+            <nav className="flex flex-col p-4 space-y-2 overflow-y-auto">
+              {/* Dashboard */}
+              {(podeVer('dashboard') || usuarioData?.nivel === 'tecnico' || usuarioData?.nivel === 'atendente') && (
+                <MobileMenuItem
+                  path={usuarioData?.nivel === 'tecnico' ? '/dashboard-tecnico' : 
+                        usuarioData?.nivel === 'atendente' ? '/dashboard-atendente' : '/dashboard'}
+                  icon={<FiHome size={20} />}
+                  label="Dashboard"
+                  isActive={pathname === '/dashboard' || pathname === '/dashboard-tecnico' || pathname === '/dashboard-atendente'}
+                  onClick={() => setMobileMenuOpen(false)}
+                />
+              )}
+              
+              {/* Lembretes */}
+              {podeVer('lembretes') && (
+                <MobileMenuItem
+                  path="/lembretes"
+                  icon={<FiFileText size={20} />}
+                  label="Lembretes"
+                  isActive={pathname === '/lembretes'}
+                  onClick={() => setMobileMenuOpen(false)}
+                />
+              )}
+              
+              {/* Ordens de Serviço */}
+              {podeVer('ordens') && (
+                <MobileMenuItem
+                  path="/ordens"
+                  icon={<FiFileText size={20} />}
+                  label="Ordens de Serviço"
+                  isActive={pathname === '/ordens'}
+                  onClick={() => setMobileMenuOpen(false)}
+                />
+              )}
+              
+              {/* Caixa */}
+              {podeVer('caixa') && (
+                <MobileMenuItem
+                  path="/caixa"
+                  icon={<FiDollarSign size={20} />}
+                  label="Caixa"
+                  isActive={pathname === '/caixa'}
+                  onClick={() => setMobileMenuOpen(false)}
+                />
+              )}
+              
+              {/* Contatos */}
+              {podeVer('clientes') && (
+                <>
+                  <MobileMenuItem
+                    path="/clientes"
+                    icon={<FiUsers size={20} />}
+                    label="Clientes"
+                    isActive={pathname === '/clientes'}
+                    onClick={() => setMobileMenuOpen(false)}
+                  />
+                  {podeVer('fornecedores') && (
+                    <MobileMenuItem
+                      path="/fornecedores"
+                      icon={<FiTruck size={20} />}
+                      label="Fornecedores"
+                      isActive={pathname === '/fornecedores'}
+                      onClick={() => setMobileMenuOpen(false)}
+                    />
+                  )}
+                </>
+              )}
+              
+              {/* Produtos/Serviços */}
+              {podeVer('equipamentos') && (
+                <>
+                  <MobileMenuItem
+                    path="/equipamentos"
+                    icon={<FiBox size={20} />}
+                    label="Produtos"
+                    isActive={pathname === '/equipamentos'}
+                    onClick={() => setMobileMenuOpen(false)}
+                  />
+                  <MobileMenuItem
+                    path="/equipamentos/categorias"
+                    icon={<FiGrid size={20} />}
+                    label="Categorias"
+                    isActive={pathname === '/equipamentos/categorias'}
+                    onClick={() => setMobileMenuOpen(false)}
+                  />
+                  {catalogoHabilitado && (
+                    <MobileMenuItem
+                      path="/catalogo"
+                      icon={<FiStar size={20} />}
+                      label="Catálogo"
+                      isActive={pathname === '/catalogo'}
+                      onClick={() => setMobileMenuOpen(false)}
+                    />
+                  )}
+                </>
+              )}
+              
+              {/* Financeiro */}
+              {podeVer('financeiro') && (
+                <>
+                  <MobileMenuItem
+                    path="/financeiro/vendas"
+                    icon={<FiFileText size={20} />}
+                    label="Vendas"
+                    isActive={pathname === '/financeiro/vendas'}
+                    onClick={() => setMobileMenuOpen(false)}
+                  />
+                  <MobileMenuItem
+                    path="/financeiro/movimentacoes-caixa"
+                    icon={<FiDollarSign size={20} />}
+                    label="Movimentações Caixa"
+                    isActive={pathname === '/financeiro/movimentacoes-caixa'}
+                    onClick={() => setMobileMenuOpen(false)}
+                  />
+                  <MobileMenuItem
+                    path="/financeiro/contas-a-pagar"
+                    icon={<FiFileText size={20} />}
+                    label="Contas a Pagar"
+                    isActive={pathname === '/financeiro/contas-a-pagar'}
+                    onClick={() => setMobileMenuOpen(false)}
+                  />
+                </>
+              )}
+              
+              {/* Bancada */}
+              {podeVer('bancada') && (
+                <MobileMenuItem
+                  path="/bancada"
+                  icon={<FiTool size={20} />}
+                  label="Bancada"
+                  isActive={pathname === '/bancada'}
+                  onClick={() => setMobileMenuOpen(false)}
+                />
+              )}
+              
+              {/* Comissões */}
+              {usuarioData?.nivel === 'tecnico' && (
+                <MobileMenuItem
+                  path="/comissoes"
+                  icon={<FiDollarSign size={20} />}
+                  label="Comissões"
+                  isActive={pathname === '/comissoes'}
+                  onClick={() => setMobileMenuOpen(false)}
+                />
+              )}
+              
+              {/* Meu Perfil */}
+              <MobileMenuItem
+                path="/perfil"
+                icon={<FiUsers size={20} />}
+                label="Meu Perfil"
+                isActive={pathname === '/perfil'}
+                onClick={() => setMobileMenuOpen(false)}
+              />
+              
+              {/* Configurações */}
+              {podeVer('configuracoes') && usuarioData?.nivel !== 'atendente' && (
+                <MobileMenuItem
+                  path="/configuracoes"
+                  icon={<FiTool size={20} />}
+                  label="Configurações"
+                  isActive={pathname === '/configuracoes'}
+                  onClick={() => setMobileMenuOpen(false)}
+                />
+              )}
+              
+              {/* Sair */}
+              <MobileMenuItem
+                path="#logout"
+                icon={<FiLogOut size={20} />}
+                label="Sair"
+                isActive={false}
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  logout();
+                }}
+              />
+            </nav>
+            
+            {/* Footer mobile */}
+            <div className="absolute bottom-4 left-4 right-4 text-center text-xs text-gray-400">
+              v1.0.0
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Tela de Logout */}
       {isLoggingOut && <LogoutScreen />}
@@ -643,6 +889,45 @@ function SidebarButton({
     >
       {icon}
       {!menuRecolhido && <span className="ml-3 whitespace-nowrap">{label}</span>}
+    </button>
+  );
+}
+
+// Componente para itens do menu mobile
+function MobileMenuItem({ 
+  path, 
+  icon, 
+  label, 
+  isActive, 
+  onClick 
+}: { 
+  path: string; 
+  icon: React.ReactNode; 
+  label: string; 
+  isActive: boolean; 
+  onClick?: () => void; 
+}) {
+  const router = useRouter();
+  
+  const handleClick = () => {
+    if (onClick) {
+      onClick();
+    } else if (path && path !== '#' && !path.startsWith('#')) {
+      router.push(path);
+    }
+  };
+  
+  return (
+    <button
+      onClick={handleClick}
+      className={`flex items-center w-full px-4 py-3 rounded-lg transition font-medium text-base
+        ${isActive ? 'bg-[#D1FE6E] text-black' : 'hover:bg-gray-800 text-white'}`}
+      style={{ minHeight: 48 }}
+    >
+      <div className="flex items-center gap-3">
+        {icon}
+        <span className="whitespace-nowrap">{label}</span>
+      </div>
     </button>
   );
 }
