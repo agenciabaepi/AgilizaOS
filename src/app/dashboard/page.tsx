@@ -78,18 +78,6 @@ export default function DashboardPage() {
   const [recentClientes, setRecentClientes] = useState<ClienteData[]>([]);
   const [loading, setLoading] = useState(true);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
-  const [timeoutReached, setTimeoutReached] = useState(false);
-
-  // Timeout para evitar tela em branco
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      console.log('⚠️ Timeout atingido, forçando carregamento da página');
-      setLoading(false);
-      setTimeoutReached(true);
-    }, 5000); // 5 segundos
-
-    return () => clearTimeout(timeout);
-  }, []);
 
   // Removido redirecionamento automático para evitar loops
   // Cada usuário pode acessar a dashboard que quiser
@@ -299,7 +287,7 @@ export default function DashboardPage() {
     }
   };
 
-  if (loading && !timeoutReached) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
