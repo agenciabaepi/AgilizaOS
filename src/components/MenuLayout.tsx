@@ -626,7 +626,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           />
           
           {/* Menu Mobile */}
-          <div className="absolute left-0 top-0 h-full w-80 bg-gray-900 shadow-xl transform transition-transform duration-300">
+          <div className="absolute left-0 top-0 h-full w-80 bg-gray-900 shadow-xl transform transition-transform duration-300 flex flex-col">
             {/* Header do menu mobile */}
             <div className="flex items-center justify-between p-4 border-b border-gray-700">
               <div className="flex items-center gap-3">
@@ -656,7 +656,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             </div>
             
             {/* Navegação mobile */}
-            <nav className="flex flex-col p-4 space-y-2 overflow-y-auto flex-1">
+            <nav className="flex flex-col p-4 space-y-2 overflow-y-auto flex-1 min-h-0">
               {/* Dashboard */}
               {(podeVer('dashboard') || usuarioData?.nivel === 'tecnico' || usuarioData?.nivel === 'atendente') && (
                 <MobileMenuItem
@@ -665,7 +665,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   icon={<FiHome size={20} />}
                   label="Dashboard"
                   isActive={pathname === '/dashboard' || pathname === '/dashboard-tecnico' || pathname === '/dashboard-atendente'}
-                  onClick={() => setMobileMenuOpen(false)}
+                  onNavigate={() => setMobileMenuOpen(false)}
                 />
               )}
               
@@ -676,7 +676,6 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   icon={<FiFileText size={20} />}
                   label="Lembretes"
                   isActive={pathname === '/lembretes'}
-                  onClick={() => setMobileMenuOpen(false)}
                 />
               )}
               
@@ -899,13 +898,15 @@ function MobileMenuItem({
   icon, 
   label, 
   isActive, 
-  onClick 
+  onClick,
+  onNavigate
 }: { 
   path: string; 
   icon: React.ReactNode; 
   label: string; 
   isActive: boolean; 
   onClick?: () => void; 
+  onNavigate?: () => void;
 }) {
   const router = useRouter();
   
@@ -915,6 +916,10 @@ function MobileMenuItem({
       onClick();
     } else if (path && path !== '#' && !path.startsWith('#')) {
       console.log('🚀 Navigating to:', path);
+      // Fechar menu mobile antes de navegar
+      if (onNavigate) {
+        onNavigate();
+      }
       router.push(path);
     }
   };
