@@ -34,36 +34,27 @@ interface OrdemTransformada {
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { FiEye, FiRefreshCw, FiPlus, FiSearch, FiFilter, FiCalendar, FiUser, FiSmartphone, FiDollarSign, FiClock, FiAlertCircle, FiFileText, FiCheckCircle } from 'react-icons/fi';
+import { FiRefreshCw, FiPlus, FiSearch, FiFilter, FiUser, FiSmartphone, FiDollarSign, FiClock, FiAlertCircle, FiFileText, FiCheckCircle } from 'react-icons/fi';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import ProtectedArea from '@/components/ProtectedArea';
 import DashboardCard from '@/components/ui/DashboardCard';
 import MenuLayout from '@/components/MenuLayout';
-import { useToast } from '@/components/Toast';
+
 
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { Select } from '@/components/Select';
 import LaudoProntoAlert from '@/components/LaudoProntoAlert';
-import StatusQuickChange from '@/components/StatusQuickChange';
 
 export default function ListaOrdensPage() {
   const router = useRouter();
   const { empresaData } = useAuth();
   const empresaId = empresaData?.id;
-  const { addToast } = useToast();
 
   // Estados dos cards principais
   const [totalOS, setTotalOS] = useState(0);
-  const [totalMes, setTotalMes] = useState(0);
-  const [retornosMes, setRetornosMes] = useState(0);
-
   const [percentualRetornos, setPercentualRetornos] = useState(0);
-  const [crescimentoSemana, setCrescimentoSemana] = useState(0);
-  const [crescimentoMes, setCrescimentoMes] = useState(0);
-  const [faturamentoMes, setFaturamentoMes] = useState(0);
-  const [ticketMedio, setTicketMedio] = useState(0);
 
   // Estados da lista
   const [ordens, setOrdens] = useState<OrdemTransformada[]>([]);
@@ -390,23 +381,7 @@ export default function ListaOrdensPage() {
     };
 
         setTotalOS(totalOS);
-        setTotalMes(totalMes);
-        setRetornosMes(retornosMes);
         setPercentualRetornos(percentualRetornos);
-        setCrescimentoSemana(calcPercent(ordensSemana, ordensSemanaAnterior));
-        setCrescimentoMes(calcPercent(totalMes, ordensMesAnterior));
-
-        // Calcular faturamento e ticket médio
-        const faturamentoMes = mapped
-          .filter((o: any) => new Date(o.entrada) >= inicioMes)
-          .reduce((sum: number, o: any) => sum + o.valorTotal, 0);
-        
-        const ticketMedio = mapped.length > 0 
-          ? mapped.reduce((sum: number, o: any) => sum + o.valorTotal, 0) / mapped.length 
-          : 0;
-
-        setFaturamentoMes(faturamentoMes);
-        setTicketMedio(ticketMedio);
       }
     } catch (error) {
       console.error('Erro ao carregar ordens:', error);
@@ -444,8 +419,20 @@ export default function ListaOrdensPage() {
   };
 
   useEffect(() => {
-      fetchOrdens();
-    fetchTecnicos();
+    let isMounted = true;
+    
+    const fetchData = async () => {
+      if (isMounted && empresaId) {
+        await fetchOrdens();
+        await fetchTecnicos();
+      }
+    };
+    
+    fetchData();
+    
+    return () => {
+      isMounted = false;
+    };
   }, [empresaId]);
 
   // Filtros e busca
@@ -713,6 +700,8 @@ export default function ListaOrdensPage() {
             <div className="flex flex-col md:flex-row border-b md:border-b-0 border-gray-200">
               <button
                 onClick={() => handleTabChange('todas')}
+                aria-label="Mostrar todas as ordens de serviço"
+                aria-pressed={activeTab === 'todas'}
                 className={`px-4 md:px-6 py-3 md:py-4 font-medium text-sm border-b-2 md:border-b-2 border-r-0 md:border-r-0 transition-colors ${
                   activeTab === 'todas'
                     ? 'border-blue-500 text-blue-600 bg-blue-50'
