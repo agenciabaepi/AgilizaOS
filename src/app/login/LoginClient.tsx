@@ -184,6 +184,33 @@ function LoginClientInner() {
     }
   };
 
+  const handleTestarEmail = async () => {
+    setVerifyingCode(true);
+
+    try {
+      const response = await fetch('/api/email/teste', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: pendingEmail })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        addToast('success', 'Teste de email realizado com sucesso!');
+      } else {
+        addToast('error', data.error || 'Erro no teste de email');
+      }
+    } catch (error) {
+      console.error('Erro no teste de email:', error);
+      addToast('error', 'Erro no teste de email');
+    } finally {
+      setVerifyingCode(false);
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     console.log('Debug login - iniciando login com:', loginInput);
@@ -655,6 +682,16 @@ function LoginClientInner() {
                     disabled={verifyingCode}
                   >
                     {verifyingCode ? 'Enviando...' : 'Reenviar código'}
+                  </button>
+                  
+                  {/* Testar Email Button */}
+                  <button
+                    type="button"
+                    className="w-full bg-blue-100 text-blue-700 font-medium py-2 rounded-lg hover:bg-blue-200 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    onClick={handleTestarEmail}
+                    disabled={verifyingCode}
+                  >
+                    {verifyingCode ? 'Testando...' : 'Testar configuração de email'}
                   </button>
                   
                   {/* Voltar para Login */}

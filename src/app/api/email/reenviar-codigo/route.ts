@@ -83,16 +83,32 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // TESTE: Por enquanto, vamos apenas salvar o código sem enviar email
-    console.log('🔍 Debug - TESTE: Salvando código sem enviar email')
-    console.log('🔍 Debug - Código gerado:', codigo)
-    console.log('🔍 Debug - Email:', email)
-    console.log('🔍 Debug - Nome da empresa:', nomeEmpresa)
+    // Verificar configuração SMTP antes de enviar
+    console.log('🔍 Debug - Verificando configuração SMTP...')
+    const { verificarConfiguracao } = await import('@/lib/email')
+    const configuracaoOk = await verificarConfiguracao()
     
-    // Simular sucesso para testar se o problema é no email
-    const emailEnviado = true
+    if (!configuracaoOk) {
+      console.log('❌ Debug - Configuração SMTP inválida')
+      return NextResponse.json(
+        { error: 'Configuração de email inválida. Entre em contato com o suporte.' },
+        { status: 500 }
+      )
+    }
     
-    console.log('✅ Debug - TESTE: Código salvo com sucesso (email simulado)')
+    // Enviar email
+    console.log('🔍 Debug - Enviando email:', { email, codigo, nomeEmpresa })
+    const emailEnviado = await enviarEmailVerificacao(email, codigo, nomeEmpresa)
+
+    if (!emailEnviado) {
+      console.log('❌ Debug - Falha ao enviar email')
+      return NextResponse.json(
+        { error: 'Erro ao enviar email de verificação' },
+        { status: 500 }
+      )
+    }
+    
+    console.log('✅ Debug - Email enviado com sucesso')
 
     return NextResponse.json({
       success: true,
