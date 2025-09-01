@@ -79,17 +79,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
 
-  // Redirecionamento automático baseado no nível do usuário
-  useEffect(() => {
-    // Só redirecionar se os dados do usuário estiverem completamente carregados
-    if (usuarioData?.nivel && empresaData?.id) {
-      if (usuarioData.nivel === 'atendente') {
-        window.location.href = '/dashboard-atendente';
-      } else if (usuarioData.nivel === 'tecnico') {
-        window.location.href = '/dashboard-tecnico';
-      }
-    }
-  }, [usuarioData?.nivel, empresaData?.id, router]);
+  // Removido redirecionamento automático para evitar loops
+  // Cada usuário pode acessar a dashboard que quiser
 
   // Mostrar onboarding sempre que não estiver completo
   useEffect(() => {

@@ -51,21 +51,13 @@ export default function DashboardTecnicoPage() {
   const [recentOS, setRecentOS] = useState<any[]>([]);
 
   useEffect(() => {
-    // Só verificar permissões se os dados estiverem completamente carregados
-    if (usuarioData?.nivel && empresaData?.id) {
-      if (usuarioData.nivel === 'admin') {
-        router.replace('/dashboard');
-        return;
-      } else if (usuarioData.nivel === 'atendente') {
-        router.replace('/dashboard-atendente');
-        return;
-      }
-    }
-
+    // Removido redirecionamento automático para evitar loops
+    // Cada usuário pode acessar a dashboard que quiser
+    
     if (user && usuarioData?.nivel) {
       fetchTecnicoData();
     }
-  }, [user, usuarioData?.nivel, empresaData?.id, router]);
+  }, [user, usuarioData?.nivel]);
 
   const fetchTecnicoData = async () => {
     if (!user) return;
