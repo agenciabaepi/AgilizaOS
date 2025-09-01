@@ -146,7 +146,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             if (session) {
               setSession(session);
               setUser(session.user);
-              await fetchUserData(session.user.id, session);
+              // Removido fetchUserData daqui para evitar duplicação
             }
             break;
             
@@ -206,7 +206,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (data.session) {
         setSession(data.session);
         setUser(data.session.user);
-        await fetchUserData(data.session.user.id, data.session);
+        // Removido fetchUserData daqui para evitar duplicação
         setHasInitialized(true);
       }
     } catch (error) {
