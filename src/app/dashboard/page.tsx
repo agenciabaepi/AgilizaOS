@@ -1323,7 +1323,7 @@ function CalendarioComponent({
         ))}
         
                  {/* Dias do calendário */}
-         {dias.map((dia) => {
+         {dias.map((dia: any) => {
            const eventosDoDia = eventos.filter(evento => 
              isSameDay(new Date(evento.data_inicio), dia)
            );
@@ -1442,7 +1442,7 @@ function CalendarioComponent({
         <div className="grid grid-cols-8 gap-1 min-w-[800px]">
           {/* Cabeçalho com dias */}
           <div className="p-2 bg-gray-50 rounded"></div>
-          {dias.map((dia) => (
+          {dias.map((dia: any) => (
             <div key={dia.toISOString()} className="p-2 text-center text-sm font-semibold bg-gray-50 rounded">
               <div>{format(dia, 'EEE', { locale: ptBR })}</div>
               <div className="text-lg">{format(dia, 'd')}</div>
@@ -1455,7 +1455,7 @@ function CalendarioComponent({
               <div className="p-2 text-xs text-gray-500 border-r border-gray-200">
                 {format(new Date().setHours(hora), 'HH:mm')}
               </div>
-              {dias.map((dia) => {
+              {dias.map((dia: any) => {
                 const eventosDaHora = eventos.filter(evento => {
                   const dataEvento = new Date(evento.data_inicio);
                   return isSameDay(dataEvento, dia) && dataEvento.getHours() === hora;

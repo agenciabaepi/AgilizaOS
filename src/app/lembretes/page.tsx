@@ -97,7 +97,7 @@ export default function LembretesPage() {
       .eq('empresa_id', empresa_id)
       .order('posicao', { ascending: true });
     if (!error && data && data.length > 0) {
-      setColunas(data.map((c) => c.nome));
+      setColunas(data.map((c: any) => c.nome));
     }
   };
 
@@ -220,7 +220,7 @@ export default function LembretesPage() {
       // Atualiza a posição de cada coluna
       for (let i = 0; i < colunas.length; i++) {
         const nomeColuna = colunas[i];
-        const colunaExistente = colunasExistentes?.find(c => c.nome === nomeColuna);
+        const colunaExistente = colunasExistentes?.find((c: any) => c.nome === nomeColuna);
         
         if (colunaExistente) {
           const { error: erroUpdate } = await supabase
