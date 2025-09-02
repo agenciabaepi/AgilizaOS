@@ -7,6 +7,8 @@ import React, { useEffect, useState, useId } from 'react';
 import MenuLayout from '@/components/MenuLayout';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import DashboardCard from '@/components/ui/DashboardCard';
+import { FiFileText, FiCheckCircle, FiClock, FiAlertCircle } from 'react-icons/fi';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import {
@@ -232,51 +234,23 @@ export default function LembretesPage() {
         isNull: os.prazo_entrega === null
       })));
       
-      // Buscar O.S. com dados do cliente
-      let { data, error } = await supabase
+      // Buscar O.S. com dados do cliente e técnico
+      const { data, error } = await supabase
         .from("ordens_servico")
         .select(`
           id,
           numero_os,
-          relato,
-          observacao,
           status,
-          valor_total,
-          data_entrada,
-          data_saida,
           prazo_entrega,
           empresa_id,
-          cliente_id
+          cliente_id,
+          tecnico_id,
+          clientes!cliente_id(nome, telefone, endereco),
+          tecnico:usuarios!tecnico_id(nome)
         `)
         .eq("empresa_id", empresa_id)
         .not("prazo_entrega", "is", null)
         .order("prazo_entrega", { ascending: true });
-      
-      // Se a busca principal falhou, usar a busca simples
-      if (error) {
-        console.log('🔍 [CALENDARIO] Erro na busca principal, usando busca simples:', error);
-        const { data: dataSimples, error: errorSimples } = await supabase
-          .from("ordens_servico")
-          .select(`
-            id,
-            numero_os,
-            relato,
-            observacao,
-            status,
-            valor_total,
-            prazo_entrega,
-            empresa_id,
-            cliente_id
-          `)
-          .eq("empresa_id", empresa_id)
-          .not("prazo_entrega", "is", null)
-          .order("prazo_entrega", { ascending: true });
-        
-        if (!errorSimples && dataSimples) {
-          console.log('🔍 [CALENDARIO] Busca simples funcionou:', dataSimples.length, 'O.S.');
-          data = dataSimples;
-        }
-      }
       
       console.log('🔍 [CALENDARIO] Resultado da busca:', { data, error });
       
@@ -287,26 +261,23 @@ export default function LembretesPage() {
           id: os.id,
           numero_os: os.numero_os,
           prazo_entrega: os.prazo_entrega,
-          status: os.status,
-          relato: os.relato,
-          observacao: os.observacao,
-          valor_total: os.valor_total
+          status: os.status
         })));
         
         const eventosFormatados = data.map((os: any) => ({
           id: os.id,
           numero: os.numero_os,
-          titulo: os.relato || `OS ${os.numero_os}`,
-          cliente: 'Cliente não informado', // Temporário até resolver join
-          telefone: '',
-          endereco: '',
-          descricao: os.observacao || '',
-          valor: os.valor_total || 0,
+          titulo: `OS ${os.numero_os}`,
+          cliente: os.clientes?.nome || 'Cliente não informado',
+          telefone: os.clientes?.telefone || '',
+          endereco: os.clientes?.endereco || '',
+          descricao: `Técnico: ${os.tecnico?.nome || 'Não atribuído'}`,
+          valor: 0,
           data_inicio: os.prazo_entrega,
           data_fim: os.prazo_entrega,
           status: os.status || 'pendente',
           prioridade: getPrioridadePorStatus(os.status || 'pendente'),
-          cor: getCorPorPrioridade(getPrioridadePorStatus(os.status || 'pendente')),
+          cor: getCorPorStatus(os.status || 'pendente'),
           empresa_id: os.empresa_id
         }));
         
@@ -324,6 +295,7 @@ export default function LembretesPage() {
         setEventosCalendario(eventosFormatados);
       } else {
         console.log('🔍 [CALENDARIO] Erro na busca:', error);
+        setEventosCalendario([]);
       }
     };
     fetchOrdensServico();
@@ -358,19 +330,22 @@ export default function LembretesPage() {
     }
   };
 
-  // Função para determinar a cor baseada na prioridade
-  const getCorPorPrioridade = (prioridade: string) => {
-    switch (prioridade.toLowerCase()) {
-      case 'alta':
-      case 'urgente':
-        return '#ef4444'; // vermelho
-      case 'média':
-      case 'media':
-        return '#f59e0b'; // amarelo
-      case 'baixa':
-        return '#10b981'; // verde
-      default:
-        return '#6b7280'; // cinza
+  // Função para determinar a cor baseada no status da O.S.
+  const getCorPorStatus = (status: string) => {
+    const statusLower = status?.toLowerCase() || '';
+    
+    if (statusLower.includes('aprovado')) {
+      return '#10b981'; // verde
+    } else if (statusLower.includes('orçamento') || statusLower.includes('orcamento')) {
+      return '#f59e0b'; // amarelo/laranja
+    } else if (statusLower.includes('pendente')) {
+      return '#3b82f6'; // azul
+    } else if (statusLower.includes('urgente') || statusLower.includes('emergência')) {
+      return '#ef4444'; // vermelho
+    } else if (statusLower.includes('concluído') || statusLower.includes('finalizado')) {
+      return '#8b5cf6'; // roxo
+    } else {
+      return '#6b7280'; // cinza
     }
   };
 
@@ -806,6 +781,175 @@ export default function LembretesPage() {
   return (
     <ProtectedArea area="lembretes">
       <MenuLayout>
+        {/* Cards principais - Dados do Calendário */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
+          <DashboardCard
+            title="O.S. da Semana"
+            value={eventosCalendario.filter(e => {
+              const hoje = new Date();
+              const inicioSemana = new Date(hoje.setDate(hoje.getDate() - hoje.getDay()));
+              const prazo = new Date(e.data_inicio);
+              return prazo >= inicioSemana;
+            }).length}
+            description={`Total: ${eventosCalendario.length}`}
+            descriptionColorClass="text-gray-600"
+            icon={<FiFileText className="w-5 h-5" />}
+            svgPolyline={{ color: '#84cc16', points: '0,20 10,15 20,17 30,10 40,12 50,8 60,10 70,6' }}
+          >
+            <div className="mt-2">
+              <button 
+                onClick={() => router.push('/ordens')}
+                className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+              >
+                Ver todas as O.S. →
+              </button>
+            </div>
+          </DashboardCard>
+          <DashboardCard
+            title="Aprovadas da Semana"
+            value={eventosCalendario.filter(e => {
+              const hoje = new Date();
+              const inicioSemana = new Date(hoje.setDate(hoje.getDate() - hoje.getDay()));
+              const prazo = new Date(e.data_inicio);
+              return prazo >= inicioSemana && e.status?.toLowerCase().includes('aprovado');
+            }).length}
+            description="O.S. aprovadas esta semana"
+            descriptionColorClass="text-green-600"
+            icon={<FiCheckCircle className="w-5 h-5" />}
+            svgPolyline={{ color: '#4ade80', points: '0,18 10,16 20,14 30,10 40,11 50,9 60,10 70,6' }}
+          >
+            <div className="mt-2">
+              <button 
+                onClick={() => router.push('/ordens')}
+                className="text-xs text-green-600 hover:text-green-800 font-medium"
+              >
+                Ver todas as O.S. →
+              </button>
+            </div>
+          </DashboardCard>
+          <DashboardCard
+            title="Atrasadas"
+            value={eventosCalendario.filter(e => {
+              const hoje = new Date();
+              const prazo = new Date(e.data_inicio);
+              return prazo < hoje;
+            }).length}
+            description="O.S. com prazo vencido"
+            descriptionColorClass="text-red-500"
+            icon={<FiAlertCircle className="w-5 h-5" />}
+            svgPolyline={{ color: '#f87171', points: '0,12 10,14 20,16 30,18 40,20 50,17 60,15 70,16' }}
+          >
+            <div className="mt-2">
+              <button 
+                onClick={() => router.push('/ordens')}
+                className="text-xs text-red-600 hover:text-red-800 font-medium"
+              >
+                Ver todas as O.S. →
+              </button>
+            </div>
+          </DashboardCard>
+          <DashboardCard
+            title="A Vencer"
+            value={eventosCalendario.filter(e => {
+              const hoje = new Date();
+              const prazo = new Date(e.data_inicio);
+              const diffDias = Math.ceil((prazo.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+              return diffDias <= 7 && diffDias > 0;
+            }).length}
+            description="Vencem em 7 dias"
+            descriptionColorClass="text-yellow-600"
+            icon={<FiClock className="w-5 h-5" />}
+            svgPolyline={{ color: '#fbbf24', points: '0,12 10,14 20,16 30,18 40,20 50,17 60,15 70,16' }}
+          >
+            <div className="mt-2">
+              <button 
+                onClick={() => router.push('/ordens')}
+                className="text-xs text-yellow-600 hover:text-yellow-800 font-medium"
+              >
+                Ver todas as O.S. →
+              </button>
+            </div>
+          </DashboardCard>
+        </div>
+
+        {/* Sistema de Calendário */}
+        <div className="mt-8 p-6 rounded-lg border bg-white">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <Book className="text-blue-500 w-5 h-5" />
+            Calendário de O.S.
+          </h2>
+          
+          {/* Controles do calendário */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => {
+                  const novaData = new Date(dataAtual);
+                  novaData.setMonth(novaData.getMonth() - 1);
+                  setDataAtual(novaData);
+                }}
+                className="p-2 rounded-lg border hover:bg-gray-50 transition-colors"
+              >
+                ←
+              </button>
+              <h3 className="text-lg font-semibold">
+                {format(dataAtual, 'MMMM yyyy', { locale: ptBR })}
+              </h3>
+              <button
+                onClick={() => {
+                  const novaData = new Date(dataAtual);
+                  novaData.setMonth(novaData.getMonth() + 1);
+                  setDataAtual(novaData);
+                }}
+                className="p-2 rounded-lg border hover:bg-gray-50 transition-colors"
+              >
+                →
+              </button>
+            </div>
+            
+            <div className="flex gap-2">
+              <button
+                onClick={() => setVisualizacaoCalendario('mes')}
+                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                  visualizacaoCalendario === 'mes'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Mês
+              </button>
+              <button
+                onClick={() => setVisualizacaoCalendario('semana')}
+                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                  visualizacaoCalendario === 'semana'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Semana
+              </button>
+              <button
+                onClick={() => setVisualizacaoCalendario('dia')}
+                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                  visualizacaoCalendario === 'dia'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Dia
+              </button>
+            </div>
+          </div>
+
+          {/* Calendário */}
+          <CalendarioComponent
+            dataAtual={dataAtual}
+            eventos={eventosCalendario}
+            visualizacao={visualizacaoCalendario}
+          />
+        </div>
+
+        {/* Kanban de Lembretes */}
         <div className="p-6 rounded-lg border bg-white">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <Book className="text-yellow-500 w-5 h-5" />
@@ -1164,83 +1308,6 @@ export default function LembretesPage() {
           {/* ToastContainer para notificações */}
           {/* Remover ToastContainer do react-toastify */}
         </div>
-
-        {/* Sistema de Calendário */}
-        <div className="mt-8 p-6 rounded-lg border bg-white">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Book className="text-blue-500 w-5 h-5" />
-            Calendário de O.S.
-          </h2>
-          
-          {/* Controles do calendário */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => {
-                  const novaData = new Date(dataAtual);
-                  novaData.setMonth(novaData.getMonth() - 1);
-                  setDataAtual(novaData);
-                }}
-                className="p-2 rounded-lg border hover:bg-gray-50 transition-colors"
-              >
-                ←
-              </button>
-              <h3 className="text-lg font-semibold">
-                {format(dataAtual, 'MMMM yyyy', { locale: ptBR })}
-              </h3>
-              <button
-                onClick={() => {
-                  const novaData = new Date(dataAtual);
-                  novaData.setMonth(novaData.getMonth() + 1);
-                  setDataAtual(novaData);
-                }}
-                className="p-2 rounded-lg border hover:bg-gray-50 transition-colors"
-              >
-                →
-              </button>
-            </div>
-            
-            <div className="flex gap-2">
-              <button
-                onClick={() => setVisualizacaoCalendario('mes')}
-                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                  visualizacaoCalendario === 'mes'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                Mês
-              </button>
-              <button
-                onClick={() => setVisualizacaoCalendario('semana')}
-                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                  visualizacaoCalendario === 'semana'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                Semana
-              </button>
-              <button
-                onClick={() => setVisualizacaoCalendario('dia')}
-                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                  visualizacaoCalendario === 'dia'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                Dia
-              </button>
-            </div>
-          </div>
-
-          {/* Calendário */}
-          <CalendarioComponent
-            dataAtual={dataAtual}
-            eventos={eventosCalendario}
-            visualizacao={visualizacaoCalendario}
-          />
-        </div>
       </MenuLayout>
     </ProtectedArea>
   );
@@ -1306,6 +1373,16 @@ function CalendarioComponent({
                            dataEvento.getFullYear() === dataDia.getFullYear();
                   })
                 }
+              });
+            }
+            
+            // Debug específico para o evento de exemplo
+            if (eventos.some(e => e.id === 'exemplo-123')) {
+              console.log('🔍 [CALENDARIO] Evento de exemplo encontrado para dia:', format(dia, 'dd/MM/yyyy'), {
+                dia: format(dia, 'dd/MM/yyyy'),
+                eventoExemplo: eventos.find(e => e.id === 'exemplo-123'),
+                eventosDoDia: eventosDoDia.length,
+                isSameDay: isSameDay(new Date('2025-09-03T10:00:00+00:00'), dia)
               });
             }
           
@@ -1517,28 +1594,7 @@ function CalendarioComponent({
 
   return (
     <div className="w-full">
-      {/* Debug Visual */}
-      <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-        <h3 className="text-sm font-bold text-yellow-800 mb-2">🔍 DEBUG CALENDÁRIO</h3>
-        <div className="text-xs text-yellow-700 space-y-1">
-          <div>📊 Total de eventos: {eventos.length}</div>
-          <div>📅 Data atual: {format(dataAtual, 'dd/MM/yyyy')}</div>
-          <div>🎯 Visualização: {visualizacao}</div>
-          {eventos.length > 0 && (
-            <div className="mt-2">
-              <div className="font-semibold">📋 Eventos carregados:</div>
-              {eventos.slice(0, 5).map((ev: any) => (
-                <div key={ev.id} className="ml-2">
-                  • OS {ev.numero} - {ev.cliente} - {format(new Date(ev.data_inicio), 'dd/MM/yyyy HH:mm')}
-                </div>
-              ))}
-              {eventos.length > 5 && (
-                <div className="ml-2 text-gray-500">... e mais {eventos.length - 5} eventos</div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
+
       
       {visualizacao === 'mes' && renderCalendarioMes()}
       {visualizacao === 'semana' && renderCalendarioSemana()}

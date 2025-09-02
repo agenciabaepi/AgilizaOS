@@ -642,7 +642,32 @@ export default function ListaOrdensPage() {
   const fimDia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + 1);
 
   const osHoje = ordens.filter(os => {
-    const dataOS = new Date(os.entrada);
+    // Converter a data de entrada para data local sem timezone
+    let dataOS: Date;
+    if (typeof os.entrada === 'string') {
+      // Se for string YYYY-MM-DD, tratar como data local
+      const match = os.entrada.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (match) {
+        const [, year, month, day] = match;
+        dataOS = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      } else {
+        dataOS = new Date(os.entrada);
+      }
+    } else {
+      dataOS = new Date(os.entrada);
+    }
+
+    console.log('🔍 Debug O.S. do dia:', {
+      numero: os.numero,
+      entrada: os.entrada,
+      dataOS: dataOS.toISOString(),
+      dataOSLocal: dataOS.toLocaleDateString('pt-BR'),
+      inicioDia: inicioDia.toISOString(),
+      fimDia: fimDia.toISOString(),
+      hoje: hoje.toLocaleDateString('pt-BR'),
+      isToday: dataOS >= inicioDia && dataOS < fimDia
+    });
+    
     return dataOS >= inicioDia && dataOS < fimDia;
   }).length;
 
