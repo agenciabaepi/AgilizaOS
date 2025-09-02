@@ -1,28 +1,11 @@
-'use client';
 
-import { useAuth } from '@/context/AuthContext';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+
+'use client';
+export const dynamic = 'force-dynamic';
+
+import React, { useEffect, useState, useId } from 'react';
 import MenuLayout from '@/components/MenuLayout';
-import ProtectedArea from '@/components/ProtectedArea';
-import OnboardingModal from '@/components/OnboardingModal';
-import { useOnboarding } from '@/hooks/useOnboarding';
-import { supabase } from '@/lib/supabaseClient';
-import { 
-  FiFileText, 
-  FiClock, 
-  FiCheckCircle, 
-  FiUsers, 
-  FiBell,
-  FiPlus,
-  FiAlertCircle,
-  FiEdit3,
-  FiTrash2,
-  FiX,
-  FiUser
-} from 'react-icons/fi';
 import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import {
@@ -43,66 +26,24 @@ import {
 import {CSS} from '@dnd-kit/utilities';
 import { Book, Pencil, Move } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '@/lib/supabaseClient';
+import { useAuth } from '@/context/AuthContext';
+import ClientOnly from '@/components/ClientOnly';
 import { v4 as uuidv4 } from 'uuid';
+import ProtectedArea from '@/components/ProtectedArea';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
 
-interface AdminMetrics {
-  totalOS: number;
-  osPendentes: number;
-  osConcluidas: number;
-  totalClientes: number;
-  totalTecnicos: number;
-  faturamentoMes: number;
-  satisfacaoMedia: number;
-  osCriadasMes: number;
-  clientesNovos: number;
-  // Métricas diárias
-  osHoje: number;
-  faturamentoHoje: number;
-  retornosHoje: number;
-  aprovadosHoje: number;
-  ticketMedioHoje: number;
+// Função para formatar data (pode ser ajustada conforme necessidade)
+function formatarData(data: string) {
+  try {
+    return format(new Date(data), 'dd/MM/yyyy');
+  } catch {
+    return '';
+  }
 }
 
-interface OSData {
-  id: string;
-  numero_os?: string;
-  status?: string;
-  cliente_nome?: string;
-  created_at?: string;
-  valor_faturado?: number;
-  status_tecnico?: string;
-}
-
-interface ClienteData {
-  id: string;
-  nome?: string;
-  empresa?: string;
-  created_at?: string;
-}
-
-interface Lembrete {
-  id: string;
-  titulo: string;
-  texto: string;
-  cor: string;
-  coluna: string;
-  prioridade: string;
-  data_criacao: string;
-  responsavel: string;
-}
-
-interface LembreteEditando {
-  id: string;
-  titulo: string;
-  texto: string;
-  cor: string;
-  coluna: string;
-  prioridade: string;
-}
-
-// Tipos para o sistema Kanban
+// Tipo para nota
 interface Nota {
   id: string;
   titulo: string;
@@ -117,6 +58,7 @@ interface Nota {
   responsavel: string;
 }
 
+// Tipo para nota em edição
 interface NotaEditando {
   id: string;
   titulo: string;
@@ -128,6 +70,7 @@ interface NotaEditando {
   data_criacao: string;
 }
 
+// Tipo para nota selecionada
 interface NotaSelecionada {
   id: string;
   titulo: string;
@@ -137,1313 +80,1102 @@ interface NotaSelecionada {
   prioridade: string;
 }
 
-export default function DashboardPage() {
-  const { usuarioData, empresaData, showOnboarding, setShowOnboarding } = useAuth();
-  const router = useRouter();
-  const { onboardingStatus, markOnboardingCompleted } = useOnboarding();
+export default function LembretesPage() {
+  // Use o contexto de autenticação
+  const { session, user, usuarioData, empresaData } = useAuth();
+  const empresa_id = empresaData?.id;
+
   const { addToast } = useToast();
   const confirm = useConfirm();
-  
-  const [metrics, setMetrics] = useState<AdminMetrics>({
-    totalOS: 0,
-    osPendentes: 0,
-    osConcluidas: 0,
-    totalClientes: 0,
-    totalTecnicos: 0,
-    faturamentoMes: 0,
-    satisfacaoMedia: 0,
-    osCriadasMes: 0,
-    clientesNovos: 0,
-    osHoje: 0,
-    faturamentoHoje: 0,
-    retornosHoje: 0,
-    aprovadosHoje: 0,
-    ticketMedioHoje: 0
-  });
-  const [recentOS, setRecentOS] = useState<OSData[]>([]);
-  const [lembretes, setLembretes] = useState<Lembrete[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  // Estados para lembretes
-  const [showLembreteModal, setShowLembreteModal] = useState(false);
-  const [lembreteEditando, setLembreteEditando] = useState<LembreteEditando | null>(null);
-  const [colunas, setColunas] = useState<string[]>([]);
 
-  // Estados para o sistema Kanban
-  const [colunasKanban, setColunasKanban] = useState<any[]>([]);
-  const [notas, setNotas] = useState<Nota[]>([]);
-  const [notaEditando, setNotaEditando] = useState<NotaEditando | null>(null);
-  const [notaSelecionada, setNotaSelecionada] = useState<NotaSelecionada | null>(null);
-  const [showModalKanban, setShowModalKanban] = useState(false);
-  const [showModalEditar, setShowModalEditar] = useState(false);
-  const [showModalVisualizar, setShowModalVisualizar] = useState(false);
-  const [showKanbanBoard, setShowKanbanBoard] = useState(false);
-
-  // ✅ DEBUG: Mostrar nível do usuário atual
-  useEffect(() => {
-    if (usuarioData) {
-      console.log('🔍 Usuário atual:', {
-        nome: usuarioData.nome,
-        email: usuarioData.email,
-        nivel: usuarioData.nivel,
-        empresa_id: usuarioData.empresa_id
-      });
-    }
-  }, [usuarioData]);
-
-  // ✅ CARREGAR DADOS DA DASHBOARD
-  const fetchDashboardData = async () => {
-    if (!empresaData?.id) return;
-    
-    setLoading(true);
-    try {
-      const hoje = new Date();
-      const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-      const inicioDia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
-
-      // ✅ TIMEOUT: Evitar loading infinito
-      const { data: ordensData, error: ordensError } = await Promise.race([
-        supabase
-          .from('ordens_servico')
-          .select(`
-            id,
-            numero_os,
-            status,
-            status_tecnico,
-            created_at,
-            valor_faturado,
-            clientes:cliente_id(nome)
-          `)
-          .eq('empresa_id', empresaData.id),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Dashboard timeout')), 10000)
-        )
-      ]);
-
-      if (ordensError) {
-        console.error('Erro ao carregar ordens:', ordensError);
-        return;
-      }
-
-      const ordens = ordensData || [];
-      
-      // ✅ BUSCAR LEMBRETES E COLUNAS
-      const { data: lembretesData } = await supabase
-        .from('notas_dashboard')
-        .select('*')
-        .eq('empresa_id', empresaData.id)
-        .order('data_criacao', { ascending: false });
-
-      const { data: colunasData } = await supabase
-        .from('colunas_dashboard')
-        .select('nome')
-        .eq('empresa_id', empresaData.id)
-        .order('posicao');
-
-      setLembretes(lembretesData || []);
-      setColunas(colunasData?.map((c: any) => c.nome) || ['A Fazer', 'Em Andamento', 'Concluído']);
-
-      // ✅ CALCULAR MÉTRICAS
-      const totalOS = ordens.length;
-      const osPendentes = ordens.filter((os: any) => 
-        ['ABERTA', 'EM_ANALISE', 'ORCAMENTO', 'PENDENTE'].includes(os.status || '')
-      ).length;
-      const osConcluidas = ordens.filter((os: any) => 
-        ['CONCLUIDO', 'ENTREGUE'].includes(os.status || '')
-      ).length;
-      
-      const osHoje = ordens.filter((os: any) => 
-        new Date(os.created_at || '') >= inicioDia
-      ).length;
-      
-      const faturamentoHoje = ordens
-        .filter((os: any) => new Date(os.created_at || '') >= inicioDia)
-        .reduce((sum: number, os: any) => sum + (os.valor_faturado || 0), 0);
-      
-      const osCriadasMes = ordens.filter((os: any) => 
-        new Date(os.created_at || '') >= inicioMes
-      ).length;
-
-      // ✅ BUSCAR CLIENTES E TÉCNICOS
-      const { data: clientesData } = await supabase
-        .from('clientes')
-        .select('id, nome, created_at')
-        .eq('empresa_id', empresaData.id);
-
-      const { data: tecnicosData } = await supabase
-        .from('usuarios')
-        .select('id, nome')
-        .eq('empresa_id', empresaData.id)
-        .eq('nivel', 'tecnico');
-
-      const clientes = clientesData || [];
-      const tecnicos = tecnicosData || [];
-      
-      const totalClientes = clientes.length;
-      const totalTecnicos = tecnicos.length;
-      const clientesNovos = clientes.filter((cliente: any) => 
-        new Date(cliente.created_at || '') >= inicioMes
-      ).length;
-
-      // ✅ OSs RECENTES
-      const recentOSData = ordens
-        .sort((a: any, b: any) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
-        .slice(0, 5);
-
-      setRecentOS(recentOSData);
-
-      // ✅ ATUALIZAR MÉTRICAS
-      setMetrics({
-        totalOS,
-        osPendentes,
-        osConcluidas,
-        totalClientes,
-        totalTecnicos,
-        faturamentoMes: 0, // TODO: Implementar
-        satisfacaoMedia: 0, // TODO: Implementar
-        osCriadasMes,
-        clientesNovos,
-        osHoje,
-        faturamentoHoje,
-        retornosHoje: 0, // TODO: Implementar
-        aprovadosHoje: 0, // TODO: Implementar
-        ticketMedioHoje: osHoje > 0 ? faturamentoHoje / osHoje : 0
-      });
-
-    } catch (error) {
-      console.error('Erro ao carregar dashboard:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (empresaData?.id) {
-      fetchDashboardData();
-    }
-  }, [empresaData?.id]);
-
-  // ✅ FUNÇÕES DO SISTEMA KANBAN
+  // Função para buscar colunas do banco
   const fetchColunas = async () => {
-    if (!empresaData?.id) return;
+    if (!empresa_id) return;
     const { data, error } = await supabase
       .from('colunas_dashboard')
       .select('nome')
-      .eq('empresa_id', empresaData.id)
+      .eq('empresa_id', empresa_id)
       .order('posicao', { ascending: true });
     if (!error && data && data.length > 0) {
-      setColunasKanban(data.map((c) => c.nome));
+      setColunas(data.map((c) => c.nome));
+    }
+  };
+
+  // Função para criar uma nova coluna (agora dentro do componente, com acesso ao user)
+  const criarColuna = async (titulo: string) => {
+    // Usar empresa_id do contexto de autenticação
+    if (!empresa_id) {
+      addToast('error', "Erro: empresa não identificada.");
+      return;
+    }
+    if (!titulo) return;
+    
+    const colunaData = {
+      nome: titulo,
+      empresa_id: empresa_id,
+      posicao: colunas.length, // Adiciona a nova coluna no final
+    };
+    
+    console.log('Tentando criar coluna com dados:', colunaData);
+    console.log('Empresa ID:', empresa_id);
+    console.log('User ID:', user?.id);
+    
+    try {
+      const { data, error } = await supabase
+        .from("colunas_dashboard")
+        .insert([colunaData])
+        .select();
+
+      if (error) {
+        console.error('Erro ao criar coluna:', error);
+        console.error('Tipo do erro:', typeof error);
+        console.error('String do erro:', JSON.stringify(error, null, 2));
+        console.error('Detalhes do erro:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        addToast('error', `Erro ao criar coluna: ${error.message || 'Erro desconhecido'}`);
+      } else {
+        console.log('Coluna criada com sucesso:', data);
+        addToast('success', "Coluna criada com sucesso!");
+        await fetchColunas();
+      }
+    } catch (err) {
+      console.error("Erro inesperado ao criar coluna:", err);
+      console.error("Tipo do erro:", typeof err);
+      console.error("String do erro:", JSON.stringify(err, null, 2));
+      addToast('error', `Erro inesperado ao criar coluna: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+    }
+  };
+
+  // Função para remover uma coluna
+  const removerColuna = async (coluna: string) => {
+    if (!empresa_id || !coluna) return;
+    const { error } = await supabase
+      .from('colunas_dashboard')
+      .delete()
+      .eq('empresa_id', empresa_id)
+      .eq('nome', coluna);
+    if (!error) {
+      addToast('success', "Coluna excluída com sucesso!");
     } else {
-      // Criar colunas padrão se não existirem
-      const colunasPadrao = [
-        { id: uuidv4(), nome: 'A Fazer', empresa_id: empresaData.id, posicao: 0 },
-        { id: uuidv4(), nome: 'Em Andamento', empresa_id: empresaData.id, posicao: 1 },
-        { id: uuidv4(), nome: 'Concluído', empresa_id: empresaData.id, posicao: 2 }
-      ];
+      addToast('error', "Erro ao excluir coluna.");
+    }
+  };
 
-      const { error: insertError } = await supabase
+  // Estado para notas e colunas
+  const [notes, setNotes] = useState<Nota[]>([]);
+  // Estado dinâmico das colunas
+  const [colunas, setColunas] = useState<string[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  // Estado para modal de edição de coluna
+  const [modalColunaAberta, setModalColunaAberta] = useState<null | { index: number, valor: string }>(null);
+
+  // Carregando depende de usuarioData
+  useEffect(() => {
+    if (usuarioData !== undefined) setCarregando(false);
+  }, [usuarioData]);
+
+  // Buscar colunas salvas do banco ao carregar empresa_id
+  useEffect(() => {
+    fetchColunas();
+  }, [empresa_id, supabase]);
+
+  // Buscar notas do banco assim que empresa_id estiver disponível
+  useEffect(() => {
+    const fetchNotas = async () => {
+      if (!empresa_id) return;
+      const { data, error } = await supabase
+        .from("notas_dashboard")
+        .select("*")
+        .eq("empresa_id", empresa_id);
+      if (!error && data) {
+        setNotes(data);
+      }
+    };
+    fetchNotas();
+  }, [empresa_id, supabase]);
+
+  // Salvar colunas no banco
+  const salvarColunasNoBanco = async (colunas: string[]) => {
+    if (!empresa_id) return;
+    
+    console.log('Salvando colunas no banco:', colunas);
+    
+    try {
+      // Primeiro, busca as colunas existentes
+      const { data: colunasExistentes, error: erroBusca } = await supabase
         .from('colunas_dashboard')
-        .insert(colunasPadrao);
-
-      if (insertError) {
-        console.error('Erro ao criar colunas padrão:', insertError);
+        .select('id, nome')
+        .eq('empresa_id', empresa_id);
+        
+      if (erroBusca) {
+        console.error('Erro ao buscar colunas existentes:', erroBusca);
+        addToast('error', 'Erro ao atualizar ordem das colunas');
         return;
       }
-
-      setColunasKanban(colunasPadrao.map(c => c.nome));
-    }
-  };
-
-  const fetchNotas = async () => {
-    if (!empresaData?.id) return;
-    const { data, error } = await supabase
-      .from('notas_dashboard')
-      .select('*')
-      .eq('empresa_id', empresaData.id)
-      .order('pos_x');
-
-    if (error) {
-      console.error('Erro ao buscar notas:', error);
-      return;
-    }
-
-    setNotas(data || []);
-  };
-
-  // Configuração dos sensores para drag and drop
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    })
-  );
-
-  // Função para lidar com o fim do drag and drop
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-
-    if (over && active.id !== over.id) {
-      const activeNota = notas.find(nota => nota.id === active.id);
-      const overColuna = over.id as string;
-
-      if (activeNota && activeNota.coluna !== overColuna) {
-        // Atualizar a coluna da nota no banco de dados
-        const { error } = await supabase
-          .from('notas_dashboard')
-          .update({ coluna: overColuna })
-          .eq('id', active.id)
-          .eq('empresa_id', empresaData?.id);
-
-        if (error) {
-          console.error('Erro ao atualizar coluna da nota:', error);
-          addToast('error', 'Erro ao mover nota');
-          return;
+      
+      // Atualiza a posição de cada coluna
+      for (let i = 0; i < colunas.length; i++) {
+        const nomeColuna = colunas[i];
+        const colunaExistente = colunasExistentes?.find(c => c.nome === nomeColuna);
+        
+        if (colunaExistente) {
+          const { error: erroUpdate } = await supabase
+            .from('colunas_dashboard')
+            .update({ posicao: i })
+            .eq('id', colunaExistente.id);
+            
+          if (erroUpdate) {
+            console.error('Erro ao atualizar posição da coluna:', erroUpdate);
+            addToast('error', 'Erro ao atualizar ordem das colunas');
+            return;
+          }
         }
-
-        // Atualizar estado local
-        setNotas(notas.map(nota => 
-          nota.id === active.id ? { ...nota, coluna: overColuna } : nota
-        ));
-
-        addToast('success', 'Nota movida com sucesso!');
       }
+      
+      console.log('Ordem das colunas atualizada com sucesso');
+    } catch (err) {
+      console.error('Erro inesperado ao salvar colunas:', err);
+      addToast('error', 'Erro ao atualizar ordem das colunas');
     }
   };
 
-  // Função para criar nova nota
-  const criarNota = async (nota: Omit<NotaEditando, 'id' | 'data_criacao'>) => {
-    if (!empresaData?.id) return;
-
-    const novaNota = {
-      id: uuidv4(),
-      titulo: nota.titulo,
-      texto: nota.texto,
-      cor: nota.cor,
-      coluna: nota.coluna,
-      prioridade: nota.prioridade,
-      data_criacao: new Date().toISOString(),
-      pos_x: 0,
-      pos_y: 0,
-      empresa_id: empresaData.id,
-      responsavel: usuarioData?.nome || 'Sistema'
-    };
-
-    const { error } = await supabase
-      .from('notas_dashboard')
-      .insert(novaNota);
-
-    if (error) {
-      console.error('Erro ao criar nota:', error);
-      addToast('error', 'Erro ao criar nota');
-      return;
-    }
-
-    setNotas([...notas, novaNota]);
-    setShowModalKanban(false);
-    addToast('success', 'Nota criada com sucesso!');
-  };
-
-  // Função para editar nota
-  const editarNota = async (nota: NotaEditando) => {
-    if (!empresaData?.id) return;
-
-    const { error } = await supabase
-      .from('notas_dashboard')
-      .update({
-        titulo: nota.titulo,
-        texto: nota.texto,
-        cor: nota.cor,
-        coluna: nota.coluna,
-        prioridade: nota.prioridade
-      })
-      .eq('id', nota.id)
-      .eq('empresa_id', empresaData.id);
-
-    if (error) {
-      console.error('Erro ao editar nota:', error);
-      addToast('error', 'Erro ao editar nota');
-      return;
-    }
-
-    setNotas(notas.map(n => 
-      n.id === nota.id ? { ...n, ...nota } : n
-    ));
-    setShowModalEditar(false);
-    setNotaEditando(null);
-    addToast('success', 'Nota editada com sucesso!');
-  };
-
-  // Função para excluir nota
-  const excluirNota = async (id: string) => {
-    const confirmed = await confirm({
-      title: 'Excluir Nota',
-      message: 'Tem certeza que deseja excluir esta nota?',
-      confirmText: 'Excluir',
-      cancelText: 'Cancelar'
+  // Função para atualizar o título da coluna localmente (chamada no onChange do input)
+  const handleColunaTituloChange = (index: number, novoNome: string) => {
+    setColunas((prev) => {
+      const novas = [...prev];
+      novas[index] = novoNome;
+      return novas;
     });
-
-    if (!confirmed) return;
-
-    const { error } = await supabase
-      .from('notas_dashboard')
-      .delete()
-      .eq('id', id)
-      .eq('empresa_id', empresaData?.id);
-
-    if (error) {
-      console.error('Erro ao excluir nota:', error);
-      addToast('error', 'Erro ao excluir nota');
-      return;
-    }
-
-    setNotas(notas.filter(n => n.id !== id));
-    addToast('success', 'Nota excluída com sucesso!');
   };
 
-  // Função para criar nova coluna
-  const criarColuna = async (nome: string) => {
-    if (!empresaData?.id) return;
-
-    const novaColuna = {
-      id: uuidv4(),
-      nome,
-      empresa_id: empresaData.id,
-      posicao: colunasKanban.length
-    };
-
-    const { error } = await supabase
+  // Função para salvar o título da coluna no banco (chamada no onBlur do input)
+  const salvarTituloColuna = async (index: number, novoNome: string) => {
+    if (!empresa_id) return;
+    
+    const nomeAtual = colunas[index];
+    
+    console.log('Salvando título da coluna:', { index, nomeAtual, novoNome, empresa_id });
+    
+    // Busca o id da coluna pelo nome atual e empresa_id
+    const { data, error } = await supabase
       .from('colunas_dashboard')
-      .insert(novaColuna);
+      .select('id, nome')
+      .eq('empresa_id', empresa_id)
+      .eq('nome', nomeAtual)
+      .maybeSingle();
+      
+    console.log('Resultado da busca:', { data, error });
+      
+    if (data && data.id) {
+      const nomeAntigo = data.nome;
+      console.log('Coluna encontrada:', { id: data.id, nomeAntigo, novoNome });
+      await editarColuna(data.id, novoNome, nomeAntigo);
+    } else {
+      console.error('Coluna não encontrada para renomear:', { nomeAtual, empresa_id, data, error });
+      
+      // Vamos tentar buscar todas as colunas para debug
+      const { data: todasColunas, error: erroTodas } = await supabase
+        .from('colunas_dashboard')
+        .select('id, nome, empresa_id')
+        .eq('empresa_id', empresa_id);
+        
+      console.log('Todas as colunas da empresa:', { todasColunas, erroTodas });
+      
+      addToast('error', 'Coluna não encontrada para renomear');
+    }
+  };
 
-    if (error) {
-      console.error('Erro ao criar coluna:', error);
-      addToast('error', 'Erro ao criar coluna');
+  // Função dedicada para atualizar o nome da coluna e salvar no banco, atualizando também as notas
+  const editarColuna = async (colunaId: string, novoNome: string, nomeAntigo: string) => {
+    console.log('Editando coluna:', { colunaId, novoNome, nomeAntigo });
+    
+    // Atualiza o nome da coluna
+    const { error: colunaError } = await supabase
+      .from('colunas_dashboard')
+      .update({ nome: novoNome })
+      .eq('id', colunaId);
+
+    if (colunaError) {
+      console.error('Erro ao renomear a coluna:', colunaError);
+      addToast('error', `Erro ao renomear a coluna: ${colunaError.message}`);
       return;
     }
 
-    setColunasKanban([...colunasKanban, novaColuna]);
-    addToast('success', 'Coluna criada com sucesso!');
-  };
+    console.log('Nome da coluna atualizado com sucesso');
 
-  // Função para excluir coluna
-  const excluirColuna = async (id: string) => {
-    const confirmed = await confirm({
-      title: 'Excluir Coluna',
-      message: 'Tem certeza que deseja excluir esta coluna? Todas as notas serão perdidas.',
-      confirmText: 'Excluir',
-      cancelText: 'Cancelar'
-    });
-
-    if (!confirmed) return;
-
-    // Primeiro excluir todas as notas da coluna
+    // Atualiza o nome da coluna em todas as notas_dashboard relacionadas
     const { error: notasError } = await supabase
       .from('notas_dashboard')
-      .delete()
-      .eq('coluna', colunasKanban.find(c => c.id === id)?.nome)
-      .eq('empresa_id', empresaData?.id);
+      .update({ coluna: novoNome })
+      .eq('coluna', nomeAntigo);
 
     if (notasError) {
-      console.error('Erro ao excluir notas da coluna:', notasError);
-      addToast('error', 'Erro ao excluir coluna');
+      console.error('Erro ao atualizar as notas:', notasError);
+      addToast('error', `Erro ao atualizar as notas: ${notasError.message}`);
       return;
     }
 
-    // Depois excluir a coluna
-    const { error } = await supabase
-      .from('colunas_dashboard')
-      .delete()
-      .eq('id', id)
-      .eq('empresa_id', empresaData?.id);
-
-    if (error) {
-      console.error('Erro ao excluir coluna:', error);
-      addToast('error', 'Erro ao excluir coluna');
-      return;
-    }
-
-    setColunasKanban(colunasKanban.filter(c => c.id !== id));
-    setNotas(notas.filter(n => n.coluna !== colunasKanban.find(c => c.id === id)?.nome));
-    addToast('success', 'Coluna excluída com sucesso!');
+    console.log('Notas atualizadas com sucesso');
+    addToast('success', 'Coluna e notas atualizadas com sucesso!');
+    
+    // Atualiza localmente
+    setColunas((prev) => {
+      const atualizado = [...prev];
+      const idx = atualizado.findIndex((c) => c === nomeAntigo);
+      if (idx !== -1) {
+        atualizado[idx] = novoNome;
+      }
+      return atualizado;
+    });
+    setNotes((prev) =>
+      prev.map((n) => n.coluna === nomeAntigo ? { ...n, coluna: novoNome } : n)
+    );
   };
 
-  // Carregar dados do Kanban
-  useEffect(() => {
-    if (empresaData?.id) {
-      fetchColunas();
-      fetchNotas();
+  // Modal de nova nota/edição de nota
+  const [showModal, setShowModal] = useState(false);
+  const [novaNota, setNovaNota] = useState({
+    titulo: '',
+    texto: '',
+    cor: 'bg-yellow-500',
+    coluna: 'lembretes',
+    prioridade: 'Média',
+  });
+  // Estado para nota em edição
+  const [notaEditando, setNotaEditando] = useState<NotaEditando | null>(null);
+
+  // Estados para modal de edição e nota selecionada
+  const [notaSelecionada, setNotaSelecionada] = useState<NotaSelecionada | null>(null);
+
+  // Função para criar ou atualizar nota
+  const salvarOuAtualizarNota = async () => {
+    // Adiciona empresaId do contexto de autenticação
+    const empresaId = empresaData?.id;
+    if (!empresaId || !novaNota.titulo.trim()) return;
+
+    const nota = notaEditando;
+
+    if (!nota || !nota.id) {
+      // Criar nova nota
+      const novaNotaObj = {
+        id: uuidv4(),
+        titulo: novaNota.titulo,
+        texto: novaNota.texto,
+        cor: novaNota.cor,
+        coluna: novaNota.coluna,
+        prioridade: novaNota.prioridade,
+        empresa_id: empresaId,
+        responsavel: session?.user?.email ?? '',
+        data_criacao: new Date().toISOString(),
+        pos_x: 0,
+        pos_y: 0,
+      };
+      
+      console.log('Tentando criar nota com dados:', novaNotaObj);
+      console.log('Empresa ID:', empresaId);
+      console.log('Session user:', session?.user);
+      
+      try {
+        const { data, error: erroNota } = await supabase
+          .from('notas_dashboard')
+          .insert([novaNotaObj])
+          .select();
+          
+        if (erroNota) {
+          console.error('Erro ao salvar nota:', erroNota);
+          console.error('Tipo do erro:', typeof erroNota);
+          console.error('String do erro:', JSON.stringify(erroNota, null, 2));
+          console.error('Detalhes do erro:', {
+            message: erroNota.message,
+            details: erroNota.details,
+            hint: erroNota.hint,
+            code: erroNota.code
+          });
+          addToast('error', `Erro ao salvar nota: ${erroNota.message || 'Erro desconhecido'}`);
+          return;
+        }
+        
+        console.log('Nota criada com sucesso:', data);
+        
+        // Adiciona a nota localmente para atualização imediata na UI
+        setNotes((prev) => [novaNotaObj as Nota, ...prev]);
+        addToast('success', "Nota criada com sucesso!");
+      } catch (err) {
+        console.error("Erro ao criar nota:", err);
+        console.error("Tipo do erro:", typeof err);
+        console.error("String do erro:", JSON.stringify(err, null, 2));
+        addToast('error', `Erro ao criar nota: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+      }
+      setShowModal(false);
+      setNovaNota({ titulo: '', texto: '', cor: 'bg-yellow-500', coluna: 'lembretes', prioridade: 'Média' });
+      setNotaEditando(null);
+      return;
     }
-  }, [empresaData?.id]);
 
-  // ✅ COMPONENTE PARA NOTA ARRASTÁVEL
-  const NotaArrastavel = ({ nota }: { nota: Nota }) => {
-    const {
-      attributes,
-      listeners,
-      setNodeRef,
-      transform,
+    // Atualização usando o padrão requisitado
+    const dadosNota = {
+      titulo: novaNota.titulo,
+      texto: novaNota.texto,
+      prioridade: novaNota.prioridade,
+      cor: novaNota.cor,
+      coluna: novaNota.coluna,
+    };
+
+    console.log('Tentando atualizar nota com dados:', dadosNota);
+    console.log('ID da nota:', notaEditando.id);
+
+    try {
+      const { data, error: erroNota } = await supabase
+        .from("notas_dashboard")
+        .update(dadosNota)
+        .eq("id", notaEditando.id)
+        .select();
+
+      if (erroNota) {
+        console.error('Erro ao salvar nota:', erroNota);
+        console.error('Tipo do erro:', typeof erroNota);
+        console.error('String do erro:', JSON.stringify(erroNota, null, 2));
+        console.error('Detalhes do erro:', {
+          message: erroNota.message,
+          details: erroNota.details,
+          hint: erroNota.hint,
+          code: erroNota.code
+        });
+        addToast('error', `Erro ao atualizar nota: ${erroNota.message || 'Erro desconhecido'}`);
+      } else {
+        console.log("Nota atualizada com sucesso:", data);
+        addToast('success', "Nota atualizada com sucesso!");
+        setNotes((prev) =>
+          prev.map((n) =>
+            n.id === notaEditando.id
+              ? {
+                  ...n,
+                  titulo: novaNota.titulo,
+                  texto: novaNota.texto,
+                  cor: novaNota.cor,
+                  prioridade: novaNota.prioridade,
+                  coluna: novaNota.coluna,
+
+                }
+              : n
+          )
+        );
+      }
+    } catch (err) {
+      console.error("Erro ao atualizar nota:", err);
+      console.error("Tipo do erro:", typeof err);
+      console.error("String do erro:", JSON.stringify(err, null, 2));
+      addToast('error', `Erro ao atualizar nota: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+    }
+
+    setShowModal(false);
+    setNovaNota({ titulo: '', texto: '', cor: 'bg-yellow-500', coluna: 'lembretes', prioridade: 'Média' });
+    setNotaEditando(null);
+  };
+
+  const sensors = useSensors(useSensor(PointerSensor));
+
+  // Função para lidar com o fim do drag and drop (localizada)
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    console.log('Drag end - Active:', active.id, 'Over:', over.id);
+
+    const isColuna = (id: string) => String(id).startsWith('coluna-');
+
+    // Mover coluna
+    if (isColuna(String(active.id)) && isColuna(String(over.id))) {
+      console.log('Movendo coluna');
+      const activeIndex = colunas.findIndex((c) => `coluna-${c}` === String(active.id));
+      const overIndex = colunas.findIndex((c) => `coluna-${c}` === String(over.id));
+      
+      console.log('Índices - Active:', activeIndex, 'Over:', overIndex);
+      
+      if (activeIndex !== -1 && overIndex !== -1) {
+        const novasColunas = arrayMove(colunas, activeIndex, overIndex);
+        console.log('Nova ordem das colunas:', novasColunas);
+        setColunas(novasColunas);
+        await salvarColunasNoBanco(novasColunas);
+      } else {
+        console.error('Índices inválidos para mover coluna');
+      }
+      return;
+    }
+
+    // Novo bloco: tratar movimentação entre colunas explicitamente
+    if (!isColuna(String(active.id)) && !isColuna(String(over.id))) {
+      const notaMovida = notes.find((n) => n.id === String(active.id));
+      const notaAlvo = notes.find((n) => n.id === String(over.id));
+
+      if (!notaMovida || !notaAlvo) return;
+
+      const novaColuna = notaAlvo.coluna;
+
+      // Atualiza a coluna da nota movida (caso tenha mudado)
+      const novaNotaMovida = { ...notaMovida, coluna: novaColuna };
+
+      // Atualiza lista temporária com a nota movida atualizada
+      const notasTemp = notes.map((n) => (n.id === notaMovida.id ? novaNotaMovida : n));
+
+      // Filtra as notas da nova coluna
+      const notasNaColuna = notasTemp
+        .filter((n) => n.coluna === novaColuna)
+        .sort((a, b) => a.pos_x - b.pos_x);
+
+      // Garante que a nota movida está na lista
+      if (!notasNaColuna.find((n) => n.id === String(active.id))) {
+        notasNaColuna.push(novaNotaMovida);
+      }
+
+      const activeIndex = notasNaColuna.findIndex((n) => n.id === String(active.id));
+      const overIndex = notasNaColuna.findIndex((n) => n.id === String(over.id));
+      if (activeIndex === -1 || overIndex === -1) return;
+
+      const notasReordenadas = arrayMove(notasNaColuna, activeIndex, overIndex).map(
+        (nota, index) => ({ ...nota, pos_x: index })
+      );
+
+      // Atualiza estado antes de salvar no banco para evitar delay visual
+      setNotes((prev) => {
+        const idsAtualizados = new Set(notasReordenadas.map((n) => n.id));
+        const restantes = prev.filter((n) => !idsAtualizados.has(n.id));
+        return [...restantes, ...notasReordenadas].sort((a, b) => a.pos_x - b.pos_x);
+      });
+
+      // Atualiza no banco
+      for (const nota of notasReordenadas) {
+        await supabase
+          .from('notas_dashboard')
+          .update({ pos_x: nota.pos_x, coluna: nota.coluna })
+          .eq('id', nota.id);
+      }
+
+      return;
+    }
+  };
+
+  // Função para excluir nota individual com feedback e atualização
+  const excluirNota = async (idNota: string) => {
+    try {
+      const { error } = await supabase.from("notas_dashboard").delete().eq("id", idNota);
+      if (error) throw error;
+      // Atualiza a lista localmente para refletir imediatamente
+      setNotes((prev) => prev.filter((n) => n.id !== idNota));
+      addToast('success', 'Nota excluída com sucesso!');
+    } catch (error) {
+      console.error("Erro ao excluir nota:", error);
+      throw error;
+    }
+  };
+
+  // Modal de exclusão de nota
+  const [exibirExcluirNotaModal, setExibirExcluirNotaModal] = useState(false);
+
+  // Função para confirmar exclusão da nota selecionada (chamada pela modal)
+  const handleConfirmarExcluirNota = async (nota: NotaSelecionada | null) => {
+    if (!nota) return;
+    try {
+      await excluirNota(nota.id);
+      setExibirExcluirNotaModal(false);
+      setNotaSelecionada(null);
+    } catch {}
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function SortableNoteCard({ id, children }: { id: string; children: (opts: { isDragging: boolean, attributes: any, listeners: any }) => React.ReactNode }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+    const describedById = useId();
+    const style = {
+      transform: CSS.Transform.toString(transform),
       transition,
-      isDragging,
-    } = useSortable({ id: nota.id });
+    };
+    return (
+      <div ref={setNodeRef} style={style}>
+        <div {...attributes} {...listeners} aria-describedby={describedById} id={describedById}>
+          {children({ isDragging, attributes, listeners })}
+        </div>
+      </div>
+    );
+  }
 
+  // Componente para colunas sortables
+  function SortableColunaCard({
+    id,
+    children,
+    className = '',
+  }: {
+    id: string;
+    children: (opts: { attributes: any, listeners: any }) => React.ReactNode;
+    className?: string;
+  }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+    const describedById = useId();
     const style = {
       transform: CSS.Transform.toString(transform),
       transition,
       opacity: isDragging ? 0.5 : 1,
     };
-
-    const cores = {
-      azul: 'bg-blue-100 border-blue-300 text-blue-800',
-      verde: 'bg-green-100 border-green-300 text-green-800',
-      amarelo: 'bg-yellow-100 border-yellow-300 text-yellow-800',
-      vermelho: 'bg-red-100 border-red-300 text-red-800',
-      roxo: 'bg-purple-100 border-purple-300 text-purple-800',
-      rosa: 'bg-pink-100 border-pink-300 text-pink-800',
-      laranja: 'bg-orange-100 border-orange-300 text-orange-800',
-      cinza: 'bg-gray-100 border-gray-300 text-gray-800'
-    };
-
     return (
-      <motion.div
+      <div
         ref={setNodeRef}
         style={style}
-        {...attributes}
-        {...listeners}
-        className={`p-3 rounded-lg border cursor-move ${cores[nota.cor as keyof typeof cores] || cores.cinza}`}
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
+        className={className}
+        id={describedById}
       >
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <h3 className="font-medium text-sm">{nota.titulo}</h3>
-            <p className="text-xs mt-1 opacity-80">{nota.texto}</p>
-            <p className="text-xs mt-1 opacity-60">
-              {format(new Date(nota.data_criacao), 'dd/MM/yyyy')}
-            </p>
-          </div>
-          <div className="ml-2 flex space-x-1">
-            {nota.prioridade === 'alta' && (
-              <span className="text-red-600 text-xs">🔥</span>
-            )}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setNotaSelecionada(nota);
-                setShowModalVisualizar(true);
-              }}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <Book className="w-4 h-4" />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setNotaEditando({
-                  id: nota.id,
-                  titulo: nota.titulo,
-                  texto: nota.texto,
-                  cor: nota.cor,
-                  coluna: nota.coluna,
-                  prioridade: nota.prioridade,
-                  data: '',
-                  data_criacao: nota.data_criacao
-                });
-                setShowModalEditar(true);
-              }}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <Pencil className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    );
-  };
-
-  // ✅ FUNÇÕES DOS LEMBRETES
-  const criarLembrete = async (lembrete: Omit<LembreteEditando, 'id'>) => {
-    if (!empresaData?.id) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('notas_dashboard')
-        .insert({
-          titulo: lembrete.titulo,
-          texto: lembrete.texto,
-          cor: lembrete.cor,
-          coluna: lembrete.coluna,
-          prioridade: lembrete.prioridade,
-          empresa_id: empresaData.id,
-          responsavel: usuarioData?.nome || 'Sistema'
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      addToast('success', 'Lembrete criado com sucesso!');
-      setShowLembreteModal(false);
-      fetchDashboardData(); // Recarregar dados
-    } catch (error) {
-      console.error('Erro ao criar lembrete:', error);
-      addToast('error', 'Erro ao criar lembrete');
-    }
-  };
-
-  const editarLembrete = async (lembrete: LembreteEditando) => {
-    if (!empresaData?.id) return;
-    
-    try {
-      const { error } = await supabase
-        .from('notas_dashboard')
-        .update({
-          titulo: lembrete.titulo,
-          texto: lembrete.texto,
-          cor: lembrete.cor,
-          coluna: lembrete.coluna,
-          prioridade: lembrete.prioridade
-        })
-        .eq('id', lembrete.id)
-        .eq('empresa_id', empresaData.id);
-
-      if (error) throw error;
-
-      addToast('success', 'Lembrete atualizado com sucesso!');
-      setLembreteEditando(null);
-      fetchDashboardData(); // Recarregar dados
-    } catch (error) {
-      console.error('Erro ao editar lembrete:', error);
-      addToast('error', 'Erro ao editar lembrete');
-    }
-  };
-
-  const excluirLembrete = async (id: string) => {
-    if (!empresaData?.id) return;
-    
-    const confirmed = await confirm({
-      title: 'Excluir Lembrete',
-      message: 'Tem certeza que deseja excluir este lembrete?',
-      confirmText: 'Excluir',
-      cancelText: 'Cancelar'
-    });
-
-    if (!confirmed) return;
-
-    try {
-      const { error } = await supabase
-        .from('notas_dashboard')
-        .delete()
-        .eq('id', id)
-        .eq('empresa_id', empresaData.id);
-
-      if (error) throw error;
-
-      addToast('success', 'Lembrete excluído com sucesso!');
-      fetchDashboardData(); // Recarregar dados
-    } catch (error) {
-      console.error('Erro ao excluir lembrete:', error);
-      addToast('error', 'Erro ao excluir lembrete');
-    }
-  };
-
-  // ✅ FORMATAR VALOR
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
-
-  // ✅ FORMATAR DATA
-  const formatDate = (date: string) => {
-    try {
-      return format(new Date(date), 'dd/MM/yyyy', { locale: ptBR });
-    } catch {
-      return '';
-    }
-  };
-
-  // ✅ OBTER COR DO STATUS
-  const getStatusColor = (status: string) => {
-    const statusLower = status?.toLowerCase() || '';
-    switch (statusLower) {
-      case 'concluido':
-      case 'entregue':
-        return 'text-green-600 bg-green-100';
-      case 'orcamento':
-      case 'orçamento':
-        return 'text-yellow-600 bg-yellow-100';
-      case 'em analise':
-      case 'em análise':
-        return 'text-blue-600 bg-blue-100';
-      case 'aguardando peca':
-      case 'aguardando peça':
-        return 'text-orange-600 bg-orange-100';
-      default:
-        return 'text-gray-600 bg-gray-100';
-    }
-  };
-
-  // ✅ OBTER COR DO LEMBRETE
-  const getLembreteColor = (cor: string) => {
-    const cores: { [key: string]: string } = {
-      'azul': 'bg-blue-100 border-blue-300 text-blue-800',
-      'verde': 'bg-green-100 border-green-300 text-green-800',
-      'amarelo': 'bg-yellow-100 border-yellow-300 text-yellow-800',
-      'vermelho': 'bg-red-100 border-red-300 text-red-800',
-      'roxo': 'bg-purple-100 border-purple-300 text-purple-800',
-      'rosa': 'bg-pink-100 border-pink-300 text-pink-800',
-      'laranja': 'bg-orange-100 border-orange-300 text-orange-800',
-      'cinza': 'bg-gray-100 border-gray-300 text-gray-800'
-    };
-    return cores[cor] || 'bg-gray-100 border-gray-300 text-gray-800';
-  };
-
-  // ✅ LOADING STATE
-  if (loading) {
-    return (
-      <ProtectedArea area="dashboard">
-        <MenuLayout>
-          <div className="flex items-center justify-center min-h-screen">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 mx-auto mb-4"></div>
-              <p className="text-gray-600">Carregando dashboard...</p>
-              <p className="text-sm text-gray-500 mt-2">Isso pode levar alguns segundos</p>
-            </div>
-          </div>
-        </MenuLayout>
-      </ProtectedArea>
+        {children({ attributes, listeners })}
+      </div>
     );
   }
 
+
+
+
+
+  // Checagem de carregamento e autenticação
+  if (carregando || !session?.user) {
+    return <div className="p-4">Carregando...</div>;
+  }
+
   return (
-    <ProtectedArea area="dashboard">
+    <ProtectedArea area="lembretes">
       <MenuLayout>
-        <div className="min-h-screen bg-gray-50">
-          {/* Header */}
-          <div className="bg-white shadow-sm border-b border-gray-200">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex justify-between items-center py-6">
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900">
-                    Dashboard
-                  </h1>
-                  <p className="text-gray-600 mt-1">
-                    Resumo do dia {formatDate(new Date().toISOString())}
-                  </p>
-                </div>
-                <div className="flex space-x-3">
-                  <button
-                    onClick={() => router.push('/nova-os')}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-                  >
-                    <FiPlus className="w-4 h-4" />
-                    <span>Nova OS</span>
-                  </button>
-                  <button
-                    onClick={() => setShowLembreteModal(true)}
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
-                  >
-                    <FiPlus className="w-4 h-4" />
-                    <span>Novo Lembrete</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {/* Métricas Principais */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              {/* OS do Dia */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">OS do Dia</p>
-                    <p className="text-3xl font-bold text-gray-900">{metrics.osHoje}</p>
-                  </div>
-                  <div className="bg-blue-100 p-3 rounded-full">
-                    <FiFileText className="w-6 h-6 text-blue-600" />
-                  </div>
-                </div>
-                <div className="mt-4">
-                  <p className="text-sm text-gray-600">
-                    Faturamento: {formatCurrency(metrics.faturamentoHoje)}
-                  </p>
-                </div>
-              </div>
-
-              {/* OS Pendentes */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">OS Pendentes</p>
-                    <p className="text-3xl font-bold text-orange-600">{metrics.osPendentes}</p>
-                  </div>
-                  <div className="bg-orange-100 p-3 rounded-full">
-                    <FiClock className="w-6 h-6 text-orange-600" />
-                  </div>
-                </div>
-                <div className="mt-4">
-                  <p className="text-sm text-gray-600">
-                    {((metrics.osPendentes / metrics.totalOS) * 100).toFixed(1)}% do total
-                  </p>
-                </div>
-              </div>
-
-              {/* OS Concluídas */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">OS Concluídas</p>
-                    <p className="text-3xl font-bold text-green-600">{metrics.osConcluidas}</p>
-                  </div>
-                  <div className="bg-green-100 p-3 rounded-full">
-                    <FiCheckCircle className="w-6 h-6 text-green-600" />
-                  </div>
-                </div>
-                <div className="mt-4">
-                  <p className="text-sm text-gray-600">
-                    {((metrics.osConcluidas / metrics.totalOS) * 100).toFixed(1)}% do total
-                  </p>
-                </div>
-              </div>
-
-              {/* Total Clientes */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Total Clientes</p>
-                    <p className="text-3xl font-bold text-purple-600">{metrics.totalClientes}</p>
-                  </div>
-                  <div className="bg-purple-100 p-3 rounded-full">
-                    <FiUsers className="w-6 h-6 text-purple-600" />
-                  </div>
-                </div>
-                <div className="mt-4">
-                  <p className="text-sm text-gray-600">
-                    +{metrics.clientesNovos} este mês
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* OSs Recentes */}
-              <div className="lg:col-span-2">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                  <div className="px-6 py-4 border-b border-gray-200">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-medium text-gray-900">OSs Recentes</h3>
-                      <button
-                        onClick={() => router.push('/ordens')}
-                        className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+        <div className="p-6 rounded-lg border bg-white">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <Book className="text-yellow-500 w-5 h-5" />
+            Anotações Fixas
+          </h2>
+          <ClientOnly>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext
+                items={colunas.map((coluna) => `coluna-${coluna}`)}
+                strategy={horizontalListSortingStrategy}
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 px-4 py-6">
+                  {colunas.map((coluna, index) => {
+                    // Porcentagem demonstrativa para progresso
+                    const percentualConcluido = 50;
+                    const notasDaColuna = notes.filter((n) => n.coluna === coluna);
+                    return (
+                      <SortableColunaCard
+                        key={`coluna-${coluna}`}
+                        id={`coluna-${coluna}`}
+                        className="bg-white border border-zinc-200 rounded-xl shadow-md flex flex-col transition-all"
                       >
-                        Ver todas
-                      </button>
-                    </div>
-                  </div>
-                  <div className="p-6">
-                    {recentOS.length > 0 ? (
-                      <div className="space-y-4">
-                        {recentOS.map((os) => (
-                          <div key={os.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                            <div className="flex items-center space-x-4">
-                              <div className="flex-shrink-0">
-                                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                  <FiFileText className="w-4 h-4 text-blue-600" />
-                                </div>
-                              </div>
-                              <div>
-                                <p className="text-sm font-medium text-gray-900">
-                                  OS #{os.numero_os}
-                                </p>
-                                <p className="text-sm text-gray-600">
-                                  {os.cliente_nome}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center space-x-4">
-                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(os.status || '')}`}>
-                                {os.status}
-                              </span>
-                              <p className="text-sm text-gray-600">
-                                {formatDate(os.created_at || '')}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8">
-                        <FiFileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-600">Nenhuma OS encontrada</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Sistema Kanban */}
-              <div className="lg:col-span-2">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                  <div className="px-6 py-4 border-b border-gray-200">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-medium text-gray-900">Kanban</h3>
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => setShowModalKanban(true)}
-                          className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                        >
-                          Nova Nota
-                        </button>
-                        <button
-                          onClick={() => {
-                            const nome = prompt('Nome da nova coluna:');
-                            if (nome) criarColuna(nome);
-                          }}
-                          className="text-green-600 hover:text-green-700 text-sm font-medium"
-                        >
-                          Nova Coluna
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-6">
-                    <DndContext
-                      sensors={sensors}
-                      collisionDetection={closestCenter}
-                      onDragEnd={handleDragEnd}
-                    >
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {colunasKanban.map((coluna) => (
-                          <div key={coluna} className="bg-gray-50 rounded-lg p-4">
-                            <div className="flex items-center justify-between mb-3">
-                              <h4 className="font-medium text-gray-900">{coluna}</h4>
-                              <div className="flex space-x-2">
-                                <span className="text-sm text-gray-500">
-                                  {notas.filter(n => n.coluna === coluna).length}
-                                </span>
+                        {({ attributes, listeners }) => (
+                          <>
+                            <div
+                              className="px-4 py-3 border-b border-zinc-100 font-semibold text-zinc-800 flex justify-between items-center"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span>{colunas[index]}</span>
                                 <button
-                                  onClick={() => excluirColuna(coluna)}
-                                  className="text-red-600 hover:text-red-800 text-sm"
+                                  type="button"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    setModalColunaAberta({ index, valor: colunas[index] });
+                                  }}
+                                  className="text-gray-400 hover:text-gray-600 transition p-1 rounded hover:bg-gray-100"
+                                  aria-label="Editar título da coluna"
                                 >
-                                  ×
+                                  <Pencil size={14} />
                                 </button>
                               </div>
                             </div>
-                            
-                            <SortableContext
-                              items={notas.filter(n => n.coluna === coluna).map(n => n.id)}
-                              strategy={verticalListSortingStrategy}
-                            >
-                              <div className="space-y-2">
-                                {notas
-                                  .filter(nota => nota.coluna === coluna)
-                                  .map((nota) => (
-                                    <NotaArrastavel key={nota.id} nota={nota} />
-                                  ))}
+                            {/* Drag handle aprimorado */}
+                            <div className="flex justify-center my-2">
+                              <button
+                                {...attributes}
+                                {...listeners}
+                                className="flex items-center gap-2 px-3 py-1 border border-gray-300 rounded-md bg-gray-100 hover:bg-gray-200 cursor-grab transition"
+                                aria-label="Arraste para mover a coluna"
+                              >
+                                <Move size={16} className="text-gray-500" />
+                                <span className="text-xs font-medium text-gray-600 select-none">
+                                  Segure e arraste
+                                </span>
+                              </button>
+                            </div>
+                            {/* Barra de progresso da coluna */}
+                            <div className="w-full px-4 mb-2">
+                              <div className="text-xs text-gray-600 mb-1 text-center">
+                                {Math.round(percentualConcluido)}% concluído
                               </div>
-                            </SortableContext>
-                          </div>
-                        ))}
-                      </div>
-                    </DndContext>
-                  </div>
-                </div>
-              </div>
-            </div>
+                              <div className="w-full h-2 bg-gray-200 rounded-full">
+                                <div
+                                  className="h-2 bg-green-500 rounded-full transition-all duration-300"
+                                  style={{ width: `${percentualConcluido}%` }}
+                                />
+                              </div>
+                            </div>
 
-            {/* Ações Rápidas */}
-            <div className="mt-8">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <h3 className="text-lg font-medium text-gray-900">Ações Rápidas</h3>
-                </div>
-                <div className="p-6">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(event: DragEndEvent) => {
+                              const { active, over } = event;
+                              if (!over || active.id === over.id) return;
+                              const isColuna = (id: string) => String(id).startsWith('coluna-');
+                              if (isColuna(String(active.id)) && isColuna(String(over.id))) {
+                                const activeIndex = colunas.findIndex((c) => `coluna-${c}` === String(active.id));
+                                const overIndex = colunas.findIndex((c) => `coluna-${c}` === String(over.id));
+                                if (activeIndex !== -1 && overIndex !== -1) {
+                                  const novas = arrayMove(colunas, activeIndex, overIndex);
+                                  setColunas(novas);
+                                  salvarColunasNoBanco(novas);
+                                }
+                                return;
+                              }
+                              handleDragEnd(event);
+                            }}>
+                              <SortableContext
+                                items={notasDaColuna
+                                  .sort((a, b) => a.pos_x - b.pos_x)
+                                  .map((n) => n.id)}
+                                strategy={verticalListSortingStrategy}
+                              >
+                                <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+                                  <AnimatePresence>
+                                    {notasDaColuna
+                                      .sort((a, b) => a.pos_x - b.pos_x)
+                                      .map((nota, index) => (
+                                        <SortableNoteCard key={nota.id || `nota-${index}`} id={nota.id}>
+                                          {({ isDragging }) =>
+                                            isDragging ? (
+                                              <motion.div
+                                                layout
+                                                initial={false}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                exit={{ opacity: 0 }}
+                                                whileTap={{ scale: 1.02 }}
+                                                transition={{
+                                                  duration: 0.15,
+                                                  ease: 'easeOut',
+                                                }}
+                                              >
+                                                <div className="flex rounded-lg shadow-md hover:shadow-lg bg-white transition-shadow duration-200 overflow-hidden cursor-pointer relative">
+                                                  <div className={`w-1 ${nota.cor}`} />
+                                                  <div className="flex-1 p-4">
+                                                    <div className="flex items-start justify-between">
+                                                      <p className="text-base font-semibold">{nota.titulo}</p>
+                                                      {/* Ícones de editar e excluir alinhados à direita */}
+                                                      <div className="flex gap-2 ml-2">
+                                                        <button
+                                                          className="text-gray-400 hover:text-primary transition-colors duration-150"
+                                                          type="button"
+                                                          onPointerDown={e => {
+                                                            e.stopPropagation();
+                                                            e.preventDefault();
+                                                            setNovaNota({
+                                                              titulo: nota.titulo,
+                                                              texto: nota.texto,
+                                                              cor: nota.cor,
+                                                              coluna: nota.coluna,
+                                                              prioridade: nota.prioridade || 'Média',
+                                                            });
+                                                            setNotaEditando({
+                                                              id: nota.id,
+                                                              titulo: nota.titulo,
+                                                              texto: nota.texto,
+                                                              cor: nota.cor,
+                                                              coluna: nota.coluna,
+                                                              prioridade: nota.prioridade,
+                                                              data: nota.data_criacao,
+                                                              data_criacao: nota.data_criacao,
+                                                            });
+                                                            setShowModal(true);
+                                                          }}
+                                                        >
+                                                          <Pencil size={16} />
+                                                        </button>
+                                                      </div>
+                                                    </div>
+                                                    <p className="text-sm text-gray-600 mt-1 line-clamp-3">{nota.texto}</p>
+
+                                                    {/* Data e prioridade */}
+                                                    <div className="flex justify-between items-end mt-4">
+                                                      <span className="text-xs text-gray-500">
+                                                        {formatarData(nota.data_criacao)}
+                                                      </span>
+                                                      <span
+                                                        className={`text-xs font-semibold px-2 py-1 rounded ${
+                                                          nota.prioridade?.toLowerCase() === 'alta'
+                                                            ? 'bg-red-100 text-red-600'
+                                                            : nota.prioridade?.toLowerCase() === 'média'
+                                                            ? 'bg-yellow-100 text-yellow-600'
+                                                            : 'bg-green-100 text-green-600'
+                                                        }`}
+                                                      >
+                                                        {nota.prioridade}
+                                                      </span>
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                              </motion.div>
+                                            ) : (
+                                              <div className="flex rounded-lg shadow-md hover:shadow-lg bg-white transition-shadow duration-200 overflow-hidden cursor-pointer relative">
+                                                <div className={`w-1 ${nota.cor}`} />
+                                                <div className="flex-1 p-4">
+                                                  <div className="flex items-start justify-between">
+                                                    <p className="text-base font-semibold">{nota.titulo}</p>
+                                                    {/* Ícones de editar e excluir alinhados à direita */}
+                                                    <div className="flex gap-2 ml-2">
+                                                      <button
+                                                        className="text-gray-400 hover:text-primary transition-colors duration-150"
+                                                        type="button"
+                                                        onPointerDown={e => {
+                                                          e.stopPropagation();
+                                                          e.preventDefault();
+                                                          setNovaNota({
+                                                            titulo: nota.titulo,
+                                                            texto: nota.texto,
+                                                            cor: nota.cor,
+                                                            coluna: nota.coluna,
+                                                            prioridade: nota.prioridade || 'Média',
+                                                          });
+                                                          setNotaEditando({
+                                                            id: nota.id,
+                                                            titulo: nota.titulo,
+                                                            texto: nota.texto,
+                                                            cor: nota.cor,
+                                                            coluna: nota.coluna,
+                                                            prioridade: nota.prioridade,
+                                                            data: nota.data_criacao,
+                                                            data_criacao: nota.data_criacao,
+                                                          });
+                                                          setShowModal(true);
+                                                        }}
+                                                      >
+                                                        <Pencil size={16} />
+                                                      </button>
+                                                    </div>
+                                                  </div>
+                                                  <p className="text-sm text-gray-600 mt-1 line-clamp-3">{nota.texto}</p>
+
+                                                  {/* Data e prioridade */}
+                                                  <div className="flex justify-between items-end mt-4">
+                                                    <span className="text-xs text-gray-500">
+                                                      {formatarData(nota.data_criacao)}
+                                                    </span>
+                                                    <span
+                                                      className={`text-xs font-semibold px-2 py-1 rounded ${
+                                                        nota.prioridade?.toLowerCase() === 'alta'
+                                                          ? 'bg-red-100 text-red-600'
+                                                          : nota.prioridade?.toLowerCase() === 'média'
+                                                          ? 'bg-yellow-100 text-yellow-600'
+                                                          : 'bg-green-100 text-green-600'
+                                                      }`}
+                                                    >
+                                                      {nota.prioridade}
+                                                    </span>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            )
+                                          }
+                                        </SortableNoteCard>
+                                      ))}
+                                  </AnimatePresence>
+                                </div>
+                              </SortableContext>
+                            </DndContext>
+
+                            <div className="border-t border-zinc-100 px-4 py-2 flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                className="text-xs text-zinc-600 hover:text-zinc-900 transition"
+                                onMouseDown={() => {
+                                  setNovaNota({ titulo: '', texto: '', cor: 'bg-yellow-500', coluna, prioridade: 'Média' });
+                                  setNotaEditando(null);
+                                  setShowModal(true);
+                                }}
+                              >
+                                + Nova anotação
+                              </button>
+                              <button
+                                type="button"
+                                className="text-xs text-rose-500 hover:text-rose-700 transition"
+                                title="Excluir coluna"
+                                onMouseDown={async () => {
+                                  const confirmed = await confirm({
+                                    title: 'Excluir coluna',
+                                    message: `Tem certeza que deseja excluir a coluna "${coluna}"?`,
+                                    confirmText: 'Excluir',
+                                    cancelText: 'Cancelar',
+                                  });
+                                  if (confirmed) {
+                                    const novas = colunas.filter((_, i) => i !== index);
+                                    setColunas(novas);
+                                    await removerColuna(coluna);
+                                    salvarColunasNoBanco(novas);
+                                    setNotes((prev) => prev.filter((n) => n.coluna !== coluna));
+                                  }
+                                }}
+                              >
+                                Excluir coluna
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </SortableColunaCard>
+                    );
+                  })}
+                  <div className="min-w-[250px]">
                     <button
-                      onClick={() => router.push('/nova-os')}
-                      className="flex flex-col items-center p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                      onClick={async () => {
+                        const nova = prompt('Nome da nova coluna');
+                        if (nova && !colunas.includes(nova)) {
+                          const novas = [...colunas, nova.toLowerCase()];
+                          setColunas(novas);
+                          await criarColuna(nova.toLowerCase());
+                          salvarColunasNoBanco(novas);
+                        }
+                      }}
+                      className="bg-[#f9ffe0] border border-dashed border-[#cffb6d] text-black hover:bg-[#cffb6d] w-full h-full p-4 text-center text-sm rounded-lg"
                     >
-                      <FiPlus className="w-8 h-8 text-blue-600 mb-2" />
-                      <span className="text-sm font-medium text-blue-900">Nova OS</span>
-                    </button>
-                    
-                    <button
-                      onClick={() => router.push('/clientes/novo')}
-                      className="flex flex-col items-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
-                    >
-                      <FiUser className="w-8 h-8 text-green-600 mb-2" />
-                      <span className="text-sm font-medium text-green-900">Novo Cliente</span>
-                    </button>
-                    
-                    <button
-                      onClick={() => router.push('/ordens')}
-                      className="flex flex-col items-center p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
-                    >
-                      <FiFileText className="w-8 h-8 text-purple-600 mb-2" />
-                      <span className="text-sm font-medium text-purple-900">Ver OSs</span>
-                    </button>
-                    
-                    <button
-                      onClick={() => setShowLembreteModal(true)}
-                      className="flex flex-col items-center p-4 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors"
-                    >
-                      <FiBell className="w-8 h-8 text-orange-600 mb-2" />
-                      <span className="text-sm font-medium text-orange-900">Lembretes</span>
+                      + Nova coluna
                     </button>
                   </div>
                 </div>
+              </SortableContext>
+            </DndContext>
+          </ClientOnly>
+          {/* Modal Nova Anotação / Editar Anotação */}
+          {showModal && (
+            <EditarNotaModal
+              notaEditando={notaEditando}
+              novaNota={novaNota}
+              setNovaNota={setNovaNota}
+              setShowModal={setShowModal}
+              salvarOuAtualizarNota={salvarOuAtualizarNota}
+              onClose={() => setShowModal(false)}
+              setExibirExcluirNotaModal={setExibirExcluirNotaModal}
+              setNotaSelecionada={setNotaSelecionada}
+            />
+          )}
+          {/* Modal para editar título da coluna */}
+          {modalColunaAberta && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+              <div className="bg-white rounded-lg p-6 w-full max-w-xs shadow-lg flex flex-col gap-4">
+                <h2 className="text-lg font-semibold">Editar título da coluna</h2>
+                <input
+                  type="text"
+                  value={modalColunaAberta.valor}
+                  onChange={e => setModalColunaAberta(m => m ? { ...m, valor: e.target.value } : m)}
+                  className="border rounded p-2 text-sm"
+                  autoFocus
+                />
+                <div className="flex gap-2 justify-end">
+                  <button
+                    className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 text-sm"
+                    onClick={() => setModalColunaAberta(null)}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 text-sm"
+                    onClick={async () => {
+                      const { index, valor } = modalColunaAberta;
+                      if (valor.trim() && valor !== colunas[index]) {
+                        handleColunaTituloChange(index, valor);
+                        await salvarTituloColuna(index, valor);
+                      }
+                      setModalColunaAberta(null);
+                    }}
+                  >
+                    Salvar
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
+          {/* Modal de confirmação de exclusão */}
+          <ExcluirNotaModal
+            isOpen={exibirExcluirNotaModal}
+            onClose={() => setExibirExcluirNotaModal(false)}
+            onConfirm={() => handleConfirmarExcluirNota(notaSelecionada)}
+          />
+          {/* ToastContainer para notificações */}
+          {/* Remover ToastContainer do react-toastify */}
         </div>
-
-        {/* Modal para criar nota */}
-        {showModalKanban && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <h3 className="text-lg font-medium text-gray-900">Nova Nota</h3>
-                <button
-                  onClick={() => setShowModalKanban(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <FiX className="w-6 h-6" />
-                </button>
-              </div>
-              
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const formData = new FormData(e.currentTarget);
-                  criarNota({
-                    titulo: formData.get('titulo') as string,
-                    texto: formData.get('texto') as string,
-                    cor: formData.get('cor') as string,
-                    coluna: formData.get('coluna') as string,
-                    prioridade: formData.get('prioridade') as string,
-                    data: ''
-                  });
-                }}
-                className="p-6 space-y-4"
-              >
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Título
-                  </label>
-                  <input
-                    type="text"
-                    name="titulo"
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Texto
-                  </label>
-                  <textarea
-                    name="texto"
-                    required
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Cor
-                    </label>
-                    <select
-                      name="cor"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="azul">Azul</option>
-                      <option value="verde">Verde</option>
-                      <option value="amarelo">Amarelo</option>
-                      <option value="vermelho">Vermelho</option>
-                      <option value="roxo">Roxo</option>
-                      <option value="rosa">Rosa</option>
-                      <option value="laranja">Laranja</option>
-                      <option value="cinza">Cinza</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Prioridade
-                    </label>
-                    <select
-                      name="prioridade"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="baixa">Baixa</option>
-                      <option value="normal">Normal</option>
-                      <option value="alta">Alta</option>
-                    </select>
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Coluna
-                  </label>
-                  <select
-                    name="coluna"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {colunasKanban.map((coluna) => (
-                      <option key={coluna} value={coluna}>{coluna}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div className="flex justify-end space-x-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowModalKanban(false)}
-                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                  >
-                    Criar
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Modal para editar nota */}
-        {showModalEditar && notaEditando && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <h3 className="text-lg font-medium text-gray-900">Editar Nota</h3>
-                <button
-                  onClick={() => {
-                    setShowModalEditar(false);
-                    setNotaEditando(null);
-                  }}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <FiX className="w-6 h-6" />
-                </button>
-              </div>
-              
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const formData = new FormData(e.currentTarget);
-                  editarNota({
-                    id: notaEditando.id,
-                    titulo: formData.get('titulo') as string,
-                    texto: formData.get('texto') as string,
-                    cor: formData.get('cor') as string,
-                    coluna: formData.get('coluna') as string,
-                    prioridade: formData.get('prioridade') as string,
-                    data: '',
-                    data_criacao: notaEditando.data_criacao
-                  });
-                }}
-                className="p-6 space-y-4"
-              >
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Título
-                  </label>
-                  <input
-                    type="text"
-                    name="titulo"
-                    defaultValue={notaEditando.titulo}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Texto
-                  </label>
-                  <textarea
-                    name="texto"
-                    defaultValue={notaEditando.texto}
-                    required
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Cor
-                    </label>
-                    <select
-                      name="cor"
-                      defaultValue={notaEditando.cor}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="azul">Azul</option>
-                      <option value="verde">Verde</option>
-                      <option value="amarelo">Amarelo</option>
-                      <option value="vermelho">Vermelho</option>
-                      <option value="roxo">Roxo</option>
-                      <option value="rosa">Rosa</option>
-                      <option value="laranja">Laranja</option>
-                      <option value="cinza">Cinza</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Prioridade
-                    </label>
-                    <select
-                      name="prioridade"
-                      defaultValue={notaEditando.prioridade}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="baixa">Baixa</option>
-                      <option value="normal">Normal</option>
-                      <option value="alta">Alta</option>
-                    </select>
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Coluna
-                  </label>
-                  <select
-                    name="coluna"
-                    defaultValue={notaEditando.coluna}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {colunasKanban.map((coluna) => (
-                      <option key={coluna} value={coluna}>{coluna}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div className="flex justify-end space-x-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowModalEditar(false);
-                      setNotaEditando(null);
-                    }}
-                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                  >
-                    Atualizar
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Modal para visualizar nota */}
-        {showModalVisualizar && notaSelecionada && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <h3 className="text-lg font-medium text-gray-900">Visualizar Nota</h3>
-                <button
-                  onClick={() => {
-                    setShowModalVisualizar(false);
-                    setNotaSelecionada(null);
-                  }}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <FiX className="w-6 h-6" />
-                </button>
-              </div>
-              
-              <div className="p-6 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Título
-                  </label>
-                  <p className="text-gray-900">{notaSelecionada.titulo}</p>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Texto
-                  </label>
-                  <p className="text-gray-900">{notaSelecionada.texto}</p>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Cor
-                    </label>
-                    <p className="text-gray-900 capitalize">{notaSelecionada.cor}</p>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Prioridade
-                    </label>
-                    <p className="text-gray-900 capitalize">{notaSelecionada.prioridade}</p>
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Coluna
-                  </label>
-                  <p className="text-gray-900">{notaSelecionada.coluna}</p>
-                </div>
-                
-                <div className="flex justify-end space-x-3 pt-4">
-                  <button
-                    onClick={() => excluirNota(notaSelecionada.id)}
-                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-                  >
-                    Excluir
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowModalVisualizar(false);
-                      setNotaSelecionada(null);
-                    }}
-                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-                  >
-                    Fechar
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <ToastContainer />
-
-        {/* Onboarding Modal */}
-        <OnboardingModal
-          isOpen={showOnboarding}
-          onClose={() => setShowOnboarding(false)}
-          onComplete={markOnboardingCompleted}
-        />
       </MenuLayout>
     </ProtectedArea>
+  );
+}
+
+// Modal de edição de nota extraído para facilitar lógica do botão de confirmação
+function EditarNotaModal({
+  notaEditando,
+  novaNota,
+  setNovaNota,
+  setShowModal,
+  salvarOuAtualizarNota,
+  onClose,
+  setExibirExcluirNotaModal,
+  setNotaSelecionada,
+}: {
+  notaEditando: NotaEditando | null;
+  novaNota: {
+    titulo: string;
+    texto: string;
+    cor: string;
+    coluna: string;
+    prioridade: string;
+  };
+  setNovaNota: (v: {
+    titulo: string;
+    texto: string;
+    cor: string;
+    coluna: string;
+    prioridade: string;
+  }) => void;
+  setShowModal: (v: boolean) => void;
+  salvarOuAtualizarNota: () => void;
+  onClose: () => void;
+  setExibirExcluirNotaModal: (v: boolean) => void;
+  setNotaSelecionada: (v: NotaSelecionada | null) => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md space-y-4">
+        <h2 className="text-lg font-semibold">
+          {notaEditando ? 'Editar Anotação' : 'Nova Anotação'}
+        </h2>
+        <input
+          type="text"
+          placeholder="Título"
+          value={novaNota.titulo}
+          onChange={(e) => setNovaNota({ ...novaNota, titulo: e.target.value })}
+          className="w-full border rounded p-2 text-sm"
+        />
+        <textarea
+          placeholder="Descrição"
+          value={novaNota.texto}
+          onChange={(e) => setNovaNota({ ...novaNota, texto: e.target.value })}
+          className="w-full border rounded p-2 text-sm"
+        />
+        <div className="flex gap-2">
+          {[
+            { cor: 'bg-yellow-500' },
+            { cor: 'bg-green-500' },
+            { cor: 'bg-blue-500' },
+            { cor: 'bg-purple-500' },
+            { cor: 'bg-orange-500' }
+          ].map((opcao) => (
+            <div
+              key={opcao.cor}
+              onClick={() => setNovaNota({ ...novaNota, cor: opcao.cor })}
+              className={`w-6 h-6 rounded-full ${opcao.cor} ${novaNota.cor === opcao.cor ? 'ring-2 ring-black' : ''} cursor-pointer`}
+            />
+          ))}
+        </div>
+        {/* Seleção de prioridade */}
+        <div className="flex gap-2 text-xs items-center">
+          <span className="font-semibold">Prioridade:</span>
+          {['Alta', 'Média', 'Baixa'].map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setNovaNota({ ...novaNota, prioridade: p })}
+              className={`px-2 py-1 rounded-full border text-xs font-semibold
+                ${novaNota.prioridade === p
+                  ? (
+                    p === 'Alta'
+                      ? 'bg-red-100 text-red-600 border-red-200'
+                      : p === 'Média'
+                        ? 'bg-yellow-100 text-yellow-600 border-yellow-200'
+                        : 'bg-green-100 text-green-600 border-green-200'
+                    )
+                  : 'bg-gray-100 text-gray-500 border-gray-200'
+                }
+              `}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={() => {
+              setShowModal(false);
+              if (typeof setNovaNota === "function") setNovaNota({
+                titulo: '',
+                texto: '',
+                cor: 'bg-yellow-500',
+                coluna: 'lembretes',
+                prioridade: 'Média',
+              });
+            }}
+            className="px-4 py-2 text-sm rounded bg-gray-200 hover:bg-gray-300"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={salvarOuAtualizarNota}
+            className="px-4 py-2 text-sm rounded bg-[#1860fa] text-white hover:bg-blue-700"
+          >
+            {notaEditando ? 'Atualizar' : 'Salvar'}
+          </button>
+        </div>
+        {/* Botão de exclusão visível dentro da modal de edição */}
+        {notaEditando && (
+          <button
+            className="bg-red-500 text-white px-4 py-2 rounded mt-4"
+            onClick={() => {
+              onClose();
+              setNotaSelecionada({
+                id: notaEditando.id,
+                titulo: notaEditando.titulo,
+                texto: notaEditando.texto,
+                cor: notaEditando.cor,
+                coluna: notaEditando.coluna,
+                prioridade: notaEditando.prioridade,
+              });
+              setTimeout(() => {
+                setExibirExcluirNotaModal(true);
+              }, 200);
+            }}
+          >
+            Excluir Nota
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Modal de confirmação de exclusão de nota
+function ExcluirNotaModal({
+  isOpen,
+  onClose,
+  onConfirm,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-lg p-6 w-full max-w-xs shadow-lg">
+        <h2 className="text-lg font-semibold mb-4">Confirmar Exclusão</h2>
+        <p className="text-base text-gray-800 mb-4">Tem certeza que deseja excluir esta nota?</p>
+        <div className="flex gap-2 mt-4 justify-end">
+          <button
+            className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 text-sm"
+            onClick={onClose}
+          >
+            Cancelar
+          </button>
+          <button
+            className="px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700 text-sm"
+            onClick={onConfirm}
+          >
+            Confirmar Exclusão
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
