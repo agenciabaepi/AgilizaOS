@@ -198,6 +198,7 @@ export default function LembretesPage() {
       if (!error && data) {
         console.log('🔍 [DASHBOARD] Notas encontradas:', data.length, 'notas');
         console.log('🔍 [DASHBOARD] Detalhes das notas:', data.map(n => ({ id: n.id, titulo: n.titulo, coluna: n.coluna })));
+        console.log('🔍 [DASHBOARD] Colunas das notas:', data.map(n => ({ titulo: n.titulo, coluna: n.coluna })));
         setNotes(data);
       } else {
         console.log('🔍 [DASHBOARD] Nenhuma nota encontrada ou erro:', error);
