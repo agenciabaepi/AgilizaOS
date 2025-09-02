@@ -231,9 +231,8 @@ export default function LembretesPage() {
         .select(`
           id,
           numero_os,
-          problema_relatado,
-          problema_diagnosticado,
-          servicos_realizados,
+          relato,
+          observacao,
           status,
           valor_total,
           data_entrada,
@@ -262,11 +261,11 @@ export default function LembretesPage() {
         const eventosFormatados = data.map((os: any) => ({
           id: os.id,
           numero: os.numero_os,
-          titulo: os.problema_relatado || `OS ${os.numero_os}`,
+          titulo: os.relato || `OS ${os.numero_os}`,
           cliente: os.clientes?.nome || 'Cliente não informado',
           telefone: os.clientes?.telefone || '',
           endereco: os.clientes?.endereco || '',
-          descricao: os.problema_diagnosticado || os.servicos_realizados || '',
+          descricao: os.observacao || '',
           valor: os.valor_total || 0,
           data_inicio: os.prazo_entrega,
           data_fim: os.prazo_entrega,
@@ -1227,15 +1226,25 @@ function CalendarioComponent({
              isSameDay(new Date(evento.data_inicio), dia)
            );
            
-           // Debug para o dia 4 de setembro
-           if (format(dia, 'dd/MM/yyyy') === '04/09/2025') {
-             console.log('🔍 [CALENDARIO] Dia 04/09/2025:', {
-               dia: format(dia, 'dd/MM/yyyy'),
-               eventosDoDia: eventosDoDia.length,
-               todosEventos: eventos.length,
-               eventos: eventosDoDia.map(e => ({ id: e.id, numero: e.numero, cliente: e.cliente }))
-             });
-           }
+                       // Debug para o dia 4 de setembro
+            if (format(dia, 'dd/MM/yyyy') === '04/09/2025') {
+              console.log('🔍 [CALENDARIO] Dia 04/09/2025:', {
+                dia: format(dia, 'dd/MM/yyyy'),
+                eventosDoDia: eventosDoDia.length,
+                todosEventos: eventos.length,
+                eventos: eventosDoDia.map(e => ({ id: e.id, numero: e.numero, cliente: e.cliente })),
+                debug: {
+                  dataInicio: eventos.map(e => ({ id: e.id, data_inicio: e.data_inicio, dataInicioDate: new Date(e.data_inicio) })),
+                  filtroTeste: eventos.filter(e => {
+                    const dataEvento = new Date(e.data_inicio);
+                    const dataDia = new Date(dia);
+                    return dataEvento.getDate() === dataDia.getDate() && 
+                           dataEvento.getMonth() === dataDia.getMonth() && 
+                           dataEvento.getFullYear() === dataDia.getFullYear();
+                  })
+                }
+              });
+            }
           
           return (
             <div
