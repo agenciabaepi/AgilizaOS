@@ -232,7 +232,8 @@ export default function LembretesPage() {
         isNull: os.prazo_entrega === null
       })));
       
-      const { data, error } = await supabase
+      // Buscar O.S. com dados do cliente
+      let { data, error } = await supabase
         .from("ordens_servico")
         .select(`
           id,
@@ -245,32 +246,60 @@ export default function LembretesPage() {
           data_saida,
           prazo_entrega,
           empresa_id,
-          cliente_id,
-          clientes!cliente_id(nome, telefone, endereco)
+          cliente_id
         `)
         .eq("empresa_id", empresa_id)
         .not("prazo_entrega", "is", null)
         .order("prazo_entrega", { ascending: true });
       
+      // Se a busca principal falhou, usar a busca simples
+      if (error) {
+        console.log('🔍 [CALENDARIO] Erro na busca principal, usando busca simples:', error);
+        const { data: dataSimples, error: errorSimples } = await supabase
+          .from("ordens_servico")
+          .select(`
+            id,
+            numero_os,
+            relato,
+            observacao,
+            status,
+            valor_total,
+            prazo_entrega,
+            empresa_id,
+            cliente_id
+          `)
+          .eq("empresa_id", empresa_id)
+          .not("prazo_entrega", "is", null)
+          .order("prazo_entrega", { ascending: true });
+        
+        if (!errorSimples && dataSimples) {
+          console.log('🔍 [CALENDARIO] Busca simples funcionou:', dataSimples.length, 'O.S.');
+          data = dataSimples;
+        }
+      }
+      
       console.log('🔍 [CALENDARIO] Resultado da busca:', { data, error });
       
       if (!error && data) {
         console.log('🔍 [CALENDARIO] O.S. encontradas:', data.length);
+        console.log('🔍 [CALENDARIO] Dados brutos:', data);
         console.log('🔍 [CALENDARIO] Detalhes das O.S.:', data.map((os: any) => ({
           id: os.id,
           numero_os: os.numero_os,
           prazo_entrega: os.prazo_entrega,
-          cliente: os.clientes?.nome,
-          status: os.status
+          status: os.status,
+          relato: os.relato,
+          observacao: os.observacao,
+          valor_total: os.valor_total
         })));
         
         const eventosFormatados = data.map((os: any) => ({
           id: os.id,
           numero: os.numero_os,
           titulo: os.relato || `OS ${os.numero_os}`,
-          cliente: os.clientes?.nome || 'Cliente não informado',
-          telefone: os.clientes?.telefone || '',
-          endereco: os.clientes?.endereco || '',
+          cliente: 'Cliente não informado', // Temporário até resolver join
+          telefone: '',
+          endereco: '',
           descricao: os.observacao || '',
           valor: os.valor_total || 0,
           data_inicio: os.prazo_entrega,
@@ -291,6 +320,7 @@ export default function LembretesPage() {
           prioridade: ev.prioridade,
           cor: ev.cor
         })));
+        console.log('🔍 [CALENDARIO] Definindo estado eventosCalendario com:', eventosFormatados.length, 'eventos');
         setEventosCalendario(eventosFormatados);
       } else {
         console.log('🔍 [CALENDARIO] Erro na busca:', error);
@@ -298,6 +328,18 @@ export default function LembretesPage() {
     };
     fetchOrdensServico();
   }, [empresa_id, supabase]);
+
+  // Monitorar mudanças no estado eventosCalendario
+  useEffect(() => {
+    console.log('🔍 [CALENDARIO] Estado eventosCalendario mudou:', {
+      quantidade: eventosCalendario.length,
+      eventos: eventosCalendario.map(ev => ({
+        numero: ev.numero,
+        data_inicio: ev.data_inicio,
+        status: ev.status
+      }))
+    });
+  }, [eventosCalendario]);
 
   // Função para determinar a prioridade baseada no status
   const getPrioridadePorStatus = (status: string) => {
