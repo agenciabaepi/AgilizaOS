@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic';
 import React, { useEffect, useState, useId } from 'react';
 import MenuLayout from '@/components/MenuLayout';
 import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import {
@@ -1062,7 +1063,7 @@ export default function LembretesPage() {
                 ←
               </button>
               <h3 className="text-lg font-semibold">
-                {format(dataAtual, 'MMMM yyyy', { locale: require('date-fns/locale/pt-BR') })}
+                {format(dataAtual, 'MMMM yyyy', { locale: ptBR })}
               </h3>
               <button
                 onClick={() => {
@@ -1133,7 +1134,6 @@ function CalendarioComponent({
   visualizacao: 'mes' | 'semana' | 'dia';
 }) {
   const { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, startOfWeek, endOfWeek } = require('date-fns');
-  const { ptBR } = require('date-fns/locale');
 
   const renderCalendarioMes = () => {
     const inicioMes = startOfMonth(dataAtual);
