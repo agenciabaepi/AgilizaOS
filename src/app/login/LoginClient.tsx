@@ -63,12 +63,8 @@ function LoginClientInner() {
     if (auth.user && auth.session && !auth.loading) {
       console.log('🚫 Usuário já logado - ACESSO BLOQUEADO à página de login');
       
-      // Redirecionar baseado no nível do usuário
-      if (auth.usuarioData?.nivel === 'tecnico') {
-        router.replace('/dashboard-tecnico');
-      } else {
-        router.replace('/dashboard');
-      }
+      // Redirecionar para dashboard principal
+      router.replace('/dashboard');
     }
   }, [auth.user, auth.session, auth.loading, auth.usuarioData?.nivel, router]);
 
@@ -396,14 +392,8 @@ function LoginClientInner() {
     
     // Aguardar um pouco para mostrar a mensagem de sucesso
     setTimeout(() => {
-      // Redirecionar baseado no nível do usuário
-      if (perfil.nivel === 'tecnico') {
-        router.push('/dashboard-tecnico');
-      } else if (perfil.nivel === 'admin' || perfil.nivel === 'atendente' || perfil.nivel === 'usuarioteste') {
-        router.push('/dashboard');
-      } else {
-        router.push('/dashboard');
-      }
+      // Redirecionar para dashboard principal
+      router.push('/dashboard');
     }, 1500);
     
     // Resetar o estado de loading após o redirecionamento

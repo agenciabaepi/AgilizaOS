@@ -2,8 +2,6 @@
 export const PAGE_PERMISSIONS = {
   // Dashboard
   '/dashboard': 'dashboard',
-  '/dashboard-tecnico': 'dashboard',
-  '/dashboard-atendente': 'dashboard',
   
   // Lembretes
   '/lembretes': 'lembretes',

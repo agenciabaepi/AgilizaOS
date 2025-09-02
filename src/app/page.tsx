@@ -41,11 +41,7 @@ export default function Home() {
           .eq('auth_user_id', session.user.id)
           .single();
         
-        if (usuario?.nivel === 'tecnico') {
-          router.push('/dashboard-tecnico');
-        } else if (usuario?.nivel === 'admin' || usuario?.nivel === 'atendente') {
-          router.push('/dashboard');
-        }
+        router.push('/dashboard');
       }
     };
     

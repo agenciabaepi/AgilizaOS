@@ -221,15 +221,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
         )}
         {/* Menu */}
         <nav className="flex flex-col gap-2 flex-1">
-          {/* Dashboard - Mostrar dashboard do técnico se for técnico, senão dashboard admin */}
+          {/* Dashboard */}
           {(podeVer('dashboard') || usuarioData?.nivel === 'tecnico' || usuarioData?.nivel === 'atendente') && (
-            usuarioData?.nivel === 'tecnico' ? (
-              <SidebarButton path="/dashboard-tecnico" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard-tecnico'} menuRecolhido={menuRecolhidoFinal} />
-            ) : usuarioData?.nivel === 'atendente' ? (
-              <SidebarButton path="/dashboard-atendente" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard-atendente'} menuRecolhido={menuRecolhidoFinal} />
-            ) : (
-              <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard'} menuRecolhido={menuRecolhidoFinal} />
-            )
+            <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard'} menuRecolhido={menuRecolhidoFinal} />
           )}
                   {/* Lembretes */}
                   {userLevel === 'admin' && (
@@ -383,15 +377,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               />
             </div>
             <nav className="flex flex-col gap-1">
-              {/* Dashboard - Mostrar dashboard específico baseado no nível do usuário */}
+              {/* Dashboard */}
               {(podeVer('dashboard') || usuarioData?.nivel === 'tecnico' || usuarioData?.nivel === 'atendente') && (
-                usuarioData?.nivel === 'tecnico' ? (
-                  <SidebarButton path="/dashboard-tecnico" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard-tecnico'} menuRecolhido={menuRecolhido || false} />
-                ) : usuarioData?.nivel === 'atendente' ? (
-                  <SidebarButton path="/dashboard-atendente" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard-atendente'} menuRecolhido={menuRecolhido || false} />
-                ) : (
-                  <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard'} menuRecolhido={menuRecolhido || false} />
-                )
+                <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard'} menuRecolhido={menuRecolhido || false} />
               )}
                       {/* Lembretes removidos - agora integrados na dashboard */}
               {podeVer('ordens') && (
@@ -659,11 +647,10 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               {/* Dashboard */}
               {(podeVer('dashboard') || usuarioData?.nivel === 'tecnico' || usuarioData?.nivel === 'atendente') && (
                 <MobileMenuItem
-                  path={usuarioData?.nivel === 'tecnico' ? '/dashboard-tecnico' : 
-                        usuarioData?.nivel === 'atendente' ? '/dashboard-atendente' : '/dashboard'}
+                  path="/dashboard"
                   icon={<FiHome size={20} />}
                   label="Dashboard"
-                  isActive={pathname === '/dashboard' || pathname === '/dashboard-tecnico' || pathname === '/dashboard-atendente'}
+                  isActive={pathname === '/dashboard'}
                   onNavigate={() => setMobileMenuOpen(false)}
                 />
               )}
