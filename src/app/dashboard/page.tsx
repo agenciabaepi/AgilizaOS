@@ -84,11 +84,13 @@ interface NotaSelecionada {
 // Tipo para evento do calendário (OS)
 interface EventoCalendario {
   id: string;
+  numero: string;
   titulo: string;
   cliente: string;
   telefone: string;
   endereco: string;
   descricao: string;
+  valor: number;
   data_inicio: string;
   data_fim: string;
   status: string;
@@ -207,21 +209,51 @@ export default function LembretesPage() {
   useEffect(() => {
     const fetchOrdensServico = async () => {
       if (!empresa_id) return;
+      console.log('🔍 [CALENDARIO] Buscando O.S. para empresa:', empresa_id);
+      
       const { data, error } = await supabase
         .from("ordens_servico")
-        .select("*")
+        .select(`
+          id,
+          numero,
+          titulo,
+          descricao,
+          status,
+          prioridade,
+          data_inicio,
+          data_fim,
+          cliente_nome,
+          cliente_telefone,
+          cliente_endereco,
+          valor,
+          empresa_id
+        `)
         .eq("empresa_id", empresa_id)
         .not("data_inicio", "is", null)
-        .not("data_fim", "is", null);
+        .not("data_fim", "is", null)
+        .order("data_inicio", { ascending: true });
+      
+      console.log('🔍 [CALENDARIO] Resultado da busca:', { data, error });
       
       if (!error && data) {
+        console.log('🔍 [CALENDARIO] O.S. encontradas:', data.length);
+        console.log('🔍 [CALENDARIO] Detalhes das O.S.:', data.map((os: any) => ({
+          id: os.id,
+          numero: os.numero,
+          data_inicio: os.data_inicio,
+          data_fim: os.data_fim,
+          cliente: os.cliente_nome
+        })));
+        
         const eventosFormatados = data.map((os: any) => ({
           id: os.id,
+          numero: os.numero,
           titulo: os.titulo || `OS ${os.numero}`,
           cliente: os.cliente_nome || 'Cliente não informado',
           telefone: os.cliente_telefone || '',
           endereco: os.cliente_endereco || '',
           descricao: os.descricao || '',
+          valor: os.valor || 0,
           data_inicio: os.data_inicio,
           data_fim: os.data_fim,
           status: os.status || 'pendente',
@@ -229,7 +261,11 @@ export default function LembretesPage() {
           cor: getCorPorPrioridade(os.prioridade || 'média'),
           empresa_id: os.empresa_id
         }));
+        
+        console.log('🔍 [CALENDARIO] Eventos formatados:', eventosFormatados.length);
         setEventosCalendario(eventosFormatados);
+      } else {
+        console.log('🔍 [CALENDARIO] Erro na busca:', error);
       }
     };
     fetchOrdensServico();
@@ -1154,11 +1190,21 @@ function CalendarioComponent({
           </div>
         ))}
         
-        {/* Dias do calendário */}
-        {dias.map((dia) => {
-          const eventosDoDia = eventos.filter(evento => 
-            isSameDay(new Date(evento.data_inicio), dia)
-          );
+                 {/* Dias do calendário */}
+         {dias.map((dia) => {
+           const eventosDoDia = eventos.filter(evento => 
+             isSameDay(new Date(evento.data_inicio), dia)
+           );
+           
+           // Debug para o dia 4 de setembro
+           if (format(dia, 'dd/MM/yyyy') === '04/09/2025') {
+             console.log('🔍 [CALENDARIO] Dia 04/09/2025:', {
+               dia: format(dia, 'dd/MM/yyyy'),
+               eventosDoDia: eventosDoDia.length,
+               todosEventos: eventos.length,
+               eventos: eventosDoDia.map(e => ({ id: e.id, numero: e.numero, cliente: e.cliente }))
+             });
+           }
           
           return (
             <div
@@ -1176,22 +1222,40 @@ function CalendarioComponent({
                 {eventosDoDia.slice(0, 3).map((evento) => (
                   <div
                     key={evento.id}
-                    className="text-xs p-1 rounded cursor-pointer hover:opacity-80 transition-opacity"
-                    style={{ backgroundColor: evento.cor + '20', borderLeft: `3px solid ${evento.cor}` }}
+                    className="text-xs p-2 rounded-lg cursor-pointer hover:shadow-md transition-all duration-200 border-l-3"
+                    style={{ 
+                      backgroundColor: evento.cor + '15', 
+                      borderLeftColor: evento.cor,
+                      borderLeftWidth: '4px'
+                    }}
                     title={`${evento.titulo} - ${evento.cliente}`}
                   >
-                    <div className="font-medium truncate" style={{ color: evento.cor }}>
-                      {evento.titulo}
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="font-bold truncate" style={{ color: evento.cor }}>
+                        OS {evento.numero}
+                      </div>
+                      <div className="text-xs font-medium px-1.5 py-0.5 rounded-full text-white"
+                           style={{ backgroundColor: evento.cor }}>
+                        {evento.status}
+                      </div>
                     </div>
-                    <div className="text-gray-600 truncate">
+                    <div className="text-gray-700 truncate font-medium">
                       {evento.cliente}
                     </div>
+                    <div className="text-gray-500 truncate text-xs">
+                      {format(new Date(evento.data_inicio), 'HH:mm')} - {format(new Date(evento.data_fim), 'HH:mm')}
+                    </div>
+                    {evento.valor > 0 && (
+                      <div className="text-xs font-semibold text-green-600 mt-1">
+                        R$ {evento.valor.toFixed(2)}
+                      </div>
+                    )}
                   </div>
                 ))}
                 
                 {eventosDoDia.length > 3 && (
-                  <div className="text-xs text-gray-500 text-center">
-                    +{eventosDoDia.length - 3} mais
+                  <div className="text-xs text-gray-500 text-center py-1 bg-gray-50 rounded">
+                    +{eventosDoDia.length - 3} mais O.S.
                   </div>
                 )}
               </div>
@@ -1235,21 +1299,35 @@ function CalendarioComponent({
                 
                 return (
                   <div key={`${dia.toISOString()}-${hora}`} className="p-1 border-r border-gray-200 min-h-[60px]">
-                    {eventosDaHora.map((evento) => (
-                      <div
-                        key={evento.id}
-                        className="text-xs p-1 rounded mb-1 cursor-pointer hover:opacity-80 transition-opacity"
-                        style={{ backgroundColor: evento.cor + '20', borderLeft: `3px solid ${evento.cor}` }}
-                        title={`${evento.titulo} - ${evento.cliente}`}
-                      >
-                        <div className="font-medium truncate" style={{ color: evento.cor }}>
-                          {evento.titulo}
-                        </div>
-                        <div className="text-gray-600 truncate">
-                          {evento.cliente}
-                        </div>
-                      </div>
-                    ))}
+                                         {eventosDaHora.map((evento) => (
+                       <div
+                         key={evento.id}
+                         className="text-xs p-1.5 rounded-lg mb-1 cursor-pointer hover:shadow-sm transition-all duration-200 border-l-2"
+                         style={{ 
+                           backgroundColor: evento.cor + '15', 
+                           borderLeftColor: evento.cor
+                         }}
+                         title={`OS ${evento.numero} - ${evento.cliente}`}
+                       >
+                         <div className="flex items-center justify-between mb-0.5">
+                           <div className="font-bold truncate" style={{ color: evento.cor }}>
+                             OS {evento.numero}
+                           </div>
+                           <div className="text-xs px-1 py-0.5 rounded-full text-white text-center"
+                                style={{ backgroundColor: evento.cor }}>
+                             {evento.status}
+                           </div>
+                         </div>
+                         <div className="text-gray-700 truncate font-medium text-xs">
+                           {evento.cliente}
+                         </div>
+                         {evento.valor > 0 && (
+                           <div className="text-xs font-semibold text-green-600">
+                             R$ {evento.valor.toFixed(2)}
+                           </div>
+                         )}
+                       </div>
+                     ))}
                   </div>
                 );
               })}
@@ -1287,24 +1365,44 @@ function CalendarioComponent({
                   {format(new Date().setHours(hora), 'HH:mm')}
                 </div>
                 <div className="p-2 border-r border-gray-200 min-h-[60px]">
-                  {eventosDaHora.map((evento) => (
-                    <div
-                      key={evento.id}
-                      className="text-sm p-2 rounded mb-2 cursor-pointer hover:opacity-80 transition-opacity"
-                      style={{ backgroundColor: evento.cor + '20', borderLeft: `3px solid ${evento.cor}` }}
-                      title={`${evento.titulo} - ${evento.cliente}`}
-                    >
-                      <div className="font-medium" style={{ color: evento.cor }}>
-                        {evento.titulo}
-                      </div>
-                      <div className="text-gray-600 text-xs">
-                        {evento.cliente}
-                      </div>
-                      <div className="text-gray-500 text-xs">
-                        {format(new Date(evento.data_inicio), 'HH:mm')} - {format(new Date(evento.data_fim), 'HH:mm')}
-                      </div>
-                    </div>
-                  ))}
+                                     {eventosDaHora.map((evento) => (
+                     <div
+                       key={evento.id}
+                       className="text-sm p-3 rounded-lg mb-2 cursor-pointer hover:shadow-md transition-all duration-200 border-l-3"
+                       style={{ 
+                         backgroundColor: evento.cor + '15', 
+                         borderLeftColor: evento.cor,
+                         borderLeftWidth: '4px'
+                       }}
+                       title={`OS ${evento.numero} - ${evento.cliente}`}
+                     >
+                       <div className="flex items-center justify-between mb-2">
+                         <div className="font-bold text-lg" style={{ color: evento.cor }}>
+                           OS {evento.numero}
+                         </div>
+                         <div className="text-xs font-medium px-2 py-1 rounded-full text-white"
+                              style={{ backgroundColor: evento.cor }}>
+                           {evento.status}
+                         </div>
+                       </div>
+                       <div className="text-gray-700 font-semibold mb-1">
+                         {evento.cliente}
+                       </div>
+                       <div className="text-gray-500 text-xs mb-2">
+                         {format(new Date(evento.data_inicio), 'HH:mm')} - {format(new Date(evento.data_fim), 'HH:mm')}
+                       </div>
+                       {evento.valor > 0 && (
+                         <div className="text-sm font-bold text-green-600">
+                           R$ {evento.valor.toFixed(2)}
+                         </div>
+                       )}
+                       {evento.descricao && (
+                         <div className="text-gray-600 text-xs mt-2 line-clamp-2">
+                           {evento.descricao}
+                         </div>
+                       )}
+                     </div>
+                   ))}
                 </div>
               </React.Fragment>
             );
