@@ -40,6 +40,7 @@ import { useAuth } from '@/context/AuthContext';
 import ProtectedArea from '@/components/ProtectedArea';
 import DashboardCard from '@/components/ui/DashboardCard';
 import MenuLayout from '@/components/MenuLayout';
+import { useToast } from '@/components/Toast';
 
 
 import { Button } from '@/components/Button';
@@ -51,6 +52,7 @@ export default function ListaOrdensPage() {
   const router = useRouter();
   const { empresaData } = useAuth();
   const empresaId = empresaData?.id;
+  const { addToast } = useToast();
 
   // Estados dos cards principais
   const [totalOS, setTotalOS] = useState(0);
@@ -425,24 +427,31 @@ export default function ListaOrdensPage() {
 
     setLoadingTecnicos(true);
     try {
-      // ✅ TIMEOUT: Evitar loading infinito na busca de técnicos
+      // ✅ SEGURANÇA: Timeout aumentado para 15 segundos
       const { data, error } = await Promise.race([
         supabase
           .from('usuarios')
           .select('nome')
           .eq('empresa_id', empresaId)
-          .eq('nivel', 'tecnico'),
+          .eq('nivel', 'tecnico')
+          .order('nome'), // Ordenar por nome para melhor performance
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Técnicos timeout')), 5000) // 5 segundos
+          setTimeout(() => reject(new Error('Técnicos timeout')), 15000) // 15 segundos
         )
       ]);
 
-      if (!error && data) {
+      if (error) {
+        console.error('Erro ao buscar técnicos:', error);
+        addToast('error', 'Erro ao carregar lista de técnicos');
+        return;
+      }
+
+      if (data) {
         setTecnicos(data.map((u: any) => u.nome).filter(Boolean));
       }
     } catch (error) {
       console.error('Erro ao carregar técnicos:', error);
-      // ✅ REMOVIDO: Retry automático que causava loops
+      addToast('error', 'Timeout ao carregar técnicos. Tente novamente.');
     } finally {
       setLoadingTecnicos(false);
     }
