@@ -211,27 +211,41 @@ export default function LembretesPage() {
       if (!empresa_id) return;
       console.log('🔍 [CALENDARIO] Buscando O.S. para empresa:', empresa_id);
       
+      // Primeiro, vamos verificar todas as O.S. da empresa
+      const { data: todasOS, error: errorTodas } = await supabase
+        .from("ordens_servico")
+        .select(`
+          id,
+          numero_os,
+          prazo_entrega,
+          status,
+          empresa_id
+        `)
+        .eq("empresa_id", empresa_id);
+      
+      console.log('🔍 [CALENDARIO] Todas as O.S. da empresa:', todasOS);
+      console.log('🔍 [CALENDARIO] O.S. com prazo_entrega:', todasOS?.filter(os => os.prazo_entrega));
+      
       const { data, error } = await supabase
         .from("ordens_servico")
         .select(`
           id,
-          numero,
-          titulo,
-          descricao,
+          numero_os,
+          problema_relatado,
+          problema_diagnosticado,
+          servicos_realizados,
           status,
-          prioridade,
-          data_inicio,
-          data_fim,
-          cliente_nome,
-          cliente_telefone,
-          cliente_endereco,
-          valor,
-          empresa_id
+          valor_total,
+          data_entrada,
+          data_saida,
+          prazo_entrega,
+          empresa_id,
+          cliente_id,
+          clientes!cliente_id(nome, telefone, endereco)
         `)
         .eq("empresa_id", empresa_id)
-        .not("data_inicio", "is", null)
-        .not("data_fim", "is", null)
-        .order("data_inicio", { ascending: true });
+        .not("prazo_entrega", "is", null)
+        .order("prazo_entrega", { ascending: true });
       
       console.log('🔍 [CALENDARIO] Resultado da busca:', { data, error });
       
@@ -239,26 +253,26 @@ export default function LembretesPage() {
         console.log('🔍 [CALENDARIO] O.S. encontradas:', data.length);
         console.log('🔍 [CALENDARIO] Detalhes das O.S.:', data.map((os: any) => ({
           id: os.id,
-          numero: os.numero,
-          data_inicio: os.data_inicio,
-          data_fim: os.data_fim,
-          cliente: os.cliente_nome
+          numero_os: os.numero_os,
+          prazo_entrega: os.prazo_entrega,
+          cliente: os.clientes?.nome,
+          status: os.status
         })));
         
         const eventosFormatados = data.map((os: any) => ({
           id: os.id,
-          numero: os.numero,
-          titulo: os.titulo || `OS ${os.numero}`,
-          cliente: os.cliente_nome || 'Cliente não informado',
-          telefone: os.cliente_telefone || '',
-          endereco: os.cliente_endereco || '',
-          descricao: os.descricao || '',
-          valor: os.valor || 0,
-          data_inicio: os.data_inicio,
-          data_fim: os.data_fim,
+          numero: os.numero_os,
+          titulo: os.problema_relatado || `OS ${os.numero_os}`,
+          cliente: os.clientes?.nome || 'Cliente não informado',
+          telefone: os.clientes?.telefone || '',
+          endereco: os.clientes?.endereco || '',
+          descricao: os.problema_diagnosticado || os.servicos_realizados || '',
+          valor: os.valor_total || 0,
+          data_inicio: os.prazo_entrega,
+          data_fim: os.prazo_entrega,
           status: os.status || 'pendente',
-          prioridade: os.prioridade || 'média',
-          cor: getCorPorPrioridade(os.prioridade || 'média'),
+          prioridade: getPrioridadePorStatus(os.status || 'pendente'),
+          cor: getCorPorPrioridade(getPrioridadePorStatus(os.status || 'pendente')),
           empresa_id: os.empresa_id
         }));
         
@@ -270,6 +284,23 @@ export default function LembretesPage() {
     };
     fetchOrdensServico();
   }, [empresa_id, supabase]);
+
+  // Função para determinar a prioridade baseada no status
+  const getPrioridadePorStatus = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'urgente':
+      case 'emergência':
+        return 'alta';
+      case 'pendente':
+      case 'em análise':
+        return 'média';
+      case 'concluído':
+      case 'finalizado':
+        return 'baixa';
+      default:
+        return 'média';
+    }
+  };
 
   // Função para determinar a cor baseada na prioridade
   const getCorPorPrioridade = (prioridade: string) => {
