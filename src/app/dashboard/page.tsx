@@ -673,7 +673,12 @@ export default function LembretesPage() {
                     console.log(`🔍 [DASHBOARD] Coluna "${coluna}":`, {
                       totalNotas: notes.length,
                       notasDaColuna: notasDaColuna.length,
-                      notas: notasDaColuna.map(n => ({ id: n.id, titulo: n.titulo }))
+                      notas: notasDaColuna.map(n => ({ id: n.id, titulo: n.titulo })),
+                      debug: {
+                        colunaLength: coluna.length,
+                        colunaCharCodes: coluna.split('').map(c => c.charCodeAt(0)),
+                        todasNotas: notes.map(n => ({ titulo: n.titulo, coluna: n.coluna, colunaLength: n.coluna.length }))
+                      }
                     });
                     
                     return (
