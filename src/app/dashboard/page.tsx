@@ -4,6 +4,7 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useEffect, useState, useId } from 'react';
+import { useRouter } from 'next/navigation';
 import MenuLayout from '@/components/MenuLayout';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -99,6 +100,7 @@ interface EventoCalendario {
   prioridade: string;
   cor: string;
   empresa_id: string;
+  tecnico?: string;
 }
 
 export default function LembretesPage() {
@@ -108,6 +110,7 @@ export default function LembretesPage() {
 
   const { addToast } = useToast();
   const confirm = useConfirm();
+  const router = useRouter();
 
   // Função para buscar colunas do banco
   const fetchColunas = async () => {
@@ -118,7 +121,7 @@ export default function LembretesPage() {
       .eq('empresa_id', empresa_id)
       .order('posicao', { ascending: true });
     if (!error && data && data.length > 0) {
-      setColunas(data.map((c) => c.nome));
+      setColunas(data.map((c: any) => c.nome));
     }
   };
 
@@ -225,14 +228,7 @@ export default function LembretesPage() {
         `)
         .eq("empresa_id", empresa_id);
       
-      console.log('🔍 [CALENDARIO] Todas as O.S. da empresa:', todasOS);
-      console.log('🔍 [CALENDARIO] O.S. com prazo_entrega:', todasOS?.filter(os => os.prazo_entrega));
-      console.log('🔍 [CALENDARIO] Detalhes dos prazos:', todasOS?.map(os => ({
-        numero: os.numero_os,
-        prazo: os.prazo_entrega,
-        tipo: typeof os.prazo_entrega,
-        isNull: os.prazo_entrega === null
-      })));
+
       
       // Buscar O.S. com dados do cliente e técnico
       const { data, error } = await supabase
@@ -252,17 +248,7 @@ export default function LembretesPage() {
         .not("prazo_entrega", "is", null)
         .order("prazo_entrega", { ascending: true });
       
-      console.log('🔍 [CALENDARIO] Resultado da busca:', { data, error });
-      
       if (!error && data) {
-        console.log('🔍 [CALENDARIO] O.S. encontradas:', data.length);
-        console.log('🔍 [CALENDARIO] Dados brutos:', data);
-        console.log('🔍 [CALENDARIO] Detalhes das O.S.:', data.map((os: any) => ({
-          id: os.id,
-          numero_os: os.numero_os,
-          prazo_entrega: os.prazo_entrega,
-          status: os.status
-        })));
         
         const eventosFormatados = data.map((os: any) => ({
           id: os.id,
@@ -278,23 +264,12 @@ export default function LembretesPage() {
           status: os.status || 'pendente',
           prioridade: getPrioridadePorStatus(os.status || 'pendente'),
           cor: getCorPorStatus(os.status || 'pendente'),
-          empresa_id: os.empresa_id
+          empresa_id: os.empresa_id,
+          tecnico: os.tecnico?.nome || 'Não atribuído'
         }));
         
-        console.log('🔍 [CALENDARIO] Eventos formatados:', eventosFormatados.length);
-        console.log('🔍 [CALENDARIO] Eventos detalhados:', eventosFormatados.map(ev => ({
-          numero: ev.numero,
-          titulo: ev.titulo,
-          data_inicio: ev.data_inicio,
-          data_fim: ev.data_fim,
-          status: ev.status,
-          prioridade: ev.prioridade,
-          cor: ev.cor
-        })));
-        console.log('🔍 [CALENDARIO] Definindo estado eventosCalendario com:', eventosFormatados.length, 'eventos');
         setEventosCalendario(eventosFormatados);
       } else {
-        console.log('🔍 [CALENDARIO] Erro na busca:', error);
         setEventosCalendario([]);
       }
     };
@@ -368,7 +343,7 @@ export default function LembretesPage() {
       // Atualiza a posição de cada coluna
       for (let i = 0; i < colunas.length; i++) {
         const nomeColuna = colunas[i];
-        const colunaExistente = colunasExistentes?.find(c => c.nome === nomeColuna);
+        const colunaExistente = colunasExistentes?.find((c: any) => c.nome === nomeColuna);
         
         if (colunaExistente) {
           const { error: erroUpdate } = await supabase
@@ -946,6 +921,7 @@ export default function LembretesPage() {
             dataAtual={dataAtual}
             eventos={eventosCalendario}
             visualizacao={visualizacaoCalendario}
+            router={router}
           />
         </div>
 
@@ -1317,11 +1293,13 @@ export default function LembretesPage() {
 function CalendarioComponent({
   dataAtual,
   eventos,
-  visualizacao
+  visualizacao,
+  router
 }: {
   dataAtual: Date;
   eventos: EventoCalendario[];
   visualizacao: 'mes' | 'semana' | 'dia';
+  router: any;
 }) {
   const { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, startOfWeek, endOfWeek } = require('date-fns');
 
@@ -1409,6 +1387,7 @@ function CalendarioComponent({
                       borderLeftWidth: '4px'
                     }}
                     title={`${evento.titulo} - ${evento.cliente}`}
+                    onClick={() => router.push(`/ordens/${evento.id}`)}
                   >
                     <div className="flex items-center justify-between mb-1">
                       <div className="font-bold truncate" style={{ color: evento.cor }}>
@@ -1422,6 +1401,11 @@ function CalendarioComponent({
                     <div className="text-gray-700 truncate font-medium">
                       {evento.cliente}
                     </div>
+                    {evento.tecnico && (
+                      <div className="text-gray-600 truncate text-xs">
+                        👨‍🔧 {evento.tecnico}
+                      </div>
+                    )}
                     <div className="text-gray-500 truncate text-xs">
                       {format(new Date(evento.data_inicio), 'HH:mm')} - {format(new Date(evento.data_fim), 'HH:mm')}
                     </div>

@@ -124,8 +124,13 @@ export default function EditarOSSimples() {
 
   useEffect(() => {
     fetchStatus();
-    fetchTecnicos();
   }, []);
+
+  useEffect(() => {
+    if (usuarioData?.empresa_id) {
+      fetchTecnicos();
+    }
+  }, [usuarioData?.empresa_id]);
 
   // Atualizar status selecionado quando a ordem for carregada
   useEffect(() => {
@@ -246,24 +251,39 @@ export default function EditarOSSimples() {
       
       if (!usuarioData?.empresa_id) {
         console.error('❌ Usuário não tem empresa_id');
+        addToast('error', 'Erro: dados do usuário não carregados. Tente fazer login novamente.');
         return;
       }
       
-      const { data, error } = await supabase
+      // Adicionar timeout para evitar travamento
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout ao buscar técnicos')), 10000);
+      });
+      
+      const fetchPromise = supabase
         .from('usuarios')
         .select('id, nome, tecnico_id, auth_user_id')
         .eq('nivel', 'tecnico')
         .eq('empresa_id', usuarioData.empresa_id) // Filtrar por empresa do usuário logado
         .order('nome');
       
+      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
+      
       console.log('👨‍🔧 Técnicos recebidos:', data);
       console.log('❌ Erro técnicos:', error);
+      
+      if (error) {
+        console.error('Erro ao buscar técnicos:', error);
+        addToast('error', 'Erro ao carregar lista de técnicos');
+        return;
+      }
       
       if (data) {
         setTecnicos(data);
       }
     } catch (error) {
       console.error('Erro ao carregar técnicos:', error);
+      addToast('error', 'Erro inesperado ao carregar técnicos');
     }
   };
 
