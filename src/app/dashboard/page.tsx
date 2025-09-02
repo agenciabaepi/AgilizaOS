@@ -187,12 +187,20 @@ export default function LembretesPage() {
   useEffect(() => {
     const fetchNotas = async () => {
       if (!empresa_id) return;
+      console.log('🔍 [DASHBOARD] Buscando notas para empresa:', empresa_id);
       const { data, error } = await supabase
         .from("notas_dashboard")
         .select("*")
         .eq("empresa_id", empresa_id);
+      
+      console.log('🔍 [DASHBOARD] Resultado da busca de notas:', { data, error });
+      
       if (!error && data) {
+        console.log('🔍 [DASHBOARD] Notas encontradas:', data.length, 'notas');
+        console.log('🔍 [DASHBOARD] Detalhes das notas:', data.map(n => ({ id: n.id, titulo: n.titulo, coluna: n.coluna })));
         setNotes(data);
+      } else {
+        console.log('🔍 [DASHBOARD] Nenhuma nota encontrada ou erro:', error);
       }
     };
     fetchNotas();
@@ -660,6 +668,13 @@ export default function LembretesPage() {
                     // Porcentagem demonstrativa para progresso
                     const percentualConcluido = 50;
                     const notasDaColuna = notes.filter((n) => n.coluna === coluna);
+                    
+                    console.log(`🔍 [DASHBOARD] Coluna "${coluna}":`, {
+                      totalNotas: notes.length,
+                      notasDaColuna: notasDaColuna.length,
+                      notas: notasDaColuna.map(n => ({ id: n.id, titulo: n.titulo }))
+                    });
+                    
                     return (
                       <SortableColunaCard
                         key={`coluna-${coluna}`}
