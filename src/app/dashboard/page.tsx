@@ -80,6 +80,22 @@ interface NotaSelecionada {
   prioridade: string;
 }
 
+// Tipo para evento do calendário (OS)
+interface EventoCalendario {
+  id: string;
+  titulo: string;
+  cliente: string;
+  telefone: string;
+  endereco: string;
+  descricao: string;
+  data_inicio: string;
+  data_fim: string;
+  status: string;
+  prioridade: string;
+  cor: string;
+  empresa_id: string;
+}
+
 export default function LembretesPage() {
   // Use o contexto de autenticação
   const { session, user, usuarioData, empresaData } = useAuth();
@@ -156,6 +172,11 @@ export default function LembretesPage() {
   // Estado para modal de edição de coluna
   const [modalColunaAberta, setModalColunaAberta] = useState<null | { index: number, valor: string }>(null);
 
+  // Estados para o calendário
+  const [eventosCalendario, setEventosCalendario] = useState<EventoCalendario[]>([]);
+  const [dataAtual, setDataAtual] = useState(new Date());
+  const [visualizacaoCalendario, setVisualizacaoCalendario] = useState<'mes' | 'semana' | 'dia'>('mes');
+
   // Carregando depende de usuarioData
   useEffect(() => {
     if (usuarioData !== undefined) setCarregando(false);
@@ -180,6 +201,54 @@ export default function LembretesPage() {
     };
     fetchNotas();
   }, [empresa_id, supabase]);
+
+  // Buscar O.S. para o calendário
+  useEffect(() => {
+    const fetchOrdensServico = async () => {
+      if (!empresa_id) return;
+      const { data, error } = await supabase
+        .from("ordens_servico")
+        .select("*")
+        .eq("empresa_id", empresa_id)
+        .not("data_inicio", "is", null)
+        .not("data_fim", "is", null);
+      
+      if (!error && data) {
+        const eventosFormatados = data.map((os: any) => ({
+          id: os.id,
+          titulo: os.titulo || `OS ${os.numero}`,
+          cliente: os.cliente_nome || 'Cliente não informado',
+          telefone: os.cliente_telefone || '',
+          endereco: os.cliente_endereco || '',
+          descricao: os.descricao || '',
+          data_inicio: os.data_inicio,
+          data_fim: os.data_fim,
+          status: os.status || 'pendente',
+          prioridade: os.prioridade || 'média',
+          cor: getCorPorPrioridade(os.prioridade || 'média'),
+          empresa_id: os.empresa_id
+        }));
+        setEventosCalendario(eventosFormatados);
+      }
+    };
+    fetchOrdensServico();
+  }, [empresa_id, supabase]);
+
+  // Função para determinar a cor baseada na prioridade
+  const getCorPorPrioridade = (prioridade: string) => {
+    switch (prioridade.toLowerCase()) {
+      case 'alta':
+      case 'urgente':
+        return '#ef4444'; // vermelho
+      case 'média':
+      case 'media':
+        return '#f59e0b'; // amarelo
+      case 'baixa':
+        return '#10b981'; // verde
+      default:
+        return '#6b7280'; // cinza
+    }
+  };
 
   // Salvar colunas no banco
   const salvarColunasNoBanco = async (colunas: string[]) => {
@@ -971,8 +1040,286 @@ export default function LembretesPage() {
           {/* ToastContainer para notificações */}
           {/* Remover ToastContainer do react-toastify */}
         </div>
+
+        {/* Sistema de Calendário */}
+        <div className="mt-8 p-6 rounded-lg border bg-white">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <Book className="text-blue-500 w-5 h-5" />
+            Calendário de O.S.
+          </h2>
+          
+          {/* Controles do calendário */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => {
+                  const novaData = new Date(dataAtual);
+                  novaData.setMonth(novaData.getMonth() - 1);
+                  setDataAtual(novaData);
+                }}
+                className="p-2 rounded-lg border hover:bg-gray-50 transition-colors"
+              >
+                ←
+              </button>
+              <h3 className="text-lg font-semibold">
+                {format(dataAtual, 'MMMM yyyy', { locale: require('date-fns/locale/pt-BR') })}
+              </h3>
+              <button
+                onClick={() => {
+                  const novaData = new Date(dataAtual);
+                  novaData.setMonth(novaData.getMonth() + 1);
+                  setDataAtual(novaData);
+                }}
+                className="p-2 rounded-lg border hover:bg-gray-50 transition-colors"
+              >
+                →
+              </button>
+            </div>
+            
+            <div className="flex gap-2">
+              <button
+                onClick={() => setVisualizacaoCalendario('mes')}
+                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                  visualizacaoCalendario === 'mes'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Mês
+              </button>
+              <button
+                onClick={() => setVisualizacaoCalendario('semana')}
+                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                  visualizacaoCalendario === 'semana'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Semana
+              </button>
+              <button
+                onClick={() => setVisualizacaoCalendario('dia')}
+                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                  visualizacaoCalendario === 'dia'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Dia
+              </button>
+            </div>
+          </div>
+
+          {/* Calendário */}
+          <CalendarioComponent
+            dataAtual={dataAtual}
+            eventos={eventosCalendario}
+            visualizacao={visualizacaoCalendario}
+          />
+        </div>
       </MenuLayout>
     </ProtectedArea>
+  );
+}
+
+// Componente do Calendário
+function CalendarioComponent({
+  dataAtual,
+  eventos,
+  visualizacao
+}: {
+  dataAtual: Date;
+  eventos: EventoCalendario[];
+  visualizacao: 'mes' | 'semana' | 'dia';
+}) {
+  const { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, startOfWeek, endOfWeek } = require('date-fns');
+  const { ptBR } = require('date-fns/locale');
+
+  const renderCalendarioMes = () => {
+    const inicioMes = startOfMonth(dataAtual);
+    const fimMes = endOfMonth(dataAtual);
+    const inicioSemana = startOfWeek(inicioMes, { locale: ptBR });
+    const fimSemana = endOfWeek(fimMes, { locale: ptBR });
+    
+    const dias = eachDayOfInterval({ start: inicioSemana, end: fimSemana });
+    
+    const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    
+    return (
+      <div className="grid grid-cols-7 gap-1">
+        {/* Cabeçalho dos dias da semana */}
+        {diasSemana.map((dia) => (
+          <div key={dia} className="p-2 text-center text-sm font-semibold text-gray-600 bg-gray-50 rounded">
+            {dia}
+          </div>
+        ))}
+        
+        {/* Dias do calendário */}
+        {dias.map((dia) => {
+          const eventosDoDia = eventos.filter(evento => 
+            isSameDay(new Date(evento.data_inicio), dia)
+          );
+          
+          return (
+            <div
+              key={dia.toISOString()}
+              className={`min-h-[120px] p-2 border border-gray-200 ${
+                isSameMonth(dia, dataAtual) ? 'bg-white' : 'bg-gray-50'
+              } ${isSameDay(dia, new Date()) ? 'bg-blue-50 border-blue-300' : ''}`}
+            >
+              <div className="text-sm font-medium mb-1">
+                {format(dia, 'd')}
+              </div>
+              
+              {/* Eventos do dia */}
+              <div className="space-y-1">
+                {eventosDoDia.slice(0, 3).map((evento) => (
+                  <div
+                    key={evento.id}
+                    className="text-xs p-1 rounded cursor-pointer hover:opacity-80 transition-opacity"
+                    style={{ backgroundColor: evento.cor + '20', borderLeft: `3px solid ${evento.cor}` }}
+                    title={`${evento.titulo} - ${evento.cliente}`}
+                  >
+                    <div className="font-medium truncate" style={{ color: evento.cor }}>
+                      {evento.titulo}
+                    </div>
+                    <div className="text-gray-600 truncate">
+                      {evento.cliente}
+                    </div>
+                  </div>
+                ))}
+                
+                {eventosDoDia.length > 3 && (
+                  <div className="text-xs text-gray-500 text-center">
+                    +{eventosDoDia.length - 3} mais
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderCalendarioSemana = () => {
+    const inicioSemana = startOfWeek(dataAtual, { locale: ptBR });
+    const fimSemana = endOfWeek(dataAtual, { locale: ptBR });
+    const dias = eachDayOfInterval({ start: inicioSemana, end: fimSemana });
+    
+    const horas = Array.from({ length: 24 }, (_, i) => i);
+    
+    return (
+      <div className="overflow-x-auto">
+        <div className="grid grid-cols-8 gap-1 min-w-[800px]">
+          {/* Cabeçalho com dias */}
+          <div className="p-2 bg-gray-50 rounded"></div>
+          {dias.map((dia) => (
+            <div key={dia.toISOString()} className="p-2 text-center text-sm font-semibold bg-gray-50 rounded">
+              <div>{format(dia, 'EEE', { locale: ptBR })}</div>
+              <div className="text-lg">{format(dia, 'd')}</div>
+            </div>
+          ))}
+          
+          {/* Linhas de horas */}
+          {horas.map((hora) => (
+            <React.Fragment key={hora}>
+              <div className="p-2 text-xs text-gray-500 border-r border-gray-200">
+                {format(new Date().setHours(hora), 'HH:mm')}
+              </div>
+              {dias.map((dia) => {
+                const eventosDaHora = eventos.filter(evento => {
+                  const dataEvento = new Date(evento.data_inicio);
+                  return isSameDay(dataEvento, dia) && dataEvento.getHours() === hora;
+                });
+                
+                return (
+                  <div key={`${dia.toISOString()}-${hora}`} className="p-1 border-r border-gray-200 min-h-[60px]">
+                    {eventosDaHora.map((evento) => (
+                      <div
+                        key={evento.id}
+                        className="text-xs p-1 rounded mb-1 cursor-pointer hover:opacity-80 transition-opacity"
+                        style={{ backgroundColor: evento.cor + '20', borderLeft: `3px solid ${evento.cor}` }}
+                        title={`${evento.titulo} - ${evento.cliente}`}
+                      >
+                        <div className="font-medium truncate" style={{ color: evento.cor }}>
+                          {evento.titulo}
+                        </div>
+                        <div className="text-gray-600 truncate">
+                          {evento.cliente}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderCalendarioDia = () => {
+    const eventosDoDia = eventos.filter(evento => 
+      isSameDay(new Date(evento.data_inicio), dataAtual)
+    );
+    
+    const horas = Array.from({ length: 24 }, (_, i) => i);
+    
+    return (
+      <div className="overflow-x-auto">
+        <div className="grid grid-cols-2 gap-1 min-w-[400px]">
+          {/* Cabeçalho */}
+          <div className="p-2 bg-gray-50 rounded font-semibold">Hora</div>
+          <div className="p-2 bg-gray-50 rounded font-semibold">Eventos</div>
+          
+          {/* Linhas de horas */}
+          {horas.map((hora) => {
+            const eventosDaHora = eventosDoDia.filter(evento => {
+              const dataEvento = new Date(evento.data_inicio);
+              return dataEvento.getHours() === hora;
+            });
+            
+            return (
+              <React.Fragment key={hora}>
+                <div className="p-2 text-sm text-gray-500 border-r border-gray-200">
+                  {format(new Date().setHours(hora), 'HH:mm')}
+                </div>
+                <div className="p-2 border-r border-gray-200 min-h-[60px]">
+                  {eventosDaHora.map((evento) => (
+                    <div
+                      key={evento.id}
+                      className="text-sm p-2 rounded mb-2 cursor-pointer hover:opacity-80 transition-opacity"
+                      style={{ backgroundColor: evento.cor + '20', borderLeft: `3px solid ${evento.cor}` }}
+                      title={`${evento.titulo} - ${evento.cliente}`}
+                    >
+                      <div className="font-medium" style={{ color: evento.cor }}>
+                        {evento.titulo}
+                      </div>
+                      <div className="text-gray-600 text-xs">
+                        {evento.cliente}
+                      </div>
+                      <div className="text-gray-500 text-xs">
+                        {format(new Date(evento.data_inicio), 'HH:mm')} - {format(new Date(evento.data_fim), 'HH:mm')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </React.Fragment>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="w-full">
+      {visualizacao === 'mes' && renderCalendarioMes()}
+      {visualizacao === 'semana' && renderCalendarioSemana()}
+      {visualizacao === 'dia' && renderCalendarioDia()}
+    </div>
   );
 }
 
