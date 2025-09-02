@@ -91,13 +91,20 @@ export default function LembretesPage() {
   // Função para buscar colunas do banco
   const fetchColunas = async () => {
     if (!empresa_id) return;
+    console.log('🔍 [DASHBOARD] Buscando colunas para empresa:', empresa_id);
     const { data, error } = await supabase
       .from('colunas_dashboard')
       .select('nome')
       .eq('empresa_id', empresa_id)
       .order('posicao', { ascending: true });
+    
+    console.log('🔍 [DASHBOARD] Resultado da busca de colunas:', { data, error });
+    
     if (!error && data && data.length > 0) {
+      console.log('🔍 [DASHBOARD] Colunas encontradas:', data.map((c) => c.nome));
       setColunas(data.map((c) => c.nome));
+    } else {
+      console.log('🔍 [DASHBOARD] Nenhuma coluna encontrada ou erro:', error);
     }
   };
 
@@ -665,6 +672,7 @@ export default function LembretesPage() {
                 strategy={horizontalListSortingStrategy}
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 px-4 py-6">
+                  {(() => { console.log('🔍 [DASHBOARD] Renderizando colunas:', colunas); return null; })()}
                   {colunas.map((coluna, index) => {
                     // Porcentagem demonstrativa para progresso
                     const percentualConcluido = 50;
