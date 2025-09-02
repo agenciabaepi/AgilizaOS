@@ -637,9 +637,10 @@ export default function ListaOrdensPage() {
   const inicioSemana = new Date(hoje.setDate(hoje.getDate() - hoje.getDay()));
   const mesAnterior = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
 
-  // Corrigir cálculo das métricas diárias
-  const inicioDia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
-  const fimDia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + 1);
+  // Calcular métricas diárias
+  const hojeAgora = new Date();
+  const inicioDia = new Date(hojeAgora.getFullYear(), hojeAgora.getMonth(), hojeAgora.getDate());
+  const fimDia = new Date(hojeAgora.getFullYear(), hojeAgora.getMonth(), hojeAgora.getDate() + 1);
 
   const osHoje = ordens.filter(os => {
     // Converter a data de entrada para data local sem timezone
@@ -656,17 +657,6 @@ export default function ListaOrdensPage() {
     } else {
       dataOS = new Date(os.entrada);
     }
-
-    console.log('🔍 Debug O.S. do dia:', {
-      numero: os.numero,
-      entrada: os.entrada,
-      dataOS: dataOS.toISOString(),
-      dataOSLocal: dataOS.toLocaleDateString('pt-BR'),
-      inicioDia: inicioDia.toISOString(),
-      fimDia: fimDia.toISOString(),
-      hoje: hoje.toLocaleDateString('pt-BR'),
-      isToday: dataOS >= inicioDia && dataOS < fimDia
-    });
     
     return dataOS >= inicioDia && dataOS < fimDia;
   }).length;
