@@ -231,7 +231,10 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard'} menuRecolhido={menuRecolhidoFinal} />
             )
           )}
-                  {/* Lembretes removidos - agora integrados na dashboard */}
+                  {/* Lembretes */}
+                  {userLevel === 'admin' && (
+                    <SidebarButton path="/lembretes" icon={<FiBell size={20} />} label="Lembretes" isActive={pathname === '/lembretes'} menuRecolhido={menuRecolhidoFinal} />
+                  )}
           {podeVer('ordens') && (
             <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} menuRecolhido={menuRecolhidoFinal} />
           )}
