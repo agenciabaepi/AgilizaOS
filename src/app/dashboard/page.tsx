@@ -225,6 +225,12 @@ export default function LembretesPage() {
       
       console.log('🔍 [CALENDARIO] Todas as O.S. da empresa:', todasOS);
       console.log('🔍 [CALENDARIO] O.S. com prazo_entrega:', todasOS?.filter(os => os.prazo_entrega));
+      console.log('🔍 [CALENDARIO] Detalhes dos prazos:', todasOS?.map(os => ({
+        numero: os.numero_os,
+        prazo: os.prazo_entrega,
+        tipo: typeof os.prazo_entrega,
+        isNull: os.prazo_entrega === null
+      })));
       
       const { data, error } = await supabase
         .from("ordens_servico")
@@ -276,6 +282,15 @@ export default function LembretesPage() {
         }));
         
         console.log('🔍 [CALENDARIO] Eventos formatados:', eventosFormatados.length);
+        console.log('🔍 [CALENDARIO] Eventos detalhados:', eventosFormatados.map(ev => ({
+          numero: ev.numero,
+          titulo: ev.titulo,
+          data_inicio: ev.data_inicio,
+          data_fim: ev.data_fim,
+          status: ev.status,
+          prioridade: ev.prioridade,
+          cor: ev.cor
+        })));
         setEventosCalendario(eventosFormatados);
       } else {
         console.log('🔍 [CALENDARIO] Erro na busca:', error);
@@ -1226,15 +1241,21 @@ function CalendarioComponent({
              isSameDay(new Date(evento.data_inicio), dia)
            );
            
-                       // Debug para o dia 4 de setembro
-            if (format(dia, 'dd/MM/yyyy') === '04/09/2025') {
-              console.log('🔍 [CALENDARIO] Dia 04/09/2025:', {
+                       // Debug para todos os dias com eventos
+            if (eventos.length > 0) {
+              console.log('🔍 [CALENDARIO] Debug para dia:', format(dia, 'dd/MM/yyyy'), {
                 dia: format(dia, 'dd/MM/yyyy'),
                 eventosDoDia: eventosDoDia.length,
                 todosEventos: eventos.length,
                 eventos: eventosDoDia.map(e => ({ id: e.id, numero: e.numero, cliente: e.cliente })),
                 debug: {
-                  dataInicio: eventos.map(e => ({ id: e.id, data_inicio: e.data_inicio, dataInicioDate: new Date(e.data_inicio) })),
+                  dataInicio: eventos.map(e => ({ 
+                    id: e.id, 
+                    numero: e.numero,
+                    data_inicio: e.data_inicio, 
+                    dataInicioDate: new Date(e.data_inicio),
+                    dataInicioFormatada: format(new Date(e.data_inicio), 'dd/MM/yyyy')
+                  })),
                   filtroTeste: eventos.filter(e => {
                     const dataEvento = new Date(e.data_inicio);
                     const dataDia = new Date(dia);

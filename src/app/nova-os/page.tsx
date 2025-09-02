@@ -601,7 +601,12 @@ function NovaOS2Content() {
         termo_garantia_id: termoSelecionado || null,
         tipo: 'Normal',
         // Adicionar campo de prazo de entrega
-        prazo_entrega: prazoEntrega ? new Date(prazoEntrega).toISOString() : null
+        prazo_entrega: prazoEntrega ? new Date(prazoEntrega).toISOString() : (() => {
+          // Se não foi definido, criar prazo automático (7 dias)
+          const prazoAutomatico = new Date();
+          prazoAutomatico.setDate(prazoAutomatico.getDate() + 7);
+          return prazoAutomatico.toISOString();
+        })()
         // Agora usando os nomes corretos das colunas da tabela
       };
 
@@ -1294,6 +1299,7 @@ function NovaOS2Content() {
                     value={prazoEntrega}
                     onChange={(e) => setPrazoEntrega(e.target.value)}
                     min={new Date().toISOString().slice(0, 16)} // Não permite datas passadas
+                    required
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     Defina quando o aparelho deve ser entregue ao cliente. Este prazo será usado para controle pelos técnicos e atendentes.
