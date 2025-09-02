@@ -85,34 +85,19 @@ export default function LembretesPage() {
   const { session, user, usuarioData, empresaData } = useAuth();
   const empresa_id = empresaData?.id;
 
-  console.log('🔍 [DASHBOARD] Dados de autenticação:', {
-    session: !!session,
-    user: !!user,
-    usuarioData: !!usuarioData,
-    empresaData: !!empresaData,
-    empresa_id: empresa_id
-  });
-
   const { addToast } = useToast();
   const confirm = useConfirm();
 
   // Função para buscar colunas do banco
   const fetchColunas = async () => {
     if (!empresa_id) return;
-    console.log('🔍 [DASHBOARD] Buscando colunas para empresa:', empresa_id);
     const { data, error } = await supabase
       .from('colunas_dashboard')
       .select('nome')
       .eq('empresa_id', empresa_id)
       .order('posicao', { ascending: true });
-    
-    console.log('🔍 [DASHBOARD] Resultado da busca de colunas:', { data, error });
-    
     if (!error && data && data.length > 0) {
-      console.log('🔍 [DASHBOARD] Colunas encontradas:', data.map((c) => c.nome));
       setColunas(data.map((c) => c.nome));
-    } else {
-      console.log('🔍 [DASHBOARD] Nenhuma coluna encontrada ou erro:', error);
     }
   };
 
@@ -202,19 +187,12 @@ export default function LembretesPage() {
   useEffect(() => {
     const fetchNotas = async () => {
       if (!empresa_id) return;
-      console.log('🔍 [DASHBOARD] Buscando notas para empresa:', empresa_id);
       const { data, error } = await supabase
         .from("notas_dashboard")
         .select("*")
         .eq("empresa_id", empresa_id);
-      
-      console.log('🔍 [DASHBOARD] Resultado da busca de notas:', { data, error });
-      
       if (!error && data) {
-        console.log('🔍 [DASHBOARD] Notas encontradas:', data.length, 'notas');
         setNotes(data);
-      } else {
-        console.log('🔍 [DASHBOARD] Nenhuma nota encontrada ou erro:', error);
       }
     };
     fetchNotas();
