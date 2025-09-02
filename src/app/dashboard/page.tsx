@@ -1475,6 +1475,29 @@ function CalendarioComponent({
 
   return (
     <div className="w-full">
+      {/* Debug Visual */}
+      <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <h3 className="text-sm font-bold text-yellow-800 mb-2">🔍 DEBUG CALENDÁRIO</h3>
+        <div className="text-xs text-yellow-700 space-y-1">
+          <div>📊 Total de eventos: {eventos.length}</div>
+          <div>📅 Data atual: {format(dataAtual, 'dd/MM/yyyy')}</div>
+          <div>🎯 Visualização: {visualizacao}</div>
+          {eventos.length > 0 && (
+            <div className="mt-2">
+              <div className="font-semibold">📋 Eventos carregados:</div>
+              {eventos.slice(0, 5).map((ev: any) => (
+                <div key={ev.id} className="ml-2">
+                  • OS {ev.numero} - {ev.cliente} - {format(new Date(ev.data_inicio), 'dd/MM/yyyy HH:mm')}
+                </div>
+              ))}
+              {eventos.length > 5 && (
+                <div className="ml-2 text-gray-500">... e mais {eventos.length - 5} eventos</div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+      
       {visualizacao === 'mes' && renderCalendarioMes()}
       {visualizacao === 'semana' && renderCalendarioSemana()}
       {visualizacao === 'dia' && renderCalendarioDia()}
