@@ -231,9 +231,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard'} menuRecolhido={menuRecolhidoFinal} />
             )
           )}
-          {podeVer('lembretes') && (
-            <SidebarButton path="/lembretes" icon={<FiFileText size={20} />} label="Lembretes" isActive={pathname === '/lembretes'} menuRecolhido={menuRecolhidoFinal} />
-          )}
+                  {/* Lembretes removidos - agora integrados na dashboard */}
           {podeVer('ordens') && (
             <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} menuRecolhido={menuRecolhidoFinal} />
           )}
@@ -392,9 +390,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard'} menuRecolhido={menuRecolhido || false} />
                 )
               )}
-              {podeVer('lembretes') && (
-                <SidebarButton path="/lembretes" icon={<FiFileText size={20} />} label="Lembretes" isActive={pathname === '/lembretes'} menuRecolhido={menuRecolhido || false} />
-              )}
+                      {/* Lembretes removidos - agora integrados na dashboard */}
               {podeVer('ordens') && (
                 <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} menuRecolhido={menuRecolhido || false} />
               )}
@@ -669,16 +665,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                 />
               )}
               
-              {/* Lembretes */}
-              {podeVer('lembretes') && (
-                <MobileMenuItem
-                  path="/lembretes"
-                  icon={<FiFileText size={20} />}
-                  label="Lembretes"
-                  isActive={pathname === '/lembretes'}
-                  onNavigate={() => setMobileMenuOpen(false)}
-                />
-              )}
+              {/* Lembretes removidos - agora integrados na dashboard */}
               
               {/* Ordens de Serviço */}
               {podeVer('ordens') && (

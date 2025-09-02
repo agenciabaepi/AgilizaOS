@@ -13,12 +13,18 @@ import {
   FiClock, 
   FiCheckCircle, 
   FiUsers, 
-  FiTrendingUp, 
-  FiStar, 
-  FiDollarSign,
-  FiSettings,
+  FiBell,
+  FiPlus,
+  FiAlertCircle,
+  FiEdit3,
+  FiTrash2,
+  FiX,
   FiUser
 } from 'react-icons/fi';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { useToast } from '@/components/Toast';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 interface AdminMetrics {
   totalOS: number;
@@ -45,6 +51,7 @@ interface OSData {
   cliente_nome?: string;
   created_at?: string;
   valor_faturado?: number;
+  status_tecnico?: string;
 }
 
 interface ClienteData {
@@ -54,10 +61,33 @@ interface ClienteData {
   created_at?: string;
 }
 
+interface Lembrete {
+  id: string;
+  titulo: string;
+  texto: string;
+  cor: string;
+  coluna: string;
+  prioridade: string;
+  data_criacao: string;
+  responsavel: string;
+}
+
+interface LembreteEditando {
+  id: string;
+  titulo: string;
+  texto: string;
+  cor: string;
+  coluna: string;
+  prioridade: string;
+}
+
 export default function DashboardPage() {
   const { usuarioData, empresaData, showOnboarding, setShowOnboarding } = useAuth();
   const router = useRouter();
   const { onboardingStatus, markOnboardingCompleted } = useOnboarding();
+  const { addToast } = useToast();
+  const confirm = useConfirm();
+  
   const [metrics, setMetrics] = useState<AdminMetrics>({
     totalOS: 0,
     osPendentes: 0,
@@ -75,9 +105,13 @@ export default function DashboardPage() {
     ticketMedioHoje: 0
   });
   const [recentOS, setRecentOS] = useState<OSData[]>([]);
-  const [recentClientes, setRecentClientes] = useState<ClienteData[]>([]);
+  const [lembretes, setLembretes] = useState<Lembrete[]>([]);
   const [loading, setLoading] = useState(true);
-  const [onboardingChecked, setOnboardingChecked] = useState(false);
+  
+  // Estados para lembretes
+  const [showLembreteModal, setShowLembreteModal] = useState(false);
+  const [lembreteEditando, setLembreteEditando] = useState<LembreteEditando | null>(null);
+  const [colunas, setColunas] = useState<string[]>([]);
 
   // ✅ DEBUG: Mostrar nível do usuário atual
   useEffect(() => {
@@ -91,551 +125,728 @@ export default function DashboardPage() {
     }
   }, [usuarioData]);
 
+  // ✅ CARREGAR DADOS DA DASHBOARD
+  const fetchDashboardData = async () => {
+    if (!empresaData?.id) return;
+    
+    setLoading(true);
+    try {
+      const hoje = new Date();
+      const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      const inicioDia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
 
+      // ✅ TIMEOUT: Evitar loading infinito
+      const { data: ordensData, error: ordensError } = await Promise.race([
+        supabase
+          .from('ordens_servico')
+          .select(`
+            id,
+            numero_os,
+            status,
+            status_tecnico,
+            created_at,
+            valor_faturado,
+            clientes:cliente_id(nome)
+          `)
+          .eq('empresa_id', empresaData.id),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Dashboard timeout')), 10000)
+        )
+      ]);
 
-
-
-  // Removido redirecionamento automático para evitar loops
-  // Cada usuário pode acessar a dashboard que quiser
-
-  // Mostrar onboarding sempre que não estiver completo
-  useEffect(() => {
-    console.log('🔍 Dashboard useEffect - Onboarding:', {
-      usuarioData: !!usuarioData,
-      empresaData: !!empresaData,
-      showOnboarding,
-      onboardingStatus,
-      onboardingChecked,
-      wasSkipped: localStorage.getItem('onboarding_skipped') === 'true'
-    });
-
-    if (usuarioData && empresaData && !onboardingChecked) {
-      // Verificar se o usuário pulou o onboarding nesta sessão
-      const wasSkipped = localStorage.getItem('onboarding_skipped') === 'true';
-      
-      if (wasSkipped) {
-        console.log('🔍 Dashboard: Onboarding foi pulado, não mostrando modal');
-        setOnboardingChecked(true);
+      if (ordensError) {
+        console.error('Erro ao carregar ordens:', ordensError);
         return;
       }
+
+      const ordens = ordensData || [];
       
-      // Verificar se o onboarding está completo (apenas itens obrigatórios)
-      const isComplete = onboardingStatus.empresa && onboardingStatus.tecnicos;
+      // ✅ BUSCAR LEMBRETES E COLUNAS
+      const { data: lembretesData } = await supabase
+        .from('notas_dashboard')
+        .select('*')
+        .eq('empresa_id', empresaData.id)
+        .order('data_criacao', { ascending: false });
+
+      const { data: colunasData } = await supabase
+        .from('colunas_dashboard')
+        .select('nome')
+        .eq('empresa_id', empresaData.id)
+        .order('posicao');
+
+      setLembretes(lembretesData || []);
+      setColunas(colunasData?.map((c: any) => c.nome) || ['A Fazer', 'Em Andamento', 'Concluído']);
+
+      // ✅ CALCULAR MÉTRICAS
+      const totalOS = ordens.length;
+      const osPendentes = ordens.filter((os: any) => 
+        ['ABERTA', 'EM_ANALISE', 'ORCAMENTO', 'PENDENTE'].includes(os.status || '')
+      ).length;
+      const osConcluidas = ordens.filter((os: any) => 
+        ['CONCLUIDO', 'ENTREGUE'].includes(os.status || '')
+      ).length;
       
-      console.log('🔍 Dashboard: Verificando se deve mostrar onboarding:', {
-        empresa: onboardingStatus.empresa,
-        tecnicos: onboardingStatus.tecnicos,
-        isComplete,
-        shouldShow: !isComplete
+      const osHoje = ordens.filter((os: any) => 
+        new Date(os.created_at || '') >= inicioDia
+      ).length;
+      
+      const faturamentoHoje = ordens
+        .filter((os: any) => new Date(os.created_at || '') >= inicioDia)
+        .reduce((sum: number, os: any) => sum + (os.valor_faturado || 0), 0);
+      
+      const osCriadasMes = ordens.filter((os: any) => 
+        new Date(os.created_at || '') >= inicioMes
+      ).length;
+
+      // ✅ BUSCAR CLIENTES E TÉCNICOS
+      const { data: clientesData } = await supabase
+        .from('clientes')
+        .select('id, nome, created_at')
+        .eq('empresa_id', empresaData.id);
+
+      const { data: tecnicosData } = await supabase
+        .from('usuarios')
+        .select('id, nome')
+        .eq('empresa_id', empresaData.id)
+        .eq('nivel', 'tecnico');
+
+      const clientes = clientesData || [];
+      const tecnicos = tecnicosData || [];
+      
+      const totalClientes = clientes.length;
+      const totalTecnicos = tecnicos.length;
+      const clientesNovos = clientes.filter((cliente: any) => 
+        new Date(cliente.created_at || '') >= inicioMes
+      ).length;
+
+      // ✅ OSs RECENTES
+      const recentOSData = ordens
+        .sort((a: any, b: any) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
+        .slice(0, 5);
+
+      setRecentOS(recentOSData);
+
+      // ✅ ATUALIZAR MÉTRICAS
+      setMetrics({
+        totalOS,
+        osPendentes,
+        osConcluidas,
+        totalClientes,
+        totalTecnicos,
+        faturamentoMes: 0, // TODO: Implementar
+        satisfacaoMedia: 0, // TODO: Implementar
+        osCriadasMes,
+        clientesNovos,
+        osHoje,
+        faturamentoHoje,
+        retornosHoje: 0, // TODO: Implementar
+        aprovadosHoje: 0, // TODO: Implementar
+        ticketMedioHoje: osHoje > 0 ? faturamentoHoje / osHoje : 0
       });
-      
-      if (!isComplete) {
-        console.log('🔍 Dashboard: Onboarding não completo, mostrando modal');
-        setShowOnboarding(true);
-      } else {
-        console.log('🔍 Dashboard: Onboarding completo, ocultando modal');
-        setShowOnboarding(false);
-      }
-      
-      setOnboardingChecked(true);
-    }
-  }, [usuarioData, empresaData, onboardingStatus.empresa, onboardingStatus.tecnicos, setShowOnboarding, onboardingChecked]);
 
-  // Re-verificar onboarding quando dados mudarem (apenas se já foi verificado)
-  useEffect(() => {
-    if (usuarioData && empresaData && onboardingChecked) {
-      console.log('🔍 Dashboard: Dados mudaram, re-verificando onboarding');
-      const wasSkipped = localStorage.getItem('onboarding_skipped') === 'true';
-      if (!wasSkipped) {
-        const isComplete = onboardingStatus.empresa && onboardingStatus.tecnicos;
-        if (!isComplete) {
-          console.log('🔍 Dashboard: Re-exibindo onboarding');
-          setShowOnboarding(true);
-        } else {
-          console.log('🔍 Dashboard: Ocultando onboarding (agora completo)');
-          setShowOnboarding(false);
-        }
-      }
+    } catch (error) {
+      console.error('Erro ao carregar dashboard:', error);
+    } finally {
+      setLoading(false);
     }
-  }, [usuarioData, empresaData, onboardingStatus, onboardingChecked, setShowOnboarding]);
+  };
 
-  // Buscar dados reais do banco
   useEffect(() => {
     if (empresaData?.id) {
       fetchDashboardData();
     }
   }, [empresaData?.id]);
 
-  const fetchDashboardData = async () => {
+  // ✅ FUNÇÕES DOS LEMBRETES
+  const criarLembrete = async (lembrete: Omit<LembreteEditando, 'id'>) => {
     if (!empresaData?.id) return;
     
     try {
-      setLoading(true);
-      const hoje = new Date();
-      const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-      const inicioDia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
-      
-      // Buscar OS
-      const { data: osData, error: osError } = await supabase
-        .from('ordens_servico')
-        .select('*')
-        .eq('empresa_id', empresaData.id);
+      const { data, error } = await supabase
+        .from('notas_dashboard')
+        .insert({
+          titulo: lembrete.titulo,
+          texto: lembrete.texto,
+          cor: lembrete.cor,
+          coluna: lembrete.coluna,
+          prioridade: lembrete.prioridade,
+          empresa_id: empresaData.id,
+          responsavel: usuarioData?.nome || 'Sistema'
+        })
+        .select()
+        .single();
 
-      if (!osError && osData) {
-        const totalOS = osData.length;
-        const osPendentes = osData.filter((os: OSData) => 
-          ['pendente', 'em_analise', 'em_andamento'].includes(os.status || '')
-        ).length;
-        const osConcluidas = osData.filter((os: OSData) => 
-          ['concluida', 'entregue'].includes(os.status || '')
-        ).length;
-        
-        const osCriadasMes = osData.filter((os: OSData) => {
-          const dataCriacao = new Date(os.created_at || '');
-          return dataCriacao >= inicioMes;
-        }).length;
+      if (error) throw error;
 
-        // OS criadas hoje
-        const osHoje = osData.filter((os: OSData) => {
-          const dataCriacao = new Date(os.created_at || '');
-          return dataCriacao >= inicioDia;
-        }).length;
-
-        // Faturamento hoje
-        const faturamentoHoje = osData
-          .filter((os: OSData) => {
-            const dataCriacao = new Date(os.created_at || '');
-            return dataCriacao >= inicioDia && os.valor_faturado;
-          })
-          .reduce((acc: number, os: OSData) => acc + (os.valor_faturado || 0), 0);
-
-        // Ticket médio hoje
-        const osComValorHoje = osData.filter((os: OSData) => {
-          const dataCriacao = new Date(os.created_at || '');
-          return dataCriacao >= inicioDia && os.valor_faturado;
-        });
-        const ticketMedioHoje = osComValorHoje.length > 0 
-          ? faturamentoHoje / osComValorHoje.length 
-          : 0;
-
-        // Retornos hoje (OS com status de retorno)
-        const retornosHoje = osData.filter((os: OSData) => {
-          const dataCriacao = new Date(os.created_at || '');
-          return dataCriacao >= inicioDia && os.status === 'retorno';
-        }).length;
-
-        // Aprovados hoje (OS aprovadas hoje)
-        const aprovadosHoje = osData.filter((os: OSData) => {
-          const dataCriacao = new Date(os.created_at || '');
-          return dataCriacao >= inicioDia && os.status === 'aprovado';
-        }).length;
-
-        // Buscar OS recentes
-        const recentOSData = osData
-          .sort((a: OSData, b: OSData) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
-          .slice(0, 5);
-
-        setRecentOS(recentOSData);
-        setMetrics(prev => ({ 
-          ...prev, 
-          totalOS, 
-          osPendentes, 
-          osConcluidas, 
-          osCriadasMes,
-          osHoje,
-          faturamentoHoje,
-          retornosHoje,
-          aprovadosHoje,
-          ticketMedioHoje
-        }));
-      }
-
-      // Buscar clientes
-      const { data: clientesData, error: clientesError } = await supabase
-        .from('clientes')
-        .select('*')
-        .eq('empresa_id', empresaData.id);
-
-      if (!clientesError && clientesData) {
-        const totalClientes = clientesData.length;
-        
-        const clientesNovos = clientesData.filter((cliente: ClienteData) => {
-          const dataCriacao = new Date(cliente.created_at || '');
-          return dataCriacao >= inicioMes;
-        }).length;
-        
-        // Buscar clientes recentes
-        const recentClientesData = clientesData
-          .sort((a: ClienteData, b: ClienteData) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
-          .slice(0, 3);
-
-        setRecentClientes(recentClientesData);
-        setMetrics(prev => ({ ...prev, totalClientes, clientesNovos }));
-      }
-
-      // Buscar usuários/tecnicos
-      const { data: usuariosData, error: usuariosError } = await supabase
-        .from('usuarios')
-        .select('*')
-        .eq('empresa_id', empresaData.id)
-        .in('nivel', ['tecnico', 'admin']);
-
-      if (!usuariosError && usuariosData) {
-        setMetrics(prev => ({ ...prev, totalTecnicos: usuariosData.length }));
-      }
-
-      // Simular faturamento e satisfação (pode ser implementado com dados reais depois)
-      setMetrics(prev => ({ 
-        ...prev, 
-        faturamentoMes: Math.floor(Math.random() * 50000) + 20000,
-        satisfacaoMedia: 4.5 + Math.random() * 0.5,
-        osHoje: Math.floor(Math.random() * 10) + 1, // Exemplo de dados diários
-        faturamentoHoje: Math.floor(Math.random() * 1000) + 500, // Exemplo de dados diários
-        ticketMedioHoje: Math.floor(Math.random() * 100) + 50, // Exemplo de dados diários
-        retornosHoje: Math.floor(Math.random() * 5) + 1, // Exemplo de dados diários
-        aprovadosHoje: Math.floor(Math.random() * 3) + 1 // Exemplo de dados diários
-      }));
-
+      addToast('success', 'Lembrete criado com sucesso!');
+      setShowLembreteModal(false);
+      fetchDashboardData(); // Recarregar dados
     } catch (error) {
-      console.error('Erro ao buscar dados do dashboard:', error);
-    } finally {
-      setLoading(false);
+      console.error('Erro ao criar lembrete:', error);
+      addToast('error', 'Erro ao criar lembrete');
     }
   };
 
+  const editarLembrete = async (lembrete: LembreteEditando) => {
+    if (!empresaData?.id) return;
+    
+    try {
+      const { error } = await supabase
+        .from('notas_dashboard')
+        .update({
+          titulo: lembrete.titulo,
+          texto: lembrete.texto,
+          cor: lembrete.cor,
+          coluna: lembrete.coluna,
+          prioridade: lembrete.prioridade
+        })
+        .eq('id', lembrete.id)
+        .eq('empresa_id', empresaData.id);
+
+      if (error) throw error;
+
+      addToast('success', 'Lembrete atualizado com sucesso!');
+      setLembreteEditando(null);
+      fetchDashboardData(); // Recarregar dados
+    } catch (error) {
+      console.error('Erro ao editar lembrete:', error);
+      addToast('error', 'Erro ao editar lembrete');
+    }
+  };
+
+  const excluirLembrete = async (id: string) => {
+    if (!empresaData?.id) return;
+    
+    const confirmed = await confirm({
+      title: 'Excluir Lembrete',
+      message: 'Tem certeza que deseja excluir este lembrete?',
+      confirmText: 'Excluir',
+      cancelText: 'Cancelar'
+    });
+
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase
+        .from('notas_dashboard')
+        .delete()
+        .eq('id', id)
+        .eq('empresa_id', empresaData.id);
+
+      if (error) throw error;
+
+      addToast('success', 'Lembrete excluído com sucesso!');
+      fetchDashboardData(); // Recarregar dados
+    } catch (error) {
+      console.error('Erro ao excluir lembrete:', error);
+      addToast('error', 'Erro ao excluir lembrete');
+    }
+  };
+
+  // ✅ FORMATAR VALOR
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
+  };
+
+  // ✅ FORMATAR DATA
+  const formatDate = (date: string) => {
+    try {
+      return format(new Date(date), 'dd/MM/yyyy', { locale: ptBR });
+    } catch {
+      return '';
+    }
+  };
+
+  // ✅ OBTER COR DO STATUS
+  const getStatusColor = (status: string) => {
+    const statusLower = status?.toLowerCase() || '';
+    switch (statusLower) {
+      case 'concluido':
+      case 'entregue':
+        return 'text-green-600 bg-green-100';
+      case 'orcamento':
+      case 'orçamento':
+        return 'text-yellow-600 bg-yellow-100';
+      case 'em analise':
+      case 'em análise':
+        return 'text-blue-600 bg-blue-100';
+      case 'aguardando peca':
+      case 'aguardando peça':
+        return 'text-orange-600 bg-orange-100';
+      default:
+        return 'text-gray-600 bg-gray-100';
+    }
+  };
+
+  // ✅ OBTER COR DO LEMBRETE
+  const getLembreteColor = (cor: string) => {
+    const cores: { [key: string]: string } = {
+      'azul': 'bg-blue-100 border-blue-300 text-blue-800',
+      'verde': 'bg-green-100 border-green-300 text-green-800',
+      'amarelo': 'bg-yellow-100 border-yellow-300 text-yellow-800',
+      'vermelho': 'bg-red-100 border-red-300 text-red-800',
+      'roxo': 'bg-purple-100 border-purple-300 text-purple-800',
+      'rosa': 'bg-pink-100 border-pink-300 text-pink-800',
+      'laranja': 'bg-orange-100 border-orange-300 text-orange-800',
+      'cinza': 'bg-gray-100 border-gray-300 text-gray-800'
+    };
+    return cores[cor] || 'bg-gray-100 border-gray-300 text-gray-800';
+  };
+
+  // ✅ LOADING STATE
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p className="text-gray-600">Carregando dashboard...</p>
-          <p className="text-sm text-gray-500 mt-2">Isso pode levar alguns segundos</p>
-        </div>
-      </div>
+      <ProtectedArea area="dashboard">
+        <MenuLayout>
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 mx-auto mb-4"></div>
+              <p className="text-gray-600">Carregando dashboard...</p>
+              <p className="text-sm text-gray-500 mt-2">Isso pode levar alguns segundos</p>
+            </div>
+          </div>
+        </MenuLayout>
+      </ProtectedArea>
     );
   }
 
   return (
-    <MenuLayout>
-      <ProtectedArea area="dashboard">
-        <div className="p-6 bg-gray-50 min-h-screen">
-          <div className="max-w-7xl mx-auto">
-            {/* Header */}
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard Administrativo</h1>
-              <p className="text-gray-600">Bem-vindo, {usuarioData?.nome}!</p>
-            </div>
-
-            {/* Métricas principais - Dados Diários */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <FiFileText className="h-6 w-6 text-blue-600" />
-                    </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">OS do Dia</p>
-                      <p className="text-2xl font-semibold text-gray-900">{metrics.osHoje}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-gray-500">Total: {metrics.totalOS}</p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-gray-600">Criadas hoje</p>
-                  <button 
-                    onClick={() => router.push('/financeiro/detalhamento-mes')}
-                    className="text-xs text-blue-600 hover:text-blue-800 font-medium"
-                  >
-                    Ver mês completo →
-                  </button>
-                </div>
-              </div>
-
-              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-green-100 rounded-lg">
-                      <FiDollarSign className="h-6 w-6 text-green-600" />
-                    </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Faturamento do Dia</p>
-                      <p className="text-2xl font-semibold text-gray-900">
-                        R$ {metrics.faturamentoHoje.toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-gray-600">
-                    Ticket médio: R$ {metrics.ticketMedioHoje.toFixed(2)}
+    <ProtectedArea area="dashboard">
+      <MenuLayout>
+        <div className="min-h-screen bg-gray-50">
+          {/* Header */}
+          <div className="bg-white shadow-sm border-b border-gray-200">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex justify-between items-center py-6">
+                <div>
+                  <h1 className="text-3xl font-bold text-gray-900">
+                    Dashboard
+                  </h1>
+                  <p className="text-gray-600 mt-1">
+                    Resumo do dia {formatDate(new Date().toISOString())}
                   </p>
-                  <button 
-                    onClick={() => router.push('/financeiro/detalhamento-mes')}
-                    className="text-xs text-green-600 hover:text-green-800 font-medium"
+                </div>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => router.push('/nova-os')}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
                   >
-                    Ver mês completo →
+                    <FiPlus className="w-4 h-4" />
+                    <span>Nova OS</span>
                   </button>
-                </div>
-              </div>
-
-              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-orange-100 rounded-lg">
-                      <FiClock className="h-6 w-6 text-orange-600" />
-                    </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Retornos do Dia</p>
-                      <p className="text-2xl font-semibold text-gray-900">{metrics.retornosHoje}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-gray-600">OS com retorno</p>
-                  <button 
-                    onClick={() => router.push('/financeiro/detalhamento-mes')}
-                    className="text-xs text-orange-600 hover:text-orange-800 font-medium"
+                  <button
+                    onClick={() => setShowLembreteModal(true)}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
                   >
-                    Ver mês completo →
-                  </button>
-                </div>
-              </div>
-
-              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-purple-100 rounded-lg">
-                      <FiCheckCircle className="h-6 w-6 text-purple-600" />
-                    </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Aprovados do Dia</p>
-                      <p className="text-2xl font-semibold text-gray-900">{metrics.aprovadosHoje}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-gray-600">OS aprovadas</p>
-                  <button 
-                    onClick={() => router.push('/financeiro/detalhamento-mes')}
-                    className="text-xs text-purple-600 hover:text-purple-800 font-medium"
-                  >
-                    Ver mês completo →
+                    <FiPlus className="w-4 h-4" />
+                    <span>Novo Lembrete</span>
                   </button>
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Métricas secundárias */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">OS Criadas este Mês</p>
-                    <p className="text-xl font-semibold text-gray-900">{metrics.osCriadasMes}</p>
-                  </div>
-                  <FiTrendingUp className="h-8 w-8 text-green-500" />
-                </div>
-              </div>
-
-              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Faturamento do Mês</p>
-                    <p className="text-xl font-semibold text-gray-900">R$ {(metrics.faturamentoMes / 1000).toFixed(1)}k</p>
-                  </div>
-                  <FiDollarSign className="h-8 w-8 text-green-500" />
-                </div>
-              </div>
-
-              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Satisfação Média</p>
-                    <p className="text-xl font-semibold text-gray-900">{metrics.satisfacaoMedia.toFixed(1)}/5</p>
-                  </div>
-                  <FiStar className="h-8 w-8 text-yellow-500" />
-                </div>
-              </div>
-            </div>
-
-            {/* Ações rápidas */}
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {/* Métricas Principais */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <button 
-                onClick={() => router.push('/ordens/nova')}
-                className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow text-left"
-              >
-                <div className="flex items-center">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <FiFileText className="h-6 w-6 text-blue-600" />
+              {/* OS do Dia */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">OS do Dia</p>
+                    <p className="text-3xl font-bold text-gray-900">{metrics.osHoje}</p>
                   </div>
-                  <div className="ml-4">
-                    <p className="font-medium text-gray-900">Nova OS</p>
-                    <p className="text-sm text-gray-600">Criar ordem de serviço</p>
+                  <div className="bg-blue-100 p-3 rounded-full">
+                    <FiFileText className="w-6 h-6 text-blue-600" />
                   </div>
                 </div>
-              </button>
+                <div className="mt-4">
+                  <p className="text-sm text-gray-600">
+                    Faturamento: {formatCurrency(metrics.faturamentoHoje)}
+                  </p>
+                </div>
+              </div>
 
-              <button 
-                onClick={() => router.push('/clientes')}
-                className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow text-left"
-              >
-                <div className="flex items-center">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <FiUsers className="h-6 w-6 text-green-600" />
+              {/* OS Pendentes */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">OS Pendentes</p>
+                    <p className="text-3xl font-bold text-orange-600">{metrics.osPendentes}</p>
                   </div>
-                  <div className="ml-4">
-                    <p className="font-medium text-gray-900">Novo Cliente</p>
-                    <p className="text-sm text-gray-600">Cadastrar cliente</p>
+                  <div className="bg-orange-100 p-3 rounded-full">
+                    <FiClock className="w-6 h-6 text-orange-600" />
                   </div>
                 </div>
-              </button>
+                <div className="mt-4">
+                  <p className="text-sm text-gray-600">
+                    {((metrics.osPendentes / metrics.totalOS) * 100).toFixed(1)}% do total
+                  </p>
+                </div>
+              </div>
 
-              <button 
-                onClick={() => router.push('/configuracoes/usuarios')}
-                className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow text-left"
-              >
-                <div className="flex items-center">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <FiUser className="h-6 w-6 text-purple-600" />
+              {/* OS Concluídas */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">OS Concluídas</p>
+                    <p className="text-3xl font-bold text-green-600">{metrics.osConcluidas}</p>
                   </div>
-                  <div className="ml-4">
-                    <p className="font-medium text-gray-900">Usuários</p>
-                    <p className="text-sm text-gray-600">Gerenciar usuários</p>
+                  <div className="bg-green-100 p-3 rounded-full">
+                    <FiCheckCircle className="w-6 h-6 text-green-600" />
                   </div>
                 </div>
-              </button>
+                <div className="mt-4">
+                  <p className="text-sm text-gray-600">
+                    {((metrics.osConcluidas / metrics.totalOS) * 100).toFixed(1)}% do total
+                  </p>
+                </div>
+              </div>
 
-              <button 
-                onClick={() => router.push('/configuracoes')}
-                className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow text-left"
-              >
-                <div className="flex items-center">
-                  <div className="p-2 bg-gray-100 rounded-lg">
-                    <FiSettings className="h-6 w-6 text-gray-600" />
+              {/* Total Clientes */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Total Clientes</p>
+                    <p className="text-3xl font-bold text-purple-600">{metrics.totalClientes}</p>
                   </div>
-                  <div className="ml-4">
-                    <p className="font-medium text-gray-900">Configurações</p>
-                    <p className="text-sm text-gray-600">Ajustes do sistema</p>
+                  <div className="bg-purple-100 p-3 rounded-full">
+                    <FiUsers className="w-6 h-6 text-purple-600" />
                   </div>
                 </div>
-              </button>
+                <div className="mt-4">
+                  <p className="text-sm text-gray-600">
+                    +{metrics.clientesNovos} este mês
+                  </p>
+                </div>
+              </div>
             </div>
 
-            {/* Gráfico de atividade */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-8">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">Atividade dos Últimos 7 Dias</h3>
-              </div>
-              <div className="p-6">
-                <div className="h-64 flex items-end justify-center space-x-3">
-                  {[12, 19, 15, 25, 22, 30, 28].map((value, index) => (
-                    <div key={index} className="flex flex-col items-center">
-                      <div 
-                        className="w-8 bg-blue-500 rounded-t-lg transition-all duration-300 hover:bg-blue-600 hover:scale-110"
-                        style={{ height: `${(value / 30) * 200}px` }}
-                      ></div>
-                      <span className="text-sm text-gray-600 mt-2 font-medium">
-                        {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][index]}
-                      </span>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* OSs Recentes */}
+              <div className="lg:col-span-2">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                  <div className="px-6 py-4 border-b border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-medium text-gray-900">OSs Recentes</h3>
+                      <button
+                        onClick={() => router.push('/ordens')}
+                        className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                      >
+                        Ver todas
+                      </button>
                     </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Cards de resumo */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* OS Recentes */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900">Ordens de Serviço Recentes</h3>
-                </div>
-                <div className="p-6">
-                  {recentOS.length > 0 ? (
-                    <div className="space-y-4">
-                      {recentOS.map((os, index) => (
-                        <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                          <div className="flex items-center">
-                            <div className="p-2 bg-blue-100 rounded-lg mr-4">
-                              <FiFileText className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div className="p-6">
+                    {recentOS.length > 0 ? (
+                      <div className="space-y-4">
+                        {recentOS.map((os) => (
+                          <div key={os.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                            <div className="flex items-center space-x-4">
+                              <div className="flex-shrink-0">
+                                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                  <FiFileText className="w-4 h-4 text-blue-600" />
+                                </div>
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">
+                                  OS #{os.numero_os}
+                                </p>
+                                <p className="text-sm text-gray-600">
+                                  {os.cliente_nome}
+                                </p>
+                              </div>
                             </div>
-                            <div>
-                              <p className="font-medium text-gray-900">OS #{os.numero_os || os.id}</p>
-                              <p className="text-sm text-gray-600">{os.cliente_nome || 'Cliente'}</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              os.status === 'pendente' ? 'bg-yellow-100 text-yellow-800' :
-                              os.status === 'em_andamento' ? 'bg-blue-100 text-blue-800' :
-                              os.status === 'concluida' ? 'bg-green-100 text-green-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
-                              {os.status === 'pendente' ? 'Pendente' :
-                               os.status === 'em_andamento' ? 'Em Andamento' :
-                               os.status === 'concluida' ? 'Concluída' :
-                               os.status || 'N/A'}
-                            </span>
-                            {os.valor_faturado && (
-                              <p className="text-sm text-gray-600 mt-1">
-                                R$ {os.valor_faturado.toFixed(2)}
+                            <div className="flex items-center space-x-4">
+                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(os.status || '')}`}>
+                                {os.status}
+                              </span>
+                              <p className="text-sm text-gray-600">
+                                {formatDate(os.created_at || '')}
                               </p>
-                            )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-center py-8">Nenhuma OS encontrada</p>
-                  )}
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <FiFileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                        <p className="text-gray-600">Nenhuma OS encontrada</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Clientes Recentes */}
+              {/* Lembretes */}
+              <div className="lg:col-span-1">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                  <div className="px-6 py-4 border-b border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-medium text-gray-900">Lembretes</h3>
+                      <button
+                        onClick={() => setShowLembreteModal(true)}
+                        className="text-green-600 hover:text-green-700 text-sm font-medium"
+                      >
+                        Novo
+                      </button>
+                    </div>
+                  </div>
+                  <div className="p-6">
+                    {lembretes.length > 0 ? (
+                      <div className="space-y-3">
+                        {lembretes.slice(0, 5).map((lembrete) => (
+                          <div
+                            key={lembrete.id}
+                            className={`p-3 rounded-lg border ${getLembreteColor(lembrete.cor)}`}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <p className="text-sm font-medium">{lembrete.titulo}</p>
+                                <p className="text-xs mt-1 opacity-80">{lembrete.texto}</p>
+                                <p className="text-xs mt-1 opacity-60">{lembrete.coluna}</p>
+                              </div>
+                              <div className="ml-2 flex space-x-1">
+                                {lembrete.prioridade === 'alta' && (
+                                  <FiAlertCircle className="w-4 h-4 text-red-600" />
+                                )}
+                                <button
+                                  onClick={() => setLembreteEditando({
+                                    id: lembrete.id,
+                                    titulo: lembrete.titulo,
+                                    texto: lembrete.texto,
+                                    cor: lembrete.cor,
+                                    coluna: lembrete.coluna,
+                                    prioridade: lembrete.prioridade
+                                  })}
+                                  className="text-gray-500 hover:text-gray-700"
+                                >
+                                  <FiEdit3 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => excluirLembrete(lembrete.id)}
+                                  className="text-gray-500 hover:text-red-600"
+                                >
+                                  <FiTrash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <FiBell className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                        <p className="text-gray-600">Nenhum lembrete</p>
+                        <button
+                          onClick={() => setShowLembreteModal(true)}
+                          className="mt-2 text-green-600 hover:text-green-700 text-sm"
+                        >
+                          Criar lembrete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Ações Rápidas */}
+            <div className="mt-8">
               <div className="bg-white rounded-lg shadow-sm border border-gray-200">
                 <div className="px-6 py-4 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900">Clientes Recentes</h3>
+                  <h3 className="text-lg font-medium text-gray-900">Ações Rápidas</h3>
                 </div>
                 <div className="p-6">
-                  {recentClientes.length > 0 ? (
-                    <div className="space-y-4">
-                      {recentClientes.map((cliente, index) => (
-                        <div key={index} className="flex items-center p-4 bg-gray-50 rounded-lg">
-                          <div className="p-2 bg-green-100 rounded-lg mr-4">
-                            <FiUser className="h-5 w-5 text-green-600" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-900">{cliente.nome || 'Cliente'}</p>
-                            <p className="text-sm text-gray-600">{cliente.empresa || 'Empresa'}</p>
-                            <p className="text-xs text-gray-500">
-                              {cliente.created_at ? new Date(cliente.created_at).toLocaleDateString('pt-BR') : 'N/A'}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-center py-8">Nenhum cliente encontrado</p>
-                  )}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <button
+                      onClick={() => router.push('/nova-os')}
+                      className="flex flex-col items-center p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                    >
+                      <FiPlus className="w-8 h-8 text-blue-600 mb-2" />
+                      <span className="text-sm font-medium text-blue-900">Nova OS</span>
+                    </button>
+                    
+                    <button
+                      onClick={() => router.push('/clientes/novo')}
+                      className="flex flex-col items-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+                    >
+                      <FiUser className="w-8 h-8 text-green-600 mb-2" />
+                      <span className="text-sm font-medium text-green-900">Novo Cliente</span>
+                    </button>
+                    
+                    <button
+                      onClick={() => router.push('/ordens')}
+                      className="flex flex-col items-center p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
+                    >
+                      <FiFileText className="w-8 h-8 text-purple-600 mb-2" />
+                      <span className="text-sm font-medium text-purple-900">Ver OSs</span>
+                    </button>
+                    
+                    <button
+                      onClick={() => setShowLembreteModal(true)}
+                      className="flex flex-col items-center p-4 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors"
+                    >
+                      <FiBell className="w-8 h-8 text-orange-600 mb-2" />
+                      <span className="text-sm font-medium text-orange-900">Lembretes</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </ProtectedArea>
 
-      {/* Modal de Onboarding */}
-      <OnboardingModal
-        isOpen={showOnboarding}
-        onClose={() => setShowOnboarding(false)}
-        onComplete={async () => {
-          await markOnboardingCompleted();
-          setShowOnboarding(false);
-        }}
-      />
-    </MenuLayout>
+        {/* Modal de Lembrete */}
+        {showLembreteModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <h3 className="text-lg font-medium text-gray-900">
+                  {lembreteEditando ? 'Editar Lembrete' : 'Novo Lembrete'}
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowLembreteModal(false);
+                    setLembreteEditando(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <FiX className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.currentTarget);
+                  const lembrete = {
+                    titulo: formData.get('titulo') as string,
+                    texto: formData.get('texto') as string,
+                    cor: formData.get('cor') as string,
+                    coluna: formData.get('coluna') as string,
+                    prioridade: formData.get('prioridade') as string
+                  };
+                  
+                  if (lembreteEditando) {
+                    editarLembrete({ ...lembrete, id: lembreteEditando.id });
+                  } else {
+                    criarLembrete(lembrete);
+                  }
+                }}
+                className="p-6 space-y-4"
+              >
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Título
+                  </label>
+                  <input
+                    type="text"
+                    name="titulo"
+                    defaultValue={lembreteEditando?.titulo || ''}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Texto
+                  </label>
+                  <textarea
+                    name="texto"
+                    defaultValue={lembreteEditando?.texto || ''}
+                    required
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Cor
+                    </label>
+                    <select
+                      name="cor"
+                      defaultValue={lembreteEditando?.cor || 'azul'}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="azul">Azul</option>
+                      <option value="verde">Verde</option>
+                      <option value="amarelo">Amarelo</option>
+                      <option value="vermelho">Vermelho</option>
+                      <option value="roxo">Roxo</option>
+                      <option value="rosa">Rosa</option>
+                      <option value="laranja">Laranja</option>
+                      <option value="cinza">Cinza</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Prioridade
+                    </label>
+                    <select
+                      name="prioridade"
+                      defaultValue={lembreteEditando?.prioridade || 'normal'}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="baixa">Baixa</option>
+                      <option value="normal">Normal</option>
+                      <option value="alta">Alta</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Coluna
+                  </label>
+                  <select
+                    name="coluna"
+                    defaultValue={lembreteEditando?.coluna || colunas[0]}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {colunas.map((coluna) => (
+                      <option key={coluna} value={coluna}>{coluna}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div className="flex justify-end space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowLembreteModal(false);
+                      setLembreteEditando(null);
+                    }}
+                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    {lembreteEditando ? 'Atualizar' : 'Criar'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Onboarding Modal */}
+        <OnboardingModal
+          isOpen={showOnboarding}
+          onClose={() => setShowOnboarding(false)}
+          onComplete={markOnboardingCompleted}
+        />
+      </MenuLayout>
+    </ProtectedArea>
   );
 }
