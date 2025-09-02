@@ -91,20 +91,13 @@ export default function LembretesPage() {
   // Função para buscar colunas do banco
   const fetchColunas = async () => {
     if (!empresa_id) return;
-    console.log('🔍 [DASHBOARD] Buscando colunas para empresa:', empresa_id);
     const { data, error } = await supabase
       .from('colunas_dashboard')
       .select('nome')
       .eq('empresa_id', empresa_id)
       .order('posicao', { ascending: true });
-    
-    console.log('🔍 [DASHBOARD] Resultado da busca de colunas:', { data, error });
-    
     if (!error && data && data.length > 0) {
-      console.log('🔍 [DASHBOARD] Colunas encontradas:', data.map((c) => c.nome));
       setColunas(data.map((c) => c.nome));
-    } else {
-      console.log('🔍 [DASHBOARD] Nenhuma coluna encontrada ou erro:', error);
     }
   };
 
@@ -123,10 +116,6 @@ export default function LembretesPage() {
       posicao: colunas.length, // Adiciona a nova coluna no final
     };
     
-    console.log('Tentando criar coluna com dados:', colunaData);
-    console.log('Empresa ID:', empresa_id);
-    console.log('User ID:', user?.id);
-    
     try {
       const { data, error } = await supabase
         .from("colunas_dashboard")
@@ -134,25 +123,12 @@ export default function LembretesPage() {
         .select();
 
       if (error) {
-        console.error('Erro ao criar coluna:', error);
-        console.error('Tipo do erro:', typeof error);
-        console.error('String do erro:', JSON.stringify(error, null, 2));
-        console.error('Detalhes do erro:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
         addToast('error', `Erro ao criar coluna: ${error.message || 'Erro desconhecido'}`);
       } else {
-        console.log('Coluna criada com sucesso:', data);
         addToast('success', "Coluna criada com sucesso!");
         await fetchColunas();
       }
     } catch (err) {
-      console.error("Erro inesperado ao criar coluna:", err);
-      console.error("Tipo do erro:", typeof err);
-      console.error("String do erro:", JSON.stringify(err, null, 2));
       addToast('error', `Erro inesperado ao criar coluna: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
     }
   };
@@ -194,21 +170,12 @@ export default function LembretesPage() {
   useEffect(() => {
     const fetchNotas = async () => {
       if (!empresa_id) return;
-      console.log('🔍 [DASHBOARD] Buscando notas para empresa:', empresa_id);
       const { data, error } = await supabase
         .from("notas_dashboard")
         .select("*")
         .eq("empresa_id", empresa_id);
-      
-      console.log('🔍 [DASHBOARD] Resultado da busca de notas:', { data, error });
-      
       if (!error && data) {
-        console.log('🔍 [DASHBOARD] Notas encontradas:', data.length, 'notas');
-        console.log('🔍 [DASHBOARD] Detalhes das notas:', data.map(n => ({ id: n.id, titulo: n.titulo, coluna: n.coluna })));
-        console.log('🔍 [DASHBOARD] Colunas das notas:', data.map(n => ({ titulo: n.titulo, coluna: n.coluna })));
         setNotes(data);
-      } else {
-        console.log('🔍 [DASHBOARD] Nenhuma nota encontrada ou erro:', error);
       }
     };
     fetchNotas();
@@ -218,8 +185,6 @@ export default function LembretesPage() {
   const salvarColunasNoBanco = async (colunas: string[]) => {
     if (!empresa_id) return;
     
-    console.log('Salvando colunas no banco:', colunas);
-    
     try {
       // Primeiro, busca as colunas existentes
       const { data: colunasExistentes, error: erroBusca } = await supabase
@@ -228,7 +193,6 @@ export default function LembretesPage() {
         .eq('empresa_id', empresa_id);
         
       if (erroBusca) {
-        console.error('Erro ao buscar colunas existentes:', erroBusca);
         addToast('error', 'Erro ao atualizar ordem das colunas');
         return;
       }
@@ -245,16 +209,12 @@ export default function LembretesPage() {
             .eq('id', colunaExistente.id);
             
           if (erroUpdate) {
-            console.error('Erro ao atualizar posição da coluna:', erroUpdate);
             addToast('error', 'Erro ao atualizar ordem das colunas');
             return;
           }
         }
       }
-      
-      console.log('Ordem das colunas atualizada com sucesso');
     } catch (err) {
-      console.error('Erro inesperado ao salvar colunas:', err);
       addToast('error', 'Erro ao atualizar ordem das colunas');
     }
   };
@@ -274,8 +234,6 @@ export default function LembretesPage() {
     
     const nomeAtual = colunas[index];
     
-    console.log('Salvando título da coluna:', { index, nomeAtual, novoNome, empresa_id });
-    
     // Busca o id da coluna pelo nome atual e empresa_id
     const { data, error } = await supabase
       .from('colunas_dashboard')
@@ -284,15 +242,10 @@ export default function LembretesPage() {
       .eq('nome', nomeAtual)
       .maybeSingle();
       
-    console.log('Resultado da busca:', { data, error });
-      
     if (data && data.id) {
       const nomeAntigo = data.nome;
-      console.log('Coluna encontrada:', { id: data.id, nomeAntigo, novoNome });
       await editarColuna(data.id, novoNome, nomeAntigo);
     } else {
-      console.error('Coluna não encontrada para renomear:', { nomeAtual, empresa_id, data, error });
-      
       // Vamos tentar buscar todas as colunas para debug
       const { data: todasColunas, error: erroTodas } = await supabase
         .from('colunas_dashboard')
@@ -672,22 +625,12 @@ export default function LembretesPage() {
                 strategy={horizontalListSortingStrategy}
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 px-4 py-6">
-                  {(() => { console.log('🔍 [DASHBOARD] Renderizando colunas:', colunas); return null; })()}
                   {colunas.map((coluna, index) => {
                     // Porcentagem demonstrativa para progresso
                     const percentualConcluido = 50;
                     const notasDaColuna = notes.filter((n) => n.coluna === coluna);
                     
-                    console.log(`🔍 [DASHBOARD] Coluna "${coluna}":`, {
-                      totalNotas: notes.length,
-                      notasDaColuna: notasDaColuna.length,
-                      notas: notasDaColuna.map(n => ({ id: n.id, titulo: n.titulo })),
-                      debug: {
-                        colunaLength: coluna.length,
-                        colunaCharCodes: coluna.split('').map(c => c.charCodeAt(0)),
-                        todasNotas: notes.map(n => ({ titulo: n.titulo, coluna: n.coluna, colunaLength: n.coluna.length }))
-                      }
-                    });
+
                     
                     return (
                       <SortableColunaCard
