@@ -8,10 +8,12 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import VisualizarOSModal from '@/components/VisualizarOSModal';
+import { useToast } from '@/components/Toast';
 
 export default function BancadaPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const { addToast } = useToast();
   const [ordens, setOrdens] = useState<OrdemServico[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -77,6 +79,19 @@ export default function BancadaPage() {
       setLoading(true);
       
       try {
+        // ✅ SEGURANÇA: Buscar empresa_id do usuário primeiro
+        const { data: usuarioData, error: usuarioError } = await supabase
+          .from('usuarios')
+          .select('empresa_id')
+          .eq('auth_user_id', user.id)
+          .single();
+
+        if (usuarioError || !usuarioData?.empresa_id) {
+          console.error('Erro ao buscar dados do usuário:', usuarioError);
+          addToast('error', 'Erro ao carregar dados do usuário');
+          return;
+        }
+
         // ✅ TIMEOUT: Evitar loading infinito na bancada
         const { data: ordensData, error: ordensError } = await Promise.race([
           supabase
@@ -85,6 +100,7 @@ export default function BancadaPage() {
               *,
               cliente:cliente_id(nome, telefone)
             `)
+            .eq('empresa_id', usuarioData.empresa_id) // ✅ SEGURANÇA: Filtrar por empresa
             .or(`tecnico_id.eq.${user.id},tecnico_id.is.null`)
             .order('created_at', { ascending: false }),
           new Promise((_, reject) => 

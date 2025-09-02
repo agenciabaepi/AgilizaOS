@@ -88,9 +88,17 @@ export default function ProdutosServicosPage() {
   // Função buscar movida para fora do useEffect para reuso
   const buscar = async () => {
     setCarregando(true);
+    
+    // ✅ SEGURANÇA: Timeout para evitar loading infinito
+    const timeoutId = setTimeout(() => {
+      setCarregando(false);
+      addToast('error', 'Tempo limite excedido. Tente recarregar a página.');
+    }, 15000); // 15 segundos
+    
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (!session || sessionError) {
+        clearTimeout(timeoutId);
         setCarregando(false);
         return;
       }
@@ -118,11 +126,26 @@ export default function ProdutosServicosPage() {
 
       const empresaId = usuarioData.empresa_id;
 
-      const { data: fornecedoresData } = await supabase
-        .from("fornecedores")
-        .select("*");
+      // ✅ SEGURANÇA: Validar empresa_id
+      if (!empresaId) {
+        clearTimeout(timeoutId);
+        setCarregando(false);
+        addToast('error', 'Empresa não identificada. Faça login novamente.');
+        return;
+      }
 
-      setListaFornecedores(fornecedoresData || []);
+      // ✅ SEGURANÇA: Filtrar fornecedores por empresa
+      const { data: fornecedoresData, error: fornecedoresError } = await supabase
+        .from("fornecedores")
+        .select("*")
+        .eq("empresa_id", empresaId);
+
+      if (fornecedoresError) {
+        console.error('Erro ao buscar fornecedores:', fornecedoresError);
+        addToast('error', 'Erro ao carregar fornecedores');
+      } else {
+        setListaFornecedores(fornecedoresData || []);
+      }
 
       const { data: produtosServicosData } = await supabase
         .from("produtos_servicos")
@@ -138,7 +161,10 @@ export default function ProdutosServicosPage() {
       setLista(sortedData);
 
     } catch (erro) {
+      console.error('Erro ao buscar dados:', erro);
+      addToast('error', 'Erro ao carregar dados');
     } finally {
+      clearTimeout(timeoutId);
       setCarregando(false);
     }
   };
