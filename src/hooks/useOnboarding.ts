@@ -191,7 +191,7 @@ export const useOnboarding = () => {
         .eq('nivel', 'tecnico')
         .eq('empresa_id', usuarioData.empresa_id);
 
-      },
+      console.log('DEBUG TÉCNICOS:', {
           nome: {
             valor: empresaData?.nome,
             preenchido: empresaFields.nome,
