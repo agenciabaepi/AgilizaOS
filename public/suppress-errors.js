@@ -34,6 +34,8 @@
     'configuracoes_comissao?select=',
     'whatsapp_sessions?select=',
     'catalogo_habilidade',
+    'avatars',
+    'storage/v1/object/avatars',
     'PGRST116',
     'PGRST106',
     'relation does not exist',

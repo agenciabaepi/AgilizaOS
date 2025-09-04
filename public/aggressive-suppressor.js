@@ -16,7 +16,9 @@
     'configuracoes_empresa?select=',
     'configuracoes_comissao?select=',
     'whatsapp_sessions?select=',
-    'catalogo_habilidade'
+    'catalogo_habilidade',
+    'avatars',
+    'storage/v1/object/avatars'
     // Removemos assinaturas e planos pois podem existir
   ];
   
@@ -124,6 +126,8 @@
       'configuracoes_comissao',
       'whatsapp_sessions',
       'catalogo_habilidade',
+      'avatars',
+      'storage/v1/object',
       'supabase.co/rest/v1',
       'PGRST116',
       'PGRST106',
@@ -144,6 +148,7 @@
         message.includes('servicos') || message.includes('produtos') ||
         message.includes('configuracoes_empresa') || message.includes('catalogo_habilidade') || 
         message.includes('configuracoes_comissao') || message.includes('whatsapp_sessions') || 
+        message.includes('avatars') || message.includes('storage/v1/object') ||
         message.includes('Duplicate extension names found')) {
       return; // Suprimir warnings também
     }

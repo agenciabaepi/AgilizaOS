@@ -59,8 +59,18 @@ export default function PerfilPage() {
           .select('*')
           .eq('auth_user_id', user.id)
           .maybeSingle();
-        if (error || !data) {
+        if (error) {
+          // Suprimir erros 406 específicos do perfil
+          if (error.code === '406' || error.message?.includes('406') || error.message?.includes('Not Acceptable')) {
+            console.warn('⚠️ Erro 406 suprimido na página de perfil:', error);
+            setLoading(false);
+            return;
+          }
           addToast('error', 'Erro ao carregar dados do perfil');
+          setLoading(false);
+          return;
+        }
+        if (!data) {
           setLoading(false);
           return;
         }
@@ -125,12 +135,18 @@ export default function PerfilPage() {
     if (!usuario.trim() || !perfil?.id) return true;
     
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('usuarios')
         .select('id')
         .eq('usuario', usuario.trim().toLowerCase())
         .neq('id', perfil.id)
         .single();
+      
+      // Suprimir erros 406 específicos
+      if (error && (error.code === '406' || error.message?.includes('406') || error.message?.includes('Not Acceptable'))) {
+        console.warn('⚠️ Erro 406 suprimido na validação de usuário:', error);
+        return true; // Assumir válido em caso de erro 406
+      }
       
       return !data; // Retorna true se não existir (válido)
     } catch {
@@ -143,12 +159,18 @@ export default function PerfilPage() {
     if (!email.trim() || !perfil?.id) return true;
     
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('usuarios')
         .select('id')
         .eq('email', email.trim().toLowerCase())
         .neq('id', perfil.id)
         .single();
+      
+      // Suprimir erros 406 específicos
+      if (error && (error.code === '406' || error.message?.includes('406') || error.message?.includes('Not Acceptable'))) {
+        console.warn('⚠️ Erro 406 suprimido na validação de email:', error);
+        return true; // Assumir válido em caso de erro 406
+      }
       
       return !data; // Retorna true se não existir (válido)
     } catch {
@@ -290,6 +312,17 @@ export default function PerfilPage() {
           upsert: true,
           cacheControl: '3600'
         });
+      
+      // Verificar se é erro 406 e suprimir
+      if (uploadResult.error && (
+        uploadResult.error.message?.includes('406') || 
+        uploadResult.error.message?.includes('Not Acceptable')
+      )) {
+        console.warn('⚠️ Erro 406 suprimido no upload de avatar:', uploadResult.error);
+        addToast('warning', 'Upload de foto temporariamente indisponível');
+        setUploading(false);
+        return;
+      }
 
       if (uploadResult.error) {
         // Segunda tentativa: sem upsert

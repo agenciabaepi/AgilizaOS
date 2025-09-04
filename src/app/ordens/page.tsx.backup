@@ -44,8 +44,9 @@ import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { Select } from '@/components/Select';
 import LaudoProntoAlert from '@/components/LaudoProntoAlert';
+import { TableSkeleton, StatsSkeleton, FiltersSkeleton } from '@/components/SkeletonLoader';
+import { ErrorState, LoadingState } from '@/components/ErrorBoundaryWithRetry';
 import { useSupabaseRetry } from '@/hooks/useRetry';
-import { OSFullPageSkeleton } from '@/components/OSTableSkeleton';
 
 export default function ListaOrdensPage() {
   const router = useRouter();
@@ -63,6 +64,7 @@ export default function ListaOrdensPage() {
   const [loading, setLoading] = useState(true);
   const [loadingOrdens, setLoadingOrdens] = useState(false);
   const [error, setError] = useState<any>(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [lastFetchTime, setLastFetchTime] = useState(0);
   const [cacheKey, setCacheKey] = useState('');
   const [loadingTecnicos, setLoadingTecnicos] = useState(false);
@@ -260,7 +262,7 @@ export default function ListaOrdensPage() {
     setError(null);
     
     try {
-      await executeWithRetry(async () => {
+      const result = await executeWithRetry(async () => {
       // ✅ CONSULTA OTIMIZADA: Buscar apenas campos essenciais primeiro
       const { data, error } = await supabase
         .from('ordens_servico')
@@ -465,14 +467,18 @@ export default function ListaOrdensPage() {
         setPercentualRetornos(percentualRetornos);
       }
       
-      // Atualizar cache
+      // Atualizar cache apenas em caso de sucesso
       setLastFetchTime(now);
       setCacheKey(currentCacheKey);
+      
+      return { ordens, totalOS, percentualRetornos };
       });
       
+      // Sucesso - atualizar estado
+      setIsInitialLoad(false);
     } catch (error) {
-      setError(error);
       console.error('Erro ao carregar ordens:', error);
+      setError(error);
       
       if (error instanceof Error) {
         if (error.message.includes('timeout')) {
@@ -491,6 +497,7 @@ export default function ListaOrdensPage() {
 
   const handleRetry = useCallback(async () => {
     setError(null);
+    setIsInitialLoad(false);
     await manualRetry(() => fetchOrdens(true));
   }, [manualRetry]);
 
@@ -710,55 +717,11 @@ export default function ListaOrdensPage() {
     return { reparoConcluido, concluidas, orcamentos, aguardandoRetirada, aprovadas, laudoPronto, todas: ordens.length };
   }, [ordens]);
 
-  if (!empresaId || loading) {
+  if (!empresaId) {
     return (
-      <ProtectedArea area="ordens">
-        <MenuLayout>
-          <OSFullPageSkeleton />
-          {retryState.isRetrying && (
-            <div className="fixed bottom-4 right-4 bg-blue-100 border border-blue-200 rounded-lg p-4 shadow-lg">
-              <div className="flex items-center space-x-2">
-                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-blue-700 font-medium">
-                  Tentativa {retryState.currentAttempt} de 3...
-                </span>
-              </div>
-            </div>
-          )}
-        </MenuLayout>
-      </ProtectedArea>
-    );
-  }
-
-  // Estado de erro
-  if (error && !loading) {
-    return (
-      <ProtectedArea area="ordens">
-        <MenuLayout>
-          <div className="p-4 md:p-8">
-            <div className="text-center py-12">
-              <div className="bg-red-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-                <FiAlertCircle className="w-8 h-8 text-red-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Não foi possível carregar as ordens
-              </h3>
-              <p className="text-gray-600 mb-4">
-                Verifique sua conexão e tente novamente
-              </p>
-              {retryState.isRetrying && (
-                <p className="text-blue-600 text-sm mb-4">
-                  Tentativa {retryState.currentAttempt} de 3...
-                </p>
-              )}
-              <Button onClick={handleRetry} disabled={retryState.isRetrying}>
-                <FiRefreshCw className={`w-4 h-4 mr-2 ${retryState.isRetrying ? 'animate-spin' : ''}`} />
-                {retryState.isRetrying ? 'Tentando...' : 'Tentar novamente'}
-              </Button>
-            </div>
-          </div>
-        </MenuLayout>
-      </ProtectedArea>
+      <div className="p-6 text-center text-gray-500 animate-pulse">
+        Carregando ordens de serviço...
+      </div>
     );
   }
 
@@ -845,12 +808,11 @@ export default function ListaOrdensPage() {
                 onClick={() => fetchOrdens(true)}
                 variant="outline"
                 size="lg"
-                disabled={loadingOrdens || retryState.isRetrying}
+                disabled={loadingOrdens}
                 className="px-4 py-3 text-sm font-semibold"
               >
-                <FiRefreshCw className={`w-4 h-4 mr-2 ${(loadingOrdens || retryState.isRetrying) ? 'animate-spin' : ''}`} />
-                {retryState.isRetrying ? `Tentando... (${retryState.currentAttempt}/3)` : 
-                 loadingOrdens ? 'Atualizando...' : 'Atualizar'}
+                <FiRefreshCw className={`w-4 h-4 mr-2 ${loadingOrdens ? 'animate-spin' : ''}`} />
+                {loadingOrdens ? 'Atualizando...' : 'Atualizar'}
               </Button>
               <Button
                 onClick={() => router.push("/nova-os")}
@@ -863,8 +825,40 @@ export default function ListaOrdensPage() {
             </div>
           </div>
 
-          {/* Cards principais - Dados Diários */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
+          {/* Loading State Simples */}
+          {isInitialLoad && loading && (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Carregando ordens de serviço...</p>
+              {retryState.isRetrying && (
+                <p className="text-blue-600 text-sm mt-2">
+                  Tentativa {retryState.currentAttempt} de 3...
+                </p>
+              )}
+            </div>
+          )}
+
+          {error && !loading && (
+            <div className="text-center py-12">
+              <div className="bg-red-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                <FiAlertCircle className="w-8 h-8 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Não foi possível carregar as ordens
+              </h3>
+              <p className="text-gray-600 mb-4">
+                Verifique sua conexão e tente novamente
+              </p>
+              <Button onClick={handleRetry} disabled={retryState.isRetrying}>
+                {retryState.isRetrying ? 'Tentando...' : 'Tentar novamente'}
+              </Button>
+            </div>
+          )}
+
+          {!isInitialLoad && !loading && !error && (
+            <div>
+              {/* Cards principais - Dados Diários */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
             <DashboardCard
               title="OS do Dia"
               value={osHoje}
@@ -1463,6 +1457,7 @@ export default function ListaOrdensPage() {
                   Próxima
               </Button>
               </div>
+            </div>
           )}
         
         {/* Alerta de Laudos Prontos */}
