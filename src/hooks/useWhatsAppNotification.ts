@@ -8,7 +8,6 @@ export function useWhatsAppNotification() {
   const { empresaData } = useAuth();
 
   useEffect(() => {
-    .toISOString());
     if (!empresaData?.id) {
       return;
     }
@@ -38,7 +37,7 @@ export function useWhatsAppNotification() {
         },
         async (payload: any) => {
           try {
-            );
+            console.log('Nova OS recebida:', payload);
             const novaOS = payload.new as any;
             
             // Verificar se temos os dados necessários

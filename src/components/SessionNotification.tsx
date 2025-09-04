@@ -12,22 +12,22 @@ export function SessionNotification({ showDetails = false }: SessionNotification
   const [showModal, setShowModal] = useState(false);
   const [isTerminating, setIsTerminating] = useState(false);
 
-  // Se sessões não estão habilitadas, não mostrar nada
-  if (!sessionsEnabled) return null;
-
   // Mostrar notificação quando há sessão ativa
   useEffect(() => {
-    if (currentSession && isPrimarySession && !showModal) {
+    if (sessionsEnabled && currentSession && isPrimarySession && !showModal) {
       addToast('success', 'Sessão única ativa - Sistema de segurança habilitado');
     }
-  }, [currentSession, isPrimarySession, showModal, addToast]);
+  }, [sessionsEnabled, currentSession, isPrimarySession, showModal, addToast]);
 
   // Notificar sobre nova sessão
   useEffect(() => {
-    if (currentSession && isPrimarySession) {
+    if (sessionsEnabled && currentSession && isPrimarySession) {
       // Sistema de sessão única - não há múltiplas sessões
     }
-  }, [currentSession, isPrimarySession, addToast]);
+  }, [sessionsEnabled, currentSession, isPrimarySession, addToast]);
+
+  // Se sessões não estão habilitadas, não mostrar nada
+  if (!sessionsEnabled) return null;
 
   const handleLogoutOthers = async () => {
     setIsTerminating(true);

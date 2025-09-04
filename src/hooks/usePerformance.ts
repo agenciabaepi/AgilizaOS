@@ -145,7 +145,7 @@ export function usePerformance<T = any>(config: PerformanceConfig = {}) {
     const end = performance.now();
     
     if (process.env.NODE_ENV === 'development') {
-      .toFixed(2)}ms`);
+      console.log(`Performance: ${(end - start).toFixed(2)}ms`);
     }
 
     return result;

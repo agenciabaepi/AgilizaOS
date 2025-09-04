@@ -97,7 +97,7 @@ export const useOnboarding = () => {
       
       const empresa = Object.values(empresaFields).every(field => field);
       
-      ,
+      setCompletionStatus({
         empresa: empresa,
         todosPreenchidos: Object.values(empresaFields).every(field => field)
       });
@@ -117,7 +117,7 @@ export const useOnboarding = () => {
       
       // Log SIMPLES e DIRETO
       // Debug individual de cada campo - VERIFICAÇÃO DETALHADA
-      ,
+      console.log('DEBUG LOGO:', {
           length: empresaData?.logo_url?.trim()?.length,
           resultado: empresaFields.logo,
           validacao: `empresaData?.logo_url ? empresaData.logo_url.trim().length > 0 : false`,
@@ -128,7 +128,9 @@ export const useOnboarding = () => {
             trimLength: empresaData?.logo_url?.trim()?.length,
             finalResult: empresaFields.logo
           }
-        },
+        });
+        
+      console.log('DEBUG NOME:', {
         nome: {
           valor: empresaData?.nome,
           tipo: typeof empresaData?.nome,
@@ -168,14 +170,16 @@ export const useOnboarding = () => {
       });
       
       // Debug completo dos dados
-      .length,
+      console.log('DEBUG COMPLETO:', {
+        totalCampos: Object.keys(empresaFields).length,
         camposPreenchidos: Object.values(empresaFields).filter(Boolean).length,
         camposVazios: Object.values(empresaFields).filter(field => !field).length
       });
       
       // Verificação adicional - dados brutos
       // Verificação específica do logo
-      ,
+      console.log('VERIFICAÇÃO LOGO:', {
+        logoUrl: empresaData?.logo_url,
         trimNaoVazio: empresaData?.logo_url?.trim() !== '',
         resultadoFinal: empresaFields.logo
       });
