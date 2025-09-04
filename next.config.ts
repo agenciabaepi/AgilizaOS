@@ -1,13 +1,26 @@
 import type { NextConfig } from "next";
 
+// CONFIGURAÇÃO DE EMERGÊNCIA - MÁXIMA COMPATIBILIDADE
 const nextConfig: NextConfig = {
-  // Configuração mínima para evitar erros de build
+  // Ignorar todos os erros para forçar build
   eslint: {
     ignoreDuringBuilds: true,
   },
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Desabilitar TODAS as otimizações
+  swcMinify: false,
+  minify: false,
+  
+  // Desabilitar recursos experimentais
+  experimental: {},
+  
+  // Desabilitar otimizações que causam problemas
+  optimizeFonts: false,
+  productionBrowserSourceMaps: false,
+  
+  // Configuração de imagens (necessária)
   images: {
     remotePatterns: [
       {
@@ -18,14 +31,20 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  // Desabilitar TODAS as otimizações que podem causar problemas
-  experimental: {
-    optimizeCss: false,  // Explicitamente desabilitar optimizeCss
-  },
-  // Configuração básica sem otimizações avançadas
+  
+  // Configurações básicas
   poweredByHeader: false,
   reactStrictMode: false,
   trailingSlash: false,
+  
+  // Webpack config para forçar compatibilidade
+  webpack: (config: any) => {
+    config.optimization = {
+      ...config.optimization,
+      minimize: false,  // Desabilitar minificação
+    };
+    return config;
+  },
 };
 
 export default nextConfig;
