@@ -13,8 +13,11 @@ const nextConfig: NextConfig = {
   swcMinify: false,
   minify: false,
   
-  // Desabilitar recursos experimentais
-  experimental: {},
+  // Configuração experimental para CSS
+  experimental: {
+    optimizeCss: false,
+    cssChunking: 'strict',
+  },
   
   // Desabilitar otimizações que causam problemas
   optimizeFonts: false,

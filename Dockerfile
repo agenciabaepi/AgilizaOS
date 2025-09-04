@@ -32,9 +32,11 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
-# TEMPORÁRIO: Usar dev mode para evitar problemas com prerender-manifest
-# RUN npm run build
-# RUN npm prune --production
+# Voltar para build mode com configurações corretas
+RUN npm run build
+
+# Limpar dependências de desenvolvimento
+RUN npm prune --production
 
 # Expor porta
 EXPOSE 3000
@@ -42,5 +44,5 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# EMERGÊNCIA: Usar dev mode que funciona sem build
-CMD ["npm", "run", "dev", "--", "--hostname", "0.0.0.0"]
+# Usar modo produção
+CMD ["npm", "start"]
