@@ -151,7 +151,6 @@ export async function POST(request: NextRequest) {
 
     const response = await payment.create({ body: paymentData });
     
-    );
     // Verificar se response existe e tem id
     if (!response) {
       throw new Error('Resposta do Mercado Pago não existe');
