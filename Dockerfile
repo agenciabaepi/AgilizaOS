@@ -28,12 +28,13 @@ RUN npm ci
 # Copiar código da aplicação
 COPY . .
 
-# Construir a aplicação
+# Configurações de ambiente
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+ENV NODE_ENV=production
 
-# Limpar cache e dependências desnecessárias
-RUN npm prune --production
+# TEMPORÁRIO: Usar dev mode para evitar problemas com prerender-manifest
+# RUN npm run build
+# RUN npm prune --production
 
 # Expor porta
 EXPOSE 3000
@@ -41,5 +42,5 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Comando para iniciar
-CMD ["npm", "start"]
+# EMERGÊNCIA: Usar dev mode que funciona sem build
+CMD ["npm", "run", "dev", "--", "--hostname", "0.0.0.0"]
