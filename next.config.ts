@@ -37,6 +37,9 @@ const nextConfig: NextConfig = {
   reactStrictMode: false,
   trailingSlash: false,
   
+  // Desabilitar geração estática para evitar problemas com manifest
+  output: 'standalone',
+  
   // Webpack config para forçar compatibilidade
   webpack: (config: any) => {
     config.optimization = {
