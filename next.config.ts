@@ -7,9 +7,10 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,   // ⚠️ Temporariamente ignorar erros do TypeScript para build
   },
-  experimental: {
-    optimizeCss: false,  // Desabilitar otimização CSS que causa erro com critters
-  },
+  // Remover completamente experimental para evitar problemas
+  // experimental: {
+  //   optimizeCss: false,
+  // },
   images: {
     remotePatterns: [
       {
@@ -25,6 +26,10 @@ const nextConfig: NextConfig = {
   compiler: {
     removeConsole: false,  // Manter console.log para debug
   },
+  // Configurações adicionais para evitar problemas no build
+  productionBrowserSourceMaps: false,
+  optimizeFonts: false,
+  minify: false,
 };
 
 export default nextConfig;
