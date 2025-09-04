@@ -9,6 +9,11 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   
+  // DESABILITAR CRITTERS QUE ESTÁ CAUSANDO ERRO
+  experimental: {
+    optimizeCss: false,
+  },
+  
   // Configuração de imagens (necessária)
   images: {
     remotePatterns: [
@@ -28,6 +33,18 @@ const nextConfig: NextConfig = {
 
   // Standalone para deployment
   output: 'standalone',
+  
+  // WEBPACK CONFIG PARA DESABILITAR CRITTERS
+  webpack: (config: any, { isServer }: any) => {
+    if (!isServer) {
+      // Desabilitar critters completamente
+      config.optimization = {
+        ...config.optimization,
+        minimize: false,
+      };
+    }
+    return config;
+  },
 };
 
 export default nextConfig;
