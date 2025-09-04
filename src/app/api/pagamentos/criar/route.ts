@@ -162,7 +162,6 @@ export async function POST(request: NextRequest) {
     
     // Salvar no banco de dados
     // Inserir pagamento no banco (tolerante a diferenças de schema)
-    ...');
     const baseId = crypto.randomUUID();
     const nowIso = new Date().toISOString();
     // Resolver plano_id a partir do slug informado (se houver)
