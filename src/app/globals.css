@@ -1,8 +1,7 @@
-/* CSS SIMPLIFICADO PARA RESOLVER PROBLEMAS DE PARSING */
-/* @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap'); */
-/* @tailwind base; */
-/* @tailwind components; */
-/* @tailwind utilities; */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* CSS básico para funcionamento temporário */
 * {
@@ -18,13 +17,15 @@ body {
 }
 
 /* Configuração da fonte Inter como padrão */
-html, body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif !important;
-}
-
-/* Forçar Inter em todos os elementos */
-* {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+@layer base {
+  html, body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif !important;
+  }
+  
+  /* Forçar Inter em todos os elementos */
+  * {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  }
 }
 
 :root {
@@ -65,13 +66,13 @@ html, body {
   --sidebar-ring: oklch(0.556 0 0);
 }
 
-/* Estilos base convertidos para CSS puro */
-* {
-  border-color: #e5e7eb; /* gray-200 */
-}
-body {
-  background-color: #ffffff;
-  color: #111827; /* gray-900 */
+@layer base {
+  * {
+    @apply border-gray-200;
+  }
+  body {
+    @apply bg-white text-gray-900;
+  }
 }
 
 /* Gradientes de texto no estilo Apple */
