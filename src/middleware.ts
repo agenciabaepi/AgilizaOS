@@ -3,6 +3,13 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export async function middleware(req: NextRequest) {
+  // TEMPORÁRIO: Desabilitar middleware para resolver problemas de Edge Runtime
+  // O middleware estava causando erros de eval() no Edge Runtime
+  // Isso permitirá que o site funcione enquanto investigamos a solução
+  return NextResponse.next();
+  
+  // TODO: Reativar middleware após resolver compatibilidade com Edge Runtime
+  /*
   // Ignorar arquivos estáticos, assets e requisições internas do Next.js
   if (
     req.nextUrl.pathname.startsWith('/_next') ||
@@ -11,8 +18,8 @@ export async function middleware(req: NextRequest) {
     req.nextUrl.pathname.startsWith('/assets') ||
     req.nextUrl.pathname.startsWith('/notification.js') ||
     req.nextUrl.pathname.includes('.') ||
-    req.nextUrl.searchParams.has('_rsc') || // ← ADICIONAR: Excluir requisições RSC
-    req.headers.get('RSC') === '1' // ← ADICIONAR: Excluir headers RSC
+    req.nextUrl.searchParams.has('_rsc') ||
+    req.headers.get('RSC') === '1'
   ) {
     return NextResponse.next();
   }
@@ -74,6 +81,7 @@ export async function middleware(req: NextRequest) {
     console.error('Erro no middleware:', error);
     return NextResponse.redirect(new URL('/login', req.url));
   }
+  */
 }
 
 export const config = {
