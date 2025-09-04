@@ -93,8 +93,6 @@ export default function DetalheBancadaPage() {
         .eq('id', id)
         .single();
         
-      console.log('Resultado da consulta:', { data, error });
-      
       if (error) {
         console.error('Erro ao carregar OS:', error);
         setLoading(false);
@@ -109,7 +107,6 @@ export default function DetalheBancadaPage() {
       
       if (data) {
         setOs(data);
-        console.log('Empresa ID definido:', data.empresa_id);
         setEmpresaId(data.empresa_id);
         
         // Carregar imagens existentes
@@ -147,22 +144,7 @@ export default function DetalheBancadaPage() {
         setProdutos(data.peca || '');
         setServicos(data.servico || '');
         
-        console.log('Dados carregados da OS:', {
-          peca: data.peca,
-          servico: data.servico,
-          valor_peca: data.valor_peca,
-          valor_servico: data.valor_servico,
-          valor_faturado: data.valor_faturado
-        });
-        
         // Exibir no console para debug
-        console.log('===== DADOS COMPLETOS DA OS =====');
-        console.log('Peças/Produtos:', data.peca);
-        console.log('Serviços:', data.servico);
-        console.log('Valor Peças:', data.valor_peca);
-        console.log('Valor Serviços:', data.valor_servico);
-        console.log('===================================');
-        
         // Tentar restaurar produtos e serviços selecionados (campos novos podem não existir ainda)
         try {
           // Buscar campos JSON separadamente para não quebrar se não existirem
@@ -174,7 +156,6 @@ export default function DetalheBancadaPage() {
             
           if (dadosJson?.produtos_json) {
             const produtosRestaurados = JSON.parse(dadosJson.produtos_json);
-            console.log('Produtos restaurados:', produtosRestaurados);
             setProdutosSelecionados(produtosRestaurados);
           } else {
             setProdutosSelecionados([]);
@@ -182,21 +163,17 @@ export default function DetalheBancadaPage() {
           
           if (dadosJson?.servicos_json) {
             const servicosRestaurados = JSON.parse(dadosJson.servicos_json);
-            console.log('Serviços restaurados:', servicosRestaurados);
             setServicosSelecionados(servicosRestaurados);
           } else {
             setServicosSelecionados([]);
           }
         } catch (error) {
-          console.log('Campos JSON não existem ainda, tentando reconstruir a partir do texto:', error);
-          
           // Tentar reconstruir produtos e serviços a partir dos campos de texto
           const produtosReconstruidos = [];
           const servicosReconstruidos = [];
           
           // Se há valor de peça, criar item genérico baseado no texto
           if (data.peca && data.valor_peca && parseFloat(data.valor_peca) > 0) {
-            console.log('Reconstruindo produto a partir de:', data.peca);
             produtosReconstruidos.push({
               id: 'reconstruct-prod-1',
               nome: data.peca.length > 50 ? data.peca.substring(0, 50) + '...' : data.peca,
@@ -208,7 +185,6 @@ export default function DetalheBancadaPage() {
           
           // Se há valor de serviço, criar item genérico baseado no texto
           if (data.servico && data.valor_servico && parseFloat(data.valor_servico) > 0) {
-            console.log('Reconstruindo serviço a partir de:', data.servico);
             servicosReconstruidos.push({
               id: 'reconstruct-serv-1',
               nome: data.servico.length > 50 ? data.servico.substring(0, 50) + '...' : data.servico,
@@ -216,9 +192,6 @@ export default function DetalheBancadaPage() {
               tipo: 'servico'
             });
           }
-          
-          console.log('Produtos reconstruídos:', produtosReconstruidos);
-          console.log('Serviços reconstruídos:', servicosReconstruidos);
           
           setProdutosSelecionados(produtosReconstruidos);
           setServicosSelecionados(servicosReconstruidos);
@@ -289,9 +262,6 @@ export default function DetalheBancadaPage() {
       }
 
       // Preparar dados dos produtos e serviços
-      console.log('Produtos selecionados para salvar:', produtosSelecionados);
-      console.log('Serviços selecionados para salvar:', servicosSelecionados);
-      
       const produtosText = produtosSelecionados.map(p => 
         `${p.nome} (${p.quantidade}x) - ${formatPrice(p.preco * p.quantidade)}`
       ).join(', ');
@@ -302,11 +272,6 @@ export default function DetalheBancadaPage() {
       
       const totalProdutos = calcularTotalProdutos();
       const totalServicos = calcularTotalServicos();
-      console.log('Total produtos:', totalProdutos);
-      console.log('Total serviços:', totalServicos);
-      console.log('Produtos text:', produtosText);
-      console.log('Serviços text:', servicosText);
-
       // Combinar imagens existentes com novas
       const todasImagens = [...imagensExistentes, ...novasImagens];
       const imagensString = todasImagens.join(',');
@@ -314,9 +279,6 @@ export default function DetalheBancadaPage() {
       // Preparar dados estruturados para salvar
       const produtosJson = JSON.stringify(produtosSelecionados);
       const servicosJson = JSON.stringify(servicosSelecionados);
-      
-      console.log('Salvando produtos estruturados:', produtosJson);
-      console.log('Salvando serviços estruturados:', servicosJson);
       
       // Tentar salvar com campos JSON, mas funcionar mesmo se eles não existirem
       const updateData: any = {
@@ -338,10 +300,8 @@ export default function DetalheBancadaPage() {
           .from('ordens_servico')
           .update({ produtos_json: produtosJson, servicos_json: servicosJson })
           .eq('id', id);
-        console.log('Campos JSON salvos com sucesso');
-      } catch (jsonError) {
-        console.log('Campos JSON não existem ainda, salvando apenas dados básicos:', jsonError);
-      }
+        } catch (jsonError) {
+        }
       
       const { error } = await supabase
         .from('ordens_servico')
@@ -391,7 +351,6 @@ export default function DetalheBancadaPage() {
         
         // Se concluiu o reparo, emite notificação mais simples
         if (statusTecnico === 'REPARO CONCLUÍDO' && empresaId && id) {
-          console.log('Emitindo notificação de reparo concluído para OS:', id);
           try {
             const response = await fetch('/api/notificacoes/emitir', {
               method: 'POST',
@@ -405,10 +364,8 @@ export default function DetalheBancadaPage() {
             });
             
             if (response.ok) {
-              console.log('Notificação de reparo concluído enviada com sucesso');
               const result = await response.json();
-              console.log('Resposta da API:', result);
-            } else {
+              } else {
               console.error('Erro ao enviar notificação:', response.status, response.statusText);
             }
           } catch (error) {
@@ -463,7 +420,6 @@ export default function DetalheBancadaPage() {
 
   // Funções para adicionar produtos e serviços
   const handleAdicionarProduto = (produto: { id: string; nome: string; preco: number; tipo: string }) => {
-    console.log('Adicionando produto:', produto);
     const produtoExistente = produtosSelecionados.find(p => p.id === produto.id);
     
     if (produtoExistente) {
@@ -473,31 +429,26 @@ export default function DetalheBancadaPage() {
             ? { ...p, quantidade: p.quantidade + 1 }
             : p
         );
-        console.log('Produtos atualizados:', updated);
         return updated;
       });
     } else {
       setProdutosSelecionados(prev => {
         const updated = [...prev, { ...produto, quantidade: 1 }];
-        console.log('Produto adicionado, lista atualizada:', updated);
         return updated;
       });
     }
   };
 
   const handleAdicionarServico = (servico: { id: string; nome: string; preco: number; tipo: string }) => {
-    console.log('Adicionando serviço:', servico);
     const servicoExistente = servicosSelecionados.find(s => s.id === servico.id);
     
     if (!servicoExistente) {
       setServicosSelecionados(prev => {
         const updated = [...prev, servico];
-        console.log('Serviço adicionado, lista atualizada:', updated);
         return updated;
       });
     } else {
-      console.log('Serviço já existe na lista');
-    }
+      }
   };
 
   const handleRemoverProduto = (produtoId: string) => {

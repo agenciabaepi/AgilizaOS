@@ -25,6 +25,7 @@ import { useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { TagIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '@/context/AuthContext';
+import { interceptSupabaseQuery } from '@/utils/supabaseInterceptor';
 import { useConfirm } from '@/components/ConfirmDialog';
 
 // Usar o cliente importado
@@ -147,10 +148,17 @@ export default function ProdutosServicosPage() {
         setListaFornecedores(fornecedoresData || []);
       }
 
-      const { data: produtosServicosData } = await supabase
-        .from("produtos_servicos")
-        .select("*")
-        .eq("empresa_id", empresaId);
+      const { data: produtosServicosData, error: produtosError } = await interceptSupabaseQuery('produtos_servicos', async () => {
+        return await supabase
+          .from("produtos_servicos")
+          .select("*")
+          .eq("empresa_id", empresaId);
+      });
+      
+      // Suprimir erros 404 silenciosamente
+      if (produtosError && produtosError.code !== 'TABLE_NOT_EXISTS' && produtosError.code !== 'PGRST116' && !produtosError.message?.includes('404')) {
+        console.error('Erro ao buscar produtos/serviços:', produtosError);
+      }
 
       // Sort by criado_em descending (newest first)
       const sortedData = (produtosServicosData || []).slice().sort((a: any, b: any) => {

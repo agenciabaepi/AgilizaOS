@@ -54,7 +54,7 @@ export const useSubscription = () => {
       try {
         setLoading(true);
         
-        // Buscar assinatura da empresa
+        // Buscar assinatura da empresa - com tratamento de erro mais robusto
         const { data: assinaturaData, error: assinaturaError } = await supabase
           .from('assinaturas')
           .select(`
@@ -63,34 +63,33 @@ export const useSubscription = () => {
           `)
           .eq('empresa_id', usuarioData.empresa_id)
           .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
+          .limit(1);
 
-        if (assinaturaError && assinaturaError.code !== 'PGRST116') {
-          console.error('Erro ao buscar assinatura:', assinaturaError);
-        } else if (assinaturaData) {
+        // Se não há erro e há dados, pegar o primeiro item
+        if (!assinaturaError && assinaturaData && assinaturaData.length > 0) {
+          const primeiraAssinatura = assinaturaData[0];
           // Mapear dados da assinatura
           const assinaturaMapeada: Assinatura = {
-            id: assinaturaData.id,
-            empresa_id: assinaturaData.empresa_id,
-            plano_id: assinaturaData.plano_id,
-            status: assinaturaData.status,
-            data_inicio: assinaturaData.data_inicio || assinaturaData.created_at,
-            data_fim: assinaturaData.data_fim,
-            data_trial_fim: assinaturaData.data_trial_fim,
-            proxima_cobranca: assinaturaData.proxima_cobranca,
-            valor: assinaturaData.valor || 0,
+            id: primeiraAssinatura.id,
+            empresa_id: primeiraAssinatura.empresa_id,
+            plano_id: primeiraAssinatura.plano_id,
+            status: primeiraAssinatura.status,
+            data_inicio: primeiraAssinatura.data_inicio || primeiraAssinatura.created_at,
+            data_fim: primeiraAssinatura.data_fim,
+            data_trial_fim: primeiraAssinatura.data_trial_fim,
+            proxima_cobranca: primeiraAssinatura.proxima_cobranca,
+            valor: primeiraAssinatura.valor || 0,
             plano: {
-              id: assinaturaData.planos.id,
-              nome: assinaturaData.planos.nome,
-              descricao: assinaturaData.planos.descricao,
-              preco: assinaturaData.planos.preco,
-              limite_usuarios: assinaturaData.planos.limite_usuarios,
-              limite_produtos: assinaturaData.planos.limite_produtos,
-              limite_clientes: assinaturaData.planos.limite_clientes,
-              limite_fornecedores: assinaturaData.planos.limite_fornecedores,
+              id: primeiraAssinatura.planos.id,
+              nome: primeiraAssinatura.planos.nome,
+              descricao: primeiraAssinatura.planos.descricao,
+              preco: primeiraAssinatura.planos.preco,
+              limite_usuarios: primeiraAssinatura.planos.limite_usuarios,
+              limite_produtos: primeiraAssinatura.planos.limite_produtos,
+              limite_clientes: primeiraAssinatura.planos.limite_clientes,
+              limite_fornecedores: primeiraAssinatura.planos.limite_fornecedores,
               limite_ordens: 100, // Valor padrão
-              recursos_disponiveis: assinaturaData.planos.recursos_disponiveis || {}
+              recursos_disponiveis: primeiraAssinatura.planos.recursos_disponiveis || {}
             }
           };
 
@@ -98,6 +97,8 @@ export const useSubscription = () => {
           
           // Buscar limites reais
           await fetchLimites(usuarioData.empresa_id);
+        } else if (assinaturaError && assinaturaError.code !== 'PGRST116') {
+          console.error('Erro ao buscar assinatura:', assinaturaError);
         }
       } catch (error) {
         console.error('Erro ao buscar assinatura:', error);

@@ -2,8 +2,17 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { FiStar, FiClock, FiAlertTriangle } from 'react-icons/fi';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import ClientOnly from './ClientOnly';
 
 export const SubscriptionStatus = () => {
+  return (
+    <ClientOnly>
+      <SubscriptionStatusContent />
+    </ClientOnly>
+  );
+};
+
+const SubscriptionStatusContent = () => {
   const { assinatura, diasRestantesTrial, isTrialExpired, isSubscriptionActive } = useSubscription();
   const [tempoRestante, setTempoRestante] = useState<string>('');
   const router = useRouter();

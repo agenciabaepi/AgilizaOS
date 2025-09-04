@@ -8,16 +8,10 @@ export function useWhatsAppNotification() {
   const { empresaData } = useAuth();
 
   useEffect(() => {
-    console.log('🔔 WhatsApp: Hook inicializado para empresa:', empresaData?.id);
-    console.log('🔔 WhatsApp: Hook executado em:', new Date().toISOString());
-    console.log('🔔 WhatsApp: empresaData completo:', empresaData);
-    
+    .toISOString());
     if (!empresaData?.id) {
-      console.log('🔔 WhatsApp: Empresa não encontrada, saindo...');
       return;
     }
-
-    console.log('🔔 WhatsApp: Configurando canal de notificações...');
 
     // TESTE: Vamos primeiro testar se o canal está funcionando
     const testChannel = supabase
@@ -27,14 +21,9 @@ export function useWhatsAppNotification() {
         schema: 'public',
         table: 'ordens_servico'
       }, (payload: any) => {
-        console.log('🔔 WhatsApp: 🚨 MUDANÇA DETECTADA! 🚨');
-        console.log('🔔 WhatsApp: Evento:', payload.eventType);
-        console.log('🔔 WhatsApp: Tabela:', payload.table);
-        console.log('🔔 WhatsApp: Dados:', payload.new);
-      })
+        })
       .subscribe((status: any) => {
-        console.log('🔔 WhatsApp: Status do canal de teste:', status);
-      });
+        });
 
     // Canal para monitorar novas OS
     const channel = supabase
@@ -49,18 +38,7 @@ export function useWhatsAppNotification() {
         },
         async (payload: any) => {
           try {
-            console.log('🔔 WhatsApp: 🚨 NOVA OS DETECTADA! 🚨');
-            console.log('🔔 WhatsApp: Payload completo:', payload);
-            console.log('🔔 WhatsApp: Nova OS:', payload.new);
-            console.log('🔔 WhatsApp: Tipo do payload.new:', typeof payload.new);
-            console.log('🔔 WhatsApp: Chaves do payload.new:', Object.keys(payload.new || {}));
-            console.log('🔔 WhatsApp: tecnico_id:', payload.new?.tecnico_id);
-            console.log('🔔 WhatsApp: cliente_id:', payload.new?.cliente_id);
-            console.log('🔔 WhatsApp: empresa_id:', payload.new?.empresa_id);
-            console.log('🔔 WhatsApp: marca:', payload.new?.marca);
-            console.log('🔔 WhatsApp: modelo:', payload.new?.modelo);
-            console.log('🔔 WhatsApp: problema_relatado:', payload.new?.problema_relatado);
-            
+            );
             const novaOS = payload.new as any;
             
             // Verificar se temos os dados necessários
@@ -73,8 +51,6 @@ export function useWhatsAppNotification() {
               return;
             }
             
-            console.log('🔔 WhatsApp: Buscando técnico ID:', novaOS.tecnico_id);
-
             // Buscar informações do técnico - usando a mesma lógica do cadastro da OS
             const { data: tecnico, error: tecnicoError } = await supabase
               .from('usuarios')
@@ -95,25 +71,15 @@ export function useWhatsAppNotification() {
                 .select('id, nome, empresa_id, tecnico_id, auth_user_id, whatsapp, whatsapp_numero')
                 .eq('empresa_id', empresaData.id);
               
-              console.log('🔍 WhatsApp: Todos usuários da empresa:', todosUsuarios);
-              console.log('🔍 WhatsApp: Erro ao buscar usuários:', usuariosError);
-              
               return;
             }
-
-            console.log('🔔 WhatsApp: Técnico encontrado:', tecnico);
 
             // Usar o campo whatsapp (que tem valor) em vez de whatsapp_numero (que está null)
             const numeroWhatsApp = tecnico.whatsapp_numero || tecnico.whatsapp;
             
             if (!numeroWhatsApp) {
-              console.log('ℹ️ WhatsApp: Técnico sem número de WhatsApp:', tecnico.nome);
-              console.log('ℹ️ WhatsApp: whatsapp:', tecnico.whatsapp);
-              console.log('ℹ️ WhatsApp: whatsapp_numero:', tecnico.whatsapp_numero);
               return;
             }
-
-            console.log('🔔 WhatsApp: Número WhatsApp do técnico:', numeroWhatsApp);
 
             // Preparar dados para envio (usando dados da OS diretamente)
             const aparelhoInfo = {
@@ -126,22 +92,12 @@ export function useWhatsAppNotification() {
               os_id: novaOS.id
             };
 
-            console.log('🔔 WhatsApp: Enviando notificação para técnico:', tecnico.nome);
-            console.log('🔔 WhatsApp: Dados do aparelho:', aparelhoInfo);
-            console.log('🔔 WhatsApp: Número WhatsApp:', numeroWhatsApp);
-            console.log('🔔 WhatsApp: Empresa ID:', empresaData.id);
-            console.log('🔔 WhatsApp: Técnico ID:', novaOS.tecnico_id);
-
             // Preparar dados para envio
             const dadosEnvio = {
               empresa_id: empresaData.id,
               tecnico_id: novaOS.tecnico_id,
               aparelho_info: aparelhoInfo
             };
-
-            console.log('🔔 WhatsApp: Dados sendo enviados para API:', dadosEnvio);
-            console.log('🔔 WhatsApp: URL da API:', '/api/whatsapp/enviar');
-            console.log('🔔 WhatsApp: Iniciando chamada para API...');
 
             try {
               // Enviar mensagem via WhatsApp
@@ -153,11 +109,6 @@ export function useWhatsAppNotification() {
                 body: JSON.stringify(dadosEnvio),
               });
 
-              console.log('🔔 WhatsApp: API chamada com sucesso!');
-              console.log('🔔 WhatsApp: Response status:', response.status);
-              console.log('🔔 WhatsApp: Response ok:', response.ok);
-              console.log('🔔 WhatsApp: Response headers:', response.headers);
-
               if (!response.ok) {
                 const errorData = await response.json();
                 console.error('❌ WhatsApp: Erro ao enviar mensagem:', errorData);
@@ -166,8 +117,7 @@ export function useWhatsAppNotification() {
                 console.error('❌ WhatsApp: Dados enviados:', dadosEnvio);
               } else {
                 const result = await response.json();
-                console.log('✅ WhatsApp: Mensagem enviada com sucesso:', result);
-              }
+                }
             } catch (fetchError) {
               console.error('❌ WhatsApp: Erro na chamada da API:', fetchError);
               console.error('❌ WhatsApp: Tipo do erro:', typeof fetchError);
@@ -180,13 +130,9 @@ export function useWhatsAppNotification() {
         }
       )
       .subscribe((status: any) => {
-        console.log('🔔 WhatsApp: Status do canal:', status);
-      });
-
-    console.log('🔔 WhatsApp: Canal configurado com sucesso!');
+        });
 
     return () => {
-      console.log('🔔 WhatsApp: Removendo canais...');
       supabase.removeChannel(testChannel);
       supabase.removeChannel(channel);
     };

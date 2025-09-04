@@ -36,7 +36,6 @@ export default function PlanPayment({
           valor={price}
           descricao={`Plano ${planName} - R$ ${price.toFixed(2)}`}
           onSuccess={(paymentId) => {
-            console.log('Pagamento do plano criado:', paymentId);
             onSuccess?.(paymentId);
             setShowPayment(false);
           }}

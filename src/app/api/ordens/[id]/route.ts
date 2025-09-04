@@ -8,12 +8,8 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
-    console.log('API Route - Iniciando atualização da OS:', id);
-    
     // Parse JSON data from request body
     const updateData = await request.json();
-    console.log('API Route - Dados recebidos:', updateData);
-    
     const cookieStore = await cookies();
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -30,14 +26,10 @@ export async function PUT(
     // Tentar obter usuário diretamente
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     
-    console.log('API Route - Resultado getUser:', { user: !!user, error: userError });
-    
     if (userError || !user) {
       console.error('API Route - Usuário não encontrado:', userError);
       return NextResponse.json({ error: 'Não autorizado - Usuário não encontrado. Faça login novamente.' }, { status: 401 });
     }
-
-    console.log('API Route - Usuário autenticado:', user.id);
 
     // Buscar empresa_id do usuário
     const { data: userData, error: userDataError } = await supabase
@@ -47,13 +39,11 @@ export async function PUT(
       .single();
 
     if (userDataError || !userData?.empresa_id) {
-      console.error('API Route - Erro ao buscar empresa do usuário:', userDataError);
+
       return NextResponse.json({ error: 'Empresa não encontrada para o usuário. Verifique se o usuário está vinculado a uma empresa.' }, { status: 403 });
     }
 
     const empresaId = userData.empresa_id;
-    console.log('API Route - Empresa ID do usuário:', empresaId);
-
     // Prepare data for update
     const dataToUpdate: Record<string, unknown> = {};
 
@@ -103,8 +93,6 @@ export async function PUT(
     const valor_faturado = (updateData.qtd_servico * updateData.valor_servico) + (updateData.qtd_peca * updateData.valor_peca);
     dataToUpdate.valor_faturado = valor_faturado;
 
-    console.log('API Route - Dados para atualização:', dataToUpdate);
-
     // Update the order
     const { data, error } = await supabase
       .from('ordens_servico')
@@ -118,7 +106,6 @@ export async function PUT(
       return NextResponse.json({ error: 'Erro ao atualizar ordem: ' + error.message }, { status: 500 });
     }
 
-    console.log('API Route - Ordem atualizada com sucesso:', data);
     return NextResponse.json({ success: true, data });
   } catch (error: unknown) {
     console.error('API Route - Erro na API PUT /api/ordens/[id]:', error);

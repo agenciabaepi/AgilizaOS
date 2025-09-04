@@ -142,8 +142,6 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
     }
   }, [pathname]);
 
-
-
   // Fechar dropdown quando clicar fora
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -203,7 +201,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               <span className="text-black font-bold text-lg">C</span>
             </div>
           ) : (
-            <Image src={logobranco} alt="Consert Logo" className="h-12 w-auto object-contain" />
+            <Image src={logobranco} alt="Consert Logo" className="h-12 w-auto object-contain" priority />
           )}
         </div>
         {/* Busca */}
@@ -364,7 +362,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               <FiX size={28} />
             </button>
             <div className="flex flex-col items-center mb-8">
-              <Image src={logobranco} alt="Consert Logo" className="h-12 w-auto object-contain" />
+              <Image src={logobranco} alt="Consert Logo" className="h-12 w-auto object-contain" priority />
             </div>
             <div className="flex items-center gap-2 mb-6">
               <FiSearch className="text-white/60" size={18} />
@@ -617,7 +615,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             {/* Header do menu mobile */}
             <div className="flex items-center justify-between p-4 border-b border-gray-700">
               <div className="flex items-center gap-3">
-                <Image src={logobranco} alt="Consert Logo" className="h-8 w-auto" />
+                <Image src={logobranco} alt="Consert Logo" className="h-8 w-auto" priority />
                 <span className="text-white font-semibold">Menu</span>
               </div>
               <button 
@@ -889,11 +887,10 @@ function MobileMenuItem({
   const router = useRouter();
   
   const handleClick = () => {
-    console.log('🔄 MobileMenuItem clicked:', { path, label, hasOnClick: !!onClick });
+
     if (onClick) {
       onClick();
     } else if (path && path !== '#' && !path.startsWith('#')) {
-      console.log('🚀 Navigating to:', path);
       // Fechar menu mobile antes de navegar
       if (onNavigate) {
         onNavigate();

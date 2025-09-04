@@ -6,8 +6,8 @@ import { useAuth } from '@/context/AuthContext';
 import MenuLayout from '@/components/MenuLayout';
 import { useToast } from '@/components/Toast';
 import { ConfirmProvider, useConfirm } from '@/components/ConfirmDialog';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { User, Camera, Trash2, Edit, Save, X, Eye, EyeOff } from 'lucide-react';
+import { Button } from '@/components/Button';
+import { FiUser, FiCamera, FiTrash2, FiEdit2, FiSave, FiX, FiEye, FiEyeOff } from 'react-icons/fi';
 
 interface UsuarioPerfil {
   id: string;
@@ -114,15 +114,11 @@ export default function PerfilPage() {
     }
   }, [form.usuario]);
 
-
-
   // Função para validar email
   const validarEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
-
-
 
   // Função para validar usuário único
   const validarUsuarioUnico = async (usuario: string) => {
@@ -177,9 +173,7 @@ export default function PerfilPage() {
       addToast('error', 'Nome de usuário já existe');
       return;
     }
-    
 
-    
     setSaving(true);
     try {
       if (!user?.id) {
@@ -263,17 +257,8 @@ export default function PerfilPage() {
     setUploading(true);
     
     try {
-      console.log('🔍 Iniciando upload da foto:', {
-        fileName: file.name,
-        fileSize: file.size,
-        fileType: file.type,
-        userId: perfil.id
-      });
-      
       // Verificar se o usuário está autenticado
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      console.log('🔍 Sessão atual:', { session: !!session, error: sessionError });
-      
       if (sessionError || !session) {
         console.error('❌ Usuário não autenticado:', sessionError);
         addToast('error', 'Usuário não autenticado. Faça login novamente.');
@@ -282,9 +267,6 @@ export default function PerfilPage() {
       }
 
       // Pular verificação de bucket (problema de permissões)
-      console.log('🔍 Pulando verificação de bucket devido a problemas de permissão...');
-      console.log('🔍 Tentando upload direto para bucket avatars...');
-
       // Validar extensões permitidas
       const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
       const fileExtension = file.name.split('.').pop()?.toLowerCase();
@@ -296,8 +278,6 @@ export default function PerfilPage() {
       }
 
       let filePath = `user-${perfil.id}/${Date.now()}-${file.name}`;
-      
-      console.log('Fazendo upload para:', filePath);
       
       // Tentar upload com diferentes configurações
       let uploadResult;
@@ -312,8 +292,6 @@ export default function PerfilPage() {
         });
 
       if (uploadResult.error) {
-        console.log('Primeira tentativa falhou, tentando sem upsert...');
-        
         // Segunda tentativa: sem upsert
         uploadResult = await supabase.storage
           .from('avatars')
@@ -324,8 +302,6 @@ export default function PerfilPage() {
       }
 
       if (uploadResult.error) {
-        console.log('Segunda tentativa falhou, tentando com nome único...');
-        
         // Terceira tentativa: com nome único
         const uniqueFilePath = `user-${perfil.id}/${Date.now()}-${Math.random().toString(36).substring(7)}-${file.name}`;
         uploadResult = await supabase.storage
@@ -373,16 +349,12 @@ export default function PerfilPage() {
         return;
       }
 
-      console.log('Upload realizado com sucesso:', data);
-
       // Obter URL pública
       const { data: publicData } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
 
       const url = publicData.publicUrl;
-      console.log('URL pública gerada:', url);
-
       // Atualizar no banco de dados
       const { error: updateError } = await supabase
         .from('usuarios')
@@ -418,14 +390,10 @@ export default function PerfilPage() {
     setUploading(true);
     
     try {
-      console.log('Iniciando remoção da foto:', { userId: perfil.id, fotoUrl });
-
       // Extrai o caminho do arquivo do storage
       const pathMatch = fotoUrl.match(/user-[^/]+\/[^?]+/);
       if (pathMatch) {
         const filePath = pathMatch[0];
-        console.log('Removendo arquivo do storage:', filePath);
-        
         const { error: removeError } = await supabase.storage
           .from('avatars')
           .remove([filePath]);
@@ -434,8 +402,7 @@ export default function PerfilPage() {
           console.error('Erro ao remover arquivo do storage:', removeError);
           // Continua mesmo se não conseguir remover do storage
         } else {
-          console.log('Arquivo removido do storage com sucesso');
-        }
+          }
       }
 
       // Atualizar no banco de dados
@@ -466,16 +433,10 @@ export default function PerfilPage() {
   if (loading || authLoading) {
     return (
       <MenuLayout>
-        <div className="p-8">
+        <div className="px-6 py-8">
           <div className="max-w-4xl mx-auto">
-            <Card className="border-0 shadow-lg">
-              <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
-                <div className="animate-pulse">
-                  <div className="h-8 bg-gray-200 rounded w-1/4 mb-2"></div>
-                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                </div>
-              </CardHeader>
-              <CardContent className="p-6">
+            <div className="bg-white rounded-xl shadow-md overflow-hidden">
+              <div className="p-6">
                 <div className="animate-pulse space-y-6">
                   <div className="flex justify-center">
                     <div className="w-32 h-32 bg-gray-200 rounded-full"></div>
@@ -491,8 +452,8 @@ export default function PerfilPage() {
                     </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
         </div>
       </MenuLayout>
@@ -501,45 +462,35 @@ export default function PerfilPage() {
 
   return (
     <MenuLayout>
-      <div className="p-8">
+      <div className="px-6 py-8">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Meu Perfil</h1>
+            <p className="text-gray-600">Gerencie suas informações pessoais e configurações de conta</p>
+          </div>
+          <Button
+            onClick={() => setIsEditing(!isEditing)}
+            variant={isEditing ? "outline" : "default"}
+            className={isEditing ? "" : "bg-[#cffb6d] text-black hover:bg-[#b8e55a]"}
+          >
+            {isEditing ? (
+              <>
+                <FiX size={16} className="mr-2" />
+                Cancelar
+              </>
+            ) : (
+              <>
+                <FiEdit2 size={16} className="mr-2" />
+                Editar Perfil
+              </>
+            )}
+          </Button>
+        </div>
+
         <div className="max-w-4xl mx-auto">
-          <Card className="border-0 shadow-lg">
-            <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gray-900 rounded-lg">
-                    <User className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-2xl font-semibold text-gray-900">
-                      Meu Perfil
-                    </CardTitle>
-                    <p className="text-gray-600 text-sm mt-1">
-                      Gerencie suas informações pessoais e configurações de conta.
-                    </p>
-                  </div>
-                </div>
-                
-                <button
-                  onClick={() => setIsEditing(!isEditing)}
-                  className="bg-gray-900 text-white px-6 py-3 rounded-lg text-sm font-medium hover:bg-gray-800 transition-all duration-200 flex items-center gap-2 shadow-md hover:shadow-lg"
-                >
-                  {isEditing ? (
-                    <>
-                      <X className="w-4 h-4" />
-                      Cancelar
-                    </>
-                  ) : (
-                    <>
-                      <Edit className="w-4 h-4" />
-                      Editar Perfil
-                    </>
-                  )}
-                </button>
-              </div>
-            </CardHeader>
-            
-            <CardContent className="p-6">
+          <div className="bg-white rounded-xl shadow-md overflow-hidden">
+            <div className="p-6">
               {/* Bloco de avatar e upload */}
               <div className="flex flex-col items-center mb-8">
                 <div className="relative">
@@ -565,7 +516,7 @@ export default function PerfilPage() {
                     {uploading ? (
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
                     ) : (
-                      <Camera className="w-5 h-5" />
+                      <FiCamera className="w-5 h-5" />
                     )}
                   </button>
                   <input
@@ -583,7 +534,7 @@ export default function PerfilPage() {
                     onClick={handleRemoverFoto}
                     disabled={uploading}
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <FiTrash2 className="w-4 h-4" />
                     Remover foto
                   </button>
                 )}
@@ -663,8 +614,6 @@ export default function PerfilPage() {
                     )}
                   </div>
 
-
-
                   {/* Senha */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700">
@@ -692,9 +641,9 @@ export default function PerfilPage() {
                           className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                         >
                           {senhaVisivel ? (
-                            <EyeOff className="w-5 h-5" />
+                            <FiEyeOff className="w-5 h-5" />
                           ) : (
-                            <Eye className="w-5 h-5" />
+                            <FiEye className="w-5 h-5" />
                           )}
                         </button>
                       )}
@@ -742,7 +691,7 @@ export default function PerfilPage() {
                 {/* Informações do Sistema */}
                 <div className="bg-gradient-to-r from-gray-50 to-white border border-gray-200 rounded-xl p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <User className="w-5 h-5" />
+                    <FiUser className="w-5 h-5" />
                     Informações do Sistema
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
@@ -764,35 +713,35 @@ export default function PerfilPage() {
                 {/* Botões de ação */}
                 {isEditing && (
                   <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
-                    <button
+                    <Button
                       type="button"
+                      variant="outline"
                       onClick={() => setIsEditing(false)}
-                      className="px-6 py-3 text-gray-700 bg-gray-100 rounded-lg font-medium hover:bg-gray-200 transition-all duration-200"
                     >
                       Cancelar
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="submit"
                       disabled={saving || !emailValido || !usuarioValido}
-                      className="bg-gray-900 text-white px-8 py-3 rounded-lg font-medium hover:bg-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      className="bg-[#cffb6d] text-black hover:bg-[#b8e55a]"
                     >
                       {saving ? (
                         <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
                           Salvando...
                         </>
                       ) : (
                         <>
-                          <Save className="w-4 h-4" />
+                          <FiSave size={16} className="mr-2" />
                           Salvar Alterações
                         </>
                       )}
-                    </button>
+                    </Button>
                   </div>
                 )}
               </form>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </div>
     </MenuLayout>

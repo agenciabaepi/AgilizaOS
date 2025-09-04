@@ -22,15 +22,6 @@ export default function SimpleDashboard() {
   const isLoopDetected = false;
   const resetCounter = () => {};
 
-  console.log('🔍 SimpleDashboard: Renderizando #', renderCount, {
-    user: !!user,
-    session: !!session,
-    usuarioData: !!usuarioData,
-    empresaData: !!empresaData,
-    loading,
-    isLoopDetected
-  });
-
   // ✅ MOSTRAR ALERTA SE LOOP FOR DETECTADO
   if (isLoopDetected) {
     return (

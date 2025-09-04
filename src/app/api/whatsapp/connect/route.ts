@@ -32,8 +32,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log(`🔍 WhatsApp: Verificando status da conexão para empresa: ${empresa_id}`);
-
     // Verificar se há cliente ativo
     const hasActiveClient = global.activeClients.has(empresa_id);
     
@@ -60,8 +58,6 @@ export async function GET(request: NextRequest) {
         hasActiveClient: false
       });
     }
-
-    console.log('✅ WhatsApp: Status da conexão recuperado:', data.status);
 
     return NextResponse.json({
       status: data.status,
@@ -94,11 +90,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`🔔 WhatsApp: Iniciando conexão para empresa: ${empresa_id}`);
-
     // Verificar se já existe um cliente ativo
     if (global.activeClients.has(empresa_id)) {
-      console.log(`⚠️ WhatsApp: Cliente já existe para empresa: ${empresa_id}`);
       return NextResponse.json(
         { error: 'Cliente já está conectado' },
         { status: 400 }
@@ -125,15 +118,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('✔ WhatsApp: Sessão criada/atualizada no banco');
-
     // Configurar diretório de sessão
     const sessionPath = path.join(process.cwd(), 'whatsapp-sessions', empresa_id);
     if (!fs.existsSync(sessionPath)) {
       fs.mkdirSync(sessionPath, { recursive: true });
     }
-
-    console.log('▲ WhatsApp: Inicializando cliente...');
 
     // Criar cliente WhatsApp com Puppeteer integrado
     const client = new Client({
@@ -164,8 +153,6 @@ export async function POST(request: NextRequest) {
 
     // Eventos do cliente
     client.on('qr', async (qr) => {
-      console.log('📱 WhatsApp: QR Code recebido');
-      
       // Atualizar QR Code no banco
       const { error: updateError } = await supabase
         .from('whatsapp_sessions')
@@ -179,13 +166,10 @@ export async function POST(request: NextRequest) {
       if (updateError) {
         console.error('❌ WhatsApp: Erro ao atualizar QR Code no banco:', updateError);
       } else {
-        console.log('✔ WhatsApp: QR Code atualizado no banco');
-      }
+        }
     });
 
     client.on('ready', async () => {
-      console.log('✅ WhatsApp: Cliente pronto e conectado');
-      
       // Atualizar status no banco
       const { error: updateError } = await supabase
         .from('whatsapp_sessions')
@@ -199,21 +183,17 @@ export async function POST(request: NextRequest) {
       if (updateError) {
         console.error('❌ WhatsApp: Erro ao atualizar status no banco:', updateError);
       } else {
-        console.log('✔ WhatsApp: Status atualizado para connected no banco');
-      }
+        }
     });
 
     client.on('authenticated', () => {
-      console.log('🔐 WhatsApp: Cliente autenticado');
-    });
+      });
 
     client.on('auth_failure', (msg) => {
       console.error('❌ WhatsApp: Falha na autenticação:', msg);
     });
 
     client.on('disconnected', async (reason) => {
-      console.log('🔌 WhatsApp: Cliente desconectado:', reason);
-      
       // Remover cliente da lista global
       global.activeClients.delete(empresa_id);
       
@@ -237,8 +217,6 @@ export async function POST(request: NextRequest) {
 
     // Adicionar cliente à lista global
     global.activeClients.set(empresa_id, client);
-
-    console.log('✅ WhatsApp: Cliente inicializado com sucesso');
 
     return NextResponse.json({
       success: true,

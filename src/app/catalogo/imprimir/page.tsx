@@ -28,46 +28,31 @@ export default function ImprimirCatalogoPage() {
 
   useEffect(() => {
     async function fetchItens() {
-      console.log('=== DEBUG INICIAL ===');
-      console.log('authLoading:', authLoading);
-      console.log('empresaData:', empresaData);
-      
       // Aguardar o AuthContext carregar
       if (authLoading) {
-        console.log('AuthContext ainda carregando, aguardando...');
         return;
       }
 
       let empresaId = empresaData?.id;
       let empresaInfo = empresaData;
 
-      console.log('Dados detalhados da empresa:', {
-        empresaData,
-        empresaId,
-        empresaDataKeys: empresaData ? Object.keys(empresaData) : 'N/A'
+      : 'N/A'
       });
 
       // Se não tiver dados do context, tentar localStorage
       if (!empresaId) {
-        console.log('Dados da empresa não encontrados no context, tentando localStorage...');
-        
         try {
           const localEmpresaData = localStorage.getItem('empresaData');
           const localUsuarioData = localStorage.getItem('usuarioData');
-          
-          console.log('localStorage empresaData:', localEmpresaData);
-          console.log('localStorage usuarioData:', localUsuarioData);
           
           if (localEmpresaData) {
             const parsedEmpresaData = JSON.parse(localEmpresaData);
             empresaId = parsedEmpresaData.id;
             empresaInfo = parsedEmpresaData;
-            console.log('Usando dados do localStorage:', parsedEmpresaData);
-          } else if (localUsuarioData) {
+            } else if (localUsuarioData) {
             const parsedUsuarioData = JSON.parse(localUsuarioData);
             empresaId = parsedUsuarioData.empresa_id;
-            console.log('Usando empresa_id do usuário:', empresaId);
-          }
+            }
         } catch (e) {
           console.error('Erro ao processar localStorage:', e);
         }
@@ -75,11 +60,9 @@ export default function ImprimirCatalogoPage() {
 
       // Se ainda não tiver, tentar buscar da sessão atual do Supabase
       if (!empresaId) {
-        console.log('Tentando buscar dados da sessão do Supabase...');
         try {
           const { data: { session } } = await supabase.auth.getSession();
           if (session?.user) {
-            console.log('Sessão encontrada, buscando dados do usuário...');
             const { data: userData } = await supabase
               .from('usuarios')
               .select('empresa_id, empresas(*)')
@@ -89,8 +72,7 @@ export default function ImprimirCatalogoPage() {
             if (userData?.empresa_id) {
               empresaId = userData.empresa_id;
               empresaInfo = userData.empresas;
-              console.log('Dados da empresa obtidos da sessão:', empresaInfo);
-            }
+              }
           }
         } catch (e) {
           console.error('Erro ao buscar dados da sessão:', e);
@@ -98,13 +80,10 @@ export default function ImprimirCatalogoPage() {
       }
 
       if (!empresaId) {
-        console.log('Nenhum ID de empresa encontrado');
         setError('Dados da empresa não encontrados. Verifique se você está logado.');
         setLoading(false);
         return;
       }
-
-      console.log('Buscando itens do catálogo para empresa:', empresaId);
 
       const { data, error } = await supabase
         .from('catalogo_itens')
@@ -121,7 +100,6 @@ export default function ImprimirCatalogoPage() {
         return;
       }
 
-      console.log('Itens encontrados:', data?.length || 0);
       setItens(data || []);
       
       // Buscar dados completos da empresa
@@ -134,7 +112,6 @@ export default function ImprimirCatalogoPage() {
             .single();
           
           if (empresaCompleta) {
-            console.log('Dados completos da empresa:', empresaCompleta);
             setDadosEmpresaCompletos(empresaCompleta);
           }
         } catch (e) {
@@ -266,9 +243,6 @@ export default function ImprimirCatalogoPage() {
     telefone: '(00) 00000-0000',
     email: 'email@empresa.com'
   };
-
-  console.log('=== DADOS FINAIS PARA PDF ===');
-  console.log('dadosEmpresa:', dadosEmpresa);
 
   return (
     <ProtectedArea area="ordens">

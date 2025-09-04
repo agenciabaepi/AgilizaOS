@@ -8,11 +8,13 @@ import { supabase } from '@/lib/supabaseClient';
 import { FiArrowLeft, FiEdit, FiPrinter, FiDollarSign, FiMessageCircle, FiUser, FiSmartphone, FiFileText, FiCalendar, FiShield, FiTool, FiPackage, FiCheckCircle, FiClock, FiRefreshCw } from 'react-icons/fi';
 import ImagensOS from '@/components/ImagensOS';
 import { useToast } from '@/components/Toast';
+import { useAuth } from '@/context/AuthContext';
 
 const VisualizarOrdemServicoPage = () => {
   const router = useRouter();
   const { id } = useParams();
   const { addToast } = useToast();
+  const { empresaData } = useAuth();
   const [ordem, setOrdem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -96,21 +98,6 @@ const VisualizarOrdemServicoPage = () => {
             observacao: data.observacao // Manter observacao como está
           };
           
-          console.log('OS carregada:', ordemMapeada);
-          console.log('Técnico da OS:', ordemMapeada?.tecnico);
-          console.log('Técnico ID:', ordemMapeada?.tecnico_id);
-          console.log('Tipo da OS:', ordemMapeada?.tipo);
-          console.log('Imagens da OS:', ordemMapeada?.imagens);
-          console.log('Valores da OS:', {
-            valor_servico: ordemMapeada?.valor_servico,
-            qtd_servico: ordemMapeada?.qtd_servico,
-            valor_peca: ordemMapeada?.valor_peca,
-            qtd_peca: ordemMapeada?.qtd_peca,
-            desconto: ordemMapeada?.desconto,
-            valor_faturado: ordemMapeada?.valor_faturado
-          });
-          console.log('Relato mapeado:', ordemMapeada.relato);
-          console.log('Observação:', ordemMapeada.observacao);
           setOrdem(ordemMapeada);
         }
       } catch (error) {
@@ -245,21 +232,11 @@ const VisualizarOrdemServicoPage = () => {
     try {
       const valores = calcularValores();
       
-      console.log('Debug - Iniciando criação de venda:', {
-        valores,
-        ordem: {
-          id: ordem?.id,
-          cliente_id: ordem?.cliente_id,
-          numero_os: ordem?.numero_os,
-          clientes: ordem?.clientes
-        },
-        formaPagamento
-      });
-      
       // Buscar próximo número de venda
       const { data: ultimaVenda, error: errorUltimaVenda } = await supabase
         .from('vendas')
         .select('numero_venda')
+        .eq('empresa_id', empresaData?.id)
         .order('numero_venda', { ascending: false })
         .limit(1)
         .single();
@@ -270,8 +247,6 @@ const VisualizarOrdemServicoPage = () => {
       }
 
       const proximoNumero = (ultimaVenda?.numero_venda || 0) + 1;
-      console.log('Debug - Próximo número de venda:', proximoNumero);
-
       // Criar venda
       const payload = {
         numero_venda: proximoNumero,
@@ -288,8 +263,6 @@ const VisualizarOrdemServicoPage = () => {
         usuario_id: null, // Campo obrigatório para vendas
         empresa_id: ordem?.empresa_id || '550e8400-e29b-41d4-a716-446655440001' // Campo obrigatório para vendas
       };
-
-      console.log('Debug - Payload da venda:', payload);
 
       // Tentar inserir sem select primeiro para ver se há erro na inserção
       const { error: insertError } = await supabase
@@ -312,6 +285,7 @@ const VisualizarOrdemServicoPage = () => {
         .from('vendas')
         .select('*')
         .eq('numero_venda', proximoNumero)
+        .eq('empresa_id', empresaData?.id)
         .single();
 
       if (selectError) {
@@ -320,7 +294,6 @@ const VisualizarOrdemServicoPage = () => {
         return proximoNumero;
       }
 
-      console.log('Debug - Venda criada com sucesso:', vendaCriada);
       return proximoNumero;
 
     } catch (error) {
@@ -344,25 +317,6 @@ const VisualizarOrdemServicoPage = () => {
     const totalPeca = valorPeca * qtdPeca;
     const valorTotal = totalServico + totalPeca;
     const valorFinal = valorTotal - desconto;
-    
-    console.log('Cálculos detalhados:', {
-      valorServico,
-      qtdServico,
-      totalServico,
-      valorPeca,
-      qtdPeca,
-      totalPeca,
-      valorTotal,
-      desconto,
-      valorFinal,
-      dadosOriginais: {
-        valor_servico: ordem.valor_servico,
-        qtd_servico: ordem.qtd_servico,
-        valor_peca: ordem.valor_peca,
-        qtd_peca: ordem.qtd_peca,
-        desconto: ordem.desconto
-      }
-    });
     
     return { valorTotal, valorFinal };
   };
@@ -758,17 +712,6 @@ const VisualizarOrdemServicoPage = () => {
                 {/* Resumo Final */}
                 {(() => {
                   const { valorTotal, valorFinal } = calcularValores();
-                  console.log('Debug - Valores da OS:', {
-                    peca: ordem.peca,
-                    valor_peca: ordem.valor_peca,
-                    qtd_peca: ordem.qtd_peca,
-                    servico: ordem.servico,
-                    valor_servico: ordem.valor_servico,
-                    qtd_servico: ordem.qtd_servico,
-                    desconto: ordem.desconto,
-                    valorTotal,
-                    valorFinal
-                  });
                   return (
                     <div className="border-t pt-4 space-y-2">
                       <div className="flex justify-between text-sm">

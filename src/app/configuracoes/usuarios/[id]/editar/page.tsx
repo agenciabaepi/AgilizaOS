@@ -257,11 +257,9 @@ function EditarUsuarioPageInner() {
   useEffect(() => {
     const fetchUsuario = async () => {
       if (!userId) {
-        console.log('❌ userId não fornecido:', userId);
         return;
       }
       
-      console.log('🔍 Buscando usuário com ID:', userId);
       setLoading(true);
       
       try {
@@ -282,8 +280,6 @@ function EditarUsuarioPageInner() {
         .eq('id', userId)
           .single();
 
-        console.log('📊 Resultado da busca:', { usuarioData, usuarioError });
-
         if (usuarioError) {
           console.error('❌ Erro ao buscar usuário:', usuarioError);
           addToast('error', `Erro ao carregar dados do usuário: ${usuarioError.message || 'Erro desconhecido'}`);
@@ -292,13 +288,10 @@ function EditarUsuarioPageInner() {
         }
 
         if (!usuarioData) {
-          console.log('❌ Usuário não encontrado para ID:', userId);
           addToast('error', 'Usuário não encontrado');
           setLoading(false);
           return;
         }
-
-        console.log('✅ Usuário encontrado:', usuarioData);
 
         // Buscar dados da empresa para validação
         if (usuarioData.empresa_id) {
@@ -311,8 +304,7 @@ function EditarUsuarioPageInner() {
           if (empresaError) {
             console.error('⚠️ Erro ao buscar empresa:', empresaError);
           } else {
-            console.log('🏢 Empresa encontrada:', empresaData);
-          }
+            }
         }
 
         // Verificar se campos obrigatórios existem
@@ -339,7 +331,6 @@ function EditarUsuarioPageInner() {
           auth_user_id: usuarioData.auth_user_id || '',
         });
 
-        console.log('✅ Formulário preenchido com sucesso');
         // Removido toast de sucesso para evitar spam
       } catch (error) {
         console.error('💥 Erro inesperado ao carregar usuário:', error);
@@ -762,8 +753,6 @@ function EditarUsuarioPageInner() {
                       </p>
                     )}
             </div>
-
-
 
                   {/* WhatsApp */}
                   <div className="space-y-2">

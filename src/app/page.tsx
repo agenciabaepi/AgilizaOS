@@ -23,7 +23,6 @@ export default function Home() {
       const lastRedirect = sessionStorage.getItem('lastRedirect');
       const now = Date.now();
       if (lastRedirect && (now - parseInt(lastRedirect)) < 3000) {
-        console.log('Redirecionamento recente detectado, evitando loop');
         return;
       }
       
@@ -418,6 +417,7 @@ export default function Home() {
                 width={1000} 
                 height={750}
                 className="w-full max-w-4xl transition-all duration-700 ease-out"
+                priority
                 style={{
                   transform: `scale(${1 + (scrollY * 0.0002)})`,
                   filter: 'drop-shadow(0 20px 40px rgba(0,0,0,0.3))',
@@ -628,8 +628,6 @@ export default function Home() {
           </div>
         </div>
       </div>
-
-
 
       {/* Features Section */}
       <div id="recursos" className="relative z-10 px-4 sm:px-6 md:px-8 py-20 md:py-32 lg:px-12">

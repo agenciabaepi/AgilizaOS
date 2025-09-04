@@ -84,8 +84,6 @@ export default function VisualizarOSModal({ isOpen, onClose, ordem, onIniciar }:
   const handleIniciar = async () => {
     setLoading(true);
     try {
-      console.log('Iniciando ordem no modal:', ordem.id);
-      
       // Buscar status fixos para obter os nomes corretos
       const { data: statusFixos, error: statusError } = await supabase
         .from('status_fixo')
@@ -98,14 +96,10 @@ export default function VisualizarOSModal({ isOpen, onClose, ordem, onIniciar }:
         return;
       }
 
-      console.log('Status fixos encontrados no modal:', statusFixos);
-
       // Encontrar o status "EM ANÁLISE" nos status fixos
       const statusEmAnalise = statusFixos?.find((s: any) => s.nome === 'EM ANÁLISE');
       
       if (statusEmAnalise) {
-        console.log('Status EM ANÁLISE encontrado no modal:', statusEmAnalise);
-        
         const { error: updateError } = await supabase
           .from('ordens_servico')
           .update({ 
@@ -119,7 +113,6 @@ export default function VisualizarOSModal({ isOpen, onClose, ordem, onIniciar }:
           alert('Erro ao iniciar a ordem. Tente novamente.');
           return;
         } else {
-          console.log('Status atualizado com sucesso no modal');
           // Chamar a função onIniciar para redirecionar
           onIniciar(ordem.id);
           onClose();

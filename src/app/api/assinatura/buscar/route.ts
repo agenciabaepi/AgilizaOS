@@ -25,7 +25,6 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (assinaturaError) {
-      console.log('Debug API: Erro ao buscar assinatura:', assinaturaError);
       return NextResponse.json(
         { error: 'Assinatura não encontrada' },
         { status: 404 }
@@ -40,7 +39,6 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (planoError) {
-      console.log('Debug API: Erro ao buscar plano:', planoError);
       return NextResponse.json(
         { error: 'Plano não encontrado' },
         { status: 404 }
@@ -52,8 +50,6 @@ export async function POST(request: NextRequest) {
       ...assinatura,
       plano
     };
-
-    console.log('Debug API: Assinatura encontrada:', assinaturaCompleta);
 
     return NextResponse.json({
       success: true,

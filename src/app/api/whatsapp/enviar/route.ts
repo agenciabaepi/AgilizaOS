@@ -24,8 +24,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`📱 WhatsApp: Enviando mensagem para ${numero}`);
-
     // Verificar se há uma sessão ativa
     const { data: session, error: sessionError } = await supabase
       .from('whatsapp_sessions')
@@ -59,8 +57,6 @@ export async function POST(request: NextRequest) {
 
     // Enviar mensagem
     const result = await client.sendMessage(numero + '@c.us', mensagem);
-
-    console.log('✅ WhatsApp: Mensagem enviada com sucesso');
 
     return NextResponse.json({
       success: true,

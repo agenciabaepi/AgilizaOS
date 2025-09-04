@@ -25,16 +25,6 @@ export async function enviarEmailVerificacao(
   nomeEmpresa: string
 ): Promise<boolean> {
   try {
-    console.log('🔍 Debug - Configurações SMTP:', {
-      host: process.env.SMTP_HOST || 'smtp.hostinger.com',
-      port: process.env.SMTP_PORT || '465',
-      secure: process.env.SMTP_SECURE === 'true' || true,
-      user: process.env.SMTP_USER || 'suporte@gestaoconsert.com.br',
-      pass: process.env.SMTP_PASS ? '***CONFIGURADO***' : '***NÃO CONFIGURADO***'
-    })
-    
-    console.log('🔍 Debug - Tentando enviar email para:', email)
-    
     const transporter = criarTransporter()
     const info = await transporter.sendMail({
       from: '"Gestão Concert" <suporte@gestaoconsert.com.br>',
@@ -94,7 +84,6 @@ export async function enviarEmailVerificacao(
       `
     })
 
-    console.log('✅ Email enviado com sucesso:', info.messageId)
     return true
   } catch (error) {
     console.error('❌ Erro ao enviar email:', error)
@@ -107,7 +96,6 @@ export async function verificarConfiguracao(): Promise<boolean> {
   try {
     const transporter = criarTransporter()
     await transporter.verify()
-    console.log('✅ Configuração SMTP verificada com sucesso')
     return true
   } catch (error) {
     console.error('❌ Erro na configuração SMTP:', error)

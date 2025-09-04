@@ -12,8 +12,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('🔍 Debug - Testando autenticação SMTP para:', email)
-
     // Criar transporter
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'smtp.hostinger.com',
@@ -25,21 +23,9 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    console.log('🔍 Debug - Configurações SMTP:', {
-      host: process.env.SMTP_HOST || 'smtp.hostinger.com',
-      port: process.env.SMTP_PORT || '465',
-      secure: process.env.SMTP_SECURE === 'true' || true,
-      user: process.env.SMTP_USER || 'suporte@gestaoconsert.com.br',
-      pass: process.env.SMTP_PASS ? '***CONFIGURADO***' : '***NÃO CONFIGURADO***'
-    })
-
     // Testar verificação
-    console.log('🔍 Debug - Testando verificação SMTP...')
     await transporter.verify()
-    console.log('✅ Verificação SMTP bem-sucedida')
-
     // Testar envio simples
-    console.log('🔍 Debug - Testando envio de email...')
     const info = await transporter.sendMail({
       from: '"Teste" <suporte@gestaoconsert.com.br>',
       to: email,
@@ -47,8 +33,6 @@ export async function POST(request: NextRequest) {
       text: 'Este é um teste de configuração SMTP.',
       html: '<p>Este é um teste de configuração SMTP.</p>'
     })
-
-    console.log('✅ Email de teste enviado:', info.messageId)
 
     return NextResponse.json({
       success: true,

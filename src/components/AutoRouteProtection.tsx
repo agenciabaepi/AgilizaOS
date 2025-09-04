@@ -37,7 +37,6 @@ export default function AutoRouteProtection({ children }: AutoRouteProtectionPro
     
     if (!hasPermission) {
       // Bloqueia acesso instantaneamente
-      console.log(`🚫 Acesso negado: ${pathname} - Permissão necessária: ${requiredPermission}`);
       router.replace('/dashboard');
       return;
     }

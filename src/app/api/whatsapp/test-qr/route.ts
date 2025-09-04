@@ -3,13 +3,9 @@ import QRCode from 'qrcode';
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('🔔 WhatsApp: Testando geração de QR Code...');
-    
     // Gerar um QR Code de teste
     const testData = 'https://wa.me/5511999999999?text=Teste%20Consert';
     const qrCodeData = await QRCode.toDataURL(testData);
-    
-    console.log('✅ WhatsApp: QR Code de teste gerado com sucesso');
     
     return NextResponse.json({
       success: true,

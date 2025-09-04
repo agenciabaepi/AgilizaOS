@@ -104,8 +104,6 @@ export default function EditarOSSimples() {
   const [novasImagens, setNovasImagens] = useState<File[]>([]);
   const [uploadingImagens, setUploadingImagens] = useState(false);
 
-
-  
   // Listas
   const [status, setStatus] = useState<Status[]>([]);
   const [tecnicos, setTecnicos] = useState<Tecnico[]>([]);
@@ -119,8 +117,6 @@ export default function EditarOSSimples() {
       fetchOrdem();
     }
   }, [id]);
-
-
 
   useEffect(() => {
     fetchStatus();
@@ -138,8 +134,7 @@ export default function EditarOSSimples() {
       const statusEncontrado = status.find(s => s.nome === ordem.status);
       if (statusEncontrado) {
         setStatusSelecionado(statusEncontrado);
-        console.log('🔍 Status selecionado:', statusEncontrado);
-      }
+        }
     }
   }, [ordem, status]);
 
@@ -153,12 +148,9 @@ export default function EditarOSSimples() {
       }
       if (tecnicoEncontrado) {
         setTecnicoSelecionado(tecnicoEncontrado);
-        console.log('🔍 Técnico selecionado:', tecnicoEncontrado);
-      }
+        }
     }
   }, [ordem, tecnicos]);
-
-
 
   const fetchOrdem = async () => {
     try {
@@ -177,8 +169,6 @@ export default function EditarOSSimples() {
       }
 
       setOrdem(data);
-      console.log('🔍 Debug - Todos os dados recebidos:', data);
-      
       // Preencher todos os campos (usando campos reais da tabela)
       setObservacoesInternas(data.observacao || ''); // Campo observacao (singular) da tabela
       setMarca(data.marca || '');
@@ -188,7 +178,6 @@ export default function EditarOSSimples() {
       setAcessorios(data.acessorios || '');
       setCondicoesEquipamento(data.condicoes_equipamento || '');
       setRelato(data.problema_relatado || '');
-      console.log('🔍 Debug - Campo problema_relatado carregado:', data.problema_relatado);
       setObservacao(data.observacao || '');
       setLaudo(data.laudo || '');
       // setDataEntrada(data.data_entrada ? data.data_entrada.split('T')[0] : '');
@@ -203,18 +192,13 @@ export default function EditarOSSimples() {
       }
       
       // Carregar produtos e serviços dos campos de texto
-      console.log('🔍 Debug - Campo peca:', data.peca);
-      console.log('🔍 Debug - Campo servico:', data.servico);
-      
       if (data.peca) {
         const produtosParsed = parseTextToItems(data.peca, 'produto');
-        console.log('🔍 Debug - Produtos parseados:', produtosParsed);
         setProdutos(produtosParsed);
       }
 
       if (data.servico) {
         const servicosParsed = parseTextToItems(data.servico, 'servico');
-        console.log('🔍 Debug - Serviços parseados:', servicosParsed);
         setServicos(servicosParsed);
       }
 
@@ -227,15 +211,11 @@ export default function EditarOSSimples() {
 
   const fetchStatus = async () => {
     try {
-      console.log('🔄 Buscando status...');
       const { data, error } = await supabase
         .from('status_fixo')
         .select('*')
         .eq('tipo', 'os')
         .order('ordem');
-      
-      console.log('📊 Status recebidos:', data);
-      console.log('❌ Erro status:', error);
       
       if (data) {
         setStatus(data);
@@ -247,10 +227,8 @@ export default function EditarOSSimples() {
 
   const fetchTecnicos = async () => {
     try {
-      console.log('🔄 Buscando técnicos...');
-      
       if (!usuarioData?.empresa_id) {
-        console.error('❌ Usuário não tem empresa_id');
+
         addToast('error', 'Erro: dados do usuário não carregados. Tente fazer login novamente.');
         return;
       }
@@ -269,9 +247,6 @@ export default function EditarOSSimples() {
       
       const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
       
-      console.log('👨‍🔧 Técnicos recebidos:', data);
-      console.log('❌ Erro técnicos:', error);
-      
       if (error) {
         console.error('Erro ao buscar técnicos:', error);
         addToast('error', 'Erro ao carregar lista de técnicos');
@@ -287,8 +262,6 @@ export default function EditarOSSimples() {
     }
   };
 
-
-
   const calcularTotais = () => {
     const totalServicos = servicos.reduce((acc, s) => {
       const preco = typeof s.preco === 'string' ? parseFloat(s.preco) : s.preco;
@@ -303,8 +276,6 @@ export default function EditarOSSimples() {
       const valor = (isNaN(quantidade) ? 0 : quantidade) * (isNaN(preco) ? 0 : preco);
       return acc + valor;
     }, 0);
-    
-    console.log('🧮 Totais calculados:', { totalServicos, totalProdutos, totalGeral: totalServicos + totalProdutos });
     
     return {
       totalServicos,
@@ -485,20 +456,14 @@ export default function EditarOSSimples() {
     addToast('success', 'Anexo removido com sucesso!');
   };
 
-
-
   // Função para converter texto em itens estruturados
   const parseTextToItems = (texto: string, tipo: 'produto' | 'servico') => {
-    console.log('🔍 parseTextToItems - Input:', { texto, tipo });
-    
     if (!texto || texto.trim() === '') return [];
     
     const linhas = texto.split('\n').filter(linha => linha.trim());
     const itens = [];
     
     for (const linha of linhas) {
-      console.log('🔍 parseTextToItems - Processando linha:', linha);
-      
       if (tipo === 'produto') {
         // Formato: "Nome - Qtd: X - Valor: R$ Y.YY"
         const match = linha.match(/^(.+?)\s*-\s*Qtd:\s*(\d+)\s*-\s*Valor:\s*R\$\s*([\d,]+\.?\d*)$/);
@@ -512,11 +477,9 @@ export default function EditarOSSimples() {
             preco: isNaN(preco) ? 0 : preco,
             total: (isNaN(preco) ? 0 : preco) * quantidade
           };
-          console.log('🔍 parseTextToItems - Produto encontrado:', item);
           itens.push(item);
         } else {
-          console.log('❌ parseTextToItems - Produto não matched:', linha);
-        }
+          }
       } else {
         // Formato: "Nome - Valor: R$ Y.YY"
         let match = linha.match(/^(.+?)\s*-\s*Valor:\s*R\$\s*([\d,]+\.?\d*)$/);
@@ -530,7 +493,6 @@ export default function EditarOSSimples() {
             quantidade,
             total: (isNaN(preco) ? 0 : preco) * quantidade
           };
-          console.log('🔍 parseTextToItems - Serviço encontrado:', item);
           itens.push(item);
         } else {
           // Tentar outros formatos possíveis
@@ -545,7 +507,6 @@ export default function EditarOSSimples() {
               quantidade,
               total: (isNaN(preco) ? 0 : preco) * quantidade
             };
-            console.log('🔍 parseTextToItems - Serviço formato alternativo:', item);
             itens.push(item);
           } else {
             // Tentar formato com "Valor:" sem R$
@@ -560,10 +521,8 @@ export default function EditarOSSimples() {
                 quantidade,
                 total: (isNaN(preco) ? 0 : preco) * quantidade
               };
-              console.log('🔍 parseTextToItems - Serviço formato Valor sem R$:', item);
               itens.push(item);
             } else {
-              console.log('❌ parseTextToItems - Serviço não matched:', linha);
               // Tentar formato simples (só o nome) - usar valor padrão
               const nomeSimples = linha.trim();
               if (nomeSimples) {
@@ -574,7 +533,6 @@ export default function EditarOSSimples() {
                   quantidade: 1,
                   total: 0
                 };
-                console.log('🔍 parseTextToItems - Serviço formato simples com valor padrão:', item);
                 itens.push(item);
               }
             }
@@ -583,7 +541,6 @@ export default function EditarOSSimples() {
       }
     }
     
-    console.log('🔍 parseTextToItems - Resultado final:', itens);
     return itens;
   };
 
@@ -693,7 +650,6 @@ export default function EditarOSSimples() {
                 value={statusSelecionado?.id || ''}
                 onChange={(e) => {
                   const statusEncontrado = status.find(s => s.id === e.target.value);
-                  console.log('🔄 Status selecionado:', statusEncontrado);
                   setStatusSelecionado(statusEncontrado || null);
                 }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -723,7 +679,6 @@ export default function EditarOSSimples() {
                 value={tecnicoSelecionado?.id || ''}
                 onChange={(e) => {
                   const tecnico = tecnicos.find(t => t.id === e.target.value);
-                  console.log('🔄 Técnico selecionado:', tecnico);
                   setTecnicoSelecionado(tecnico || null);
                 }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -937,8 +892,6 @@ export default function EditarOSSimples() {
             </div>
           )}
 
-
-
           {/* Gerenciadores de Produtos e Serviços */}
           <div className="space-y-6">
             <ProdutoServicoManager
@@ -1060,8 +1013,6 @@ export default function EditarOSSimples() {
               )}
             </div>
           </div>
-
-
 
         </div>
       </MenuLayout>

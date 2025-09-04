@@ -76,8 +76,7 @@ export async function POST(request: NextRequest) {
       if (assinaturaError) {
         console.error('Erro ao atualizar assinatura:', assinaturaError);
       } else {
-        console.log(`Assinatura ${assinaturaId} ativada com sucesso`);
-      }
+        }
     } else if (payment.status === 'rejected' || payment.status === 'cancelled') {
       // Atualizar assinatura para suspensa
       const { error: assinaturaError } = await supabase
@@ -91,8 +90,7 @@ export async function POST(request: NextRequest) {
       if (assinaturaError) {
         console.error('Erro ao suspender assinatura:', assinaturaError);
       } else {
-        console.log(`Assinatura ${assinaturaId} suspensa`);
-      }
+        }
     }
 
     // Atualizar pagamento
@@ -105,8 +103,6 @@ export async function POST(request: NextRequest) {
       console.error('Erro ao atualizar pagamento:', updateError);
       return NextResponse.json({ error: 'Erro ao atualizar pagamento' }, { status: 500 });
     }
-
-    console.log(`Pagamento ${paymentId} da assinatura ${assinaturaId} atualizado para status: ${payment.status}`);
 
     return NextResponse.json({ 
       received: true,

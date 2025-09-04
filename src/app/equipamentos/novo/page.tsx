@@ -282,8 +282,6 @@ export default function NovoProdutoPage() {
       uploadedImageUrls.push(urlData.publicUrl);
     }
     // Log dos dados enviados
-    console.log('Dados enviados:', formData);
-
     // empresa_id já obtido acima
 
     const data = {
@@ -318,8 +316,6 @@ export default function NovoProdutoPage() {
     };
 
     // Log dos dados para API
-    console.log('Dados para API:', data);
-
     // Se for edição, atualiza o produto existente
     if (produtoId) {
       const updatePayload = {

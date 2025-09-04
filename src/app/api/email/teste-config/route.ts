@@ -11,8 +11,6 @@ export async function GET(request: NextRequest) {
       NODE_ENV: process.env.NODE_ENV
     }
 
-    console.log('🔍 Debug - Configurações de ambiente:', config)
-
     return NextResponse.json({
       success: true,
       config: config,

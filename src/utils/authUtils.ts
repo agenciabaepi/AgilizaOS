@@ -30,8 +30,7 @@ export const clearAllAuthData = () => {
     sessionStorage.removeItem(key);
   });
 
-  console.log('Auth data cleared');
-};
+  };
 
 // Função para verificar se há problemas de autenticação
 export const checkAuthIssues = async () => {

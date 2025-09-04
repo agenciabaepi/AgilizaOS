@@ -116,10 +116,6 @@ export default function LembretesPage() {
       posicao: colunas.length, // Adiciona a nova coluna no final
     };
     
-    console.log('Tentando criar coluna com dados:', colunaData);
-    console.log('Empresa ID:', empresa_id);
-    console.log('User ID:', user?.id);
-    
     try {
       const { data, error } = await supabase
         .from("colunas_dashboard")
@@ -138,7 +134,6 @@ export default function LembretesPage() {
         });
         addToast('error', `Erro ao criar coluna: ${error.message || 'Erro desconhecido'}`);
       } else {
-        console.log('Coluna criada com sucesso:', data);
         addToast('success', "Coluna criada com sucesso!");
         await fetchColunas();
       }
@@ -202,8 +197,6 @@ export default function LembretesPage() {
   const salvarColunasNoBanco = async (colunas: string[]) => {
     if (!empresa_id) return;
     
-    console.log('Salvando colunas no banco:', colunas);
-    
     try {
       // Primeiro, busca as colunas existentes
       const { data: colunasExistentes, error: erroBusca } = await supabase
@@ -236,8 +229,7 @@ export default function LembretesPage() {
         }
       }
       
-      console.log('Ordem das colunas atualizada com sucesso');
-    } catch (err) {
+      } catch (err) {
       console.error('Erro inesperado ao salvar colunas:', err);
       addToast('error', 'Erro ao atualizar ordem das colunas');
     }
@@ -258,8 +250,6 @@ export default function LembretesPage() {
     
     const nomeAtual = colunas[index];
     
-    console.log('Salvando título da coluna:', { index, nomeAtual, novoNome, empresa_id });
-    
     // Busca o id da coluna pelo nome atual e empresa_id
     const { data, error } = await supabase
       .from('colunas_dashboard')
@@ -268,14 +258,11 @@ export default function LembretesPage() {
       .eq('nome', nomeAtual)
       .maybeSingle();
       
-    console.log('Resultado da busca:', { data, error });
-      
     if (data && data.id) {
       const nomeAntigo = data.nome;
-      console.log('Coluna encontrada:', { id: data.id, nomeAntigo, novoNome });
       await editarColuna(data.id, novoNome, nomeAntigo);
     } else {
-      console.error('Coluna não encontrada para renomear:', { nomeAtual, empresa_id, data, error });
+
       
       // Vamos tentar buscar todas as colunas para debug
       const { data: todasColunas, error: erroTodas } = await supabase
@@ -283,16 +270,12 @@ export default function LembretesPage() {
         .select('id, nome, empresa_id')
         .eq('empresa_id', empresa_id);
         
-      console.log('Todas as colunas da empresa:', { todasColunas, erroTodas });
-      
       addToast('error', 'Coluna não encontrada para renomear');
     }
   };
 
   // Função dedicada para atualizar o nome da coluna e salvar no banco, atualizando também as notas
   const editarColuna = async (colunaId: string, novoNome: string, nomeAntigo: string) => {
-    console.log('Editando coluna:', { colunaId, novoNome, nomeAntigo });
-    
     // Atualiza o nome da coluna
     const { error: colunaError } = await supabase
       .from('colunas_dashboard')
@@ -304,8 +287,6 @@ export default function LembretesPage() {
       addToast('error', `Erro ao renomear a coluna: ${colunaError.message}`);
       return;
     }
-
-    console.log('Nome da coluna atualizado com sucesso');
 
     // Atualiza o nome da coluna em todas as notas_dashboard relacionadas
     const { error: notasError } = await supabase
@@ -319,7 +300,6 @@ export default function LembretesPage() {
       return;
     }
 
-    console.log('Notas atualizadas com sucesso');
     addToast('success', 'Coluna e notas atualizadas com sucesso!');
     
     // Atualiza localmente
@@ -375,10 +355,6 @@ export default function LembretesPage() {
         pos_y: 0,
       };
       
-      console.log('Tentando criar nota com dados:', novaNotaObj);
-      console.log('Empresa ID:', empresaId);
-      console.log('Session user:', session?.user);
-      
       try {
         const { data, error: erroNota } = await supabase
           .from('notas_dashboard')
@@ -398,8 +374,6 @@ export default function LembretesPage() {
           addToast('error', `Erro ao salvar nota: ${erroNota.message || 'Erro desconhecido'}`);
           return;
         }
-        
-        console.log('Nota criada com sucesso:', data);
         
         // Adiciona a nota localmente para atualização imediata na UI
         setNotes((prev) => [novaNotaObj as Nota, ...prev]);
@@ -425,9 +399,6 @@ export default function LembretesPage() {
       coluna: novaNota.coluna,
     };
 
-    console.log('Tentando atualizar nota com dados:', dadosNota);
-    console.log('ID da nota:', notaEditando.id);
-
     try {
       const { data, error: erroNota } = await supabase
         .from("notas_dashboard")
@@ -447,7 +418,6 @@ export default function LembretesPage() {
         });
         addToast('error', `Erro ao atualizar nota: ${erroNota.message || 'Erro desconhecido'}`);
       } else {
-        console.log("Nota atualizada com sucesso:", data);
         addToast('success', "Nota atualizada com sucesso!");
         setNotes((prev) =>
           prev.map((n) =>
@@ -484,21 +454,15 @@ export default function LembretesPage() {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    console.log('Drag end - Active:', active.id, 'Over:', over.id);
-
     const isColuna = (id: string) => String(id).startsWith('coluna-');
 
     // Mover coluna
     if (isColuna(String(active.id)) && isColuna(String(over.id))) {
-      console.log('Movendo coluna');
       const activeIndex = colunas.findIndex((c) => `coluna-${c}` === String(active.id));
       const overIndex = colunas.findIndex((c) => `coluna-${c}` === String(over.id));
       
-      console.log('Índices - Active:', activeIndex, 'Over:', overIndex);
-      
       if (activeIndex !== -1 && overIndex !== -1) {
         const novasColunas = arrayMove(colunas, activeIndex, overIndex);
-        console.log('Nova ordem das colunas:', novasColunas);
         setColunas(novasColunas);
         await salvarColunasNoBanco(novasColunas);
       } else {
@@ -631,10 +595,6 @@ export default function LembretesPage() {
       </div>
     );
   }
-
-
-
-
 
   // Checagem de carregamento e autenticação
   if (carregando || !session?.user) {

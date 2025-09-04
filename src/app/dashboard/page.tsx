@@ -37,6 +37,7 @@ import { v4 as uuidv4 } from 'uuid';
 import ProtectedArea from '@/components/ProtectedArea';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
+// Imports de sessão removidos temporariamente
 
 // Função para formatar data (pode ser ajustada conforme necessidade)
 function formatarData(data: string) {
@@ -214,8 +215,7 @@ export default function LembretesPage() {
   useEffect(() => {
     const fetchOrdensServico = async () => {
       if (!empresa_id) return;
-      console.log('🔍 [CALENDARIO] Buscando O.S. para empresa:', empresa_id);
-      
+
       // Primeiro, vamos verificar todas as O.S. da empresa
       const { data: todasOS, error: errorTodas } = await supabase
         .from("ordens_servico")
@@ -227,9 +227,7 @@ export default function LembretesPage() {
           empresa_id
         `)
         .eq("empresa_id", empresa_id);
-      
 
-      
       // Buscar O.S. com dados do cliente e técnico
       const { data, error } = await supabase
         .from("ordens_servico")
@@ -278,14 +276,7 @@ export default function LembretesPage() {
 
   // Monitorar mudanças no estado eventosCalendario
   useEffect(() => {
-    console.log('🔍 [CALENDARIO] Estado eventosCalendario mudou:', {
-      quantidade: eventosCalendario.length,
-      eventos: eventosCalendario.map(ev => ({
-        numero: ev.numero,
-        data_inicio: ev.data_inicio,
-        status: ev.status
-      }))
-    });
+    // Estado atualizado
   }, [eventosCalendario]);
 
   // Função para determinar a prioridade baseada no status
@@ -395,16 +386,12 @@ export default function LembretesPage() {
         .select('id, nome, empresa_id')
         .eq('empresa_id', empresa_id);
         
-      console.log('Todas as colunas da empresa:', { todasColunas, erroTodas });
-      
       addToast('error', 'Coluna não encontrada para renomear');
     }
   };
 
   // Função dedicada para atualizar o nome da coluna e salvar no banco, atualizando também as notas
   const editarColuna = async (colunaId: string, novoNome: string, nomeAntigo: string) => {
-    console.log('Editando coluna:', { colunaId, novoNome, nomeAntigo });
-    
     // Atualiza o nome da coluna
     const { error: colunaError } = await supabase
       .from('colunas_dashboard')
@@ -416,8 +403,6 @@ export default function LembretesPage() {
       addToast('error', `Erro ao renomear a coluna: ${colunaError.message}`);
       return;
     }
-
-    console.log('Nome da coluna atualizado com sucesso');
 
     // Atualiza o nome da coluna em todas as notas_dashboard relacionadas
     const { error: notasError } = await supabase
@@ -431,7 +416,6 @@ export default function LembretesPage() {
       return;
     }
 
-    console.log('Notas atualizadas com sucesso');
     addToast('success', 'Coluna e notas atualizadas com sucesso!');
     
     // Atualiza localmente
@@ -487,10 +471,6 @@ export default function LembretesPage() {
         pos_y: 0,
       };
       
-      console.log('Tentando criar nota com dados:', novaNotaObj);
-      console.log('Empresa ID:', empresaId);
-      console.log('Session user:', session?.user);
-      
       try {
         const { data, error: erroNota } = await supabase
           .from('notas_dashboard')
@@ -510,8 +490,6 @@ export default function LembretesPage() {
           addToast('error', `Erro ao salvar nota: ${erroNota.message || 'Erro desconhecido'}`);
           return;
         }
-        
-        console.log('Nota criada com sucesso:', data);
         
         // Adiciona a nota localmente para atualização imediata na UI
         setNotes((prev) => [novaNotaObj as Nota, ...prev]);
@@ -537,9 +515,6 @@ export default function LembretesPage() {
       coluna: novaNota.coluna,
     };
 
-    console.log('Tentando atualizar nota com dados:', dadosNota);
-    console.log('ID da nota:', notaEditando.id);
-
     try {
       const { data, error: erroNota } = await supabase
         .from("notas_dashboard")
@@ -559,7 +534,6 @@ export default function LembretesPage() {
         });
         addToast('error', `Erro ao atualizar nota: ${erroNota.message || 'Erro desconhecido'}`);
       } else {
-        console.log("Nota atualizada com sucesso:", data);
         addToast('success', "Nota atualizada com sucesso!");
         setNotes((prev) =>
           prev.map((n) =>
@@ -596,21 +570,15 @@ export default function LembretesPage() {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    console.log('Drag end - Active:', active.id, 'Over:', over.id);
-
     const isColuna = (id: string) => String(id).startsWith('coluna-');
 
     // Mover coluna
     if (isColuna(String(active.id)) && isColuna(String(over.id))) {
-      console.log('Movendo coluna');
       const activeIndex = colunas.findIndex((c) => `coluna-${c}` === String(active.id));
       const overIndex = colunas.findIndex((c) => `coluna-${c}` === String(over.id));
       
-      console.log('Índices - Active:', activeIndex, 'Over:', overIndex);
-      
       if (activeIndex !== -1 && overIndex !== -1) {
         const novasColunas = arrayMove(colunas, activeIndex, overIndex);
-        console.log('Nova ordem das colunas:', novasColunas);
         setColunas(novasColunas);
         await salvarColunasNoBanco(novasColunas);
       } else {
@@ -744,10 +712,6 @@ export default function LembretesPage() {
     );
   }
 
-
-
-
-
   // Checagem de carregamento e autenticação
   if (carregando || !session?.user) {
     return <div className="p-4">Carregando...</div>;
@@ -756,6 +720,7 @@ export default function LembretesPage() {
   return (
     <ProtectedArea area="lembretes">
       <MenuLayout>
+              {/* Componentes de sessão removidos temporariamente */}
         {/* Cards principais - Dados do Calendário */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
           <DashboardCard
@@ -942,9 +907,7 @@ export default function LembretesPage() {
                     // Porcentagem demonstrativa para progresso
                     const percentualConcluido = 50;
                     const notasDaColuna = notes.filter((n) => n.coluna === coluna);
-                    
 
-                    
                     return (
                       <SortableColunaCard
                         key={`coluna-${coluna}`}
@@ -1327,43 +1290,7 @@ function CalendarioComponent({
            const eventosDoDia = eventos.filter(evento => 
              isSameDay(new Date(evento.data_inicio), dia)
            );
-           
-                       // Debug para todos os dias com eventos
-            if (eventos.length > 0) {
-              console.log('🔍 [CALENDARIO] Debug para dia:', format(dia, 'dd/MM/yyyy'), {
-                dia: format(dia, 'dd/MM/yyyy'),
-                eventosDoDia: eventosDoDia.length,
-                todosEventos: eventos.length,
-                eventos: eventosDoDia.map(e => ({ id: e.id, numero: e.numero, cliente: e.cliente })),
-                debug: {
-                  dataInicio: eventos.map(e => ({ 
-                    id: e.id, 
-                    numero: e.numero,
-                    data_inicio: e.data_inicio, 
-                    dataInicioDate: new Date(e.data_inicio),
-                    dataInicioFormatada: format(new Date(e.data_inicio), 'dd/MM/yyyy')
-                  })),
-                  filtroTeste: eventos.filter(e => {
-                    const dataEvento = new Date(e.data_inicio);
-                    const dataDia = new Date(dia);
-                    return dataEvento.getDate() === dataDia.getDate() && 
-                           dataEvento.getMonth() === dataDia.getMonth() && 
-                           dataEvento.getFullYear() === dataDia.getFullYear();
-                  })
-                }
-              });
-            }
-            
-            // Debug específico para o evento de exemplo
-            if (eventos.some(e => e.id === 'exemplo-123')) {
-              console.log('🔍 [CALENDARIO] Evento de exemplo encontrado para dia:', format(dia, 'dd/MM/yyyy'), {
-                dia: format(dia, 'dd/MM/yyyy'),
-                eventoExemplo: eventos.find(e => e.id === 'exemplo-123'),
-                eventosDoDia: eventosDoDia.length,
-                isSameDay: isSameDay(new Date('2025-09-03T10:00:00+00:00'), dia)
-              });
-            }
-          
+
           return (
             <div
               key={dia.toISOString()}
@@ -1579,7 +1506,6 @@ function CalendarioComponent({
   return (
     <div className="w-full">
 
-      
       {visualizacao === 'mes' && renderCalendarioMes()}
       {visualizacao === 'semana' && renderCalendarioSemana()}
       {visualizacao === 'dia' && renderCalendarioDia()}

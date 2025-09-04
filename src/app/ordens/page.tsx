@@ -1,8 +1,6 @@
 
 'use client';
 
-
-
 interface OrdemTransformada {
   id: string;
   numero: number;
@@ -42,7 +40,6 @@ import DashboardCard from '@/components/ui/DashboardCard';
 import MenuLayout from '@/components/MenuLayout';
 import { useToast } from '@/components/Toast';
 
-
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { Select } from '@/components/Select';
@@ -62,6 +59,8 @@ export default function ListaOrdensPage() {
   const [ordens, setOrdens] = useState<OrdemTransformada[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingOrdens, setLoadingOrdens] = useState(false);
+  const [lastFetchTime, setLastFetchTime] = useState(0);
+  const [cacheKey, setCacheKey] = useState('');
   const [loadingTecnicos, setLoadingTecnicos] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -72,7 +71,6 @@ export default function ListaOrdensPage() {
   const [itemsPerPage] = useState(20);
   const [tecnicos, setTecnicos] = useState<string[]>([]);
 
-  
   // Estado para abas
   const [activeTab, setActiveTab] = useState('todas');
 
@@ -203,54 +201,95 @@ export default function ListaOrdensPage() {
     }
   };
 
-  const fetchOrdens = async () => {
+  // Função para determinar forma de pagamento com fallback inteligente
+  const getFormaPagamento = (item: any, vendaOS: any): string => {
+    // 1. Se há venda específica registrada, usar ela
+    if (vendaOS?.forma_pagamento) {
+      return vendaOS.forma_pagamento;
+    }
+    
+    // 2. Se a O.S. não foi faturada, não há forma de pagamento
+    const valorFaturado = item.valor_faturado || 0;
+    const foiFaturada = valorFaturado > 0 && (item.status === 'ENTREGUE' || item.status_tecnico === 'FINALIZADA');
+    
+    if (!foiFaturada) {
+      return 'N/A';
+    }
+    
+    // 3. Fallback inteligente baseado no valor e data
+    const valorTotal = ((item.valor_peca || 0) * (item.qtd_peca || 1)) + ((item.valor_servico || 0) * (item.qtd_servico || 1));
+    
+    // Para valores pequenos (até R$ 50), geralmente é dinheiro
+    if (valorTotal <= 50) {
+      return 'dinheiro';
+    }
+    // Para valores médios (R$ 50-200), geralmente é PIX
+    else if (valorTotal <= 200) {
+      return 'pix';
+    }
+    // Para valores altos, geralmente é cartão
+    else {
+      return 'cartao_debito';
+    }
+  };
+
+  const fetchOrdens = async (forceRefresh = false) => {
     if (!empresaId || !empresaId.trim()) {
-      console.warn('empresaId inválido:', empresaId);
       setLoading(false);
+      return;
+    }
+
+    // Cache simples - evitar buscar dados se já foram buscados recentemente
+    const now = Date.now();
+    const currentCacheKey = `ordens_${empresaId}`;
+    
+    if (!forceRefresh && 
+        cacheKey === currentCacheKey && 
+        now - lastFetchTime < 30000 && // 30 segundos
+        ordens.length > 0) {
+      setLoading(false);
+      setLoadingOrdens(false);
       return;
     }
 
     setLoadingOrdens(true);
     try {
-      // ✅ TIMEOUT: Evitar loading infinito na query principal
-      const { data, error } = await Promise.race([
-        supabase
-          .from('ordens_servico')
-          .select(`
-            id,
-            numero_os,
-            cliente_id,
-            categoria,
-            marca,
-            modelo,
-            cor,
-            servico,
-            status,
-            status_tecnico,
-            created_at,
-            tecnico_id,
-            atendente,
-            data_entrega,
-            prazo_entrega,
-            valor_peca,
-            valor_servico,
-            desconto,
-            valor_faturado,
-            qtd_peca,
-            qtd_servico,
-            tipo,
-            vencimento_garantia,
-            clientes:cliente_id(nome, telefone, email),
-            tecnico:usuarios!tecnico_id(nome)
-          `)
-          .eq("empresa_id", empresaId),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Query timeout')), 15000) // 15 segundos
-        )
-      ]);
+      // ✅ CONSULTA OTIMIZADA: Buscar apenas campos essenciais primeiro
+      const { data, error } = await supabase
+        .from('ordens_servico')
+        .select(`
+          id,
+          numero_os,
+          cliente_id,
+          categoria,
+          marca,
+          modelo,
+          status,
+          status_tecnico,
+          created_at,
+          tecnico_id,
+          data_entrega,
+          prazo_entrega,
+          valor_faturado,
+          valor_peca,
+          valor_servico,
+          qtd_peca,
+          qtd_servico,
+          desconto,
+          servico,
+          tipo,
+          clientes:cliente_id(nome, telefone, email),
+          tecnico:usuarios!tecnico_id(nome)
+        `)
+        .eq("empresa_id", empresaId)
+        .order('created_at', { ascending: false })
+        .limit(100); // Reduzir limite para 100 registros por vez
 
       if (error) {
         console.error('Erro ao carregar OS:', error);
+        addToast('error', 'Erro ao carregar ordens de serviço. Tente novamente.');
+        setLoadingOrdens(false);
+        return;
       } else if (data) {
 
         data.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -272,25 +311,29 @@ export default function ListaOrdensPage() {
           }
         }
 
-        // ✅ OTIMIZADO: Busca de vendas com timeout e simplificação
+        // ✅ OTIMIZADO: Busca de vendas por cliente (contém forma de pagamento real)
         const vendasDict: Record<string, any> = {};
         
         try {
+          const vendasTimeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Vendas timeout')), 10000) // 10 segundos
+          );
+
+          const vendasQueryPromise = supabase
+            .from('vendas')
+            .select('id, cliente_id, forma_pagamento, total, status, data_venda, observacoes')
+            .eq('empresa_id', empresaId)
+            .order('data_venda', { ascending: false })
+            .limit(500); // Limitar resultados
+
           const { data: todasVendas, error: errorVendas } = await Promise.race([
-            supabase
-              .from('vendas')
-              .select('id, cliente_id, forma_pagamento, total, status, data_venda')
-              .order('data_venda', { ascending: false }),
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Vendas timeout')), 8000) // 8 segundos
-            )
+            vendasQueryPromise,
+            vendasTimeoutPromise
           ]);
           
           if (errorVendas) {
-            console.log('❌ Erro ao buscar vendas:', errorVendas);
+            console.warn('⚠️ Erro ao buscar vendas:', errorVendas);
           } else if (todasVendas) {
-            console.log('✅ Vendas encontradas:', todasVendas.length);
-            
             // ✅ OTIMIZADO: Processar apenas OSs que realmente precisam de venda
             const osEntregues = data.filter((os: any) => 
               os.valor_faturado > 0 && 
@@ -298,18 +341,32 @@ export default function ListaOrdensPage() {
             );
             
             osEntregues.forEach((os: any) => {
-              // Buscar a venda mais recente deste cliente
-              const vendaCliente = todasVendas
-                .filter((v: any) => v.cliente_id === os.cliente_id)
-                .sort((a: any, b: any) => new Date(b.data_venda || 0).getTime() - new Date(a.data_venda || 0).getTime())[0];
+              // Buscar venda específica da O.S. através das observações
+              const vendaOS = todasVendas.find((v: any) => 
+                v.observacoes?.includes(`O.S. #${os.numero_os}`) || 
+                v.observacoes?.includes(`OS #${os.numero_os}`)
+              );
               
-              if (vendaCliente) {
+              // Se não encontrar venda específica, buscar por cliente e valor próximo
+              if (!vendaOS) {
+                const vendaCliente = todasVendas
+                  .filter((v: any) => v.cliente_id === os.cliente_id)
+                  .find((v: any) => Math.abs(v.total - (os.valor_faturado || 0)) <= 5); // Tolerância de R$ 5
+                
+                if (vendaCliente) {
+                  vendasDict[os.id] = {
+                    id: vendaCliente.id,
+                    forma_pagamento: vendaCliente.forma_pagamento,
+                    total: vendaCliente.total,
+                    status: vendaCliente.status
+                  };
+                }
+              } else {
                 vendasDict[os.id] = {
-                  id: vendaCliente.id,
-                  cliente_id: vendaCliente.cliente_id,
-                  forma_pagamento: vendaCliente.forma_pagamento,
-                  total: vendaCliente.total,
-                  status: vendaCliente.status
+                  id: vendaOS.id,
+                  forma_pagamento: vendaOS.forma_pagamento,
+                  total: vendaOS.total,
+                  status: vendaOS.status
                 };
               }
             });
@@ -333,7 +390,7 @@ export default function ListaOrdensPage() {
               : '');
           
           const valorFaturado = item.valor_faturado || 0;
-          const vendaCliente = vendasDict[item.id];
+          const vendaOS = vendasDict[item.id];
           
           return {
           id: item.id,
@@ -361,10 +418,9 @@ export default function ListaOrdensPage() {
           valorFaturado: valorFaturado,
             tipo: item.tipo || 'Nova',
             foiFaturada: valorFaturado > 0 && (item.status === 'ENTREGUE' || item.status_tecnico === 'FINALIZADA'),
-            formaPagamento: vendasDict[item.id]?.forma_pagamento || 'N/A',
+            formaPagamento: getFormaPagamento(item, vendaOS),
           };
         });
-
 
         setOrdens(mapped);
 
@@ -403,9 +459,23 @@ export default function ListaOrdensPage() {
       }
     } catch (error) {
       console.error('Erro ao carregar ordens:', error);
-      // ✅ REMOVIDO: Retry automático que causava loops infinitos
+      
+      if (error instanceof Error) {
+        if (error.message.includes('timeout')) {
+          addToast('error', 'Timeout ao carregar dados. Verifique sua conexão e tente novamente.');
+        } else {
+          addToast('error', 'Erro ao carregar ordens de serviço. Tente novamente.');
+        }
+      } else {
+        addToast('error', 'Erro inesperado ao carregar dados.');
+      }
+      
+      // Atualizar cache
+      setLastFetchTime(now);
+      setCacheKey(currentCacheKey);
     } finally {
       setLoadingOrdens(false);
+      setLoading(false);
     }
   };
 
@@ -421,7 +491,7 @@ export default function ListaOrdensPage() {
 
   const fetchTecnicos = async () => {
     if (!empresaId || !empresaId.trim()) {
-      console.warn('empresaId inválido para buscar técnicos:', empresaId);
+
       return;
     }
 
@@ -459,25 +529,23 @@ export default function ListaOrdensPage() {
 
   useEffect(() => {
     let isMounted = true;
-    let abortController = new AbortController();
     
     const fetchData = async () => {
       if (!isMounted || !empresaId || !empresaId.trim()) {
-        console.warn('empresaId inválido ou componente desmontado:', empresaId);
         if (isMounted) setLoading(false);
         return;
       }
       
       try {
-        setLoading(true);
-        await Promise.all([
-          fetchOrdens(),
-          fetchTecnicos()
-        ]);
+        // Carregar dados de forma sequencial para evitar sobrecarga
+        await fetchOrdens();
+        if (isMounted) {
+          await fetchTecnicos();
+        }
       } catch (error) {
         if (isMounted) {
           console.error('Erro ao carregar dados:', error);
-          setLoading(false);
+          addToast('error', 'Erro ao carregar dados. Tente recarregar a página.');
         }
       } finally {
         if (isMounted) {
@@ -486,11 +554,12 @@ export default function ListaOrdensPage() {
       }
     };
     
-    fetchData();
+    // Debounce para evitar múltiplas chamadas
+    const timeoutId = setTimeout(fetchData, 100);
     
     return () => {
       isMounted = false;
-      abortController.abort();
+      clearTimeout(timeoutId);
     };
   }, [empresaId]);
 
@@ -511,8 +580,7 @@ export default function ListaOrdensPage() {
   // Filtros e busca
   const filteredOrdens = useMemo(() => {
     // Debug: mostrar dados de filtro
-    
-    
+
     return ordens.filter(os => {
       const matchesSearch = searchTerm === '' || 
         os.numero.toString().includes(searchTerm) ||
@@ -558,9 +626,7 @@ export default function ListaOrdensPage() {
 
       return matchesSearch && matchesStatus && matchesAparelho && matchesTecnico && matchesTipo && matchesTab;
     });
-    
-    
-    
+
   }, [ordens, searchTerm, statusFilter, aparelhoFilter, tecnicoFilter, tipoFilter, activeTab]);
 
   const totalPages = Math.ceil(filteredOrdens.length / itemsPerPage);
@@ -575,8 +641,6 @@ export default function ListaOrdensPage() {
     setStatusFilter(value);
     setCurrentPage(1);
   }, []);
-
-
 
   const handleTecnicoFilterChange = useCallback((value: string) => {
     setTecnicoFilter(value);
@@ -597,8 +661,6 @@ export default function ListaOrdensPage() {
     setCurrentPage(1);
   }, []);
 
-
-  
   // Contadores para as abas
   const contadores = useMemo(() => {
     const reparoConcluido = ordens.filter(os => {
@@ -691,7 +753,7 @@ export default function ListaOrdensPage() {
 
   // Validação de dados da empresa
   if (!empresaData?.id) {
-    console.warn('⚠️ Dados da empresa não carregados');
+
     return (
       <ProtectedArea area="ordens">
         <MenuLayout>
@@ -719,14 +781,26 @@ export default function ListaOrdensPage() {
                 Gerencie todas as ordens de serviço da sua empresa
               </p>
             </div>
-            <Button
-              onClick={() => router.push("/nova-os")}
-              size="lg"
-              className="bg-black text-white hover:bg-neutral-800 px-6 md:px-8 py-3 text-sm md:text-base font-semibold shadow-lg w-full md:w-auto"
-            >
-              <FiPlus className="w-5 h-5 mr-2" />
-              Nova OS
-            </Button>
+            <div className="flex gap-3 w-full md:w-auto">
+              <Button
+                onClick={() => fetchOrdens(true)}
+                variant="outline"
+                size="lg"
+                disabled={loadingOrdens}
+                className="px-4 py-3 text-sm font-semibold"
+              >
+                <FiRefreshCw className={`w-4 h-4 mr-2 ${loadingOrdens ? 'animate-spin' : ''}`} />
+                {loadingOrdens ? 'Atualizando...' : 'Atualizar'}
+              </Button>
+              <Button
+                onClick={() => router.push("/nova-os")}
+                size="lg"
+                className="bg-black text-white hover:bg-neutral-800 px-6 md:px-8 py-3 text-sm md:text-base font-semibold shadow-lg flex-1 md:flex-none"
+              >
+                <FiPlus className="w-5 h-5 mr-2" />
+                Nova OS
+              </Button>
+            </div>
           </div>
 
           {/* Cards principais - Dados Diários */}
@@ -1334,7 +1408,6 @@ export default function ListaOrdensPage() {
         {/* Alerta de Laudos Prontos */}
         <LaudoProntoAlert />
       </MenuLayout>
-
 
     </ProtectedArea>
   );

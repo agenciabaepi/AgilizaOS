@@ -28,8 +28,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('🔔 WhatsApp: Enviando mensagem para empresa:', empresa_id);
-
     // 1. Verificar se a empresa tem WhatsApp conectado
     const { data: session, error: sessionError } = await supabase
       .from('whatsapp_sessions')
@@ -46,7 +44,6 @@ export async function POST(request: NextRequest) {
     }
 
     if (session.status !== 'connected') {
-      console.log('ℹ️ WhatsApp: WhatsApp não conectado, status:', session.status);
       return NextResponse.json(
         { error: 'WhatsApp não está conectado' },
         { status: 400 }
@@ -69,7 +66,6 @@ export async function POST(request: NextRequest) {
     }
 
     if (!tecnico.whatsapp_numero) {
-      console.log('ℹ️ WhatsApp: Técnico sem número de WhatsApp');
       return NextResponse.json(
         { error: 'Técnico não possui número de WhatsApp cadastrado' },
         { status: 400 }
@@ -89,17 +85,12 @@ Acesse o sistema para mais detalhes!`;
 
     // 4. Enviar mensagem via WhatsApp Web
     try {
-      console.log('📤 WhatsApp: Enviando mensagem:', mensagem);
-      console.log('📤 WhatsApp: Para número:', tecnico.whatsapp_numero);
-
       // Enviar mensagem real via WhatsApp Web
       const client = global.activeClients.get(empresa_id);
       if (client) {
         const chatId = `${tecnico.whatsapp_numero}@c.us`;
         await client.sendMessage(chatId, mensagem);
-        console.log('✅ WhatsApp: Mensagem enviada com sucesso via WhatsApp Web');
-      } else {
-        console.log('⚠️ WhatsApp: Cliente não encontrado, mensagem não enviada');
+        } else {
         throw new Error('WhatsApp não está conectado');
       }
 
@@ -119,7 +110,6 @@ Acesse o sistema para mais detalhes!`;
         console.error('⚠️ WhatsApp: Erro ao registrar log:', logError);
       }
 
-      console.log('✅ WhatsApp: Mensagem enviada com sucesso');
       return NextResponse.json({
         success: true,
         message: 'Mensagem enviada com sucesso'

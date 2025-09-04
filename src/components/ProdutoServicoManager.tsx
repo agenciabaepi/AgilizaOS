@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
+import { interceptSupabaseQuery } from '@/utils/supabaseInterceptor';
 import { FiPlus, FiX, FiEdit2, FiTrash2, FiDollarSign, FiPackage, FiTool } from 'react-icons/fi';
 
 interface Item {
@@ -74,20 +75,27 @@ export default function ProdutoServicoManager({
     
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('produtos_servicos')
-        .select('id, nome, preco, tipo')
-        .eq('empresa_id', usuarioData.empresa_id)
-        .eq('tipo', tipo)
-        .order('nome');
+      const { data, error } = await interceptSupabaseQuery('produtos_servicos', async () => {
+        return await supabase
+          .from('produtos_servicos')
+          .select('id, nome, preco, tipo')
+          .eq('empresa_id', usuarioData.empresa_id)
+          .eq('tipo', tipo)
+          .order('nome');
+      });
 
-      if (error) {
+      if (error && error.code === 'TABLE_NOT_EXISTS') {
+        // Usar dados de teste se a tabela não existir
+        setProdutosServicos([]);
+      } else if (error) {
         console.error('Erro ao buscar items:', error);
+        setProdutosServicos([]);
       } else {
         setProdutosServicos(data || []);
       }
     } catch (error) {
       console.error('Erro:', error);
+      setProdutosServicos([]);
     } finally {
       setLoading(false);
     }

@@ -18,8 +18,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log(`🔍 WhatsApp: Verificando status para empresa: ${empresa_id}`);
-
     // Buscar status da sessão no banco
     const { data, error } = await supabase
       .from('whatsapp_sessions')
@@ -41,8 +39,6 @@ export async function GET(request: NextRequest) {
         message: 'Nenhuma sessão encontrada'
       });
     }
-
-    console.log('✅ WhatsApp: Status recuperado:', data.status);
 
     return NextResponse.json({
       status: data.status,

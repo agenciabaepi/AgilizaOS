@@ -15,7 +15,6 @@ export const useScrollReveal = () => {
         const isVisible = rect.top < window.innerHeight * 0.8;
 
         if (isVisible) {
-          console.log('Animating element:', elementId);
           setAnimatedElements(prev => new Set([...prev, elementId]));
           
           // Adicionar classe animated ao elemento

@@ -8,28 +8,16 @@ interface TrialLimitsAlertProps {
 }
 
 export default function TrialLimitsAlert({ showOnlyIfNearLimit = false }: TrialLimitsAlertProps) {
-  console.log('🔍 TrialLimitsAlert: Renderizando componente');
-  
   const { assinatura, limites, isTrialExpired } = useSubscription();
   
-  console.log('🔍 TrialLimitsAlert: Estado atual:', {
-    assinatura: assinatura ? 'PRESENTE' : 'AUSENTE',
-    limites: limites ? 'PRESENTE' : 'AUSENTE',
-    assinaturaStatus: assinatura?.status
-  });
-
   // Se não está no trial ou já expirou, não mostra
   if (!assinatura || assinatura.status !== 'trial' || isTrialExpired()) {
-    console.log('🔍 TrialLimitsAlert: Não mostrando - não é trial ou expirou');
     return null;
   }
 
   if (!limites) {
-    console.log('🔍 TrialLimitsAlert: Não mostrando - sem limites');
     return null;
   }
-
-  console.log('🔍 TrialLimitsAlert: Mostrando alerta de limites');
 
   const limitesConfig = [
     {
@@ -95,7 +83,6 @@ export default function TrialLimitsAlert({ showOnlyIfNearLimit = false }: TrialL
   });
 
   if (limitesFiltrados.length === 0) {
-    console.log('🔍 TrialLimitsAlert: Nenhum limite para mostrar');
     return null;
   }
 

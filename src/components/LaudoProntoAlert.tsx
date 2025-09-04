@@ -50,8 +50,6 @@ export default function LaudoProntoAlert() {
   const fetchLaudosProntos = async () => {
     if (!empresaData?.id) return;
 
-    console.log('Buscando laudos prontos para empresa:', empresaData.id);
-
     const { data, error } = await supabase
       .from('ordens_servico')
       .select(`
@@ -67,8 +65,6 @@ export default function LaudoProntoAlert() {
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      console.log('Dados recebidos:', data);
-      
       // Filtrar apenas OSs com status "ORÇAMENTO ENVIADO"
       const laudos = data
         .filter((os: any) => os.status_tecnico === 'ORÇAMENTO ENVIADO')
@@ -81,16 +77,11 @@ export default function LaudoProntoAlert() {
           created_at: os.created_at
         }));
 
-      console.log('Laudos filtrados:', laudos);
-
       // Verificar se há novas OSs
       const currentCount = laudos.length;
       const previousCount = previousCountRef.current;
       
-      console.log('Contagem atual:', currentCount, 'Anterior:', previousCount);
-      
       if (currentCount > previousCount && previousCount > 0) {
-        console.log('Nova OS detectada! Tocando som...');
         // Nova OS adicionada - tocar som e mostrar notificação
         playNotificationSound();
         setShowNotification(true);
@@ -109,8 +100,6 @@ export default function LaudoProntoAlert() {
   useEffect(() => {
     if (!empresaData?.id) return;
 
-    console.log('Iniciando subscription para empresa:', empresaData.id);
-
     // Buscar dados iniciais
     fetchLaudosProntos();
 
@@ -122,11 +111,9 @@ export default function LaudoProntoAlert() {
         schema: 'public',
         table: 'ordens_servico'
       }, (payload: any) => {
-        console.log('Teste de conexão - mudança detectada:', payload);
-      })
+        })
       .subscribe((status: any) => {
-        console.log('Status da conexão de teste:', status);
-      });
+        });
 
     // Configurar subscription em tempo real
     const channel = supabase
@@ -140,18 +127,15 @@ export default function LaudoProntoAlert() {
           filter: `empresa_id=eq.${empresaData.id}`
         },
         (payload: any) => {
-          console.log('Mudança detectada:', payload);
           // Atualizar dados quando houver mudanças
           fetchLaudosProntos();
         }
       )
       .subscribe((status: any) => {
-        console.log('Status da subscription:', status);
-      });
+        });
 
     // Cleanup da subscription
     return () => {
-      console.log('Limpando subscriptions...');
       supabase.removeChannel(testChannel);
       supabase.removeChannel(channel);
     };

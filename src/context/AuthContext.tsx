@@ -66,12 +66,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     const attemptFetch = async (): Promise<void> => {
       try {
-        console.log(`🚀 Tentativa ${retryCount + 1} de busca otimizada de dados...`);
-        
         // Usar função otimizada com JOIN
         const { userData, empresaData: companyData } = await fetchUserDataOptimized(userId);
-        
-        console.log('✅ Dados carregados com sucesso');
+
         setUsuarioData(userData);
         setEmpresaData(companyData);
         
@@ -80,13 +77,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         if (retryCount < maxRetries - 1) {
           retryCount++;
-          console.log(`🔄 Tentando novamente em 2 segundos... (${retryCount}/${maxRetries})`);
+
           await new Promise(resolve => setTimeout(resolve, 2000));
           return attemptFetch();
         }
         
         // Fallback para dados mock após todas as tentativas
-        console.log('🔄 Usando dados mock após falhas...');
+
         const mockUsuarioData: UsuarioData = {
           empresa_id: '550e8400-e29b-41d4-a716-446655440001',
           nome: 'Usuário Teste',
@@ -110,7 +107,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // ✅ DEFINIR clearSession ANTES dos useEffects
   const clearSession = useCallback(() => {
-    console.log('🧹 Limpando sessão...');
     setUser(null);
     setSession(null);
     setUsuarioData(null);
@@ -124,8 +120,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     const initializeAuth = async () => {
       try {
-        console.log('🔄 Inicializando autenticação...');
-        
+
         // Timeout para evitar loading infinito
         authTimeout = setTimeout(() => {
           if (isMounted && loading) {
@@ -145,13 +140,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
 
         if (session) {
-          console.log('✅ Sessão encontrada, carregando dados...');
+
           setSession(session);
           setUser(session.user);
           await fetchUserData(session.user.id, session);
         } else {
-          console.log('ℹ️ Nenhuma sessão encontrada');
-        }
+          }
       } catch (error) {
         console.error('❌ Erro na inicialização da autenticação:', error);
       } finally {
@@ -175,11 +169,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: string, session: Session | null) => {
-        console.log('🔄 Auth state change:', event, session?.user?.email);
-        
+
         switch (event) {
           case 'SIGNED_IN':
-            console.log('✅ Usuário logado, configurando sessão...');
             if (session) {
               setSession(session);
               setUser(session.user);
@@ -189,7 +181,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             break;
             
           case 'TOKEN_REFRESHED':
-            console.log('🔄 Token renovado, atualizando sessão...');
             if (session) {
               setSession(session);
               setUser(session.user);
@@ -197,21 +188,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             break;
             
           case 'SIGNED_OUT':
-            console.log('🚪 Usuário deslogado, limpando sessão...');
             clearSession();
             setLoading(false);
             break;
             
           case 'USER_UPDATED':
-            console.log('👤 Usuário atualizado, atualizando dados...');
             if (session) {
               setSession(session);
               setUser(session.user);
             }
             break;
-            
-          default:
-            console.log('ℹ️ Evento não tratado:', event);
         }
       }
     );
@@ -319,19 +305,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!user?.id) return;
     
     try {
-      console.log('🔄 Atualizando dados da empresa...');
+
       const { userData, empresaData } = await fetchUserDataOptimized(user.id);
       setUsuarioData(userData);
       setEmpresaData(empresaData);
       setLastUpdate(Date.now());
-      console.log('✅ Dados da empresa atualizados:', empresaData);
-      
+
       // Forçar re-render de componentes que dependem dos dados da empresa
       setTimeout(() => {
         setLastUpdate(Date.now());
       }, 100);
     } catch (error) {
-      console.error('Erro ao atualizar dados da empresa:', error);
+
     }
   }, [user?.id]);
 

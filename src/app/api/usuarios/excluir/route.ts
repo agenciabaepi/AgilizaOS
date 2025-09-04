@@ -3,10 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 export async function DELETE(request: NextRequest) {
   try {
-    console.log('Iniciando exclusão de usuário...');
     const supabaseAdmin = getSupabaseAdmin();
-    console.log('SupabaseAdmin inicializado');
-    
     // Buscar dados do usuário atual usando o token de autorização
     const authHeader = request.headers.get('authorization');
     if (!authHeader) {
@@ -19,7 +16,6 @@ export async function DELETE(request: NextRequest) {
     // Verificar se o usuário está autenticado
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
     if (authError || !user) {
-      console.log('Erro de autenticação:', authError);
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
@@ -36,16 +32,12 @@ export async function DELETE(request: NextRequest) {
 
     // Pegar o ID do usuário a ser excluído do body
     const body = await request.json();
-    console.log('Body recebido:', body);
     const { id } = body;
     
     if (!id) {
-      console.log('ID não fornecido');
       return NextResponse.json({ error: 'ID do usuário é obrigatório' }, { status: 400 });
     }
     
-    console.log('ID do usuário a ser excluído:', id);
-
     // Verificar se não está tentando excluir a si mesmo
     if (id === user.id) {
       return NextResponse.json({ error: 'Você não pode excluir seu próprio usuário' }, { status: 400 });
@@ -68,12 +60,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Verificar permissões (apenas admin pode excluir)
-    console.log('Nível do usuário atual:', usuarioAtual.nivel);
-    console.log('ID do usuário a ser excluído:', id);
-    console.log('Auth user ID do usuário a ser excluído:', usuarioParaExcluir.auth_user_id);
-    
     if (usuarioAtual.nivel !== 'admin') {
-      console.log('Usuário não é admin, nível:', usuarioAtual.nivel);
       return NextResponse.json({ error: 'Apenas administradores podem excluir usuários' }, { status: 403 });
     }
 
@@ -98,8 +85,7 @@ export async function DELETE(request: NextRequest) {
           console.warn('Erro ao excluir usuário do Auth (pode ser por falta de service role key):', authError);
           // Não falha a operação se não conseguir excluir do Auth
         } else {
-          console.log('Usuário excluído do Auth com sucesso:', usuarioParaExcluir.auth_user_id);
-        }
+          }
       } catch (error) {
         console.warn('Erro ao tentar excluir do Auth (pode ser por falta de service role key):', error);
         // Não falha a operação se não conseguir excluir do Auth

@@ -86,7 +86,6 @@ export const useCaixa = () => {
 
     setLoading(true);
     try {
-      console.log('Verificando turno aberto...');
       const { data, error } = await supabase
         .from('turnos_caixa')
         .select(`
@@ -102,7 +101,6 @@ export const useCaixa = () => {
         return;
       }
 
-      console.log('Turno encontrado:', data);
       setTurnoAtual(data);
       if (data) {
         await buscarMovimentacoes(data.id);
@@ -213,24 +211,6 @@ export const useCaixa = () => {
       
       const valorDiferenca = valorFechamento - saldoEsperado;
 
-      console.log('Cálculos de fechamento:', {
-        valorAbertura: turnoAtual.valor_abertura,
-        valorVendas: turnoAtual.valor_vendas,
-        valorSuprimentos: turnoAtual.valor_suprimentos,
-        valorSangrias: turnoAtual.valor_sangrias,
-        saldoEsperado,
-        valorFechamento,
-        valorDiferenca
-      });
-
-      console.log('Dados para fechamento:', {
-        id: turnoAtual.id,
-        valorFechamento,
-        valorDiferenca,
-        valorTroco,
-        observacoes: observacoes || turnoAtual.observacoes
-      });
-
       const dadosUpdate = {
         data_fechamento: new Date().toISOString(),
         valor_fechamento: valorFechamento,
@@ -239,8 +219,6 @@ export const useCaixa = () => {
         observacoes: observacoes || turnoAtual.observacoes || null
       };
 
-      console.log('Dados de update:', dadosUpdate);
-
       // Primeiro, tentar apenas o update sem select
       const { error: updateError } = await supabase
         .from('turnos_caixa')
@@ -248,11 +226,8 @@ export const useCaixa = () => {
         .eq('id', turnoAtual.id);
 
       if (updateError) {
-        console.error('Erro no update:', updateError);
         throw new Error(`Erro no update: ${updateError.message}`);
       }
-
-      console.log('Update realizado com sucesso');
 
       // Depois, buscar os dados atualizados
       const { data, error: selectError } = await supabase
@@ -269,8 +244,6 @@ export const useCaixa = () => {
         // Não vamos falhar aqui, pois o update já foi feito
       }
 
-      console.log('Caixa fechado no banco:', data);
-      
       // Limpar estado local
       setTurnoAtual(null);
       setMovimentacoes([]);
@@ -427,7 +400,6 @@ export const useCaixa = () => {
         .limit(1)
         .maybeSingle();
 
-      console.log('Valor do troco do último fechamento:', data?.valor_troco || 0);
       return data?.valor_troco || 0;
     } catch (error) {
       console.error('Erro ao buscar último valor de fechamento:', error);

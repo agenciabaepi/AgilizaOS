@@ -42,8 +42,7 @@ export default function CadastroEmpresa() {
       // Força modelo de preço único
       setForm(prev => ({ ...prev, plano: 'unico' }));
     } catch (error) {
-      console.log('Erro ao obter parâmetros da URL:', error);
-    }
+      }
   }, [searchParams]);
 
   const [emailValido, setEmailValido] = useState(true);

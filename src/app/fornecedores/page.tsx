@@ -56,8 +56,6 @@ export default function FornecedoresPage() {
     try {
       setLoading(true);
       
-      console.log('User ID:', user?.id);
-      
       if (!user?.id) {
         addToast('error', 'Usuário não autenticado');
         return;
@@ -68,9 +66,6 @@ export default function FornecedoresPage() {
         .select('empresa_id')
         .eq('auth_user_id', user.id)
         .single();
-
-      console.log('Usuario data:', usuarioData);
-      console.log('Usuario error:', userError);
 
       if (userError) {
         console.error('Erro ao buscar usuário:', userError);
@@ -108,7 +103,6 @@ export default function FornecedoresPage() {
   useEffect(() => {
     const verificarTabela = async () => {
       try {
-        console.log('Verificando tabela fornecedores...');
         const { error } = await supabase
           .from('fornecedores')
           .select('id')
@@ -122,8 +116,7 @@ export default function FornecedoresPage() {
             addToast('error', `Erro ao verificar tabela: ${error.message}`);
           }
         } else {
-          console.log('Tabela fornecedores encontrada');
-        }
+          }
       } catch (error) {
         console.error('Erro ao verificar tabela:', error);
         addToast('error', 'Erro ao verificar tabela de fornecedores');

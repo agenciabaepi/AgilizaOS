@@ -12,15 +12,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-           console.log('🔍 Debug - Teste de envio de email para:', email)
-
-              // Tentar enviar email de teste
-       console.log('🔍 Debug - Tentando enviar email de teste...')
+           // Tentar enviar email de teste
        const codigoTeste = '123456'
        const emailEnviado = await enviarEmailVerificacao(email, codigoTeste, 'TESTE')
 
        if (!emailEnviado) {
-         console.log('❌ Debug - Falha ao enviar email de teste')
          return NextResponse.json({
            success: false,
            error: 'Falha ao enviar email',
@@ -28,9 +24,7 @@ export async function POST(request: NextRequest) {
          }, { status: 500 })
        }
 
-       console.log('✅ Debug - Email de teste enviado com sucesso')
-
-    return NextResponse.json({
+       return NextResponse.json({
       success: true,
       message: 'Teste de email realizado com sucesso',
       details: 'Email de teste enviado para ' + email

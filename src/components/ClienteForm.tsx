@@ -133,8 +133,6 @@ export default function ClienteForm({ cliente, returnToOS }: { cliente?: Cliente
 
     const empresaId = usuarioData.empresa_id;
 
-    console.log("Empresa encontrada:", empresaId);
-
     // Remover obrigatoriedade do campo documento
     // if (!form.documento) {
     //   alert("O campo Documento é obrigatório.");
@@ -196,8 +194,6 @@ export default function ClienteForm({ cliente, returnToOS }: { cliente?: Cliente
       cadastrado_por: userData?.user?.user_metadata?.nome?.split(' ')[0] || userData?.user?.email || 'Desconhecido',
     };
 
-    console.log("Cliente payload:", clientePayload);
-
     if (cliente && cliente.id) {
       const { error } = await supabase
         .from('clientes')
@@ -227,7 +223,6 @@ export default function ClienteForm({ cliente, returnToOS }: { cliente?: Cliente
         return;
       }
 
-      console.log("Cliente cadastrado:", data);
       const novoId = data?.[0]?.id;
       setNovoClienteId(novoId || null);
       

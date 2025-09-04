@@ -26,7 +26,6 @@ export default function ProtectedArea({ area, children }: { area: string, childr
     if ((!loading && !user && !session) || loadingTimeout) {
       if (!hasRedirected) {
         setHasRedirected(true);
-        console.log('🔄 Redirecionando para login...');
         router.replace('/login');
       }
       return;

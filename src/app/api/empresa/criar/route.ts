@@ -4,8 +4,6 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin';
 export async function POST(request: Request) {
   const body = await request.json();
   const supabaseAdmin = getSupabaseAdmin();
-  console.log('DADOS RECEBIDOS NO BACKEND:', body);
-
   const {
     nome,
     email,
@@ -103,8 +101,6 @@ export async function POST(request: Request) {
     console.error('Erro ao criar empresa:', empresaError);
     return NextResponse.json({ error: 'Erro ao criar empresa', details: empresaError }, { status: 500 });
   }
-  console.log('Empresa criada:', empresa);
-
   // 3. Cadastrar usuário na tabela 'usuarios'
   const { data: usuario, error: usuarioError } = await supabaseAdmin
     .from('usuarios')
@@ -125,8 +121,6 @@ export async function POST(request: Request) {
     console.error('Erro ao salvar usuário:', usuarioError);
     return NextResponse.json({ error: 'Erro ao salvar usuário', details: usuarioError }, { status: 500 });
   }
-  console.log('Usuário vinculado à empresa com sucesso');
-
   // 4. Criar assinatura trial
   try {
           // Buscar plano trial
@@ -156,8 +150,7 @@ export async function POST(request: Request) {
         console.error('Erro ao criar assinatura trial:', assinaturaError);
         // Não falhar a criação da empresa por causa da assinatura
       } else {
-        console.log('Assinatura trial criada com sucesso');
-      }
+        }
     }
   } catch (error) {
     console.error('Erro ao criar assinatura trial:', error);
@@ -182,8 +175,7 @@ export async function POST(request: Request) {
       console.error('Erro ao enviar código de verificação:', await response.text());
       // Não falhar o cadastro por causa do email
     } else {
-      console.log('Código de verificação enviado com sucesso');
-    }
+      }
   } catch (error) {
     console.error('Erro ao enviar código de verificação:', error);
     // Não falhar o cadastro por causa do email

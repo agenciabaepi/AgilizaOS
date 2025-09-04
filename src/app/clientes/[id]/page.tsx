@@ -36,7 +36,6 @@ export default function VisualizarClientePage() {
   useEffect(() => {
     const fetchOrdensServico = async () => {
       if (!cliente?.id) return;
-      console.log('Buscando OS para cliente.id =', cliente.id);
       const { data, error } = await supabase
         .from('ordens_servico')
         .select(`
@@ -61,8 +60,7 @@ export default function VisualizarClientePage() {
 
       if (error) {
         console.error('Erro ao buscar ordens de serviço:', JSON.stringify(error, null, 2));
-        console.log('Cliente usado na query:', cliente);
-      } else {
+        } else {
         setOrdensServico(data);
       }
     };

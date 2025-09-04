@@ -10,8 +10,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'empresa_id e plano_id são obrigatórios' }, { status: 400 });
     }
 
-    console.log('Iniciando upgrade de plano:', { empresa_id, plano_id });
-
     // Buscar plano
     const { data: plano, error: errorPlano } = await supabaseAdmin
       .from('planos')
@@ -43,8 +41,6 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString()
     };
 
-    console.log('Payload para upgrade:', payload);
-
     const { data, error } = await supabaseAdmin
       .from('assinaturas')
       .insert(payload)
@@ -57,8 +53,6 @@ export async function POST(request: Request) {
         details: error 
       }, { status: 500 });
     }
-
-    console.log('Assinatura criada com sucesso:', data);
 
     return NextResponse.json({
       success: true,

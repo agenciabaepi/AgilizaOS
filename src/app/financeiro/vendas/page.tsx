@@ -74,6 +74,8 @@ export default function ListaVendasPage() {
 
   useEffect(() => {
     async function fetchVendas() {
+      if (!empresaData?.id) return;
+      
       setLoading(true);
       const { data } = await supabase
         .from('vendas')
@@ -88,8 +90,10 @@ export default function ListaVendasPage() {
           desconto, 
           acrescimo, 
           tipo_pedido,
+          empresa_id,
           cliente:cliente_id(nome, telefone, celular, numero_cliente)
         `)
+        .eq('empresa_id', empresaData.id)
         .order('data_venda', { ascending: false });
       if (data) {
         setVendas(data.map((v: any) => ({
@@ -100,7 +104,7 @@ export default function ListaVendasPage() {
       setLoading(false);
     }
     fetchVendas();
-  }, []);
+  }, [empresaData?.id]);
 
   useEffect(() => {
     filtrarVendas();

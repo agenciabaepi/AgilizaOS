@@ -3,7 +3,6 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 export async function POST() {
   try {
-    console.log('Iniciando criação de assinaturas trial para empresas existentes...');
     const supabaseAdmin = getSupabaseAdmin();
 
     // 1. Buscar todas as empresas
@@ -37,8 +36,6 @@ export async function POST() {
       });
     }
 
-    console.log(`Encontradas ${empresasSemAssinatura.length} empresas sem assinatura`);
-
     // 4. Obter o plano Trial
     const { data: plano, error: errorPlano } = await supabaseAdmin
       .from('planos')
@@ -50,8 +47,6 @@ export async function POST() {
       console.error('Erro ao buscar plano Trial:', errorPlano);
       return NextResponse.json({ error: 'Plano Trial não encontrado' }, { status: 500 });
     }
-
-    console.log('Plano Trial encontrado:', plano);
 
     // 5. Criar assinaturas trial
     const assinaturasParaCriar = empresasSemAssinatura.map(empresa => ({
@@ -74,8 +69,6 @@ export async function POST() {
       console.error('Erro ao criar assinaturas:', errorCriacao);
       return NextResponse.json({ error: 'Erro ao criar assinaturas' }, { status: 500 });
     }
-
-    console.log(`Criadas ${assinaturasCriadas?.length || 0} assinaturas trial`);
 
     return NextResponse.json({
       success: true,

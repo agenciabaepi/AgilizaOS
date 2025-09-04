@@ -6,12 +6,13 @@ import { Button } from '@/components/Button';
 import ReactSelect from 'react-select';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { handleSupabaseError } from '@/utils/supabaseErrorHandler';
+import { interceptSupabaseQuery } from '@/utils/supabaseInterceptor';
 import { useForm } from 'react-hook-form';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Suspense } from 'react';
 import { useToast } from '@/components/Toast';
-
 
 const etapas = ["Cliente", "Aparelho", "Técnico", "Status", "Imagens"];
 
@@ -24,8 +25,6 @@ interface Cliente {
   documento?: string;
   numero_cliente: number;
 }
-
-
 
 interface Usuario {
   id: string;
@@ -66,8 +65,6 @@ interface Termo {
   updated_at: string;
 }
 
-
-
 function NovaOS2Content() {
   const { usuarioData, empresaData } = useAuth();
   const [etapaAtual, setEtapaAtual] = useState(1);
@@ -78,9 +75,7 @@ function NovaOS2Content() {
   const [cadastrando, setCadastrando] = useState(false);
   const [hasTecnicos, setHasTecnicos] = useState(false);
   const [loadingTecnicos, setLoadingTecnicos] = useState(true);
-  
 
-  
   // Estado para etapa 2 - Aparelho
   const [dadosEquipamento, setDadosEquipamento] = useState({
     tipo: '',
@@ -118,8 +113,6 @@ function NovaOS2Content() {
     checkTecnicos();
   }, [empresaData?.id]);
 
-
-  
   // Estado para etapa 3 - Técnico Responsável
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [tecnicos, setTecnicos] = useState<Usuario[]>([]);
@@ -183,7 +176,6 @@ function NovaOS2Content() {
   const { addToast } = useToast();
   const { register, handleSubmit, reset, formState: { errors } } = useForm<{ nome: string; whatsapp: string; cpf: string; numero_reserva?: string; email?: string }>();
 
-
   useEffect(() => {
     async function fetchClientes() {
       if (!empresaData?.id) return;
@@ -197,9 +189,7 @@ function NovaOS2Content() {
         
         // Verificar se há clienteId na URL para selecionar automaticamente
         const clienteIdFromURL = searchParams.get('clienteId');
-        console.log('ClienteId da URL:', clienteIdFromURL);
         if (clienteIdFromURL && clienteIdFromURL !== 'null' && data.find((c: any) => c.id === clienteIdFromURL)) {
-          console.log('Selecionando cliente:', clienteIdFromURL);
           setClienteSelecionado(clienteIdFromURL);
         }
       }
@@ -275,14 +265,22 @@ function NovaOS2Content() {
     if (!empresaData?.id) return;
     setLoadingProdutos(true);
     
-    const { data, error } = await supabase
-      .from('produtos_servicos')
-      .select('id, nome, tipo, preco, unidade, ativo, codigo')
-      .eq('empresa_id', empresaData.id)
-      .eq('ativo', true)
-      .order('nome', { ascending: true });
+    const { data, error } = await interceptSupabaseQuery('produtos_servicos', async () => {
+      return await supabase
+        .from('produtos_servicos')
+        .select('id, nome, tipo, preco, unidade, ativo, codigo')
+        .eq('empresa_id', empresaData.id)
+        .eq('ativo', true)
+        .order('nome', { ascending: true });
+    });
     
-    if (!error && data && data.length > 0) {
+    if (error && error.code === 'TABLE_NOT_EXISTS') {
+      // Usar dados de teste se a tabela não existir
+      setProdutosServicos([...produtosTeste, ...servicosTeste]);
+    } else if (error) {
+      handleSupabaseError(error, 'NovaOS - fetchProdutosServicos');
+      setProdutosServicos([...produtosTeste, ...servicosTeste]);
+    } else if (data && data.length > 0) {
       setProdutosServicos(data);
     } else {
       // Usar dados de teste se não houver dados no banco
@@ -310,8 +308,7 @@ function NovaOS2Content() {
         // Se não há termo selecionado OU se o termo selecionado não existe mais na lista
         if (!termoSelecionado || !data.find((t: any) => t.id === termoSelecionado)) {
           setTermoSelecionado(data[0].id);
-          console.log('Termo padrão selecionado:', data[0].nome);
-        }
+          }
       }
     }
     setLoadingTermos(false);
@@ -320,8 +317,6 @@ function NovaOS2Content() {
   useEffect(() => {
     fetchProdutosServicos();
   }, [empresaData?.id]);
-
-
 
   async function onCadastrarProdutoRapido() {
     if (!empresaData?.id || !novoProduto.nome || novoProduto.preco <= 0) {
@@ -341,11 +336,7 @@ function NovaOS2Content() {
         ativo: true // Sempre ativo por padrão
       };
 
-      console.log('Tentando cadastrar produto/serviço:', produtoPayload);
-
       // Usar API route para contornar RLS
-      console.log('Fazendo requisição para API route...');
-      
       const response = await fetch('/api/produtos/criar', {
         method: 'POST',
         headers: {
@@ -354,12 +345,7 @@ function NovaOS2Content() {
         body: JSON.stringify(produtoPayload)
       });
 
-      console.log('Status da resposta:', response.status);
-      console.log('Headers da resposta:', Object.fromEntries(response.headers.entries()));
-
       const result = await response.json();
-      console.log('Resposta da API route:', result);
-
       if (!response.ok) {
         console.error('Erro da API route:', result);
         const errorMessage = result.error?.message || result.error || 'Erro desconhecido';
@@ -453,8 +439,6 @@ function NovaOS2Content() {
     setShowCadastroCliente(false);
     reset();
   }
-
-
 
   function proximaEtapa() {
     if (etapaAtual < etapas.length) {
@@ -610,11 +594,6 @@ function NovaOS2Content() {
         // Agora usando os nomes corretos das colunas da tabela
       };
 
-      console.log('Salvando OS no banco:', dadosOS);
-      console.log('🔍 DEBUG: tecnico_id sendo enviado:', dadosOS.tecnico_id);
-      console.log('🔍 DEBUG: tecnicoResponsavel:', tecnicoResponsavel);
-      console.log('🔍 DEBUG: tipo de tecnicoResponsavel:', typeof tecnicoResponsavel);
-
       // Salvar a OS usando a API route (contorna RLS)
       const response = await fetch('/api/ordens/criar', {
         method: 'POST',
@@ -633,8 +612,6 @@ function NovaOS2Content() {
       }
 
       const osData = result.data;
-
-      console.log('OS criada com sucesso:', osData);
 
       // Se há produtos/serviços selecionados, atualizar a OS com os dados
       if (statusSelecionado === 'aprovado' && (produtosSelecionados.length > 0 || servicosSelecionados.length > 0)) {
@@ -667,8 +644,6 @@ function NovaOS2Content() {
 
       // Upload das imagens (se houver)
       if (imagens.length > 0) {
-        console.log('Imagens selecionadas:', imagens.length, 'arquivos');
-        
         try {
           const formData = new FormData();
           formData.append('ordemId', osData.id);
@@ -688,8 +663,6 @@ function NovaOS2Content() {
             console.error('Erro no upload das imagens:', uploadResult.error);
             // Não falhar a criação da OS por erro no upload
           } else {
-            console.log('Imagens enviadas com sucesso:', uploadResult.files);
-            
             // Salvar URLs das imagens na OS
             const urlsImagens = uploadResult.files.map((file: any) => file.url).join(',');
             
@@ -971,8 +944,6 @@ function NovaOS2Content() {
                 )}
               </div>
             )}
-
-
 
             {etapaAtual === 2 && (
               <div className="w-full max-w-2xl mx-auto flex flex-col gap-6">

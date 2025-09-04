@@ -46,7 +46,6 @@ function UsuariosPageInner() {
   const [senhaVisivel, setSenhaVisivel] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  
   // Estados da lista
   const [usuarios, setUsuarios] = useState<Array<{
     id: string
@@ -207,7 +206,6 @@ function UsuariosPageInner() {
         .single()
 
       if (erroUsuario) throw erroUsuario
-      console.log('Empresa ID carregado:', meuUsuario?.empresa_id);
       setEmpresaId(meuUsuario?.empresa_id)
 
       const { data, error } = await supabase
@@ -241,8 +239,6 @@ function UsuariosPageInner() {
     if (!confirmar) return;
 
     try {
-      console.log('Tentando excluir usuário com ID:', id);
-      
       // Pegar o token de sessão
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
@@ -261,8 +257,6 @@ function UsuariosPageInner() {
       })
 
       const data = await response.json()
-      console.log('Response da exclusão:', { status: response.status, data });
-
       if (!response.ok) {
         throw new Error(data.error || 'Erro ao excluir usuário')
       }
@@ -316,8 +310,6 @@ function UsuariosPageInner() {
         usuario: usuarioPadronizado,
       };
       
-      console.log('Payload sendo enviado:', payload);
-      
       const response = await fetch('/api/usuarios/cadastrar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -325,15 +317,10 @@ function UsuariosPageInner() {
       })
 
       const text = await response.text();
-      console.log('Response status:', response.status);
-      console.log('Response text:', text);
-      
       let data;
       try {
         data = JSON.parse(text);
-        console.log('Parsed data:', data);
-      } catch (parseError) {
-        console.log('Parse error:', parseError);
+        } catch (parseError) {
         data = { raw: text };
       }
       

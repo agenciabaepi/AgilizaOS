@@ -83,26 +83,18 @@ export default function ComissoesPage() {
   }, [usuarioData]);
 
   const fetchComissoes = async () => {
-    console.log('🔍 Comissões - Dados do usuário:', usuarioData);
-    
     if (!usuarioData?.auth_user_id) {
-      console.log('❌ Comissões - Sem auth_user_id');
       setLoading(false);
       return;
     }
     
     setLoading(true);
     try {
-      console.log('🔄 Comissões - Buscando com ID:', usuarioData.auth_user_id);
-      
       // Buscar comissões usando a função RPC
       const { data: comissoesJSON, error } = await supabase
         .rpc('buscar_comissoes_tecnico', { 
           tecnico_id_param: usuarioData.auth_user_id 
         });
-
-      console.log('📊 Comissões - Resultado RPC:', comissoesJSON);
-      console.log('⚠️ Comissões - Erro RPC:', error);
 
       if (error) {
         console.error('Erro ao buscar comissões:', error);
@@ -152,7 +144,6 @@ export default function ComissoesPage() {
       console.error('💥 Comissões - Erro geral:', error);
       addToast('error', 'Erro ao carregar dados: ' + (error as Error).message);
     } finally {
-      console.log('✅ Comissões - Finalizando loading');
       setLoading(false);
     }
   };

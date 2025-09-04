@@ -43,36 +43,25 @@ export function createAdminClient(): SupabaseClient {
 }
 
 export const forceLogout = async () => {
-  console.log('🔴 FORCE LOGOUT: Iniciando logout...');
-  
   try {
     // 1. Limpar localStorage e sessionStorage
     localStorage.clear();
     sessionStorage.clear();
-    console.log('🔴 localStorage e sessionStorage limpos');
     
     // 2. Fazer logout do Supabase
     const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.log('⚠️ Erro no logout Supabase:', error.message);
-    } else {
-      console.log('✅ Logout Supabase realizado');
-    }
     
     // 3. Forçar limpeza do estado do Supabase
     await supabase.auth.setSession(null);
-    console.log('🔴 Sessão forçada para null');
     
     // 4. Limpeza final
     localStorage.clear();
     sessionStorage.clear();
     
     // 5. Redirecionar para login
-    console.log('🔄 Redirecionando para login...');
     window.location.href = '/login';
     
   } catch (error) {
-    console.error('❌ Erro no forceLogout:', error);
     // Mesmo com erro, forçar redirecionamento
     localStorage.clear();
     sessionStorage.clear();
@@ -103,13 +92,9 @@ export const isValidSession = async () => {
   }
 };
 
-
-
 // Função otimizada para buscar dados do usuário
 export const fetchUserDataOptimized = async (userId: string) => {
   try {
-    console.log('🔍 Iniciando busca de dados para userId:', userId);
-    
     // Tentar primeiro com auth_user_id, depois com id
     let { data, error } = await supabase
       .from('usuarios')
@@ -127,7 +112,6 @@ export const fetchUserDataOptimized = async (userId: string) => {
 
     // Se não encontrar com auth_user_id, tentar com id
     if (error && error.code === 'PGRST116') {
-      console.log('🔍 Usuário não encontrado com auth_user_id, tentando com id...');
       const { data: dataById, error: errorById } = await supabase
         .from('usuarios')
         .select(`
@@ -155,12 +139,10 @@ export const fetchUserDataOptimized = async (userId: string) => {
       console.error('❌ Erro ao buscar usuário:', error);
       throw error;
     }
-    
-    console.log('✅ Usuário encontrado:', data);
 
     // Verificar se o usuário tem empresa_id
     if (!data.empresa_id) {
-      console.warn('⚠️ Usuário sem empresa_id, retornando dados básicos');
+
       return {
         userData: {
           empresa_id: null,
@@ -179,11 +161,6 @@ export const fetchUserDataOptimized = async (userId: string) => {
     }
     
     // Buscar dados reais da empresa
-    console.log('🔍 BUSCANDO EMPRESA:', {
-      empresa_id: data.empresa_id,
-      query: `SELECT * FROM empresas WHERE id = '${data.empresa_id}'`
-    });
-    
     const { data: empresaData, error: empresaError } = await supabase
       .from('empresas')
       .select('*')
@@ -191,7 +168,7 @@ export const fetchUserDataOptimized = async (userId: string) => {
       .single();
 
     if (empresaError) {
-      console.warn('⚠️ Erro ao buscar dados da empresa, usando fallback:', empresaError);
+
       // Fallback para dados básicos
       return {
         userData: {
@@ -209,18 +186,6 @@ export const fetchUserDataOptimized = async (userId: string) => {
         }
       };
     }
-    
-    // Debug dos dados da empresa
-    console.log('🔍 DADOS DA EMPRESA BUSCADOS:', {
-      empresaData: empresaData,
-      logo_url: empresaData?.logo_url,
-      nome: empresaData?.nome,
-      cnpj: empresaData?.cnpj,
-      endereco: empresaData?.endereco,
-      telefone: empresaData?.telefone,
-      error: empresaError,
-      success: !empresaError
-    });
 
     const result = {
       userData: {
@@ -242,12 +207,6 @@ export const fetchUserDataOptimized = async (userId: string) => {
         plano: 'trial'
       }
     };
-    
-    console.log('🔍 RETORNO DA FUNÇÃO:', {
-      result: result,
-      empresaData: result.empresaData,
-      logo_url: result.empresaData.logo_url
-    });
     
     return result;
     

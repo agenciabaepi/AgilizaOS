@@ -10,8 +10,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'empresa_id é obrigatório' }, { status: 400 });
     }
 
-    console.log('Iniciando criação de trial para empresa:', empresa_id);
-
     // Buscar plano Trial
     const { data: planoTrial, error: errorPlano } = await supabaseAdmin
       .from('planos')
@@ -43,8 +41,6 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString()
     };
 
-    console.log('Payload para trial:', payload);
-
     const { data, error } = await supabaseAdmin
       .from('assinaturas')
       .insert(payload)
@@ -57,8 +53,6 @@ export async function POST(request: Request) {
         details: error 
       }, { status: 500 });
     }
-
-    console.log('Trial criado com sucesso:', data);
 
     return NextResponse.json({
       success: true,

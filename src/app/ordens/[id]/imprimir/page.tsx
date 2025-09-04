@@ -194,11 +194,7 @@ function OrdemPDF({ ordem }: { ordem: any }) {
     });
     
     // Debug: verifica se todas as seções foram capturadas
-    console.log('Seções encontradas:', sections.length);
-    console.log('Números das seções:', sections.map(s => s.number));
-    console.log('Coluna esquerda:', leftColumn.length);
-    console.log('Coluna direita:', rightColumn.length);
-    
+    );
     // Renderiza layout em 2 colunas otimizado para uma folha
     return (
       <View style={{ flexDirection: 'row', gap: 16 }}>
@@ -287,7 +283,6 @@ function OrdemPDF({ ordem }: { ordem: any }) {
           <Text style={styles.paragraph}><Text style={styles.bold}>Acessórios:</Text> {ordem.acessorios || '---'}</Text>
           <Text style={styles.paragraph}><Text style={styles.bold}>Condições:</Text> {ordem.condicoes_equipamento || '---'}</Text>
         </View>
-
 
         {/* Relato do Cliente */}
         <View style={styles.block}>
@@ -387,8 +382,6 @@ export default function ImprimirOrdemPage() {
         return;
       }
 
-      console.log('Buscando OS com ID:', id);
-
       const { data, error } = await supabase
         .from('ordens_servico')
         .select('*, clientes(*), usuarios!tecnico_id(*), empresas(*), termo_garantia:termo_garantia_id(*)')
@@ -408,7 +401,6 @@ export default function ImprimirOrdemPage() {
         return;
       }
 
-      console.log('OS encontrada:', data);
       setOrdem(data);
       setLoading(false);
     }

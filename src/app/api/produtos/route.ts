@@ -41,11 +41,6 @@ export async function POST(req: NextRequest) {
       codigo_barras, largura_cm, altura_cm, profundidade_cm, peso_g
     } = await req.json();
 
-    console.log('Dados recebidos na API:', {
-      nome, tipo, grupo_id, categoria_id, subcategoria_id,
-      fornecedor_id, empresa_id
-    });
-
     // Validate required fields
     if (!empresa_id || !nome || !preco) {
       return NextResponse.json(

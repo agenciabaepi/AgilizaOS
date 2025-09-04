@@ -56,7 +56,6 @@ function ConfiguracoesInner() {
 
   // Se ainda está carregando a autenticação ou dados do usuário, mostra loading
   if (authLoading || !usuarioData) {
-    console.log('Aguardando dados do usuário...')
     return (
       <MenuLayout>
         <div className="p-8">
@@ -72,8 +71,6 @@ function ConfiguracoesInner() {
       </MenuLayout>
     )
   }
-
-  console.log('Renderizando página de configurações:', { nivel: usuarioData.nivel, user: !!user })
 
   // ✅ CORRIGIDO: Usar diretamente o contexto em vez de estado local
   // ✅ CORRIGIDO: Incluir usuarioteste com acesso total

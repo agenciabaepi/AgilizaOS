@@ -8,85 +8,44 @@ export const useLogout = () => {
     if (isLoggingOut) return; // Evitar múltiplas execuções
     
     setIsLoggingOut(true);
-    console.log('🔴 useLogout: Iniciando processo de logout');
-
     try {
-      // 1. Pegar tokens atuais antes de limpar
-      const { data: { session } } = await supabase.auth.getSession();
-      const access_token = session?.access_token;
-      const refresh_token = session?.refresh_token;
-      const user_id = session?.user?.id;
+      // 1. Fazer logout do Supabase primeiro (mais confiável)
+      const { error } = await supabase.auth.signOut({ scope: 'global' });
+      
+      if (error) {
+        // Continuar mesmo com erro
+      }
 
-      console.log('🔴 useLogout: Tokens obtidos', {
-        hasAccessToken: !!access_token,
-        hasRefreshToken: !!refresh_token,
-        hasUserId: !!user_id
+      // 2. Aguardar um pouco para o Supabase processar
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // 3. Limpar estado local
+      localStorage.clear();
+      sessionStorage.clear();
+
+      // 4. Forçar limpeza de cookies do Supabase
+      const cookies = document.cookie.split(";");
+      cookies.forEach(cookie => {
+        const eqPos = cookie.indexOf("=");
+        const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+        
+        if (name.includes('supabase') || name.includes('sb-') || name.includes('auth')) {
+          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; domain=${window.location.hostname}; path=/;`;
+        }
       });
 
-      // 2. Limpar estado local imediatamente
-      localStorage.clear();
-      sessionStorage.clear();
-      console.log('🔴 useLogout: Estado local limpo');
-
-      // 3. Fazer logout do Supabase
-      console.log('🔴 useLogout: Fazendo logout do Supabase...');
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.log('⚠️ useLogout: Erro no logout Supabase:', error.message);
-      } else {
-        console.log('✅ useLogout: Logout Supabase realizado');
-      }
-
-      // 4. Forçar logout no backend (opcional)
-      if (access_token && user_id) {
-        try {
-          console.log('🔴 useLogout: Forçando logout no backend...');
-          
-          const response = await fetch('/api/auth/force-logout', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              access_token, 
-              refresh_token, 
-              user_id 
-            })
-          });
-          
-          if (response.ok) {
-            const result = await response.json();
-            console.log('✅ useLogout: Logout forçado no backend realizado:', result);
-          } else {
-            const error = await response.text();
-            console.log('⚠️ useLogout: Erro no logout forçado do backend:', error);
-          }
-        } catch (apiError) {
-          console.log('⚠️ useLogout: Erro ao chamar API de logout forçado:', apiError);
-        }
-      }
-
-      // 5. Limpeza final
-      localStorage.clear();
-      sessionStorage.clear();
-      
-      // 6. Redirecionar para login
-      console.log('🔄 useLogout: Redirecionando para login...');
-      window.location.href = '/login';
+      // 5. Redirecionar para login
+      window.location.replace('/login'); // Usar replace ao invés de href
 
     } catch (error) {
-      console.error('❌ useLogout: Erro no logout:', error);
       
-      // Mesmo com erro, forçar redirecionamento
+      // Mesmo com erro, forçar limpeza e redirecionamento
       localStorage.clear();
       sessionStorage.clear();
-      window.location.href = '/login';
+      window.location.replace('/login');
     } finally {
-      // Timeout de segurança - se algo der errado, forçar redirecionamento
-      setTimeout(() => {
-        if (window.location.pathname !== '/login') {
-          console.log('⚠️ useLogout: Timeout de segurança - forçando redirecionamento');
-          window.location.href = '/login';
-        }
-      }, 5000);
+      setIsLoggingOut(false);
     }
   };
 

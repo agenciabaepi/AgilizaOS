@@ -14,6 +14,7 @@ import { CupomVenda } from '@/components/CupomVenda';
 import { useCaixa } from '@/hooks/useCaixa';
 import { AbrirCaixaModal } from '@/components/caixa/AbrirCaixaModal';
 import { FecharCaixaModal } from '@/components/caixa/FecharCaixaModal';
+import { interceptSupabaseQuery } from '@/utils/supabaseInterceptor';
 import { FiUnlock, FiLock, FiMinus, FiPlus, FiEye, FiShoppingCart, FiTrash2 } from 'react-icons/fi';
 import ProtectedArea from '@/components/ProtectedArea';
 
@@ -162,15 +163,25 @@ export default function CaixaPage() {
     async function fetchProdutos() {
       setLoading(true);
       if (!usuarioData?.empresa_id) return;
-      const { data, error } = await supabase
-        .from('produtos_servicos')
-        .select('id, nome, preco, obs, categoria, imagens_url, tipo, ativo, codigo_barras')
-        .eq('empresa_id', usuarioData.empresa_id)
-        .eq('ativo', true)
-        .eq('tipo', 'produto')
-        .order('nome', { ascending: true });
-      console.log('PRODUTOS SUPABASE:', { data, error });
-      if (error) {
+      
+      const { data, error } = await interceptSupabaseQuery('produtos_servicos', async () => {
+        return await supabase
+          .from('produtos_servicos')
+          .select('id, nome, preco, obs, categoria, imagens_url, tipo, ativo, codigo_barras')
+          .eq('empresa_id', usuarioData.empresa_id)
+          .eq('ativo', true)
+          .eq('tipo', 'produto')
+          .order('nome', { ascending: true });
+      });
+      
+      if (error && error.code === 'TABLE_NOT_EXISTS') {
+        // Usar produtos de teste se a tabela não existir
+        setProdutos([]);
+      } else if (error) {
+        // Suprimir erros 404 silenciosamente
+        if (error.code !== 'PGRST116' && !error.message?.includes('404')) {
+          console.error('Erro ao buscar produtos:', error);
+        }
         setProdutos([]);
       } else if (data) {
         setProdutos(data.map((p: ProdutoSupabase) => ({
@@ -198,8 +209,7 @@ export default function CaixaPage() {
         const codigoBarras = (p.codigo_barras || '').toString().toLowerCase();
         const termo = searchTerm.toLowerCase();
         if (termo) {
-          console.log('DEBUG codigo_barras:', codigoBarras, 'termo:', termo);
-        }
+          }
         return (
           nome.includes(termo) ||
           codigoBarras.includes(termo) ||
@@ -365,14 +375,6 @@ export default function CaixaPage() {
     }
 
     // Aqui você pode implementar a lógica de finalização da venda
-    console.log('Finalizando venda:', {
-      cliente: clienteSelecionado,
-      produtos: cart,
-      total,
-      formaPagamento: paymentType,
-      tipoPedido: orderType
-    });
-
     // Se houver cliente, registrar venda no cadastro do cliente (agora integrado ao Supabase)
     const numeroVenda = await registrarVendaNoSupabase(desconto, acrescimo);
     if (!numeroVenda) {
@@ -469,23 +471,13 @@ export default function CaixaPage() {
     buscarUltimoValorFechamento
   } = useCaixa();
 
-  // Wrapper para fechar caixa com logs de debug
+  // Função para fechar caixa
   const handleFecharCaixa = async (valorFechamento: number, valorTroco: number, observacoes?: string) => {
-    console.log('Tentando fechar caixa:', { valorFechamento, valorTroco, observacoes });
-    console.log('Turno atual:', turnoAtual);
-    console.log('Saldo esperado:', calcularSaldoAtual());
-    
     try {
       await fecharCaixa(valorFechamento, valorTroco, observacoes);
-      console.log('Caixa fechado com sucesso');
       addToast('success', 'Caixa fechado com sucesso!');
       setModalFecharCaixa(false);
-      
-      // O caixa foi fechado com sucesso, não precisamos verificar novamente
-      console.log('SUCESSO: Caixa fechou corretamente');
-      
     } catch (error) {
-      console.error('Erro ao fechar caixa:', error);
       addToast('error', `Erro ao fechar caixa: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
       throw error;
     }
@@ -1616,8 +1608,7 @@ export default function CaixaPage() {
                       nomeEmpresa={empresaData?.nome || "AgilizaOS"}
                     />
                   </div>
-                
-                  
+
                   <div className="flex gap-2 mt-4 no-print">
                     <Button className="flex-1" variant="secondary" onClick={() => setModalImprimir(false)}>Fechar</Button>
                     <Button className="flex-1" onClick={() => window.print()}>Imprimir</Button>

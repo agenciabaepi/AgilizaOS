@@ -3,7 +3,6 @@ import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
-  console.log('API route /api/ordens/criar chamada');
   try {
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -17,10 +16,7 @@ export async function POST(request: NextRequest) {
         },
       }
     );
-    console.log('Cliente Supabase criado com sucesso');
     const dadosOS = await request.json();
-    console.log('Dados recebidos:', dadosOS);
-
     // Verificar se empresa_id já está presente nos dados
     if (!dadosOS.empresa_id) {
       return NextResponse.json(
@@ -28,8 +24,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    console.log('Dados OS recebidos:', dadosOS);
 
     // Criar a OS no banco de dados
     const { data: osData, error: osError } = await supabase

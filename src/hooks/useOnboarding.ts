@@ -28,34 +28,15 @@ export const useOnboarding = () => {
 
   // Verificar status das configurações
   useEffect(() => {
-    console.log('🔍 useOnboarding useEffect - Verificando status:', {
-      usuarioData: !!usuarioData,
-      empresaData: !!empresaData,
-      empresaId: usuarioData?.empresa_id
-    });
-    
     if (usuarioData?.empresa_id && empresaData) {
-      console.log('🔍 useOnboarding: Dados disponíveis, verificando status...');
       checkOnboardingStatus();
     } else {
-      console.log('🔍 useOnboarding: Aguardando dados...', {
-        temUsuario: !!usuarioData,
-        temEmpresa: !!empresaData,
-        empresaId: usuarioData?.empresa_id
-      });
-    }
+      }
   }, [usuarioData, empresaData]);
   
   // Re-verificar onboarding quando empresaData mudar especificamente
   useEffect(() => {
     if (empresaData && usuarioData?.empresa_id) {
-      console.log('🔍 DADOS DA EMPRESA MUDARAM, RE-VERIFICANDO ONBOARDING:', {
-        logo_url: empresaData?.logo_url,
-        nome: empresaData?.nome,
-        endereco: empresaData?.endereco,
-        cnpj: empresaData?.cnpj,
-        telefone: empresaData?.telefone
-      });
       checkOnboardingStatus();
     }
   }, [empresaData?.logo_url, empresaData?.nome, empresaData?.endereco, empresaData?.cnpj, empresaData?.telefone]);
@@ -63,7 +44,6 @@ export const useOnboarding = () => {
   // Re-verificar onboarding quando lastUpdate mudar (força atualização)
   useEffect(() => {
     if (lastUpdate && empresaData && usuarioData?.empresa_id) {
-      console.log('🔄 LAST UPDATE MUDOU, FORÇANDO RE-VERIFICAÇÃO:', lastUpdate);
       checkOnboardingStatus();
     }
   }, [lastUpdate]);
@@ -97,12 +77,6 @@ export const useOnboarding = () => {
   const checkOnboardingStatus = async () => {
     if (!usuarioData?.empresa_id) return;
 
-    console.log('🔍 INICIANDO VERIFICAÇÃO:', {
-      usuarioData: usuarioData,
-      empresaData: empresaData,
-      empresa_id: usuarioData?.empresa_id
-    });
-
     setLoading(true);
     
     try {
@@ -123,9 +97,7 @@ export const useOnboarding = () => {
       
       const empresa = Object.values(empresaFields).every(field => field);
       
-      console.log('🔍 VERIFICAÇÃO FINAL:', {
-        empresaFields: empresaFields,
-        todosCampos: Object.values(empresaFields),
+      ,
         empresa: empresa,
         todosPreenchidos: Object.values(empresaFields).every(field => field)
       });
@@ -144,30 +116,8 @@ export const useOnboarding = () => {
         });
       
       // Log SIMPLES e DIRETO
-      console.log('🔍 VERIFICAÇÃO SIMPLES:', {
-        empresaData: empresaData,
-        logo_url: empresaData?.logo_url,
-        nome: empresaData?.nome,
-        endereco: empresaData?.endereco,
-        cnpj: empresaData?.cnpj,
-        telefone: empresaData?.telefone
-      });
-      
-      console.log('🔍 CAMPOS PREENCHIDOS:', {
-        logo: logoPreenchido,
-        nome: nomePreenchido,
-        endereco: enderecoPreenchido,
-        cnpj: cnpjPreenchido,
-        telefone: telefonePreenchido
-      });
-      
       // Debug individual de cada campo - VERIFICAÇÃO DETALHADA
-      console.log('🔍 VERIFICAÇÃO DETALHADA DOS CAMPOS:', {
-        logo: {
-          valor: empresaData?.logo_url,
-          tipo: typeof empresaData?.logo_url,
-          existe: !!empresaData?.logo_url,
-          trim: empresaData?.logo_url?.trim(),
+      ,
           length: empresaData?.logo_url?.trim()?.length,
           resultado: empresaFields.logo,
           validacao: `empresaData?.logo_url ? empresaData.logo_url.trim().length > 0 : false`,
@@ -218,36 +168,14 @@ export const useOnboarding = () => {
       });
       
       // Debug completo dos dados
-      console.log('🔍 DADOS COMPLETOS DA EMPRESA:', {
-        empresaData: empresaData,
-        empresaFields: empresaFields,
-        missingFields: missingFields,
-        empresa: empresa,
-        totalCampos: Object.keys(empresaFields).length,
+      .length,
         camposPreenchidos: Object.values(empresaFields).filter(Boolean).length,
         camposVazios: Object.values(empresaFields).filter(field => !field).length
       });
       
       // Verificação adicional - dados brutos
-      console.log('🔍 DADOS BRUTOS DO BANCO:', {
-        logo_url: empresaData?.logo_url,
-        nome: empresaData?.nome,
-        endereco: empresaData?.endereco,
-        cnpj: empresaData?.cnpj,
-        telefone: empresaData?.telefone,
-        empresa_id: usuarioData?.empresa_id,
-        empresaDataCompleto: empresaData
-      });
-      
       // Verificação específica do logo
-      console.log('🔍 VERIFICAÇÃO ESPECÍFICA DO LOGO:', {
-        logo_url: empresaData?.logo_url,
-        tipo: typeof empresaData?.logo_url,
-        existe: !!empresaData?.logo_url,
-        naoVazio: empresaData?.logo_url !== '',
-        naoNull: empresaData?.logo_url !== null,
-        naoUndefined: empresaData?.logo_url !== undefined,
-        trim: empresaData?.logo_url?.trim(),
+      ,
         trimNaoVazio: empresaData?.logo_url?.trim() !== '',
         resultadoFinal: empresaFields.logo
       });
@@ -259,17 +187,7 @@ export const useOnboarding = () => {
         .eq('nivel', 'tecnico')
         .eq('empresa_id', usuarioData.empresa_id);
 
-
-
-      console.log('🔍 Debug Onboarding Hook:', {
-        empresaData: empresaData,
-        usuarioData: usuarioData,
-        empresa: {
-          logo: {
-            valor: empresaData?.logo_url,
-            preenchido: empresaFields.logo,
-            trim: empresaData?.logo_url?.trim()
-          },
+      },
           nome: {
             valor: empresaData?.nome,
             preenchido: empresaFields.nome,

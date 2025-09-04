@@ -7,7 +7,5 @@ export const useAuthGuard = () => {
   const router = useRouter();
   
   // TEMPORARIAMENTE DESABILITADO - Retorna dados sem verificação
-  console.log('🔍 useAuthGuard: DESABILITADO - Retornando dados sem verificação');
-  
   return { user, session, usuarioData, loading };
 };

@@ -66,8 +66,6 @@ export default function CatalogoPage() {
         setLoading(true);
         setError(null);
         
-        console.log('Carregando catálogo para empresa:', empresaId);
-        
         // buscar toggle
         const { data: conf, error: confError } = await supabase
           .from('configuracoes_empresa')
@@ -95,8 +93,7 @@ export default function CatalogoPage() {
           setError(`Erro ao carregar itens: ${itensError.message}`);
         } else {
           setItens((itensData || []) as CatalogoItem[]);
-          console.log('Itens carregados:', itensData?.length || 0);
-        }
+          }
 
         // buscar categorias do catálogo
         const { data: cats, error: catsError } = await supabase
@@ -111,8 +108,7 @@ export default function CatalogoPage() {
           console.warn('Erro ao buscar categorias:', catsError);
         } else {
           setCategoriasDb((cats || []) as CatalogoCategoria[]);
-          console.log('Categorias carregadas:', cats?.length || 0);
-        }
+          }
         
         clearTimeout(timeoutId);
         setLoading(false);
@@ -393,7 +389,6 @@ export default function CatalogoPage() {
                     if (usuarioData) {
                       localStorage.setItem('usuarioData', JSON.stringify(usuarioData));
                     }
-                    console.log('Dados salvos no localStorage antes de abrir PDF');
                     window.open('/catalogo/imprimir', '_blank');
                   }}
                 >
@@ -776,5 +771,4 @@ export default function CatalogoPage() {
     </ProtectedArea>
   );
 }
-
 

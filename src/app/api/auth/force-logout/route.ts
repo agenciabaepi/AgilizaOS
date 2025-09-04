@@ -11,39 +11,24 @@ export async function POST(request: NextRequest) {
   try {
     const { access_token, refresh_token, user_id } = await request.json();
     
-    console.log('🔴 FORCE LOGOUT API: Recebida requisição');
-    console.log('🔴 Access Token:', access_token ? 'SIM' : 'NÃO');
-    console.log('🔴 Refresh Token:', refresh_token ? 'SIM' : 'NÃO');
-    console.log('🔴 User ID:', user_id);
-    
     if (!access_token || !user_id) {
-      console.log('❌ Dados insuficientes para logout');
       return NextResponse.json({ error: 'Token ou user_id não fornecido' }, { status: 400 });
     }
 
-    console.log('🔴 FORCE LOGOUT API: Iniciando logout forçado no backend...');
-
     // 1. FORÇAR LOGOUT DE TODAS AS SESSÕES DO USUÁRIO
-    console.log('🔴 Tentando forçar logout de todas as sessões...');
     const { error: signOutError } = await supabaseAdmin.auth.admin.signOut(user_id);
     
     if (signOutError) {
-      console.log('⚠️ Erro ao forçar logout de todas as sessões:', signOutError.message);
-    } else {
-      console.log('✅ Logout forçado de todas as sessões realizado');
-    }
+      } else {
+      }
 
     // 2. INVALIDAR TODAS AS SESSÕES DO USUÁRIO
-    console.log('🔴 Tentando invalidar todas as sessões...');
     try {
       // Método não existe na API atual do Supabase, usando signOut como alternativa
-      console.log('ℹ️ invalidateUserSessions não disponível, usando signOut como alternativa');
-    } catch (invalidateError) {
-      console.log('⚠️ Erro ao invalidar sessões:', invalidateError);
-    }
+      } catch (invalidateError) {
+      }
 
     // 3. ATUALIZAR METADATA DO USUÁRIO
-    console.log('🔴 Tentando atualizar metadata...');
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
       user_id,
       { 
@@ -55,12 +40,8 @@ export async function POST(request: NextRequest) {
     );
 
     if (updateError) {
-      console.log('⚠️ Erro ao atualizar metadata:', updateError.message);
-    } else {
-      console.log('✅ Metadata atualizada com sucesso');
-    }
-
-    console.log('✅ FORCE LOGOUT API: Logout forçado concluído');
+      } else {
+      }
 
     return NextResponse.json({ 
       success: true, 

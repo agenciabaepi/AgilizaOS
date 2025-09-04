@@ -114,8 +114,7 @@ export default function BancadaPage() {
           console.error('Erro ao buscar ordens:', ordensError);
         } else {
           setOrdens(ordensData || []);
-          console.log('OSs carregadas para o técnico:', ordensData?.length || 0);
-        }
+          }
 
       } catch (error) {
         if (isMounted) {
@@ -212,8 +211,6 @@ export default function BancadaPage() {
     const ordem = ordens.find((os: OrdemServico) => os.id === id);
     if (ordem && ordem.status === 'ABERTA') {
       try {
-        console.log('Iniciando ordem:', id);
-        
         // Buscar status fixos para obter os nomes corretos
         const { data: statusFixos, error: statusError } = await supabase
           .from('status_fixo')
@@ -225,14 +222,10 @@ export default function BancadaPage() {
           return;
         }
 
-        console.log('Status fixos encontrados:', statusFixos);
-
         // Encontrar o status "EM ANÁLISE" nos status fixos
         const statusEmAnalise = statusFixos?.find((s: StatusFixo) => s.nome === 'EM ANÁLISE');
         
         if (statusEmAnalise) {
-          console.log('Status EM ANÁLISE encontrado:', statusEmAnalise);
-          
           const { error: updateError } = await supabase
             .from('ordens_servico')
             .update({ 
@@ -246,7 +239,6 @@ export default function BancadaPage() {
             alert('Erro ao iniciar a ordem. Tente novamente.');
             return;
           } else {
-            console.log('Status atualizado com sucesso');
             // Atualizar a lista local
             setOrdens(prevOrdens => 
               prevOrdens.map((os: OrdemServico) => 

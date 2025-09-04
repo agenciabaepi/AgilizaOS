@@ -45,15 +45,11 @@ export default function WhatsAppPage() {
 
   const carregarSessao = async () => {
     try {
-      console.log('🔔 WhatsApp: Carregando sessão para empresa:', empresaData?.id);
-      
       const { data, error } = await supabase
         .from('whatsapp_sessions')
         .select('*')
         .eq('empresa_id', empresaData?.id)
         .single();
-
-      console.log('🔔 WhatsApp: Dados do Supabase:', { data, error });
 
       if (error && error.code !== 'PGRST116') {
         throw error;
@@ -67,7 +63,6 @@ export default function WhatsAppPage() {
         ultima_conexao: null
       };
 
-      console.log('🔔 WhatsApp: Definindo sessão:', sessionData);
       setSession(sessionData);
     } catch (error) {
       console.error('❌ WhatsApp: Erro ao carregar sessão:', error);
@@ -98,8 +93,6 @@ export default function WhatsAppPage() {
       }
 
       const result = await response.json();
-      console.log('🔔 WhatsApp: Resposta da conexão:', result);
-
       // Atualizar a sessão com os dados da resposta
       if (result.success) {
         // Buscar dados atualizados do banco
@@ -200,7 +193,6 @@ export default function WhatsAppPage() {
       }
 
       const result = await response.json();
-      console.log('✅ WhatsApp: Mensagem de teste enviada:', result);
       toast.success('Mensagem de teste enviada com sucesso!');
       
     } catch (error) {
@@ -209,12 +201,6 @@ export default function WhatsAppPage() {
       toast.error('Erro ao enviar mensagem de teste: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
     }
   };
-
-  console.log('🔔 WhatsApp: Renderizando interface, estado atual:', {
-    loading,
-    session,
-    empresaData: empresaData?.id
-  });
 
   if (loading) {
     return (

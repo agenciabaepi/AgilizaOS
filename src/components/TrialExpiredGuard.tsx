@@ -24,7 +24,6 @@ export default function TrialExpiredGuard({ children }: TrialExpiredGuardProps) 
 
   // Se está no trial e NÃO expirou, permitir acesso normal (não redirecionar)
   if (assinatura?.status === 'trial' && !isTrialExpired()) {
-    console.log('TrialExpiredGuard: Trial ativo, permitindo acesso normal');
     return <>{children}</>;
   }
 

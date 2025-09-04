@@ -5,11 +5,8 @@ import { enviarEmailVerificacao, gerarCodigoVerificacao } from '@/lib/email'
 export async function POST(request: NextRequest) {
   try {
     const { email } = await request.json()
-    console.log('🔍 Debug - Reenvio de código para:', email)
-
     // Validar parâmetros obrigatórios
     if (!email) {
-      console.log('❌ Debug - Email não fornecido')
       return NextResponse.json(
         { error: 'Email é obrigatório' },
         { status: 400 }
@@ -30,10 +27,7 @@ export async function POST(request: NextRequest) {
       .eq('email_verificado', false)
       .single()
 
-    console.log('🔍 Debug - Busca de usuário:', { usuario, usuarioError })
-    
     if (usuarioError || !usuario) {
-      console.log('❌ Debug - Usuário não encontrado ou email já verificado')
       return NextResponse.json(
         { error: 'Usuário não encontrado ou email já verificado' },
         { status: 404 }
@@ -84,19 +78,15 @@ export async function POST(request: NextRequest) {
     }
     
     // Enviar email
-    console.log('🔍 Debug - Enviando email:', { email, codigo, nomeEmpresa })
     const emailEnviado = await enviarEmailVerificacao(email, codigo, nomeEmpresa)
 
     if (!emailEnviado) {
-      console.log('❌ Debug - Falha ao enviar email')
       return NextResponse.json(
         { error: 'Erro ao enviar email de verificação' },
         { status: 500 }
       )
     }
     
-    console.log('✅ Debug - Email enviado com sucesso')
-
     return NextResponse.json({
       success: true,
       message: 'Novo código de verificação enviado com sucesso'

@@ -6,12 +6,9 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    console.log('Payload recebido no backend:', body);
     const { nome, email, senha, cpf, nivel, empresa_id, whatsapp, usuario } = body;
-    console.log('empresa_id recebido:', empresa_id);
-
     if (!empresa_id) {
-      console.error('empresa_id não foi enviado');
+
       return NextResponse.json({ error: 'Empresa não identificada' }, { status: 400 });
     }
 
@@ -66,8 +63,6 @@ export async function POST(request: Request) {
       email_confirm: true,
     });
 
-    console.log('authUser:', authUser);
-
     if (authError) {
       console.error('Erro ao criar usuário no Auth:', JSON.stringify(authError));
       return NextResponse.json({ error: authError.message }, { status: 400 });
@@ -77,17 +72,6 @@ export async function POST(request: Request) {
       console.error('ID do usuário não retornado:', authUser);
       return NextResponse.json({ error: 'Falha ao obter ID do usuário' }, { status: 400 });
     }
-
-    console.log('Enviando dados para o banco:', {
-      nome,
-      email,
-      usuario,
-      auth_user_id: authUser.user?.id,
-      cpf,
-      nivel,
-      empresa_id,
-      whatsapp,
-    });
 
     const { error: dbError } = await supabaseAdmin.from('usuarios').insert([
       {

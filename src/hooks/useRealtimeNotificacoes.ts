@@ -68,7 +68,6 @@ export function useRealtimeNotificacoes(empresaId?: string | null) {
     try {
       // Verifica se o empresaId é um UUID válido
       if (!empresaId || empresaId === 'mock-empresa-id' || empresaId.length < 10) {
-        console.log('⚠️ [NOTIF] Empresa ID inválido ou mock, pulando busca de notificações');
         return;
       }
 
@@ -155,7 +154,6 @@ export function useRealtimeNotificacoes(empresaId?: string | null) {
 
     // Verifica se o empresaId é válido antes de fazer subscribe
     if (!empresaId || empresaId === 'mock-empresa-id' || empresaId.length < 10) {
-      console.log('⚠️ [NOTIF] Empresa ID inválido ou mock, pulando subscribe realtime');
       return;
     }
 
@@ -211,5 +209,4 @@ export function useRealtimeNotificacoes(empresaId?: string | null) {
     buscarNotificacoesFixas
   };
 }
-
 

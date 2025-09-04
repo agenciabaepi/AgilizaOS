@@ -17,22 +17,18 @@ export default function TesteExpiradoPage() {
   // Verificar se o trial realmente expirou
   useEffect(() => {
     if (!loading) {
-      console.log('TesteExpiradoPage: Verificando status do trial:', {
-        assinatura: assinatura,
-        isTrialExpired: isTrialExpired(),
+      ,
         loading: loading
       });
 
       // Se tem assinatura ativa ou trial não expirou, redirecionar para dashboard
       if (assinatura && !isTrialExpired()) {
-        console.log('TesteExpiradoPage: Trial ativo, redirecionando para dashboard');
         router.push('/dashboard');
         return;
       }
 
       // Se não tem assinatura, permanecer na página
       if (!assinatura) {
-        console.log('TesteExpiradoPage: Sem assinatura, permanecendo na página');
         return;
       }
     }
@@ -84,7 +80,6 @@ export default function TesteExpiradoPage() {
   };
 
   const handlePaymentSuccess = (paymentId: string) => {
-    console.log('Pagamento realizado com sucesso:', paymentId);
     alert('Pagamento realizado com sucesso! Você será redirecionado para o sistema.');
     setTimeout(() => {
       router.push('/dashboard');

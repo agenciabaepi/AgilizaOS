@@ -6,7 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "monitor": "node scripts/monitor.js",
+    "monitor:dev": "node scripts/monitor.js 10",
+    "deploy": "chmod +x scripts/deploy-optimized.sh && ./scripts/deploy-optimized.sh",
+    "deploy:staging": "NODE_ENV=staging npm run build && npm start",
+    "performance": "npm run build && npm run start & sleep 10 && npm run monitor",
+    "clean": "rm -rf .next node_modules/.cache .turbo && npm cache clean --force",
+    "analyze": "ANALYZE=true npm run build",
+    "test:performance": "npm run build && npm run start & sleep 5 && curl -w '@-' -o /dev/null -s http://localhost:3000 <<< $'time_namelookup:  %{time_namelookup}\\ntime_connect:  %{time_connect}\\ntime_appconnect: %{time_appconnect}\\ntime_pretransfer: %{time_pretransfer}\\ntime_redirect:  %{time_redirect}\\ntime_starttransfer: %{time_starttransfer}\\ntime_total:  %{time_total}\\n'"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -39,6 +47,7 @@
     "cleave.js": "^1.6.0",
     "clsx": "^2.1.1",
     "cpf-cnpj-validator": "^1.0.3",
+    "critters": "^0.0.23",
     "firebase": "^11.7.1",
     "framer-motion": "^12.18.1",
     "lottie-react": "^2.4.1",

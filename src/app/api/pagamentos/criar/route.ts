@@ -8,13 +8,6 @@ import { MercadoPagoConfig, Payment } from 'mercadopago';
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('🔍 Iniciando criação de pagamento...');
-    console.log('🔍 Variáveis de ambiente:', {
-      MERCADOPAGO_ACCESS_TOKEN: process.env.MERCADOPAGO_ACCESS_TOKEN ? 'Definida' : 'Não definida',
-      MERCADOPAGO_ENVIRONMENT: process.env.MERCADOPAGO_ENVIRONMENT,
-      NODE_ENV: process.env.NODE_ENV,
-    });
-    
     const { valor, ordemServicoId, descricao, mock, plano_slug } = await request.json();
     
     // Validar dados
@@ -28,7 +21,6 @@ export async function POST(request: NextRequest) {
     // MODO MOCK: pular Mercado Pago e devolver dados simulados
     const shouldMock = mock === true || process.env.MERCADOPAGO_MOCK === '1';
     if (shouldMock) {
-      console.log('🧪 MODO MOCK ATIVO - simulando criação de pagamento PIX');
       const fakePaymentId = `test_${Date.now()}`;
       const fakeQr = `00020126420014BR.GOV.BCB.PIX0125chave@consert.app5204000053039865404${String(
         Number(valor).toFixed(2)
@@ -105,28 +97,22 @@ export async function POST(request: NextRequest) {
         auth: { autoRefreshToken: false, persistSession: false }
       }
     );
-    console.log('👤 Usuário encontrado:', user?.id);
     if (!user) {
       return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 });
     }
 
     // Buscar empresa do usuário
-    console.log('🏢 Buscando empresa do usuário...');
     const { data: usuario } = await supabase
       .from('usuarios')
       .select('empresa_id')
       .eq('auth_user_id', user.id)
       .single();
-    console.log('🏢 Usuário encontrado:', usuario);
     if (!usuario?.empresa_id) {
       return NextResponse.json({ error: 'Empresa não encontrada' }, { status: 400 });
     }
 
     // Configurar Mercado Pago (modo real)
-    console.log('🔍 Configurando Mercado Pago...');
     const { config } = configureMercadoPago();
-    console.log('🔍 Mercado Pago configurado com sucesso');
-    
     // Criar pagamento direto (não preferência)
     const payment = new Payment(config);
     
@@ -137,7 +123,7 @@ export async function POST(request: NextRequest) {
       || currentUrl.origin;
     const baseUrl = inferredHost || 'http://localhost:3000';
     
-    console.log(`URL base (dinâmica): ${baseUrl}`);
+    : ${baseUrl}`);
     
     // Definir notification_url somente se for uma URL https pública (MP exige URL válida)
     const explicitWebhook = process.env.MERCADOPAGO_WEBHOOK_URL;
@@ -165,9 +151,7 @@ export async function POST(request: NextRequest) {
 
     const response = await payment.create({ body: paymentData });
     
-    console.log('Resposta do Mercado Pago:', JSON.stringify(response, null, 2));
-    console.log('Response id:', response.id);
-    
+    );
     // Verificar se response existe e tem id
     if (!response) {
       throw new Error('Resposta do Mercado Pago não existe');
@@ -177,18 +161,9 @@ export async function POST(request: NextRequest) {
       throw new Error('Resposta do Mercado Pago não contém id');
     }
     
-    console.log('✅ Response válido, continuando...');
-    console.log('🔍 Response id:', response.id);
-    console.log('🔍 Response status:', response.status);
-    console.log('🔍 Response point_of_interaction:', response.point_of_interaction);
-    console.log('🔍 Response point_of_interaction?.transaction_data:', response.point_of_interaction?.transaction_data);
-    console.log('🔍 Response point_of_interaction?.transaction_data?.qr_code:', response.point_of_interaction?.transaction_data?.qr_code);
-    console.log('🔍 Response point_of_interaction?.transaction_data?.qr_code_base64:', response.point_of_interaction?.transaction_data?.qr_code_base64);
-    
     // Salvar no banco de dados
-    console.log('🔍 Iniciando busca do usuário...');
     // Inserir pagamento no banco (tolerante a diferenças de schema)
-    console.log('💾 Inserindo pagamento no banco (modo tolerante)...');
+    ...');
     const baseId = crypto.randomUUID();
     const nowIso = new Date().toISOString();
     // Resolver plano_id a partir do slug informado (se houver)
@@ -257,18 +232,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ code: 'DB_INSERT_ERROR', error: 'Erro ao salvar pagamento', details: insertError }, { status: 500 });
     }
     
-        console.log('✅ Pagamento salvo com sucesso:', pagamento);
-    console.log('🔍 Retornando resposta...');
-    console.log('🔍 payment_id:', response.id);
-    console.log('🔍 status:', response.status);
-    
-    // Verificar se temos QR Code do Mercado Pago
+        // Verificar se temos QR Code do Mercado Pago
     const qrCode = response.point_of_interaction?.transaction_data?.qr_code;
     const qrCodeBase64 = response.point_of_interaction?.transaction_data?.qr_code_base64;
     
-    console.log('🔍 QR Code disponível:', !!qrCode);
-    console.log('🔍 QR Code Base64 disponível:', !!qrCodeBase64);
-
     // Tentar atualizar o registro com dados adicionais quando as colunas existirem
     // Atualizações opcionais com tolerância a colunas
     const candidateUpdates: Record<string, any>[] = [

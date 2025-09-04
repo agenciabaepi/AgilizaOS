@@ -61,8 +61,6 @@ function LoginClientInner() {
   useEffect(() => {
     // Se o usuário já estiver logado, redirecionar IMEDIATAMENTE
     if (auth.user && auth.session && !auth.loading) {
-      console.log('🚫 Usuário já logado - ACESSO BLOQUEADO à página de login');
-      
       // Redirecionar para dashboard principal
       router.replace('/dashboard');
     }
@@ -100,14 +98,6 @@ function LoginClientInner() {
     );
   }
   
-  console.log('Debug LoginClient - AuthContext:', {
-    user: auth.user,
-    session: auth.session,
-    usuarioData: auth.usuarioData,
-    empresaData: auth.empresaData,
-    loading: auth.loading
-  });
-
   const handleVerificarCodigo = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -209,7 +199,6 @@ function LoginClientInner() {
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    console.log('Debug login - iniciando login com:', loginInput);
     setIsSubmitting(true);
     let emailToLogin = loginInput;
     
@@ -253,12 +242,6 @@ function LoginClientInner() {
     
     // Se o usuário NÃO é admin, verificar se o ADMIN da empresa foi verificado
     if (usuarioVerificacao?.nivel !== 'admin' && usuarioVerificacao?.empresa_id) {
-      console.log('🔍 Debug - Usuário não-admin:', {
-        nivel: usuarioVerificacao?.nivel,
-        empresa_id: usuarioVerificacao?.empresa_id,
-        email: emailToLogin
-      });
-      
       // Buscar o admin da empresa para verificar se ele foi verificado
       const { data: adminEmpresa, error: adminError } = await supabase
         .from('usuarios')
@@ -266,12 +249,6 @@ function LoginClientInner() {
         .eq('empresa_id', usuarioVerificacao.empresa_id)
         .eq('nivel', 'admin')
         .single();
-      
-      console.log('🔍 Debug - Dados do admin da empresa:', {
-        adminEmpresa,
-        adminError,
-        email_verificado: adminEmpresa?.email_verificado
-      });
       
       if (adminError) {
         console.error('🔍 Debug - Erro ao buscar admin da empresa:', adminError);
@@ -282,14 +259,12 @@ function LoginClientInner() {
       
       // Se o admin da empresa não foi verificado, o usuário não pode fazer login
       if (!adminEmpresa?.email_verificado) {
-        console.log('🔍 Debug - Admin da empresa não verificado, bloqueando login');
         setIsSubmitting(false);
         addToast('error', 'Empresa não verificada. Entre em contato com o administrador.');
         return;
       }
       
-      console.log('🔍 Debug - Admin da empresa verificado, permitindo login');
-    }
+      }
     
     // Tentar fazer login (apenas se email foi verificado)
     const {
@@ -352,8 +327,6 @@ function LoginClientInner() {
       return;
     }
     
-    console.log('Debug login - empresa_id:', usuario.empresa_id);
-    
     // Verificar status da empresa
     const { data: empresa, error: empresaError } = await supabase
       .from('empresas')
@@ -379,7 +352,6 @@ function LoginClientInner() {
     }
     
     // Login bem-sucedido
-    console.log('Debug login - Login bem-sucedido, redirecionando...');
     addToast('success', 'Login realizado com sucesso! Redirecionando...');
     
     // Salvar dados no localStorage

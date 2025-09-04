@@ -22,7 +22,6 @@ export default function LogoutScreen() {
 
     // Timeout de segurança - se demorar mais de 10 segundos, forçar redirecionamento
     const timeout = setTimeout(() => {
-      console.log('⚠️ Timeout de segurança - forçando redirecionamento');
       window.location.href = '/login';
     }, 10000);
 

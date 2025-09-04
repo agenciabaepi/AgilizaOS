@@ -5,6 +5,10 @@ import '../styles/print.css';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { suppressLogsInProduction } from '@/utils/logger';
+import { suppressNetworkErrors } from '@/utils/networkErrorSuppressor';
+import { preCheckProblematicTables } from '@/utils/tableChecker';
+import '@/utils/supabaseGlobalInterceptor';
 import { useRealtimeNotificacoes } from '@/hooks/useRealtimeNotificacoes';
 import { ToastProvider } from '@/components/Toast';
 import { ConfirmProvider } from '@/components/ConfirmDialog';
@@ -32,9 +36,7 @@ function AuthContent({ children }: { children: React.ReactNode }) {
         const res = await fetch(`/api/admin-saas/minha-assinatura?${params.toString()}`, { cache: 'no-store' });
         if (!res.ok) return;
         const json = await res.json();
-        // Sempre loga no console para debug, mesmo em produção
-        try { console.log('[minha-assinatura]', json); } catch {}
-        // Debug visível em dev
+        // Debug visível apenas em desenvolvimento
         if (process.env.NODE_ENV !== 'production') {
           setDebugInfo(JSON.stringify(json));
         }
@@ -87,12 +89,25 @@ function AuthContent({ children }: { children: React.ReactNode }) {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const bypassTrialGuard = pathname?.startsWith('/admin-saas');
+  
+  // Suprimir logs e erros de rede em produção
+  useEffect(() => {
+    suppressLogsInProduction();
+    suppressNetworkErrors();
+    
+    // Pré-verificar tabelas problemáticas para evitar 404s
+    preCheckProblematicTables().catch(() => {
+      // Silenciar erros de verificação de tabelas
+    });
+  }, []);
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
       <head>
+        <script src="/suppress-errors.js"></script>
+        <script src="/aggressive-suppressor.js"></script>
         <script src="/notification.js" defer></script>
       </head>
-      <body suppressHydrationWarning={true}>
+      <body suppressHydrationWarning>
         <AuthProvider>
           <ToastProvider>
             <ConfirmProvider>

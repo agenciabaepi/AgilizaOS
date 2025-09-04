@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 export async function POST(req: NextRequest) {
-  console.log('API Route /api/produtos/criar chamada');
-  
   try {
     const supabaseAdmin = getSupabaseAdmin();
     const {
@@ -14,10 +12,6 @@ export async function POST(req: NextRequest) {
       unidade,
       ativo
     } = await req.json();
-
-    console.log('Dados recebidos na API de cadastro rápido:', {
-      empresa_id, nome, tipo, preco, unidade, ativo
-    });
 
     // Validate required fields
     if (!empresa_id || !nome || !tipo || !preco) {
@@ -49,8 +43,6 @@ export async function POST(req: NextRequest) {
       ativo: true, // Sempre ativo por padrão
       codigo: proximoCodigo.toString()
     };
-
-    console.log('Payload para inserção:', payload);
 
     // Inserção com retry se houver conflito de código único (23505)
     let data: any = null;
@@ -88,7 +80,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log('Produto/serviço criado com sucesso:', data);
     return NextResponse.json({ data }, { status: 201 });
   } catch (err: any) {
     console.error('General POST error:', err);
