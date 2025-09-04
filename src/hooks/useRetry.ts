@@ -35,7 +35,7 @@ export const useRetry = (config: RetryConfig = {}) => {
     hasExceededMaxAttempts: false
   });
 
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const calculateDelay = useCallback((attempt: number): number => {
     const delay = initialDelay * Math.pow(backoffFactor, attempt - 1);

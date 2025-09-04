@@ -161,7 +161,7 @@ export default function ProdutosServicosPage() {
       }
 
       // Sort by criado_em descending (newest first)
-      const sortedData = (produtosServicosData || []).slice().sort((a: any, b: any) => {
+      const sortedData = ((produtosServicosData as any[]) || []).slice().sort((a: any, b: any) => {
         const aTime = new Date((b as any).criado_em).getTime();
         const bTime = new Date((a as any).criado_em).getTime();
         return aTime - bTime;

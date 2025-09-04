@@ -15,7 +15,7 @@ export function SessionNotification({ showDetails = false }: SessionNotification
   // Mostrar notificação quando há sessão ativa
   useEffect(() => {
     if (sessionsEnabled && currentSession && isPrimarySession && !showModal) {
-      addToast('success', 'Sessão única ativa - Sistema de segurança habilitado');
+      addToast('Sessão única ativa - Sistema de segurança habilitado', 'success');
     }
   }, [sessionsEnabled, currentSession, isPrimarySession, showModal, addToast]);
 
@@ -33,10 +33,10 @@ export function SessionNotification({ showDetails = false }: SessionNotification
     setIsTerminating(true);
     try {
       await logoutOtherSessions();
-      addToast('success', 'Outras sessões foram encerradas');
+      addToast('Outras sessões foram encerradas', 'success');
       setShowModal(false);
     } catch (error) {
-      addToast('error', 'Erro ao encerrar outras sessões');
+      addToast('Erro ao encerrar outras sessões', 'error');
     } finally {
       setIsTerminating(false);
     }

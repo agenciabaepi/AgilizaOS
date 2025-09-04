@@ -91,7 +91,7 @@ export default function ProdutoServicoManager({
         console.error('Erro ao buscar items:', error);
         setProdutosServicos([]);
       } else {
-        setProdutosServicos(data || []);
+        setProdutosServicos((data as any[]) || []);
       }
     } catch (error) {
       console.error('Erro:', error);

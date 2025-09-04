@@ -66,12 +66,12 @@ export default function ClientesPage() {
           
           // Calcular estatísticas
           setTotalClientes(data.length);
-          setClientesAtivos(data.filter(c => c.status !== 'inativo').length);
+          setClientesAtivos(data.filter((c: any) => c.status !== 'inativo').length);
           
           // Clientes do mês atual
           const hoje = new Date();
           const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-          setClientesMesAtual(data.filter(c => {
+          setClientesMesAtual(data.filter((c: any) => {
             if (!c.created_at) return false;
             const dataCliente = new Date(c.created_at);
             return dataCliente >= inicioMes;

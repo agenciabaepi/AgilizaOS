@@ -21,20 +21,21 @@ class RateLimiter {
   private config: RateLimitConfig;
 
   constructor(config: RateLimitConfig) {
-    this.config = {
+    const defaultConfig: RateLimitConfig = {
       windowMs: 15 * 60 * 1000, // 15 minutos por padrão
       maxRequests: 100, // 100 requisições por padrão
       skipSuccessfulRequests: false,
       skipFailedRequests: false,
-      keyGenerator: (req) => req.ip || 'anonymous',
-      handler: (req) => {
+      keyGenerator: (req: any) => req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'anonymous',
+      handler: (req: any) => {
         return NextResponse.json(
           { error: 'Too many requests, please try again later.' },
           { status: 429 }
         );
-      },
-      ...config
+      }
     };
+    
+    this.config = { ...defaultConfig, ...config };
   }
 
   private getKey(req: NextRequest): string {
@@ -105,7 +106,7 @@ const apiRateLimiter = new RateLimiter({
   maxRequests: 100, // 100 requisições por IP
   keyGenerator: (req) => {
     // Usar IP + user agent para melhor identificação
-    const ip = req.ip || req.headers.get('x-forwarded-for') || 'unknown';
+    const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
     const userAgent = req.headers.get('user-agent') || 'unknown';
     return `${ip}-${userAgent}`;
   }
@@ -115,7 +116,7 @@ const authRateLimiter = new RateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutos
   maxRequests: 5, // 5 tentativas de login por IP
   keyGenerator: (req) => {
-    const ip = req.ip || req.headers.get('x-forwarded-for') || 'unknown';
+    const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
     return `auth-${ip}`;
   },
   handler: (req) => {
@@ -130,7 +131,7 @@ const uploadRateLimiter = new RateLimiter({
   windowMs: 60 * 60 * 1000, // 1 hora
   maxRequests: 10, // 10 uploads por IP
   keyGenerator: (req) => {
-    const ip = req.ip || req.headers.get('x-forwarded-for') || 'unknown';
+    const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
     return `upload-${ip}`;
   },
   handler: (req) => {

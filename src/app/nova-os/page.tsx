@@ -280,8 +280,8 @@ function NovaOS2Content() {
     } else if (error) {
       handleSupabaseError(error, 'NovaOS - fetchProdutosServicos');
       setProdutosServicos([...produtosTeste, ...servicosTeste]);
-    } else if (data && data.length > 0) {
-      setProdutosServicos(data);
+    } else if (data && (data as any[])?.length > 0) {
+      setProdutosServicos(data as any[]);
     } else {
       // Usar dados de teste se não houver dados no banco
       setProdutosServicos([...produtosTeste, ...servicosTeste]);

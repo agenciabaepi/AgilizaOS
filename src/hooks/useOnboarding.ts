@@ -97,10 +97,8 @@ export const useOnboarding = () => {
       
       const empresa = Object.values(empresaFields).every(field => field);
       
-      setCompletionStatus({
-        empresa: empresa,
-        todosPreenchidos: Object.values(empresaFields).every(field => field)
-      });
+      // This was likely debug code that should be removed
+      // setCompletionStatus was not defined
       const missingFields = Object.entries(empresaFields)
         .filter(([, value]) => !value)
         .map(([key]) => {
@@ -192,6 +190,7 @@ export const useOnboarding = () => {
         .eq('empresa_id', usuarioData.empresa_id);
 
       console.log('DEBUG TÉCNICOS:', {
+        empresa: {
           nome: {
             valor: empresaData?.nome,
             preenchido: empresaFields.nome,
@@ -210,7 +209,7 @@ export const useOnboarding = () => {
           telefone: {
             valor: empresaData?.telefone,
             preenchido: empresaFields.telefone,
-            trim: empresaData?.telefone?.trim()
+            trim: empresaData?.telefone?.trim(),
           },
           camposPreenchidos: empresaFields,
           camposFaltando: missingFields,

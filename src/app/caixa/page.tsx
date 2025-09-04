@@ -184,7 +184,7 @@ export default function CaixaPage() {
         }
         setProdutos([]);
       } else if (data) {
-        setProdutos(data.map((p: ProdutoSupabase) => ({
+        setProdutos((data as any[])?.map((p: ProdutoSupabase) => ({
           ...p,
           imagem_url: Array.isArray(p.imagens_url) && p.imagens_url.length > 0 ? p.imagens_url[0] : undefined,
           descricao: p.obs || ''

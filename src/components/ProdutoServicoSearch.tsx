@@ -88,7 +88,7 @@ export default function ProdutoServicoSearch({
             { id: 'test-prod-4', nome: 'Bateria Celular', preco: 80.00, tipo: 'produto', descricao: 'Bateria para smartphone', codigo: 'BAT-CELULAR' },
             { id: 'test-prod-5', nome: 'Teclado Notebook', preco: 45.00, tipo: 'produto', descricao: 'Teclado ABNT2', codigo: 'TECLADO-NB' },
           ];
-          setResults(dadosTeste);
+          setResults(dadosTeste as any);
           setIsOpen(true);
           return;
         }
@@ -98,9 +98,9 @@ export default function ProdutoServicoSearch({
           handleSupabaseError(error, 'ProdutoServicoSearch');
         }
         
-        if (!error && data && data.length > 0) {
+        if (!error && data && (data as any[])?.length > 0) {
           // Mapear os dados para o formato esperado
-          const resultadosMapeados = data.map((item: any) => ({
+          const resultadosMapeados = (data as any[]).map((item: any) => ({
             ...item,
             descricao: item.obs || `${item.categoria || ''} ${item.marca || ''}`.trim() || 'Sem descrição'
           }));
