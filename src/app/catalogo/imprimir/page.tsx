@@ -36,8 +36,7 @@ export default function ImprimirCatalogoPage() {
       let empresaId = empresaData?.id;
       let empresaInfo = empresaData;
 
-      : 'N/A'
-      });
+      console.log('Empresa ID:', empresaId || 'N/A');
 
       // Se não tiver dados do context, tentar localStorage
       if (!empresaId) {

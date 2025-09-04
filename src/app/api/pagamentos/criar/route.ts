@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
       || currentUrl.origin;
     const baseUrl = inferredHost || 'http://localhost:3000';
     
-    : ${baseUrl}`);
+    console.log(`🔗 Base URL configurada: ${baseUrl}`);
     
     // Definir notification_url somente se for uma URL https pública (MP exige URL válida)
     const explicitWebhook = process.env.MERCADOPAGO_WEBHOOK_URL;

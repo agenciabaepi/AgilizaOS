@@ -194,7 +194,8 @@ function OrdemPDF({ ordem }: { ordem: any }) {
     });
     
     // Debug: verifica se todas as seções foram capturadas
-    );
+    console.log('Seções capturadas:', leftColumn.length + rightColumn.length);
+    
     // Renderiza layout em 2 colunas otimizado para uma folha
     return (
       <View style={{ flexDirection: 'row', gap: 16 }}>

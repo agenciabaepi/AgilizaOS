@@ -17,7 +17,7 @@ export default function TesteExpiradoPage() {
   // Verificar se o trial realmente expirou
   useEffect(() => {
     if (!loading) {
-      ,
+      console.log('Estado de loading:', {
         loading: loading
       });
 
