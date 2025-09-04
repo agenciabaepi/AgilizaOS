@@ -1,12 +1,13 @@
-import { createClient } from '@supabase/supabase-js';
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+// MIDDLEWARE COMPLETAMENTE DESABILITADO
+// Para resolver problemas de EvalError no Edge Runtime
 
-export async function middleware(req: NextRequest) {
-  // TEMPORÁRIO: Desabilitar middleware para resolver problemas de Edge Runtime
-  // O middleware estava causando erros de eval() no Edge Runtime
-  // Isso permitirá que o site funcione enquanto investigamos a solução
-  return NextResponse.next();
+// import { createClient } from '@supabase/supabase-js';
+// import { NextResponse } from 'next/server';
+// import type { NextRequest } from 'next/server';
+
+// export async function middleware(req: NextRequest) {
+//   return NextResponse.next();
+// }
   
   // TODO: Reativar middleware após resolver compatibilidade com Edge Runtime
   /*
@@ -84,16 +85,6 @@ export async function middleware(req: NextRequest) {
   */
 }
 
-export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - _rsc (React Server Components)
-     */
-    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.).*)',
-  ],
-};
+// export const config = {
+//   matcher: [],
+// };
