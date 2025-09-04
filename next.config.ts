@@ -1,22 +1,18 @@
 import type { NextConfig } from "next";
 
-// CONFIGURAÇÃO DE EMERGÊNCIA - MÁXIMA COMPATIBILIDADE
+// CONFIGURAÇÃO LIMPA E COMPATÍVEL
 const nextConfig: NextConfig = {
-  // Ignorar todos os erros para forçar build
+  // Ignorar erros para build de emergência
   eslint: {
     ignoreDuringBuilds: true,
   },
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Desabilitar TODAS as otimizações
-  swcMinify: false,
-  minify: false,
   
-  // Configuração experimental para CSS
+  // Configuração experimental simplificada
   experimental: {
     optimizeCss: false,
-    cssChunking: 'strict',
   },
   
   // Desabilitar otimizações que causam problemas
