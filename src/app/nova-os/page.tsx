@@ -176,27 +176,49 @@ function NovaOS2Content() {
   const { addToast } = useToast();
   const { register, handleSubmit, reset, formState: { errors } } = useForm<{ nome: string; whatsapp: string; cpf: string; numero_reserva?: string; email?: string }>();
 
+  // ✅ CORRIGIDO: useEffect sem loop infinito
   useEffect(() => {
     async function fetchClientes() {
       if (!empresaData?.id) return;
+      
+      console.log('🔄 Carregando clientes para empresa:', empresaData.id);
       setLoadingClientes(true);
-      const { data, error } = await supabase
-        .from('clientes')
-        .select('id, nome, telefone, celular, email, documento, numero_cliente')
-        .eq('empresa_id', empresaData.id);
-      if (!error && data) {
-        setClientes(data);
-        
-        // Verificar se há clienteId na URL para selecionar automaticamente
-        const clienteIdFromURL = searchParams.get('clienteId');
-        if (clienteIdFromURL && clienteIdFromURL !== 'null' && data.find((c: any) => c.id === clienteIdFromURL)) {
-          setClienteSelecionado(clienteIdFromURL);
+      
+      try {
+        const { data, error } = await supabase
+          .from('clientes')
+          .select('id, nome, telefone, celular, email, documento, numero_cliente')
+          .eq('empresa_id', empresaData.id)
+          .order('nome'); // Ordenar para melhor UX
+
+        if (error) {
+          console.error('❌ Erro ao carregar clientes:', error);
+          throw error;
         }
+
+        if (data) {
+          console.log('✅ Clientes carregados:', data.length);
+          setClientes(data);
+          
+          // Verificar clienteId da URL apenas uma vez na inicialização
+          const clienteIdFromURL = searchParams.get('clienteId');
+          if (clienteIdFromURL && clienteIdFromURL !== 'null') {
+            const clienteEncontrado = data.find((c: any) => c.id === clienteIdFromURL);
+            if (clienteEncontrado) {
+              setClienteSelecionado(clienteIdFromURL);
+              console.log('✅ Cliente selecionado automaticamente:', clienteEncontrado.nome);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('❌ Erro ao buscar clientes:', error);
+      } finally {
+        setLoadingClientes(false);
       }
-      setLoadingClientes(false);
     }
+    
     fetchClientes();
-  }, [empresaData?.id, searchParams]);
+  }, [empresaData?.id]); // ✅ Removido searchParams para evitar loops
 
   useEffect(() => {
     async function fetchUsuarios() {
