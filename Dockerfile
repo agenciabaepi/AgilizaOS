@@ -23,7 +23,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Instalar dependências
-RUN npm ci
+RUN yarn install --frozen-lockfile
 
 # Copiar código da aplicação
 COPY . .
@@ -33,10 +33,10 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
 # Fazer build de produção
-RUN npm run build
+RUN yarn build
 
 # Limpar dependências de desenvolvimento  
-RUN npm prune --production
+RUN yarn install --production --ignore-scripts --prefer-offline
 
 # Expor porta
 EXPOSE 3000
@@ -45,4 +45,4 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # Usar modo produção
-CMD ["npm", "start"]
+CMD ["yarn", "start"]
