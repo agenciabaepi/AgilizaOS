@@ -19,20 +19,18 @@ interface UseOSLoadingReturn {
   startLoading: () => void;
   stopLoading: () => void;
   setError: (error: Error | null) => void;
-  retry: () => Promise<void>;
-  executeWithLoading: <T>(
-    operation: () => Promise<T>,
-    options?: { skipTimeout?: boolean }
-  ) => Promise<T | null>;
+  retry: () => void;
+  reset: () => void;
+  executeWithLoading: <T>(operation: () => Promise<T>) => Promise<T | null>;
 }
 
 /**
- * Hook especializado para gerenciar loading states nas páginas críticas de OS
- * Inclui timeout automático, retry logic e tratamento de erros robusto
+ * Hook para gerenciar estados de loading com timeout e retry automático
+ * Otimizado para queries do Supabase com tratamento robusto de erros
  */
 export const useOSLoading = (options: UseOSLoadingOptions = {}): UseOSLoadingReturn => {
   const {
-    timeoutMs = 15000, // 15 segundos por padrão
+    timeoutMs = 10000, // 10 segundos padrão
     onTimeout,
     onError,
     retryAttempts = 3,
@@ -40,157 +38,160 @@ export const useOSLoading = (options: UseOSLoadingOptions = {}): UseOSLoadingRet
   } = options;
 
   const { addToast } = useToast();
+  
+  // Estados principais
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
-
+  
+  // Refs para controle
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastOperationRef = useRef<(() => Promise<any>) | null>(null);
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isUnmountedRef = useRef(false);
 
-  // Limpar timeout ao desmontar componente
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
-
-  const clearLoadingTimeout = useCallback(() => {
+  // Cleanup timeouts
+  const clearTimeouts = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
   }, []);
 
-  const startLoadingTimeout = useCallback(() => {
-    clearLoadingTimeout();
+  // Iniciar loading com timeout
+  const startLoading = useCallback(() => {
+    if (isUnmountedRef.current) return;
     
+    setLoading(true);
+    setError(null);
+    
+    // Configurar timeout
     timeoutRef.current = setTimeout(() => {
-      console.warn('🚨 Loading timeout atingido após', timeoutMs, 'ms');
+      if (isUnmountedRef.current) return;
       
-      const timeoutError = new Error(`Operação demorou mais que ${timeoutMs / 1000} segundos para completar`);
+      const timeoutError = new Error(`Timeout após ${timeoutMs}ms`);
       setError(timeoutError);
       setLoading(false);
       
-      addToast('error', 'A operação está demorando mais que o esperado. Tente novamente.');
-      
       if (onTimeout) {
         onTimeout();
+      } else {
+        addToast('warning', 'Operação demorou muito para responder. Tente novamente.');
       }
       
-      if (onError) {
-        onError(timeoutError);
-      }
+      console.warn('⏰ Timeout na operação:', timeoutMs + 'ms');
     }, timeoutMs);
-  }, [timeoutMs, onTimeout, onError, addToast, clearLoadingTimeout]);
+  }, [timeoutMs, onTimeout, addToast]);
 
-  const startLoading = useCallback(() => {
-    setLoading(true);
-    setError(null);
-    startLoadingTimeout();
-  }, [startLoadingTimeout]);
-
+  // Parar loading
   const stopLoading = useCallback(() => {
+    if (isUnmountedRef.current) return;
+    
     setLoading(false);
-    clearLoadingTimeout();
-  }, [clearLoadingTimeout]);
+    clearTimeouts();
+  }, [clearTimeouts]);
 
-  const handleSetError = useCallback((error: Error | null) => {
-    setError(error);
-    if (error) {
-      stopLoading();
-      console.error('🚨 Erro capturado pelo useOSLoading:', error);
+  // Setar erro
+  const setErrorState = useCallback((newError: Error | null) => {
+    if (isUnmountedRef.current) return;
+    
+    setError(newError);
+    if (newError) {
+      setLoading(false);
+      clearTimeouts();
       
       if (onError) {
-        onError(error);
+        onError(newError);
       }
+      
+      console.error('❌ Erro capturado:', newError);
     }
-  }, [stopLoading, onError]);
+  }, [onError, clearTimeouts]);
 
-  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-  const retry = useCallback(async () => {
-    if (retryCount >= retryAttempts) {
-      console.warn('Máximo de tentativas atingido:', retryAttempts);
-      addToast('error', `Falha após ${retryAttempts} tentativas. Verifique sua conexão.`);
+  // Retry com delay progressivo
+  const retry = useCallback(() => {
+    if (isUnmountedRef.current || retryCount >= retryAttempts) {
+      console.warn('🚫 Máximo de tentativas atingido:', retryCount, '/', retryAttempts);
       return;
     }
 
-    if (!lastOperationRef.current) {
-      console.warn('Nenhuma operação para retry');
-      return;
-    }
-
-    console.log(`Tentativa ${retryCount + 1}/${retryAttempts}`);
-    
     setIsRetrying(true);
-    setError(null);
+    const delay = retryDelayMs * Math.pow(2, retryCount); // Exponential backoff
     
-    // Delay progressivo: 1s, 2s, 3s...
-    const delayTime = retryDelayMs * (retryCount + 1);
-    await delay(delayTime);
+    console.log(`🔄 Retry ${retryCount + 1}/${retryAttempts} em ${delay}ms`);
     
-    try {
+    retryTimeoutRef.current = setTimeout(() => {
+      if (isUnmountedRef.current) return;
+      
       setRetryCount(prev => prev + 1);
-      await lastOperationRef.current();
-      
-      // Reset retry count em caso de sucesso
-      setRetryCount(0);
-      addToast('success', 'Operação realizada com sucesso!');
-    } catch (error) {
-      console.error('Erro no retry:', error);
-      handleSetError(error as Error);
-    } finally {
       setIsRetrying(false);
-    }
-  }, [retryCount, retryAttempts, retryDelayMs, addToast, handleSetError]);
-
-  const executeWithLoading = useCallback(async <T>(
-    operation: () => Promise<T>,
-    options: { skipTimeout?: boolean } = {}
-  ): Promise<T | null> => {
-    try {
-      // Armazenar operação para retry
-      lastOperationRef.current = operation;
-      
-      // Iniciar loading (com ou sem timeout)
-      setLoading(true);
       setError(null);
       
-      if (!options.skipTimeout) {
-        startLoadingTimeout();
-      }
+      // Não reinicia loading automaticamente - deixa para executeWithLoading
+    }, delay);
+  }, [retryCount, retryAttempts, retryDelayMs]);
 
-      console.log('🔄 Iniciando operação com loading...');
+  // Reset completo
+  const reset = useCallback(() => {
+    if (isUnmountedRef.current) return;
+    
+    setLoading(false);
+    setError(null);
+    setRetryCount(0);
+    setIsRetrying(false);
+    clearTimeouts();
+  }, [clearTimeouts]);
+
+  // Executar operação com loading automático
+  const executeWithLoading = useCallback(async <T>(operation: () => Promise<T>): Promise<T | null> => {
+    if (isUnmountedRef.current) return null;
+    
+    try {
+      startLoading();
+      
       const result = await operation();
       
-      console.log('✅ Operação completada com sucesso');
-      stopLoading();
-      
-      // Reset retry count em caso de sucesso
-      setRetryCount(0);
+      if (!isUnmountedRef.current) {
+        stopLoading();
+      }
       
       return result;
-    } catch (error) {
-      console.error('❌ Erro na operação:', error);
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
       
-      const errorObj = error instanceof Error ? error : new Error(String(error));
-      handleSetError(errorObj);
-      
-      // Mostrar toast de erro específico
-      if (errorObj.message.includes('timeout')) {
-        addToast('error', 'Operação demorou muito para responder. Tente novamente.');
-      } else if (errorObj.message.includes('network')) {
-        addToast('error', 'Erro de conexão. Verifique sua internet.');
-      } else {
-        addToast('error', 'Erro inesperado. Tente novamente.');
+      if (!isUnmountedRef.current) {
+        setErrorState(error);
       }
       
       return null;
     }
-  }, [startLoadingTimeout, stopLoading, handleSetError, addToast]);
+  }, [startLoading, stopLoading, setErrorState]);
+
+  // Cleanup no unmount
+  useEffect(() => {
+    isUnmountedRef.current = false;
+    
+    return () => {
+      isUnmountedRef.current = true;
+      clearTimeouts();
+    };
+  }, [clearTimeouts]);
+
+  // Auto-retry quando error muda
+  useEffect(() => {
+    if (error && !isRetrying && retryCount < retryAttempts) {
+      // Auto-retry apenas para erros específicos
+      if (error.message.includes('timeout') || 
+          error.message.includes('network') || 
+          error.message.includes('fetch')) {
+        retry();
+      }
+    }
+  }, [error, isRetrying, retryCount, retryAttempts, retry]);
 
   return {
     loading,
@@ -199,261 +200,21 @@ export const useOSLoading = (options: UseOSLoadingOptions = {}): UseOSLoadingRet
     isRetrying,
     startLoading,
     stopLoading,
-    setError: handleSetError,
+    setError: setErrorState,
     retry,
+    reset,
     executeWithLoading
   };
 };
 
 /**
- * Hook específico para operações de OS com configurações otimizadas
+ * Hook simplificado para queries básicas
  */
-export const useOSOperation = () => {
+export const useOSQuery = (options?: UseOSLoadingOptions) => {
   return useOSLoading({
-    timeoutMs: 20000, // 20s para operações de OS (mais complexas)
-    retryAttempts: 3,
-    retryDelayMs: 2000
-  });
-};
-
-/**
- * Hook específico para queries rápidas (listas, filtros, etc.)
- */
-export const useOSQuery = () => {
-  return useOSLoading({
-    timeoutMs: 10000, // 10s para queries simples
-    retryAttempts: 2,
-    retryDelayMs: 1000
-  });
-};
-
-export default useOSLoading;
-
-
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useToast } from '@/components/Toast';
-
-interface UseOSLoadingOptions {
-  timeoutMs?: number;
-  onTimeout?: () => void;
-  onError?: (error: Error) => void;
-  retryAttempts?: number;
-  retryDelayMs?: number;
-}
-
-interface UseOSLoadingReturn {
-  loading: boolean;
-  error: Error | null;
-  retryCount: number;
-  isRetrying: boolean;
-  startLoading: () => void;
-  stopLoading: () => void;
-  setError: (error: Error | null) => void;
-  retry: () => Promise<void>;
-  executeWithLoading: <T>(
-    operation: () => Promise<T>,
-    options?: { skipTimeout?: boolean }
-  ) => Promise<T | null>;
-}
-
-/**
- * Hook especializado para gerenciar loading states nas páginas críticas de OS
- * Inclui timeout automático, retry logic e tratamento de erros robusto
- */
-export const useOSLoading = (options: UseOSLoadingOptions = {}): UseOSLoadingReturn => {
-  const {
-    timeoutMs = 15000, // 15 segundos por padrão
-    onTimeout,
-    onError,
-    retryAttempts = 3,
-    retryDelayMs = 1000
-  } = options;
-
-  const { addToast } = useToast();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
-  const [isRetrying, setIsRetrying] = useState(false);
-
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastOperationRef = useRef<(() => Promise<any>) | null>(null);
-
-  // Limpar timeout ao desmontar componente
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
-
-  const clearLoadingTimeout = useCallback(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-  }, []);
-
-  const startLoadingTimeout = useCallback(() => {
-    clearLoadingTimeout();
-    
-    timeoutRef.current = setTimeout(() => {
-      console.warn('🚨 Loading timeout atingido após', timeoutMs, 'ms');
-      
-      const timeoutError = new Error(`Operação demorou mais que ${timeoutMs / 1000} segundos para completar`);
-      setError(timeoutError);
-      setLoading(false);
-      
-      addToast('error', 'A operação está demorando mais que o esperado. Tente novamente.');
-      
-      if (onTimeout) {
-        onTimeout();
-      }
-      
-      if (onError) {
-        onError(timeoutError);
-      }
-    }, timeoutMs);
-  }, [timeoutMs, onTimeout, onError, addToast, clearLoadingTimeout]);
-
-  const startLoading = useCallback(() => {
-    setLoading(true);
-    setError(null);
-    startLoadingTimeout();
-  }, [startLoadingTimeout]);
-
-  const stopLoading = useCallback(() => {
-    setLoading(false);
-    clearLoadingTimeout();
-  }, [clearLoadingTimeout]);
-
-  const handleSetError = useCallback((error: Error | null) => {
-    setError(error);
-    if (error) {
-      stopLoading();
-      console.error('🚨 Erro capturado pelo useOSLoading:', error);
-      
-      if (onError) {
-        onError(error);
-      }
-    }
-  }, [stopLoading, onError]);
-
-  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-  const retry = useCallback(async () => {
-    if (retryCount >= retryAttempts) {
-      console.warn('Máximo de tentativas atingido:', retryAttempts);
-      addToast('error', `Falha após ${retryAttempts} tentativas. Verifique sua conexão.`);
-      return;
-    }
-
-    if (!lastOperationRef.current) {
-      console.warn('Nenhuma operação para retry');
-      return;
-    }
-
-    console.log(`Tentativa ${retryCount + 1}/${retryAttempts}`);
-    
-    setIsRetrying(true);
-    setError(null);
-    
-    // Delay progressivo: 1s, 2s, 3s...
-    const delayTime = retryDelayMs * (retryCount + 1);
-    await delay(delayTime);
-    
-    try {
-      setRetryCount(prev => prev + 1);
-      await lastOperationRef.current();
-      
-      // Reset retry count em caso de sucesso
-      setRetryCount(0);
-      addToast('success', 'Operação realizada com sucesso!');
-    } catch (error) {
-      console.error('Erro no retry:', error);
-      handleSetError(error as Error);
-    } finally {
-      setIsRetrying(false);
-    }
-  }, [retryCount, retryAttempts, retryDelayMs, addToast, handleSetError]);
-
-  const executeWithLoading = useCallback(async <T>(
-    operation: () => Promise<T>,
-    options: { skipTimeout?: boolean } = {}
-  ): Promise<T | null> => {
-    try {
-      // Armazenar operação para retry
-      lastOperationRef.current = operation;
-      
-      // Iniciar loading (com ou sem timeout)
-      setLoading(true);
-      setError(null);
-      
-      if (!options.skipTimeout) {
-        startLoadingTimeout();
-      }
-
-      console.log('🔄 Iniciando operação com loading...');
-      const result = await operation();
-      
-      console.log('✅ Operação completada com sucesso');
-      stopLoading();
-      
-      // Reset retry count em caso de sucesso
-      setRetryCount(0);
-      
-      return result;
-    } catch (error) {
-      console.error('❌ Erro na operação:', error);
-      
-      const errorObj = error instanceof Error ? error : new Error(String(error));
-      handleSetError(errorObj);
-      
-      // Mostrar toast de erro específico
-      if (errorObj.message.includes('timeout')) {
-        addToast('error', 'Operação demorou muito para responder. Tente novamente.');
-      } else if (errorObj.message.includes('network')) {
-        addToast('error', 'Erro de conexão. Verifique sua internet.');
-      } else {
-        addToast('error', 'Erro inesperado. Tente novamente.');
-      }
-      
-      return null;
-    }
-  }, [startLoadingTimeout, stopLoading, handleSetError, addToast]);
-
-  return {
-    loading,
-    error,
-    retryCount,
-    isRetrying,
-    startLoading,
-    stopLoading,
-    setError: handleSetError,
-    retry,
-    executeWithLoading
-  };
-};
-
-/**
- * Hook específico para operações de OS com configurações otimizadas
- */
-export const useOSOperation = () => {
-  return useOSLoading({
-    timeoutMs: 20000, // 20s para operações de OS (mais complexas)
-    retryAttempts: 3,
-    retryDelayMs: 2000
-  });
-};
-
-/**
- * Hook específico para queries rápidas (listas, filtros, etc.)
- */
-export const useOSQuery = () => {
-  return useOSLoading({
-    timeoutMs: 10000, // 10s para queries simples
-    retryAttempts: 2,
-    retryDelayMs: 1000
+    timeoutMs: 8000, // Timeout mais agressivo para queries
+    retryAttempts: 2, // Menos tentativas para queries
+    ...options
   });
 };
 
