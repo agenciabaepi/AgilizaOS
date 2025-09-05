@@ -31,8 +31,8 @@ const nextConfig: NextConfig = {
   reactStrictMode: false,
   trailingSlash: false,
 
-  // Standalone para deployment
-  output: 'standalone',
+  // Remover standalone temporariamente
+  // output: 'standalone',
   
   // WEBPACK CONFIG PARA DESABILITAR CRITTERS
   webpack: (config: any, { isServer }: any) => {
