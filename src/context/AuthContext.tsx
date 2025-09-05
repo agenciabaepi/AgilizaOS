@@ -121,13 +121,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const initializeAuth = async () => {
       try {
 
-        // Timeout para evitar loading infinito
+        // ✅ OTIMIZADO: Timeout mais rápido para usuários não logados
         authTimeout = setTimeout(() => {
           if (isMounted && loading) {
-            console.warn('⚠️ Timeout na inicialização da autenticação');
+            console.warn('⚠️ Timeout na inicialização da autenticação - provavelmente usuário não logado');
             setLoading(false);
           }
-        }, 20000); // 20 segundos
+        }, 3000); // 3 segundos para usuários não logados
         
         const { data: { session }, error } = await supabase.auth.getSession();
 
@@ -140,12 +140,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
 
         if (session) {
-
+          console.log('✅ Sessão encontrada - carregando dados do usuário');
           setSession(session);
           setUser(session.user);
           await fetchUserData(session.user.id, session);
         } else {
-          }
+          console.log('❌ Nenhuma sessão encontrada - usuário não está logado');
+          setLoading(false); // ✅ CRÍTICO: Parar loading imediatamente quando não há sessão
+        }
       } catch (error) {
         console.error('❌ Erro na inicialização da autenticação:', error);
       } finally {

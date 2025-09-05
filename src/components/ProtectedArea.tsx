@@ -2,31 +2,39 @@
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { useQuickAuthCheck } from '@/hooks/useQuickAuthCheck';
 
 export default function ProtectedArea({ area, children }: { area: string, children: React.ReactNode }) {
   const { user, session, usuarioData, loading } = useAuth();
+  const { isCheckingAuth, isAuthenticated } = useQuickAuthCheck();
   const router = useRouter();
   const [hasRedirected, setHasRedirected] = useState(false);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
 
-  // ✅ TIMEOUT DE LOADING: Evitar loading infinito
+  // ✅ TIMEOUT DE LOADING: Evitar loading infinito (mais rápido para não logados)
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (loading) {
-        console.warn('⚠️ Loading timeout no ProtectedArea - resetando...');
+        console.warn('⚠️ Loading timeout no ProtectedArea - usuário provavelmente não logado');
         setLoadingTimeout(true);
       }
-    }, 15000); // 15 segundos
+    }, 3000); // 3 segundos para usuários não logados
 
     return () => clearTimeout(timeout);
   }, [loading]);
 
-  // ✅ REDIRECIONAMENTO ROBUSTO: Múltiplas tentativas
+  // ✅ REDIRECIONAMENTO SUPER RÁPIDO: Quick check + fallback robusto
   useEffect(() => {
+    // Quick check já redirecionou, não fazer nada
+    if (!isCheckingAuth && !isAuthenticated) {
+      return;
+    }
+    
+    // Fallback para casos onde quick check não funcionou
     if ((!loading && !user && !session) || loadingTimeout) {
       if (!hasRedirected) {
         setHasRedirected(true);
-        console.warn('🚨 ProtectedArea: Usuário não autenticado - redirecionando para login');
+        console.warn('🚨 ProtectedArea: Usuário não autenticado - redirecionamento de fallback');
         
         // Tentar router primeiro
         try {
@@ -35,25 +43,25 @@ export default function ProtectedArea({ area, children }: { area: string, childr
           console.warn('Router falhou no ProtectedArea, usando window.location');
         }
         
-        // Backup com window.location após 500ms
+        // Backup com window.location após 300ms
         setTimeout(() => {
           if (!user && !session) {
             console.warn('🚨 Backup redirect - usando window.location.replace');
             window.location.replace('/login');
           }
-        }, 500);
+        }, 300);
         
-        // Último recurso após 1.5s
+        // Último recurso após 1s
         setTimeout(() => {
           if (!user && !session) {
             console.warn('🚨 Último recurso - forçando redirect');
             window.location.href = '/login';
           }
-        }, 1500);
+        }, 1000);
       }
       return;
     }
-  }, [loading, user, session, hasRedirected, router, loadingTimeout]);
+  }, [loading, user, session, hasRedirected, router, loadingTimeout, isCheckingAuth, isAuthenticated]);
 
   // ✅ LOADING STATE COM TIMEOUT
   if (loading && !loadingTimeout) {
