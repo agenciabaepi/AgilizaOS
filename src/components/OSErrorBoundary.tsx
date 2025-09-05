@@ -1,19 +1,19 @@
 'use client';
 
-import React, { Component, ReactNode } from 'react';
+import { Component, ReactNode, ErrorInfo } from 'react';
 import { FiAlertTriangle, FiRefreshCw, FiHome } from 'react-icons/fi';
 import { Button } from './Button';
 
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
-  onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
+  onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
 interface State {
   hasError: boolean;
   error: Error | null;
-  errorInfo: React.ErrorInfo | null;
+  errorInfo: ErrorInfo | null;
   retryCount: number;
 }
 
@@ -41,7 +41,7 @@ export class OSErrorBoundary extends Component<Props, State> {
     };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('🚨 OS Error Boundary capturou erro:', {
       error: error.message,
       stack: error.stack,
@@ -63,7 +63,7 @@ export class OSErrorBoundary extends Component<Props, State> {
     this.logErrorToService(error, errorInfo);
   }
 
-  private logErrorToService = (error: Error, errorInfo: React.ErrorInfo) => {
+  private logErrorToService = (error: Error, errorInfo: ErrorInfo) => {
     // Aqui você pode integrar com serviços de monitoramento
     // Por enquanto, só console.error detalhado
     console.error('Erro detalhado para monitoramento:', {
@@ -210,13 +210,13 @@ import { Button } from './Button';
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
-  onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
+  onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
 interface State {
   hasError: boolean;
   error: Error | null;
-  errorInfo: React.ErrorInfo | null;
+  errorInfo: ErrorInfo | null;
   retryCount: number;
 }
 
@@ -244,7 +244,7 @@ export class OSErrorBoundary extends Component<Props, State> {
     };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('🚨 OS Error Boundary capturou erro:', {
       error: error.message,
       stack: error.stack,
@@ -266,7 +266,7 @@ export class OSErrorBoundary extends Component<Props, State> {
     this.logErrorToService(error, errorInfo);
   }
 
-  private logErrorToService = (error: Error, errorInfo: React.ErrorInfo) => {
+  private logErrorToService = (error: Error, errorInfo: ErrorInfo) => {
     // Aqui você pode integrar com serviços de monitoramento
     // Por enquanto, só console.error detalhado
     console.error('Erro detalhado para monitoramento:', {
