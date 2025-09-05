@@ -8,6 +8,9 @@ interface Props {
   children: ReactNode;
   fallback?: ReactNode;
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
+  maxRetries?: number;
+  resetOnPropsChange?: boolean;
+  resetKeys?: Array<string | number>;
 }
 
 interface State {
@@ -15,71 +18,136 @@ interface State {
   error: Error | null;
   errorInfo: ErrorInfo | null;
   retryCount: number;
+  errorId: string;
 }
 
-/**
- * Error Boundary específico para páginas críticas de OS
- * Captura erros JavaScript e fornece fallback com opções de recuperação
- */
 export class OSErrorBoundary extends Component<Props, State> {
-  private maxRetries = 3;
-  
+  private retryTimeoutId: NodeJS.Timeout | null = null;
+
   constructor(props: Props) {
     super(props);
     this.state = {
       hasError: false,
       error: null,
       errorInfo: null,
-      retryCount: 0
+      retryCount: 0,
+      errorId: ''
     };
   }
 
   static getDerivedStateFromError(error: Error): Partial<State> {
+    const errorId = `error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     return {
       hasError: true,
-      error
+      error,
+      errorId
     };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('🚨 OS Error Boundary capturou erro:', {
-      error: error.message,
-      stack: error.stack,
-      componentStack: errorInfo.componentStack,
-      timestamp: new Date().toISOString()
-    });
+    // Log do erro para monitoramento
+    console.group('🚨 OSErrorBoundary - Erro capturado');
+    console.error('Error:', error);
+    console.error('Error Info:', errorInfo);
+    console.error('Component Stack:', errorInfo.componentStack);
+    console.error('Error Boundary Props:', this.props);
+    console.groupEnd();
 
     this.setState({
       error,
       errorInfo
     });
 
-    // Chamar callback personalizado se fornecido
+    // Callback personalizado de erro
     if (this.props.onError) {
-      this.props.onError(error, errorInfo);
+      try {
+        this.props.onError(error, errorInfo);
+      } catch (callbackError) {
+        console.error('Erro no callback onError:', callbackError);
+      }
     }
 
-    // Log para monitoramento (pode integrar com Sentry, LogRocket, etc.)
-    this.logErrorToService(error, errorInfo);
+    // Auto-retry para erros específicos (apenas em desenvolvimento)
+    if (process.env.NODE_ENV === 'development' && this.shouldAutoRetry(error)) {
+      this.scheduleAutoRetry();
+    }
   }
 
-  private logErrorToService = (error: Error, errorInfo: ErrorInfo) => {
-    // Aqui você pode integrar com serviços de monitoramento
-    // Por enquanto, só console.error detalhado
-    console.error('Erro detalhado para monitoramento:', {
-      message: error.message,
-      stack: error.stack,
-      componentStack: errorInfo.componentStack,
-      userAgent: navigator.userAgent,
-      url: window.location.href,
-      timestamp: new Date().toISOString(),
-      retryCount: this.state.retryCount
+  componentDidUpdate(prevProps: Props) {
+    const { resetKeys, resetOnPropsChange } = this.props;
+    const { hasError } = this.state;
+
+    // Reset quando resetKeys mudam
+    if (hasError && resetKeys) {
+      const prevResetKeys = prevProps.resetKeys || [];
+      const hasResetKeyChanged = resetKeys.some((key, idx) => prevResetKeys[idx] !== key);
+      
+      if (hasResetKeyChanged) {
+        this.resetErrorBoundary();
+      }
+    }
+
+    // Reset quando props mudam (se habilitado)
+    if (hasError && resetOnPropsChange && prevProps !== this.props) {
+      this.resetErrorBoundary();
+    }
+  }
+
+  componentWillUnmount() {
+    if (this.retryTimeoutId) {
+      clearTimeout(this.retryTimeoutId);
+    }
+  }
+
+  shouldAutoRetry = (error: Error): boolean => {
+    // Lista de erros que podem ser resolvidos com retry
+    const retryableErrors = [
+      'ChunkLoadError',
+      'Loading chunk',
+      'Loading CSS chunk',
+      'Failed to fetch'
+    ];
+
+    return retryableErrors.some(errorType => 
+      error.message?.includes(errorType) || error.name?.includes(errorType)
+    );
+  };
+
+  scheduleAutoRetry = () => {
+    const { maxRetries = 3 } = this.props;
+    const { retryCount } = this.state;
+
+    if (retryCount < maxRetries) {
+      const delay = Math.min(1000 * Math.pow(2, retryCount), 5000); // Exponential backoff
+      
+      this.retryTimeoutId = setTimeout(() => {
+        console.log(`🔄 Auto-retry ${retryCount + 1}/${maxRetries} em ${delay}ms`);
+        this.handleRetry();
+      }, delay);
+    }
+  };
+
+  resetErrorBoundary = () => {
+    if (this.retryTimeoutId) {
+      clearTimeout(this.retryTimeoutId);
+      this.retryTimeoutId = null;
+    }
+
+    this.setState({
+      hasError: false,
+      error: null,
+      errorInfo: null,
+      retryCount: 0,
+      errorId: ''
     });
   };
 
-  private handleRetry = () => {
-    if (this.state.retryCount < this.maxRetries) {
-      console.log(`Tentativa de retry ${this.state.retryCount + 1}/${this.maxRetries}`);
+  handleRetry = () => {
+    const { maxRetries = 3 } = this.props;
+    const { retryCount } = this.state;
+
+    if (retryCount < maxRetries) {
+      console.log(`🔄 Tentativa ${retryCount + 1}/${maxRetries}`);
       
       this.setState(prevState => ({
         hasError: false,
@@ -87,306 +155,108 @@ export class OSErrorBoundary extends Component<Props, State> {
         errorInfo: null,
         retryCount: prevState.retryCount + 1
       }));
+    } else {
+      console.warn('🚫 Máximo de tentativas atingido');
     }
   };
 
-  private handleGoHome = () => {
-    window.location.href = '/dashboard';
-  };
-
-  private handleReload = () => {
+  handleReload = () => {
     window.location.reload();
   };
 
+  handleGoHome = () => {
+    window.location.href = '/dashboard';
+  };
+
   render() {
-    if (this.state.hasError) {
-      // Se foi fornecido um fallback customizado, usar ele
-      if (this.props.fallback) {
-        return this.props.fallback;
+    const { hasError, error, retryCount } = this.state;
+    const { children, fallback, maxRetries = 3 } = this.props;
+
+    if (hasError && error) {
+      // Fallback customizado
+      if (fallback) {
+        return fallback;
       }
 
-      // Fallback padrão com opções de recuperação
+      // UI padrão de erro
       return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
           <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6 text-center">
-            <div className="flex justify-center mb-4">
-              <div className="bg-red-100 rounded-full p-3">
-                <FiAlertTriangle className="w-8 h-8 text-red-600" />
-              </div>
+            <div className="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
+              <FiAlertTriangle className="w-8 h-8 text-red-600" />
             </div>
             
             <h1 className="text-xl font-semibold text-gray-900 mb-2">
-              Ops! Algo deu errado
+              Oops! Algo deu errado
             </h1>
             
             <p className="text-gray-600 mb-6">
-              Ocorreu um erro inesperado nesta página. Não se preocupe, seus dados estão seguros.
+              {process.env.NODE_ENV === 'development' 
+                ? error.message
+                : 'Encontramos um erro inesperado. Nossa equipe foi notificada.'
+              }
             </p>
 
-            {/* Informações do erro (apenas em desenvolvimento) */}
-            {process.env.NODE_ENV === 'development' && this.state.error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 text-left">
-                <h3 className="text-sm font-medium text-red-800 mb-2">
-                  Detalhes do erro (desenvolvimento):
-                </h3>
-                <p className="text-xs text-red-700 font-mono break-all">
-                  {this.state.error.message}
-                </p>
+            {retryCount < maxRetries && (
+              <div className="mb-4">
+                <Button
+                  onClick={this.handleRetry}
+                  className="w-full mb-3"
+                  variant="primary"
+                >
+                  <FiRefreshCw className="w-4 h-4 mr-2" />
+                  Tentar Novamente ({retryCount}/{maxRetries})
+                </Button>
               </div>
             )}
 
-            {/* Opções de recuperação */}
-            <div className="space-y-3">
-              {this.state.retryCount < this.maxRetries && (
-                <Button
-                  onClick={this.handleRetry}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  <FiRefreshCw className="w-4 h-4 mr-2" />
-                  Tentar novamente ({this.maxRetries - this.state.retryCount} tentativas restantes)
-                </Button>
-              )}
-              
+            <div className="flex gap-3">
               <Button
                 onClick={this.handleReload}
                 variant="outline"
-                className="w-full"
+                className="flex-1"
               >
                 <FiRefreshCw className="w-4 h-4 mr-2" />
-                Recarregar página
+                Recarregar
               </Button>
               
               <Button
                 onClick={this.handleGoHome}
                 variant="outline"
-                className="w-full"
+                className="flex-1"
               >
                 <FiHome className="w-4 h-4 mr-2" />
-                Ir para Dashboard
+                Início
               </Button>
             </div>
 
-            {/* Informações adicionais */}
-            <div className="mt-6 text-xs text-gray-500">
-              <p>Se o problema persistir, entre em contato com o suporte.</p>
-              <p className="mt-1">
-                Código do erro: {this.state.error?.name || 'UNKNOWN'}
-              </p>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
-}
-
-/**
- * Hook para usar Error Boundary com componentes funcionais
- */
-export const withOSErrorBoundary = <P extends object>(
-  Component: React.ComponentType<P>,
-  errorBoundaryProps?: Omit<Props, 'children'>
-) => {
-  const WrappedComponent = (props: P) => (
-    <OSErrorBoundary {...errorBoundaryProps}>
-      <Component {...props} />
-    </OSErrorBoundary>
-  );
-  
-  WrappedComponent.displayName = `withOSErrorBoundary(${Component.displayName || Component.name})`;
-  
-  return WrappedComponent;
-};
-
-export default OSErrorBoundary;
-
-
-import React, { Component, ReactNode } from 'react';
-import { FiAlertTriangle, FiRefreshCw, FiHome } from 'react-icons/fi';
-import { Button } from './Button';
-
-interface Props {
-  children: ReactNode;
-  fallback?: ReactNode;
-  onError?: (error: Error, errorInfo: ErrorInfo) => void;
-}
-
-interface State {
-  hasError: boolean;
-  error: Error | null;
-  errorInfo: ErrorInfo | null;
-  retryCount: number;
-}
-
-/**
- * Error Boundary específico para páginas críticas de OS
- * Captura erros JavaScript e fornece fallback com opções de recuperação
- */
-export class OSErrorBoundary extends Component<Props, State> {
-  private maxRetries = 3;
-  
-  constructor(props: Props) {
-    super(props);
-    this.state = {
-      hasError: false,
-      error: null,
-      errorInfo: null,
-      retryCount: 0
-    };
-  }
-
-  static getDerivedStateFromError(error: Error): Partial<State> {
-    return {
-      hasError: true,
-      error
-    };
-  }
-
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('🚨 OS Error Boundary capturou erro:', {
-      error: error.message,
-      stack: error.stack,
-      componentStack: errorInfo.componentStack,
-      timestamp: new Date().toISOString()
-    });
-
-    this.setState({
-      error,
-      errorInfo
-    });
-
-    // Chamar callback personalizado se fornecido
-    if (this.props.onError) {
-      this.props.onError(error, errorInfo);
-    }
-
-    // Log para monitoramento (pode integrar com Sentry, LogRocket, etc.)
-    this.logErrorToService(error, errorInfo);
-  }
-
-  private logErrorToService = (error: Error, errorInfo: ErrorInfo) => {
-    // Aqui você pode integrar com serviços de monitoramento
-    // Por enquanto, só console.error detalhado
-    console.error('Erro detalhado para monitoramento:', {
-      message: error.message,
-      stack: error.stack,
-      componentStack: errorInfo.componentStack,
-      userAgent: navigator.userAgent,
-      url: window.location.href,
-      timestamp: new Date().toISOString(),
-      retryCount: this.state.retryCount
-    });
-  };
-
-  private handleRetry = () => {
-    if (this.state.retryCount < this.maxRetries) {
-      console.log(`Tentativa de retry ${this.state.retryCount + 1}/${this.maxRetries}`);
-      
-      this.setState(prevState => ({
-        hasError: false,
-        error: null,
-        errorInfo: null,
-        retryCount: prevState.retryCount + 1
-      }));
-    }
-  };
-
-  private handleGoHome = () => {
-    window.location.href = '/dashboard';
-  };
-
-  private handleReload = () => {
-    window.location.reload();
-  };
-
-  render() {
-    if (this.state.hasError) {
-      // Se foi fornecido um fallback customizado, usar ele
-      if (this.props.fallback) {
-        return this.props.fallback;
-      }
-
-      // Fallback padrão com opções de recuperação
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-          <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6 text-center">
-            <div className="flex justify-center mb-4">
-              <div className="bg-red-100 rounded-full p-3">
-                <FiAlertTriangle className="w-8 h-8 text-red-600" />
-              </div>
-            </div>
-            
-            <h1 className="text-xl font-semibold text-gray-900 mb-2">
-              Ops! Algo deu errado
-            </h1>
-            
-            <p className="text-gray-600 mb-6">
-              Ocorreu um erro inesperado nesta página. Não se preocupe, seus dados estão seguros.
-            </p>
-
-            {/* Informações do erro (apenas em desenvolvimento) */}
-            {process.env.NODE_ENV === 'development' && this.state.error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 text-left">
-                <h3 className="text-sm font-medium text-red-800 mb-2">
-                  Detalhes do erro (desenvolvimento):
-                </h3>
-                <p className="text-xs text-red-700 font-mono break-all">
-                  {this.state.error.message}
-                </p>
-              </div>
+            {process.env.NODE_ENV === 'development' && (
+              <details className="mt-6 text-left">
+                <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700">
+                  Detalhes técnicos
+                </summary>
+                <div className="mt-2 p-3 bg-gray-50 rounded text-xs font-mono text-gray-700 overflow-auto max-h-40">
+                  <div className="mb-2">
+                    <strong>Error:</strong> {error.message}
+                  </div>
+                  <div className="mb-2">
+                    <strong>Stack:</strong>
+                    <pre className="whitespace-pre-wrap">{error.stack}</pre>
+                  </div>
+                </div>
+              </details>
             )}
-
-            {/* Opções de recuperação */}
-            <div className="space-y-3">
-              {this.state.retryCount < this.maxRetries && (
-                <Button
-                  onClick={this.handleRetry}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  <FiRefreshCw className="w-4 h-4 mr-2" />
-                  Tentar novamente ({this.maxRetries - this.state.retryCount} tentativas restantes)
-                </Button>
-              )}
-              
-              <Button
-                onClick={this.handleReload}
-                variant="outline"
-                className="w-full"
-              >
-                <FiRefreshCw className="w-4 h-4 mr-2" />
-                Recarregar página
-              </Button>
-              
-              <Button
-                onClick={this.handleGoHome}
-                variant="outline"
-                className="w-full"
-              >
-                <FiHome className="w-4 h-4 mr-2" />
-                Ir para Dashboard
-              </Button>
-            </div>
-
-            {/* Informações adicionais */}
-            <div className="mt-6 text-xs text-gray-500">
-              <p>Se o problema persistir, entre em contato com o suporte.</p>
-              <p className="mt-1">
-                Código do erro: {this.state.error?.name || 'UNKNOWN'}
-              </p>
-            </div>
           </div>
         </div>
       );
     }
 
-    return this.props.children;
+    return children;
   }
 }
 
 /**
- * Hook para usar Error Boundary com componentes funcionais
+ * HOC para envolver componentes com Error Boundary
  */
 export const withOSErrorBoundary = <P extends object>(
   Component: React.ComponentType<P>,
