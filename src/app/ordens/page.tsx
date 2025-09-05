@@ -60,7 +60,7 @@ export default function ListaOrdensPage() {
 
   // Estados da lista
   const [ordens, setOrdens] = useState<OrdemTransformada[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // ✅ Começar como false para evitar loops
   const [loadingOrdens, setLoadingOrdens] = useState(false);
   const [error, setError] = useState<any>(null);
   const [lastFetchTime, setLastFetchTime] = useState(0);
@@ -547,56 +547,53 @@ export default function ListaOrdensPage() {
     }
   };
 
+  // ✅ OTIMIZADO: useEffect simplificado para evitar loops
   useEffect(() => {
+    if (!empresaId?.trim()) {
+      console.warn('EmpresaId não disponível - aguardando...');
+      return;
+    }
+
     let isMounted = true;
     
-    const fetchData = async () => {
-      if (!isMounted || !empresaId || !empresaId.trim()) {
-        if (isMounted) setLoading(false);
-        return;
-      }
-      
+    const loadData = async () => {
       try {
-        // Carregar dados de forma sequencial para evitar sobrecarga
-        await fetchOrdens();
-        if (isMounted) {
-          await fetchTecnicos();
-        }
+        console.log('🔄 Carregando dados para empresa:', empresaId);
+        await Promise.all([
+          fetchOrdens(),
+          fetchTecnicos()
+        ]);
       } catch (error) {
         if (isMounted) {
           console.error('Erro ao carregar dados:', error);
           addToast('error', 'Erro ao carregar dados. Tente recarregar a página.');
         }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
       }
     };
-    
-    // Debounce para evitar múltiplas chamadas
-    const timeoutId = setTimeout(fetchData, 100);
+
+    // Delay pequeno para evitar chamadas múltiplas
+    const timeoutId = setTimeout(loadData, 200);
     
     return () => {
       isMounted = false;
       clearTimeout(timeoutId);
     };
-  }, [empresaId]);
+  }, [empresaId, addToast]); // Dependências mínimas
 
-     // ✅ TIMEOUT OTIMIZADO: Loading timeout reduzido para forçar velocidade
-   useEffect(() => {
-     const loadingTimeout = setTimeout(() => {
-       if (loading) {
-         console.warn('⚠️ Loading timeout - resetando estado após 12 segundos');
-         setLoading(false);
-         setLoadingOrdens(false);
-         setLoadingTecnicos(false);
-         addToast('warning', 'Carregamento demorou muito. Tente atualizar a página.');
-       }
-     }, 12000); // 12 segundos - mais agressivo
+  // ✅ TIMEOUT DE SEGURANÇA: Evitar loading infinito
+  useEffect(() => {
+    if (!loading) return;
 
-     return () => clearTimeout(loadingTimeout);
-   }, [loading, addToast]);
+    const loadingTimeout = setTimeout(() => {
+      console.warn('⚠️ Loading timeout - resetando estados');
+      setLoading(false);
+      setLoadingOrdens(false);
+      setLoadingTecnicos(false);
+      addToast('warning', 'Carregamento demorou muito. Tente atualizar a página.');
+    }, 15000); // 15 segundos - mais conservador
+
+    return () => clearTimeout(loadingTimeout);
+  }, [loading, addToast]);
 
   // Filtros e busca
   const filteredOrdens = useMemo(() => {
@@ -716,7 +713,18 @@ export default function ListaOrdensPage() {
     return { reparoConcluido, concluidas, orcamentos, aguardandoRetirada, aprovadas, laudoPronto, todas: ordens.length };
   }, [ordens]);
 
-  if (!empresaId || loading) {
+  // ✅ OTIMIZADO: Loading states mais inteligentes
+  if (!empresaId) {
+    return (
+      <ProtectedArea area="ordens">
+        <MenuLayout>
+          <OSFullPageSkeleton />
+        </MenuLayout>
+      </ProtectedArea>
+    );
+  }
+
+  if (loadingOrdens && ordens.length === 0) {
     return (
       <ProtectedArea area="ordens">
         <MenuLayout>
@@ -816,19 +824,12 @@ export default function ListaOrdensPage() {
             os.statusTecnico?.toLowerCase() === 'aprovado');
   }).length;
 
-  // Validação de dados da empresa
+  // ✅ OTIMIZADO: Validação com timeout para evitar loops
   if (!empresaData?.id) {
-
     return (
       <ProtectedArea area="ordens">
         <MenuLayout>
-          <div className="p-4 md:p-8">
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Carregando dados da empresa...</h3>
-              <p className="text-gray-600">Aguarde enquanto carregamos suas informações</p>
-            </div>
-          </div>
+          <OSFullPageSkeleton />
         </MenuLayout>
       </ProtectedArea>
     );
