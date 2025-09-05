@@ -261,36 +261,41 @@ export default function ListaOrdensPage() {
     
     try {
       await executeWithRetry(async () => {
-      // ✅ CONSULTA OTIMIZADA: Buscar apenas campos essenciais primeiro
-      const { data, error } = await supabase
-        .from('ordens_servico')
-        .select(`
-          id,
-          numero_os,
-          cliente_id,
-          categoria,
-          marca,
-          modelo,
-          status,
-          status_tecnico,
-          created_at,
-          tecnico_id,
-          data_entrega,
-          prazo_entrega,
-          valor_faturado,
-          valor_peca,
-          valor_servico,
-          qtd_peca,
-          qtd_servico,
-          desconto,
-          servico,
-          tipo,
-          clientes:cliente_id(nome, telefone, email),
-          tecnico:usuarios!tecnico_id(nome)
-        `)
-        .eq("empresa_id", empresaId)
-        .order('created_at', { ascending: false })
-        .limit(100); // Reduzir limite para 100 registros por vez
+      // ✅ SUPER OTIMIZADA: Query com timeout e limite reduzido
+      const { data, error } = await Promise.race([
+        supabase
+          .from('ordens_servico')
+          .select(`
+            id,
+            numero_os,
+            cliente_id,
+            categoria,
+            marca,
+            modelo,
+            status,
+            status_tecnico,
+            created_at,
+            tecnico_id,
+            data_entrega,
+            prazo_entrega,
+            valor_faturado,
+            valor_peca,
+            valor_servico,
+            qtd_peca,
+            qtd_servico,
+            desconto,
+            servico,
+            tipo,
+            clientes:cliente_id(nome, telefone, email),
+            tecnico:usuarios!tecnico_id(nome)
+          `)
+          .eq("empresa_id", empresaId)
+          .order('created_at', { ascending: false })
+          .limit(50), // Reduzir para 50 registros para velocidade
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Query timeout - dados demorando muito para carregar')), 10000) // 10 segundos
+        )
+      ]);
 
       if (error) {
         console.error('Erro ao carregar OS:', error);
@@ -578,19 +583,20 @@ export default function ListaOrdensPage() {
     };
   }, [empresaId]);
 
-  // ✅ TIMEOUT: Loading timeout aumentado para queries complexas
-  useEffect(() => {
-    const loadingTimeout = setTimeout(() => {
-      if (loading) {
-        console.warn('⚠️ Loading timeout - resetando estado após 20 segundos');
-        setLoading(false);
-        setLoadingOrdens(false);
-        setLoadingTecnicos(false);
-      }
-    }, 20000); // 20 segundos para queries complexas
+     // ✅ TIMEOUT OTIMIZADO: Loading timeout reduzido para forçar velocidade
+   useEffect(() => {
+     const loadingTimeout = setTimeout(() => {
+       if (loading) {
+         console.warn('⚠️ Loading timeout - resetando estado após 12 segundos');
+         setLoading(false);
+         setLoadingOrdens(false);
+         setLoadingTecnicos(false);
+         addToast('warning', 'Carregamento demorou muito. Tente atualizar a página.');
+       }
+     }, 12000); // 12 segundos - mais agressivo
 
-    return () => clearTimeout(loadingTimeout);
-  }, [loading]);
+     return () => clearTimeout(loadingTimeout);
+   }, [loading, addToast]);
 
   // Filtros e busca
   const filteredOrdens = useMemo(() => {
