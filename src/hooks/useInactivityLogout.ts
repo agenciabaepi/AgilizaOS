@@ -38,26 +38,80 @@ export const useInactivityLogout = (options: InactivityOptions = {}) => {
     console.warn(`🚨 LOGOUT FORÇADO: ${reason}`);
     
     try {
-      // 1. Limpar todos os dados locais
+      // 1. Mostrar toast de aviso ANTES de bloquear
+      addToast('error', `Sessão encerrada por ${reason.toLowerCase()}. Redirecionando...`);
+      
+      // 2. Bloquear interface IMEDIATAMENTE
+      document.body.style.pointerEvents = 'none';
+      document.body.style.opacity = '0.5';
+      document.body.style.cursor = 'wait';
+      
+      // 3. Criar overlay de bloqueio
+      const overlay = document.createElement('div');
+      overlay.id = 'logout-overlay';
+      overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0,0,0,0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        color: white;
+        font-size: 18px;
+        font-family: system-ui;
+      `;
+      overlay.innerHTML = `
+        <div style="text-align: center;">
+          <div style="width: 40px; height: 40px; border: 3px solid #fff; border-top: 3px solid transparent; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px;"></div>
+          <div>Sessão encerrada. Redirecionando para login...</div>
+        </div>
+        <style>
+          @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        </style>
+      `;
+      document.body.appendChild(overlay);
+      
+      // 4. Limpar dados e fazer logout
       await clearAllAuthData();
+      await supabase.auth.signOut({ scope: 'global' });
       
-      // 2. Fazer logout no Supabase
-      await supabase.auth.signOut();
+      // 5. Limpar storage adicional
+      localStorage.clear();
+      sessionStorage.clear();
       
-      // 3. Mostrar toast de aviso
-      addToast('warning', `Sessão encerrada por ${reason.toLowerCase()}`);
-      
-      // 4. Redirecionar para login após um pequeno delay
+      // 6. FORÇAR redirecionamento múltiplo
       setTimeout(() => {
-        window.location.replace('/login');
+        // Tentar router primeiro
+        try {
+          router.replace('/login');
+        } catch (e) {
+          console.warn('Router falhou, usando window.location');
+        }
+        
+        // Backup com window.location após 500ms
+        setTimeout(() => {
+          window.location.replace('/login');
+        }, 500);
+        
+        // Último recurso após 1s
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 1000);
       }, 1000);
       
     } catch (error) {
       console.error('Erro no logout forçado:', error);
-      // Forçar redirecionamento mesmo com erro
-      window.location.replace('/login');
+      // FORÇAR redirecionamento mesmo com erro
+      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui;">Redirecionando para login...</div>';
+      setTimeout(() => {
+        window.location.replace('/login');
+      }, 500);
     }
-  }, [addToast]);
+  }, [addToast, router]);
 
   // ✅ Função para atualizar atividade
   const updateActivity = useCallback(() => {

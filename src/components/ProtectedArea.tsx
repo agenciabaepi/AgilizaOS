@@ -21,12 +21,35 @@ export default function ProtectedArea({ area, children }: { area: string, childr
     return () => clearTimeout(timeout);
   }, [loading]);
 
-  // ✅ OTIMIZADO: Redirecionamento simplificado
+  // ✅ REDIRECIONAMENTO ROBUSTO: Múltiplas tentativas
   useEffect(() => {
     if ((!loading && !user && !session) || loadingTimeout) {
       if (!hasRedirected) {
         setHasRedirected(true);
-        router.replace('/login');
+        console.warn('🚨 ProtectedArea: Usuário não autenticado - redirecionando para login');
+        
+        // Tentar router primeiro
+        try {
+          router.replace('/login');
+        } catch (e) {
+          console.warn('Router falhou no ProtectedArea, usando window.location');
+        }
+        
+        // Backup com window.location após 500ms
+        setTimeout(() => {
+          if (!user && !session) {
+            console.warn('🚨 Backup redirect - usando window.location.replace');
+            window.location.replace('/login');
+          }
+        }, 500);
+        
+        // Último recurso após 1.5s
+        setTimeout(() => {
+          if (!user && !session) {
+            console.warn('🚨 Último recurso - forçando redirect');
+            window.location.href = '/login';
+          }
+        }, 1500);
       }
       return;
     }
