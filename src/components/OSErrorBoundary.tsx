@@ -202,6 +202,7 @@ export const withOSErrorBoundary = <P extends object>(
 
 export default OSErrorBoundary;
 
+
 import React, { Component, ReactNode } from 'react';
 import { FiAlertTriangle, FiRefreshCw, FiHome } from 'react-icons/fi';
 import { Button } from './Button';

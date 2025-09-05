@@ -2,63 +2,6 @@
 
 import React from 'react';
 
-// Skeleton para criação de OS
-export const OSCreateSkeleton = () => {
-  return (
-    <div className="p-4 md:p-8">
-      {/* Header Skeleton */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 md:mb-8 gap-4 animate-pulse">
-        <div>
-          <div className="h-8 bg-gray-200 rounded w-48 mb-2"></div>
-          <div className="h-5 bg-gray-100 rounded w-64"></div>
-        </div>
-      </div>
-
-      {/* Progress Steps Skeleton */}
-      <div className="flex items-center justify-center mb-8 animate-pulse">
-        {[...Array(5)].map((_, i) => (
-          <div key={i} className="flex items-center">
-            <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-              <div className="w-6 h-6 bg-gray-300 rounded-full"></div>
-            </div>
-            {i < 4 && <div className="w-16 h-1 bg-gray-200 mx-2"></div>}
-          </div>
-        ))}
-      </div>
-
-      {/* Form Content Skeleton */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 animate-pulse">
-        <div className="space-y-6">
-          <div>
-            <div className="h-5 bg-gray-200 rounded w-32 mb-2"></div>
-            <div className="h-12 bg-gray-100 rounded-lg w-full"></div>
-          </div>
-          <div>
-            <div className="h-5 bg-gray-200 rounded w-24 mb-2"></div>
-            <div className="h-12 bg-gray-100 rounded-lg w-full"></div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <div className="h-5 bg-gray-200 rounded w-20 mb-2"></div>
-              <div className="h-12 bg-gray-100 rounded-lg w-full"></div>
-            </div>
-            <div>
-              <div className="h-5 bg-gray-200 rounded w-16 mb-2"></div>
-              <div className="h-12 bg-gray-100 rounded-lg w-full"></div>
-            </div>
-          </div>
-        </div>
-
-        {/* Action Buttons Skeleton */}
-        <div className="flex justify-between mt-8">
-          <div className="h-12 bg-gray-200 rounded-lg w-24"></div>
-          <div className="h-12 bg-blue-600 rounded-lg w-32"></div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 /**
  * Componente base para skeleton loading
  */
@@ -384,6 +327,7 @@ export default {
   OSEditSkeleton,
   OSQuickSkeleton
 };
+
 
 import React from 'react';
 
@@ -712,4 +656,3 @@ export default {
   OSEditSkeleton,
   OSQuickSkeleton
 };
-
