@@ -202,7 +202,6 @@ export class OSErrorBoundary extends Component<Props, State> {
                 <Button
                   onClick={this.handleRetry}
                   className="w-full mb-3"
-                  variant="primary"
                 >
                   <FiRefreshCw className="w-4 h-4 mr-2" />
                   Tentar Novamente ({retryCount}/{maxRetries})
