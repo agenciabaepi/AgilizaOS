@@ -31,6 +31,9 @@ import { SubscriptionStatus } from '@/components/SubscriptionStatus';
 import LogoutScreen from '@/components/LogoutScreen';
 import { useWhatsAppNotification } from '@/hooks/useWhatsAppNotification';
 import { useLogout } from '@/hooks/useLogout';
+import { useSessionMonitor } from '@/hooks/useSessionMonitor';
+import { usePageRefresh } from '@/hooks/usePageRefresh';
+import { useInactivityLogout } from '@/hooks/useInactivityLogout';
 // import TestFeatureFlags from './TestFeatureFlags'; // Removido
 import DebugAuth from './DebugAuth';
 import AutoRouteProtection from './AutoRouteProtection';
@@ -71,6 +74,24 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [menuRecolhido, setMenuRecolhido] = useState<boolean>(false);
   const [catalogoHabilitado, setCatalogoHabilitado] = useState<boolean>(false);
+
+  // ✅ SISTEMA DE SEGURANÇA: Monitoramento de sessão e inatividade
+  useSessionMonitor({
+    autoRefreshOnError: true,
+    refreshOnNavigation: true,
+    checkInterval: 30000 // 30 segundos
+  });
+
+  useInactivityLogout({
+    timeoutMinutes: 30, // 30 minutos de inatividade
+    warningMinutes: 5,  // Avisar 5 minutos antes
+    enabled: true
+  });
+
+  usePageRefresh({
+    refreshOnNavigation: false, // Desabilitado para evitar refresh desnecessário
+    excludePaths: ['/login', '/']
+  });
 
   // ✅ DESABILITADO TEMPORARIAMENTE: Hook muito pesado, causando lentidão
   // useWhatsAppNotification();
