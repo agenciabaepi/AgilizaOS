@@ -17,7 +17,7 @@ export const useInactivityLogout = (options: InactivityOptions = {}) => {
   const {
     timeoutMinutes = 30, // 30 minutos de inatividade
     warningMinutes = 5,  // Avisar 5 minutos antes
-    checkInterval = 60000, // Verificar a cada 1 minuto
+    checkInterval = 5000, // Verificar a cada 5 segundos (TESTE)
     enabled = true
   } = options;
 

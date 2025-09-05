@@ -79,12 +79,12 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   useSessionMonitor({
     autoRefreshOnError: true,
     refreshOnNavigation: true,
-    checkInterval: 30000 // 30 segundos
+    checkInterval: 5000 // 5 segundos (TESTE)
   });
 
   useInactivityLogout({
-    timeoutMinutes: 30, // 30 minutos de inatividade
-    warningMinutes: 5,  // Avisar 5 minutos antes
+    timeoutMinutes: 1, // 1 minuto de inatividade (TESTE)
+    warningMinutes: 0.5,  // Avisar 30 segundos antes (TESTE)
     enabled: true
   });
 
