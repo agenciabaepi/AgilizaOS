@@ -1257,7 +1257,7 @@ export default function ListaOrdensPage() {
                     </td>
                     <td className="px-1 py-2">
                       <div className="text-xs text-gray-900 min-w-0">
-                        <div className="font-medium truncate">{os.servico || 'N/A'}</div>
+                        <div className="font-medium truncate">{os.servico || 'Aguardando'}</div>
                         <div className="text-gray-600 font-semibold">{formatCurrency(os.valorTotal)}</div>
                       </div>
                     </td>
@@ -1378,7 +1378,7 @@ export default function ListaOrdensPage() {
                 {/* Aparelho e Serviço */}
                 <div className="mb-3">
                   <div className="text-sm font-medium text-gray-800">{os.aparelho || 'N/A'}</div>
-                  <div className="text-xs text-gray-600">{os.servico || 'N/A'}</div>
+                  <div className="text-xs text-gray-600">{os.servico || 'Aguardando'}</div>
                 </div>
 
                 {/* Informações técnicas */}
