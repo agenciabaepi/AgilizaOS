@@ -21,7 +21,7 @@ export const useSessionMonitor = (options: SessionMonitorOptions = {}) => {
   const { session, user } = useAuth();
   const { addToast } = useToast();
   const lastCheckRef = useRef<number>(0);
-  const intervalRef = useRef<NodeJS.Timeout>();
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // ✅ Função para detectar e resolver problemas de sessão
   const handleSessionIssues = useCallback(async () => {
@@ -37,11 +37,11 @@ export const useSessionMonitor = (options: SessionMonitorOptions = {}) => {
           
           if (refreshed) {
             console.log('✅ Sessão renovada com sucesso');
-            addToast('success', 'Sessão renovada automaticamente');
+            addToast('Sessão renovada automaticamente', 'success');
             return true;
           } else {
             console.error('❌ Falha no refresh automático - BLOQUEANDO SISTEMA TOTALMENTE');
-            addToast('error', 'Sessão expirada. Redirecionando para login...');
+            addToast('Sessão expirada. Redirecionando para login...', 'error');
             
             // ✅ BLOQUEIO TOTAL E IMEDIATO
             document.body.style.pointerEvents = 'none';

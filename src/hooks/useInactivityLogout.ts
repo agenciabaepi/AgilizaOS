@@ -27,7 +27,7 @@ export const useInactivityLogout = (options: InactivityOptions = {}) => {
   
   const lastActivityRef = useRef<number>(Date.now());
   const warningShownRef = useRef<boolean>(false);
-  const intervalRef = useRef<NodeJS.Timeout>();
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const isLoggingOutRef = useRef<boolean>(false);
 
   // ✅ Função para forçar logout completo
@@ -39,7 +39,7 @@ export const useInactivityLogout = (options: InactivityOptions = {}) => {
     
     try {
       // 1. Mostrar toast de aviso ANTES de bloquear
-      addToast('error', `Sessão encerrada por ${reason.toLowerCase()}. Redirecionando...`);
+      addToast(`Sessão encerrada por ${reason.toLowerCase()}. Redirecionando...`, 'error');
       
       // 2. Bloquear interface IMEDIATAMENTE
       document.body.style.pointerEvents = 'none';
@@ -131,7 +131,7 @@ export const useInactivityLogout = (options: InactivityOptions = {}) => {
     // Mostrar aviso antes do logout
     if (timeSinceActivity >= warningMs && !warningShownRef.current) {
       warningShownRef.current = true;
-      addToast('warning', `Sua sessão expirará em ${warningMinutes} minutos por inatividade`);
+      addToast(`Sua sessão expirará em ${warningMinutes} minutos por inatividade`, 'warning');
       console.warn(`⚠️ Aviso de inatividade: ${warningMinutes} minutos restantes`);
     }
 
