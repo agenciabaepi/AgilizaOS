@@ -176,9 +176,7 @@ export default function ProdutoServicoManager({
 
       const { data, error } = await supabase
         .from('produtos_servicos')
-        .insert(itemData)
-        .select()
-        .single();
+        .insert(itemData);
 
       if (error) {
         console.error('❌ Erro do Supabase:', error);
@@ -186,13 +184,21 @@ export default function ProdutoServicoManager({
         return;
       }
 
-      console.log('✅ Item cadastrado com sucesso:', data);
+      console.log('✅ Item cadastrado com sucesso');
+
+      // Criar objeto do item para adicionar localmente
+      const novoItemCriado = {
+        id: Date.now().toString(), // ID temporário
+        nome: itemData.nome,
+        preco: itemData.preco,
+        tipo: itemData.tipo
+      };
 
       // Adicionar à lista local
-      setProdutosServicos(prev => [...prev, data]);
+      setProdutosServicos(prev => [...prev, novoItemCriado]);
       
       // Adicionar ao pedido
-      adicionarItem(data);
+      adicionarItem(novoItemCriado);
       
       addToast('success', `${tipo === 'servico' ? 'Serviço' : 'Produto'} cadastrado e adicionado!`);
       
