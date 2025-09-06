@@ -75,7 +75,8 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const [menuRecolhido, setMenuRecolhido] = useState<boolean>(false);
   const [catalogoHabilitado, setCatalogoHabilitado] = useState<boolean>(false);
 
-  // ✅ SISTEMA DE SEGURANÇA: Monitoramento de sessão e inatividade
+  // ✅ SISTEMA DE SEGURANÇA: TEMPORARIAMENTE DESABILITADO PARA TESTES
+  /*
   useSessionMonitor({
     autoRefreshOnError: true,
     refreshOnNavigation: true,
@@ -92,6 +93,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
     refreshOnNavigation: false, // Desabilitado para evitar refresh desnecessário
     excludePaths: ['/login', '/']
   });
+  */
 
   // ✅ DESABILITADO TEMPORARIAMENTE: Hook muito pesado, causando lentidão
   // useWhatsAppNotification();

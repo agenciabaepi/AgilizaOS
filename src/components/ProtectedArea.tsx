@@ -2,11 +2,11 @@
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { useQuickAuthCheck } from '@/hooks/useQuickAuthCheck';
+// import { useQuickAuthCheck } from '@/hooks/useQuickAuthCheck';
 
 export default function ProtectedArea({ area, children }: { area: string, children: React.ReactNode }) {
   const { user, session, usuarioData, loading } = useAuth();
-  const { isCheckingAuth, isAuthenticated } = useQuickAuthCheck();
+  // const { isCheckingAuth, isAuthenticated } = useQuickAuthCheck(); // DESABILITADO TEMPORARIAMENTE
   const router = useRouter();
   const [hasRedirected, setHasRedirected] = useState(false);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
@@ -23,14 +23,9 @@ export default function ProtectedArea({ area, children }: { area: string, childr
     return () => clearTimeout(timeout);
   }, [loading]);
 
-  // ✅ REDIRECIONAMENTO SUPER RÁPIDO: Quick check + fallback robusto
+  // ✅ REDIRECIONAMENTO SIMPLIFICADO: Apenas AuthContext
   useEffect(() => {
-    // Quick check já redirecionou, não fazer nada
-    if (!isCheckingAuth && !isAuthenticated) {
-      return;
-    }
-    
-    // Fallback para casos onde quick check não funcionou
+    // Verificar se usuário não está autenticado
     if ((!loading && !user && !session) || loadingTimeout) {
       if (!hasRedirected) {
         setHasRedirected(true);
@@ -61,7 +56,7 @@ export default function ProtectedArea({ area, children }: { area: string, childr
       }
       return;
     }
-  }, [loading, user, session, hasRedirected, router, loadingTimeout, isCheckingAuth, isAuthenticated]);
+  }, [loading, user, session, hasRedirected, loadingTimeout]); // Removido router e hooks desabilitados
 
   // ✅ LOADING STATE COM TIMEOUT
   if (loading && !loadingTimeout) {
