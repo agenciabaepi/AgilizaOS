@@ -191,6 +191,13 @@ export default function ProdutoServicoManager({
         .from('produtos_servicos')
         .insert(itemData);
 
+      // Log imediato sem interceptação
+      console.log('🔍 RESULTADO DIRETO DO SUPABASE:');
+      console.log('data:', data);
+      console.log('error (raw):', error);
+      console.log('error type:', typeof error);
+      console.log('error keys:', error ? Object.keys(error) : 'null');
+
       if (error) {
         console.error('❌ Erro do Supabase (detalhado):', {
           error,
