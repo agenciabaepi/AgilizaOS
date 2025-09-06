@@ -56,6 +56,10 @@ export default function ProdutoServicoManager({
     total: 0
   });
 
+  // Estados para controlar a exibição dos valores nos inputs
+  const [precoDisplay, setPrecoDisplay] = useState('');
+  const [quantidadeDisplay, setQuantidadeDisplay] = useState('1');
+
   const icon = tipo === 'servico' ? <FiTool size={20} /> : <FiPackage size={20} />;
   const title = tipo === 'servico' ? 'Serviços' : 'Produtos/Peças';
   const color = tipo === 'servico' ? 'green' : 'blue';
@@ -398,15 +402,19 @@ export default function ProdutoServicoManager({
                   <div className="relative">
                     <span className="absolute left-3 top-3 text-gray-500 text-sm">R$</span>
                     <input
-                      type="number"
-                      step="0.01"
+                      type="text"
                       placeholder="0,00"
-                      value={novoItem.preco}
-                      onChange={(e) => setNovoItem(prev => ({ 
-                        ...prev, 
-                        preco: parseFloat(e.target.value) || 0,
-                        total: (parseFloat(e.target.value) || 0) * prev.quantidade
-                      }))}
+                      value={precoDisplay}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setPrecoDisplay(value);
+                        const numericValue = parseFloat(value.replace(',', '.')) || 0;
+                        setNovoItem(prev => ({ 
+                          ...prev, 
+                          preco: numericValue,
+                          total: numericValue * prev.quantidade
+                        }));
+                      }}
                       className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D1FE6E] focus:border-[#D1FE6E] transition-colors"
                     />
                   </div>
@@ -419,15 +427,22 @@ export default function ProdutoServicoManager({
                     Quantidade *
                   </label>
                   <input
-                    type="number"
-                    min="1"
+                    type="text"
                     placeholder="1"
-                    value={novoItem.quantidade}
-                    onChange={(e) => setNovoItem(prev => ({ 
-                      ...prev, 
-                      quantidade: parseInt(e.target.value) || 1,
-                      total: prev.preco * (parseInt(e.target.value) || 1)
-                    }))}
+                    value={quantidadeDisplay}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Só permite números
+                      if (value === '' || /^\d+$/.test(value)) {
+                        setQuantidadeDisplay(value);
+                        const numericValue = parseInt(value) || 1;
+                        setNovoItem(prev => ({ 
+                          ...prev, 
+                          quantidade: numericValue,
+                          total: prev.preco * numericValue
+                        }));
+                      }
+                    }}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D1FE6E] focus:border-[#D1FE6E] transition-colors"
                   />
                   <p className="text-xs text-gray-500 mt-1">Número de unidades</p>
@@ -472,7 +487,7 @@ export default function ProdutoServicoManager({
               <div className="flex flex-col sm:flex-row gap-3">
                 <Button
                   onClick={cadastrarNovoItem}
-                  disabled={!novoItem.nome.trim() || novoItem.preco <= 0}
+                  disabled={!novoItem.nome.trim() || !precoDisplay.trim() || novoItem.preco <= 0}
                   className="flex-1 h-auto py-4 flex-col"
                   variant="default"
                 >
@@ -485,7 +500,7 @@ export default function ProdutoServicoManager({
                 
                 <Button
                   onClick={() => adicionarItem()}
-                  disabled={!novoItem.nome.trim() || novoItem.preco <= 0}
+                  disabled={!novoItem.nome.trim() || !precoDisplay.trim() || novoItem.preco <= 0}
                   className="flex-1 h-auto py-4 flex-col"
                   variant="secondary"
                 >
@@ -502,6 +517,8 @@ export default function ProdutoServicoManager({
                 onClick={() => {
                   setShowAddForm(false);
                   setNovoItem({ nome: '', preco: 0, quantidade: 1, total: 0 });
+                  setPrecoDisplay('');
+                  setQuantidadeDisplay('1');
                 }}
                 className="w-full"
                 variant="outline"
