@@ -7,6 +7,7 @@ import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { interceptSupabaseQuery } from '@/utils/supabaseInterceptor';
 import { FiPlus, FiX, FiEdit2, FiTrash2, FiDollarSign, FiPackage, FiTool } from 'react-icons/fi';
+import { Button } from './Button';
 
 interface Item {
   id?: string;
@@ -308,12 +309,12 @@ export default function ProdutoServicoManager({
       {showAddForm && !readonly && (
         <div className="border-t pt-6 space-y-6">
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 bg-${color === 'green' ? 'green' : 'blue'}-100 rounded-lg flex items-center justify-center`}>
+            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
               {icon}
             </div>
             <div>
               <h4 className="font-semibold text-gray-900 text-lg">
-                ➕ Adicionar {tipo === 'servico' ? 'Serviço' : 'Produto/Peça'}
+                Adicionar {tipo === 'servico' ? 'Serviço' : 'Produto/Peça'}
               </h4>
               <p className="text-sm text-gray-600">
                 Encontre um item existente ou crie um novo
@@ -323,16 +324,21 @@ export default function ProdutoServicoManager({
           
           {/* Buscar existente */}
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              🔍 Buscar {tipo === 'servico' ? 'serviço' : 'produto'} existente no catálogo
-            </label>
+            <div className="mb-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Buscar no catálogo
+              </label>
+              <p className="text-xs text-gray-500">
+                Encontre um {tipo === 'servico' ? 'serviço' : 'produto'} já cadastrado para adicionar rapidamente
+              </p>
+            </div>
             <div className="relative">
               <input
                 type="text"
                 placeholder={`Digite para buscar ${tipo === 'servico' ? 'serviços' : 'produtos'}...`}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D1FE6E] focus:border-[#D1FE6E] transition-colors"
               />
               
               {searchTerm && filteredItems.length > 0 && (
@@ -361,51 +367,56 @@ export default function ProdutoServicoManager({
           </div>
 
           {/* Criar novo */}
-          <div className="border-t pt-4">
-            <h5 className="text-sm font-medium text-gray-700 mb-4">📝 Ou criar novo item:</h5>
+          <div className="border-t pt-6">
+            <div className="mb-6">
+              <h5 className="text-lg font-semibold text-gray-900 mb-2">Criar novo item</h5>
+              <p className="text-sm text-gray-600">Preencha os dados abaixo para adicionar um novo {tipo === 'servico' ? 'serviço' : 'produto'}</p>
+            </div>
             
-            {/* Layout melhorado com cards e labels claros */}
-            <div className="space-y-4">
+            <div className="space-y-6">
               {/* Nome do Item */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  📌 Nome do {tipo === 'servico' ? 'Serviço' : 'Produto'}
+                  Nome do {tipo === 'servico' ? 'Serviço' : 'Produto'} *
                 </label>
                 <input
                   type="text"
                   placeholder={`Ex: ${tipo === 'servico' ? 'Limpeza de notebook' : 'Tela LCD 15.6"'}`}
                   value={novoItem.nome}
                   onChange={(e) => setNovoItem(prev => ({ ...prev, nome: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D1FE6E] focus:border-[#D1FE6E] transition-colors"
                 />
               </div>
 
               {/* Preço e Quantidade lado a lado */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Preço Unitário */}
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <label className="block text-sm font-medium text-green-700 mb-2">
-                    💰 Valor Unitário (R$)
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Valor Unitário *
                   </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="0,00"
-                    value={novoItem.preco}
-                    onChange={(e) => setNovoItem(prev => ({ 
-                      ...prev, 
-                      preco: parseFloat(e.target.value) || 0,
-                      total: (parseFloat(e.target.value) || 0) * prev.quantidade
-                    }))}
-                    className="w-full px-4 py-3 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-lg font-medium text-green-800"
-                  />
-                  <p className="text-xs text-green-600 mt-1">Preço por unidade</p>
+                  <div className="relative">
+                    <span className="absolute left-3 top-3 text-gray-500 text-sm">R$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="0,00"
+                      value={novoItem.preco}
+                      onChange={(e) => setNovoItem(prev => ({ 
+                        ...prev, 
+                        preco: parseFloat(e.target.value) || 0,
+                        total: (parseFloat(e.target.value) || 0) * prev.quantidade
+                      }))}
+                      className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D1FE6E] focus:border-[#D1FE6E] transition-colors"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Preço por unidade do item</p>
                 </div>
 
                 {/* Quantidade */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <label className="block text-sm font-medium text-blue-700 mb-2">
-                    🔢 Quantidade
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Quantidade *
                   </label>
                   <input
                     type="number"
@@ -417,80 +428,87 @@ export default function ProdutoServicoManager({
                       quantidade: parseInt(e.target.value) || 1,
                       total: prev.preco * (parseInt(e.target.value) || 1)
                     }))}
-                    className="w-full px-4 py-3 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg font-medium text-blue-800"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D1FE6E] focus:border-[#D1FE6E] transition-colors"
                   />
-                  <p className="text-xs text-blue-600 mt-1">Quantas unidades</p>
+                  <p className="text-xs text-gray-500 mt-1">Número de unidades</p>
                 </div>
               </div>
 
               {/* Total Calculado */}
               {(novoItem.preco > 0 && novoItem.quantidade > 0) && (
-                <div className="bg-gray-100 border border-gray-300 rounded-lg p-4">
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-gray-700">
-                      🧮 Total Calculado:
+                      Total do item:
                     </span>
-                    <span className="text-xl font-bold text-gray-900">
+                    <span className="text-lg font-semibold text-gray-900">
                       R$ {((novoItem.preco || 0) * (novoItem.quantidade || 1)).toFixed(2).replace('.', ',')}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-600 mt-1">
-                    {novoItem.quantidade}x R$ {(novoItem.preco || 0).toFixed(2).replace('.', ',')} = Total acima
+                  <p className="text-xs text-gray-500 mt-1">
+                    {novoItem.quantidade} × R$ {(novoItem.preco || 0).toFixed(2).replace('.', ',')}
                   </p>
                 </div>
               )}
             </div>
-            {/* Botões de Ação Melhorados */}
-            <div className="mt-6 space-y-3">
-              {/* Explicação dos botões */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-sm text-blue-700">
-                  💡 <strong>Escolha uma opção:</strong>
-                </p>
-                <ul className="text-xs text-blue-600 mt-2 space-y-1">
-                  <li>• <strong>Salvar e Adicionar:</strong> Salva no catálogo para usar depois + adiciona agora</li>
-                  <li>• <strong>Apenas Adicionar:</strong> Adiciona só nesta OS (não salva no catálogo)</li>
-                </ul>
+            {/* Ações */}
+            <div className="mt-8 space-y-4">
+              {/* Informação sobre as opções */}
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <h6 className="text-sm font-medium text-gray-900 mb-2">Escolha uma opção:</h6>
+                <div className="space-y-2 text-xs text-gray-600">
+                  <div className="flex items-start gap-2">
+                    <span className="w-2 h-2 bg-black rounded-full mt-1.5 flex-shrink-0"></span>
+                    <span><strong>Salvar no catálogo e adicionar:</strong> Salva o item no seu catálogo para reutilizar em outras OS e adiciona nesta OS</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="w-2 h-2 bg-gray-400 rounded-full mt-1.5 flex-shrink-0"></span>
+                    <span><strong>Apenas adicionar:</strong> Adiciona somente nesta OS (não salva no catálogo)</span>
+                  </div>
+                </div>
               </div>
 
-              {/* Botões principais */}
+              {/* Botões de ação */}
               <div className="flex flex-col sm:flex-row gap-3">
-                <button
+                <Button
                   onClick={cadastrarNovoItem}
                   disabled={!novoItem.nome.trim() || novoItem.preco <= 0}
-                  className={`flex-1 flex items-center justify-center gap-3 px-6 py-4 bg-${color === 'green' ? 'green' : 'blue'}-600 text-white rounded-lg hover:bg-${color === 'green' ? 'green' : 'blue'}-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium`}
+                  className="flex-1 h-auto py-4 flex-col"
+                  variant="default"
                 >
-                  <FiPlus size={20} />
-                  <div className="text-left">
-                    <div>💾 Salvar e Adicionar</div>
-                    <div className="text-xs opacity-90">Salva no catálogo + adiciona</div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <FiPlus size={16} />
+                    <span>Salvar no catálogo e adicionar</span>
                   </div>
-                </button>
+                  <span className="text-xs opacity-80">Recomendado para itens que você usa frequentemente</span>
+                </Button>
                 
-                <button
+                <Button
                   onClick={() => adicionarItem()}
                   disabled={!novoItem.nome.trim() || novoItem.preco <= 0}
-                  className="flex-1 flex items-center justify-center gap-3 px-6 py-4 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  className="flex-1 h-auto py-4 flex-col"
+                  variant="secondary"
                 >
-                  <FiPlus size={20} />
-                  <div className="text-left">
-                    <div>📋 Apenas Adicionar</div>
-                    <div className="text-xs opacity-90">Só nesta OS</div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <FiPlus size={16} />
+                    <span>Apenas adicionar</span>
                   </div>
-                </button>
+                  <span className="text-xs opacity-80">Para itens únicos ou específicos</span>
+                </Button>
               </div>
 
               {/* Botão cancelar */}
-              <button
+              <Button
                 onClick={() => {
                   setShowAddForm(false);
                   setNovoItem({ nome: '', preco: 0, quantidade: 1, total: 0 });
                 }}
-                className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                className="w-full"
+                variant="outline"
               >
-                <FiX size={16} />
+                <FiX size={16} className="mr-2" />
                 Cancelar
-              </button>
+              </Button>
             </div>
           </div>
         </div>
