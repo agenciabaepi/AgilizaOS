@@ -160,7 +160,7 @@ export default function ProdutoServicoManager({
     
     if (!usuarioData?.empresa_id) {
       console.error('❌ Empresa não identificada:', usuarioData);
-      addToast('error', 'Erro: empresa não identificada');
+      addToast('Erro: empresa não identificada', 'error');
       return;
     }
 
@@ -174,13 +174,34 @@ export default function ProdutoServicoManager({
       
       console.log('📤 Enviando dados para cadastro:', itemData);
 
+      // Verificar se a tabela existe primeiro
+      const { data: tableCheck, error: tableError } = await supabase
+        .from('produtos_servicos')
+        .select('count', { count: 'exact', head: true });
+
+      if (tableError) {
+        console.error('❌ Tabela produtos_servicos não existe:', tableError);
+        addToast('Erro: Tabela de produtos não configurada no banco de dados', 'error');
+        return;
+      }
+
+      console.log('✅ Tabela produtos_servicos existe, prosseguindo com insert...');
+
       const { data, error } = await supabase
         .from('produtos_servicos')
         .insert(itemData);
 
       if (error) {
-        console.error('❌ Erro do Supabase:', error);
-        addToast('error', `Erro ao cadastrar: ${error.message}`);
+        console.error('❌ Erro do Supabase (detalhado):', {
+          error,
+          message: error?.message,
+          details: error?.details,
+          hint: error?.hint,
+          code: error?.code,
+          stringified: JSON.stringify(error)
+        });
+        const errorMsg = error?.message || error?.details || error?.hint || 'Erro desconhecido no banco de dados';
+        addToast(`Erro ao cadastrar: ${errorMsg}`, 'error');
         return;
       }
 
