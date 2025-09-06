@@ -151,32 +151,42 @@ export default function ProdutoServicoManager({
   };
 
   const cadastrarNovoItem = async () => {
+    console.log('🔄 Iniciando cadastro de novo item:', { novoItem, usuarioData });
+    
     if (!novoItem.nome.trim()) {
       addToast('error', 'Nome é obrigatório');
       return;
     }
     
     if (!usuarioData?.empresa_id) {
+      console.error('❌ Empresa não identificada:', usuarioData);
       addToast('error', 'Erro: empresa não identificada');
       return;
     }
 
     try {
+      const itemData = {
+        nome: novoItem.nome.trim(),
+        preco: novoItem.preco,
+        tipo: tipo,
+        empresa_id: usuarioData.empresa_id
+      };
+      
+      console.log('📤 Enviando dados para cadastro:', itemData);
+
       const { data, error } = await supabase
         .from('produtos_servicos')
-        .insert({
-          nome: novoItem.nome.trim(),
-          preco: novoItem.preco,
-          tipo: tipo,
-          empresa_id: usuarioData.empresa_id
-        })
+        .insert(itemData)
         .select()
         .single();
 
       if (error) {
-        addToast('error', 'Erro ao cadastrar item');
+        console.error('❌ Erro do Supabase:', error);
+        addToast('error', `Erro ao cadastrar: ${error.message}`);
         return;
       }
+
+      console.log('✅ Item cadastrado com sucesso:', data);
 
       // Adicionar à lista local
       setProdutosServicos(prev => [...prev, data]);
@@ -186,8 +196,15 @@ export default function ProdutoServicoManager({
       
       addToast('success', `${tipo === 'servico' ? 'Serviço' : 'Produto'} cadastrado e adicionado!`);
       
+      // Limpar formulário
+      setNovoItem({ nome: '', preco: 0, quantidade: 1, total: 0 });
+      setPrecoDisplay('');
+      setQuantidadeDisplay('1');
+      setShowAddForm(false);
+      
     } catch (error) {
-      addToast('error', 'Erro ao salvar');
+      console.error('❌ Erro inesperado:', error);
+      addToast('error', `Erro ao salvar: ${error}`);
     }
   };
 
