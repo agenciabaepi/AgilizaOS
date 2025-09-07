@@ -336,52 +336,13 @@ export default function ProdutoServicoManager({
                 Adicionar {tipo === 'servico' ? 'Serviço' : 'Produto/Peça'}
               </h4>
               <p className="text-sm text-gray-600">
-                Encontre um item existente ou crie um novo
+                Crie um novo item para adicionar à OS
               </p>
             </div>
           </div>
           
-          {/* Buscar existente */}
-          <div className="bg-gray-50 rounded-lg p-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Buscar {tipo === 'servico' ? 'Serviços' : 'Produtos'} Salvos
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                placeholder={`Digite para buscar ${tipo === 'servico' ? 'serviços' : 'produtos'}...`}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D1FE6E] focus:border-[#D1FE6E] transition-colors"
-              />
-              
-              {searchTerm && filteredItems.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                  {filteredItems.slice(0, 10).map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        adicionarItem(item);
-                        setSearchTerm('');
-                      }}
-                      className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0"
-                    >
-                      <span className="font-medium">{item.nome}</span>
-                      <span className="text-sm text-gray-600">{formatCurrency(item.preco)}</span>
-                    </button>
-                  ))}
-                  {filteredItems.length > 10 && (
-                    <div className="p-2 text-center text-sm text-gray-500">
-                      +{filteredItems.length - 10} mais resultados...
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
           {/* Criar novo */}
-          <div className="border-t pt-6">
+          <div>
             <div className="mb-6">
               <h5 className="text-lg font-semibold text-gray-900 mb-1">Novo {tipo === 'servico' ? 'Serviço' : 'Produto'}</h5>
               <p className="text-sm text-gray-500 mb-4">Preencha os dados abaixo</p>
@@ -484,32 +445,20 @@ export default function ProdutoServicoManager({
                 Adicionar à OS
               </Button>
               
-              {/* Botões secundários lado a lado em desktop, empilhados no mobile */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Button
-                  onClick={cadastrarNovoItem}
-                  disabled={!novoItem.nome.trim() || !precoDisplay.trim() || novoItem.preco <= 0}
-                  className="py-3 text-sm"
-                  variant="outline"
-                >
-                  <FiPackage size={14} className="mr-2" />
-                  Salvar no Catálogo
-                </Button>
-                
-                <Button
-                  onClick={() => {
-                    setShowAddForm(false);
-                    setNovoItem({ nome: '', preco: 0, quantidade: 1, total: 0 });
-                    setPrecoDisplay('');
-                    setQuantidadeDisplay('1');
-                  }}
-                  className="py-3 text-sm"
-                  variant="outline"
-                >
-                  <FiX size={14} className="mr-2" />
-                  Cancelar
-                </Button>
-              </div>
+              {/* Botão cancelar */}
+              <Button
+                onClick={() => {
+                  setShowAddForm(false);
+                  setNovoItem({ nome: '', preco: 0, quantidade: 1, total: 0 });
+                  setPrecoDisplay('');
+                  setQuantidadeDisplay('1');
+                }}
+                className="w-full py-3 text-sm"
+                variant="outline"
+              >
+                <FiX size={14} className="mr-2" />
+                Cancelar
+              </Button>
             </div>
           </div>
         </div>
