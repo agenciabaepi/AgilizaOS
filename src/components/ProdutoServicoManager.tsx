@@ -342,15 +342,10 @@ export default function ProdutoServicoManager({
           </div>
           
           {/* Buscar existente */}
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <div className="mb-3">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Buscar no catálogo
-              </label>
-              <p className="text-xs text-gray-500">
-                Busque em seus {tipo === 'servico' ? 'serviços' : 'produtos'} salvos para adicionar rapidamente
-              </p>
-            </div>
+          <div className="bg-gray-50 rounded-lg p-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Buscar {tipo === 'servico' ? 'Serviços' : 'Produtos'} Salvos
+            </label>
             <div className="relative">
               <input
                 type="text"
@@ -388,8 +383,8 @@ export default function ProdutoServicoManager({
           {/* Criar novo */}
           <div className="border-t pt-6">
             <div className="mb-6">
-              <h5 className="text-lg font-semibold text-gray-900 mb-2">✨ Adicionar Novo Item</h5>
-              <p className="text-sm text-gray-600">Crie um novo {tipo === 'servico' ? 'serviço' : 'produto'} e adicione diretamente à sua OS</p>
+              <h5 className="text-lg font-semibold text-gray-900 mb-1">Novo {tipo === 'servico' ? 'Serviço' : 'Produto'}</h5>
+              <p className="text-sm text-gray-500 mb-4">Preencha os dados abaixo</p>
             </div>
             
             <div className="space-y-6">
@@ -407,8 +402,8 @@ export default function ProdutoServicoManager({
                 />
               </div>
 
-              {/* Preço e Quantidade lado a lado */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Preço e Quantidade */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Preço Unitário */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -466,81 +461,55 @@ export default function ProdutoServicoManager({
 
               {/* Total Calculado */}
               {(novoItem.preco > 0 && novoItem.quantidade > 0) && (
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700">
-                      Total do item:
-                    </span>
+                <div className="bg-gray-100 rounded-lg p-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Total:</span>
                     <span className="text-lg font-semibold text-gray-900">
                       R$ {((novoItem.preco || 0) * (novoItem.quantidade || 1)).toFixed(2).replace('.', ',')}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {novoItem.quantidade} × R$ {(novoItem.preco || 0).toFixed(2).replace('.', ',')}
-                  </p>
                 </div>
               )}
             </div>
-            {/* Ações */}
-            <div className="mt-8 space-y-4">
-              {/* Informação sobre as opções */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h6 className="text-sm font-medium text-blue-900 mb-2">💡 Como funciona:</h6>
-                <div className="space-y-2 text-xs text-blue-700">
-                  <div className="flex items-start gap-2">
-                    <span className="w-2 h-2 bg-green-500 rounded-full mt-1.5 flex-shrink-0"></span>
-                    <span><strong>Adicionar à OS:</strong> Adiciona o item diretamente nesta Ordem de Serviço</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></span>
-                    <span><strong>Salvar para reutilizar:</strong> Salva na sua lista pessoal para usar em outras OSs futuras</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Botões de ação */}
-              <div className="flex flex-col gap-3">
+            {/* Ações - Design Simples */}
+            <div className="mt-6 space-y-3">
+              {/* Botão principal */}
+              <Button
+                onClick={cadastrarNovoItem}
+                disabled={!novoItem.nome.trim() || !precoDisplay.trim() || novoItem.preco <= 0}
+                className="w-full py-3 text-base font-medium"
+                variant="default"
+              >
+                <FiPlus size={16} className="mr-2" />
+                Adicionar à OS
+              </Button>
+              
+              {/* Botões secundários lado a lado em desktop, empilhados no mobile */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Button
                   onClick={cadastrarNovoItem}
                   disabled={!novoItem.nome.trim() || !precoDisplay.trim() || novoItem.preco <= 0}
-                  className="w-full h-auto py-4 flex-col bg-green-600 hover:bg-green-700 text-white"
-                  variant="default"
+                  className="py-3 text-sm"
+                  variant="outline"
                 >
-                  <div className="flex items-center gap-2 mb-1">
-                    <FiPlus size={18} />
-                    <span className="font-semibold">Adicionar à OS</span>
-                  </div>
-                  <span className="text-xs opacity-90">✅ Adiciona diretamente nesta Ordem de Serviço</span>
+                  <FiPackage size={14} className="mr-2" />
+                  Salvar no Catálogo
                 </Button>
                 
                 <Button
-                  onClick={cadastrarNovoItem}
-                  disabled={!novoItem.nome.trim() || !precoDisplay.trim() || novoItem.preco <= 0}
-                  className="w-full h-auto py-4 flex-col border-2 border-blue-500 text-blue-600 hover:bg-blue-50"
+                  onClick={() => {
+                    setShowAddForm(false);
+                    setNovoItem({ nome: '', preco: 0, quantidade: 1, total: 0 });
+                    setPrecoDisplay('');
+                    setQuantidadeDisplay('1');
+                  }}
+                  className="py-3 text-sm"
                   variant="outline"
                 >
-                  <div className="flex items-center gap-2 mb-1">
-                    <FiPackage size={18} />
-                    <span className="font-semibold">Salvar para Reutilizar</span>
-                  </div>
-                  <span className="text-xs opacity-80">💾 Salva na sua lista pessoal + adiciona nesta OS</span>
+                  <FiX size={14} className="mr-2" />
+                  Cancelar
                 </Button>
               </div>
-
-              {/* Botão cancelar */}
-              <Button
-                onClick={() => {
-                  setShowAddForm(false);
-                  setNovoItem({ nome: '', preco: 0, quantidade: 1, total: 0 });
-                  setPrecoDisplay('');
-                  setQuantidadeDisplay('1');
-                }}
-                className="w-full"
-                variant="outline"
-              >
-                <FiX size={16} className="mr-2" />
-                Cancelar
-              </Button>
             </div>
           </div>
         </div>
