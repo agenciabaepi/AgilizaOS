@@ -34,6 +34,8 @@ import { useLogout } from '@/hooks/useLogout';
 import { useSessionMonitor } from '@/hooks/useSessionMonitor';
 import { usePageRefresh } from '@/hooks/usePageRefresh';
 import { useInactivityLogout } from '@/hooks/useInactivityLogout';
+import { usePageTimeout } from '@/hooks/usePageTimeout';
+import EmergencyUnblock from '@/components/EmergencyUnblock';
 // import TestFeatureFlags from './TestFeatureFlags'; // Removido
 import DebugAuth from './DebugAuth';
 import AutoRouteProtection from './AutoRouteProtection';
@@ -74,6 +76,13 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [menuRecolhido, setMenuRecolhido] = useState<boolean>(false);
   const [catalogoHabilitado, setCatalogoHabilitado] = useState<boolean>(false);
+
+  // ✅ SISTEMA ANTI-TRAVAMENTO: Detecta e resolve páginas travadas
+  usePageTimeout({
+    maxLoadTime: 8000, // Aviso após 8 segundos
+    forceRefreshAfter: 12000, // Desbloqueio forçado após 12 segundos
+    enabled: true
+  });
 
   // ✅ SISTEMA DE SEGURANÇA: TEMPORARIAMENTE DESABILITADO PARA TESTES
   /*
@@ -843,6 +852,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
       
       {/* Tela de Logout */}
       {isLoggingOut && <LogoutScreen />}
+      
+      {/* Sistema Anti-Travamento de Emergência */}
+      <EmergencyUnblock />
       
       {/* Componente de teste temporário removido */}
       {/* <DebugAuth /> */}
