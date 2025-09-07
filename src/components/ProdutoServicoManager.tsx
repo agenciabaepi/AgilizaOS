@@ -174,13 +174,6 @@ export default function ProdutoServicoManager({
     }
 
     try {
-      const itemData = {
-        nome: novoItem.nome.trim(),
-        preco: novoItem.preco,
-        tipo: tipo,
-        empresa_id: usuarioData.empresa_id
-      };
-      
       console.log('📦 MODO OFFLINE: Salvando apenas localmente (tabela produtos_servicos bloqueada)');
       
       // Criar item apenas localmente - não tentar salvar no banco
