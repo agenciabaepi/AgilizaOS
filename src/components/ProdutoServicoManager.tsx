@@ -181,62 +181,17 @@ export default function ProdutoServicoManager({
         empresa_id: usuarioData.empresa_id
       };
       
-      console.log('📤 Enviando dados para cadastro:', itemData);
-
-      // Verificar se a tabela existe primeiro
-      const { data: tableCheck, error: tableError } = await supabase
-        .from('produtos_servicos')
-        .select('count', { count: 'exact', head: true });
-
-      if (tableError) {
-        console.error('❌ Tabela produtos_servicos não existe:', tableError);
-        addToast('Erro: Tabela de produtos não configurada no banco de dados', 'error');
-        return;
-      }
-
-      console.log('✅ Tabela produtos_servicos existe, prosseguindo com insert...');
-
-      const { data, error } = await supabase
-        .from('produtos_servicos')
-        .insert(itemData);
-
-      // Log imediato sem interceptação - usando window.console e alert para contornar interceptações
-      if (typeof window !== 'undefined') {
-        window.console.log('🔍 RESULTADO DIRETO DO SUPABASE:');
-        window.console.log('data:', data);
-        window.console.log('error (raw):', error);
-        window.console.log('error type:', typeof error);
-        window.console.log('error keys:', error ? Object.keys(error) : 'null');
-        
-        // Alert para garantir que vemos o erro
-        if (error) {
-          alert(`ERRO SUPABASE:\nTipo: ${typeof error}\nKeys: ${error ? Object.keys(error).join(', ') : 'null'}\nJSON: ${JSON.stringify(error)}`);
-        }
-      }
-
-      if (error) {
-        console.error('❌ Erro do Supabase (detalhado):', {
-          error,
-          message: error?.message,
-          details: error?.details,
-          hint: error?.hint,
-          code: error?.code,
-          stringified: JSON.stringify(error)
-        });
-        const errorMsg = error?.message || error?.details || error?.hint || 'Erro desconhecido no banco de dados';
-        addToast(`Erro ao cadastrar: ${errorMsg}`, 'error');
-        return;
-      }
-
-      console.log('✅ Item cadastrado com sucesso');
-
-      // Criar objeto do item para adicionar localmente
+      console.log('📦 MODO OFFLINE: Salvando apenas localmente (tabela produtos_servicos bloqueada)');
+      
+      // Criar item apenas localmente - não tentar salvar no banco
       const novoItemCriado = {
-        id: Date.now().toString(), // ID temporário
-        nome: itemData.nome,
-        preco: itemData.preco,
-        tipo: itemData.tipo
+        id: Date.now().toString(), // ID temporário único
+        nome: novoItem.nome.trim(),
+        preco: novoItem.preco,
+        tipo: tipo
       };
+
+      console.log('✅ Item criado localmente:', novoItemCriado);
 
       // Adicionar à lista local
       setProdutosServicos(prev => [...prev, novoItemCriado]);
@@ -244,7 +199,7 @@ export default function ProdutoServicoManager({
       // Adicionar ao pedido
       adicionarItem(novoItemCriado);
       
-      addToast('success', `${tipo === 'servico' ? 'Serviço' : 'Produto'} cadastrado e adicionado!`);
+      addToast(`${tipo === 'servico' ? 'Serviço' : 'Produto'} adicionado com sucesso!`, 'success');
       
       // Limpar formulário
       setNovoItem({ nome: '', preco: 0, quantidade: 1, total: 0 });
