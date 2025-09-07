@@ -151,10 +151,19 @@ export default function ProdutoServicoManager({
   };
 
   const cadastrarNovoItem = async () => {
+    // TESTE DIRETO - criar função global para testar no console
+    if (typeof window !== 'undefined') {
+      (window as any).testarSupabase = async () => {
+        const { data, error } = await supabase.from('produtos_servicos').select('*').limit(1);
+        console.log('TESTE SELECT:', { data, error });
+        return { data, error };
+      };
+    }
+    
     console.log('🔄 Iniciando cadastro de novo item:', { novoItem, usuarioData });
     
     if (!novoItem.nome.trim()) {
-      addToast('error', 'Nome é obrigatório');
+      addToast('Nome é obrigatório', 'error');
       return;
     }
     
@@ -191,12 +200,19 @@ export default function ProdutoServicoManager({
         .from('produtos_servicos')
         .insert(itemData);
 
-      // Log imediato sem interceptação
-      console.log('🔍 RESULTADO DIRETO DO SUPABASE:');
-      console.log('data:', data);
-      console.log('error (raw):', error);
-      console.log('error type:', typeof error);
-      console.log('error keys:', error ? Object.keys(error) : 'null');
+      // Log imediato sem interceptação - usando window.console e alert para contornar interceptações
+      if (typeof window !== 'undefined') {
+        window.console.log('🔍 RESULTADO DIRETO DO SUPABASE:');
+        window.console.log('data:', data);
+        window.console.log('error (raw):', error);
+        window.console.log('error type:', typeof error);
+        window.console.log('error keys:', error ? Object.keys(error) : 'null');
+        
+        // Alert para garantir que vemos o erro
+        if (error) {
+          alert(`ERRO SUPABASE:\nTipo: ${typeof error}\nKeys: ${error ? Object.keys(error).join(', ') : 'null'}\nJSON: ${JSON.stringify(error)}`);
+        }
+      }
 
       if (error) {
         console.error('❌ Erro do Supabase (detalhado):', {
