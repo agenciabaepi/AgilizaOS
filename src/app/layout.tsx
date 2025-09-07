@@ -93,7 +93,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   // Suprimir logs e erros de rede em produção
   useEffect(() => {
     suppressLogsInProduction();
-    // suppressNetworkErrors(); // DESABILITADO TEMPORARIAMENTE PARA DEBUG
+    suppressNetworkErrors(); // Reabilitado para reduzir erros no mobile
     
     // Pré-verificar tabelas problemáticas para evitar 404s
     preCheckProblematicTables().catch(() => {

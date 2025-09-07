@@ -54,7 +54,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [usuarioData, setUsuarioData] = useState<UsuarioData | null>(null);
   const [empresaData, setEmpresaData] = useState<EmpresaData | null>(null);
-  const [lastUpdate, setLastUpdate] = useState<number>(Date.now());
+  const [lastUpdate, setLastUpdate] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -311,11 +311,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { userData, empresaData } = await fetchUserDataOptimized(user.id);
       setUsuarioData(userData);
       setEmpresaData(empresaData);
-      setLastUpdate(Date.now());
+      setLastUpdate(performance.now());
 
       // Forçar re-render de componentes que dependem dos dados da empresa
       setTimeout(() => {
-        setLastUpdate(Date.now());
+        setLastUpdate(performance.now());
       }, 100);
     } catch (error) {
 

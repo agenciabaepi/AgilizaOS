@@ -178,7 +178,7 @@ export default function ProdutoServicoManager({
       
       // Criar item apenas localmente - não tentar salvar no banco
       const novoItemCriado = {
-        id: Date.now().toString(), // ID temporário único
+        id: `temp-${Math.random().toString(36).substr(2, 9)}`, // ID temporário único
         nome: novoItem.nome.trim(),
         preco: novoItem.preco,
         tipo: tipo
