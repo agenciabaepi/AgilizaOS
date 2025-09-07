@@ -192,7 +192,7 @@ export default function ProdutoServicoManager({
       // Adicionar ao pedido
       adicionarItem(novoItemCriado);
       
-      addToast(`${tipo === 'servico' ? 'Serviço' : 'Produto'} adicionado com sucesso!`, 'success');
+      addToast(`${tipo === 'servico' ? 'Serviço' : 'Produto'} adicionado à OS com sucesso!`, 'success');
       
       // Limpar formulário
       setNovoItem({ nome: '', preco: 0, quantidade: 1, total: 0 });
@@ -348,7 +348,7 @@ export default function ProdutoServicoManager({
                 Buscar no catálogo
               </label>
               <p className="text-xs text-gray-500">
-                Encontre um {tipo === 'servico' ? 'serviço' : 'produto'} já cadastrado para adicionar rapidamente
+                Busque em seus {tipo === 'servico' ? 'serviços' : 'produtos'} salvos para adicionar rapidamente
               </p>
             </div>
             <div className="relative">
@@ -388,8 +388,8 @@ export default function ProdutoServicoManager({
           {/* Criar novo */}
           <div className="border-t pt-6">
             <div className="mb-6">
-              <h5 className="text-lg font-semibold text-gray-900 mb-2">Criar novo item</h5>
-              <p className="text-sm text-gray-600">Preencha os dados abaixo para adicionar um novo {tipo === 'servico' ? 'serviço' : 'produto'}</p>
+              <h5 className="text-lg font-semibold text-gray-900 mb-2">✨ Adicionar Novo Item</h5>
+              <p className="text-sm text-gray-600">Crie um novo {tipo === 'servico' ? 'serviço' : 'produto'} e adicione diretamente à sua OS</p>
             </div>
             
             <div className="space-y-6">
@@ -484,46 +484,46 @@ export default function ProdutoServicoManager({
             {/* Ações */}
             <div className="mt-8 space-y-4">
               {/* Informação sobre as opções */}
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <h6 className="text-sm font-medium text-gray-900 mb-2">Escolha uma opção:</h6>
-                <div className="space-y-2 text-xs text-gray-600">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h6 className="text-sm font-medium text-blue-900 mb-2">💡 Como funciona:</h6>
+                <div className="space-y-2 text-xs text-blue-700">
                   <div className="flex items-start gap-2">
-                    <span className="w-2 h-2 bg-black rounded-full mt-1.5 flex-shrink-0"></span>
-                    <span><strong>Salvar no catálogo e adicionar:</strong> Salva o item no seu catálogo para reutilizar em outras OS e adiciona nesta OS</span>
+                    <span className="w-2 h-2 bg-green-500 rounded-full mt-1.5 flex-shrink-0"></span>
+                    <span><strong>Adicionar à OS:</strong> Adiciona o item diretamente nesta Ordem de Serviço</span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="w-2 h-2 bg-gray-400 rounded-full mt-1.5 flex-shrink-0"></span>
-                    <span><strong>Apenas adicionar:</strong> Adiciona somente nesta OS (não salva no catálogo)</span>
+                    <span className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></span>
+                    <span><strong>Salvar para reutilizar:</strong> Salva na sua lista pessoal para usar em outras OSs futuras</span>
                   </div>
                 </div>
               </div>
 
               {/* Botões de ação */}
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col gap-3">
                 <Button
                   onClick={cadastrarNovoItem}
                   disabled={!novoItem.nome.trim() || !precoDisplay.trim() || novoItem.preco <= 0}
-                  className="flex-1 h-auto py-4 flex-col"
+                  className="w-full h-auto py-4 flex-col bg-green-600 hover:bg-green-700 text-white"
                   variant="default"
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <FiPlus size={16} />
-                    <span>Salvar no catálogo e adicionar</span>
+                    <FiPlus size={18} />
+                    <span className="font-semibold">Adicionar à OS</span>
                   </div>
-                  <span className="text-xs opacity-80">Recomendado para itens que você usa frequentemente</span>
+                  <span className="text-xs opacity-90">✅ Adiciona diretamente nesta Ordem de Serviço</span>
                 </Button>
                 
                 <Button
-                  onClick={() => adicionarItem()}
+                  onClick={cadastrarNovoItem}
                   disabled={!novoItem.nome.trim() || !precoDisplay.trim() || novoItem.preco <= 0}
-                  className="flex-1 h-auto py-4 flex-col"
-                  variant="secondary"
+                  className="w-full h-auto py-4 flex-col border-2 border-blue-500 text-blue-600 hover:bg-blue-50"
+                  variant="outline"
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <FiPlus size={16} />
-                    <span>Apenas adicionar</span>
+                    <FiPackage size={18} />
+                    <span className="font-semibold">Salvar para Reutilizar</span>
                   </div>
-                  <span className="text-xs opacity-80">Para itens únicos ou específicos</span>
+                  <span className="text-xs opacity-80">💾 Salva na sua lista pessoal + adiciona nesta OS</span>
                 </Button>
               </div>
 
