@@ -163,13 +163,13 @@ export default function ProdutoServicoManager({
     console.log('🔄 Iniciando cadastro de novo item:', { novoItem, usuarioData });
     
     if (!novoItem.nome.trim()) {
-      addToast('Nome é obrigatório', 'error');
+      addToast('error', 'Nome é obrigatório');
       return;
     }
     
     if (!usuarioData?.empresa_id) {
       console.error('❌ Empresa não identificada:', usuarioData);
-      addToast('Erro: empresa não identificada', 'error');
+      addToast('error', 'Erro: empresa não identificada');
       return;
     }
 
@@ -192,7 +192,7 @@ export default function ProdutoServicoManager({
       // Adicionar ao pedido
       adicionarItem(novoItemCriado);
       
-      addToast(`${tipo === 'servico' ? 'Serviço' : 'Produto'} adicionado à OS com sucesso!`, 'success');
+      addToast('success', `${tipo === 'servico' ? 'Serviço' : 'Produto'} adicionado à OS com sucesso!`);
       
       // Limpar formulário
       setNovoItem({ nome: '', preco: 0, quantidade: 1, total: 0 });
@@ -202,7 +202,7 @@ export default function ProdutoServicoManager({
       
     } catch (error) {
       console.error('❌ Erro inesperado:', error);
-      addToast('error', `Erro ao salvar: ${error}`);
+      addToast('error', `Erro ao adicionar item: ${error}`);
     }
   };
 
