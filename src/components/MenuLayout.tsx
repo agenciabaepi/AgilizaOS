@@ -31,17 +31,7 @@ import { SubscriptionStatus } from '@/components/SubscriptionStatus';
 import LogoutScreen from '@/components/LogoutScreen';
 import { useWhatsAppNotification } from '@/hooks/useWhatsAppNotification';
 import { useLogout } from '@/hooks/useLogout';
-import { useSessionMonitor } from '@/hooks/useSessionMonitor';
-import { usePageRefresh } from '@/hooks/usePageRefresh';
-import { useInactivityLogout } from '@/hooks/useInactivityLogout';
-import { usePageTimeout } from '@/hooks/usePageTimeout';
-import EmergencyUnblock from '@/components/EmergencyUnblock';
-// import TestFeatureFlags from './TestFeatureFlags'; // Removido
-import DebugAuth from './DebugAuth';
 import AutoRouteProtection from './AutoRouteProtection';
-
-// Import direto para debug
-import * as FeatureFlags from '@/config/featureFlags';
 
 // Funções locais como fallback
 const isUsuarioTesteLocal = (usuario: any) => {
@@ -77,49 +67,11 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const [menuRecolhido, setMenuRecolhido] = useState<boolean>(false);
   const [catalogoHabilitado, setCatalogoHabilitado] = useState<boolean>(false);
 
-  // ✅ SISTEMA ANTI-TRAVAMENTO: Detecta e resolve páginas travadas
-  usePageTimeout({
-    maxLoadTime: 8000, // Aviso após 8 segundos
-    forceRefreshAfter: 12000, // Desbloqueio forçado após 12 segundos
-    enabled: true
-  });
 
-  // ✅ SISTEMA DE SEGURANÇA: TEMPORARIAMENTE DESABILITADO PARA TESTES
-  /*
-  useSessionMonitor({
-    autoRefreshOnError: true,
-    refreshOnNavigation: true,
-    checkInterval: 30000 // 30 segundos (PRODUÇÃO)
-  });
-
-  useInactivityLogout({
-    timeoutMinutes: 30, // 30 minutos de inatividade (PRODUÇÃO)
-    warningMinutes: 5,  // Avisar 5 minutos antes (PRODUÇÃO)
-    enabled: true
-  });
-
-  usePageRefresh({
-    refreshOnNavigation: false, // Desabilitado para evitar refresh desnecessário
-    excludePaths: ['/login', '/']
-  });
-  */
 
   // ✅ DESABILITADO TEMPORARIAMENTE: Hook muito pesado, causando lentidão
   // useWhatsAppNotification();
 
-  // ✅ OTIMIZADO: Debug reduzido para melhorar performance
-  useEffect(() => {
-    if (empresaData?.id) {
-      // Debug removido para limpeza
-    }
-  }, [empresaData?.id]);
-
-  // DEBUG: Verificar feature flags
-  useEffect(() => {
-    if (usuarioData) {
-      // Debug removido para limpeza
-    }
-  }, [usuarioData]);
 
   const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
   const pathname = usePathname();
@@ -853,11 +805,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
       {/* Tela de Logout */}
       {isLoggingOut && <LogoutScreen />}
       
-      {/* Sistema Anti-Travamento de Emergência */}
-      <EmergencyUnblock />
       
-      {/* Componente de teste temporário removido */}
-      {/* <DebugAuth /> */}
     </div>
     </AutoRouteProtection>
   );
