@@ -1366,11 +1366,11 @@ export default function ListaOrdensPage() {
                       </div>
                     </td>
                     <td className="px-1 py-2">
-                      <div className="flex items-center gap-1 min-w-0">
+                      <div className="flex flex-col gap-1 min-w-0">
                         <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getStatusTecnicoColor(os.statusTecnico)}`}>
                             {os.statusTecnico || 'N/A'}
                         </span>
-                        <BadgeHistoricoRecusa observacoes={os.observacao} className="ml-1" />
+                        <BadgeHistoricoRecusa observacoes={os.observacao} />
                       </div>
                     </td>
                     <td className="px-1 py-2">
@@ -1448,14 +1448,14 @@ export default function ListaOrdensPage() {
                 </div>
 
                 {/* Status técnico e faturado */}
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex-1">
-                    <div className="text-gray-500">Status Técnico</div>
-                    <div className="font-medium text-gray-900 mb-1">{os.statusTecnico || 'N/A'}</div>
+                <div className="flex items-start justify-between text-xs gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-gray-500 mb-1">Status Técnico</div>
+                    <div className="font-medium text-gray-900 mb-2">{os.statusTecnico || 'N/A'}</div>
                     <BadgeHistoricoRecusa observacoes={os.observacao} />
                   </div>
-                  <div className="text-right">
-                    <div className="text-gray-500">Faturado</div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="text-gray-500 mb-1">Faturado</div>
                     <div className={`font-medium ${os.foiFaturada ? 'text-green-600' : 'text-gray-500'}`}>
                       {os.foiFaturada ? 'Faturado' : 'Aguardando'}
                     </div>
