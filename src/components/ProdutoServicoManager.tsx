@@ -111,8 +111,8 @@ export default function ProdutoServicoManager({
       id: item.id,
       nome: item.nome,
       preco: item.preco,
-      quantidade: 1,
-      total: item.preco
+      quantidade: item.quantidade || novoItem.quantidade, // ✅ CORRIGIDO: Usar quantidade do item ou do formulário
+      total: (item.preco || 0) * (item.quantidade || novoItem.quantidade || 1) // ✅ CORRIGIDO: Calcular total corretamente
     } : {
       ...novoItem,
       total: novoItem.preco * novoItem.quantidade
@@ -181,6 +181,8 @@ export default function ProdutoServicoManager({
         id: `temp-${Math.random().toString(36).substr(2, 9)}`, // ID temporário único
         nome: novoItem.nome.trim(),
         preco: novoItem.preco,
+        quantidade: novoItem.quantidade, // ✅ CORRIGIDO: Incluir quantidade
+        total: novoItem.total, // ✅ CORRIGIDO: Incluir total calculado
         tipo: tipo
       };
 
