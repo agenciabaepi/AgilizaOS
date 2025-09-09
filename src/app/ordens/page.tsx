@@ -47,7 +47,6 @@ import { Select } from '@/components/Select';
 import LaudoProntoAlert from '@/components/LaudoProntoAlert';
 import { useSupabaseRetry } from '@/hooks/useRetry';
 import { OSFullPageSkeleton } from '@/components/OSTableSkeleton';
-import BadgeHistoricoRecusa from '@/components/BadgeHistoricoRecusa';
 
 export default function ListaOrdensPage() {
   const router = useRouter();
@@ -1271,11 +1270,15 @@ export default function ListaOrdensPage() {
                 {paginated.map((os) => (
                   <tr 
                     key={os.id} 
-                    className={`hover:bg-blue-50 hover:shadow-sm transition-all duration-200 cursor-pointer group ${
+                    className={`relative hover:bg-blue-50 hover:shadow-sm transition-all duration-200 cursor-pointer group ${
                       os.tipo === 'Retorno' ? 'border-l-4 border-l-red-400 bg-red-50/30' : ''
                     }`}
                     onClick={() => router.push(`/ordens/${os.id}`)}
                   >
+                    {/* Indicador de recusa - ponto vermelho no canto superior direito */}
+                    {os.observacao?.includes('🚫 CLIENTE RECUSOU ORÇAMENTO') && (
+                      <div className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full shadow-sm z-10" title="Cliente recusou orçamento"></div>
+                    )}
                     <td className="px-1 py-2">
                       <div className="flex items-center gap-1">
                         <span className="font-bold text-gray-900 text-xs group-hover:text-blue-600 transition-colors">#{os.numero}</span>
@@ -1366,11 +1369,10 @@ export default function ListaOrdensPage() {
                       </div>
                     </td>
                     <td className="px-1 py-2">
-                      <div className="flex flex-col gap-1 min-w-0">
+                      <div className="flex items-center gap-1 min-w-0">
                         <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getStatusTecnicoColor(os.statusTecnico)}`}>
                             {os.statusTecnico || 'N/A'}
                         </span>
-                        <BadgeHistoricoRecusa observacoes={os.observacao} />
                       </div>
                     </td>
                     <td className="px-1 py-2">
@@ -1405,11 +1407,15 @@ export default function ListaOrdensPage() {
             {paginated.map((os) => (
               <div 
                 key={os.id} 
-                className={`bg-white rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer ${
+                className={`relative bg-white rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer ${
                   os.tipo === 'Retorno' ? 'border-l-4 border-l-red-400 bg-red-50/30' : ''
                 }`}
                 onClick={() => router.push(`/ordens/${os.id}`)}
               >
+                {/* Indicador de recusa - ponto vermelho no canto superior direito */}
+                {os.observacao?.includes('🚫 CLIENTE RECUSOU ORÇAMENTO') && (
+                  <div className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full shadow-sm z-10" title="Cliente recusou orçamento"></div>
+                )}
                 {/* Header do card */}
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2">
@@ -1448,14 +1454,13 @@ export default function ListaOrdensPage() {
                 </div>
 
                 {/* Status técnico e faturado */}
-                <div className="flex items-start justify-between text-xs gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-gray-500 mb-1">Status Técnico</div>
-                    <div className="font-medium text-gray-900 mb-2">{os.statusTecnico || 'N/A'}</div>
-                    <BadgeHistoricoRecusa observacoes={os.observacao} />
+                <div className="flex items-center justify-between text-xs">
+                  <div>
+                    <div className="text-gray-500">Status Técnico</div>
+                    <div className="font-medium text-gray-900">{os.statusTecnico || 'N/A'}</div>
                   </div>
-                  <div className="text-right flex-shrink-0">
-                    <div className="text-gray-500 mb-1">Faturado</div>
+                  <div className="text-right">
+                    <div className="text-gray-500">Faturado</div>
                     <div className={`font-medium ${os.foiFaturada ? 'text-green-600' : 'text-gray-500'}`}>
                       {os.foiFaturada ? 'Faturado' : 'Aguardando'}
                     </div>
