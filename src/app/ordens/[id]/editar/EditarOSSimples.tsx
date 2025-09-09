@@ -9,6 +9,7 @@ import ProdutoServicoManager from '@/components/ProdutoServicoManager';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { useAuth } from '@/context/AuthContext';
+import { useStatusHistorico } from '@/hooks/useStatusHistorico';
 import { FiArrowLeft, FiSave, FiUser, FiCheckCircle, FiTool, FiFileText } from 'react-icons/fi';
 
 interface Item {
@@ -70,6 +71,7 @@ export default function EditarOSSimples() {
   const { addToast } = useToast();
   const confirm = useConfirm();
   const { usuarioData } = useAuth();
+  const { registrarMudancaStatus } = useStatusHistorico();
 
   const [ordem, setOrdem] = useState<Ordem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -401,6 +403,28 @@ export default function EditarOSSimples() {
       if (error) {
         addToast('error', 'Erro ao salvar: ' + error.message);
         return;
+      }
+
+      // ✅ REGISTRAR MUDANÇA DE STATUS NO HISTÓRICO
+      const statusAnterior = ordem?.status || null;
+      const statusTecnicoAnterior = ordem?.status_tecnico || null;
+      const statusNovo = statusSelecionado?.nome || ordem?.status || '';
+      
+      if (statusAnterior !== statusNovo || statusTecnicoAnterior !== novoStatusTecnico) {
+        const motivo = statusRecusado ? 'Cliente recusou o orçamento' : 
+                     sel === 'ENTREGUE' ? 'OS finalizada e entregue ao cliente' :
+                     sel === 'APROVADO' ? 'Orçamento aprovado pelo cliente' :
+                     'Mudança de status via sistema';
+        
+        await registrarMudancaStatus(
+          id,
+          statusAnterior,
+          statusNovo,
+          statusTecnicoAnterior,
+          novoStatusTecnico,
+          motivo,
+          observacoesAtualizadas !== observacoesInternas ? 'Observações atualizadas automaticamente' : undefined
+        );
       }
 
       addToast('success', '✅ Ordem de serviço atualizada com sucesso!');

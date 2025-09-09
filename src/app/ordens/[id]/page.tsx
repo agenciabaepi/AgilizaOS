@@ -9,12 +9,15 @@ import { FiArrowLeft, FiEdit, FiPrinter, FiDollarSign, FiMessageCircle, FiUser, 
 import ImagensOS from '@/components/ImagensOS';
 import { useToast } from '@/components/Toast';
 import { useAuth } from '@/context/AuthContext';
+import { useStatusHistorico } from '@/hooks/useStatusHistorico';
+import StatusHistoricoTimeline from '@/components/StatusHistoricoTimeline';
 
 const VisualizarOrdemServicoPage = () => {
   const router = useRouter();
   const { id } = useParams();
   const { addToast } = useToast();
   const { empresaData } = useAuth();
+  const { historico, loading: loadingHistorico } = useStatusHistorico(id as string);
   const [ordem, setOrdem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -771,6 +774,23 @@ const VisualizarOrdemServicoPage = () => {
                   imagens={ordem.imagens || ''} 
                   ordemId={ordem.numero_os || ordem.id} 
                 />
+              </div>
+
+              {/* Histórico de Status */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <FiClock className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <h2 className="text-xl font-semibold text-gray-900">Histórico de Status</h2>
+                </div>
+                <div className="max-h-96 overflow-y-auto">
+                  <StatusHistoricoTimeline 
+                    historico={historico} 
+                    loading={loadingHistorico}
+                    compact={true}
+                  />
+                </div>
               </div>
             </div>
           </div>
