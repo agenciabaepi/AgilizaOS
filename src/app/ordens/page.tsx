@@ -28,6 +28,7 @@ interface OrdemTransformada {
   tipo: string;
   foiFaturada: boolean;
   formaPagamento: string;
+  observacao?: string | null;
 }
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -46,6 +47,7 @@ import { Select } from '@/components/Select';
 import LaudoProntoAlert from '@/components/LaudoProntoAlert';
 import { useSupabaseRetry } from '@/hooks/useRetry';
 import { OSFullPageSkeleton } from '@/components/OSTableSkeleton';
+import BadgeHistoricoRecusa from '@/components/BadgeHistoricoRecusa';
 
 export default function ListaOrdensPage() {
   const router = useRouter();
@@ -298,6 +300,7 @@ export default function ListaOrdensPage() {
             desconto,
             servico,
             tipo,
+            observacao,
             clientes:cliente_id(nome, telefone, email),
             tecnico:usuarios!tecnico_id(nome)
           `)
@@ -443,6 +446,7 @@ export default function ListaOrdensPage() {
             tipo: item.tipo || 'Nova',
             foiFaturada: valorFaturado > 0 && (item.status === 'ENTREGUE' || item.status_tecnico === 'FINALIZADA'),
             formaPagamento: getFormaPagamento(item, vendaOS),
+            observacao: item.observacao || null,
           };
         });
 
@@ -1366,6 +1370,7 @@ export default function ListaOrdensPage() {
                         <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getStatusTecnicoColor(os.statusTecnico)}`}>
                             {os.statusTecnico || 'N/A'}
                         </span>
+                        <BadgeHistoricoRecusa observacoes={os.observacao} className="ml-1" />
                       </div>
                     </td>
                     <td className="px-1 py-2">
@@ -1444,9 +1449,10 @@ export default function ListaOrdensPage() {
 
                 {/* Status técnico e faturado */}
                 <div className="flex items-center justify-between text-xs">
-                  <div>
+                  <div className="flex-1">
                     <div className="text-gray-500">Status Técnico</div>
-                    <div className="font-medium text-gray-900">{os.statusTecnico || 'N/A'}</div>
+                    <div className="font-medium text-gray-900 mb-1">{os.statusTecnico || 'N/A'}</div>
+                    <BadgeHistoricoRecusa observacoes={os.observacao} />
                   </div>
                   <div className="text-right">
                     <div className="text-gray-500">Faturado</div>

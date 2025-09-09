@@ -323,6 +323,22 @@ export default function EditarOSSimples() {
         novoStatusTecnico = 'AGUARDANDO APROVAÇÃO';
       }
 
+      // ✅ HISTÓRICO DE RECUSAS: Registrar automaticamente quando cliente recusa
+      let observacoesAtualizadas = observacoesInternas;
+      const statusRecusado = sel.includes('RECUS') || sel.includes('NEGOU') || sel.includes('NAO APROVOU');
+      
+      if (statusRecusado) {
+        const dataRecusa = new Date().toLocaleString('pt-BR');
+        const registroRecusa = `🚫 CLIENTE RECUSOU ORÇAMENTO - ${dataRecusa}`;
+        
+        // Verificar se já não existe esse registro para evitar duplicatas
+        if (!observacoesAtualizadas?.includes('🚫 CLIENTE RECUSOU ORÇAMENTO')) {
+          observacoesAtualizadas = observacoesAtualizadas 
+            ? `${observacoesAtualizadas}\n\n${registroRecusa}`
+            : registroRecusa;
+        }
+      }
+
       const updateData: any = {
         status: statusSelecionado?.nome || ordem?.status,
         status_tecnico: novoStatusTecnico,
@@ -341,7 +357,7 @@ export default function EditarOSSimples() {
           const valor = (isNaN(preco) ? 0 : preco);
           return `${s.nome} - Valor: R$ ${valor.toFixed(2)}`;
         }).join('\n'),
-        observacao: observacoesInternas, // Campo observacao (singular) da tabela
+        observacao: observacoesAtualizadas, // Campo observacao com histórico de recusas
         // Dados do equipamento
         marca: marca,
         modelo: modelo,
