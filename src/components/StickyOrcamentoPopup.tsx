@@ -22,8 +22,26 @@ export default function StickyOrcamentoPopup() {
   const [numeroOS, setNumeroOS] = useState<string | number | null>(null);
 
   function isPendente(status?: string | null, statusTecnico?: string | null) {
-    // Exibe somente enquanto o status técnico for exatamente "ORÇAMENTO ENVIADO"
+    // ✅ CORREÇÃO: Só exibe modal se orçamento enviado E status não indica conclusão
     const st = (statusTecnico || '').toUpperCase();
+    const statusGeral = (status || '').toUpperCase();
+    
+    // Não exibir se status indica que já foi processado/finalizado
+    const statusFinalizados = [
+      'AGUARDANDO RETIRADA',
+      'AGUARDANDO_RETIRADA', 
+      'ENTREGUE',
+      'FINALIZADA',
+      'CONCLUIDA',
+      'CONCLUÍDO',
+      'CANCELADA'
+    ];
+    
+    if (statusFinalizados.some(s => statusGeral.includes(s))) {
+      return false;
+    }
+    
+    // Só exibe se tem orçamento enviado pendente
     return st.includes('ORÇAMENTO ENVIADO') || st.includes('ORCAMENTO ENVIADO');
   }
 

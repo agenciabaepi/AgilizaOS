@@ -17,8 +17,26 @@ export function useRealtimeNotificacoes(empresaId?: string | null) {
   const [notificacoesFixas, setNotificacoesFixas] = useState<any[]>([]);
 
   function shouldKeepAlerting(status?: string | null, statusTecnico?: string | null): boolean {
+    // ✅ CORREÇÃO: Só alerta se orçamento pendente E status não indica conclusão
     const s = (status || '').toUpperCase();
     const st = (statusTecnico || '').toUpperCase();
+    
+    // Não alertar se status indica que já foi processado/finalizado
+    const statusFinalizados = [
+      'AGUARDANDO RETIRADA',
+      'AGUARDANDO_RETIRADA', 
+      'ENTREGUE',
+      'FINALIZADA',
+      'CONCLUIDA',
+      'CONCLUÍDO',
+      'CANCELADA'
+    ];
+    
+    if (statusFinalizados.some(status => s.includes(status))) {
+      return false;
+    }
+    
+    // Só alerta se tem orçamento pendente
     if (st.includes('ORÇAMENTO')) return true;
     if (s.includes('ORÇAMENTO')) return true;
     if (s.includes('AGUARDANDO') && (s.includes('APROVACAO') || s.includes('APROVAÇÃO'))) return true;
