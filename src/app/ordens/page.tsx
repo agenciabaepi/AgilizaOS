@@ -1359,8 +1359,8 @@ export default function ListaOrdensPage() {
                       <div className="text-xs text-gray-900 truncate min-w-0">{os.tecnico || 'N/A'}</div>
                     </td>
                     <td className="px-1 py-2">
-                      <div className="flex items-center gap-1 min-w-0">
-                        <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getStatusColor(os.statusOS)}`}>
+                      <div className="flex items-center gap-1 min-w-0 overflow-hidden">
+                        <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium truncate max-w-full ${getStatusColor(os.statusOS)}`}>
                           {os.statusOS || 'N/A'}
                         </span>
                         {os.tipo === 'Retorno' && (
@@ -1369,8 +1369,8 @@ export default function ListaOrdensPage() {
                       </div>
                     </td>
                     <td className="px-1 py-2">
-                      <div className="flex items-center gap-1 min-w-0">
-                        <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getStatusTecnicoColor(os.statusTecnico)}`}>
+                      <div className="flex items-center gap-1 min-w-0 overflow-hidden">
+                        <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium truncate max-w-full ${getStatusTecnicoColor(os.statusTecnico)}`}>
                             {os.statusTecnico || 'N/A'}
                         </span>
                       </div>
