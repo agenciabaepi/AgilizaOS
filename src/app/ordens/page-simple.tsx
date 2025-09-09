@@ -191,11 +191,11 @@ export default function ListaOrdensPageSimple() {
                         {ordem.aparelho || ordem.marca || ordem.modelo || 'Não informado'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge variant={
-                          ordem.status === 'finalizada' ? 'success' :
-                          ordem.status === 'em_andamento' ? 'warning' :
-                          ordem.status === 'entregue' ? 'default' :
-                          'secondary'
+                        <Badge className={
+                          ordem.status === 'finalizada' ? 'bg-green-100 text-green-800' :
+                          ordem.status === 'em_andamento' ? 'bg-yellow-100 text-yellow-800' :
+                          ordem.status === 'entregue' ? 'bg-blue-100 text-blue-800' :
+                          'bg-gray-100 text-gray-800'
                         }>
                           {ordem.status || 'Aguardando'}
                         </Badge>
