@@ -29,6 +29,8 @@ interface ProdutoServico {
   id: string;
   nome: string;
   preco: number;
+  quantidade?: number; // ✅ ADICIONADO: propriedade quantidade opcional
+  total?: number; // ✅ ADICIONADO: propriedade total opcional
   tipo: 'produto' | 'servico';
 }
 
