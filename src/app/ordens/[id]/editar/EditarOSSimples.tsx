@@ -405,26 +405,37 @@ export default function EditarOSSimples() {
         return;
       }
 
-      // ✅ REGISTRAR MUDANÇA DE STATUS NO HISTÓRICO
-      const statusAnterior = ordem?.status || null;
-      const statusTecnicoAnterior = ordem?.status_tecnico || null;
-      const statusNovo = statusSelecionado?.nome || ordem?.status || '';
-      
-      if (statusAnterior !== statusNovo || statusTecnicoAnterior !== novoStatusTecnico) {
-        const motivo = statusRecusado ? 'Cliente recusou o orçamento' : 
-                     sel === 'ENTREGUE' ? 'OS finalizada e entregue ao cliente' :
-                     sel === 'APROVADO' ? 'Orçamento aprovado pelo cliente' :
-                     'Mudança de status via sistema';
+      // ✅ REGISTRAR MUDANÇA DE STATUS NO HISTÓRICO (opcional - não bloqueia salvamento)
+      try {
+        const statusAnterior = ordem?.status || null;
+        const statusTecnicoAnterior = ordem?.status_tecnico || null;
+        const statusNovo = statusSelecionado?.nome || ordem?.status || '';
         
-        await registrarMudancaStatus(
-          id,
-          statusAnterior,
-          statusNovo,
-          statusTecnicoAnterior,
-          novoStatusTecnico,
-          motivo,
-          observacoesAtualizadas !== observacoesInternas ? 'Observações atualizadas automaticamente' : undefined
-        );
+        if (statusAnterior !== statusNovo || statusTecnicoAnterior !== novoStatusTecnico) {
+          const motivo = statusRecusado ? 'Cliente recusou o orçamento' : 
+                       sel === 'ENTREGUE' ? 'OS finalizada e entregue ao cliente' :
+                       sel === 'APROVADO' ? 'Orçamento aprovado pelo cliente' :
+                       'Mudança de status via sistema';
+          
+          const historicoSucesso = await registrarMudancaStatus(
+            id,
+            statusAnterior,
+            statusNovo,
+            statusTecnicoAnterior,
+            novoStatusTecnico,
+            motivo,
+            observacoesAtualizadas !== observacoesInternas ? 'Observações atualizadas automaticamente' : undefined
+          );
+          
+          if (historicoSucesso) {
+            console.log('✅ Histórico de status registrado com sucesso');
+          } else {
+            console.warn('⚠️ Falha ao registrar histórico, mas OS foi salva');
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ Erro ao registrar histórico (não crítico):', error);
+        // Não interrompe o fluxo - histórico é opcional
       }
 
       addToast('success', '✅ Ordem de serviço atualizada com sucesso!');

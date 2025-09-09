@@ -50,26 +50,110 @@ export function useStatusHistorico(osId?: string) {
     observacoes?: string
   ): Promise<boolean> => {
     try {
-      if (!usuarioData?.id) {
-        throw new Error('Usuário não autenticado');
+      // ✅ CORREÇÃO: Usar ID padrão se usuário não estiver disponível
+      let usuarioId = usuarioData?.id;
+      
+      // Se não temos usuário autenticado, buscar um usuário padrão da empresa
+      if (!usuarioId) {
+        console.warn('⚠️ Usuário não autenticado, buscando usuário padrão...');
+        
+        // Tentar buscar qualquer usuário da mesma empresa da OS
+        const { data: osData } = await supabase
+          .from('ordens_servico')
+          .select('empresa_id, usuario_id')
+          .eq('id', osId)
+          .single();
+        
+        if (osData?.usuario_id) {
+          usuarioId = osData.usuario_id;
+        } else if (osData?.empresa_id) {
+          // Buscar primeiro usuário da empresa
+          const { data: usuarioEmpresa } = await supabase
+            .from('usuarios')
+            .select('id')
+            .eq('empresa_id', osData.empresa_id)
+            .limit(1)
+            .single();
+          
+          usuarioId = usuarioEmpresa?.id;
+        }
+      }
+      
+      // Se ainda não temos usuário, registrar como sistema
+      if (!usuarioId) {
+        console.warn('⚠️ Nenhum usuário encontrado, registrando como sistema');
+        // Vamos prosseguir com NULL e deixar a função SQL lidar com isso
       }
 
       // Registrar via função SQL
-      const { data, error } = await supabase.rpc('registrar_mudanca_status', {
+      console.log('🔍 DEBUG: Tentando registrar histórico:', {
+        osId,
+        statusAnterior,
+        statusNovo,
+        statusTecnicoAnterior,
+        statusTecnicoNovo,
+        usuarioId,
+        motivo
+      });
+
+      // Tentar usar a função SQL primeiro
+      let { data, error } = await supabase.rpc('registrar_mudanca_status', {
         p_os_id: osId,
         p_status_anterior: statusAnterior,
         p_status_novo: statusNovo,
         p_status_tecnico_anterior: statusTecnicoAnterior,
         p_status_tecnico_novo: statusTecnicoNovo,
-        p_usuario_id: usuarioData.id,
+        p_usuario_id: usuarioId,
         p_motivo: motivo,
         p_observacoes: observacoes,
-        p_ip_address: null, // Podemos capturar isso no futuro
+        p_ip_address: null,
         p_user_agent: typeof window !== 'undefined' ? navigator.userAgent : null
       });
 
-      if (error) {
-        console.error('Erro ao registrar mudança de status:', error);
+      console.log('🔍 DEBUG: Resposta da função SQL:', { data, error });
+
+      // Se a função não existe, tentar inserção direta
+      if (error && (error.message.includes('function') || error.message.includes('does not exist'))) {
+        console.warn('⚠️ Função SQL não existe, tentando inserção direta...');
+        
+        // Buscar nome do usuário se disponível
+        let usuarioNome = 'Sistema';
+        if (usuarioId) {
+          const { data: userData } = await supabase
+            .from('usuarios')
+            .select('nome')
+            .eq('id', usuarioId)
+            .single();
+          usuarioNome = userData?.nome || 'Sistema';
+        }
+
+        // Inserção direta na tabela
+        const { data: insertData, error: insertError } = await supabase
+          .from('status_historico')
+          .insert({
+            os_id: osId,
+            status_anterior: statusAnterior,
+            status_novo: statusNovo,
+            status_tecnico_anterior: statusTecnicoAnterior,
+            status_tecnico_novo: statusTecnicoNovo,
+            usuario_id: usuarioId,
+            usuario_nome: usuarioNome,
+            motivo: motivo,
+            observacoes: observacoes,
+            user_agent: typeof window !== 'undefined' ? navigator.userAgent : null
+          });
+
+        console.log('🔍 DEBUG: Resposta da inserção direta:', { insertData, insertError });
+        
+        if (insertError) {
+          console.error('❌ Erro na inserção direta:', insertError);
+          return false;
+        }
+        
+        data = insertData;
+        error = insertError;
+      } else if (error) {
+        console.error('❌ Erro ao registrar mudança de status:', error);
         return false;
       }
 
