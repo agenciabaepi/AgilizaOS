@@ -480,13 +480,15 @@ export default function ListaOrdensPage() {
       console.error('Erro ao carregar ordens:', error);
       
       if (error instanceof Error) {
-        if (error.message.includes('timeout')) {
-          addToast('error', 'Timeout ao carregar dados. Verifique sua conexão e tente novamente.');
+        if (error.message.includes('timeout') || error.message.includes('Técnicos timeout')) {
+          console.warn('⚠️ Timeout detectado após inatividade - modo silencioso ativado');
+          // Não mostrar toast de erro para timeouts após inatividade
         } else {
           addToast('error', 'Erro ao carregar ordens de serviço. Tente novamente.');
         }
       } else {
-        addToast('error', 'Erro inesperado ao carregar dados.');
+        console.warn('⚠️ Erro desconhecido após inatividade:', error);
+        // Modo silencioso para erros após inatividade
       }
     } finally {
       setLoadingOrdens(false);
@@ -511,28 +513,28 @@ export default function ListaOrdensPage() {
 
   const fetchTecnicos = async () => {
     if (!empresaId || !empresaId.trim()) {
-
       return;
     }
 
     setLoadingTecnicos(true);
     try {
-      // ✅ SEGURANÇA: Timeout aumentado para 15 segundos
+      // ✅ MODO SILENCIOSO: Não mostrar erro se falhar após inatividade
       const { data, error } = await Promise.race([
         supabase
           .from('usuarios')
           .select('nome')
           .eq('empresa_id', empresaId)
           .eq('nivel', 'tecnico')
-          .order('nome'), // Ordenar por nome para melhor performance
+          .order('nome'),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Técnicos timeout')), 15000) // 15 segundos
+          setTimeout(() => reject(new Error('Técnicos timeout')), 8000) // Reduzido para 8 segundos
         )
       ]);
 
       if (error) {
-        console.error('Erro ao buscar técnicos:', error);
-        addToast('error', 'Erro ao carregar lista de técnicos');
+        console.warn('⚠️ Falha ao buscar técnicos (modo silencioso):', error);
+        // Não mostrar toast de erro para não incomodar o usuário
+        setTecnicos([]); // Lista vazia como fallback
         return;
       }
 
@@ -540,8 +542,9 @@ export default function ListaOrdensPage() {
         setTecnicos(data.map((u: any) => u.nome).filter(Boolean));
       }
     } catch (error) {
-      console.error('Erro ao carregar técnicos:', error);
-      addToast('error', 'Timeout ao carregar técnicos. Tente novamente.');
+      console.warn('⚠️ Timeout ao carregar técnicos (modo silencioso):', error);
+      // Falha silenciosa - não mostrar erro ao usuário
+      setTecnicos([]); // Lista vazia como fallback
     } finally {
       setLoadingTecnicos(false);
     }
