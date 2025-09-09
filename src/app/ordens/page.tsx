@@ -1270,16 +1270,12 @@ export default function ListaOrdensPage() {
                 {paginated.map((os) => (
                   <tr 
                     key={os.id} 
-                    className={`relative hover:bg-blue-50 hover:shadow-sm transition-all duration-200 cursor-pointer group ${
+                    className={`hover:bg-blue-50 hover:shadow-sm transition-all duration-200 cursor-pointer group ${
                       os.tipo === 'Retorno' ? 'border-l-4 border-l-red-400 bg-red-50/30' : ''
                     }`}
                     onClick={() => router.push(`/ordens/${os.id}`)}
                   >
-                    {/* Indicador de recusa - ponto vermelho no canto superior direito */}
-                    {os.observacao?.includes('🚫 CLIENTE RECUSOU ORÇAMENTO') && (
-                      <div className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full shadow-sm z-10" title="Cliente recusou orçamento"></div>
-                    )}
-                    <td className="px-1 py-2">
+                    <td className="px-1 py-2 relative">
                       <div className="flex items-center gap-1">
                         <span className="font-bold text-gray-900 text-xs group-hover:text-blue-600 transition-colors">#{os.numero}</span>
                         {os.tipo === 'Retorno' && (
@@ -1289,6 +1285,10 @@ export default function ListaOrdensPage() {
                       <div className="text-xs text-gray-600 font-medium truncate min-w-0 group-hover:text-gray-900 transition-colors">{os.cliente || 'N/A'}</div>
                       <div className="text-xs text-gray-500 truncate">{os.clienteTelefone || 'N/A'}</div>
                       <div className="text-xs text-gray-400 truncate">{formatDate(os.entrada) || 'N/A'}</div>
+                      {/* Indicador de recusa - ponto vermelho no canto superior direito da célula */}
+                      {os.observacao?.includes('🚫 CLIENTE RECUSOU ORÇAMENTO') && (
+                        <div className="absolute top-1 right-1 w-2 h-2 bg-red-600 rounded-full shadow-sm border border-white" title="Cliente recusou orçamento"></div>
+                      )}
                     </td>
                     <td className="px-1 py-2">
                       {os.tipo === 'Retorno' ? (
