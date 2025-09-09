@@ -96,69 +96,75 @@ export function useStatusHistorico(osId?: string) {
         motivo
       });
 
-      // Tentar usar a função SQL primeiro
-      let { data, error } = await supabase.rpc('registrar_mudanca_status', {
-        p_os_id: osId,
-        p_status_anterior: statusAnterior,
-        p_status_novo: statusNovo,
-        p_status_tecnico_anterior: statusTecnicoAnterior,
-        p_status_tecnico_novo: statusTecnicoNovo,
-        p_usuario_id: usuarioId,
-        p_motivo: motivo,
-        p_observacoes: observacoes,
-        p_ip_address: null,
-        p_user_agent: typeof window !== 'undefined' ? navigator.userAgent : null
-      });
+      // ✅ NOVA ESTRATÉGIA: Tentar inserção direta primeiro (mais confiável)
+      // Buscar nome do usuário se disponível
+      let usuarioNome = 'Sistema';
+      if (usuarioId) {
+        const { data: userData } = await supabase
+          .from('usuarios')
+          .select('nome')
+          .eq('id', usuarioId)
+          .single();
+        usuarioNome = userData?.nome || 'Sistema';
+      }
 
-      console.log('🔍 DEBUG: Resposta da função SQL:', { data, error });
-
-      // Se a função não existe, tentar inserção direta
-      if (error && (error.message.includes('function') || error.message.includes('does not exist'))) {
-        console.warn('⚠️ Função SQL não existe, tentando inserção direta...');
-        
-        // Buscar nome do usuário se disponível
-        let usuarioNome = 'Sistema';
-        if (usuarioId) {
-          const { data: userData } = await supabase
-            .from('usuarios')
-            .select('nome')
-            .eq('id', usuarioId)
-            .single();
-          usuarioNome = userData?.nome || 'Sistema';
-        }
-
-        // Inserção direta na tabela
-        const { data: insertData, error: insertError } = await supabase
+      // Inserção direta na tabela (sabemos que ela existe)
+      let { data, error } = await supabase
+        .from('status_historico')
+        .insert({
+          os_id: osId,
+          status_anterior: statusAnterior,
+          status_novo: statusNovo,
+          status_tecnico_anterior: statusTecnicoAnterior,
+          status_tecnico_novo: statusTecnicoNovo,
+          usuario_id: usuarioId,
+          usuario_nome: usuarioNome,
+          motivo: motivo,
+          observacoes: observacoes,
+          user_agent: typeof window !== 'undefined' ? navigator.userAgent : null
+        })
+        .select();
+      
+      // Se falhou, tentar inserção mínima (só campos obrigatórios)
+      if (error) {
+        console.warn('⚠️ Tentando inserção mínima...');
+        const resultado = await supabase
           .from('status_historico')
           .insert({
             os_id: osId,
-            status_anterior: statusAnterior,
             status_novo: statusNovo,
-            status_tecnico_anterior: statusTecnicoAnterior,
-            status_tecnico_novo: statusTecnicoNovo,
-            usuario_id: usuarioId,
-            usuario_nome: usuarioNome,
-            motivo: motivo,
-            observacoes: observacoes,
-            user_agent: typeof window !== 'undefined' ? navigator.userAgent : null
-          });
-
-        console.log('🔍 DEBUG: Resposta da inserção direta:', { insertData, insertError });
+            usuario_nome: usuarioNome || 'Sistema',
+            motivo: motivo || 'Mudança de status'
+          })
+          .select();
         
-        if (insertError) {
-          console.error('❌ Erro na inserção direta:', insertError);
-          return false;
+        data = resultado.data;
+        error = resultado.error;
+      }
+
+      console.log('🔍 DEBUG: Resposta da inserção direta:', { data, error });
+
+      if (error) {
+        console.error('❌ Erro ao inserir histórico (detalhado):', {
+          error,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        
+        // Verificar se é problema de RLS
+        if (error.message?.includes('RLS') || error.message?.includes('policy') || error.code === '42501') {
+          console.error('🚫 PROBLEMA DE RLS: Execute o SQL para desabilitar RLS temporariamente');
         }
         
-        data = insertData;
-        error = insertError;
-      } else if (error) {
-        console.error('❌ Erro ao registrar mudança de status:', error);
         return false;
       }
 
+      console.log('✅ Histórico registrado com sucesso:', data);
+
       // Recarregar histórico se estamos visualizando esta OS
-      if (osId === osId) {
+      if (osId) {
         await buscarHistorico(osId);
       }
 

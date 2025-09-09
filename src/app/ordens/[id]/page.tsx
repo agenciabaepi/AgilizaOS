@@ -777,14 +777,14 @@ const VisualizarOrdemServicoPage = () => {
               </div>
 
               {/* Histórico de Status */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <FiClock className="w-5 h-5 text-purple-600" />
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-1.5 bg-purple-100 rounded-lg">
+                    <FiClock className="w-4 h-4 text-purple-600" />
                   </div>
-                  <h2 className="text-xl font-semibold text-gray-900">Histórico de Status</h2>
+                  <h2 className="text-lg font-semibold text-gray-900">Histórico de Status</h2>
                 </div>
-                <div className="max-h-96 overflow-y-auto">
+                <div className="max-h-80 overflow-y-auto pr-1">
                   <StatusHistoricoTimeline 
                     historico={historico} 
                     loading={loadingHistorico}

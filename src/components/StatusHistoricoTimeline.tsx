@@ -43,15 +43,40 @@ export default function StatusHistoricoTimeline({
     const statusUpper = status.toUpperCase();
     
     if (statusUpper.includes('APROVADO') || statusUpper.includes('ENTREGUE')) {
-      return 'bg-green-100 text-green-800 border-green-200';
+      return {
+        bg: 'bg-green-50',
+        text: 'text-green-700',
+        border: 'border-green-200',
+        dot: 'bg-green-500'
+      };
     } else if (statusUpper.includes('RECUS') || statusUpper.includes('CANCEL')) {
-      return 'bg-red-100 text-red-800 border-red-200';
+      return {
+        bg: 'bg-red-50',
+        text: 'text-red-700',
+        border: 'border-red-200',
+        dot: 'bg-red-500'
+      };
     } else if (statusUpper.includes('AGUARDANDO')) {
-      return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      return {
+        bg: 'bg-amber-50',
+        text: 'text-amber-700',
+        border: 'border-amber-200',
+        dot: 'bg-amber-500'
+      };
     } else if (statusUpper.includes('ANDAMENTO') || statusUpper.includes('REPARO')) {
-      return 'bg-blue-100 text-blue-800 border-blue-200';
+      return {
+        bg: 'bg-blue-50',
+        text: 'text-blue-700',
+        border: 'border-blue-200',
+        dot: 'bg-blue-500'
+      };
     } else {
-      return 'bg-gray-100 text-gray-800 border-gray-200';
+      return {
+        bg: 'bg-gray-50',
+        text: 'text-gray-700',
+        border: 'border-gray-200',
+        dot: 'bg-gray-500'
+      };
     }
   };
 
@@ -93,112 +118,102 @@ export default function StatusHistoricoTimeline({
   }
 
   return (
-    <div className="space-y-4">
-      {historico.map((item, index) => (
-        <div 
-          key={item.id} 
-          className={`relative ${index !== historico.length - 1 ? 'pb-4' : ''}`}
-        >
-          {/* Linha conectora */}
-          {index !== historico.length - 1 && (
-            <div className="absolute left-6 top-12 w-0.5 h-full bg-gray-200"></div>
-          )}
-          
-          <div className="flex items-start space-x-4">
-            {/* Indicador de status */}
-            <div className="flex-shrink-0">
-              <div className="w-12 h-12 bg-white border-2 border-gray-200 rounded-full flex items-center justify-center shadow-sm">
-                <div className={`w-3 h-3 rounded-full ${
-                  getStatusColor(item.status_novo).includes('green') ? 'bg-green-500' :
-                  getStatusColor(item.status_novo).includes('red') ? 'bg-red-500' :
-                  getStatusColor(item.status_novo).includes('yellow') ? 'bg-yellow-500' :
-                  getStatusColor(item.status_novo).includes('blue') ? 'bg-blue-500' :
-                  'bg-gray-500'
-                }`}></div>
+    <div className="space-y-3">
+      {historico.map((item, index) => {
+        const colors = getStatusColor(item.status_novo);
+        const previousColors = item.status_anterior ? getStatusColor(item.status_anterior) : null;
+        
+        return (
+          <div 
+            key={item.id} 
+            className={`relative ${index !== historico.length - 1 ? 'pb-3' : ''}`}
+          >
+            {/* Linha conectora */}
+            {index !== historico.length - 1 && (
+              <div className="absolute left-5 top-10 w-0.5 h-full bg-gray-200"></div>
+            )}
+            
+            <div className="flex items-start gap-3">
+              {/* Indicador de status - mais compacto */}
+              <div className="flex-shrink-0 mt-1">
+                <div className={`w-10 h-10 ${colors.bg} border-2 ${colors.border} rounded-full flex items-center justify-center`}>
+                  <div className={`w-2.5 h-2.5 rounded-full ${colors.dot}`}></div>
+                </div>
               </div>
-            </div>
 
-            {/* Conteúdo */}
-            <div className="flex-1 min-w-0">
-              <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-2">
-                    {item.status_anterior && (
-                      <>
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(item.status_anterior)}`}>
-                          {item.status_anterior}
+              {/* Conteúdo - mais limpo */}
+              <div className="flex-1 min-w-0">
+                <div className="bg-white rounded-lg border border-gray-100 p-3 shadow-sm hover:shadow-md transition-shadow">
+                  {/* Header compacto */}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {item.status_anterior && previousColors && (
+                        <>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${previousColors.bg} ${previousColors.text} ${previousColors.border} border`}>
+                            {item.status_anterior}
+                          </span>
+                          <FiChevronRight className="w-3 h-3 text-gray-400" />
+                        </>
+                      )}
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${colors.bg} ${colors.text} ${colors.border} border`}>
+                        {item.status_novo}
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-500 whitespace-nowrap">
+                      {formatarData(item.created_at)}
+                    </div>
+                  </div>
+
+                  {/* Informações principais - mais organizadas */}
+                  <div className="space-y-2">
+                    {/* Usuário e tempo */}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-xs text-gray-600">
+                      {item.usuario_nome && (
+                        <div className="flex items-center gap-1">
+                          <FiUser className="w-3 h-3 text-gray-400" />
+                          <span className="font-medium">{item.usuario_nome}</span>
+                        </div>
+                      )}
+                      {item.tempo_no_status_anterior && (
+                        <div className="flex items-center gap-1">
+                          <FiClock className="w-3 h-3 text-gray-400" />
+                          <span>Ficou {formatarTempo(item.tempo_no_status_anterior)} no status anterior</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Status técnico (se relevante) */}
+                    {item.status_tecnico_novo && item.status_tecnico_novo !== item.status_novo && (
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-gray-500">Técnico:</span>
+                        <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-md">
+                          {item.status_tecnico_novo}
                         </span>
-                        <FiChevronRight className="w-4 h-4 text-gray-400" />
-                      </>
-                    )}
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(item.status_novo)}`}>
-                      {item.status_novo}
-                    </span>
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {formatarData(item.created_at)}
-                  </div>
-                </div>
-
-                {/* Status técnico (se diferente) */}
-                {item.status_tecnico_novo && item.status_tecnico_novo !== item.status_novo && (
-                  <div className="flex items-center space-x-2 mb-2">
-                    <span className="text-xs text-gray-500">Status Técnico:</span>
-                    {item.status_tecnico_anterior && (
-                      <>
-                        <span className="text-xs px-2 py-1 bg-gray-100 rounded">
-                          {item.status_tecnico_anterior}
-                        </span>
-                        <FiChevronRight className="w-3 h-3 text-gray-400" />
-                      </>
-                    )}
-                    <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded">
-                      {item.status_tecnico_novo}
-                    </span>
-                  </div>
-                )}
-
-                {/* Informações adicionais */}
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                  <div className="flex items-center space-x-4">
-                    {item.usuario_nome && (
-                      <div className="flex items-center space-x-1">
-                        <FiUser className="w-3 h-3" />
-                        <span>{item.usuario_nome}</span>
                       </div>
                     )}
-                    {item.tempo_no_status_anterior && (
-                      <div className="flex items-center space-x-1">
-                        <FiClock className="w-3 h-3" />
-                        <span>Tempo anterior: {formatarTempo(item.tempo_no_status_anterior)}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
 
-                {/* Motivo e observações */}
-                {(item.motivo || item.observacoes) && (
-                  <div className="mt-2 pt-2 border-t border-gray-100">
+                    {/* Motivo */}
                     {item.motivo && (
-                      <div className="mb-1">
-                        <span className="text-xs font-medium text-gray-700">Motivo:</span>
-                        <span className="text-xs text-gray-600 ml-1">{item.motivo}</span>
+                      <div className="text-xs">
+                        <span className="text-gray-500">Motivo:</span>
+                        <span className="ml-1 text-gray-700 font-medium">{item.motivo}</span>
                       </div>
                     )}
+
+                    {/* Observações */}
                     {item.observacoes && (
-                      <div className="flex items-start space-x-1">
-                        <FiMessageSquare className="w-3 h-3 text-gray-400 mt-0.5" />
-                        <span className="text-xs text-gray-600">{item.observacoes}</span>
+                      <div className="flex items-start gap-1 text-xs">
+                        <FiMessageSquare className="w-3 h-3 text-gray-400 mt-0.5 flex-shrink-0" />
+                        <span className="text-gray-600">{item.observacoes}</span>
                       </div>
                     )}
                   </div>
-                )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
