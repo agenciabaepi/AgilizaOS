@@ -54,44 +54,6 @@ export default function ListaOrdensPage() {
   const { addToast } = useToast();
   const { executeWithRetry, manualRetry, state: retryState } = useSupabaseRetry();
 
-  // ✅ DETECTOR DE INATIVIDADE: Detecta se usuário ficou inativo
-  const checkIfStale = useCallback(() => {
-    const now = Date.now();
-    const timeSinceLastActivity = now - lastActivity;
-    const STALE_THRESHOLD = 15 * 60 * 1000; // 15 minutos
-    
-    if (timeSinceLastActivity > STALE_THRESHOLD) {
-      console.warn('🕐 Sessão detectada como inativa há', Math.round(timeSinceLastActivity / 60000), 'minutos');
-      setIsStale(true);
-      return true;
-    }
-    return false;
-  }, [lastActivity]);
-
-  // ✅ REFRESH DE SESSÃO: Refresca sessão antes de queries após inatividade
-  const refreshSessionIfNeeded = useCallback(async () => {
-    if (checkIfStale()) {
-      console.log('🔄 Refrescando sessão após inatividade...');
-      try {
-        const { data, error } = await supabase.auth.refreshSession();
-        if (error) {
-          console.warn('⚠️ Falha ao refrescar sessão:', error);
-        } else {
-          console.log('✅ Sessão refrescada com sucesso');
-          setIsStale(false);
-          setLastActivity(Date.now());
-        }
-      } catch (error) {
-        console.warn('⚠️ Erro ao refrescar sessão:', error);
-      }
-    }
-  }, [checkIfStale]);
-
-  // ✅ ATUALIZAR ATIVIDADE: Marca atividade do usuário
-  const updateActivity = useCallback(() => {
-    setLastActivity(Date.now());
-    setIsStale(false);
-  }, []);
 
   // Estados dos cards principais
   const [totalOS, setTotalOS] = useState(0);
@@ -117,9 +79,6 @@ export default function ListaOrdensPage() {
   // Estado para abas
   const [activeTab, setActiveTab] = useState('todas');
   
-  // Estado para controle de inatividade
-  const [lastActivity, setLastActivity] = useState(Date.now());
-  const [isStale, setIsStale] = useState(false);
 
   function formatDate(date: string) {
     if (!date) return '';
@@ -597,26 +556,6 @@ export default function ListaOrdensPage() {
     }
   };
 
-  // ✅ DETECTOR DE ATIVIDADE: Escuta eventos do usuário
-  useEffect(() => {
-    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
-    
-    const handleActivity = () => {
-      updateActivity();
-    };
-
-    // Adicionar listeners
-    events.forEach(event => {
-      document.addEventListener(event, handleActivity, true);
-    });
-
-    return () => {
-      // Remover listeners
-      events.forEach(event => {
-        document.removeEventListener(event, handleActivity, true);
-      });
-    };
-  }, [updateActivity]);
 
   // ✅ OTIMIZADO: useEffect simplificado para evitar loops
   useEffect(() => {
