@@ -54,7 +54,6 @@ export default function ListaOrdensPage() {
   const { addToast } = useToast();
   const { executeWithRetry, manualRetry, state: retryState } = useSupabaseRetry();
 
-
   // Estados dos cards principais
   const [totalOS, setTotalOS] = useState(0);
   const [percentualRetornos, setPercentualRetornos] = useState(0);
