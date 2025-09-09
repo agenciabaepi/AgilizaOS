@@ -32,7 +32,7 @@ export interface StatusMetricas {
  * Hook para gerenciar histórico de status das OS
  */
 export function useStatusHistorico(osId?: string) {
-  const { usuarioData } = useAuth();
+  const { usuarioData, user } = useAuth();
   const [historico, setHistorico] = useState<StatusHistoricoItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +51,7 @@ export function useStatusHistorico(osId?: string) {
   ): Promise<boolean> => {
     try {
       // ✅ CORREÇÃO: Usar ID padrão se usuário não estiver disponível
-      let usuarioId = usuarioData?.id;
+      let usuarioId = user?.id;
       
       // Se não temos usuário autenticado, buscar um usuário padrão da empresa
       if (!usuarioId) {
