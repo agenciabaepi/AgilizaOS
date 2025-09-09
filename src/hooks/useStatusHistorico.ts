@@ -259,7 +259,7 @@ export function useStatusHistorico(osId?: string) {
       }, {} as Record<string, number>);
       
       const statusMaisComum = Object.entries(statusCount)
-        .sort(([,a], [,b]) => b - a)[0]?.[0] || '';
+        .sort(([,a], [,b]) => (b as number) - (a as number))[0]?.[0] || '';
 
       // Usuário mais ativo
       const usuarioCount = data.reduce((acc, item) => {
@@ -270,7 +270,7 @@ export function useStatusHistorico(osId?: string) {
       }, {} as Record<string, number>);
       
       const usuarioMaisAtivo = Object.entries(usuarioCount)
-        .sort(([,a], [,b]) => b - a)[0]?.[0] || '';
+        .sort(([,a], [,b]) => (b as number) - (a as number))[0]?.[0] || '';
 
       return {
         totalMudancas,
