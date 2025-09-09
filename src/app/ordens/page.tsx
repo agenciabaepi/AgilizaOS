@@ -244,7 +244,16 @@ export default function ListaOrdensPage() {
       return;
     }
 
-      // Simples e direto - sem complexidade desnecessária
+    // ✅ REFRESH AUTOMÁTICO: Refrescar sessão se houver problemas de conexão
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionData.session) {
+        console.log('🔄 Refrescando sessão automaticamente...');
+        await supabase.auth.refreshSession();
+      }
+    } catch (error) {
+      console.warn('⚠️ Erro ao verificar sessão:', error);
+    }
 
     // Cache simples - evitar buscar dados se já foram buscados recentemente
     const now = Date.now();
@@ -483,15 +492,36 @@ export default function ListaOrdensPage() {
       console.error('Erro ao carregar ordens:', error);
       
       if (error instanceof Error) {
-        if (error.message.includes('timeout') || error.message.includes('Técnicos timeout')) {
-          console.warn('⚠️ Timeout detectado após inatividade - modo silencioso ativado');
-          // Não mostrar toast de erro para timeouts após inatividade
+        if (error.message.includes('timeout')) {
+          console.warn('⚠️ Timeout detectado - tentando refrescar sessão...');
+          // Tentar refrescar sessão e recarregar automaticamente
+          try {
+            await supabase.auth.refreshSession();
+            console.log('✅ Sessão refrescada, tentando recarregar...');
+            setTimeout(() => {
+              fetchOrdens(true); // Tentar novamente após refresh
+            }, 1000);
+          } catch (refreshError) {
+            console.error('❌ Falha ao refrescar sessão:', refreshError);
+            addToast('error', 'Problema de conexão. Clique em "Tentar novamente" ou recarregue a página.');
+          }
+        } else if (error.message.includes('conectar com o servidor')) {
+          addToast('error', 'Problema de conexão com servidor. Verificando...');
+          // Tentar refrescar sessão automaticamente
+          setTimeout(async () => {
+            try {
+              await supabase.auth.refreshSession();
+              fetchOrdens(true);
+            } catch (e) {
+              console.error('Falha na reconexão:', e);
+            }
+          }, 2000);
         } else {
-          addToast('error', 'Erro ao carregar ordens de serviço. Tente novamente.');
+          addToast('error', 'Erro ao carregar ordens. Tente novamente.');
         }
       } else {
-        console.warn('⚠️ Erro desconhecido após inatividade:', error);
-        // Modo silencioso para erros após inatividade
+        console.warn('⚠️ Erro desconhecido:', error);
+        addToast('error', 'Erro inesperado. Tente recarregar a página.');
       }
     } finally {
       setLoadingOrdens(false);
@@ -519,7 +549,16 @@ export default function ListaOrdensPage() {
       return;
     }
 
-    // Simples e direto
+    // ✅ REFRESH AUTOMÁTICO: Refrescar sessão se necessário
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionData.session) {
+        console.log('🔄 Refrescando sessão para técnicos...');
+        await supabase.auth.refreshSession();
+      }
+    } catch (error) {
+      console.warn('⚠️ Erro ao verificar sessão para técnicos:', error);
+    }
 
     setLoadingTecnicos(true);
     try {
