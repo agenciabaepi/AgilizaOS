@@ -271,7 +271,7 @@ function OrdemPDF({ ordem }: { ordem: any }) {
           </View>
           <View style={{ alignItems: 'flex-end', minWidth: 80 }}>
             <Image
-              src={`https://chart.googleapis.com/chart?chs=60x60&cht=qr&chl=${encodeURIComponent(`${typeof window !== 'undefined' ? window.location.origin : 'https://gestaoconsert.com.br'}/os/${ordem.numero_os}/status`)}`}
+              src={`https://chart.googleapis.com/chart?chs=60x60&cht=qr&chl=${encodeURIComponent(`${process.env.NEXT_PUBLIC_BASE_URL || 'https://gestaoconsert.com.br'}/os/${ordem.numero_os}/status`)}`}
               style={{ width: 60, height: 60 }}
             />
             <Text style={{ fontSize: 8, textAlign: 'center', marginTop: 2, color: '#666' }}>
