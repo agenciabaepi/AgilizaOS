@@ -346,17 +346,15 @@ function OrdemPDF({ ordem }: { ordem: any }) {
         </View>
 
         {/* Termo de Garantia */}
-        {ordem.termo_garantia && (
-          <View style={[styles.block, { padding: 8, backgroundColor: '#fafafa' }]}>
-            <Text style={[styles.sectionTitle, { marginBottom: 4, textAlign: 'center', fontSize: 12 }]}>Termo de Garantia</Text>
-            <Text style={[styles.paragraph, { marginBottom: 6, fontSize: 8, textAlign: 'center', color: '#666' }]}>{ordem.termo_garantia?.conteudo || 'Termo de garantia padrão'}</Text>
-            
-            {/* Layout em 2 colunas otimizado */}
-            <View style={{ width: '100%', paddingTop: 2 }}>
-              {renderTermoClean(ordem.termo_garantia.conteudo)}
-            </View>
+        <View style={[styles.block, { padding: 8, backgroundColor: '#fafafa' }]}>
+          <Text style={[styles.sectionTitle, { marginBottom: 4, textAlign: 'center', fontSize: 12 }]}>Termo de Garantia</Text>
+          <Text style={[styles.paragraph, { marginBottom: 6, fontSize: 8, textAlign: 'center', color: '#666' }]}>Termo de garantia padrão</Text>
+          
+          {/* Layout em 2 colunas otimizado */}
+          <View style={{ width: '100%', paddingTop: 2 }}>
+            {renderTermoClean('Termo de garantia padrão')}
           </View>
-        )}
+        </View>
 
         {/* Assinaturas e QR code no rodapé */}
         <View style={styles.signatureRow}>
@@ -490,8 +488,7 @@ export default function ImprimirOrdemPage() {
             senha_acesso,
             clientes(nome, telefone, email, cpf, endereco),
             tecnico:usuarios(nome),
-            empresas(nome, cnpj, endereco, telefone, email, logo_url),
-            termo_garantia(conteudo)
+            empresas(nome, cnpj, endereco, telefone, email, logo_url)
           `)
           .eq('id', id)
           .single();
