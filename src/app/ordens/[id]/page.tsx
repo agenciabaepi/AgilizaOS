@@ -5,7 +5,7 @@ import MenuLayout from '@/components/MenuLayout';
 import ProtectedArea from '@/components/ProtectedArea';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
-import { FiArrowLeft, FiEdit, FiPrinter, FiDollarSign, FiMessageCircle, FiUser, FiSmartphone, FiFileText, FiCalendar, FiShield, FiTool, FiPackage, FiCheckCircle, FiClock, FiRefreshCw } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit, FiPrinter, FiDollarSign, FiMessageCircle, FiUser, FiSmartphone, FiFileText, FiCalendar, FiShield, FiTool, FiPackage, FiCheckCircle, FiClock, FiRefreshCw, FiExternalLink } from 'react-icons/fi';
 import ImagensOS from '@/components/ImagensOS';
 import { useToast } from '@/components/Toast';
 import { useAuth } from '@/context/AuthContext';
@@ -405,6 +405,13 @@ const VisualizarOrdemServicoPage = () => {
               >
                 <FiPrinter className="w-4 h-4" />
                 Imprimir
+              </button>
+              <button
+                onClick={() => window.open(`/os/${ordem?.numero_os}/status`, '_blank')}
+                className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                <FiExternalLink className="w-4 h-4" />
+                Ver Status Público
               </button>
               {calcularValores().valorFinal > 0 && ordem.status !== 'ENTREGUE' && (
                 <button
