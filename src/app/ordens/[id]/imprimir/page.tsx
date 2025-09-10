@@ -267,7 +267,7 @@ function OrdemPDF({ ordem }: { ordem: any }) {
             <Text style={styles.sectionTitle}>Dados do Cliente</Text>
             <Text style={styles.paragraph}><Text style={styles.bold}>Nome:</Text> {ordem.clientes?.nome}   <Text style={styles.bold}>Telefone:</Text> {ordem.clientes?.telefone}</Text>
             <Text style={styles.paragraph}><Text style={styles.bold}>CPF:</Text> {ordem.clientes?.cpf}   <Text style={styles.bold}>Endereço:</Text> {ordem.clientes?.endereco}</Text>
-            <Text style={styles.paragraph}><Text style={styles.bold}>Atendente:</Text> {ordem.atendente}</Text>
+            <Text style={styles.paragraph}><Text style={styles.bold}>Atendente:</Text> {ordem.atendente || 'Não informado'}</Text>
           </View>
           <View style={{ alignItems: 'flex-end', minWidth: 80 }}>
             <Image
@@ -298,7 +298,7 @@ function OrdemPDF({ ordem }: { ordem: any }) {
         {/* Técnicos / Responsáveis */}
         <View style={styles.block}>
           <Text style={styles.sectionTitle}>Equipe</Text>
-          <Text style={styles.paragraph}><Text style={styles.bold}>Técnico:</Text> {ordem.usuarios?.nome || ordem.tecnico}</Text>
+          <Text style={styles.paragraph}><Text style={styles.bold}>Técnico:</Text> {ordem.usuarios?.nome || ordem.tecnico?.nome}</Text>
         </View>
 
         {/* Serviços e Peças (por último) */}
@@ -346,7 +346,7 @@ function OrdemPDF({ ordem }: { ordem: any }) {
         {ordem.termo_garantia && (
           <View style={[styles.block, { padding: 8, backgroundColor: '#fafafa' }]}>
             <Text style={[styles.sectionTitle, { marginBottom: 4, textAlign: 'center', fontSize: 12 }]}>Termo de Garantia</Text>
-            <Text style={[styles.paragraph, { marginBottom: 6, fontSize: 8, textAlign: 'center', color: '#666' }]}>{ordem.termo_garantia.nome}</Text>
+            <Text style={[styles.paragraph, { marginBottom: 6, fontSize: 8, textAlign: 'center', color: '#666' }]}>{ordem.termo_garantia?.conteudo || 'Termo de garantia padrão'}</Text>
             
             {/* Layout em 2 colunas otimizado */}
             <View style={{ width: '100%', paddingTop: 2 }}>
@@ -408,10 +408,15 @@ export default function ImprimirOrdemPage() {
         qtd_servico: 0,
         desconto: 0,
         servico: 'Reparo de tela',
+        peca: 'Tela LCD',
         tipo: 'Reparo',
         observacao: 'Tela trincada, necessário troca',
         relato: 'Cliente relatou que o aparelho caiu e a tela quebrou',
         condicoes_equipamento: 'Aparelho em bom estado, apenas tela danificada',
+        cor: 'Preto',
+        numero_serie: 'ABC123456789',
+        acessorios: 'Cabo USB, Carregador',
+        atendente: 'Maria Silva',
         tecnico_id: 'tecnico-exemplo',
         empresa_id: 'empresa-exemplo',
         termo_garantia_id: null,
