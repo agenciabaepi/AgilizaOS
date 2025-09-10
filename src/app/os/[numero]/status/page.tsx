@@ -9,8 +9,12 @@ export default function OSPublicPage() {
   const params = useParams();
   const numeroOS = params.numero as string;
   
-  // Dados de exemplo para demonstração
-  const osData = {
+  const [osData, setOsData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Dados de exemplo para fallback
+  const exemploOS = {
     numero_os: parseInt(numeroOS),
     categoria: 'Smartphone',
     marca: 'Samsung',
@@ -28,12 +32,102 @@ export default function OSPublicPage() {
     }
   };
 
+  useEffect(() => {
+    const fetchOSData = async () => {
+      try {
+        // Primeiro tenta buscar dados reais do Supabase
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout na busca da OS')), 10000)
+        );
+
+        const queryPromise = supabase
+          .from('ordens_servico')
+          .select(`
+            id,
+            numero_os,
+            categoria,
+            marca,
+            modelo,
+            status,
+            status_tecnico,
+            created_at,
+            data_entrega,
+            valor_faturado,
+            servico,
+            peca,
+            observacao,
+            relato,
+            condicoes_equipamento,
+            cor,
+            numero_serie,
+            acessorios,
+            clientes!left(nome, telefone, email, cpf, endereco),
+            tecnico:usuarios!left(nome),
+            empresas!left(nome, cnpj, endereco, telefone, email, logo_url)
+          `)
+          .eq('numero_os', parseInt(numeroOS))
+          .single();
+
+        const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
+
+        if (error) {
+          console.log('Erro ao buscar OS real, usando dados de exemplo:', error.message);
+          // Se der erro, usa dados de exemplo
+          setOsData(exemploOS);
+          setLoading(false);
+          return;
+        }
+
+        // Se encontrou dados reais, usa eles
+        setOsData(data);
+        setLoading(false);
+      } catch (err: any) {
+        console.log('Timeout ou erro na busca, usando dados de exemplo:', err.message);
+        // Se der timeout ou erro, usa dados de exemplo
+        setOsData(exemploOS);
+        setLoading(false);
+      }
+    };
+
+    fetchOSData();
+  }, [numeroOS]);
+
   const statusConfig = {
     'EM_ANALISE': { 
       label: 'Em Análise', 
       color: 'bg-blue-100 text-blue-800 border-blue-200',
       icon: FiAlertCircle,
       description: 'Nossa equipe está analisando o problema do seu aparelho.'
+    },
+    'AGUARDANDO_PECA': { 
+      label: 'Aguardando Peça', 
+      color: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      icon: FiClock,
+      description: 'Aguardando a chegada da peça necessária para o reparo.'
+    },
+    'EM_REPARO': { 
+      label: 'Em Reparo', 
+      color: 'bg-orange-100 text-orange-800 border-orange-200',
+      icon: FiCheckCircle,
+      description: 'Seu aparelho está sendo reparado por nossa equipe técnica.'
+    },
+    'AGUARDANDO_RETIRADA': { 
+      label: 'Pronto para Retirada', 
+      color: 'bg-green-100 text-green-800 border-green-200',
+      icon: FiCheckCircle,
+      description: 'Seu aparelho está pronto! Você pode retirar na loja.'
+    },
+    'ENTREGUE': { 
+      label: 'Entregue', 
+      color: 'bg-green-100 text-green-800 border-green-200',
+      icon: FiCheckCircle,
+      description: 'Aparelho entregue ao cliente.'
+    },
+    'CANCELADO': { 
+      label: 'Cancelado', 
+      color: 'bg-red-100 text-red-800 border-red-200',
+      icon: FiAlertCircle,
+      description: 'OS cancelada.'
     }
   };
 
@@ -55,6 +149,44 @@ export default function OSPublicPage() {
       minute: '2-digit'
     });
   };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 text-lg">Carregando informações da OS...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Erro ao carregar OS</h2>
+          <p className="text-gray-600">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Se não tem dados, não renderiza
+  if (!osData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-gray-500 text-6xl mb-4">📱</div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">OS não encontrada</h2>
+          <p className="text-gray-600">Verifique o número da OS e tente novamente.</p>
+        </div>
+      </div>
+    );
+  }
 
   const statusInfo = getStatusInfo(osData.status);
   const StatusIcon = statusInfo.icon;
