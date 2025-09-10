@@ -164,8 +164,20 @@ export default function OSPublicPage() {
     });
   };
 
-  // Loading state - sempre mostra loading até estar montado e carregado
-  if (!mounted || loading || !osData) {
+  // Sempre mostra loading até estar completamente hidratado e carregado
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 text-lg">Carregando informações da OS...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Após montado, mostra loading se ainda carregando ou sem dados
+  if (loading || !osData) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center">
