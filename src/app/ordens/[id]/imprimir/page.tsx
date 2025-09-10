@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 import ProtectedArea from '@/components/ProtectedArea';
+import QRCodePDF from '@/components/QRCodePDF';
 
 const styles = StyleSheet.create({
   page: {
@@ -268,11 +269,14 @@ function OrdemPDF({ ordem }: { ordem: any }) {
             <Text style={styles.paragraph}><Text style={styles.bold}>CPF:</Text> {ordem.clientes?.cpf}   <Text style={styles.bold}>Endereço:</Text> {ordem.clientes?.endereco}</Text>
             <Text style={styles.paragraph}><Text style={styles.bold}>Atendente:</Text> {ordem.atendente}</Text>
           </View>
-          <View style={{ alignItems: 'flex-end', minWidth: 60 }}>
+          <View style={{ alignItems: 'flex-end', minWidth: 80 }}>
             <Image
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=https://exemplo.com/ordem/${ordem.id}`}
-              style={{ width: 48, height: 48 }}
+              src={`https://chart.googleapis.com/chart?chs=60x60&cht=qr&chl=${encodeURIComponent(`${typeof window !== 'undefined' ? window.location.origin : 'https://gestaoconsert.com.br'}/os/${ordem.numero_os}/status`)}`}
+              style={{ width: 60, height: 60 }}
             />
+            <Text style={{ fontSize: 8, textAlign: 'center', marginTop: 2, color: '#666' }}>
+              Acompanhar OS
+            </Text>
           </View>
         </View>
 

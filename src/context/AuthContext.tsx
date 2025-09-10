@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useState, ReactNode, useCallback,
 import { supabase, fetchUserDataOptimized } from '@/lib/supabaseClient';
 import { Session, User } from '@supabase/supabase-js';
 import { podeUsarFuncionalidade as podeUsarFuncionalidadeUtil, isUsuarioTeste as isUsuarioTesteUtil } from '@/config/featureFlags';
+import { handleAuthError } from '@/utils/clearAuth';
 
 interface UsuarioData {
   empresa_id: string;
@@ -135,6 +136,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (error) {
           console.error('❌ Erro ao obter sessão:', error);
+          handleAuthError(error);
           setLoading(false);
           return;
         }
@@ -171,8 +173,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: string, session: Session | null) => {
-
-        switch (event) {
+        try {
+          switch (event) {
           case 'SIGNED_IN':
             if (session) {
               setSession(session);
@@ -200,6 +202,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               setUser(session.user);
             }
             break;
+          }
+        } catch (error) {
+          console.error('❌ Erro no onAuthStateChange:', error);
+          handleAuthError(error);
         }
       }
     );

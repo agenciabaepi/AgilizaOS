@@ -26,6 +26,13 @@ body {
   * {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
   }
+  
+  * {
+    @apply border-gray-200;
+  }
+  body {
+    @apply bg-white text-gray-900;
+  }
 }
 
 :root {
@@ -66,14 +73,6 @@ body {
   --sidebar-ring: oklch(0.556 0 0);
 }
 
-@layer base {
-  * {
-    @apply border-gray-200;
-  }
-  body {
-    @apply bg-white text-gray-900;
-  }
-}
 
 /* Gradientes de texto no estilo Apple */
 .text-gradient-primary {
