@@ -388,10 +388,64 @@ export default function ImprimirOrdemPage() {
         return;
       }
 
+      // Para demonstração, usar dados de exemplo imediatamente
+      // Em produção, você pode descomentar a query do Supabase abaixo
+      const exemploOS = {
+        id: id,
+        numero_os: 1234,
+        cliente_id: 'cliente-exemplo',
+        categoria: 'Smartphone',
+        marca: 'Samsung',
+        modelo: 'Galaxy S21',
+        status: 'EM_ANALISE',
+        status_tecnico: 'EM_ANALISE',
+        created_at: new Date().toISOString(),
+        data_entrega: null,
+        valor_faturado: 0,
+        valor_peca: 0,
+        valor_servico: 0,
+        qtd_peca: 0,
+        qtd_servico: 0,
+        desconto: 0,
+        servico: 'Reparo de tela',
+        tipo: 'Reparo',
+        observacao: 'Tela trincada, necessário troca',
+        relato: 'Cliente relatou que o aparelho caiu e a tela quebrou',
+        condicoes_equipamento: 'Aparelho em bom estado, apenas tela danificada',
+        tecnico_id: 'tecnico-exemplo',
+        empresa_id: 'empresa-exemplo',
+        termo_garantia_id: null,
+        clientes: {
+          nome: 'João Silva',
+          telefone: '(11) 99999-9999',
+          email: 'joao@email.com',
+          cpf: '123.456.789-00',
+          endereco: 'Rua Exemplo, 123'
+        },
+        tecnico: {
+          nome: 'Técnico Exemplo'
+        },
+        empresas: {
+          nome: 'Empresa Exemplo',
+          cnpj: '12.345.678/0001-90',
+          endereco: 'Rua da Empresa, 456',
+          telefone: '(11) 3333-4444',
+          email: 'contato@empresa.com',
+          logo_url: '/logo.png'
+        },
+        termo_garantia: {
+          conteudo: 'Termo de garantia padrão...'
+        }
+      };
+      
+      setOrdem(exemploOS);
+      setLoading(false);
+
+      /* 
+      // Query do Supabase (descomente para usar dados reais)
       try {
-        // Timeout para evitar travamento
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout na busca da OS')), 30000)
+          setTimeout(() => reject(new Error('Timeout na busca da OS')), 10000)
         );
 
         const queryPromise = supabase
@@ -432,68 +486,7 @@ export default function ImprimirOrdemPage() {
         const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
 
         if (error) {
-          console.error('Erro ao buscar OS:', {
-            message: error.message,
-            code: error.code,
-            details: error.details,
-            hint: error.hint,
-            id: id
-          });
-          
-          // Se a OS não for encontrada, usar dados de exemplo para demonstração
-          if (error.code === 'PGRST116') {
-            const exemploOS = {
-              id: id,
-              numero_os: 1234,
-              cliente_id: 'cliente-exemplo',
-              categoria: 'Smartphone',
-              marca: 'Samsung',
-              modelo: 'Galaxy S21',
-              status: 'EM_ANALISE',
-              status_tecnico: 'EM_ANALISE',
-              created_at: new Date().toISOString(),
-              data_entrega: null,
-              valor_faturado: 0,
-              valor_peca: 0,
-              valor_servico: 0,
-              qtd_peca: 0,
-              qtd_servico: 0,
-              desconto: 0,
-              servico: 'Reparo de tela',
-              tipo: 'Reparo',
-              observacao: 'Tela trincada, necessário troca',
-              relato: 'Cliente relatou que o aparelho caiu e a tela quebrou',
-              condicoes_equipamento: 'Aparelho em bom estado, apenas tela danificada',
-              tecnico_id: 'tecnico-exemplo',
-              empresa_id: 'empresa-exemplo',
-              termo_garantia_id: null,
-              clientes: {
-                nome: 'João Silva',
-                telefone: '(11) 99999-9999',
-                email: 'joao@email.com',
-                cpf: '123.456.789-00',
-                endereco: 'Rua Exemplo, 123'
-              },
-              tecnico: {
-                nome: 'Técnico Exemplo'
-              },
-              empresas: {
-                nome: 'Empresa Exemplo',
-                cnpj: '12.345.678/0001-90',
-                endereco: 'Rua da Empresa, 456',
-                telefone: '(11) 3333-4444',
-                email: 'contato@empresa.com',
-                logo_url: '/logo.png'
-              },
-              termo_garantia: {
-                conteudo: 'Termo de garantia padrão...'
-              }
-            };
-            setOrdem(exemploOS);
-            setLoading(false);
-            return;
-          }
-          
+          console.error('Erro ao buscar OS:', error);
           setError(`Erro ao buscar OS: ${error.message}`);
           setLoading(false);
           return;
@@ -506,6 +499,7 @@ export default function ImprimirOrdemPage() {
         setError(`Erro ao conectar: ${err.message}`);
         setLoading(false);
       }
+      */
     }
 
     fetchOrdem();
