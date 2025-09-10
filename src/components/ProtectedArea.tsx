@@ -18,7 +18,7 @@ export default function ProtectedArea({ area, children }: { area: string, childr
         console.warn('⚠️ Loading timeout no ProtectedArea - usuário provavelmente não logado');
         setLoadingTimeout(true);
       }
-    }, 3000); // 3 segundos para usuários não logados
+    }, 1000); // 1 segundo para usuários não logados
 
     return () => clearTimeout(timeout);
   }, [loading]);
