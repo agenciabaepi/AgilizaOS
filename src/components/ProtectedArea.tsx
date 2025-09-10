@@ -1,13 +1,10 @@
 'use client';
 import { useAuth } from '@/context/AuthContext';
-import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 // import { useQuickAuthCheck } from '@/hooks/useQuickAuthCheck';
 
 export default function ProtectedArea({ area, children }: { area: string, children: React.ReactNode }) {
-  const { user, session, usuarioData, loading } = useAuth();
-  // const { isCheckingAuth, isAuthenticated } = useQuickAuthCheck(); // DESABILITADO TEMPORARIAMENTE
-  const router = useRouter();
+  const { user, usuarioData, loading } = useAuth();
   const [hasRedirected, setHasRedirected] = useState(false);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
 
@@ -23,40 +20,15 @@ export default function ProtectedArea({ area, children }: { area: string, childr
     return () => clearTimeout(timeout);
   }, [loading]);
 
-  // ✅ REDIRECIONAMENTO SIMPLIFICADO: Apenas AuthContext
+  // ✅ VERIFICAÇÃO SIMPLIFICADA: Uma única verificação clara
   useEffect(() => {
-    // Verificar se usuário não está autenticado
-    if ((!loading && !user && !session) || loadingTimeout) {
-      if (!hasRedirected) {
-        setHasRedirected(true);
-        console.warn('🚨 ProtectedArea: Usuário não autenticado - redirecionamento de fallback');
-        
-        // Tentar router primeiro
-        try {
-          router.replace('/login');
-        } catch (e) {
-          console.warn('Router falhou no ProtectedArea, usando window.location');
-        }
-        
-        // Backup com window.location após 300ms
-        setTimeout(() => {
-          if (!user && !session) {
-            console.warn('🚨 Backup redirect - usando window.location.replace');
-            window.location.replace('/login');
-          }
-        }, 300);
-        
-        // Último recurso após 1s
-        setTimeout(() => {
-          if (!user && !session) {
-            console.warn('🚨 Último recurso - forçando redirect');
-            window.location.href = '/login';
-          }
-        }, 1000);
-      }
-      return;
+    // Só redirecionar se não estiver carregando E não tiver usuário
+    if (!loading && !user && !hasRedirected) {
+      setHasRedirected(true);
+      console.warn('🚨 ProtectedArea: Usuário não autenticado - redirecionando');
+      window.location.replace('/login');
     }
-  }, [loading, user, session, hasRedirected, loadingTimeout]); // Removido router e hooks desabilitados
+  }, [loading, user, hasRedirected]);
 
   // ✅ LOADING STATE COM TIMEOUT
   if (loading && !loadingTimeout) {
@@ -70,9 +42,8 @@ export default function ProtectedArea({ area, children }: { area: string, childr
     );
   }
 
-  // ✅ VERIFICAÇÃO ROBUSTA
-  if (!user || !session) {
-    console.warn('⚠️ Usuário ou sessão não encontrados');
+  // ✅ VERIFICAÇÃO SIMPLES
+  if (!user) {
     return null; // Aguardando redirecionamento
   }
 

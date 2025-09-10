@@ -9,12 +9,10 @@ export function useAutoReload() {
   useEffect(() => {
     // Se mudou de página e não é a primeira carga
     if (previousPathname.current && previousPathname.current !== pathname) {
-      console.log('🔄 Auto-reload: Mudança de página detectada');
+      console.log('🔄 Auto-reload: Mudança de página detectada - RELOAD DIRETO');
       
-      // Pequeno delay para evitar reload muito rápido
-      setTimeout(() => {
-        window.location.reload();
-      }, 100);
+      // Reload direto - o Next.js já mostra o loading
+      window.location.reload();
     }
     
     // Atualizar referência
