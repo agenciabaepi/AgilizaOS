@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
-import { FiClock, FiCheckCircle, FiAlertCircle, FiCamera, FiFileText, FiSmartphone, FiUser, FiCalendar } from 'react-icons/fi';
+import { FiClock, FiCheckCircle, FiAlertCircle, FiCamera, FiFileText, FiSmartphone, FiUser, FiCalendar, FiTool } from 'react-icons/fi';
 
 export default function OSPublicPage() {
   const params = useParams();
@@ -13,6 +13,7 @@ export default function OSPublicPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [senhaValida, setSenhaValida] = useState(false);
 
   // Dados de exemplo para fallback
   const exemploOS = {
@@ -36,6 +37,16 @@ export default function OSPublicPage() {
   useEffect(() => {
     const fetchOSData = async () => {
       try {
+        // Verificar se tem senha na URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const senha = urlParams.get('senha');
+        
+        if (!senha) {
+          // Sem senha, redirecionar para login
+          window.location.href = `/os/${numeroOS}/login`;
+          return;
+        }
+
         // Primeiro tenta buscar dados reais do Supabase
         const timeoutPromise = new Promise((_, reject) => 
           setTimeout(() => reject(new Error('Timeout na busca da OS')), 10000)
@@ -62,11 +73,13 @@ export default function OSPublicPage() {
             cor,
             numero_serie,
             acessorios,
+            senha_acesso,
             clientes!left(nome, telefone, email, cpf, endereco),
             tecnico:usuarios!left(nome),
             empresas!left(nome, cnpj, endereco, telefone, email, logo_url)
           `)
           .eq('numero_os', parseInt(numeroOS))
+          .eq('senha_acesso', senha)
           .single();
 
         const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
@@ -74,10 +87,9 @@ export default function OSPublicPage() {
         console.log('🔍 Debug - Query resultado:', { data, error, numeroOS });
 
         if (error) {
-          console.log('❌ Erro ao buscar OS real, usando dados de exemplo:', error.message);
-          // Se der erro, usa dados de exemplo
-          setOsData(exemploOS);
-          setLoading(false);
+          console.log('❌ Erro ao buscar OS real:', error.message);
+          // Se der erro (senha incorreta), redirecionar para login
+          window.location.href = `/os/${numeroOS}/login`;
           return;
         }
 
@@ -85,11 +97,12 @@ export default function OSPublicPage() {
           console.log('✅ Dados reais encontrados:', data);
           // Se encontrou dados reais, usa eles
           setOsData(data);
+          setSenhaValida(true);
           setLoading(false);
         } else {
-          console.log('⚠️ Nenhum dado encontrado, usando dados de exemplo');
-          setOsData(exemploOS);
-          setLoading(false);
+          console.log('⚠️ Nenhum dado encontrado, senha incorreta');
+          // Senha incorreta, redirecionar para login
+          window.location.href = `/os/${numeroOS}/login`;
         }
       } catch (err: any) {
         console.log('Timeout ou erro na busca, usando dados de exemplo:', err.message);
@@ -287,7 +300,7 @@ export default function OSPublicPage() {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-orange-100 rounded-lg">
-                  <FiTool className="w-5 h-5 text-orange-600" />
+                  <FiFileText className="w-5 h-5 text-orange-600" />
                 </div>
                 <h2 className="text-xl font-semibold text-gray-900">Serviço</h2>
               </div>

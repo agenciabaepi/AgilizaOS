@@ -271,11 +271,14 @@ function OrdemPDF({ ordem }: { ordem: any }) {
           </View>
           <View style={{ alignItems: 'flex-end', minWidth: 80 }}>
             <Image
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent(`https://gestaoconsert.com.br/os/${ordem.numero_os}/status`)}`}
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent(`https://gestaoconsert.com.br/os/${ordem.numero_os}/login`)}`}
               style={{ width: 60, height: 60 }}
             />
             <Text style={{ fontSize: 8, textAlign: 'center', marginTop: 2, color: '#666' }}>
               Acompanhar OS
+            </Text>
+            <Text style={{ fontSize: 10, textAlign: 'center', marginTop: 4, color: '#000', fontWeight: 'bold' }}>
+              Senha: {ordem.senha_acesso || '1234'}
             </Text>
           </View>
         </View>
@@ -420,6 +423,7 @@ export default function ImprimirOrdemPage() {
         tecnico_id: 'tecnico-exemplo',
         empresa_id: 'empresa-exemplo',
         termo_garantia_id: null,
+        senha_acesso: '1234',
         clientes: {
           nome: 'João Silva',
           telefone: '(11) 99999-9999',
@@ -443,10 +447,12 @@ export default function ImprimirOrdemPage() {
         }
       };
       
+      console.log('🔍 Debug - Buscando OS com ID:', id);
+      
       // Primeiro tenta buscar dados reais do Supabase
       try {
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout na busca da OS')), 10000)
+          setTimeout(() => reject(new Error('Timeout na busca da OS')), 30000)
         );
 
         const queryPromise = supabase
@@ -481,31 +487,40 @@ export default function ImprimirOrdemPage() {
             tecnico_id,
             empresa_id,
             termo_garantia_id,
-            clientes!left(nome, telefone, email, cpf, endereco),
-            tecnico:usuarios!left(nome),
-            empresas!left(nome, cnpj, endereco, telefone, email, logo_url),
-            termo_garantia!left(conteudo)
+            senha_acesso,
+            clientes(nome, telefone, email, cpf, endereco),
+            tecnico:usuarios(nome),
+            empresas(nome, cnpj, endereco, telefone, email, logo_url),
+            termo_garantia(conteudo)
           `)
           .eq('id', id)
           .single();
 
         const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
 
+        console.log('🔍 Debug - Query resultado:', { data, error, id });
+
         if (error) {
-          console.log('Erro ao buscar OS real, usando dados de exemplo:', error.message);
-          // Se der erro, usa dados de exemplo
-          setOrdem(exemploOS);
+          console.log('❌ Erro ao buscar OS real:', error.message);
+          console.log('❌ Detalhes do erro:', error);
+          setError(`Erro ao buscar OS: ${error.message}`);
           setLoading(false);
           return;
         }
 
-        // Se encontrou dados reais, usa eles
-        setOrdem(data);
-        setLoading(false);
+        if (data) {
+          console.log('✅ Dados reais encontrados:', data);
+          // Se encontrou dados reais, usa eles
+          setOrdem(data);
+          setLoading(false);
+        } else {
+          console.log('⚠️ Nenhum dado encontrado');
+          setError('OS não encontrada');
+          setLoading(false);
+        }
       } catch (err: any) {
-        console.log('Timeout ou erro na busca, usando dados de exemplo:', err.message);
-        // Se der timeout ou erro, usa dados de exemplo
-        setOrdem(exemploOS);
+        console.log('Timeout ou erro na busca:', err.message);
+        setError(`Erro ao conectar: ${err.message}`);
         setLoading(false);
       }
     }
