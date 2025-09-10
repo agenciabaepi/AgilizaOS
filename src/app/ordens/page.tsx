@@ -300,8 +300,8 @@ export default function ListaOrdensPage() {
             servico,
             tipo,
             observacao,
-            clientes:cliente_id(nome, telefone, email),
-            tecnico:usuarios!tecnico_id(nome)
+            clientes!left(nome, telefone, email),
+            tecnico:usuarios!left(nome)
           `)
           .eq("empresa_id", empresaId)
           .order('created_at', { ascending: false })
