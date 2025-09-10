@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { FiSearch, FiQrCode, FiSmartphone, FiClock } from 'react-icons/fi';
+import { FiSearch, FiSmartphone, FiClock, FiMaximize2 } from 'react-icons/fi';
 
 export default function OSPublicPage() {
   return (
@@ -46,7 +46,7 @@ export default function OSPublicPage() {
           <div className="bg-white rounded-xl shadow-sm border p-8">
             <div className="text-center">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <FiQrCode className="w-8 h-8 text-green-600" />
+                <FiMaximize2 className="w-8 h-8 text-green-600" />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-4">Escaneie o QR Code</h3>
               <p className="text-gray-600 mb-6">
@@ -89,7 +89,7 @@ export default function OSPublicPage() {
 
             <div className="text-center">
               <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <FiQrCode className="w-6 h-6 text-blue-600" />
+                <FiMaximize2 className="w-6 h-6 text-blue-600" />
               </div>
               <h3 className="font-semibold text-gray-900 mb-2">Sem Login</h3>
               <p className="text-sm text-gray-600">
