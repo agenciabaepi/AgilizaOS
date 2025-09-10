@@ -10,6 +10,7 @@ import { suppressNetworkErrors } from '@/utils/networkErrorSuppressor';
 import { preCheckProblematicTables } from '@/utils/tableChecker';
 import '@/utils/supabaseGlobalInterceptor';
 import { useRealtimeNotificacoes } from '@/hooks/useRealtimeNotificacoes';
+import { useAutoReload } from '@/hooks/useAutoReload';
 import { ToastProvider } from '@/components/Toast';
 import { ConfirmProvider } from '@/components/ConfirmDialog';
 import TrialExpiredGuard from '@/components/TrialExpiredGuard';
@@ -23,6 +24,8 @@ function AuthContent({ children }: { children: React.ReactNode }) {
   const { isLoggingOut, session, empresaData } = useAuth();
   // Ativar notificações realtime em toda a app quando empresa for conhecida
   useRealtimeNotificacoes(empresaData?.id);
+  // Auto-reload em mudanças de página para resolver travamentos
+  useAutoReload();
   // Banner simples de aviso de vencimento (frontend)
   const [banner, setBanner] = useState<{ texto: string } | null>(null);
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
