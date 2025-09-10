@@ -387,27 +387,46 @@ export default function ImprimirOrdemPage() {
         return;
       }
 
-      const { data, error } = await supabase
-        .from('ordens_servico')
-        .select('*, clientes(*), usuarios!tecnico_id(*), empresas(*), termo_garantia:termo_garantia_id(*)')
-        .eq('id', id)
-        .single();
+      try {
+        // Timeout para evitar travamento
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout na busca da OS')), 10000)
+        );
 
-      if (error) {
-        console.error('Erro ao buscar OS:', {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint,
-          id: id
-        });
-        setError(`Erro ao buscar OS: ${error.message}`);
+        const queryPromise = supabase
+          .from('ordens_servico')
+          .select(`
+            *,
+            clientes!left(nome, telefone, email, cpf, endereco),
+            tecnico:usuarios!left(nome),
+            empresas!left(nome, cnpj, endereco, telefone, email, logo_url),
+            termo_garantia!left(conteudo)
+          `)
+          .eq('id', id)
+          .single();
+
+        const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
+
+        if (error) {
+          console.error('Erro ao buscar OS:', {
+            message: error.message,
+            code: error.code,
+            details: error.details,
+            hint: error.hint,
+            id: id
+          });
+          setError(`Erro ao buscar OS: ${error.message}`);
+          setLoading(false);
+          return;
+        }
+
+        setOrdem(data);
         setLoading(false);
-        return;
+      } catch (err: any) {
+        console.error('Erro na busca da OS:', err);
+        setError(`Erro ao conectar: ${err.message}`);
+        setLoading(false);
       }
-
-      setOrdem(data);
-      setLoading(false);
     }
 
     fetchOrdem();
@@ -421,26 +440,56 @@ export default function ImprimirOrdemPage() {
 
   if (loading) {
     return (
-      <div className="loadingText">
-        Carregando...
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 text-lg">Carregando dados da OS...</p>
+          <p className="text-gray-500 text-sm mt-2">ID: {id}</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="errorText">
-        <h2>Erro ao carregar a OS</h2>
-        <p>{error}</p>
-        <button onClick={() => window.history.back()}>Voltar</button>
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="bg-red-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Erro ao carregar a OS</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <div className="space-y-2">
+            <button 
+              onClick={() => window.history.back()}
+              className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+            >
+              Voltar
+            </button>
+            <button 
+              onClick={() => window.location.reload()}
+              className="w-full bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700"
+            >
+              Tentar Novamente
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (!PDFViewer || !ordem) {
     return (
-      <div className="loadingText">
-        Carregando...
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 text-lg">Preparando impressão...</p>
+          <p className="text-gray-500 text-sm mt-2">
+            {!PDFViewer ? 'Carregando visualizador PDF...' : 'Carregando dados da OS...'}
+          </p>
+        </div>
       </div>
     );
   }
