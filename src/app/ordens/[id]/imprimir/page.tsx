@@ -440,66 +440,6 @@ export default function ImprimirOrdemPage() {
       
       setOrdem(exemploOS);
       setLoading(false);
-
-      /* 
-      // Query do Supabase (descomente para usar dados reais)
-      try {
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout na busca da OS')), 10000)
-        );
-
-        const queryPromise = supabase
-          .from('ordens_servico')
-          .select(`
-            id,
-            numero_os,
-            cliente_id,
-            categoria,
-            marca,
-            modelo,
-            status,
-            status_tecnico,
-            created_at,
-            data_entrega,
-            valor_faturado,
-            valor_peca,
-            valor_servico,
-            qtd_peca,
-            qtd_servico,
-            desconto,
-            servico,
-            tipo,
-            observacao,
-            relato,
-            condicoes_equipamento,
-            tecnico_id,
-            empresa_id,
-            termo_garantia_id,
-            clientes!left(nome, telefone, email, cpf, endereco),
-            tecnico:usuarios!left(nome),
-            empresas!left(nome, cnpj, endereco, telefone, email, logo_url),
-            termo_garantia!left(conteudo)
-          `)
-          .eq('id', id)
-          .single();
-
-        const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
-
-        if (error) {
-          console.error('Erro ao buscar OS:', error);
-          setError(`Erro ao buscar OS: ${error.message}`);
-          setLoading(false);
-          return;
-        }
-
-        setOrdem(data);
-        setLoading(false);
-      } catch (err: any) {
-        console.error('Erro na busca da OS:', err);
-        setError(`Erro ao conectar: ${err.message}`);
-        setLoading(false);
-      }
-      */
     }
 
     fetchOrdem();
