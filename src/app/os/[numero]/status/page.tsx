@@ -164,8 +164,8 @@ export default function OSPublicPage() {
     });
   };
 
-  // Loading state - só mostra loading se não estiver montado ou ainda carregando
-  if (!mounted || loading) {
+  // Loading state - sempre mostra loading até estar montado e carregado
+  if (!mounted || loading || !osData) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center">
@@ -176,31 +176,7 @@ export default function OSPublicPage() {
     );
   }
 
-  // Error state
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-red-500 text-6xl mb-4">⚠️</div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Erro ao carregar OS</h2>
-          <p className="text-gray-600">{error}</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Se não tem dados, não renderiza
-  if (!osData) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-gray-500 text-6xl mb-4">📱</div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">OS não encontrada</h2>
-          <p className="text-gray-600">Verifique o número da OS e tente novamente.</p>
-        </div>
-      </div>
-    );
-  }
+  // Se chegou até aqui, tem dados para renderizar
 
   const statusInfo = getStatusInfo(osData.status);
   const StatusIcon = statusInfo.icon;
