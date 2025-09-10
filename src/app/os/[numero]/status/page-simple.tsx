@@ -2,10 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { supabase } from '@/lib/supabaseClient';
 import { FiClock, FiCheckCircle, FiAlertCircle, FiCamera, FiFileText, FiSmartphone, FiUser, FiCalendar } from 'react-icons/fi';
 
-export default function OSPublicPage() {
+export default function OSPublicPageSimple() {
   const params = useParams();
   const numeroOS = params.numero as string;
   
