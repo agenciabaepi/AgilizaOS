@@ -12,6 +12,7 @@ export default function OSPublicPage() {
   const [osData, setOsData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   // Dados de exemplo para fallback
   const exemploOS = {
@@ -92,6 +93,10 @@ export default function OSPublicPage() {
     fetchOSData();
   }, [numeroOS]);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const statusConfig = {
     'EM_ANALISE': { 
       label: 'Em Análise', 
@@ -150,8 +155,8 @@ export default function OSPublicPage() {
     });
   };
 
-  // Loading state
-  if (loading) {
+  // Loading state - só mostra loading se não estiver montado ou ainda carregando
+  if (!mounted || loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center">
