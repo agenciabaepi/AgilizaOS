@@ -271,7 +271,7 @@ function OrdemPDF({ ordem }: { ordem: any }) {
           </View>
           <View style={{ alignItems: 'flex-end', minWidth: 80 }}>
             <Image
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent('https://gestaoconsert.com.br/os/1234/status')}`}
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent(`https://gestaoconsert.com.br/os/${ordem.numero_os}/status`)}`}
               style={{ width: 60, height: 60 }}
             />
             <Text style={{ fontSize: 8, textAlign: 'center', marginTop: 2, color: '#666' }}>
@@ -443,8 +443,71 @@ export default function ImprimirOrdemPage() {
         }
       };
       
-      setOrdem(exemploOS);
-      setLoading(false);
+      // Primeiro tenta buscar dados reais do Supabase
+      try {
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout na busca da OS')), 10000)
+        );
+
+        const queryPromise = supabase
+          .from('ordens_servico')
+          .select(`
+            id,
+            numero_os,
+            cliente_id,
+            categoria,
+            marca,
+            modelo,
+            status,
+            status_tecnico,
+            created_at,
+            data_entrega,
+            valor_faturado,
+            valor_peca,
+            valor_servico,
+            qtd_peca,
+            qtd_servico,
+            desconto,
+            servico,
+            peca,
+            tipo,
+            observacao,
+            relato,
+            condicoes_equipamento,
+            cor,
+            numero_serie,
+            acessorios,
+            atendente,
+            tecnico_id,
+            empresa_id,
+            termo_garantia_id,
+            clientes!left(nome, telefone, email, cpf, endereco),
+            tecnico:usuarios!left(nome),
+            empresas!left(nome, cnpj, endereco, telefone, email, logo_url),
+            termo_garantia!left(conteudo)
+          `)
+          .eq('id', id)
+          .single();
+
+        const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
+
+        if (error) {
+          console.log('Erro ao buscar OS real, usando dados de exemplo:', error.message);
+          // Se der erro, usa dados de exemplo
+          setOrdem(exemploOS);
+          setLoading(false);
+          return;
+        }
+
+        // Se encontrou dados reais, usa eles
+        setOrdem(data);
+        setLoading(false);
+      } catch (err: any) {
+        console.log('Timeout ou erro na busca, usando dados de exemplo:', err.message);
+        // Se der timeout ou erro, usa dados de exemplo
+        setOrdem(exemploOS);
+        setLoading(false);
+      }
     }
 
     fetchOrdem();
