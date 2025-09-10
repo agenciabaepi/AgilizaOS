@@ -71,17 +71,26 @@ export default function OSPublicPage() {
 
         const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
 
+        console.log('🔍 Debug - Query resultado:', { data, error, numeroOS });
+
         if (error) {
-          console.log('Erro ao buscar OS real, usando dados de exemplo:', error.message);
+          console.log('❌ Erro ao buscar OS real, usando dados de exemplo:', error.message);
           // Se der erro, usa dados de exemplo
           setOsData(exemploOS);
           setLoading(false);
           return;
         }
 
-        // Se encontrou dados reais, usa eles
-        setOsData(data);
-        setLoading(false);
+        if (data) {
+          console.log('✅ Dados reais encontrados:', data);
+          // Se encontrou dados reais, usa eles
+          setOsData(data);
+          setLoading(false);
+        } else {
+          console.log('⚠️ Nenhum dado encontrado, usando dados de exemplo');
+          setOsData(exemploOS);
+          setLoading(false);
+        }
       } catch (err: any) {
         console.log('Timeout ou erro na busca, usando dados de exemplo:', err.message);
         // Se der timeout ou erro, usa dados de exemplo
