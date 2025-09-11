@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { supabasePublic } from '@/lib/supabasePublicClient';
-import { FiClock, FiCheckCircle, FiAlertCircle, FiCamera, FiFileText, FiSmartphone, FiUser, FiCalendar, FiTool } from 'react-icons/fi';
+import { FiClock, FiCheckCircle, FiAlertCircle, FiCamera, FiFileText, FiSmartphone, FiUser, FiCalendar, FiTool, FiZoomIn, FiDownload, FiChevronRight } from 'react-icons/fi';
+import ImagensOS from '@/components/ImagensOS';
+import StatusHistoricoTimeline from '@/components/StatusHistoricoTimeline';
 
 export default function OSPublicPage() {
   const params = useParams();
@@ -169,6 +171,10 @@ export default function OSPublicPage() {
             observacao,
             problema_relatado,
             condicoes_equipamento,
+            imagens,
+            cliente_id,
+            tecnico_id,
+            empresa_id,
             clientes(nome, telefone, email),
             tecnico:usuarios(nome),
             empresas(nome, telefone, email, logo_url)
@@ -192,8 +198,67 @@ export default function OSPublicPage() {
           console.log('🔍 Debug - Empresa:', data.empresas);
           console.log('🔍 Debug - Servico:', data.servico);
           console.log('🔍 Debug - Tecnico:', data.tecnico);
+          console.log('🔍 Debug - Imagens:', data.imagens);
+          console.log('🔍 Debug - IDs das foreign keys:', {
+            cliente_id: data.cliente_id,
+            tecnico_id: data.tecnico_id,
+            empresa_id: data.empresa_id
+          });
           console.log('🔍 Debug - TODOS os campos:', data);
-          setOsData(data);
+          
+          // Buscar histórico de status
+          console.log('🔍 Buscando histórico de status...');
+          const { data: historicoData, error: historicoError } = await supabaseMain
+            .from('status_historico')
+            .select(`
+              id,
+              status_anterior,
+              status_novo,
+              usuario_nome,
+              motivo,
+              created_at,
+              tempo_no_status_anterior
+            `)
+            .eq('os_id', osId)
+            .order('created_at', { ascending: false });
+
+          console.log('🔍 Histórico de status:', { historicoData, historicoError });
+          
+          // Buscar dados do cliente e empresa separadamente
+          let clienteData = null;
+          let empresaData = null;
+          
+          if (data.cliente_id) {
+            console.log('🔍 Buscando dados do cliente separadamente...');
+            const { data: cliente, error: clienteError } = await supabaseMain
+              .from('clientes')
+              .select('nome, telefone, email')
+              .eq('id', data.cliente_id)
+              .single();
+            console.log('🔍 Cliente separado:', { cliente, clienteError });
+            clienteData = cliente;
+          }
+          
+          if (data.empresa_id) {
+            console.log('🔍 Buscando dados da empresa separadamente...');
+            const { data: empresa, error: empresaError } = await supabaseMain
+              .from('empresas')
+              .select('nome, telefone, email, logo_url')
+              .eq('id', data.empresa_id)
+              .single();
+            console.log('🔍 Empresa separada:', { empresa, empresaError });
+            empresaData = empresa;
+          }
+          
+          // Combinar dados da OS com histórico e dados separados
+          const dadosCompletos = {
+            ...data,
+            clientes: clienteData,
+            empresas: empresaData,
+            historico: historicoData || []
+          };
+          
+          setOsData(dadosCompletos);
           setLoading(false);
         } else {
           console.log('❌ Nenhum dado retornado');
@@ -370,7 +435,7 @@ export default function OSPublicPage() {
 
         {/* Observações */}
         {(osData.observacao || osData.problema_relatado || osData.condicoes_equipamento) && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Observações</h3>
             <div className="space-y-3">
               {osData.problema_relatado && (
@@ -392,6 +457,29 @@ export default function OSPublicPage() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Imagens do Equipamento */}
+        {osData.imagens && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Imagens do Equipamento</h3>
+            <ImagensOS 
+              imagens={osData.imagens || ''} 
+              ordemId={osData.numero_os || osData.id} 
+            />
+          </div>
+        )}
+
+        {/* Histórico de Status */}
+        {osData.historico && osData.historico.length > 0 && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Histórico de Status</h3>
+            <StatusHistoricoTimeline 
+              historico={osData.historico} 
+              loading={false}
+              compact={true}
+            />
           </div>
         )}
       </div>
