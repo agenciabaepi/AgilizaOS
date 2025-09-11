@@ -59,25 +59,33 @@ export default function OSLoginPage() {
     try {
       console.log('🔍 Debug - Verificando senha:', { osId, senha });
       
-      // Buscar OS com a senha usando ID único
-      const { data, error } = await supabase
+      // Primeiro, vamos verificar se a OS existe
+      const { data: osExists, error: existsError } = await supabase
         .from('ordens_servico')
         .select('id, numero_os, senha_acesso, status')
         .eq('id', osId)
-        .eq('senha_acesso', senha)
         .single();
 
-      console.log('🔍 Debug - Resultado da verificação:', { data, error });
+      console.log('🔍 Debug - OS existe?', { osExists, existsError });
 
-      if (error) {
-        console.log('❌ Erro na verificação:', error.message);
-        setError('❌ Senha incorreta! Verifique os 4 dígitos que estão impressos na sua OS.');
+      if (existsError || !osExists) {
+        console.log('❌ OS não encontrada:', existsError?.message);
+        setError('❌ OS não encontrada!');
         setLoading(false);
         return;
       }
 
-      if (!data) {
-        console.log('❌ OS não encontrada ou senha incorreta');
+      console.log('🔍 Debug - Comparando senhas:', {
+        senha_no_banco: osExists.senha_acesso,
+        senha_fornecida: senha,
+        sao_iguais: osExists.senha_acesso === senha,
+        tipo_senha_banco: typeof osExists.senha_acesso,
+        tipo_senha_fornecida: typeof senha
+      });
+
+      // Verificar se a senha está correta
+      if (osExists.senha_acesso !== senha) {
+        console.log('❌ Senha incorreta!');
         setError('❌ Senha incorreta! Verifique os 4 dígitos que estão impressos na sua OS.');
         setLoading(false);
         return;
