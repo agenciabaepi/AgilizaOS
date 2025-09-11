@@ -42,25 +42,47 @@ export default function OSLoginPage() {
     setLoading(true);
     setError('');
 
+    // Validação básica
+    if (senha.length !== 4 || !/^\d+$/.test(senha)) {
+      setError('❌ A senha deve ter exatamente 4 dígitos numéricos.');
+      setLoading(false);
+      return;
+    }
+
     try {
+      console.log('🔍 Debug - Verificando senha:', { osId, senha });
+      
       // Buscar OS com a senha usando ID único
       const { data, error } = await supabase
         .from('ordens_servico')
-        .select('id, numero_os, senha_acesso')
+        .select('id, numero_os, senha_acesso, status')
         .eq('id', osId)
         .eq('senha_acesso', senha)
         .single();
 
-      if (error || !data) {
+      console.log('🔍 Debug - Resultado da verificação:', { data, error });
+
+      if (error) {
+        console.log('❌ Erro na verificação:', error.message);
         setError('❌ Senha incorreta! Verifique os 4 dígitos que estão impressos na sua OS.');
         setLoading(false);
         return;
       }
 
+      if (!data) {
+        console.log('❌ OS não encontrada ou senha incorreta');
+        setError('❌ Senha incorreta! Verifique os 4 dígitos que estão impressos na sua OS.');
+        setLoading(false);
+        return;
+      }
+
+      console.log('✅ Senha correta! Redirecionando para status...');
+      
       // Senha correta, redirecionar para status usando ID
       router.push(`/os/${osId}/status?senha=${senha}`);
     } catch (err: any) {
-      setError('Erro ao verificar senha. Tente novamente.');
+      console.log('❌ Erro geral na verificação:', err.message);
+      setError('❌ Erro ao verificar senha. Tente novamente.');
       setLoading(false);
     }
   };
@@ -77,9 +99,11 @@ export default function OSLoginPage() {
           <p className="text-gray-600 mt-2">
             OS #{osInfo?.numero_os || 'Carregando...'}
           </p>
-          <p className="text-sm text-gray-500 mt-1">
-            Digite a senha de 4 dígitos que está na sua OS
-          </p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-3">
+            <p className="text-blue-800 text-sm">
+              <strong>🔐 Sistema de Login:</strong> Digite a senha de 4 dígitos que está impressa na sua OS
+            </p>
+          </div>
         </div>
 
         {/* Form */}
@@ -119,9 +143,9 @@ export default function OSLoginPage() {
             <button
               type="submit"
               disabled={loading || senha.length !== 4}
-              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
             >
-              {loading ? 'Verificando...' : 'Acessar OS'}
+              {loading ? '🔐 Verificando Senha...' : '🔓 Acessar OS'}
             </button>
           </form>
         </div>

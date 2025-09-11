@@ -72,6 +72,14 @@ export default function OSPublicPage() {
       return;
     }
 
+    // Validação básica da senha
+    if (senha.length !== 4 || !/^\d+$/.test(senha)) {
+      console.log('❌ Senha inválida:', senha);
+      setError('❌ Senha inválida! A senha deve ter 4 dígitos numéricos.');
+      setLoading(false);
+      return;
+    }
+
     const fetchOSData = async () => {
       try {
         console.log('🔍 Debug - Iniciando busca da OS:', { osId, senha });
@@ -106,16 +114,19 @@ export default function OSPublicPage() {
           senha_fornecida: senha 
         });
 
-        // Verificar se a senha está correta
+        // Verificar se a senha está correta (comparação rigorosa)
         if (osExists.senha_acesso !== senha) {
           console.log('❌ Senha incorreta:', { 
             senha_no_banco: osExists.senha_acesso, 
-            senha_fornecida: senha 
+            senha_fornecida: senha,
+            comparacao: osExists.senha_acesso === senha
           });
           setError('❌ Senha incorreta! Verifique os 4 dígitos que estão impressos na sua OS.');
           setLoading(false);
           return;
         }
+
+        console.log('✅ Senha validada com sucesso!');
 
         // Agora buscar os dados completos
         const { data, error } = await supabase
