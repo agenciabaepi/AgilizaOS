@@ -17,6 +17,7 @@ function LoginClientInner() {
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   
   // Estados para verificação de código
   const [showVerification, setShowVerification] = useState(false);
@@ -86,6 +87,11 @@ function LoginClientInner() {
     }
   }, []);
   
+  // 🔒 CORREÇÃO DE HIDRATAÇÃO: Aguardar montagem no cliente
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   // 🔒 PROTEÇÃO EXTRA: Se já estiver logado, não renderizar NADA
   if (auth.user && auth.session && !auth.loading) {
     return (
@@ -199,6 +205,12 @@ function LoginClientInner() {
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    
+    // 🔒 PROTEÇÃO: Evitar múltiplas execuções simultâneas
+    if (isSubmitting) {
+      return;
+    }
+    
     setIsSubmitting(true);
     let emailToLogin = loginInput;
     
@@ -354,7 +366,36 @@ function LoginClientInner() {
     // Login bem-sucedido
     addToast('success', 'Login realizado com sucesso! Redirecionando...');
     
-    // Salvar dados no localStorage
+    // 🔒 LIMPEZA COMPLETA: Limpar dados antigos antes de salvar novos
+    try {
+      // Limpar dados de sessão anteriores
+      localStorage.removeItem('user');
+      localStorage.removeItem('empresa_id');
+      localStorage.removeItem('session');
+      
+      // Limpar sessionStorage
+      sessionStorage.clear();
+      
+      // Limpar cookies do Supabase
+      const cookies = document.cookie.split(";");
+      cookies.forEach(cookie => {
+        const eqPos = cookie.indexOf("=");
+        const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+        
+        if (name.includes('supabase') || name.includes('sb-') || name.includes('auth')) {
+          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; domain=${window.location.hostname}; path=/;`;
+        }
+      });
+      
+      // Aguardar um pouco para limpeza ser processada
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+    } catch (error) {
+      console.warn('Erro na limpeza de dados:', error);
+    }
+    
+    // Salvar dados novos no localStorage
     localStorage.setItem("user", JSON.stringify({
       id: userId,
       email: emailToLogin,
@@ -753,10 +794,27 @@ function LoginClientInner() {
                   {/* Login Button */}
                   <button
                     type="submit"
-                    className="w-full bg-gray-900 text-white font-medium py-3 rounded-lg hover:bg-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-6"
+                    className="w-full bg-gray-900 text-white font-medium py-3 rounded-lg hover:bg-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-6 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
                     disabled={isSubmitting}
+                    onClick={(e) => {
+                      // Prevenir múltiplos cliques e validar campos
+                      if (isSubmitting || !loginInput.trim() || !password.trim()) {
+                        e.preventDefault();
+                        if (!loginInput.trim() || !password.trim()) {
+                          addToast('warning', 'Por favor, preencha todos os campos');
+                        }
+                        return;
+                      }
+                    }}
                   >
-                      {isSubmitting ? 'Entrando...' : 'Entrar'}
+                      {isSubmitting ? (
+                        <div className="flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Entrando...
+                        </div>
+                      ) : (
+                        'Entrar'
+                      )}
                   </button>
                   
                   {/* Forgot Password Button */}

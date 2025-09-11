@@ -2,14 +2,9 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { FiStar, FiClock, FiAlertTriangle } from 'react-icons/fi';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import ClientOnly from './ClientOnly';
 
 export const SubscriptionStatus = () => {
-  return (
-    <ClientOnly>
-      <SubscriptionStatusContent />
-    </ClientOnly>
-  );
+  return <SubscriptionStatusContent />;
 };
 
 const SubscriptionStatusContent = () => {

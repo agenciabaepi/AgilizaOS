@@ -32,7 +32,6 @@ import { Book, Pencil, Move } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
-import ClientOnly from '@/components/ClientOnly';
 import { v4 as uuidv4 } from 'uuid';
 import ProtectedArea from '@/components/ProtectedArea';
 import { useToast } from '@/components/Toast';
@@ -896,7 +895,6 @@ export default function LembretesPage() {
             <Book className="text-yellow-500 w-5 h-5" />
             Anotações Fixas
           </h2>
-          <ClientOnly>
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext
                 items={colunas.map((coluna) => `coluna-${coluna}`)}
@@ -1188,7 +1186,6 @@ export default function LembretesPage() {
                 </div>
               </SortableContext>
             </DndContext>
-          </ClientOnly>
           {/* Modal Nova Anotação / Editar Anotação */}
           {showModal && (
             <EditarNotaModal

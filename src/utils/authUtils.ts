@@ -4,33 +4,40 @@ import { supabase } from '@/lib/supabaseClient';
 export const clearAllAuthData = () => {
   if (typeof window === 'undefined') return;
 
-  // Limpa localStorage
-  const keysToRemove = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key && (key.includes('supabase') || key.includes('auth') || key === 'user')) {
-      keysToRemove.push(key);
+  try {
+    // Limpa localStorage
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.includes('supabase') || key.includes('auth') || key === 'user' || key === 'empresa_id' || key === 'session')) {
+        keysToRemove.push(key);
+      }
     }
-  }
-  
-  keysToRemove.forEach(key => {
-    localStorage.removeItem(key);
-  });
+    
+    keysToRemove.forEach(key => {
+      localStorage.removeItem(key);
+    });
 
-  // Limpa sessionStorage
-  const sessionKeysToRemove = [];
-  for (let i = 0; i < sessionStorage.length; i++) {
-    const key = sessionStorage.key(i);
-    if (key && (key.includes('supabase') || key.includes('auth'))) {
-      sessionKeysToRemove.push(key);
-    }
-  }
-  
-  sessionKeysToRemove.forEach(key => {
-    sessionStorage.removeItem(key);
-  });
+    // Limpa sessionStorage
+    sessionStorage.clear();
 
-  };
+    // Limpa cookies do Supabase
+    const cookies = document.cookie.split(";");
+    cookies.forEach(cookie => {
+      const eqPos = cookie.indexOf("=");
+      const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+      
+      if (name.includes('supabase') || name.includes('sb-') || name.includes('auth')) {
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; domain=${window.location.hostname}; path=/;`;
+      }
+    });
+
+    console.log('✅ Dados de autenticação limpos completamente');
+  } catch (error) {
+    console.error('❌ Erro ao limpar dados de autenticação:', error);
+  }
+};
 
 // Função para verificar se há problemas de autenticação
 export const checkAuthIssues = async () => {

@@ -13,14 +13,24 @@ export const useLogout = () => {
       const { error } = await supabase.auth.signOut({ scope: 'global' });
       
       if (error) {
+        console.warn('Erro no logout do Supabase:', error);
         // Continuar mesmo com erro
       }
 
       // 2. Aguardar um pouco para o Supabase processar
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // 3. Limpar estado local
-      localStorage.clear();
+      // 3. Limpar estado local de forma mais específica
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes('supabase') || key.includes('auth') || key === 'user' || key === 'empresa_id' || key === 'session')) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+      
+      // Limpar sessionStorage
       sessionStorage.clear();
 
       // 4. Forçar limpeza de cookies do Supabase
@@ -35,10 +45,14 @@ export const useLogout = () => {
         }
       });
 
-      // 5. Redirecionar para login
+      // 5. Aguardar um pouco mais para garantir limpeza
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // 6. Redirecionar para login
       window.location.replace('/login'); // Usar replace ao invés de href
 
     } catch (error) {
+      console.error('Erro no logout:', error);
       
       // Mesmo com erro, forçar limpeza e redirecionamento
       localStorage.clear();
