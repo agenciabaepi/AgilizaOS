@@ -407,7 +407,7 @@ const VisualizarOrdemServicoPage = () => {
                 Imprimir
               </button>
               <button
-                onClick={() => window.open(`/os/${ordem?.numero_os}/status`, '_blank')}
+                onClick={() => window.open(`/os/${ordem?.id}/status`, '_blank')}
                 className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
               >
                 <FiExternalLink className="w-4 h-4" />

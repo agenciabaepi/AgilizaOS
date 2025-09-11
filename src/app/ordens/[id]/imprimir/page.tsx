@@ -271,7 +271,7 @@ function OrdemPDF({ ordem }: { ordem: any }) {
           </View>
           <View style={{ alignItems: 'flex-end', minWidth: 80 }}>
             <Image
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent(`https://gestaoconsert.com.br/os/${ordem.numero_os}/login`)}`}
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent(`https://gestaoconsert.com.br/os/${ordem.id}/login`)}`}
               style={{ width: 60, height: 60 }}
             />
             <Text style={{ fontSize: 8, textAlign: 'center', marginTop: 2, color: '#666' }}>
