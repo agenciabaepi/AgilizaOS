@@ -52,7 +52,7 @@ export default function OSLoginPage() {
         .single();
 
       if (error || !data) {
-        setError('Senha incorreta. Verifique os 4 dígitos na sua OS.');
+        setError('❌ Senha incorreta! Verifique os 4 dígitos que estão impressos na sua OS.');
         setLoading(false);
         return;
       }
