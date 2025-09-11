@@ -63,16 +63,61 @@ export default function OSPublicPage() {
   useEffect(() => {
     if (!mounted) return;
 
+    console.log('🔍 Debug - useEffect executado:', { mounted, osId, senha });
+
     // Se não tem senha, redireciona para login
     if (!senha) {
+      console.log('❌ Sem senha, redirecionando para login');
       window.location.href = `/os/${osId}/login`;
       return;
     }
 
     const fetchOSData = async () => {
       try {
-        console.log('🔍 Debug - Buscando OS com ID:', osId, 'e senha:', senha);
+        console.log('🔍 Debug - Iniciando busca da OS:', { osId, senha });
         
+        // Primeiro, vamos tentar buscar sem a senha para ver se a OS existe
+        const { data: osExists, error: existsError } = await supabase
+          .from('ordens_servico')
+          .select('id, numero_os, senha_acesso')
+          .eq('id', osId)
+          .single();
+
+        console.log('🔍 Debug - Verificação se OS existe:', { osExists, existsError });
+
+        if (existsError) {
+          console.log('❌ OS não encontrada no banco:', existsError.message);
+          setError(`OS não encontrada: ${existsError.message}`);
+          setLoading(false);
+          return;
+        }
+
+        if (!osExists) {
+          console.log('❌ OS não existe no banco');
+          setError('OS não encontrada');
+          setLoading(false);
+          return;
+        }
+
+        console.log('✅ OS encontrada:', { 
+          id: osExists.id, 
+          numero_os: osExists.numero_os, 
+          senha_no_banco: osExists.senha_acesso,
+          senha_fornecida: senha 
+        });
+
+        // Verificar se a senha está correta
+        if (osExists.senha_acesso !== senha) {
+          console.log('❌ Senha incorreta:', { 
+            senha_no_banco: osExists.senha_acesso, 
+            senha_fornecida: senha 
+          });
+          setError('Senha incorreta');
+          setLoading(false);
+          return;
+        }
+
+        // Agora buscar os dados completos
         const { data, error } = await supabase
           .from('ordens_servico')
           .select(`
@@ -92,29 +137,28 @@ export default function OSPublicPage() {
             empresas(nome, telefone, email, logo_url)
           `)
           .eq('id', osId)
-          .eq('senha_acesso', senha)
           .single();
 
-        console.log('🔍 Debug - Query resultado:', { data, error, osId });
+        console.log('🔍 Debug - Query completa resultado:', { data, error });
 
         if (error) {
-          console.log('❌ Erro ao buscar OS real:', error.message);
-          setError(`Erro ao buscar OS: ${error.message}`);
+          console.log('❌ Erro ao buscar dados completos:', error.message);
+          setError(`Erro ao buscar dados: ${error.message}`);
           setLoading(false);
           return;
         }
 
         if (data) {
-          console.log('✅ Dados reais encontrados:', data);
+          console.log('✅ Dados reais carregados com sucesso:', data);
           setOsData(data);
           setLoading(false);
         } else {
-          console.log('⚠️ Nenhum dado encontrado');
-          setError('OS não encontrada ou senha incorreta');
+          console.log('❌ Nenhum dado retornado');
+          setError('Erro ao carregar dados da OS');
           setLoading(false);
         }
       } catch (err: any) {
-        console.log('Timeout ou erro na busca:', err.message);
+        console.log('❌ Erro geral na busca:', err.message);
         setError(`Erro ao conectar: ${err.message}`);
         setLoading(false);
       }
