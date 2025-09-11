@@ -453,28 +453,18 @@ export default function ImprimirOrdemPage() {
           setTimeout(() => reject(new Error('Timeout na busca da OS')), 30000)
         );
 
+        // Query super simplificada para evitar timeout
         const queryPromise = supabase
           .from('ordens_servico')
           .select(`
             id,
             numero_os,
-            cliente_id,
             categoria,
             marca,
             modelo,
             status,
-            status_tecnico,
             created_at,
-            data_entrega,
-            valor_faturado,
-            valor_peca,
-            valor_servico,
-            qtd_peca,
-            qtd_servico,
-            desconto,
             servico,
-            peca,
-            tipo,
             observacao,
             relato,
             condicoes_equipamento,
@@ -482,9 +472,6 @@ export default function ImprimirOrdemPage() {
             numero_serie,
             acessorios,
             atendente,
-            tecnico_id,
-            empresa_id,
-            termo_garantia_id,
             senha_acesso,
             clientes(nome, telefone, email, cpf, endereco),
             tecnico:usuarios(nome),
@@ -500,6 +487,8 @@ export default function ImprimirOrdemPage() {
         if (error) {
           console.log('❌ Erro ao buscar OS real:', error.message);
           console.log('❌ Detalhes do erro:', error);
+          console.log('❌ Código do erro:', error.code);
+          console.log('❌ Detalhes completos:', JSON.stringify(error, null, 2));
           setError(`Erro ao buscar OS: ${error.message}`);
           setLoading(false);
           return;
@@ -507,6 +496,9 @@ export default function ImprimirOrdemPage() {
 
         if (data) {
           console.log('✅ Dados reais encontrados:', data);
+          console.log('✅ Cliente encontrado:', data.clientes);
+          console.log('✅ Técnico encontrado:', data.tecnico);
+          console.log('✅ Empresa encontrada:', data.empresas);
           // Se encontrou dados reais, usa eles
           setOrdem(data);
           setLoading(false);

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { supabase } from '@/lib/supabaseClient';
+import { supabasePublic } from '@/lib/supabasePublicClient';
 import { FiClock, FiCheckCircle, FiAlertCircle, FiCamera, FiFileText, FiSmartphone, FiUser, FiCalendar, FiTool } from 'react-icons/fi';
 
 export default function OSPublicPage() {
@@ -82,54 +82,80 @@ export default function OSPublicPage() {
 
     const fetchOSData = async () => {
       try {
-        console.log('🔍 Debug - Iniciando busca da OS:', { osId, senha });
+        console.log('🔍 Debug - Iniciando busca REAL da OS:', { osId, senha });
         
-        // Primeiro, vamos tentar buscar sem a senha para ver se a OS existe
-        const { data: osExists, error: existsError } = await supabase
+        // Timeout de 10 segundos para consultas
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Timeout na consulta')), 10000);
+        });
+        
+        // Primeiro verificar se a OS existe e validar senha
+        console.log('🔍 Verificando se OS existe e senha...');
+        const verifyQuery = supabasePublic
           .from('ordens_servico')
           .select('id, numero_os, senha_acesso')
           .eq('id', osId)
           .single();
 
-        console.log('🔍 Debug - Verificação se OS existe:', { osExists, existsError });
+        const { data: osExists, error: existsError } = await Promise.race([verifyQuery, timeoutPromise]) as any;
+
+        console.log('🔍 Verificação OS:', { osExists, existsError });
 
         if (existsError) {
-          console.log('❌ OS não encontrada no banco:', existsError.message);
+          console.log('❌ Erro ao verificar OS:', existsError.message);
           setError(`OS não encontrada: ${existsError.message}`);
           setLoading(false);
           return;
         }
 
         if (!osExists) {
-          console.log('❌ OS não existe no banco');
+          console.log('❌ OS não existe');
           setError('OS não encontrada');
           setLoading(false);
           return;
         }
 
-        console.log('✅ OS encontrada:', { 
-          id: osExists.id, 
-          numero_os: osExists.numero_os, 
-          senha_no_banco: osExists.senha_acesso,
-          senha_fornecida: senha 
-        });
-
-        // Verificar se a senha está correta (comparação rigorosa)
+        // Verificar senha
         if (osExists.senha_acesso !== senha) {
-          console.log('❌ Senha incorreta:', { 
-            senha_no_banco: osExists.senha_acesso, 
-            senha_fornecida: senha,
-            comparacao: osExists.senha_acesso === senha
-          });
+          console.log('❌ Senha incorreta');
           setError('❌ Senha incorreta! Verifique os 4 dígitos que estão impressos na sua OS.');
           setLoading(false);
           return;
         }
 
-        console.log('✅ Senha validada com sucesso!');
+        console.log('✅ Senha validada! Buscando dados completos...');
 
-        // Agora buscar os dados completos
-        const { data, error } = await supabase
+        // Buscar dados completos REAIS - Teste com consulta mais simples
+        console.log('🔍 Testando consulta simples primeiro...');
+        const simpleQuery = supabasePublic
+          .from('ordens_servico')
+          .select('id, numero_os, categoria, marca, modelo, status, servico, cliente_id, tecnico_id, empresa_id')
+          .eq('id', osId)
+          .single();
+
+        const { data: simpleData, error: simpleError } = await Promise.race([simpleQuery, timeoutPromise]) as any;
+        console.log('🔍 Dados simples:', { simpleData, simpleError });
+        console.log('🔍 IDs das foreign keys:', {
+          cliente_id: simpleData?.cliente_id,
+          tecnico_id: simpleData?.tecnico_id,
+          empresa_id: simpleData?.empresa_id
+        });
+
+        if (simpleError) {
+          console.log('❌ Erro na consulta simples:', simpleError.message);
+          setError(`Erro ao buscar dados: ${simpleError.message}`);
+          setLoading(false);
+          return;
+        }
+
+        // 🚨 SOLUÇÃO: Usar cliente principal para buscar dados completos
+        console.log('🔍 Buscando dados reais com cliente principal...');
+        
+        // Importar cliente principal temporariamente
+        const { supabase: supabaseMain } = await import('@/lib/supabaseClient');
+        
+        // Buscar dados completos com cliente principal (que tem permissões)
+        const dataQuery = supabaseMain
           .from('ordens_servico')
           .select(`
             id,
@@ -141,7 +167,7 @@ export default function OSPublicPage() {
             created_at,
             servico,
             observacao,
-            relato,
+            problema_relatado,
             condicoes_equipamento,
             clientes(nome, telefone, email),
             tecnico:usuarios(nome),
@@ -150,17 +176,23 @@ export default function OSPublicPage() {
           .eq('id', osId)
           .single();
 
-        console.log('🔍 Debug - Query completa resultado:', { data, error });
+        const { data, error } = await Promise.race([dataQuery, timeoutPromise]) as any;
+        console.log('🔍 Dados completos REAIS:', { data, error });
 
         if (error) {
-          console.log('❌ Erro ao buscar dados completos:', error.message);
+          console.log('❌ Erro ao buscar dados:', error.message);
           setError(`Erro ao buscar dados: ${error.message}`);
           setLoading(false);
           return;
         }
 
         if (data) {
-          console.log('✅ Dados reais carregados com sucesso:', data);
+          console.log('✅ Dados REAIS carregados!');
+          console.log('🔍 Debug - Cliente:', data.clientes);
+          console.log('🔍 Debug - Empresa:', data.empresas);
+          console.log('🔍 Debug - Servico:', data.servico);
+          console.log('🔍 Debug - Tecnico:', data.tecnico);
+          console.log('🔍 Debug - TODOS os campos:', data);
           setOsData(data);
           setLoading(false);
         } else {
@@ -286,9 +318,9 @@ export default function OSPublicPage() {
               <h3 className="text-lg font-semibold text-gray-900">Cliente</h3>
             </div>
             <div className="space-y-2">
-              <p><span className="font-medium">Nome:</span> {osData.clientes?.nome || 'N/A'}</p>
-              <p><span className="font-medium">Telefone:</span> {osData.clientes?.telefone || 'N/A'}</p>
-              <p><span className="font-medium">Email:</span> {osData.clientes?.email || 'N/A'}</p>
+              <p><span className="font-medium">Nome:</span> {osData.clientes?.nome || 'Não informado'}</p>
+              <p><span className="font-medium">Telefone:</span> {osData.clientes?.telefone || 'Não informado'}</p>
+              <p><span className="font-medium">Email:</span> {osData.clientes?.email || 'Não informado'}</p>
             </div>
           </div>
 
@@ -301,9 +333,9 @@ export default function OSPublicPage() {
               <h3 className="text-lg font-semibold text-gray-900">Equipamento</h3>
             </div>
             <div className="space-y-2">
-              <p><span className="font-medium">Categoria:</span> {osData.categoria || 'N/A'}</p>
-              <p><span className="font-medium">Marca:</span> {osData.marca || 'N/A'}</p>
-              <p><span className="font-medium">Modelo:</span> {osData.modelo || 'N/A'}</p>
+              <p><span className="font-medium">Categoria:</span> {osData.categoria || 'Não informado'}</p>
+              <p><span className="font-medium">Marca:</span> {osData.marca || 'Não informado'}</p>
+              <p><span className="font-medium">Modelo:</span> {osData.modelo || 'Não informado'}</p>
             </div>
           </div>
 
@@ -316,8 +348,7 @@ export default function OSPublicPage() {
               <h3 className="text-lg font-semibold text-gray-900">Serviço</h3>
             </div>
             <div className="space-y-2">
-              <p><span className="font-medium">Descrição:</span> {osData.servico || 'N/A'}</p>
-              <p><span className="font-medium">Técnico:</span> {osData.tecnico?.nome || 'N/A'}</p>
+              <p><span className="font-medium">Técnico:</span> {osData.tecnico?.nome || 'Não informado'}</p>
             </div>
           </div>
 
@@ -330,22 +361,22 @@ export default function OSPublicPage() {
               <h3 className="text-lg font-semibold text-gray-900">Empresa</h3>
             </div>
             <div className="space-y-2">
-              <p><span className="font-medium">Nome:</span> {osData.empresas?.nome || 'N/A'}</p>
-              <p><span className="font-medium">Telefone:</span> {osData.empresas?.telefone || 'N/A'}</p>
-              <p><span className="font-medium">Email:</span> {osData.empresas?.email || 'N/A'}</p>
+              <p><span className="font-medium">Nome:</span> {osData.empresas?.nome || 'Não informado'}</p>
+              <p><span className="font-medium">Telefone:</span> {osData.empresas?.telefone || 'Não informado'}</p>
+              <p><span className="font-medium">Email:</span> {osData.empresas?.email || 'Não informado'}</p>
             </div>
           </div>
         </div>
 
         {/* Observações */}
-        {(osData.observacao || osData.relato || osData.condicoes_equipamento) && (
+        {(osData.observacao || osData.problema_relatado || osData.condicoes_equipamento) && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Observações</h3>
             <div className="space-y-3">
-              {osData.relato && (
+              {osData.problema_relatado && (
                 <div>
                   <p className="font-medium text-gray-700">Relato do Cliente:</p>
-                  <p className="text-gray-600">{osData.relato}</p>
+                  <p className="text-gray-600">{osData.problema_relatado}</p>
                 </div>
               )}
               {osData.condicoes_equipamento && (

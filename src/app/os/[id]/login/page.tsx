@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabaseClient';
+import { supabasePublic } from '@/lib/supabasePublicClient';
 import { FiLock, FiEye, FiEyeOff, FiArrowLeft } from 'react-icons/fi';
 
 export default function OSLoginPage() {
@@ -27,7 +27,7 @@ export default function OSLoginPage() {
     // Buscar informações básicas da OS para mostrar o número
     const fetchOSInfo = async () => {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await supabasePublic
           .from('ordens_servico')
           .select('numero_os, clientes(nome)')
           .eq('id', osId)
@@ -46,58 +46,64 @@ export default function OSLoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError('');
-
+    
     // Validação básica
     if (senha.length !== 4 || !/^\d+$/.test(senha)) {
       setError('❌ A senha deve ter exatamente 4 dígitos numéricos.');
-      setLoading(false);
       return;
     }
 
+    setLoading(true);
+    setError('');
+
     try {
-      console.log('🔍 Debug - Verificando senha:', { osId, senha });
+      console.log('🔍 Iniciando consulta REAL:', { osId, senha });
       
-      // Primeiro, vamos verificar se a OS existe
-      const { data: osExists, error: existsError } = await supabase
-        .from('ordens_servico')
-        .select('id, numero_os, senha_acesso, status')
-        .eq('id', osId)
-        .single();
+       // Timeout de 5 segundos para consultas reais (reduzido)
+       const timeoutPromise = new Promise((_, reject) => {
+         setTimeout(() => reject(new Error('Timeout na consulta')), 5000);
+       });
 
-      console.log('🔍 Debug - OS existe?', { osExists, existsError });
+            // Consulta real ao Supabase (cliente público)
+            console.log('🔍 Consultando Supabase (cliente público)...');
+            const queryPromise = supabasePublic
+              .from('ordens_servico')
+              .select('senha_acesso')
+              .eq('id', osId)
+              .single();
 
-      if (existsError || !osExists) {
-        console.log('❌ OS não encontrada:', existsError?.message);
-        setError('❌ OS não encontrada!');
+      const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
+
+      console.log('🔍 Resultado da consulta REAL:', { data, error });
+
+      if (error) {
+        console.log('❌ Erro na consulta REAL:', error);
+        if (error.message === 'Timeout na consulta') {
+          setError('⏱️ Supabase demorou mais de 15 segundos. Problema de conexão.');
+        } else {
+          setError(`❌ Erro Supabase: ${error.message}`);
+        }
+        setLoading(false);
         return;
       }
 
-      console.log('🔍 Debug - Comparando senhas:', {
-        senha_no_banco: osExists.senha_acesso,
-        senha_fornecida: senha,
-        sao_iguais: osExists.senha_acesso === senha,
-        tipo_senha_banco: typeof osExists.senha_acesso,
-        tipo_senha_fornecida: typeof senha
-      });
+      console.log('🔍 Senha no banco REAL:', data.senha_acesso);
+      console.log('🔍 Senha digitada:', senha);
+      console.log('🔍 São iguais?', data.senha_acesso === senha);
 
-      // Verificar se a senha está correta
-      if (osExists.senha_acesso !== senha) {
+      // Verificar se a senha digitada é igual à senha_acesso
+      if (data.senha_acesso === senha) {
+        console.log('✅ Senha correta! Redirecionando...');
+        window.location.href = `/os/${osId}/status?senha=${senha}`;
+      } else {
         console.log('❌ Senha incorreta!');
         setError('❌ Senha incorreta! Verifique os 4 dígitos que estão impressos na sua OS.');
-        return;
+        setLoading(false);
       }
-
-      console.log('✅ Senha correta! Redirecionando para status...');
       
-      // Senha correta, redirecionar para status usando ID
-      router.push(`/os/${osId}/status?senha=${senha}`);
     } catch (err: any) {
-      console.log('❌ Erro geral na verificação:', err.message);
-      setError('❌ Erro ao verificar senha. Tente novamente.');
-    } finally {
-      // Sempre desabilitar loading, independente do resultado
+      console.log('❌ Erro geral:', err);
+      setError(`❌ Erro: ${err.message}`);
       setLoading(false);
     }
   };
@@ -171,7 +177,7 @@ export default function OSLoginPage() {
               disabled={loading || senha.length !== 4}
               className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
             >
-              {loading ? '🔐 Verificando Senha...' : '🔓 Acessar OS'}
+              {loading ? '⏳ Consultando Supabase...' : '🔓 Acessar OS'}
             </button>
           </form>
         </div>

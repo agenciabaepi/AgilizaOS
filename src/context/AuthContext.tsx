@@ -112,16 +112,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setSession(null);
     setUsuarioData(null);
     setEmpresaData(null);
-    
-    // 🔒 LIMPEZA COMPLETA: Limpar dados locais também
-    try {
-      localStorage.removeItem('user');
-      localStorage.removeItem('empresa_id');
-      localStorage.removeItem('session');
-      sessionStorage.clear();
-    } catch (error) {
-      console.warn('Erro na limpeza de dados locais:', error);
-    }
   }, []);
 
   // ✅ OTIMIZADO: useEffect principal com timeout
@@ -131,7 +121,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     const initializeAuth = async () => {
       try {
-
         // ✅ OTIMIZADO: Timeout mais rápido para usuários não logados
         authTimeout = setTimeout(() => {
           if (isMounted && loading) {
