@@ -71,7 +71,6 @@ export default function OSLoginPage() {
       if (existsError || !osExists) {
         console.log('❌ OS não encontrada:', existsError?.message);
         setError('❌ OS não encontrada!');
-        setLoading(false);
         return;
       }
 
@@ -87,7 +86,6 @@ export default function OSLoginPage() {
       if (osExists.senha_acesso !== senha) {
         console.log('❌ Senha incorreta!');
         setError('❌ Senha incorreta! Verifique os 4 dígitos que estão impressos na sua OS.');
-        setLoading(false);
         return;
       }
 
@@ -98,6 +96,8 @@ export default function OSLoginPage() {
     } catch (err: any) {
       console.log('❌ Erro geral na verificação:', err.message);
       setError('❌ Erro ao verificar senha. Tente novamente.');
+    } finally {
+      // Sempre desabilitar loading, independente do resultado
       setLoading(false);
     }
   };
