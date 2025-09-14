@@ -7,14 +7,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "monitor": "node scripts/monitor.js",
-    "monitor:dev": "node scripts/monitor.js 10",
-    "deploy": "chmod +x scripts/deploy-optimized.sh && ./scripts/deploy-optimized.sh",
-    "deploy:staging": "NODE_ENV=staging npm run build && npm start",
-    "performance": "npm run build && npm run start & sleep 10 && npm run monitor",
+    "lint:fix": "next lint --fix",
+    "type-check": "tsc --noEmit",
     "clean": "rm -rf .next node_modules/.cache .turbo && npm cache clean --force",
     "analyze": "ANALYZE=true npm run build",
-    "test:performance": "npm run build && npm run start & sleep 5 && curl -w '@-' -o /dev/null -s http://localhost:3000 <<< $'time_namelookup:  %{time_namelookup}\\ntime_connect:  %{time_connect}\\ntime_appconnect: %{time_appconnect}\\ntime_pretransfer: %{time_pretransfer}\\ntime_redirect:  %{time_redirect}\\ntime_starttransfer: %{time_starttransfer}\\ntime_total:  %{time_total}\\n'"
+    "vercel-build": "npm run build",
+    "postbuild": "next-sitemap",
+    "test:build": "npm run build && npm run start",
+    "preview": "vercel --prod"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

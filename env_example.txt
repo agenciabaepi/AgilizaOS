@@ -1,19 +1,38 @@
-# Supabase (já configurado)
-NEXT_PUBLIC_SUPABASE_URL=sua_url_supabase
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sua_chave_anonima_supabase
-SUPABASE_SERVICE_ROLE_KEY=sua_chave_service_role_supabase
+# ===========================================
+# CONFIGURAÇÕES PARA VERCEL
+# ===========================================
 
-# Mercado Pago - PRODUÇÃO
-MERCADOPAGO_ACCESS_TOKEN=APP_USR-3752420980879882-080316-e6ea366b73ee5fcbcd2f4aeb8049886e-2502171526
-MERCADOPAGO_PUBLIC_KEY=APP_USR-1a8d35b4-3e4e-42f8-a41a-d6a7341dae7d
-MERCADOPAGO_CLIENT_ID=3752420980879882
-MERCADOPAGO_CLIENT_SECRET=6q6FGN8BctZrIVAnaTb52XTvTcXA9LVC
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
-# Ambiente
+# Mercado Pago Configuration
+MERCADOPAGO_ACCESS_TOKEN=your-access-token
+MERCADOPAGO_PUBLIC_KEY=your-public-key
+MERCADOPAGO_CLIENT_ID=your-client-id
+MERCADOPAGO_CLIENT_SECRET=your-client-secret
 MERCADOPAGO_ENVIRONMENT=production
-NEXT_PUBLIC_BASE_URL=https://www.consert.app
 
-# URLs de retorno para produção
-NEXT_PUBLIC_SUCCESS_URL=https://www.consert.app/pagamentos/sucesso
-NEXT_PUBLIC_FAILURE_URL=https://www.consert.app/pagamentos/falha
-NEXT_PUBLIC_PENDING_URL=https://www.consert.app/pagamentos/pendente 
+# Application URLs (Vercel)
+NEXT_PUBLIC_BASE_URL=https://your-app.vercel.app
+NEXT_PUBLIC_SUCCESS_URL=https://your-app.vercel.app/pagamentos/sucesso
+NEXT_PUBLIC_FAILURE_URL=https://your-app.vercel.app/pagamentos/falha
+NEXT_PUBLIC_PENDING_URL=https://your-app.vercel.app/pagamentos/pendente
+
+# Email Configuration (opcional)
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASS=your-app-password
+
+# WhatsApp Configuration (opcional)
+WHATSAPP_SESSION_PATH=/tmp/whatsapp-sessions
+
+# Environment
+NODE_ENV=production
+NEXT_PUBLIC_ENVIRONMENT=production
+
+# Vercel Specific
+VERCEL_URL=your-app.vercel.app
+VERCEL_ENV=production 

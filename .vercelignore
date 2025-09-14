@@ -1,0 +1,58 @@
+# Arquivos e diretórios a serem ignorados no deploy do Vercel
+
+# Logs
+logs/
+*.log
+
+# Arquivos de desenvolvimento
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Cache e builds locais
+.next/
+node_modules/
+.turbo/
+
+# Arquivos específicos de VPS
+whatsapp-sessions/
+ssl/
+scripts/monitor.js
+scripts/deploy-optimized.sh
+scripts/setup-sessions.js
+
+# Arquivos SQL de desenvolvimento/teste
+*_teste_*.sql
+debug_*.sql
+teste_*.sql
+verificar_*.sql
+corrigir_*.sql
+criar_*_teste*.sql
+
+# Documentação de desenvolvimento
+*_CORRIGIDO.md
+*_RESOLVIDO.md
+*_FIXED.md
+PROBLEMA_*.md
+SOLUCAO_*.md
+DIAGNOSTICO_*.md
+
+# Scripts de shell específicos de VPS
+*.sh
+!vercel-build.sh
+
+# Arquivos temporários
+temp-repo/
+*.tmp
+*.temp
+
+# Arquivos de backup
+*.backup
+*.bak
+
+# Arquivos de configuração local
+.vscode/
+.idea/
+*.swp
+*.swo
