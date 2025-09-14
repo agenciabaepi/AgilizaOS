@@ -25,15 +25,15 @@ export default function ListaOrdensPageSimple() {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('ordens_servico')
-        .select(`
-          id,
-          numero_os,
-          status,
-          created_at,
+          .from('ordens_servico')
+          .select(`
+            id,
+            numero_os,
+            status,
+            created_at,
           clientes!cliente_id(nome, telefone)
         `)
-        .eq('empresa_id', empresaId)
+            .eq('empresa_id', empresaId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -85,13 +85,12 @@ export default function ListaOrdensPageSimple() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex gap-4">
               <div className="flex-1">
-                <Input
-                  type="text"
+                  <Input
+                    type="text"
                   placeholder="Buscar por número da OS ou cliente..."
-                  value={searchTerm}
+                    value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  icon={<FiSearch className="w-4 h-4" />}
-                />
+                  />
               </div>
             </div>
           </div>
@@ -107,11 +106,11 @@ export default function ListaOrdensPageSimple() {
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
                   <p className="text-gray-500 mt-2">Carregando...</p>
-                </div>
+                    </div>
               ) : filteredOrdens.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-gray-500">Nenhuma ordem encontrada</p>
-                </div>
+                    </div>
               ) : (
                 <div className="space-y-3">
                   {filteredOrdens.map((ordem) => (
@@ -142,10 +141,10 @@ export default function ListaOrdensPageSimple() {
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
+                )}
+              </div>
           </div>
-        </div>
+              </div>
       </MenuLayout>
     </ProtectedArea>
   );

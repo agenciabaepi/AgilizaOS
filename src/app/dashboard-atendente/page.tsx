@@ -96,13 +96,13 @@ export default function DashboardAtendentePage() {
       
       // Buscar OSs com orçamento enviado (mesma lógica do LaudoProntoAlert)
       const osComOrcamentoData = ordensData.filter((os: Record<string, unknown>) => {
-        const temOrcamentoEnviado = os.status_tecnico === 'ORÇAMENTO ENVIADO' || os.status_tecnico === 'AGUARDANDO APROVAÇÃO';
+        const temOrcamentoEnviado = String(os.status_tecnico) === 'ORÇAMENTO ENVIADO' || String(os.status_tecnico) === 'AGUARDANDO APROVAÇÃO';
         return temOrcamentoEnviado;
       });
       
       // Buscar OSs com laudo (campo laudo preenchido ou status específico)
       const osComLaudoData = ordensData.filter((os: Record<string, unknown>) => {
-        const temLaudo = (os.laudo && String(os.laudo).trim() !== '') || os.status_tecnico === 'LAUDO PRONTO';
+        const temLaudo = (os.laudo && String(os.laudo).trim() !== '') || String(os.status_tecnico) === 'LAUDO PRONTO';
         return temLaudo;
       });
 
@@ -370,14 +370,14 @@ export default function DashboardAtendentePage() {
                 {recentOS.map((os) => (
                   <div key={String(os.id)} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div>
-                      <p className="font-medium text-gray-900">OS #{os.numero_os}</p>
-                      <p className="text-sm text-gray-600">{os.clientes?.nome}</p>
+                      <p className="font-medium text-gray-900">OS #{String(os.numero_os)}</p>
+                      <p className="text-sm text-gray-600">{String((os.clientes as any)?.nome || 'Não informado')}</p>
                     </div>
                     <div className="text-right">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(os.status)}`}>
-                        {os.status}
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(String(os.status))}`}>
+                        {String(os.status)}
                       </span>
-                      <p className="text-xs text-gray-500 mt-1">{formatDate(os.created_at)}</p>
+                      <p className="text-xs text-gray-500 mt-1">{formatDate(String(os.created_at))}</p>
                     </div>
                   </div>
                 ))}
@@ -394,11 +394,11 @@ export default function DashboardAtendentePage() {
                 {recentClientes.map((cliente) => (
                   <div key={String(cliente.id)} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div>
-                      <p className="font-medium text-gray-900">{cliente.nome}</p>
-                      <p className="text-sm text-gray-600">{cliente.telefone}</p>
+                      <p className="font-medium text-gray-900">{String(cliente.nome)}</p>
+                      <p className="text-sm text-gray-600">{String(cliente.telefone)}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs text-gray-500">{formatDate(cliente.created_at)}</p>
+                      <p className="text-xs text-gray-500">{formatDate(String(cliente.created_at))}</p>
                     </div>
                   </div>
                 ))}
@@ -434,8 +434,8 @@ export default function DashboardAtendentePage() {
                     <div key={String(os.id)} className="bg-white rounded-lg p-4 shadow-sm border border-blue-100 hover:shadow-md transition-shadow">
                       <div className="flex items-start justify-between mb-3">
                         <div>
-                          <h4 className="font-bold text-gray-900">OS #{os.numero_os}</h4>
-                          <p className="text-sm text-gray-600">{os.clientes?.nome}</p>
+                          <h4 className="font-bold text-gray-900">OS #{String(os.numero_os)}</h4>
+                          <p className="text-sm text-gray-600">{String((os.clientes as any)?.nome || 'Não informado')}</p>
                         </div>
                         <div className="flex items-center space-x-2">
                           <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
@@ -447,21 +447,21 @@ export default function DashboardAtendentePage() {
                       <div className="space-y-2">
                         <div className="flex items-center text-sm text-gray-600">
                           <FiUser className="w-4 h-4 mr-2" />
-                          <span>{os.clientes?.nome}</span>
+                          <span>{String((os.clientes as any)?.nome || 'Não informado')}</span>
                         </div>
                         <div className="flex items-center text-sm text-gray-600">
                           <FiPhoneIcon className="w-4 h-4 mr-2" />
-                          <span>{os.clientes?.telefone}</span>
+                          <span>{String((os.clientes as any)?.telefone || 'Não informado')}</span>
                         </div>
                         <div className="flex items-center text-sm text-gray-600">
                           <FiFileText className="w-4 h-4 mr-2" />
-                          <span className="truncate">{os.servico || 'Serviço não especificado'}</span>
+                          <span className="truncate">{String(os.servico || 'Serviço não especificado')}</span>
                         </div>
                       </div>
                       
                       <div className="mt-3 pt-3 border-t border-gray-100">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-500">{formatDate(os.created_at)}</span>
+                          <span className="text-xs text-gray-500">{formatDate(String(os.created_at))}</span>
                           <button className="px-3 py-1 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition-colors">
                             Ver Orçamento
                           </button>
@@ -496,8 +496,8 @@ export default function DashboardAtendentePage() {
                     <div key={String(os.id)} className="bg-white rounded-lg p-4 shadow-sm border border-green-100 hover:shadow-md transition-shadow">
                       <div className="flex items-start justify-between mb-3">
                         <div>
-                          <h4 className="font-bold text-gray-900">OS #{os.numero_os}</h4>
-                          <p className="text-sm text-gray-600">{os.clientes?.nome}</p>
+                          <h4 className="font-bold text-gray-900">OS #{String(os.numero_os)}</h4>
+                          <p className="text-sm text-gray-600">{String((os.clientes as any)?.nome || 'Não informado')}</p>
                         </div>
                         <div className="flex items-center space-x-2">
                           <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
@@ -509,21 +509,21 @@ export default function DashboardAtendentePage() {
                       <div className="space-y-2">
                         <div className="flex items-center text-sm text-gray-600">
                           <FiUser className="w-4 h-4 mr-2" />
-                          <span>{os.clientes?.nome}</span>
+                          <span>{String((os.clientes as any)?.nome || 'Não informado')}</span>
                         </div>
                         <div className="flex items-center text-sm text-gray-600">
                           <FiPhoneIcon className="w-4 h-4 mr-2" />
-                          <span>{os.clientes?.telefone}</span>
+                          <span>{String((os.clientes as any)?.telefone || 'Não informado')}</span>
                         </div>
                         <div className="flex items-center text-sm text-gray-600">
                           <FiFileText className="w-4 h-4 mr-2" />
-                          <span className="truncate">{os.servico || 'Serviço não especificado'}</span>
+                          <span className="truncate">{String(os.servico || 'Serviço não especificado')}</span>
                         </div>
                       </div>
                       
                       <div className="mt-3 pt-3 border-t border-gray-100">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-500">{formatDate(os.created_at)}</span>
+                          <span className="text-xs text-gray-500">{formatDate(String(os.created_at))}</span>
                           <button className="px-3 py-1 bg-green-600 text-white rounded-md text-sm hover:bg-green-700 transition-colors">
                             Ver Laudo
                           </button>

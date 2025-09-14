@@ -90,7 +90,6 @@ export default function ListaOrdensPageSimple() {
                   placeholder="Buscar por número da OS ou cliente..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  icon={<FiSearch className="w-4 h-4" />}
                 />
               </div>
             </div>

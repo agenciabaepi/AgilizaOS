@@ -2,20 +2,20 @@ import puppeteer from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
 
 // Configuração do Chromium para Vercel
-export const getChromiumExecutablePath = () => {
+export const getChromiumExecutablePath = async () => {
   if (process.env.NODE_ENV === 'production') {
-    return chromium.executablePath();
+    return await chromium.executablePath();
   }
   // Para desenvolvimento local, usar Chrome instalado
   return process.env.PUPPETEER_EXECUTABLE_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 };
 
 // Configurações otimizadas para Vercel
-export const getChromiumOptions = () => {
+export const getChromiumOptions = async () => {
   const isProduction = process.env.NODE_ENV === 'production';
   
   return {
-    args: isProduction ? chromium.args() : [
+    args: isProduction ? chromium.args : [
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
@@ -25,7 +25,7 @@ export const getChromiumOptions = () => {
       '--single-process',
       '--disable-gpu'
     ],
-    executablePath: getChromiumExecutablePath(),
+    executablePath: await getChromiumExecutablePath(),
     headless: true,
     ignoreHTTPSErrors: true,
   };
@@ -48,7 +48,7 @@ export const generatePDF = async (html: string, options?: {
   let browser;
   
   try {
-    browser = await puppeteer.launch(getChromiumOptions());
+    browser = await puppeteer.launch(await getChromiumOptions());
     const page = await browser.newPage();
     
     // Configurar viewport
@@ -96,7 +96,7 @@ export const captureScreenshot = async (url: string, options?: {
   let browser;
   
   try {
-    browser = await puppeteer.launch(getChromiumOptions());
+    browser = await puppeteer.launch(await getChromiumOptions());
     const page = await browser.newPage();
     
     // Configurar viewport
@@ -135,7 +135,7 @@ export const setupWhatsAppWeb = async () => {
   
   try {
     browser = await puppeteer.launch({
-      ...getChromiumOptions(),
+      ...(await getChromiumOptions()),
       userDataDir: '/tmp/whatsapp-sessions', // Diretório temporário para sessões
     });
     
