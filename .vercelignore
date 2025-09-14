@@ -56,3 +56,6 @@ temp-repo/
 .idea/
 *.swp
 *.swo
+
+# Sessões do WhatsApp (serão criadas em /tmp no Vercel)
+/tmp/whatsapp-sessions/

@@ -4,7 +4,6 @@ import { usePathname } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
 
 import Image from 'next/image';
-import logobranco from '@/assets/imagens/logobranco.png';
 import {
   FiHome,
   FiUsers,
@@ -185,7 +184,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               <span className="text-black font-bold text-lg">C</span>
             </div>
           ) : (
-            <Image src={logobranco} alt="Consert Logo" className="h-12 w-auto object-contain" priority />
+            <Image src="/assets/imagens/logobranco.png" alt="Consert Logo" width={200} height={48} className="h-12 w-auto object-contain" priority />
           )}
         </div>
         {/* Busca */}
@@ -346,7 +345,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               <FiX size={28} />
             </button>
             <div className="flex flex-col items-center mb-8">
-              <Image src={logobranco} alt="Consert Logo" className="h-12 w-auto object-contain" priority />
+              <Image src="/assets/imagens/logobranco.png" alt="Consert Logo" width={200} height={48} className="h-12 w-auto object-contain" priority />
             </div>
             <div className="flex items-center gap-2 mb-6">
               <FiSearch className="text-white/60" size={18} />
@@ -599,7 +598,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             {/* Header do menu mobile */}
             <div className="flex items-center justify-between p-4 border-b border-gray-700">
               <div className="flex items-center gap-3">
-                <Image src={logobranco} alt="Consert Logo" className="h-8 w-auto" priority />
+                <Image src="/assets/imagens/logobranco.png" alt="Consert Logo" width={150} height={32} className="h-8 w-auto" priority />
                 <span className="text-white font-semibold">Menu</span>
               </div>
               <button 

@@ -14,7 +14,9 @@
     "vercel-build": "npm run build",
     "postbuild": "next-sitemap",
     "test:build": "npm run build && npm run start",
-    "preview": "vercel --prod"
+    "preview": "vercel --prod",
+    "chromium:install": "npx @sparticuz/chromium install",
+    "chromium:test": "node -e \"console.log('Chromium path:', require('@sparticuz/chromium').executablePath())\""
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

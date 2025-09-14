@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import logopreto from '@/assets/imagens/logopreto.png';
 
 export default function LogoutScreen() {
   const [progress, setProgress] = useState(0);
@@ -54,8 +53,10 @@ export default function LogoutScreen() {
         {/* Logo da empresa */}
         <div className="mb-8">
           <Image 
-            src={logopreto} 
+            src="/assets/imagens/logopreto.png" 
             alt="Consert Logo" 
+            width={200}
+            height={96}
             className="h-24 w-auto object-contain mx-auto"
             priority
           />

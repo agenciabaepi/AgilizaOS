@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import macbookImage from '../assets/imagens/macbook.png';
 import { supabase } from '@/lib/supabaseClient';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
 import UltraModernWordRotator from '@/components/UltraModernWordRotator';
@@ -412,7 +411,7 @@ export default function Home() {
               }`}
             >
               <Image 
-                src={macbookImage}
+                src="/assets/imagens/macbook.png"
                 alt="MacBook Pro with Consert" 
                 width={1000} 
                 height={750}
