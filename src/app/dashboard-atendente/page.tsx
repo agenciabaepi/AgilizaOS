@@ -368,7 +368,7 @@ export default function DashboardAtendentePage() {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">OSs Recentes</h3>
               <div className="space-y-3">
                 {recentOS.map((os) => (
-                  <div key={os.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div key={String(os.id)} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div>
                       <p className="font-medium text-gray-900">OS #{os.numero_os}</p>
                       <p className="text-sm text-gray-600">{os.clientes?.nome}</p>
@@ -392,7 +392,7 @@ export default function DashboardAtendentePage() {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Clientes Recentes</h3>
               <div className="space-y-3">
                 {recentClientes.map((cliente) => (
-                  <div key={cliente.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div key={String(cliente.id)} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div>
                       <p className="font-medium text-gray-900">{cliente.nome}</p>
                       <p className="text-sm text-gray-600">{cliente.telefone}</p>
@@ -431,7 +431,7 @@ export default function DashboardAtendentePage() {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {osComOrcamento.map((os) => (
-                    <div key={os.id} className="bg-white rounded-lg p-4 shadow-sm border border-blue-100 hover:shadow-md transition-shadow">
+                    <div key={String(os.id)} className="bg-white rounded-lg p-4 shadow-sm border border-blue-100 hover:shadow-md transition-shadow">
                       <div className="flex items-start justify-between mb-3">
                         <div>
                           <h4 className="font-bold text-gray-900">OS #{os.numero_os}</h4>
@@ -493,7 +493,7 @@ export default function DashboardAtendentePage() {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {osComLaudo.map((os) => (
-                    <div key={os.id} className="bg-white rounded-lg p-4 shadow-sm border border-green-100 hover:shadow-md transition-shadow">
+                    <div key={String(os.id)} className="bg-white rounded-lg p-4 shadow-sm border border-green-100 hover:shadow-md transition-shadow">
                       <div className="flex items-start justify-between mb-3">
                         <div>
                           <h4 className="font-bold text-gray-900">OS #{os.numero_os}</h4>
