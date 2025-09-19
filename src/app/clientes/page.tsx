@@ -9,7 +9,7 @@ import { useToast } from '@/components/Toast';
 import { Button } from '@/components/Button';
 import DashboardCard from '@/components/ui/DashboardCard';
 import MenuLayout from '@/components/MenuLayout';
-import ProtectedArea from '@/components/ProtectedArea';
+// Removido ProtectedArea - agora é responsabilidade do MenuLayout
 
 interface Cliente {
   id: string;
@@ -149,7 +149,7 @@ export default function ClientesPage() {
 
     return (
     <MenuLayout>
-      <ProtectedArea area="clientes">
+      
         <div className="px-6 py-8">
           {/* Header */}
           <div className="flex justify-between items-center mb-8">
@@ -375,7 +375,7 @@ export default function ClientesPage() {
             )}
           </div>
       </div>
-    </ProtectedArea>
+    
     </MenuLayout>
   );
 }

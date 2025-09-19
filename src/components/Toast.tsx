@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
+import { playNotificationSound, createAudioActivationButton } from '@/utils/audioPlayer';
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
 interface ToastMessage {
@@ -20,6 +21,52 @@ let toastCount = 0;
 export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [modal, setModal] = useState<{ title: string; message?: string; messageNode?: ReactNode; confirmLabel?: string; onConfirm?: () => void; onClose?: () => void } | null>(null);
+
+  // Reproduzir som quando modal de orçamento for exibida
+  useEffect(() => {
+    if (modal && modal.title.toLowerCase().includes('orçamento')) {
+      console.log('🔔 Toast: Modal de orçamento detectada, tentando reproduzir som...');
+      console.log('📋 Toast: Título da modal:', modal.title);
+      
+      // Tentar reproduzir som múltiplas vezes para garantir que funcione
+      const tryPlaySound = async () => {
+        let attempts = 0;
+        const maxAttempts = 3;
+        
+        while (attempts < maxAttempts) {
+          attempts++;
+          console.log(`🔔 Toast: Tentativa ${attempts}/${maxAttempts}`);
+          
+          try {
+            const success = await playNotificationSound();
+            if (success) {
+              console.log(`✅ Toast: Som reproduzido com sucesso na tentativa ${attempts}!`);
+              return;
+            } else if (attempts === maxAttempts) {
+              // Na última tentativa, criar botão de ativação
+              console.warn('⚠️ Toast: Todas as tentativas falharam - criando botão de ativação');
+              createAudioActivationButton();
+            }
+          } catch (error) {
+            console.warn(`⚠️ Toast: Tentativa ${attempts} falhou:`, error);
+            if (attempts === maxAttempts) {
+              // Na última tentativa, criar botão de ativação
+              createAudioActivationButton();
+            }
+          }
+          
+          // Pequena pausa entre tentativas
+          if (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+          }
+        }
+        
+        console.warn('⚠️ Toast: Todas as tentativas falharam');
+      };
+      
+      tryPlaySound();
+    }
+  }, [modal]);
 
   const addToast = useCallback((type: ToastType, content: string) => {
     const id = ++toastCount;

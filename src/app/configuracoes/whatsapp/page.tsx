@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import ProtectedArea from '@/components/ProtectedArea';
+
 import { supabase } from '@/lib/supabaseClient';
 import { toast } from 'react-hot-toast';
 import Image from 'next/image';
@@ -211,8 +211,7 @@ export default function WhatsAppPage() {
   }
 
   return (
-    <ProtectedArea area="configuracoes">
-      <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           <div className="bg-white rounded-lg shadow-lg p-6">
             <div className="text-center mb-8">
@@ -373,6 +372,5 @@ export default function WhatsAppPage() {
           </div>
         </div>
       </div>
-    </ProtectedArea>
   );
 }

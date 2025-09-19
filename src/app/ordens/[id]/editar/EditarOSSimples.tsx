@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import MenuLayout from '@/components/MenuLayout';
-import ProtectedArea from '@/components/ProtectedArea';
+
 import ProdutoServicoManager from '@/components/ProdutoServicoManager';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
@@ -395,14 +395,49 @@ export default function EditarOSSimples() {
         updateData.vencimento_garantia = garantiaStr;
       }
 
-      const { error } = await supabase
-        .from('ordens_servico')
-        .update(updateData)
-        .eq('id', id);
+      // Usar nosso endpoint que envia notificações WhatsApp
+      const response = await fetch('/api/ordens/update-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          osId: id,
+          newStatus: statusSelecionado?.nome,
+          newStatusTecnico: novoStatusTecnico,
+          ...updateData // Incluir todos os dados de atualização
+        }),
+      });
 
-      if (error) {
-        addToast('error', 'Erro ao salvar: ' + error.message);
+      if (!response.ok) {
+        const errorData = await response.json();
+        addToast('error', 'Erro ao salvar: ' + (errorData.error || 'Erro desconhecido'));
         return;
+      }
+
+      const result = await response.json();
+      
+      // DEBUG: Mostrar informações de debug
+      console.log('🔍 DEBUG: Resposta da API:', result);
+      
+      if (result.debug) {
+        const debugInfo = `
+🔍 DEBUG INFO:
+- OS ID: ${result.debug.osId}
+- Novo Status: ${result.debug.newStatus}
+- Status Técnico: ${result.debug.newStatusTecnico}
+- Status para Notificar: ${result.debug.statusToNotify}
+- Notificação Tentada: ${result.debug.notificationAttempted}
+- Resultado da Notificação: ${result.debug.notificationResult}
+        `;
+        console.log(debugInfo);
+      }
+      
+      // Se a notificação foi enviada, mostrar feedback
+      if (result.notificationSent) {
+        addToast('success', '✅ Status atualizado e técnico notificado via WhatsApp!');
+      } else {
+        addToast('success', '✅ Status atualizado com sucesso!');
       }
 
       // ✅ REGISTRAR MUDANÇA DE STATUS NO HISTÓRICO (opcional - não bloqueia salvamento)
@@ -438,8 +473,7 @@ export default function EditarOSSimples() {
         // Não interrompe o fluxo - histórico é opcional
       }
 
-      addToast('success', '✅ Ordem de serviço atualizada com sucesso!');
-      router.push('/ordens');
+      router.push(`/ordens/${id}`);
 
     } catch (error) {
       addToast('error', 'Erro ao salvar dados');
@@ -597,7 +631,7 @@ export default function EditarOSSimples() {
 
   if (loading) {
     return (
-      <ProtectedArea area="ordens">
+      
         <MenuLayout>
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
@@ -606,14 +640,14 @@ export default function EditarOSSimples() {
             </div>
           </div>
         </MenuLayout>
-      </ProtectedArea>
+      
     );
   }
 
   const totais = calcularTotais();
 
   return (
-    <ProtectedArea area="ordens">
+    
       <MenuLayout>
         <div className="p-6 space-y-6">
           {/* Header */}
@@ -1067,6 +1101,6 @@ export default function EditarOSSimples() {
 
         </div>
       </MenuLayout>
-    </ProtectedArea>
+    
   );
 }

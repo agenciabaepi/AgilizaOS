@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import MenuLayout from '@/components/MenuLayout';
-import ProtectedRoute from '@/components/ProtectedRoute';
+
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { useToast } from '@/components/Toast';
@@ -242,8 +242,7 @@ export default function MovimentacaoCaixaPage() {
   };
 
   return (
-    <ProtectedRoute>
-      <MenuLayout>
+    <MenuLayout>
         <div className="p-6">
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Movimentação de Caixa</h1>
@@ -450,6 +449,5 @@ export default function MovimentacaoCaixaPage() {
           )}
         </div>
       </MenuLayout>
-    </ProtectedRoute>
   );
 } 

@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
-import ProtectedArea from '@/components/ProtectedArea';
+
 import QRCodePDF from '@/components/QRCodePDF';
 
 const styles = StyleSheet.create({
@@ -141,6 +141,40 @@ function OrdemPDF({ ordem }: { ordem: any }) {
   function formatMoney(val: any) {
     if (val == null) return '---';
     return `R$ ${Number(val).toFixed(2)}`;
+  }
+
+  function renderImagens(imagens: string) {
+    if (!imagens) return null;
+    
+    const imageUrls = imagens.split(',').filter((url: string) => url.trim() !== '');
+    
+    if (imageUrls.length === 0) return null;
+    
+    return (
+      <View style={{ marginBottom: 8 }}>
+        <Text style={[styles.sectionTitle, { marginBottom: 4 }]}>Imagens do Equipamento</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {imageUrls.slice(0, 4).map((imageUrl, index) => (
+            <Image 
+              key={index}
+              src={imageUrl.trim()} 
+              style={{ 
+                width: 80, 
+                height: 80, 
+                objectFit: 'cover',
+                borderWidth: 1,
+                borderColor: '#ddd'
+              }} 
+            />
+          ))}
+        </View>
+        {imageUrls.length > 4 && (
+          <Text style={[styles.paragraph, { fontSize: 8, color: '#666', marginTop: 4 }]}>
+            +{imageUrls.length - 4} imagem{imageUrls.length - 4 !== 1 ? 'ns' : ''} adicional{imageUrls.length - 4 !== 1 ? 'is' : ''}
+          </Text>
+        )}
+      </View>
+    );
   }
 
   function renderTermoClean(htmlContent: string) {
@@ -304,6 +338,17 @@ function OrdemPDF({ ordem }: { ordem: any }) {
           <Text style={styles.paragraph}><Text style={styles.bold}>Técnico:</Text> {ordem.usuarios?.nome || ordem.tecnico?.nome}</Text>
         </View>
 
+        {/* Laudo Técnico */}
+        {ordem.laudo && (
+          <View style={styles.block}>
+            <Text style={styles.sectionTitle}>Laudo Técnico</Text>
+            <Text style={styles.paragraph}>{ordem.laudo}</Text>
+          </View>
+        )}
+
+        {/* Imagens do Equipamento */}
+        {renderImagens(ordem.imagens)}
+
         {/* Serviços e Peças (por último) */}
         <View style={styles.block}>
           <Text style={styles.sectionTitle}>Serviços e Peças</Text>
@@ -317,42 +362,49 @@ function OrdemPDF({ ordem }: { ordem: any }) {
             {ordem.servico && (
               <View style={styles.tableRow}>
                 <Text style={[styles.tableCell, styles.tableCellLeftAlign, { flex: 3 }]}>{ordem.servico}</Text>
-                <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 1 }]}>{ordem.qtd_servico}</Text>
+                <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 1 }]}>{ordem.qtd_servico || 1}</Text>
                 <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 2 }]}>{formatMoney(ordem.valor_servico)}</Text>
-                <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 2 }]}>{formatMoney(ordem.qtd_servico * ordem.valor_servico)}</Text>
+                <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 2 }]}>{formatMoney((ordem.qtd_servico || 1) * (ordem.valor_servico || 0))}</Text>
               </View>
             )}
             {ordem.peca && (
               <View style={styles.tableRow}>
                 <Text style={[styles.tableCell, styles.tableCellLeftAlign, { flex: 3 }]}>{ordem.peca}</Text>
-                <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 1 }]}>{ordem.qtd_peca}</Text>
+                <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 1 }]}>{ordem.qtd_peca || 1}</Text>
                 <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 2 }]}>{formatMoney(ordem.valor_peca)}</Text>
-                <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 2 }]}>{formatMoney(ordem.qtd_peca * ordem.valor_peca)}</Text>
+                <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 2 }]}>{formatMoney((ordem.qtd_peca || 1) * (ordem.valor_peca || 0))}</Text>
               </View>
             )}
+            <View style={styles.tableRow}>
+              <Text style={[styles.tableCell, { flex: 8, borderRightWidth: 0, textAlign: 'right', fontWeight: 'bold' }]}>Subtotal:</Text>
+              <Text style={[styles.tableCell, { flex: 2, textAlign: 'right', fontWeight: 'bold' }]}>{formatMoney(((ordem.qtd_servico || 1) * (ordem.valor_servico || 0)) + ((ordem.qtd_peca || 1) * (ordem.valor_peca || 0)))}</Text>
+            </View>
             <View style={styles.tableRow}>
               <Text style={[styles.tableCell, { flex: 8, borderRightWidth: 0, textAlign: 'right', fontWeight: 'bold' }]}>Desconto:</Text>
               <Text style={[styles.tableCell, { flex: 2, textAlign: 'right', fontWeight: 'bold' }]}>{formatMoney(ordem.desconto)}</Text>
             </View>
             <View style={styles.tableRow}>
               <Text style={[styles.tableCell, { flex: 8, borderRightWidth: 0, textAlign: 'right', fontWeight: 'bold' }]}>Total:</Text>
-              <Text style={[styles.tableCell, { flex: 2, textAlign: 'right', fontWeight: 'bold' }]}> {formatMoney((ordem.qtd_servico * ordem.valor_servico + ordem.qtd_peca * ordem.valor_peca) - (ordem.desconto || 0))}</Text>
+              <Text style={[styles.tableCell, { flex: 2, textAlign: 'right', fontWeight: 'bold' }]}> {formatMoney((((ordem.qtd_servico || 1) * (ordem.valor_servico || 0)) + ((ordem.qtd_peca || 1) * (ordem.valor_peca || 0))) - (ordem.desconto || 0))}</Text>
             </View>
-            <View style={styles.tableRow}>
-              <Text style={[styles.tableCell, { flex: 8, borderRightWidth: 0, textAlign: 'right', fontWeight: 'bold' }]}>Valor Faturado:</Text>
-              <Text style={[styles.tableCell, { flex: 2, textAlign: 'right', fontWeight: 'bold' }]}>{formatMoney(ordem.valor_faturado)}</Text>
-            </View>
+            {ordem.valor_faturado && ordem.valor_faturado > 0 && (
+              <View style={styles.tableRow}>
+                <Text style={[styles.tableCell, { flex: 8, borderRightWidth: 0, textAlign: 'right', fontWeight: 'bold' }]}>Valor Faturado:</Text>
+                <Text style={[styles.tableCell, { flex: 2, textAlign: 'right', fontWeight: 'bold' }]}>{formatMoney(ordem.valor_faturado)}</Text>
+              </View>
+            )}
           </View>
         </View>
 
         {/* Termo de Garantia */}
         <View style={[styles.block, { padding: 8, backgroundColor: '#fafafa' }]}>
-          <Text style={[styles.sectionTitle, { marginBottom: 4, textAlign: 'center', fontSize: 12 }]}>Termo de Garantia</Text>
-          <Text style={[styles.paragraph, { marginBottom: 6, fontSize: 8, textAlign: 'center', color: '#666' }]}>Termo de garantia padrão</Text>
+          <Text style={[styles.sectionTitle, { marginBottom: 4, textAlign: 'center', fontSize: 12 }]}>
+            {ordem.termo_garantia?.nome || 'Termo de Garantia'}
+          </Text>
           
           {/* Layout em 2 colunas otimizado */}
           <View style={{ width: '100%', paddingTop: 2 }}>
-            {renderTermoClean('Termo de garantia padrão')}
+            {renderTermoClean(ordem.termo_garantia?.conteudo || 'Termo de garantia padrão aplicável conforme legislação vigente.')}
           </View>
         </View>
 
@@ -389,62 +441,6 @@ export default function ImprimirOrdemPage() {
         return;
       }
 
-      // Para demonstração, usar dados de exemplo imediatamente
-      // Em produção, você pode descomentar a query do Supabase abaixo
-      const exemploOS = {
-        id: id,
-        numero_os: 1234,
-        cliente_id: 'cliente-exemplo',
-        categoria: 'Smartphone',
-        marca: 'Samsung',
-        modelo: 'Galaxy S21',
-        status: 'EM_ANALISE',
-        status_tecnico: 'EM_ANALISE',
-        created_at: new Date().toISOString(),
-        data_entrega: null,
-        valor_faturado: 0,
-        valor_peca: 0,
-        valor_servico: 0,
-        qtd_peca: 0,
-        qtd_servico: 0,
-        desconto: 0,
-        servico: 'Reparo de tela',
-        peca: 'Tela LCD',
-        tipo: 'Reparo',
-        observacao: 'Tela trincada, necessário troca',
-        relato: 'Cliente relatou que o aparelho caiu e a tela quebrou',
-        condicoes_equipamento: 'Aparelho em bom estado, apenas tela danificada',
-        cor: 'Preto',
-        numero_serie: 'ABC123456789',
-        acessorios: 'Cabo USB, Carregador',
-        atendente: 'Maria Silva',
-        tecnico_id: 'tecnico-exemplo',
-        empresa_id: 'empresa-exemplo',
-        termo_garantia_id: null,
-        senha_acesso: '1234',
-        clientes: {
-          nome: 'João Silva',
-          telefone: '(11) 99999-9999',
-          email: 'joao@email.com',
-          cpf: '123.456.789-00',
-          endereco: 'Rua Exemplo, 123'
-        },
-        tecnico: {
-          nome: 'Técnico Exemplo'
-        },
-        empresas: {
-          nome: 'Empresa Exemplo',
-          cnpj: '12.345.678/0001-90',
-          endereco: 'Rua da Empresa, 456',
-          telefone: '(11) 3333-4444',
-          email: 'contato@empresa.com',
-          logo_url: '/logo.png'
-        },
-        termo_garantia: {
-          conteudo: 'Termo de garantia padrão...'
-        }
-      };
-      
       console.log('🔍 Debug - Buscando OS com ID:', id);
       
       // Primeiro tenta buscar dados reais do Supabase
@@ -453,7 +449,7 @@ export default function ImprimirOrdemPage() {
           setTimeout(() => reject(new Error('Timeout na busca da OS')), 30000)
         );
 
-        // Query super simplificada para evitar timeout
+        // Query completa com todos os campos necessários para impressão
         const queryPromise = supabase
           .from('ordens_servico')
           .select(`
@@ -464,18 +460,36 @@ export default function ImprimirOrdemPage() {
             modelo,
             status,
             created_at,
+            prazo_entrega,
+            data_entrega,
+            vencimento_garantia,
             servico,
             observacao,
-            relato,
+            problema_relatado,
             condicoes_equipamento,
             cor,
             numero_serie,
             acessorios,
             atendente,
             senha_acesso,
+            laudo,
+            imagens,
+            qtd_peca,
+            peca,
+            valor_peca,
+            qtd_servico,
+            valor_servico,
+            valor_faturado,
+            desconto,
+            termo_garantia_id,
             clientes(nome, telefone, email, cpf, endereco),
             tecnico:usuarios(nome),
-            empresas(nome, cnpj, endereco, telefone, email, logo_url)
+            empresas(nome, cnpj, endereco, telefone, email, logo_url),
+            termo_garantia:termo_garantia_id(
+              id,
+              nome,
+              conteudo
+            )
           `)
           .eq('id', id)
           .single();
@@ -499,8 +513,24 @@ export default function ImprimirOrdemPage() {
           console.log('✅ Cliente encontrado:', data.clientes);
           console.log('✅ Técnico encontrado:', data.tecnico);
           console.log('✅ Empresa encontrada:', data.empresas);
-          // Se encontrou dados reais, usa eles
-          setOrdem(data);
+          console.log('✅ Laudo encontrado:', data.laudo);
+          console.log('✅ Imagens encontradas:', data.imagens);
+          console.log('✅ Valores encontrados:', {
+            valor_servico: data.valor_servico,
+            qtd_servico: data.qtd_servico,
+            valor_peca: data.valor_peca,
+            qtd_peca: data.qtd_peca,
+            desconto: data.desconto,
+            valor_faturado: data.valor_faturado
+          });
+          
+          // Mapear campos para compatibilidade
+          const ordemMapeada = {
+            ...data,
+            relato: data.problema_relatado, // Mapear problema_relatado para relato
+          };
+          
+          setOrdem(ordemMapeada);
           setLoading(false);
         } else {
           console.log('⚠️ Nenhum dado encontrado');
@@ -583,10 +613,10 @@ export default function ImprimirOrdemPage() {
   }
 
   return (
-    <ProtectedArea area="ordens">
+    
       <PDFViewer style={{ width: '100vw', height: '100vh' }}>
         <OrdemPDF ordem={ordem} />
       </PDFViewer>
-    </ProtectedArea>
+    
   );
 }

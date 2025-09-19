@@ -24,8 +24,8 @@ function AuthContent({ children }: { children: React.ReactNode }) {
   const { isLoggingOut, session, empresaData } = useAuth();
   // Ativar notificações realtime em toda a app quando empresa for conhecida
   useRealtimeNotificacoes(empresaData?.id);
-  // Auto-reload em mudanças de página para resolver travamentos
-  useAutoReload();
+  // ✅ DESABILITADO: Auto-reload estava causando problemas de redirecionamento
+  // useAutoReload();
   // Banner simples de aviso de vencimento (frontend)
   const [banner, setBanner] = useState<{ texto: string } | null>(null);
   const [debugInfo, setDebugInfo] = useState<string | null>(null);

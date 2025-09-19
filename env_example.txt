@@ -26,7 +26,14 @@ EMAIL_PORT=587
 EMAIL_USER=your-email@gmail.com
 EMAIL_PASS=your-app-password
 
-# WhatsApp Configuration (opcional)
+# WhatsApp Cloud API Configuration
+WHATSAPP_APP_ID=1342089140921867
+WHATSAPP_BUSINESS_ACCOUNT_ID=1756179698338226
+WHATSAPP_PHONE_NUMBER_ID=752768294592697
+WHATSAPP_ACCESS_TOKEN=your-access-token
+WHATSAPP_VERIFY_TOKEN=093718
+
+# WhatsApp Web.js Configuration (opcional)
 WHATSAPP_SESSION_PATH=/tmp/whatsapp-sessions
 
 # Environment

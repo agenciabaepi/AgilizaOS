@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import ProtectedArea from '@/components/ProtectedArea';
+
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { useToast } from '@/components/Toast';
@@ -216,16 +216,16 @@ export default function ConfigEmpresa() {
 
   if (loading) {
     return (
-      <ProtectedArea area="configuracoes">
+      
         <div className="flex items-center justify-center min-h-screen">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
-      </ProtectedArea>
+      
     );
   }
 
   return (
-    <ProtectedArea area="configuracoes">
+    
       <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center gap-3">
@@ -452,6 +452,6 @@ export default function ConfigEmpresa() {
           </div>
         </div>
       </div>
-    </ProtectedArea>
+    
   );
 }

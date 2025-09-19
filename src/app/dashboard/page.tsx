@@ -33,7 +33,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import { v4 as uuidv4 } from 'uuid';
-import ProtectedArea from '@/components/ProtectedArea';
+// Removido ProtectedArea - agora é responsabilidade do MenuLayout
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
 // Imports de sessão removidos temporariamente
@@ -104,8 +104,8 @@ interface EventoCalendario {
 }
 
 export default function LembretesPage() {
-  // Use o contexto de autenticação
-  const { session, user, usuarioData, empresaData } = useAuth();
+  // Use o contexto de autenticação apenas para dados necessários
+  const { empresaData } = useAuth();
   const empresa_id = empresaData?.id;
 
   const { addToast } = useToast();
@@ -183,12 +183,12 @@ export default function LembretesPage() {
   // Estados para o calendário
   const [eventosCalendario, setEventosCalendario] = useState<EventoCalendario[]>([]);
   const [dataAtual, setDataAtual] = useState(new Date());
-  const [visualizacaoCalendario, setVisualizacaoCalendario] = useState<'mes' | 'semana' | 'dia'>('mes');
+  const [visualizacaoCalendario, setVisualizacaoCalendario] = useState<'mes' | 'semana' | 'dia'>('semana');
 
-  // Carregando depende de usuarioData
+  // Carregando depende apenas de empresa_id
   useEffect(() => {
-    if (usuarioData !== undefined) setCarregando(false);
-  }, [usuarioData]);
+    if (empresa_id) setCarregando(false);
+  }, [empresa_id]);
 
   // Buscar colunas salvas do banco ao carregar empresa_id
   useEffect(() => {
@@ -464,7 +464,7 @@ export default function LembretesPage() {
         coluna: novaNota.coluna,
         prioridade: novaNota.prioridade,
         empresa_id: empresaId,
-        responsavel: session?.user?.email ?? '',
+        responsavel: 'Sistema',
         data_criacao: new Date().toISOString(),
         pos_x: 0,
         pos_y: 0,
@@ -711,17 +711,17 @@ export default function LembretesPage() {
     );
   }
 
-  // Checagem de carregamento e autenticação
-  if (carregando || !session?.user) {
+  // Checagem de carregamento apenas
+  if (carregando) {
     return <div className="p-4">Carregando...</div>;
   }
 
   return (
-    <ProtectedArea area="lembretes">
-      <MenuLayout>
+    <MenuLayout>
               {/* Componentes de sessão removidos temporariamente */}
         {/* Cards principais - Dados do Calendário */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
+        <div className="px-2 md:px-0">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4 lg:gap-6 mb-3 md:mb-6 lg:mb-8">
           <DashboardCard
             title="O.S. da Semana"
             value={eventosCalendario.filter(e => {
@@ -809,47 +809,69 @@ export default function LembretesPage() {
               </button>
             </div>
           </DashboardCard>
+          </div>
         </div>
 
         {/* Sistema de Calendário */}
-        <div className="mt-8 p-6 rounded-lg border bg-white">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Book className="text-blue-500 w-5 h-5" />
+        <div className="mt-3 md:mt-8 mx-2 md:mx-0 p-2 md:p-6 rounded-lg border bg-white">
+          <h2 className="text-base md:text-lg font-semibold mb-3 md:mb-4 flex items-center gap-2">
+            <Book className="text-blue-500 w-4 h-4 md:w-5 md:h-5" />
             Calendário de O.S.
           </h2>
           
           {/* Controles do calendário */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-col md:flex-row items-center justify-between mb-3 md:mb-6 gap-2 md:gap-0">
+            <div className="flex items-center gap-1 md:gap-4">
               <button
                 onClick={() => {
                   const novaData = new Date(dataAtual);
-                  novaData.setMonth(novaData.getMonth() - 1);
+                  if (visualizacaoCalendario === 'semana') {
+                    novaData.setDate(novaData.getDate() - 7);
+                  } else if (visualizacaoCalendario === 'dia') {
+                    novaData.setDate(novaData.getDate() - 1);
+                  } else {
+                    novaData.setMonth(novaData.getMonth() - 1);
+                  }
                   setDataAtual(novaData);
                 }}
-                className="p-2 rounded-lg border hover:bg-gray-50 transition-colors"
+                className="p-1 md:p-2 rounded-lg border hover:bg-gray-50 transition-colors text-xs md:text-base"
               >
                 ←
               </button>
-              <h3 className="text-lg font-semibold">
-                {format(dataAtual, 'MMMM yyyy', { locale: ptBR })}
+              <h3 className="text-xs md:text-lg font-semibold text-center md:text-left">
+                {visualizacaoCalendario === 'semana' 
+                  ? `${format(dataAtual, 'dd/MM', { locale: ptBR })} - ${format(new Date(dataAtual.getTime() + 6 * 24 * 60 * 60 * 1000), 'dd/MM/yyyy', { locale: ptBR })}`
+                  : format(dataAtual, 'MMMM yyyy', { locale: ptBR })
+                }
               </h3>
               <button
                 onClick={() => {
                   const novaData = new Date(dataAtual);
-                  novaData.setMonth(novaData.getMonth() + 1);
+                  if (visualizacaoCalendario === 'semana') {
+                    novaData.setDate(novaData.getDate() + 7);
+                  } else if (visualizacaoCalendario === 'dia') {
+                    novaData.setDate(novaData.getDate() + 1);
+                  } else {
+                    novaData.setMonth(novaData.getMonth() + 1);
+                  }
                   setDataAtual(novaData);
                 }}
-                className="p-2 rounded-lg border hover:bg-gray-50 transition-colors"
+                className="p-1 md:p-2 rounded-lg border hover:bg-gray-50 transition-colors text-xs md:text-base"
               >
                 →
               </button>
+              <button
+                onClick={() => setDataAtual(new Date())}
+                className="px-1.5 md:px-3 py-0.5 md:py-1 rounded-lg text-xs md:text-sm font-medium bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+              >
+                Hoje
+              </button>
             </div>
             
-            <div className="flex gap-2">
+            <div className="flex gap-0.5 md:gap-2">
               <button
                 onClick={() => setVisualizacaoCalendario('mes')}
-                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-1.5 md:px-3 py-0.5 md:py-1 rounded-lg text-xs md:text-sm font-medium transition-colors ${
                   visualizacaoCalendario === 'mes'
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -859,7 +881,7 @@ export default function LembretesPage() {
               </button>
               <button
                 onClick={() => setVisualizacaoCalendario('semana')}
-                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-1.5 md:px-3 py-0.5 md:py-1 rounded-lg text-xs md:text-sm font-medium transition-colors ${
                   visualizacaoCalendario === 'semana'
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -869,7 +891,7 @@ export default function LembretesPage() {
               </button>
               <button
                 onClick={() => setVisualizacaoCalendario('dia')}
-                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-1.5 md:px-3 py-0.5 md:py-1 rounded-lg text-xs md:text-sm font-medium transition-colors ${
                   visualizacaoCalendario === 'dia'
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -890,9 +912,9 @@ export default function LembretesPage() {
         </div>
 
         {/* Kanban de Lembretes */}
-        <div className="p-6 rounded-lg border bg-white">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Book className="text-yellow-500 w-5 h-5" />
+        <div className="mx-2 md:mx-0 p-2 md:p-6 rounded-lg border bg-white">
+          <h2 className="text-base md:text-lg font-semibold mb-3 md:mb-4 flex items-center gap-2">
+            <Book className="text-yellow-500 w-4 h-4 md:w-5 md:h-5" />
             Anotações Fixas
           </h2>
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -900,7 +922,7 @@ export default function LembretesPage() {
                 items={colunas.map((coluna) => `coluna-${coluna}`)}
                 strategy={horizontalListSortingStrategy}
               >
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 px-4 py-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-6 px-1 md:px-4 py-2 md:py-6">
                   {colunas.map((coluna, index) => {
                     // Porcentagem demonstrativa para progresso
                     const percentualConcluido = 50;
@@ -1245,7 +1267,6 @@ export default function LembretesPage() {
           {/* Remover ToastContainer do react-toastify */}
         </div>
       </MenuLayout>
-    </ProtectedArea>
   );
 }
 
@@ -1359,24 +1380,25 @@ function CalendarioComponent({
     const fimSemana = endOfWeek(dataAtual, { locale: ptBR });
     const dias = eachDayOfInterval({ start: inicioSemana, end: fimSemana });
     
-    const horas = Array.from({ length: 24 }, (_, i) => i);
+    // ✅ COMPACTO: Apenas horário comercial (8h às 20h)
+    const horas = Array.from({ length: 13 }, (_, i) => i + 8);
     
     return (
       <div className="overflow-x-auto">
-        <div className="grid grid-cols-8 gap-1 min-w-[800px]">
-          {/* Cabeçalho com dias */}
-          <div className="p-2 bg-gray-50 rounded"></div>
+        <div className="grid grid-cols-8 gap-0.5 min-w-[350px] md:min-w-[600px]">
+          {/* Cabeçalho com dias - mais compacto */}
+          <div className="p-0.5 md:p-1 bg-gray-50 rounded"></div>
           {dias.map((dia: any) => (
-            <div key={dia.toISOString()} className="p-2 text-center text-sm font-semibold bg-gray-50 rounded">
-              <div>{format(dia, 'EEE', { locale: ptBR })}</div>
-              <div className="text-lg">{format(dia, 'd')}</div>
+            <div key={dia.toISOString()} className="p-0.5 md:p-1 text-center text-xs font-semibold bg-gray-50 rounded">
+              <div className="text-xs">{format(dia, 'EEE', { locale: ptBR })}</div>
+              <div className="text-xs md:text-sm">{format(dia, 'd')}</div>
             </div>
           ))}
           
           {/* Linhas de horas */}
           {horas.map((hora) => (
             <React.Fragment key={hora}>
-              <div className="p-2 text-xs text-gray-500 border-r border-gray-200">
+              <div className="p-0.5 md:p-1 text-xs text-gray-500 border-r border-gray-200">
                 {format(new Date().setHours(hora), 'HH:mm')}
               </div>
               {dias.map((dia: any) => {
@@ -1386,11 +1408,11 @@ function CalendarioComponent({
                 });
                 
                 return (
-                  <div key={`${dia.toISOString()}-${hora}`} className="p-1 border-r border-gray-200 min-h-[60px]">
+                  <div key={`${dia.toISOString()}-${hora}`} className="p-0.5 border-r border-gray-200 min-h-[28px] md:min-h-[40px]">
                                          {eventosDaHora.map((evento) => (
                        <div
                          key={evento.id}
-                         className="text-xs p-1.5 rounded-lg mb-1 cursor-pointer hover:shadow-sm transition-all duration-200 border-l-2"
+                         className="text-xs p-0.5 md:p-1 rounded mb-0.5 cursor-pointer hover:shadow-sm transition-all duration-200 border-l-2"
                          style={{ 
                            backgroundColor: evento.cor + '15', 
                            borderLeftColor: evento.cor
@@ -1398,7 +1420,7 @@ function CalendarioComponent({
                          title={`OS ${evento.numero} - ${evento.cliente}`}
                        >
                          <div className="flex items-center justify-between mb-0.5">
-                           <div className="font-bold truncate" style={{ color: evento.cor }}>
+                           <div className="font-bold truncate text-xs" style={{ color: evento.cor }}>
                              OS {evento.numero}
                            </div>
                            <div className="text-xs px-1 py-0.5 rounded-full text-white text-center"
@@ -1406,14 +1428,12 @@ function CalendarioComponent({
                              {evento.status}
                            </div>
                          </div>
-                         <div className="text-gray-700 truncate font-medium text-xs">
-                           {evento.cliente}
+                         <div className="text-xs text-gray-600 truncate">
+                           {evento.cliente?.substring(0, 6)}...
                          </div>
-                         {evento.valor > 0 && (
-                           <div className="text-xs font-semibold text-green-600">
-                             R$ {evento.valor.toFixed(2)}
-                           </div>
-                         )}
+                         <div className="text-xs text-gray-500 truncate hidden md:block">
+                           {evento.tecnico}
+                         </div>
                        </div>
                      ))}
                   </div>

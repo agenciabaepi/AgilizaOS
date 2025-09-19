@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { FiRefreshCw, FiPlus, FiSearch, FiFilter } from 'react-icons/fi';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
-import ProtectedArea from '@/components/ProtectedArea';
+
 import MenuLayout from '@/components/MenuLayout';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
@@ -55,7 +55,7 @@ export default function ListaOrdensPageSimple() {
   );
 
   return (
-    <ProtectedArea area="ordens">
+    
       <MenuLayout>
         <div className="space-y-6">
           {/* Header */}
@@ -146,6 +146,6 @@ export default function ListaOrdensPageSimple() {
           </div>
         </div>
       </MenuLayout>
-    </ProtectedArea>
+    
   );
 }

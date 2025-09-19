@@ -16,7 +16,7 @@ import { AbrirCaixaModal } from '@/components/caixa/AbrirCaixaModal';
 import { FecharCaixaModal } from '@/components/caixa/FecharCaixaModal';
 import { interceptSupabaseQuery } from '@/utils/supabaseInterceptor';
 import { FiUnlock, FiLock, FiMinus, FiPlus, FiEye, FiShoppingCart, FiTrash2 } from 'react-icons/fi';
-import ProtectedArea from '@/components/ProtectedArea';
+// Removido ProtectedArea - agora é responsabilidade do MenuLayout
 
 interface ProdutoSupabase {
   id: string;
@@ -572,7 +572,7 @@ export default function CaixaPage() {
         <div className={`min-h-screen bg-gray-50 ${isFullscreen ? 'h-screen overflow-hidden' : ''}`}>
             
             {!isFullscreen ? (
-              <ProtectedArea area="caixa">
+              
                 <MenuLayout>
                 {!turnoAtual ? (
                   <div className="flex items-center justify-center h-[calc(100vh-80px)] bg-gray-50">
@@ -919,7 +919,7 @@ export default function CaixaPage() {
                                   </div>
                 )}
                 </MenuLayout>
-              </ProtectedArea>
+              
             ) : (
               // Modo Tela Cheia - Layout Igual ao Normal (50/50)
               <div ref={pdvRef} className="h-screen bg-gray-50 flex">

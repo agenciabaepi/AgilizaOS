@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const files = formData.getAll('files') as File[];
-    const ordemId = formData.get('ordemId') as string;
+    const osId = formData.get('osId') as string;
 
     if (!files || files.length === 0) {
       return NextResponse.json(
@@ -28,9 +28,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!ordemId) {
+    if (!osId) {
       return NextResponse.json(
-        { error: 'ID da ordem não fornecido' },
+        { error: 'ID da OS é obrigatório' },
         { status: 400 }
       );
     }
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       const timestamp = Date.now();
       const rawName = file.name;
       const safeName = rawName.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-      const filePath = `${ordemId}/${timestamp}_${safeName}`;
+      const filePath = `${osId}/${timestamp}_${safeName}`;
 
       // Upload para o Supabase Storage
       const { error: uploadError } = await supabase.storage

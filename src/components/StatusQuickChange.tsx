@@ -133,17 +133,31 @@ export default function StatusQuickChange({
       }
 
       if (Object.keys(updateData).length > 0) {
-        const { error } = await supabase
-          .from('ordens_servico')
-          .update(updateData)
-          .eq('id', ordemId);
+        // Usar nossa API que envia notificações WhatsApp
+        const response = await fetch('/api/ordens/update-status', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ordemId,
+            ...updateData
+          }),
+        });
 
-        if (error) {
-          console.error('Erro ao atualizar status:', error);
-          alert('Erro ao atualizar status: ' + error.message);
+        const result = await response.json();
+
+        if (!response.ok) {
+          console.error('Erro ao atualizar status:', result);
+          alert('Erro ao atualizar status: ' + (result.error || 'Erro desconhecido'));
         } else {
           onStatusChange(newStatus, newStatusTecnico);
           setShowDropdown(false);
+          
+          // Mostrar debug info se disponível
+          if (result.debug) {
+            console.log('Debug da atualização:', result.debug);
+          }
         }
       }
     } catch (error) {

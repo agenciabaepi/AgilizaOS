@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+import { sendNewOSNotification } from '@/lib/whatsapp-notifications';
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,7 +41,47 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ success: true, data: osData });
+    // ✅ REGISTRAR STATUS INICIAL NO HISTÓRICO
+    console.log('📝 Registrando status inicial no histórico...');
+    try {
+      const { error: historicoError } = await supabase
+        .from('status_historico')
+        .insert({
+          os_id: osData.id,
+          status_anterior: null,
+          status_novo: osData.status || 'ABERTA',
+          status_tecnico_anterior: null,
+          status_tecnico_novo: osData.status_tecnico || null,
+          usuario_id: dadosOS.usuario_id || null,
+          usuario_nome: 'Sistema',
+          motivo: 'OS criada',
+          observacoes: 'Ordem de serviço criada inicialmente'
+        });
+        
+      if (historicoError) {
+        console.warn('⚠️ Erro ao registrar histórico inicial:', historicoError);
+      } else {
+        console.log('✅ Status inicial registrado no histórico');
+      }
+    } catch (historicoError) {
+      console.warn('⚠️ Erro ao registrar histórico inicial:', historicoError);
+    }
+
+    // Enviar notificação WhatsApp para o técnico responsável
+    console.log('🔔 Enviando notificação de nova OS para técnico...');
+    try {
+      const notificationSent = await sendNewOSNotification(osData.id);
+      console.log('📱 Notificação de nova OS:', notificationSent ? 'Enviada com sucesso' : 'Falha no envio');
+    } catch (notificationError) {
+      console.error('❌ Erro ao enviar notificação de nova OS:', notificationError);
+      // Não falha a criação da OS se a notificação falhar
+    }
+
+    return NextResponse.json({ 
+      success: true, 
+      data: osData,
+      notificationSent: true // Indica que tentamos enviar a notificação
+    });
 
   } catch (error) {
     console.error('Erro geral ao criar OS:', error);

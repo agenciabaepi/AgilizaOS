@@ -29,7 +29,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import { v4 as uuidv4 } from 'uuid';
-import ProtectedArea from '@/components/ProtectedArea';
+
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
 
@@ -601,7 +601,7 @@ export default function LembretesPage() {
   }
 
   return (
-    <ProtectedArea area="lembretes">
+    
       <MenuLayout>
         <div className="p-6 rounded-lg border bg-white">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -957,7 +957,7 @@ export default function LembretesPage() {
           {/* Remover ToastContainer do react-toastify */}
         </div>
       </MenuLayout>
-    </ProtectedArea>
+    
   );
 }
 

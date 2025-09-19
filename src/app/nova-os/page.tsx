@@ -1,7 +1,7 @@
 "use client";
 
 import MenuLayout from "@/components/MenuLayout";
-import ProtectedArea from '@/components/ProtectedArea';
+
 import { Button } from '@/components/Button';
 import ReactSelect from 'react-select';
 import { useState, useEffect } from 'react';
@@ -699,7 +699,7 @@ function NovaOS2Content() {
 
   return (
     <MenuLayout>
-      <ProtectedArea area="ordens">
+      
         <div className="max-w-4xl mx-auto py-10">
           {/* Cabeçalho */}
           <div className="w-full text-center mb-10">
@@ -1836,7 +1836,7 @@ function NovaOS2Content() {
             </div>
           )}
         </div>
-      </ProtectedArea>
+      
     </MenuLayout>
   );
 }

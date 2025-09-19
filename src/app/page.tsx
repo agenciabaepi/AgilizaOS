@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabaseClient';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
+import { useAppleParallax } from '@/hooks/useParallax';
 import UltraModernWordRotator from '@/components/UltraModernWordRotator';
 
 export default function Home() {
@@ -15,36 +16,11 @@ export default function Home() {
   // Hook para animações de scroll reveal
   const { isAnimated } = useScrollReveal();
   
-  // Verificar se usuário está logado e redirecionar se necessário
-  useEffect(() => {
-    const checkUserAndRedirect = async () => {
-      // Verificar se veio de um redirecionamento recente para evitar loops
-      const lastRedirect = sessionStorage.getItem('lastRedirect');
-      const now = Date.now();
-      if (lastRedirect && (now - parseInt(lastRedirect)) < 3000) {
-        return;
-      }
-      
-      // Verificar se há sessão ativa
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.user) {
-        // Marcar o redirecionamento
-        sessionStorage.setItem('lastRedirect', now.toString());
-        
-        // Buscar dados do usuário
-        const { data: usuario } = await supabase
-          .from('usuarios')
-          .select('nivel')
-          .eq('auth_user_id', session.user.id)
-          .single();
-        
-        router.push('/dashboard');
-      }
-    };
-    
-    checkUserAndRedirect();
-  }, [router]);
+  // Hook para efeitos parallax estilo Apple
+  const { getHeroTransform, getBackgroundTransform, getSectionTransform } = useAppleParallax();
+  
+  // ✅ ACESSO TOTALMENTE LIVRE: Sem verificações de autenticação
+  // Usuário pode acessar qualquer página sem redirecionamentos
 
   // Auto-rotate do carrossel
   useEffect(() => {
@@ -70,6 +46,9 @@ export default function Home() {
   
   // Carrossel state
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  
+  // Sistema de abas state
+  const [activeTab, setActiveTab] = useState('dashboard');
 
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
@@ -176,20 +155,30 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-black">
-      {/* Background Pattern */}
-      <div className="absolute inset-0">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `
-            linear-gradient(rgba(209, 254, 110, 0.08) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(209, 254, 110, 0.08) 1px, transparent 1px)
-          `,
-          backgroundSize: '100px 100px'
-        }}></div>
+      {/* Background Pattern com Parallax */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div 
+          className="absolute inset-0" 
+          style={{
+            backgroundImage: `
+              linear-gradient(rgba(209, 254, 110, 0.08) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(209, 254, 110, 0.08) 1px, transparent 1px)
+            `,
+            backgroundSize: '100px 100px',
+            ...getBackgroundTransform(0.3)
+          }}
+        ></div>
       </div>
       
-      {/* Subtle Gradient Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-40"></div>
-      <div className="absolute inset-0 bg-gradient-to-b from-black via-transparent to-transparent opacity-20"></div>
+      {/* Subtle Gradient Overlay com Parallax */}
+      <div 
+        className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-40"
+        style={getBackgroundTransform(0.2)}
+      ></div>
+      <div 
+        className="absolute inset-0 bg-gradient-to-b from-black via-transparent to-transparent opacity-20"
+        style={getBackgroundTransform(0.1)}
+      ></div>
 
       {/* Vagalume Effect - Só aparece quando o mouse está na tela e não no canto */}
       {mousePosition.x > 50 && mousePosition.y > 50 && (
@@ -324,9 +313,12 @@ export default function Home() {
         )}
       </nav>
 
-      {/* Hero Section */}
+      {/* Hero Section com Parallax */}
       <div className="relative z-10 px-4 sm:px-6 md:px-8 py-16 sm:py-20 md:py-24 lg:px-12 lg:py-32">
-        <div className="mx-auto max-w-5xl text-center">
+        <div 
+          className="mx-auto max-w-5xl text-center"
+          style={getHeroTransform()}
+        >
           {/* Social Proof Badge */}
           <div 
             data-reveal="badge"
@@ -399,11 +391,287 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Sistema de Abas - Visualizações do Sistema */}
+      <div className="relative z-10 px-4 sm:px-6 md:px-8 py-12 md:py-20 lg:px-12">
+        <div 
+          className="mx-auto max-w-7xl"
+          ref={(el) => {
+            if (el) {
+              const style = getSectionTransform(el);
+              Object.assign(el.style, style);
+            }
+          }}
+        >
+          {/* Section Header */}
+          <div 
+            data-reveal="tabs-header"
+            className={`text-center mb-16 scroll-reveal-slide-up ${
+              isAnimated('tabs-header') ? 'animated' : ''
+            }`}
+          >
+            <h2 className="text-4xl md:text-5xl lg:text-6xl font-light mb-8 leading-tight tracking-tight text-gradient-accent">
+              Veja o sistema em ação
+            </h2>
+            <p className="text-white/70 text-lg md:text-xl max-w-3xl mx-auto leading-relaxed font-light">
+              Explore as diferentes funcionalidades e visualize como o Consert pode transformar sua assistência
+            </p>
+          </div>
+
+          {/* Sistema de Abas */}
+          <div className="bg-transparent rounded-3xl border border-white/20 p-8 md:p-12">
+            {/* Navegação das Abas */}
+            <div className="flex flex-wrap justify-center gap-2 mb-12">
+              {[
+                { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+                { id: 'pdv', label: 'PDV', icon: '💳' },
+                { id: 'notas', label: 'Notas Fiscais', icon: '📄' },
+                { id: 'financeiro', label: 'Financeiro', icon: '💰' },
+                { id: 'estoque', label: 'Estoque', icon: '📦' },
+                { id: 'mais', label: 'Muito mais', icon: '⚡' }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center px-6 py-3 rounded-full font-medium transition-all duration-300 ${
+                    activeTab === tab.id
+                      ? 'bg-[#D1FE6E] text-black shadow-lg transform scale-105'
+                      : 'bg-white/5 text-white/80 hover:bg-white/10 hover:text-white border border-white/10'
+                  }`}
+                >
+                  <span className="mr-2 text-lg">{tab.icon}</span>
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Conteúdo das Abas */}
+            <div className="relative">
+              {/* Dashboard Tab */}
+              {activeTab === 'dashboard' && (
+                <div className="space-y-8">
+                  <div className="text-center">
+                    <h3 className="text-2xl md:text-3xl font-light text-white mb-4">
+                      Dashboard BI (em tempo real)
+                    </h3>
+                    <div className="flex flex-wrap justify-center gap-4 text-sm text-white/70 mb-8">
+                      <span className="flex items-center">
+                        <span className="w-2 h-2 bg-[#D1FE6E] rounded-full mr-2"></span>
+                        Indicadores (KPIs)
+                      </span>
+                      <span className="flex items-center">
+                        <span className="w-2 h-2 bg-[#D1FE6E] rounded-full mr-2"></span>
+                        Gráficos interativos
+                      </span>
+                      <span className="flex items-center">
+                        <span className="w-2 h-2 bg-[#D1FE6E] rounded-full mr-2"></span>
+                        Relatórios simplificados
+                      </span>
+                      <span className="flex items-center">
+                        <span className="w-2 h-2 bg-[#D1FE6E] rounded-full mr-2"></span>
+                        Tudo em tempo real
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Placeholder do Dashboard */}
+                  <div className="relative bg-white rounded-2xl p-8 shadow-2xl border border-gray-200">
+                    {/* Header do Dashboard */}
+                    <div className="flex items-center justify-between mb-8 pb-4 border-b border-gray-200">
+                      <div className="flex items-center">
+                        <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold mr-3">
+                          C
+                        </div>
+                        <span className="text-gray-800 font-semibold text-xl">Consert</span>
+                      </div>
+                      <div className="flex items-center space-x-4">
+                        <div className="w-8 h-8 bg-gray-200 rounded-full"></div>
+                        <span className="text-gray-600">Joana</span>
+                      </div>
+                    </div>
+
+                    {/* KPIs */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                      <div className="text-center">
+                        <div className="w-32 h-32 mx-auto mb-4 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center">
+                          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center">
+                            <span className="text-2xl">📈</span>
+                          </div>
+                        </div>
+                        <h4 className="font-medium text-gray-800 mb-2">Entradas / Receitas</h4>
+                        <p className="text-green-600 font-semibold text-lg">R$ 1.402,89</p>
+                      </div>
+                      
+                      <div className="text-center">
+                        <div className="w-32 h-32 mx-auto mb-4 bg-gradient-to-br from-red-400 to-red-600 rounded-full flex items-center justify-center">
+                          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center">
+                            <span className="text-2xl">📉</span>
+                          </div>
+                        </div>
+                        <h4 className="font-medium text-gray-800 mb-2">Saídas / Despesas</h4>
+                        <p className="text-red-600 font-semibold text-lg">R$ 1.085,31</p>
+                      </div>
+                      
+                      <div className="text-center">
+                        <div className="w-32 h-32 mx-auto mb-4 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center">
+                          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center">
+                            <span className="text-2xl">💰</span>
+                          </div>
+                        </div>
+                        <h4 className="font-medium text-gray-800 mb-2">Saldo</h4>
+                        <p className="text-blue-600 font-semibold text-lg">R$ 317,58</p>
+                      </div>
+                    </div>
+
+                    {/* Gráfico Placeholder */}
+                    <div className="bg-gray-50 rounded-xl p-6">
+                      <h4 className="text-gray-800 font-medium mb-4">Fluxo de Caixa (mensal)</h4>
+                      <div className="h-48 bg-gradient-to-r from-gray-100 to-gray-200 rounded-lg flex items-center justify-center">
+                        <span className="text-gray-500 text-lg">📊 Gráfico Interativo</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* PDV Tab */}
+              {activeTab === 'pdv' && (
+                <div className="space-y-8">
+                  <div className="text-center">
+                    <h3 className="text-2xl md:text-3xl font-light text-white mb-4">
+                      Sistema PDV Integrado
+                    </h3>
+                    <p className="text-white/70 text-lg max-w-2xl mx-auto">
+                      Vendas rápidas e organizadas com integração completa ao sistema
+                    </p>
+                  </div>
+                  
+                  <div className="relative bg-white rounded-2xl p-8 shadow-2xl border border-gray-200">
+                    <div className="h-96 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl flex items-center justify-center border border-gray-200">
+                      <div className="text-center">
+                        <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <span className="text-4xl">💳</span>
+                        </div>
+                        <h4 className="text-gray-700 text-xl font-medium mb-2">PDV Consert</h4>
+                        <p className="text-gray-500">Interface de vendas em desenvolvimento</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Notas Fiscais Tab */}
+              {activeTab === 'notas' && (
+                <div className="space-y-8">
+                  <div className="text-center">
+                    <h3 className="text-2xl md:text-3xl font-light text-white mb-4">
+                      Emissão de Notas Fiscais
+                    </h3>
+                    <p className="text-white/70 text-lg max-w-2xl mx-auto">
+                      Sistema completo para emissão e gestão de documentos fiscais
+                    </p>
+                  </div>
+                  
+                  <div className="relative bg-white rounded-2xl p-8 shadow-2xl border border-gray-200">
+                    <div className="h-96 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl flex items-center justify-center border border-gray-200">
+                      <div className="text-center">
+                        <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <span className="text-4xl">📄</span>
+                        </div>
+                        <h4 className="text-gray-700 text-xl font-medium mb-2">Notas Fiscais</h4>
+                        <p className="text-gray-500">Emissão e gestão fiscal em desenvolvimento</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Financeiro Tab */}
+              {activeTab === 'financeiro' && (
+                <div className="space-y-8">
+                  <div className="text-center">
+                    <h3 className="text-2xl md:text-3xl font-light text-white mb-4">
+                      Controle Financeiro Completo
+                    </h3>
+                    <p className="text-white/70 text-lg max-w-2xl mx-auto">
+                      Gestão financeira avançada com relatórios detalhados
+                    </p>
+                  </div>
+                  
+                  <div className="relative bg-white rounded-2xl p-8 shadow-2xl border border-gray-200">
+                    <div className="h-96 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl flex items-center justify-center border border-gray-200">
+                      <div className="text-center">
+                        <div className="w-24 h-24 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <span className="text-4xl">💰</span>
+                        </div>
+                        <h4 className="text-gray-700 text-xl font-medium mb-2">Financeiro</h4>
+                        <p className="text-gray-500">Módulo financeiro em desenvolvimento</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Estoque Tab */}
+              {activeTab === 'estoque' && (
+                <div className="space-y-8">
+                  <div className="text-center">
+                    <h3 className="text-2xl md:text-3xl font-light text-white mb-4">
+                      Gestão de Estoque Inteligente
+                    </h3>
+                    <p className="text-white/70 text-lg max-w-2xl mx-auto">
+                      Controle completo de produtos e materiais
+                    </p>
+                  </div>
+                  
+                  <div className="relative bg-white rounded-2xl p-8 shadow-2xl border border-gray-200">
+                    <div className="h-96 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl flex items-center justify-center border border-gray-200">
+                      <div className="text-center">
+                        <div className="w-24 h-24 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <span className="text-4xl">📦</span>
+                        </div>
+                        <h4 className="text-gray-700 text-xl font-medium mb-2">Estoque</h4>
+                        <p className="text-gray-500">Controle de estoque em desenvolvimento</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Mais Funcionalidades Tab */}
+              {activeTab === 'mais' && (
+                <div className="space-y-8">
+                  <div className="text-center">
+                    <h3 className="text-2xl md:text-3xl font-light text-white mb-4">
+                      Muito Mais Funcionalidades
+                    </h3>
+                    <p className="text-white/70 text-lg max-w-2xl mx-auto">
+                      Sistema completo com recursos avançados para sua assistência
+                    </p>
+                  </div>
+                  
+                  <div className="relative bg-white rounded-2xl p-8 shadow-2xl border border-gray-200">
+                    <div className="h-96 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl flex items-center justify-center border border-gray-200">
+                      <div className="text-center">
+                        <div className="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <span className="text-4xl">⚡</span>
+                        </div>
+                        <h4 className="text-gray-700 text-xl font-medium mb-2">Recursos Avançados</h4>
+                        <p className="text-gray-500">Mais funcionalidades em desenvolvimento</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Product Demo Section */}
       <div id="solucoes" className="relative z-10 px-4 sm:px-6 md:px-8 pb-20 md:pb-32 lg:px-12">
         <div className="mx-auto max-w-6xl">
           <div className="flex flex-col items-center justify-center">
-            {/* MacBook Image */}
+            {/* MacBook Image com Parallax Avançado */}
             <div 
               data-reveal="macbook"
               className={`relative mb-20 flex justify-center scroll-reveal-scale scroll-reveal-delay-300 ${
@@ -418,9 +686,10 @@ export default function Home() {
                 className="w-full max-w-4xl transition-all duration-700 ease-out"
                 priority
                 style={{
-                  transform: `scale(${1 + (scrollY * 0.0002)})`,
+                  transform: `scale(${1 + (scrollY * 0.0003)}) translateY(${scrollY * 0.1}px)`,
                   filter: 'drop-shadow(0 20px 40px rgba(0,0,0,0.3))',
-                  transition: 'transform 0.1s ease-out'
+                  transition: 'transform 0.1s ease-out',
+                  willChange: 'transform'
                 }}
               />
             </div>
@@ -630,7 +899,15 @@ export default function Home() {
 
       {/* Features Section */}
       <div id="recursos" className="relative z-10 px-4 sm:px-6 md:px-8 py-20 md:py-32 lg:px-12">
-        <div className="mx-auto max-w-6xl">
+        <div 
+          className="mx-auto max-w-6xl"
+          ref={(el) => {
+            if (el) {
+              const style = getSectionTransform(el);
+              Object.assign(el.style, style);
+            }
+          }}
+        >
           <div 
             data-reveal="features-header"
             className={`text-center mb-32 hero-reveal ${
@@ -856,7 +1133,15 @@ export default function Home() {
 
       {/* Analytics Section */}
       <section id="analytics" ref={analyticsRef} className="relative z-10 px-4 sm:px-6 md:px-8 py-20 md:py-32 lg:px-12">
-        <div className="mx-auto max-w-6xl">
+        <div 
+          className="mx-auto max-w-6xl"
+          ref={(el) => {
+            if (el) {
+              const style = getSectionTransform(el);
+              Object.assign(el.style, style);
+            }
+          }}
+        >
           {/* Section Header */}
           <div className="text-center mb-24">
             <h2 
@@ -1143,7 +1428,15 @@ export default function Home() {
 
       {/* Pricing Section */}
       <div id="precos" className="relative z-10 px-4 sm:px-6 md:px-8 py-20 md:py-32 lg:px-12">
-        <div className="mx-auto max-w-7xl">
+        <div 
+          className="mx-auto max-w-7xl"
+          ref={(el) => {
+            if (el) {
+              const style = getSectionTransform(el);
+              Object.assign(el.style, style);
+            }
+          }}
+        >
           {/* Section Header */}
           <div 
             data-reveal="pricing-header"

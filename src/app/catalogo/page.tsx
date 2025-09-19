@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import MenuLayout from '@/components/MenuLayout';
-import ProtectedArea from '@/components/ProtectedArea';
+// Removido ProtectedArea - agora é responsabilidade do MenuLayout
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 
@@ -316,7 +316,7 @@ export default function CatalogoPage() {
 
   if (loading) {
     return (
-      <ProtectedArea area="ordens">
+      
         <MenuLayout>
           <div className="p-6 lg:p-8 bg-gray-50 min-h-screen">
             <div className="flex items-center justify-center min-h-[400px]">
@@ -328,13 +328,13 @@ export default function CatalogoPage() {
             </div>
           </div>
         </MenuLayout>
-      </ProtectedArea>
+      
     );
   }
 
   if (error) {
     return (
-      <ProtectedArea area="ordens">
+      
         <MenuLayout>
           <div className="p-6 lg:p-8 bg-gray-50 min-h-screen">
             <div className="flex items-center justify-center min-h-[400px]">
@@ -356,12 +356,12 @@ export default function CatalogoPage() {
             </div>
           </div>
         </MenuLayout>
-      </ProtectedArea>
+      
     );
   }
 
   return (
-    <ProtectedArea area="ordens">
+    
       <MenuLayout>
         <div className="p-6 lg:p-8 print:p-6 bg-gray-50 min-h-screen">
           {/* Header Melhorado */}
@@ -768,7 +768,7 @@ export default function CatalogoPage() {
           )}
         </div>
       </MenuLayout>
-    </ProtectedArea>
+    
   );
 }
 

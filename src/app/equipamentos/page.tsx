@@ -17,7 +17,7 @@ import {
 } from 'chart.js';
 import Image from 'next/image';
 import { DataTable, Column } from '@/components/DataTable';
-import ProtectedArea from '@/components/ProtectedArea';
+
 import DashboardCard from '@/components/ui/DashboardCard';
 
 ChartJS.register(ArcElement2, Tooltip2, Legend2, DoughnutController);
@@ -493,7 +493,7 @@ export default function ProdutosServicosPage() {
   const valorTotalEstoque = produtos.reduce((acc, p) => acc + ((p.estoque_atual || 0) * (p.custo || 0)), 0);
 
   return (
-    <ProtectedArea area="equipamentos">
+    
       <ToastProvider>
         <MenuLayout>
           <div className="pt-20 px-6 w-full">
@@ -720,6 +720,6 @@ export default function ProdutosServicosPage() {
           )}
         </MenuLayout>
       </ToastProvider>
-    </ProtectedArea>
+    
   );
 }

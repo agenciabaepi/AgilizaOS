@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import MenuLayout from '@/components/MenuLayout';
-import ProtectedArea from '@/components/ProtectedArea';
+
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { FiArrowLeft, FiEdit, FiPrinter, FiDollarSign, FiMessageCircle, FiUser, FiSmartphone, FiFileText, FiCalendar, FiShield, FiTool, FiPackage, FiCheckCircle, FiClock, FiRefreshCw, FiExternalLink } from 'react-icons/fi';
@@ -191,12 +191,31 @@ const VisualizarOrdemServicoPage = () => {
     setProcessandoEntrega(true);
 
     try {
-      // 1. Atualizar O.S. para ENTREGUE
+      // 1. Atualizar O.S. para ENTREGUE usando nosso endpoint
+      const response = await fetch('/api/ordens/update-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          osId: id,
+          newStatus: 'ENTREGUE',
+          newStatusTecnico: 'FINALIZADA'
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        addToast('error', 'Erro ao atualizar O.S.: ' + (errorData.error || 'Erro desconhecido'));
+        return;
+      }
+
+      const result = await response.json();
+      
+      // Atualizar campos específicos da entrega diretamente no Supabase
       const { error: updateError } = await supabase
         .from('ordens_servico')
         .update({
-          status: 'ENTREGUE',
-          status_tecnico: 'FINALIZADA',
           termo_garantia_id: termoGarantiaSelecionado.id,
           data_entrega: new Date().toISOString().split('T')[0],
           vencimento_garantia: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
@@ -204,7 +223,7 @@ const VisualizarOrdemServicoPage = () => {
         .eq('id', id);
 
       if (updateError) {
-        addToast('error', 'Erro ao atualizar O.S.: ' + updateError.message);
+        addToast('error', 'Erro ao atualizar dados de entrega: ' + updateError.message);
         return;
       }
 
@@ -358,7 +377,7 @@ const VisualizarOrdemServicoPage = () => {
   }
 
   return (
-    <ProtectedArea area="ordens">
+    
       <MenuLayout>
         <div className="p-8">
           {/* Header */}
@@ -915,7 +934,7 @@ const VisualizarOrdemServicoPage = () => {
           )}
         </div>
       </MenuLayout>
-    </ProtectedArea>
+    
   );
 };
 

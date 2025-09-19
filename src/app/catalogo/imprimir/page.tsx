@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { CatalogoPDF } from '@/components/CatalogoPDF';
-import ProtectedArea from '@/components/ProtectedArea';
+// Removido ProtectedArea - agora é responsabilidade do MenuLayout
 import { useAuth } from '@/context/AuthContext';
 
 interface CatalogoItem {
@@ -244,7 +244,7 @@ export default function ImprimirCatalogoPage() {
   };
 
   return (
-    <ProtectedArea area="ordens">
+    
       <PDFViewer style={{ width: '100vw', height: '100vh' }}>
         <CatalogoPDF 
           empresaData={dadosEmpresa}
@@ -252,6 +252,6 @@ export default function ImprimirCatalogoPage() {
           agrupadosPorCategoria={agrupadosArray}
         />
       </PDFViewer>
-    </ProtectedArea>
+    
   );
 }

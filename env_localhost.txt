@@ -1,0 +1,16 @@
+# ===========================================
+# CONFIGURAÇÕES PARA LOCALHOST
+# ===========================================
+
+# Supabase Configuration (copie do seu projeto)
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+# WhatsApp Cloud API Configuration
+WHATSAPP_ACCESS_TOKEN=EAATEn3qAZAgsBPbU2kxHyotAymgzMIVZCEm0DAAZBHDE0viHiLW9GQeTG1ZBPXaJIhRANerurZAQd4BUZCggoZBeX3BlOalLlrONZA1CjHJ2DbuaiFKG4S36j2AOZBCXXt0l1MI9T676qZCIr3t4mFtKPPFpI00Ap2gjQQMFAlZBJlUJGaXvbsyPr2vlowZCjsXKErMyseZB1hf19GCc2m6oZA0RqOrfBvj0ZCSPnxw72jYoC7eOLeEywtZBrygWZA0ok7UK4ZCQZDZD
+WHATSAPP_PHONE_NUMBER_ID=752768294592697
+
+# Environment
+NODE_ENV=development
+NEXT_PUBLIC_ENVIRONMENT=development

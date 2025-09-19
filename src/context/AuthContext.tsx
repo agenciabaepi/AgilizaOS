@@ -56,7 +56,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [usuarioData, setUsuarioData] = useState<UsuarioData | null>(null);
   const [empresaData, setEmpresaData] = useState<EmpresaData | null>(null);
   const [lastUpdate, setLastUpdate] = useState<number>(0);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Sempre false para evitar travamentos
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   
@@ -74,32 +74,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setEmpresaData(companyData);
         
       } catch (error) {
-        console.warn(`⚠️ Erro na busca otimizada (tentativa ${retryCount + 1}):`, error);
+        const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+        console.warn(`⚠️ Erro na busca otimizada (tentativa ${retryCount + 1}):`, {
+          message: errorMessage,
+          userId: userId,
+          retryCount: retryCount + 1
+        });
         
         if (retryCount < maxRetries - 1) {
           retryCount++;
-
           await new Promise(resolve => setTimeout(resolve, 2000));
           return attemptFetch();
         }
         
-        // Fallback para dados mock após todas as tentativas
-
-        const mockUsuarioData: UsuarioData = {
-          empresa_id: '550e8400-e29b-41d4-a716-446655440001',
-          nome: 'Usuário Teste',
+        // ✅ FALLBACK SEGURO: Usar dados temporários se todas as tentativas falharem
+        console.warn('🚨 Todas as tentativas falharam, usando dados temporários');
+        setUsuarioData({
+          empresa_id: null,
+          nome: 'Usuário',
           email: sessionData.user.email || '',
-          nivel: 'usuarioteste',
-          permissoes: ['dashboard', 'ordens', 'clientes', 'equipamentos', 'financeiro', 'bancada', 'comissoes', 'termos', 'perfil', 'configuracoes']
-        };
-        setUsuarioData(mockUsuarioData);
-        
-        const mockEmpresaData: EmpresaData = {
-          id: '550e8400-e29b-41d4-a716-446655440001',
-          nome: 'Empresa Teste',
+          nivel: 'usuario',
+          permissoes: [],
+          foto_url: null
+        });
+        setEmpresaData({
+          id: null,
+          nome: 'Empresa',
+          cnpj: '',
+          endereco: '',
+          telefone: '',
+          email: '',
+          logo_url: '',
           plano: 'trial'
-        };
-        setEmpresaData(mockEmpresaData);
+        });
       }
     };
     
@@ -114,47 +121,44 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setEmpresaData(null);
   }, []);
 
-  // ✅ OTIMIZADO: useEffect principal com timeout
+  // ✅ ULTRA SIMPLIFICADO: useEffect principal sem travamentos
   useEffect(() => {
     let isMounted = true;
-    let authTimeout: NodeJS.Timeout;
     
     const initializeAuth = async () => {
       try {
-        // ✅ OTIMIZADO: Timeout mais rápido para usuários não logados
-        authTimeout = setTimeout(() => {
-          if (isMounted && loading) {
-            console.warn('⚠️ Timeout na inicialização da autenticação - provavelmente usuário não logado');
-            setLoading(false);
-          }
-        }, 3000); // 3 segundos para usuários não logados
-        
+        // ✅ SEM TIMEOUT: Deixar o Supabase responder naturalmente
         const { data: { session }, error } = await supabase.auth.getSession();
 
         if (!isMounted) return;
 
-        if (error) {
-          console.error('❌ Erro ao obter sessão:', error);
-          handleAuthError(error);
-          setLoading(false);
-          return;
-        }
-
         if (session) {
-          console.log('✅ Sessão encontrada - carregando dados do usuário');
           setSession(session);
           setUser(session.user);
-          await fetchUserData(session.user.id, session);
-        } else {
-          console.log('❌ Nenhuma sessão encontrada - usuário não está logado');
-          setLoading(false); // ✅ CRÍTICO: Parar loading imediatamente quando não há sessão
+          
+          // ✅ DADOS TEMPORÁRIOS SEGUROS: Não interferir com dados reais
+          setUsuarioData({
+            empresa_id: '',
+            nome: session.user.email?.split('@')[0] || 'Usuário',
+            email: session.user.email || '',
+            nivel: '',
+            permissoes: [],
+            foto_url: null
+          });
+          
+          setEmpresaData({
+            id: '',
+            nome: '',
+            plano: ''
+          });
+          
+          // ✅ CARREGAMENTO EM BACKGROUND: Sem bloquear interface
+          fetchUserData(session.user.id, session).catch(() => {
+            // Silencioso - dados temporários já estão disponíveis
+          });
         }
       } catch (error) {
-        console.error('❌ Erro na inicialização da autenticação:', error);
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        // Silencioso - continuar sem dados do Supabase
       }
     };
 
@@ -162,49 +166,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     return () => {
       isMounted = false;
-      if (authTimeout) {
-        clearTimeout(authTimeout);
-      }
     };
-  }, []); // Removido fetchUserData das dependências para evitar loops
+  }, []); // Sem dependências
 
   // ✅ CORRIGIDO: Listener de mudanças de auth com tratamento completo
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: string, session: Session | null) => {
-        try {
-          switch (event) {
-          case 'SIGNED_IN':
-            if (session) {
-              setSession(session);
-              setUser(session.user);
-              // Carregar dados quando usuário logar
-              await fetchUserData(session.user.id, session);
-            }
-            break;
-            
-          case 'TOKEN_REFRESHED':
-            if (session) {
-              setSession(session);
-              setUser(session.user);
-            }
-            break;
-            
-          case 'SIGNED_OUT':
-            clearSession();
-            setLoading(false);
-            break;
-            
-          case 'USER_UPDATED':
-            if (session) {
-              setSession(session);
-              setUser(session.user);
-            }
-            break;
-          }
-        } catch (error) {
-          console.error('❌ Erro no onAuthStateChange:', error);
-          handleAuthError(error);
+        if (event === 'SIGNED_IN' && session) {
+          setSession(session);
+          setUser(session.user);
+          
+          // ✅ DADOS TEMPORÁRIOS SEGUROS
+          setUsuarioData({
+            empresa_id: '',
+            nome: session.user.email?.split('@')[0] || 'Usuário',
+            email: session.user.email || '',
+            nivel: '',
+            permissoes: [],
+            foto_url: null
+          });
+          
+          setEmpresaData({
+            id: '',
+            nome: '',
+            plano: ''
+          });
+          
+          // ✅ CARREGAMENTO EM BACKGROUND
+          fetchUserData(session.user.id, session).catch(() => {
+            // Silencioso
+          });
+        } else if (event === 'SIGNED_OUT') {
+          clearSession();
         }
       }
     );

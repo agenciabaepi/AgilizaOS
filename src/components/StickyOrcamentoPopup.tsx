@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
+import { playNotificationSound, createAudioActivationButton } from '@/utils/audioPlayer';
 
 interface Notificacao {
   id: string;
@@ -20,6 +21,51 @@ export default function StickyOrcamentoPopup() {
   const [open, setOpen] = useState(false);
   const [notif, setNotif] = useState<Notificacao | null>(null);
   const [numeroOS, setNumeroOS] = useState<string | number | null>(null);
+
+  // Reproduzir som quando a modal for aberta
+  useEffect(() => {
+    if (open && notif) {
+      console.log('🔔 StickyOrcamentoPopup: Modal aberta, tentando reproduzir som...');
+      
+      // Tentar reproduzir som múltiplas vezes para garantir que funcione
+      const tryPlaySound = async () => {
+        let attempts = 0;
+        const maxAttempts = 3;
+        
+        while (attempts < maxAttempts) {
+          attempts++;
+          console.log(`🔔 StickyOrcamentoPopup: Tentativa ${attempts}/${maxAttempts}`);
+          
+          try {
+            const success = await playNotificationSound();
+            if (success) {
+              console.log(`✅ StickyOrcamentoPopup: Som reproduzido com sucesso na tentativa ${attempts}!`);
+              return;
+            } else if (attempts === maxAttempts) {
+              // Na última tentativa, criar botão de ativação
+              console.warn('⚠️ StickyOrcamentoPopup: Todas as tentativas falharam - criando botão de ativação');
+              createAudioActivationButton();
+            }
+          } catch (error) {
+            console.warn(`⚠️ StickyOrcamentoPopup: Tentativa ${attempts} falhou:`, error);
+            if (attempts === maxAttempts) {
+              // Na última tentativa, criar botão de ativação
+              createAudioActivationButton();
+            }
+          }
+          
+          // Pequena pausa entre tentativas
+          if (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+          }
+        }
+        
+        console.warn('⚠️ StickyOrcamentoPopup: Todas as tentativas falharam');
+      };
+      
+      tryPlaySound();
+    }
+  }, [open, notif]);
 
   function isPendente(status?: string | null, statusTecnico?: string | null) {
     // ✅ CORREÇÃO: Só exibe modal se orçamento enviado E status não indica conclusão

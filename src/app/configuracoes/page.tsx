@@ -5,7 +5,7 @@ import MenuLayout from '@/components/MenuLayout'
 import { Tab } from '@headlessui/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
-import ProtectedArea from '@/components/ProtectedArea'
+// Removido ProtectedArea - agora é responsabilidade do MenuLayout
 import { ToastProvider } from '@/components/Toast'
 import { ConfirmProvider } from '@/components/ConfirmDialog'
 
@@ -143,7 +143,7 @@ function ConfiguracoesInner() {
 
 export default function ConfiguracoesPage() {
   return (
-    <ProtectedArea area="configuracoes">
+    
       <ToastProvider>
         <ConfirmProvider>
           <Suspense fallback={<div className="p-8">Carregando configurações...</div>}>
@@ -151,7 +151,7 @@ export default function ConfiguracoesPage() {
           </Suspense>
         </ConfirmProvider>
       </ToastProvider>
-    </ProtectedArea>
+    
   )
 }
 

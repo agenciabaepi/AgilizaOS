@@ -25,8 +25,8 @@ import {
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
 
 import SortableItem from '@/components/SortableItem'
-import ProtectedRoute from '@/components/ProtectedRoute'
-import ProtectedArea from '@/components/ProtectedArea';
+// Removido ProtectedRoute - agora é responsabilidade do MenuLayout
+
 import { FiEdit2, FiTrash2, FiMove } from 'react-icons/fi';
 
 export default function StatusPage() {
@@ -145,7 +145,7 @@ export default function StatusPage() {
 
 
   return (
-    <ProtectedArea area="configuracoes">
+    
       <div className="py-4">
         <h2 className="text-2xl font-extrabold text-lime-700 tracking-tight mb-2">Status da OS e Técnicos</h2>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
@@ -617,6 +617,6 @@ export default function StatusPage() {
           </Card>
         </CardContent>
       </div>  
-    </ProtectedArea>
+    
   )
 }

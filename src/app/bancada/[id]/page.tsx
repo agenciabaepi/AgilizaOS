@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { FiClipboard, FiSave, FiBox, FiTool, FiPlayCircle, FiX, FiCamera, FiTrash2, FiEdit, FiCheck, FiAlertCircle } from 'react-icons/fi';
 import MenuLayout from '@/components/MenuLayout';
-import ProtectedArea from '@/components/ProtectedArea';
+// Removido ProtectedArea - agora é responsabilidade do MenuLayout
 import ProdutoServicoSearch from '@/components/ProdutoServicoSearch';
 import { Button } from '@/components/Button';
 import { useToast } from '@/components/Toast';
@@ -106,6 +106,13 @@ export default function DetalheBancadaPage() {
       }
       
       if (data) {
+        console.log('🔍 DEBUG BANCADA: Dados da OS carregados:', {
+          id: data.id,
+          numero_os: data.numero_os,
+          relato: data.relato,
+          tem_relato: !!data.relato,
+          relato_length: data.relato?.length || 0
+        });
         setOs(data);
         setEmpresaId(data.empresa_id);
         
@@ -144,58 +151,10 @@ export default function DetalheBancadaPage() {
         setProdutos(data.peca || '');
         setServicos(data.servico || '');
         
-        // Exibir no console para debug
-        // Tentar restaurar produtos e serviços selecionados (campos novos podem não existir ainda)
-        try {
-          // Buscar campos JSON separadamente para não quebrar se não existirem
-          const { data: dadosJson } = await supabase
-            .from('ordens_servico')
-            .select('produtos_json, servicos_json')
-            .eq('id', id)
-            .single();
-            
-          if (dadosJson?.produtos_json) {
-            const produtosRestaurados = JSON.parse(dadosJson.produtos_json);
-            setProdutosSelecionados(produtosRestaurados);
-          } else {
-            setProdutosSelecionados([]);
-          }
-          
-          if (dadosJson?.servicos_json) {
-            const servicosRestaurados = JSON.parse(dadosJson.servicos_json);
-            setServicosSelecionados(servicosRestaurados);
-          } else {
-            setServicosSelecionados([]);
-          }
-        } catch (error) {
-          // Tentar reconstruir produtos e serviços a partir dos campos de texto
-          const produtosReconstruidos = [];
-          const servicosReconstruidos = [];
-          
-          // Se há valor de peça, criar item genérico baseado no texto
-          if (data.peca && data.valor_peca && parseFloat(data.valor_peca) > 0) {
-            produtosReconstruidos.push({
-              id: 'reconstruct-prod-1',
-              nome: data.peca.length > 50 ? data.peca.substring(0, 50) + '...' : data.peca,
-              preco: parseFloat(data.valor_peca),
-              quantidade: 1,
-              tipo: 'produto'
-            });
-          }
-          
-          // Se há valor de serviço, criar item genérico baseado no texto
-          if (data.servico && data.valor_servico && parseFloat(data.valor_servico) > 0) {
-            servicosReconstruidos.push({
-              id: 'reconstruct-serv-1',
-              nome: data.servico.length > 50 ? data.servico.substring(0, 50) + '...' : data.servico,
-              preco: parseFloat(data.valor_servico),
-              tipo: 'servico'
-            });
-          }
-          
-          setProdutosSelecionados(produtosReconstruidos);
-          setServicosSelecionados(servicosReconstruidos);
-        }
+        // Inicializar produtos e serviços selecionados como arrays vazios
+        // (Os campos JSON não existem na tabela ainda)
+        setProdutosSelecionados([]);
+        setServicosSelecionados([]);
         
         // Mostrar botão iniciar se estiver aguardando início
         setMostrarBotaoIniciar(statusInicial === 'AGUARDANDO INÍCIO');
@@ -230,19 +189,35 @@ export default function DetalheBancadaPage() {
         .select('id, nome')
         .eq('tipo', 'tecnico');
       
-      // Combinar todos os status
+      // Combinar todos os status e remover duplicatas
       const todosStatus = [
         ...statusPadrao,
         ...(statusFixos || []),
         ...(statusEmpresa || [])
       ];
       
-      setStatusTecnicoOptions(todosStatus);
+      // ✅ CORRIGIDO: Remover duplicatas baseado no nome
+      const statusUnicos = todosStatus.filter((status, index, array) => 
+        array.findIndex(s => s.nome === status.nome) === index
+      );
+      
+      setStatusTecnicoOptions(statusUnicos);
     }
     fetchStatusTecnico();
   }, []);
 
   const handleSalvar = async () => {
+    // ✅ VALIDAÇÃO: Verificar se ID e OS existem antes de prosseguir
+    if (!id) {
+      addToast('error', 'Erro: ID da OS não encontrado. Recarregue a página.');
+      return;
+    }
+    
+    if (!os) {
+      addToast('error', 'Erro: Dados da OS não carregados. Recarregue a página.');
+      return;
+    }
+    
     setSalvando(true);
     
     try {
@@ -276,40 +251,69 @@ export default function DetalheBancadaPage() {
       const todasImagens = [...imagensExistentes, ...novasImagens];
       const imagensString = todasImagens.join(',');
 
-      // Preparar dados estruturados para salvar
-      const produtosJson = JSON.stringify(produtosSelecionados);
-      const servicosJson = JSON.stringify(servicosSelecionados);
+      // Preparar dados para salvar (sem campos JSON por enquanto)
       
-      // Tentar salvar com campos JSON, mas funcionar mesmo se eles não existirem
+      // ✅ CORREÇÃO CRÍTICA: Preservar dados existentes quando não há novos dados
       const updateData: any = {
         status: novoStatus,
         status_tecnico: statusTecnico,
-        laudo,
-        observacao: observacoes,
-        peca: produtosText || produtos,
-        servico: servicosText || servicos,
-        valor_peca: calcularTotalProdutos().toString(),
-        valor_servico: calcularTotalServicos().toString(),
-        valor_faturado: (calcularTotalProdutos() + calcularTotalServicos()).toString(),
-        imagens: imagensString
+        // ✅ PRESERVAR dados existentes se não há novos dados
+        ...(laudo && { laudo }),
+        ...(observacoes && { observacao: observacoes }),
+        ...(produtosText && { peca: produtosText }),
+        ...(servicosText && { servico: servicosText }),
+        // ✅ PRESERVAR valores monetários - só atualizar se há produtos/serviços selecionados
+        ...(produtosSelecionados.length > 0 && { valor_peca: calcularTotalProdutos().toString() }),
+        ...(servicosSelecionados.length > 0 && { valor_servico: calcularTotalServicos().toString() }),
+        ...((produtosSelecionados.length > 0 || servicosSelecionados.length > 0) && { 
+          valor_faturado: (calcularTotalProdutos() + calcularTotalServicos()).toString() 
+        }),
+        // ✅ PRESERVAR imagens - só atualizar se há imagens
+        ...(imagensString && { imagens: imagensString })
       };
       
-      // Tentar adicionar campos JSON se existirem
-      try {
-        await supabase
-          .from('ordens_servico')
-          .update({ produtos_json: produtosJson, servicos_json: servicosJson })
-          .eq('id', id);
-        } catch (jsonError) {
-        }
+      console.log('🔍 DEBUG BANCADA: Iniciando salvamento...', {
+        id,
+        novoStatus,
+        statusTecnico,
+        updateData
+      });
       
-      const { error } = await supabase
-        .from('ordens_servico')
-        .update(updateData)
-        .eq('id', id);
+      // Campos JSON não existem na tabela ainda - pular esta parte
+      
+      // Usar nossa API que envia notificações WhatsApp
+      const requestBody = {
+        osId: id,
+        newStatus: novoStatus,
+        newStatusTecnico: statusTecnico,
+        ...updateData
+      };
+      
+      console.log('🔍 DEBUG BANCADA: Enviando requisição...', {
+        url: '/api/ordens/update-status',
+        body: requestBody,
+        osId: id,
+        temOsId: !!id,
+        idType: typeof id,
+        idValue: id,
+        requestBodyKeys: Object.keys(requestBody),
+        hasOsIdInBody: 'osId' in requestBody,
+        osIdInBody: requestBody.osId
+      });
+      
+      // Usar nossa API que envia notificações WhatsApp
+      const response = await fetch('/api/ordens/update-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
 
-      if (error) {
-        throw error;
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao atualizar ordem');
       }
 
       // Atualizar estado local
@@ -385,20 +389,42 @@ export default function DetalheBancadaPage() {
   };
 
   const handleIniciarOS = async () => {
+    // ✅ VALIDAÇÃO: Verificar se ID existe antes de prosseguir
+    if (!id) {
+      addToast('error', 'Erro: ID da OS não encontrado. Recarregue a página.');
+      return;
+    }
+    
     setSalvando(true);
     
     try {
-      const { error } = await supabase
-        .from('ordens_servico')
-        .update({
-          status: 'EM_ANALISE',
-          status_tecnico: 'EM ANÁLISE'
-        })
-        .eq('id', id);
+      console.log('🔍 DEBUG BANCADA: Iniciando OS...', {
+        id,
+        temId: !!id,
+        idType: typeof id,
+        idValue: id
+      });
 
-      if (error) {
-        throw error;
+      // Usar nossa API que registra histórico e envia notificações
+      const response = await fetch('/api/ordens/update-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          osId: id,
+          newStatus: 'EM_ANALISE',
+          newStatusTecnico: 'EM ANÁLISE'
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao iniciar ordem');
       }
+
+      console.log('✅ DEBUG BANCADA: OS iniciada com sucesso:', result);
 
       // Atualizar estado local
       setStatusTecnico('EM ANÁLISE');
@@ -411,7 +437,7 @@ export default function DetalheBancadaPage() {
       addToast('success', 'OS iniciada com sucesso!');
       
     } catch (error) {
-      console.error('Erro ao iniciar OS:', error);
+      console.error('❌ Erro ao iniciar OS:', error);
       addToast('error', 'Erro ao iniciar OS: ' + (error as Error).message);
     } finally {
       setSalvando(false);
@@ -558,7 +584,7 @@ export default function DetalheBancadaPage() {
     
     try {
       const formData = new FormData();
-      formData.append('ordemId', id);
+      formData.append('osId', id);
       
       imagens.forEach((file) => {
         formData.append('files', file);
@@ -619,7 +645,7 @@ export default function DetalheBancadaPage() {
   // const valor = ((os.valor_servico || 0) + (os.valor_peca || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   return (
-    <ProtectedArea area="bancada">
+    
       <MenuLayout>
       <div className="px-6 py-8 max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-6">
@@ -692,10 +718,33 @@ export default function DetalheBancadaPage() {
             </div>
           </div>
           
-          {os.relato && (
+          {/* Debug do relato */}
+          {(() => {
+            console.log('🔍 DEBUG RENDERIZAÇÃO: Relato na bancada:', {
+              tem_os: !!os,
+              relato: os?.relato,
+              tem_relato: !!os?.relato,
+              relato_length: os?.relato?.length || 0
+            });
+            return null;
+          })()}
+          
+          {os?.relato && (
             <div className="mt-6 p-4 bg-gray-50 rounded-lg">
               <p className="text-sm font-medium text-gray-700 mb-2">Relato do Cliente</p>
               <p className="text-sm text-gray-600 leading-relaxed">{os.relato}</p>
+            </div>
+          )}
+          
+          {/* Debug: Mostrar sempre se não tem relato */}
+          {!os?.relato && (
+            <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm font-medium text-yellow-800 mb-2">⚠️ Debug: Relato não encontrado</p>
+              <p className="text-sm text-yellow-700">
+                OS ID: {os?.id}<br/>
+                Relato: {os?.relato || 'null/undefined'}<br/>
+                Tem relato: {os?.relato ? 'Sim' : 'Não'}
+              </p>
             </div>
           )}
           
@@ -1195,6 +1244,6 @@ export default function DetalheBancadaPage() {
         </div>
       </div>
       </MenuLayout>
-    </ProtectedArea>
+    
   );
 }

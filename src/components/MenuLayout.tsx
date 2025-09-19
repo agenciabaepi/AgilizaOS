@@ -21,6 +21,7 @@ import {
   FiTruck,
   FiStar,
   FiMessageCircle,
+  FiBarChart,
 } from 'react-icons/fi';
 import { Toaster } from 'react-hot-toast';
 import { supabase, forceLogout } from '@/lib/supabaseClient';
@@ -30,7 +31,7 @@ import { SubscriptionStatus } from '@/components/SubscriptionStatus';
 import LogoutScreen from '@/components/LogoutScreen';
 import { useWhatsAppNotification } from '@/hooks/useWhatsAppNotification';
 import { useLogout } from '@/hooks/useLogout';
-import AutoRouteProtection from './AutoRouteProtection';
+import SimpleAuthGuard from './SimpleAuthGuard';
 
 // Funções locais como fallback
 const isUsuarioTesteLocal = (usuario: any) => {
@@ -173,7 +174,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const menuExpandidoFinal = menuExpandido ?? false;
   
   return (
-    <AutoRouteProtection>
+    <SimpleAuthGuard>
       <div className="flex min-h-screen bg-white">
         {/* Sidebar Desktop */}
         <aside className={`${menuRecolhidoFinal ? 'w-16' : 'w-64'} bg-black border-r border-white/20 flex flex-col py-8 ${menuRecolhidoFinal ? 'px-2' : 'px-4'} h-screen fixed top-0 left-0 z-40 hidden md:flex transition-all duration-300 overflow-y-auto no-print`}>
@@ -302,6 +303,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               
               {financeiroExpanded && !menuRecolhido && (
                 <div className="ml-6 flex flex-col gap-1 mt-1">
+                  {podeVer('dashboard') && (
+                    <SidebarButton path="/financeiro/dashboard" icon={<FiBarChart size={18} />} label="Dashboard" isActive={pathname === '/financeiro/dashboard'} menuRecolhido={menuRecolhido} />
+                  )}
                   {podeVer('vendas') && (
                     <SidebarButton path="/financeiro/vendas" icon={<FiFileText size={18} />} label="Vendas" isActive={pathname === '/financeiro/vendas'} menuRecolhido={menuRecolhido} />
                   )}
@@ -714,6 +718,15 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               {/* Financeiro */}
               {podeVer('financeiro') && (
                 <>
+                  {podeVer('dashboard') && (
+                    <MobileMenuItem
+                      path="/financeiro/dashboard"
+                      icon={<FiBarChart size={20} />}
+                      label="Dashboard"
+                      isActive={pathname === '/financeiro/dashboard'}
+                      onNavigate={() => setMobileMenuOpen(false)}
+                    />
+                  )}
                   <MobileMenuItem
                     path="/financeiro/vendas"
                     icon={<FiFileText size={20} />}
@@ -806,7 +819,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
       
       
     </div>
-    </AutoRouteProtection>
+    </SimpleAuthGuard>
   );
 }
 

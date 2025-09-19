@@ -36,7 +36,7 @@ import { useRouter } from 'next/navigation';
 import { FiRefreshCw, FiPlus, FiSearch, FiFilter, FiUser, FiSmartphone, FiDollarSign, FiClock, FiAlertCircle, FiFileText, FiCheckCircle } from 'react-icons/fi';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
-import ProtectedArea from '@/components/ProtectedArea';
+
 import DashboardCard from '@/components/ui/DashboardCard';
 import MenuLayout from '@/components/MenuLayout';
 import { useToast } from '@/components/Toast';
@@ -768,17 +768,17 @@ export default function ListaOrdensPage() {
   // ✅ OTIMIZADO: Loading states mais inteligentes
   if (!empresaId) {
     return (
-      <ProtectedArea area="ordens">
+      
         <MenuLayout>
           <OSFullPageSkeleton />
         </MenuLayout>
-      </ProtectedArea>
+      
     );
   }
 
   if (loadingOrdens && ordens.length === 0) {
     return (
-      <ProtectedArea area="ordens">
+      
         <MenuLayout>
           <OSFullPageSkeleton />
           {retryState.isRetrying && (
@@ -792,14 +792,14 @@ export default function ListaOrdensPage() {
             </div>
           )}
         </MenuLayout>
-      </ProtectedArea>
+      
     );
   }
 
   // Estado de erro
   if (error && !loading) {
     return (
-      <ProtectedArea area="ordens">
+      
         <MenuLayout>
           <div className="p-4 md:p-8">
             <div className="text-center py-12">
@@ -824,7 +824,7 @@ export default function ListaOrdensPage() {
             </div>
           </div>
         </MenuLayout>
-      </ProtectedArea>
+      
     );
   }
 
@@ -879,16 +879,16 @@ export default function ListaOrdensPage() {
   // ✅ OTIMIZADO: Validação com timeout para evitar loops
   if (!empresaData?.id) {
     return (
-      <ProtectedArea area="ordens">
+      
         <MenuLayout>
           <OSFullPageSkeleton />
         </MenuLayout>
-      </ProtectedArea>
+      
     );
   }
 
   return (
-    <ProtectedArea area="ordens">
+    
       <MenuLayout>
         <div className="p-4 md:p-8">
           {/* Header com título e botão */}
@@ -1536,6 +1536,6 @@ export default function ListaOrdensPage() {
         <LaudoProntoAlert />
       </MenuLayout>
 
-    </ProtectedArea>
+    
   );
 }

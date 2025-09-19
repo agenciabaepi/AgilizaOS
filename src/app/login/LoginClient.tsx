@@ -58,14 +58,8 @@ function LoginClientInner() {
     }
   ];
   
-  // 🔒 BLOQUEIO TOTAL: Usuários logados NÃO podem acessar a página de login
-  useEffect(() => {
-    // Se o usuário já estiver logado, redirecionar IMEDIATAMENTE
-    if (auth.user && auth.session && !auth.loading) {
-      // Redirecionar para dashboard principal
-      router.replace('/dashboard');
-    }
-  }, [auth.user, auth.session, auth.loading, auth.usuarioData?.nivel, router]);
+  // ✅ ACESSO TOTALMENTE LIVRE: Sem redirecionamentos automáticos
+  // Usuário pode acessar login mesmo estando logado
 
   // Auto-rotate do carrossel
   useEffect(() => {

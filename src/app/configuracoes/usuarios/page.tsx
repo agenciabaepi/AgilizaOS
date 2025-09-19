@@ -15,7 +15,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuth } from '@/context/AuthContext'
-import ProtectedRoute from '@/components/ProtectedRoute';
+
 import { useRouter } from 'next/navigation';
 import { useSubscription } from '@/hooks/useSubscription';
 import { FiAlertTriangle } from 'react-icons/fi';
@@ -358,8 +358,7 @@ function UsuariosPageInner() {
   const cannotCreateUsers = isTrial && limites && !podeCriar('usuarios');
 
   return (
-    <ProtectedRoute>
-      <main className="p-8">
+    <main className="p-8">
         <Card className="border-0 shadow-lg">
           <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
             <div className="flex justify-between items-center">
@@ -714,7 +713,6 @@ function UsuariosPageInner() {
           </CardContent>
         </Card>
       </main>
-    </ProtectedRoute>
   )
 }
 

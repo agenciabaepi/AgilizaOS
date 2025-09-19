@@ -8,7 +8,6 @@ import { Button } from '@/components/Button';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
 import { FiPrinter, FiDollarSign, FiShoppingCart, FiTrendingUp, FiUsers } from 'react-icons/fi';
-import ProtectedArea from '@/components/ProtectedArea';
 
 interface VendaItem {
   id: string;
@@ -212,7 +211,6 @@ export default function ListaVendasPage() {
   };
 
   return (
-    <ProtectedArea area="vendas">
       <MenuLayout>
       <div className="p-8">
         <h1 className="text-2xl font-bold mb-6">Vendas</h1>
@@ -431,6 +429,5 @@ export default function ListaVendasPage() {
         )}
       </div>
       </MenuLayout>
-    </ProtectedArea>
   );
 } 

@@ -12,7 +12,6 @@
     "clean": "rm -rf .next node_modules/.cache .turbo && npm cache clean --force",
     "analyze": "ANALYZE=true npm run build",
     "vercel-build": "npm run build",
-    "postbuild": "next-sitemap",
     "test:build": "npm run build && npm run start",
     "preview": "vercel --prod",
     "chromium:install": "npx @sparticuz/chromium install",

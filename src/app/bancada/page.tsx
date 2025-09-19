@@ -1,7 +1,7 @@
 'use client';
 
 import MenuLayout from '@/components/MenuLayout';
-import ProtectedArea from '@/components/ProtectedArea';
+// Removido ProtectedArea - agora é responsabilidade do MenuLayout
 import { useRouter } from 'next/navigation';
 import { FiCpu, FiEye, FiBell, FiCheckCircle, FiClock, FiTool, FiPackage } from 'react-icons/fi';
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -276,7 +276,7 @@ export default function BancadaPage() {
 
   if (loading) {
     return (
-      <ProtectedArea area="bancada">
+      
         <MenuLayout>
           <div className="p-6">
             <div className="flex items-center justify-center h-64">
@@ -287,12 +287,12 @@ export default function BancadaPage() {
             </div>
           </div>
         </MenuLayout>
-      </ProtectedArea>
+      
     );
   }
 
   return (
-    <ProtectedArea area="bancada">
+    
       <MenuLayout>
         <div className="p-6">
           {/* Header */}
@@ -652,6 +652,6 @@ export default function BancadaPage() {
           onIniciar={iniciarOrdem}
         />
       </MenuLayout>
-    </ProtectedArea>
+    
   );
 }

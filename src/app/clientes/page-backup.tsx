@@ -7,7 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/Toast';
 import MenuLayout from '@/components/MenuLayout';
-import ProtectedArea from '@/components/ProtectedArea';
+
 
 interface Cliente {
   id: string;
@@ -84,7 +84,7 @@ export default function ClientesPage() {
 
   return (
     <MenuLayout>
-      <ProtectedArea area="clientes">
+      
         <div className="px-6 py-8">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-semibold text-gray-800">Clientes</h1>
@@ -101,7 +101,7 @@ export default function ClientesPage() {
             <p>Lista de clientes será exibida aqui</p>
           </div>
         </div>
-      </ProtectedArea>
+      
     </MenuLayout>
   );
 }

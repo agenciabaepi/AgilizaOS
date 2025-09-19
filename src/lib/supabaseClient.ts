@@ -77,6 +77,63 @@ export const clearAuthData = () => {
   }
 };
 
+// ✅ NOVA FUNÇÃO: Limpar completamente o cache do Supabase
+export const clearSupabaseCache = async () => {
+  try {
+    if (typeof window !== 'undefined') {
+      // Limpar localStorage e sessionStorage
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // Limpar cache do Supabase
+      await supabase.auth.signOut();
+      await supabase.auth.setSession(null);
+      
+      // Limpar novamente após logout
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      console.log('✅ Cache do Supabase limpo completamente');
+    }
+  } catch (error) {
+    console.error('❌ Erro ao limpar cache do Supabase:', error);
+    // Mesmo com erro, limpar storage local
+    if (typeof window !== 'undefined') {
+      localStorage.clear();
+      sessionStorage.clear();
+    }
+  }
+};
+
+// ✅ NOVA FUNÇÃO: Forçar refresh dos dados do usuário
+export const forceRefreshUserData = async () => {
+  try {
+    if (typeof window !== 'undefined') {
+      // Limpar cache local
+      localStorage.removeItem('sb-' + process.env.NEXT_PUBLIC_SUPABASE_URL?.split('//')[1]?.split('.')[0] + '-auth-token');
+      sessionStorage.clear();
+      
+      // Forçar refresh da sessão
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('❌ Erro ao refrescar sessão:', error);
+        return false;
+      }
+      
+      if (session) {
+        console.log('✅ Sessão refrescada com sucesso');
+        return true;
+      }
+      
+      return false;
+    }
+  } catch (error) {
+    console.error('❌ Erro ao forçar refresh:', error);
+    return false;
+  }
+};
+
 // Função para verificar se a sessão é válida
 export const isValidSession = async () => {
   try {
@@ -92,11 +149,19 @@ export const isValidSession = async () => {
   }
 };
 
-// Função otimizada para buscar dados do usuário
+// Função otimizada para buscar dados do usuário com timeout
 export const fetchUserDataOptimized = async (userId: string) => {
   try {
-    // Tentar primeiro com auth_user_id, depois com id
-    let { data, error } = await supabase
+    // Validar se o userId é um UUID válido
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(userId)) {
+      throw new Error(`ID de usuário inválido: ${userId}. Deve ser um UUID válido.`);
+    }
+    
+    console.log('🔍 Buscando dados otimizados para usuário:', userId);
+    
+    // ✅ TIMEOUT AGRESSIVO: Evitar queries lentas
+    const userQueryPromise = supabase
       .from('usuarios')
       .select(`
         id,
@@ -110,9 +175,18 @@ export const fetchUserDataOptimized = async (userId: string) => {
       .eq('auth_user_id', userId)
       .single();
 
-    // Se não encontrar com auth_user_id, tentar com id
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Query timeout')), 2000)
+    );
+
+    let { data, error } = await Promise.race([
+      userQueryPromise,
+      timeoutPromise
+    ]) as any;
+
+    // Se não encontrar com auth_user_id, tentar com id (com timeout também)
     if (error && error.code === 'PGRST116') {
-      const { data: dataById, error: errorById } = await supabase
+      const userByIdQueryPromise = supabase
         .from('usuarios')
         .select(`
           id,
@@ -125,6 +199,11 @@ export const fetchUserDataOptimized = async (userId: string) => {
         `)
         .eq('id', userId)
         .single();
+
+      const { data: dataById, error: errorById } = await Promise.race([
+        userByIdQueryPromise,
+        timeoutPromise
+      ]) as any;
       
       if (errorById) {
         console.error('❌ Erro ao buscar usuário com id:', errorById);
@@ -160,12 +239,21 @@ export const fetchUserDataOptimized = async (userId: string) => {
       };
     }
     
-    // Buscar dados reais da empresa
-    const { data: empresaData, error: empresaError } = await supabase
+    // ✅ BUSCAR EMPRESA COM TIMEOUT: Evitar queries lentas
+    const empresaQueryPromise = supabase
       .from('empresas')
       .select('*')
       .eq('id', data.empresa_id)
       .single();
+
+    const empresaTimeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Empresa query timeout')), 2000)
+    );
+
+    const { data: empresaData, error: empresaError } = await Promise.race([
+      empresaQueryPromise,
+      empresaTimeoutPromise
+    ]) as any;
 
     if (empresaError) {
 
@@ -211,11 +299,16 @@ export const fetchUserDataOptimized = async (userId: string) => {
     return result;
     
   } catch (error) {
-    console.error('❌ Erro ao buscar dados otimizados:', {
-      error: error,
+    // Log mais detalhado do erro
+    const errorDetails = {
       message: error instanceof Error ? error.message : 'Erro desconhecido',
-      stack: error instanceof Error ? error.stack : undefined
-    });
+      name: error instanceof Error ? error.name : 'UnknownError',
+      stack: error instanceof Error ? error.stack : undefined,
+      userId: userId,
+      timestamp: new Date().toISOString()
+    };
+    
+    console.error('❌ Erro ao buscar dados otimizados:', errorDetails);
     throw error;
   }
 };

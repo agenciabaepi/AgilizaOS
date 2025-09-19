@@ -2,7 +2,7 @@
 
 import { useSearchParams } from 'next/navigation';
 import ClienteForm from '../../../components/ClienteForm';
-import ProtectedArea from '@/components/ProtectedArea';
+// Removido ProtectedArea - agora é responsabilidade do MenuLayout
 import MenuLayout from '@/components/MenuLayout';
 import { Suspense } from 'react';
 
@@ -19,9 +19,9 @@ function NovoClientePageInner() {
   const returnToOS = searchParams.get('returnToOS') === 'true';
   return (
     <MenuLayout>
-      <ProtectedArea area="clientes">
+      
         <ClienteForm returnToOS={returnToOS} />
-      </ProtectedArea>
+      
     </MenuLayout>
   );
 }

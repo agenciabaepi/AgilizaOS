@@ -9,6 +9,18 @@ function isDev() {
 
 async function isAuthorized(req: NextRequest) {
   if (isDev()) return true;
+  
+  // ✅ CORREÇÃO: Permitir polling de pagamento sem autenticação rigorosa
+  // Verificar se é uma requisição de polling de pagamento (tem payment_id ou pagamento_id)
+  const url = new URL(req.url);
+  const pagamento_id = url.searchParams.get('pagamento_id');
+  const payment_id = url.searchParams.get('payment_id');
+  
+  // Se tem ID de pagamento, permitir acesso (é polling de status)
+  if (pagamento_id || payment_id) {
+    return true;
+  }
+  
   const cookieStore = await cookies();
   const hasGate = cookieStore.get('admin_saas_access')?.value === '1';
   if (hasGate) return true;

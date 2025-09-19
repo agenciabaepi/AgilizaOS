@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import MenuLayout from '@/components/MenuLayout';
-import ProtectedArea from '@/components/ProtectedArea';
+// Removido ProtectedArea - agora é responsabilidade do MenuLayout
 import { useToast } from '@/components/Toast';
 import { FiDollarSign, FiCalendar, FiTrendingUp, FiEye, FiDownload, FiFilter, FiX } from 'react-icons/fi';
 
@@ -199,7 +199,7 @@ export default function ComissoesPage() {
 
   if (loading) {
     return (
-      <ProtectedArea area="dashboard">
+      
         <MenuLayout>
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
@@ -208,12 +208,12 @@ export default function ComissoesPage() {
             </div>
           </div>
         </MenuLayout>
-      </ProtectedArea>
+      
     );
   }
 
   return (
-    <ProtectedArea area="dashboard">
+    
       <MenuLayout>
         <div className="p-6 space-y-6">
           {/* Header */}
@@ -461,6 +461,6 @@ export default function ComissoesPage() {
           </div>
         </div>
       </MenuLayout>
-    </ProtectedArea>
+    
   );
 }

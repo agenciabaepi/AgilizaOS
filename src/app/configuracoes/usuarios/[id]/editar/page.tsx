@@ -139,6 +139,9 @@ function EditarUsuarioPageInner() {
   const [emailValido, setEmailValido] = useState(true);
   const [cpfValido, setCpfValido] = useState(true);
   const [usuarioValido, setUsuarioValido] = useState(true);
+  
+  // Estado para armazenar dados originais do usuário
+  const [usuarioOriginal, setUsuarioOriginal] = useState<any>(null);
 
   // Função para validar CPF
   const validarCPF = (cpf: string) => {
@@ -226,10 +229,22 @@ function EditarUsuarioPageInner() {
 
   // Validação em tempo real
   useEffect(() => {
-    if (form.email) {
-      setEmailValido(validarEmail(form.email));
+    if (form.email && usuarioOriginal) {
+      const emailFormatoValido = validarEmail(form.email);
+      
+      if (!emailFormatoValido) {
+        setEmailValido(false);
+      } else {
+        // Se o email não mudou, é válido
+        if (form.email === usuarioOriginal.email) {
+          setEmailValido(true);
+        } else {
+          // Só valida unicidade se o email mudou
+          validarEmailUnico(form.email).then(setEmailValido);
+        }
+      }
     }
-  }, [form.email]);
+  }, [form.email, usuarioOriginal]);
 
   useEffect(() => {
     if (form.cpf) {
@@ -237,22 +252,33 @@ function EditarUsuarioPageInner() {
       
       // Se o CPF for válido, verificar se já existe no banco
       if (cpfValido && form.cpf.trim()) {
-        validarCPFUnico(form.cpf).then((cpfUnico) => {
-          setCpfValido(cpfUnico); // true se único, false se duplicado
-        });
+        // Se o CPF não mudou, é válido
+        if (usuarioOriginal && form.cpf === usuarioOriginal.cpf) {
+          setCpfValido(true);
+        } else {
+          validarCPFUnico(form.cpf).then((cpfUnico) => {
+            setCpfValido(cpfUnico); // true se único, false se duplicado
+          });
+        }
       } else {
         setCpfValido(cpfValido); // false se formato inválido
       }
     } else {
       setCpfValido(true); // CPF vazio é válido
     }
-  }, [form.cpf]);
+  }, [form.cpf, usuarioOriginal]);
 
   useEffect(() => {
-    if (form.usuario) {
-      validarUsuarioUnico(form.usuario).then(setUsuarioValido);
+    if (form.usuario && usuarioOriginal) {
+      // Se o nome de usuário não mudou, é válido
+      if (form.usuario === usuarioOriginal.usuario) {
+        setUsuarioValido(true);
+      } else {
+        // Só valida se o nome de usuário mudou
+        validarUsuarioUnico(form.usuario).then(setUsuarioValido);
+      }
     }
-  }, [form.usuario, userId]);
+  }, [form.usuario, userId, usuarioOriginal]);
 
   useEffect(() => {
     const fetchUsuario = async () => {
@@ -319,6 +345,9 @@ function EditarUsuarioPageInner() {
         return;
       }
 
+      // Armazenar dados originais para comparação
+      setUsuarioOriginal(usuarioData);
+      
       setForm({
           nome: usuarioData.nome || '',
           email: usuarioData.email || '',

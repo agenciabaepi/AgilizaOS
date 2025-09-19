@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import MenuLayout from '@/components/MenuLayout';
-import ProtectedArea from '@/components/ProtectedArea';
+
 import { FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiFileText, FiMessageSquare, FiStar, FiCheck, FiUser, FiPhone as FiPhoneIcon } from 'react-icons/fi';
 import LaudoProntoAlert from '@/components/LaudoProntoAlert';
 
@@ -202,18 +202,18 @@ export default function DashboardAtendentePage() {
 
   if (loading) {
     return (
-      <ProtectedArea area="dashboard">
+      
         <MenuLayout>
           <div className="flex items-center justify-center min-h-screen">
             <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
           </div>
         </MenuLayout>
-      </ProtectedArea>
+      
     );
   }
 
   return (
-    <ProtectedArea area="dashboard">
+    
       <MenuLayout>
         <div className="space-y-6">
           <LaudoProntoAlert />
@@ -548,6 +548,6 @@ export default function DashboardAtendentePage() {
           </div>
         </div>
       </MenuLayout>
-    </ProtectedArea>
+    
   );
 }

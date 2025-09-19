@@ -100,22 +100,34 @@ export default function VisualizarOSModal({ isOpen, onClose, ordem, onIniciar }:
       const statusEmAnalise = statusFixos?.find((s: any) => s.nome === 'EM ANÁLISE');
       
       if (statusEmAnalise) {
-        const { error: updateError } = await supabase
-          .from('ordens_servico')
-          .update({ 
-            status: statusEmAnalise.nome,
-            status_tecnico: 'EM ANÁLISE'
-          })
-          .eq('id', ordem.id);
+        // Usar nossa API que envia notificações WhatsApp
+        const response = await fetch('/api/ordens/update-status', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            osId: ordem.id,
+            newStatus: statusEmAnalise.nome,
+            newStatusTecnico: 'EM ANÁLISE'
+          }),
+        });
 
-        if (updateError) {
-          console.error('Erro ao atualizar status no modal:', updateError);
-          alert('Erro ao iniciar a ordem. Tente novamente.');
+        const result = await response.json();
+
+        if (!response.ok) {
+          console.error('Erro ao atualizar status no modal:', result);
+          alert('Erro ao iniciar a ordem: ' + (result.error || 'Erro desconhecido'));
           return;
         } else {
           // Chamar a função onIniciar para redirecionar
           onIniciar(ordem.id);
           onClose();
+          
+          // Mostrar debug info se disponível
+          if (result.debug) {
+            console.log('Debug da atualização no modal:', result.debug);
+          }
         }
       } else {
         console.error('Status "EM ANÁLISE" não encontrado nos status fixos no modal');
