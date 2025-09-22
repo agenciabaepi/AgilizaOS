@@ -294,21 +294,21 @@ export default function BancadaPage() {
   return (
     
       <MenuLayout>
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <h1 className="text-2xl font-bold flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
               <FiCpu className="text-blue-600" />
               Minha Bancada
             </h1>
             
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
               {/* Notificações */}
               {osAprovadas.length > 0 && (
-                <div className="bg-green-50 border border-green-200 rounded-xl p-4 relative">
-                  <div className="flex items-center gap-3">
+                <div className="bg-green-50 border border-green-200 rounded-xl p-3 sm:p-4 relative">
+                  <div className="flex items-center gap-2 sm:gap-3">
                     <div className="p-2 bg-green-100 rounded-lg">
-                      <FiBell className="w-5 h-5 text-green-600" />
+                      <FiBell className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
                     </div>
                     <div>
                       <p className="text-xs text-green-600 font-medium">Orçamentos Aprovados!</p>
@@ -322,14 +322,14 @@ export default function BancadaPage() {
               )}
               
               {/* Card de resumo */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                <div className="flex items-center gap-3">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4">
+                <div className="flex items-center gap-2 sm:gap-3">
                   <div className="p-2 bg-blue-50 rounded-lg">
-                    <FiCpu className="w-5 h-5 text-blue-600" />
+                    <FiCpu className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Hoje</p>
-                    <p className="text-lg font-bold text-gray-900">{contadores.pendentes} OSs pendentes</p>
+                    <p className="text-base sm:text-lg font-bold text-gray-900">{contadores.pendentes} OSs pendentes</p>
                   </div>
                 </div>
               </div>
@@ -337,11 +337,11 @@ export default function BancadaPage() {
           </div>
           
           {/* Abas */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6 overflow-x-auto">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-4 sm:mb-6 overflow-x-auto">
             <div className="flex border-b border-gray-200 min-w-max">
               <button
                 onClick={() => handleTabChange('pendentes')}
-                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
+                className={`px-3 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm border-b-2 transition-colors ${
                   activeTab === 'pendentes'
                     ? 'border-blue-500 text-blue-600 bg-blue-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
@@ -360,7 +360,7 @@ export default function BancadaPage() {
               
               <button
                 onClick={() => handleTabChange('aprovadas')}
-                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors relative ${
+                className={`px-3 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm border-b-2 transition-colors relative ${
                   activeTab === 'aprovadas'
                     ? 'border-green-500 text-green-600 bg-green-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
@@ -382,7 +382,7 @@ export default function BancadaPage() {
               
               <button
                 onClick={() => handleTabChange('em_andamento')}
-                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
+                className={`px-3 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm border-b-2 transition-colors ${
                   activeTab === 'em_andamento'
                     ? 'border-purple-500 text-purple-600 bg-purple-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
@@ -401,7 +401,7 @@ export default function BancadaPage() {
               
               <button
                 onClick={() => handleTabChange('concluidas')}
-                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
+                className={`px-3 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm border-b-2 transition-colors ${
                   activeTab === 'concluidas'
                     ? 'border-green-500 text-green-600 bg-green-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
@@ -420,7 +420,7 @@ export default function BancadaPage() {
               
               <button
                 onClick={() => handleTabChange('todas')}
-                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
+                className={`px-3 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm border-b-2 transition-colors ${
                   activeTab === 'todas'
                     ? 'border-gray-500 text-gray-600 bg-gray-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
@@ -440,7 +440,7 @@ export default function BancadaPage() {
           </div>
 
           {/* Filtros */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 sm:mb-6">
             <div className="relative">
               <input
                 type="text"
@@ -453,7 +453,7 @@ export default function BancadaPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1 sm:gap-2">
               {[
                 { label: 'Abertas', value: 'ABERTA' },
                 { label: 'Em Análise', value: 'EM_ANALISE' },
@@ -469,7 +469,7 @@ export default function BancadaPage() {
                   <button
                     key={status.value}
                     onClick={() => setFiltroStatus(status.value)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                    className={`px-2 sm:px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                       filtroStatus === status.value
                         ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                         : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'

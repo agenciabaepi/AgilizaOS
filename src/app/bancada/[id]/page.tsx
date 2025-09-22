@@ -647,13 +647,13 @@ export default function DetalheBancadaPage() {
   return (
     
       <MenuLayout>
-      <div className="px-6 py-8 max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
+      <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <Button
             onClick={() => window.history.back()}
             variant="ghost"
             size="sm"
-            className="text-blue-600 hover:text-blue-700 inline-flex items-center gap-2"
+            className="text-blue-600 hover:text-blue-700 inline-flex items-center gap-2 w-fit"
           >
             ← Voltar para Bancada
           </Button>
@@ -674,7 +674,7 @@ export default function DetalheBancadaPage() {
           </div>
         </div>
         
-        <h1 className="text-2xl font-bold flex items-center gap-2 mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2 mb-6">
           <FiClipboard className="text-blue-600" />
           Ordem #{os.numero_os || os.id}
         </h1>
@@ -682,12 +682,12 @@ export default function DetalheBancadaPage() {
         {/* Barra de progresso da OS (mock, pode ser melhorada com status reais) */}
         {/* ... manter steps ou adaptar conforme status reais ... */}
 
-        <section className="bg-white border border-gray-200 rounded-xl p-6 mb-8 shadow-sm">
-          <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-6">
+        <section className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8 shadow-sm">
+          <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-4 sm:mb-6">
             <FiClipboard className="text-blue-600" />
             Detalhes da OS
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             <div className="space-y-2">
               <p className="text-sm font-medium text-gray-500">Cliente</p>
               <p className="text-base text-gray-800 font-medium">{os.cliente?.nome || '---'}</p>
@@ -730,7 +730,7 @@ export default function DetalheBancadaPage() {
           })()}
           
           {os?.relato && (
-            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+            <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-gray-50 rounded-lg">
               <p className="text-sm font-medium text-gray-700 mb-2">Relato do Cliente</p>
               <p className="text-sm text-gray-600 leading-relaxed">{os.relato}</p>
             </div>
@@ -749,15 +749,15 @@ export default function DetalheBancadaPage() {
           )}
           
           {(os.acessorios || os.condicoes_equipamento) && (
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="mt-4 sm:mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               {os.acessorios && (
-                <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="p-3 sm:p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm font-medium text-gray-700 mb-2">Acessórios</p>
                   <p className="text-sm text-gray-600">{os.acessorios}</p>
                 </div>
               )}
               {os.condicoes_equipamento && (
-                <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="p-3 sm:p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm font-medium text-gray-700 mb-2">Condições do Equipamento</p>
                   <p className="text-sm text-gray-600">{os.condicoes_equipamento}</p>
                 </div>
@@ -766,8 +766,8 @@ export default function DetalheBancadaPage() {
           )}
         </section>
 
-        <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200 space-y-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white p-4 sm:p-8 rounded-xl shadow-sm border border-gray-200 space-y-6 sm:space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             {/* Status Técnico */}
             <div className="space-y-3">
               <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
@@ -775,7 +775,7 @@ export default function DetalheBancadaPage() {
                 Status Técnico
               </h2>
               <select
-                className="w-full border border-gray-300 px-4 py-3 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                className="w-full border border-gray-300 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                 value={statusTecnico}
                 onChange={e => setStatusTecnico(e.target.value)}
               >
@@ -804,8 +804,8 @@ export default function DetalheBancadaPage() {
 
             {/* Produtos salvos anteriormente - Editáveis */}
             {os && (os.peca || (os.valor_peca && parseFloat(os.valor_peca) > 0)) && produtosSelecionados.length === 0 && (
-              <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-4 mb-4 shadow-sm">
-                <div className="flex items-center justify-between mb-3">
+              <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-3 sm:p-4 mb-4 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
                   <h3 className="text-base font-semibold text-blue-900 flex items-center gap-2">
                     <FiBox className="text-blue-600" size={18} />
                     Produtos já lançados
@@ -860,15 +860,15 @@ export default function DetalheBancadaPage() {
                 </div>
                 <div className="bg-white/50 rounded-lg p-3 border border-blue-200">
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                       <FiClipboard className="text-blue-600" size={14} />
                       <span className="text-sm font-medium text-blue-900">Descrição:</span>
                       <span className="text-sm text-blue-700">{os.peca || 'Não especificado'}</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                       <span className="text-lg">💰</span>
                       <span className="text-sm font-medium text-blue-900">Valor Total:</span>
-                      <span className="text-sm font-bold text-blue-800 bg-blue-200 px-2 py-1 rounded">
+                      <span className="text-sm font-bold text-blue-800 bg-blue-200 px-2 py-1 rounded w-fit">
                         {formatPrice(parseFloat(os.valor_peca || '0'))}
                       </span>
                     </div>
@@ -955,8 +955,8 @@ export default function DetalheBancadaPage() {
 
             {/* Serviços salvos anteriormente - Editáveis */}
             {os && (os.servico || (os.valor_servico && parseFloat(os.valor_servico) > 0)) && servicosSelecionados.length === 0 && (
-              <div className="bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-xl p-4 mb-4 shadow-sm">
-                <div className="flex items-center justify-between mb-3">
+              <div className="bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-xl p-3 sm:p-4 mb-4 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
                   <h3 className="text-base font-semibold text-green-900 flex items-center gap-2">
                     <FiTool className="text-green-600" size={18} />
                     Serviços já lançados
@@ -1010,15 +1010,15 @@ export default function DetalheBancadaPage() {
                 </div>
                 <div className="bg-white/50 rounded-lg p-3 border border-green-200">
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                       <FiClipboard className="text-green-600" size={14} />
                       <span className="text-sm font-medium text-green-900">Descrição:</span>
                       <span className="text-sm text-green-700">{os.servico || 'Não especificado'}</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                       <span className="text-lg">💰</span>
                       <span className="text-sm font-medium text-green-900">Valor Total:</span>
-                      <span className="text-sm font-bold text-green-800 bg-green-200 px-2 py-1 rounded">
+                      <span className="text-sm font-bold text-green-800 bg-green-200 px-2 py-1 rounded w-fit">
                         {formatPrice(parseFloat(os.valor_servico || '0'))}
                       </span>
                     </div>
@@ -1088,7 +1088,7 @@ export default function DetalheBancadaPage() {
               Laudo Técnico
             </h2>
             <textarea
-              className="w-full border border-gray-300 px-4 py-3 rounded-lg text-sm min-h-[120px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
+              className="w-full border border-gray-300 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm min-h-[120px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
               value={laudo}
               onChange={e => setLaudo(e.target.value)}
               placeholder="Descreva o diagnóstico técnico com todos os detalhes relevantes..."
@@ -1104,7 +1104,7 @@ export default function DetalheBancadaPage() {
             
             {/* Upload de novas imagens */}
             <div className="space-y-4">
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 sm:p-6 text-center hover:border-gray-400 transition-colors">
                 <input
                   type="file"
                   multiple
@@ -1146,13 +1146,13 @@ export default function DetalheBancadaPage() {
                       Limpar todas
                     </button>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
                     {previewImagens.map((preview, index) => (
                       <div key={index} className="relative group">
                         <img
                           src={preview}
                           alt={`Preview ${index + 1}`}
-                          className="w-full h-24 object-cover rounded-lg border border-gray-200 shadow-sm"
+                          className="w-full h-20 sm:h-24 object-cover rounded-lg border border-gray-200 shadow-sm"
                         />
                         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg flex items-center justify-center">
                           <button
@@ -1180,13 +1180,13 @@ export default function DetalheBancadaPage() {
                       Remover todas
                     </button>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
                     {imagensExistentes.map((url, index) => (
                       <div key={index} className="relative group">
                         <img
                           src={url}
                           alt={`Imagem ${index + 1}`}
-                          className="w-full h-24 object-cover rounded-lg border border-gray-200 shadow-sm"
+                          className="w-full h-20 sm:h-24 object-cover rounded-lg border border-gray-200 shadow-sm"
                         />
                         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg flex items-center justify-center">
                           <button
@@ -1211,19 +1211,19 @@ export default function DetalheBancadaPage() {
               Observações técnicas
             </h2>
             <textarea
-              className="w-full border border-gray-300 px-4 py-3 rounded-lg text-sm min-h-[80px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
+              className="w-full border border-gray-300 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm min-h-[80px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
               value={observacoes}
               onChange={e => setObservacoes(e.target.value)}
               placeholder="Observações adicionais do técnico..."
             />
           </div>
 
-          <div className="pt-4 border-t border-gray-200 flex gap-3">
+          <div className="pt-4 border-t border-gray-200 flex flex-col sm:flex-row gap-3">
             {mostrarBotaoIniciar && (
               <Button
                 onClick={handleIniciarOS}
                 disabled={salvando}
-                className="inline-flex items-center gap-2 bg-green-600 text-white hover:bg-green-700"
+                className="inline-flex justify-center items-center gap-2 bg-green-600 text-white hover:bg-green-700 w-full sm:w-auto"
                 size="lg"
               >
                 <FiPlayCircle size={16} /> 
@@ -1235,7 +1235,7 @@ export default function DetalheBancadaPage() {
               onClick={handleSalvar}
               disabled={salvando}
               size="lg"
-              className="inline-flex items-center gap-2"
+              className="inline-flex justify-center items-center gap-2 w-full sm:w-auto"
             >
               <FiSave size={16} /> 
               {salvando ? 'Salvando...' : 'Salvar Alterações'}
