@@ -296,7 +296,7 @@ export default function BancadaPage() {
       <MenuLayout>
         <div className="p-6">
           {/* Header */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <FiCpu className="text-blue-600" />
               Minha Bancada
@@ -337,8 +337,8 @@ export default function BancadaPage() {
           </div>
           
           {/* Abas */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
-            <div className="flex border-b border-gray-200">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6 overflow-x-auto">
+            <div className="flex border-b border-gray-200 min-w-max">
               <button
                 onClick={() => handleTabChange('pendentes')}
                 className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
@@ -483,7 +483,7 @@ export default function BancadaPage() {
           </div>
 
           {/* Lista de OSs */}
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {filteredOrdens.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-gray-400 mb-4">
@@ -537,7 +537,7 @@ export default function BancadaPage() {
                   return (
                     <div
                       key={os.id}
-                      className={`bg-white p-6 rounded-xl shadow-sm transition-all duration-200 ${
+                      className={`bg-white p-4 sm:p-6 rounded-xl shadow-sm transition-all duration-200 ${
                         isNovaAprovacao 
                           ? 'border-2 border-green-400 shadow-lg bg-gradient-to-r from-green-50 to-white animate-pulse'
                           : isAprovada
@@ -570,8 +570,8 @@ export default function BancadaPage() {
                         </div>
                       )}
                       
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                        <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-3 mb-3">
                             <h3 className="font-semibold text-gray-900">
                               #{os.numero_os || os.id} - {os.cliente?.nome || 'Cliente não informado'}
@@ -581,7 +581,7 @@ export default function BancadaPage() {
                             </span>
                           </div>
                           
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 text-sm text-gray-600">
                             <div>
                               <p className="font-medium text-gray-700 mb-1">Aparelho</p>
                               <p>{aparelho || 'Não informado'}</p>
@@ -606,16 +606,16 @@ export default function BancadaPage() {
                           {os.relato && (
                             <div className="mt-3 p-3 bg-gray-50 rounded-lg">
                               <p className="text-xs font-medium text-gray-700 mb-1">Relato do Cliente</p>
-                              <p className="text-sm text-gray-600 line-clamp-2">{os.relato}</p>
+                              <p className="text-sm text-gray-600 line-clamp-3 sm:line-clamp-2">{os.relato}</p>
                             </div>
                           )}
                         </div>
 
-                                                            <div className="ml-6 flex flex-col items-end">
+                        <div className="sm:ml-6 flex flex-col items-stretch sm:items-end gap-2 w-full sm:w-auto">
                                       {os.status === 'ABERTA' ? (
                                         <button
                                           onClick={() => abrirModal(os)}
-                                          className="inline-flex items-center gap-2 bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors shadow-sm"
+                              className="inline-flex justify-center items-center gap-2 bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors shadow-sm w-full sm:w-auto"
                                         >
                                           <FiEye size={16} /> 
                                           Visualizar
@@ -623,18 +623,18 @@ export default function BancadaPage() {
                                       ) : (
                                         <button
                                           onClick={() => router.push(`/bancada/${os.id}`)}
-                                          className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm"
+                              className="inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm w-full sm:w-auto"
                                         >
                                           <FiCpu size={16} /> 
                                           Continuar
                                         </button>
                                       )}
                                       
-                                      {os.status !== 'ABERTA' && (
-                                        <p className="text-xs text-gray-500 mt-2">
-                                          Entrada: {entrada}
-                                        </p>
-                                      )}
+                          {os.status !== 'ABERTA' && (
+                            <p className="text-xs text-gray-500 sm:mt-2 text-center sm:text-right">
+                              Entrada: {entrada}
+                            </p>
+                          )}
                                     </div>
                       </div>
                     </div>
