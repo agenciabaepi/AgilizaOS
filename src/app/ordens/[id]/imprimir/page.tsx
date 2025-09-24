@@ -326,6 +326,67 @@ function OrdemPDF({ ordem }: { ordem: any }) {
           <Text style={styles.paragraph}><Text style={styles.bold}>Condições:</Text> {ordem.condicoes_equipamento || '---'}</Text>
         </View>
 
+        {/* Informações de Acesso */}
+        {(ordem.senha_aparelho || ordem.senha_padrao) && (
+          <View style={styles.block}>
+            <Text style={styles.sectionTitle}>Informações de Acesso</Text>
+            {ordem.senha_aparelho && (
+              <Text style={styles.paragraph}><Text style={styles.bold}>Senha do Aparelho:</Text> {ordem.senha_aparelho}</Text>
+            )}
+            {ordem.senha_padrao && (
+              <View style={{ marginTop: 8 }}>
+                <Text style={[styles.paragraph, { marginBottom: 8 }]}><Text style={styles.bold}>Padrão de Desenho:</Text></Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                  <View style={{ 
+                    display: 'flex', 
+                    flexDirection: 'row', 
+                    flexWrap: 'wrap', 
+                    width: 60, 
+                    gap: 4 
+                  }}>
+                    {Array.from({ length: 9 }, (_, index) => {
+                      const pattern = JSON.parse(ordem.senha_padrao);
+                      const isSelected = pattern.includes(index);
+                      const sequenceNumber = isSelected ? pattern.indexOf(index) + 1 : null;
+                      return (
+                        <View
+                          key={index}
+                          style={{
+                            width: 16,
+                            height: 16,
+                            borderRadius: 8,
+                            borderWidth: 1,
+                            borderColor: isSelected ? '#000' : '#ccc',
+                            backgroundColor: isSelected ? '#000' : '#f5f5f5',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                          }}
+                        >
+                          {isSelected && (
+                            <Text style={{ 
+                              color: '#fff', 
+                              fontSize: 8, 
+                              fontWeight: 'bold',
+                              textAlign: 'center'
+                            }}>
+                              {sequenceNumber}
+                            </Text>
+                          )}
+                        </View>
+                      );
+                    })}
+                  </View>
+                  <Text style={{ fontSize: 10, color: '#666' }}>
+                    Sequência: {JSON.parse(ordem.senha_padrao).map((dot: number) => 
+                      `${Math.floor(dot / 3) + 1},${dot % 3 + 1}`
+                    ).join(' → ')}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Relato do Cliente */}
         <View style={styles.block}>
           <Text style={styles.sectionTitle}>Relato do Cliente</Text>
@@ -472,6 +533,8 @@ export default function ImprimirOrdemPage() {
             acessorios,
             atendente,
             senha_acesso,
+            senha_aparelho,
+            senha_padrao,
             laudo,
             imagens,
             qtd_peca,

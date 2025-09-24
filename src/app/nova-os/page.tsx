@@ -1303,25 +1303,45 @@ function NovaOS2Content() {
                       onChange={async (e) => {
                         setOsGarantiaBusca(e.target.value);
                         setBuscandoOsGarantia(true);
-                        // Buscar OSs que não são de garantia
-                        const { data, error } = await supabase
-                          .from('ordens_servico')
-                          .select('id, numero_os, cliente_id, modelo, numero_serie, cliente:clientes(nome)')
-                          .eq('empresa_id', empresaData?.id)
-                          .neq('status', 'retorno_garantia')
-                          .ilike('id', `%${e.target.value}%`)
-                          .limit(10);
-                        let resultados = data || [];
-                        // Buscar também por nome do cliente e modelo
-                        if (resultados.length === 0 && e.target.value.length > 2) {
+                        const termo = e.target.value.trim();
+                        let resultados: any[] = [];
+
+                        // 1) Se for numérico, buscar por numero_os exato
+                        if (/^\d+$/.test(termo)) {
+                          const numero = parseInt(termo, 10);
+                          const { data } = await supabase
+                            .from('ordens_servico')
+                            .select('id, numero_os, cliente_id, modelo, numero_serie, cliente:clientes(nome)')
+                            .eq('empresa_id', empresaData?.id)
+                            .neq('status', 'retorno_garantia')
+                            .eq('numero_os', numero)
+                            .limit(10);
+                          resultados = data || [];
+                        }
+
+                        // 2) Se não encontrou e o termo é textual, buscar por cliente e modelo
+                        if (resultados.length === 0 && termo.length > 2) {
                           const { data: porCliente } = await supabase
                             .from('ordens_servico')
                             .select('id, numero_os, cliente_id, modelo, numero_serie, cliente:clientes(nome)')
                             .eq('empresa_id', empresaData?.id)
                             .neq('status', 'retorno_garantia')
-                            .ilike('cliente.nome', `%${e.target.value}%`)
+                            .ilike('cliente.nome', `%${termo}%`)
                             .limit(10);
-                          if (porCliente) resultados = porCliente;
+                          if (porCliente && porCliente.length > 0) {
+                            resultados = porCliente;
+                          }
+                        }
+
+                        if (resultados.length === 0 && termo.length > 2) {
+                          const { data: porModelo } = await supabase
+                            .from('ordens_servico')
+                            .select('id, numero_os, cliente_id, modelo, numero_serie, cliente:clientes(nome)')
+                            .eq('empresa_id', empresaData?.id)
+                            .neq('status', 'retorno_garantia')
+                            .ilike('modelo', `%${termo}%`)
+                            .limit(10);
+                          if (porModelo) resultados = porModelo;
                         }
                         setOsGarantiaResultados(resultados);
                         setBuscandoOsGarantia(false);
@@ -1336,13 +1356,13 @@ function NovaOS2Content() {
                             className={`px-4 py-2 cursor-pointer hover:bg-lime-100 ${osGarantiaSelecionada?.id === os.id ? 'bg-lime-200' : ''}`}
                             onClick={() => setOsGarantiaSelecionada(os)}
                           >
-                            <span className="font-semibold">OS #{os.id as string}</span> — Cliente — {os.modelo as string}
+                            <span className="font-semibold">OS #{(os.numero_os as string) || (os.id as string)}</span> — {(os as any)?.cliente?.nome as string} — {os.modelo as string}
                           </li>
                         ))}
                       </ul>
                     )}
                     {osGarantiaSelecionada && (
-                      <div className="mt-2 text-xs text-green-700">OS original selecionada: <span className="font-bold">#{osGarantiaSelecionada.id as string}</span></div>
+                      <div className="mt-2 text-xs text-green-700">OS original selecionada: <span className="font-bold">#{(osGarantiaSelecionada.numero_os as string) || (osGarantiaSelecionada.id as string)}</span></div>
                     )}
                   </div>
                 )}

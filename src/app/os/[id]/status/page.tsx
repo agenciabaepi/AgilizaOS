@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { supabasePublic } from '@/lib/supabasePublicClient';
-import { FiClock, FiCheckCircle, FiAlertCircle, FiCamera, FiFileText, FiSmartphone, FiUser, FiCalendar, FiTool, FiZoomIn, FiDownload, FiChevronRight } from 'react-icons/fi';
+import { FiClock, FiCheckCircle, FiAlertCircle, FiCamera, FiFileText, FiSmartphone, FiShield, FiUser, FiCalendar, FiTool, FiZoomIn, FiDownload, FiChevronRight } from 'react-icons/fi';
 import ImagensOS from '@/components/ImagensOS';
 import StatusHistoricoTimeline from '@/components/StatusHistoricoTimeline';
 
