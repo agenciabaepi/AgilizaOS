@@ -1101,7 +1101,7 @@ function NovaOS2Content() {
                       {/* Padrão de Desenho Android */}
                       <div className="space-y-3">
                         <label className="block text-sm font-medium text-gray-700">Padrão de Desenho Android</label>
-                        <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                        <div className="border border-gray-300 rounded-lg p-2 bg-gray-50 h-48">
                           <PatternLock
                             onPatternComplete={(pattern) => {
                               setDadosEquipamento(prev => ({ ...prev, senha_padrao: pattern }));
@@ -1110,7 +1110,7 @@ function NovaOS2Content() {
                               setDadosEquipamento(prev => ({ ...prev, senha_padrao: [] }));
                             }}
                             value={dadosEquipamento.senha_padrao}
-                            className="w-full"
+                            className="w-full h-full"
                           />
                         </div>
                         <p className="text-xs text-gray-500">
