@@ -93,7 +93,7 @@ function UsuariosPageInner() {
 
   // Função para validar usuário único
   const validarUsuarioUnico = async (usuario: string) => {
-    if (!usuario.trim()) return false;
+    if (!usuario.trim() || !empresaId) return false;
     
     try {
       const { data } = await supabase
@@ -101,7 +101,7 @@ function UsuariosPageInner() {
         .select('id')
         .eq('usuario', usuario.trim().toLowerCase())
         .eq('empresa_id', empresaId)
-        .single();
+        .maybeSingle();
       
       return !data; // Retorna true se não existir (válido)
     } catch {
@@ -111,7 +111,7 @@ function UsuariosPageInner() {
 
   // Função para validar email único
   const validarEmailUnico = async (email: string) => {
-    if (!email.trim()) return false;
+    if (!email.trim() || !empresaId) return false;
     
     try {
       const { data } = await supabase
@@ -119,7 +119,7 @@ function UsuariosPageInner() {
         .select('id')
         .eq('email', email.trim().toLowerCase())
         .eq('empresa_id', empresaId)
-        .single();
+        .maybeSingle();
       
       return !data; // Retorna true se não existir (válido)
     } catch {
@@ -129,7 +129,7 @@ function UsuariosPageInner() {
 
   // Função para validar CPF único
   const validarCPFUnico = async (cpf: string) => {
-    if (!cpf.trim()) return false;
+    if (!cpf.trim() || !empresaId) return false;
     
     try {
       const { data } = await supabase
@@ -137,7 +137,7 @@ function UsuariosPageInner() {
         .select('id')
         .eq('cpf', cpf.replace(/\D/g, ''))
         .eq('empresa_id', empresaId)
-        .single();
+        .maybeSingle();
       
       return !data; // Retorna true se não existir (válido)
     } catch {
@@ -181,6 +181,7 @@ function UsuariosPageInner() {
       setCpfValido(true); // CPF vazio é válido (não obrigatório)
     }
   }, [cpf, empresaId]);
+
 
   useEffect(() => {
     if (usuario) {
@@ -561,7 +562,7 @@ function UsuariosPageInner() {
                       </div>
                       {cpf && !cpfValido && (
                         <p className="text-red-500 text-xs">
-                          {cpf.replace(/\D/g, '').length !== 11 ? 'CPF inválido' : 'CPF já cadastrado'}
+                          {!validarCPF(cpf) ? 'CPF inválido' : 'CPF já cadastrado'}
                         </p>
                       )}
                   </div>

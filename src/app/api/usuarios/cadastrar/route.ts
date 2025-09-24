@@ -13,40 +13,49 @@ export async function POST(request: Request) {
     }
 
     const supabaseAdmin = getSupabaseAdmin();
-    // Verifica se já existe um usuário com esse e-mail
+    
+    // Normalizar dados
+    const emailNormalizado = email.trim().toLowerCase();
+    const usuarioNormalizado = usuario.trim().toLowerCase();
+    const cpfNormalizado = cpf ? cpf.replace(/\D/g, '') : null;
+    
+    // Verifica se já existe um usuário com esse e-mail na mesma empresa
     const { data: existingUser } = await supabaseAdmin
       .from('usuarios')
       .select('id')
-      .eq('email', email)
-      .single();
+      .eq('email', emailNormalizado)
+      .eq('empresa_id', empresa_id)
+      .maybeSingle();
 
     if (existingUser) {
-      console.error('E-mail já cadastrado:', email);
+      console.error('E-mail já cadastrado:', emailNormalizado);
       return NextResponse.json({ error: 'E-mail já cadastrado.' }, { status: 409 });
     }
 
-    // Verifica se já existe um usuário com esse nome de usuário
+    // Verifica se já existe um usuário com esse nome de usuário na mesma empresa
     const { data: existingUsuario } = await supabaseAdmin
       .from('usuarios')
       .select('id')
-      .eq('usuario', usuario)
-      .single();
+      .eq('usuario', usuarioNormalizado)
+      .eq('empresa_id', empresa_id)
+      .maybeSingle();
 
     if (existingUsuario) {
-      console.error('Usuário já cadastrado:', usuario);
-      return NextResponse.json({ error: 'Usuário já cadastrado.' }, { status: 409 });
+      console.error('Usuário já cadastrado:', usuarioNormalizado);
+      return NextResponse.json({ error: 'Nome de usuário já existe.' }, { status: 409 });
     }
 
-    // Verifica se já existe um usuário com esse CPF (apenas se CPF foi fornecido)
-    if (cpf && cpf.trim()) {
+    // Verifica se já existe um usuário com esse CPF na mesma empresa (apenas se CPF foi fornecido)
+    if (cpfNormalizado && cpfNormalizado.trim()) {
       const { data: existingCPF } = await supabaseAdmin
         .from('usuarios')
         .select('id')
-        .eq('cpf', cpf)
-        .single();
+        .eq('cpf', cpfNormalizado)
+        .eq('empresa_id', empresa_id)
+        .maybeSingle();
 
       if (existingCPF) {
-        console.error('CPF já cadastrado:', cpf);
+        console.error('CPF já cadastrado:', cpfNormalizado);
         return NextResponse.json({ error: 'CPF já cadastrado.' }, { status: 409 });
       }
     }
@@ -58,7 +67,7 @@ export async function POST(request: Request) {
 
     // Cria o usuário no Supabase Auth
     const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
+      email: emailNormalizado,
       password: senha,
       email_confirm: true,
     });
@@ -76,10 +85,10 @@ export async function POST(request: Request) {
     const { error: dbError } = await supabaseAdmin.from('usuarios').insert([
       {
         nome,
-        email,
-        usuario,
+        email: emailNormalizado,
+        usuario: usuarioNormalizado,
         auth_user_id: authUser.user?.id,
-        cpf,
+        cpf: cpfNormalizado,
         nivel,
         empresa_id,
         whatsapp,

@@ -36,6 +36,11 @@ WHATSAPP_VERIFY_TOKEN=093718
 # WhatsApp Web.js Configuration (opcional)
 WHATSAPP_SESSION_PATH=/tmp/whatsapp-sessions
 
+# N8N Integration Configuration
+N8N_WEBHOOK_URL=https://gestaoconsert.app.n8n.cloud/webhook/consertos/os-status
+N8N_WEBHOOK_NOVA_OS_URL=https://gestaoconsert.app.n8n.cloud/webhook/consertos/nova-os
+N8N_WEBHOOK_STATUS_URL=https://gestaoconsert.app.n8n.cloud/webhook/consertos/mudanca-status
+
 # Environment
 NODE_ENV=production
 NEXT_PUBLIC_ENVIRONMENT=production

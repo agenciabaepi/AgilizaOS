@@ -13,6 +13,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Suspense } from 'react';
 import { useToast } from '@/components/Toast';
+import PatternLock from '@/components/PatternLock';
 
 const etapas = ["Cliente", "Aparelho", "Técnico", "Status", "Imagens"];
 
@@ -68,6 +69,7 @@ interface Termo {
 function NovaOS2Content() {
   const { usuarioData, empresaData } = useAuth();
   const [etapaAtual, setEtapaAtual] = useState(1);
+  const [isMounted, setIsMounted] = useState(false);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clienteSelecionado, setClienteSelecionado] = useState<string | null>(null);
   const [loadingClientes, setLoadingClientes] = useState(false);
@@ -83,7 +85,9 @@ function NovaOS2Content() {
     modelo: '',
     cor: '', // NOVO
     numero_serie: '',
-    descricao_problema: ''
+    descricao_problema: '',
+    senha: '',
+    senha_padrao: [] as number[]
   });
 
   // Estado para acessórios
@@ -175,6 +179,11 @@ function NovaOS2Content() {
   const searchParams = useSearchParams();
   const { addToast } = useToast();
   const { register, handleSubmit, reset, formState: { errors } } = useForm<{ nome: string; whatsapp: string; cpf: string; numero_reserva?: string; email?: string }>();
+
+  // Controlar hidratação
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     async function fetchClientes() {
@@ -566,7 +575,7 @@ function NovaOS2Content() {
       // Preparar dados da OS para salvar no banco
       const dadosOS = {
         cliente_id: clienteSelecionado,
-        tecnico_id: tecnicoResponsavel,  // ✅ Campo correto: tecnico_id (não usuario_id)
+        tecnico_id: tecnicoResponsavel,  // ✅ Usar tecnico_id (campo que existe na tabela)
         status: nomeStatus,
         categoria: dadosEquipamento.tipo?.toUpperCase() || '',
         marca: dadosEquipamento.marca?.toUpperCase() || '',
@@ -584,6 +593,9 @@ function NovaOS2Content() {
         os_garantia_id: tipoEntrada === 'garantia' && osGarantiaSelecionada ? osGarantiaSelecionada.id : null,
         termo_garantia_id: termoSelecionado || null,
         tipo: 'Normal',
+        // Campos de senha
+        senha_aparelho: dadosEquipamento.senha || null,
+        senha_padrao: dadosEquipamento.senha_padrao.length > 0 ? JSON.stringify(dadosEquipamento.senha_padrao) : null,
         // Adicionar campo de prazo de entrega
         prazo_entrega: prazoEntrega ? new Date(prazoEntrega).toISOString() : (() => {
           // Se não foi definido, criar prazo automático (7 dias)
@@ -856,39 +868,45 @@ function NovaOS2Content() {
                   </div>
                 )}
                 <label className="block text-sm font-medium text-gray-700 mb-2">Selecione o cliente</label>
-                <ReactSelect
-                  options={(clientes || []).map(c => ({ value: c.id, label: c.nome }))}
-                  value={(() => {
-                    const cliente = (clientes || []).find(c => c.id === clienteSelecionado);
-                    return cliente ? { value: clienteSelecionado, label: cliente.nome } : null;
-                  })()}
-                  onChange={opt => setClienteSelecionado(opt?.value || null)}
-                  isLoading={loadingClientes}
-                  placeholder={loadingClientes ? "Carregando clientes..." : "Buscar cliente..."}
-                  className="mb-4"
-                  styles={{
-                    control: (provided) => ({
-                      ...provided,
-                      borderRadius: '0.5rem',
-                      borderColor: '#e5e7eb',
-                      minHeight: '44px',
-                      fontSize: '1rem',
-                      boxShadow: 'none',
-                      ':hover': { borderColor: '#3b82f6' }
-                    }),
-                    option: (provided, state) => ({
-                      ...provided,
-                      backgroundColor: state.isSelected
-                        ? '#111827'
-                        : state.isFocused
-                        ? '#e0e7ef'
-                        : 'white',
-                      color: state.isSelected ? 'white' : '#111827',
-                      fontSize: '1rem',
-                    }),
-                  }}
-                  isDisabled={tipoEntrada === 'garantia' && !!osGarantiaSelecionada}
-                />
+                {isMounted ? (
+                  <ReactSelect
+                    options={(clientes || []).map(c => ({ value: c.id, label: c.nome }))}
+                    value={(() => {
+                      const cliente = (clientes || []).find(c => c.id === clienteSelecionado);
+                      return cliente ? { value: clienteSelecionado, label: cliente.nome } : null;
+                    })()}
+                    onChange={opt => setClienteSelecionado(opt?.value || null)}
+                    isLoading={loadingClientes}
+                    placeholder={loadingClientes ? "Carregando clientes..." : "Buscar cliente..."}
+                    className="mb-4"
+                    styles={{
+                      control: (provided) => ({
+                        ...provided,
+                        borderRadius: '0.5rem',
+                        borderColor: '#e5e7eb',
+                        minHeight: '44px',
+                        fontSize: '1rem',
+                        boxShadow: 'none',
+                        ':hover': { borderColor: '#3b82f6' }
+                      }),
+                      option: (provided, state) => ({
+                        ...provided,
+                        backgroundColor: state.isSelected
+                          ? '#111827'
+                          : state.isFocused
+                          ? '#e0e7ef'
+                          : 'white',
+                        color: state.isSelected ? 'white' : '#111827',
+                        fontSize: '1rem',
+                      }),
+                    }}
+                    isDisabled={tipoEntrada === 'garantia' && !!osGarantiaSelecionada}
+                  />
+                ) : (
+                  <div className="mb-4 h-11 bg-gray-100 rounded-lg animate-pulse flex items-center px-3">
+                    <span className="text-gray-400">Carregando...</span>
+                  </div>
+                )}
                 <Button variant="secondary" className="w-full" onClick={() => setShowCadastroCliente(true)}>Cadastrar novo cliente</Button>
                 {showCadastroCliente && (
                   <form className="bg-gray-50 border border-gray-200 rounded-xl p-6 mt-4 flex flex-col gap-4" onSubmit={handleSubmit(onCadastrarCliente)}>
@@ -946,7 +964,7 @@ function NovaOS2Content() {
             )}
 
             {etapaAtual === 2 && (
-              <div className="w-full max-w-2xl mx-auto flex flex-col gap-6">
+              <div className="w-full max-w-4xl mx-auto flex flex-col gap-6">
                 <h3 className="text-lg font-medium text-gray-700 mb-4">Dados do Equipamento</h3>
                 
                 {/* Dados do equipamento */}
@@ -1020,6 +1038,81 @@ function NovaOS2Content() {
                     />
                   </div>
 
+                  {/* Seção de Senhas */}
+                  <div className="mt-6 border-t pt-6">
+                    <h4 className="text-sm font-medium text-gray-700 mb-4">Informações de Acesso</h4>
+                    
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                      {/* Campo de Senha Simples */}
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700">Senha do Aparelho</label>
+                        <input
+                          type="text"
+                          placeholder="Ex: 1234, senha123, etc."
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                          value={dadosEquipamento.senha}
+                          onChange={(e) => setDadosEquipamento(prev => ({ ...prev, senha: e.target.value }))}
+                        />
+                        <p className="text-xs text-gray-500 leading-relaxed">
+                          Digite a senha/pin do aparelho (opcional)
+                        </p>
+                      </div>
+
+                      {/* Padrão de Desenho Android */}
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700">Padrão de Desenho</label>
+                        <div className="w-full">
+                          <PatternLock
+                            onPatternComplete={(pattern) => {
+                              setDadosEquipamento(prev => ({ ...prev, senha_padrao: pattern }));
+                            }}
+                            onPatternClear={() => {
+                              setDadosEquipamento(prev => ({ ...prev, senha_padrao: [] }));
+                            }}
+                            value={dadosEquipamento.senha_padrao}
+                            className="w-full"
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 leading-relaxed">
+                          Desenhe o padrão de desbloqueio do Android (opcional)
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Resumo das senhas */}
+                    {(dadosEquipamento.senha || dadosEquipamento.senha_padrao.length > 0) && (
+                      <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <h5 className="text-sm font-medium text-blue-700 mb-3 flex items-center gap-2">
+                          <span className="text-blue-600">📋</span>
+                          Informações de Acesso Registradas
+                        </h5>
+                        <div className="space-y-2">
+                          {dadosEquipamento.senha && (
+                            <div className="flex items-center gap-2 text-sm text-blue-600">
+                              <span className="text-blue-500">🔐</span>
+                              <span className="font-medium">Senha:</span>
+                              <span className="font-mono bg-blue-100 px-2 py-1 rounded text-xs">{dadosEquipamento.senha}</span>
+                            </div>
+                          )}
+                          {dadosEquipamento.senha_padrao.length > 0 && (
+                            <div className="flex items-center gap-2 text-sm text-blue-600">
+                              <span className="text-blue-500">📱</span>
+                              <span className="font-medium">Padrão:</span>
+                              <span className="font-mono bg-blue-100 px-2 py-1 rounded text-xs">
+                                {dadosEquipamento.senha_padrao.map((dot, index) => (
+                                  <span key={index}>
+                                    {Math.floor(dot / 3) + 1},{dot % 3 + 1}
+                                    {index < dadosEquipamento.senha_padrao.length - 1 ? ' → ' : ''}
+                                  </span>
+                                ))}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Acessórios e Estado do Equipamento */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                     <div>
@@ -1057,43 +1150,49 @@ function NovaOS2Content() {
                 
                 <div className="space-y-4">
                   <label className="block text-sm font-medium text-gray-700">Selecione o Técnico Responsável</label>
-                  <ReactSelect
-                    options={(tecnicos || []).map(tecnico => ({ 
-                      value: tecnico.tecnico_id || tecnico.auth_user_id, 
-                      label: tecnico.nome 
-                    }))}
-                    value={(() => {
-                      const tecnico = (tecnicos || []).find(t => (t.tecnico_id || t.auth_user_id) === tecnicoResponsavel);
-                      return tecnicoResponsavel && tecnico ? { 
-                        value: tecnicoResponsavel, 
+                  {isMounted ? (
+                    <ReactSelect
+                      options={(tecnicos || []).map(tecnico => ({ 
+                        value: tecnico.tecnico_id || tecnico.auth_user_id, 
                         label: tecnico.nome 
-                      } : null;
-                    })()}
-                    onChange={(option) => setTecnicoResponsavel(option?.value || null)}
-                    isLoading={loadingUsuarios}
-                    placeholder={loadingUsuarios ? "Carregando técnicos..." : "Selecione o técnico..."}
-                    styles={{
-                      control: (provided) => ({
-                        ...provided,
-                        borderRadius: '0.5rem',
-                        borderColor: '#e5e7eb',
-                        minHeight: '44px',
-                        fontSize: '1rem',
-                        boxShadow: 'none',
-                        ':hover': { borderColor: '#3b82f6' }
-                      }),
-                      option: (provided, state) => ({
-                        ...provided,
-                        backgroundColor: state.isSelected
-                          ? '#111827'
-                          : state.isFocused
-                          ? '#e0e7ef'
-                          : 'white',
-                        color: state.isSelected ? 'white' : '#111827',
-                        fontSize: '1rem',
-                      }),
-                    }}
-                  />
+                      }))}
+                      value={(() => {
+                        const tecnico = (tecnicos || []).find(t => (t.tecnico_id || t.auth_user_id) === tecnicoResponsavel);
+                        return tecnicoResponsavel && tecnico ? { 
+                          value: tecnicoResponsavel, 
+                          label: tecnico.nome 
+                        } : null;
+                      })()}
+                      onChange={(option) => setTecnicoResponsavel(option?.value || null)}
+                      isLoading={loadingUsuarios}
+                      placeholder={loadingUsuarios ? "Carregando técnicos..." : "Selecione o técnico..."}
+                      styles={{
+                        control: (provided) => ({
+                          ...provided,
+                          borderRadius: '0.5rem',
+                          borderColor: '#e5e7eb',
+                          minHeight: '44px',
+                          fontSize: '1rem',
+                          boxShadow: 'none',
+                          ':hover': { borderColor: '#3b82f6' }
+                        }),
+                        option: (provided, state) => ({
+                          ...provided,
+                          backgroundColor: state.isSelected
+                            ? '#111827'
+                            : state.isFocused
+                            ? '#e0e7ef'
+                            : 'white',
+                          color: state.isSelected ? 'white' : '#111827',
+                          fontSize: '1rem',
+                        }),
+                      }}
+                    />
+                  ) : (
+                    <div className="h-11 bg-gray-100 rounded-lg animate-pulse flex items-center px-3">
+                      <span className="text-gray-400">Carregando...</span>
+                    </div>
+                  )}
                 </div>
 
                 {tecnicoResponsavel && (
@@ -1364,54 +1463,60 @@ function NovaOS2Content() {
                             + Cadastrar Produto
                           </Button>
                         </div>
-                        <ReactSelect
-                          isMulti
-                          options={(produtosServicos || []).filter(p => p.tipo === 'produto').map(p => ({ 
-                            value: p.id, 
-                            label: `${p.codigo || 'N/A'} - ${p.nome} - R$ ${p.preco.toFixed(2)}/${p.unidade}`,
-                            data: p 
-                          }))}
-                          value={produtosSelecionados.map(p => ({ 
-                            value: p.id, 
-                            label: `${p.codigo || 'N/A'} - ${p.nome} - R$ ${p.preco.toFixed(2)}/${p.unidade}`,
-                            data: p 
-                          }))}
-                          onChange={(options) => {
-                            const selected = options ? options.map(opt => opt.data) : [];
-                            setProdutosSelecionados(selected);
-                            
-                            // Validação em tempo real para produtos sem valor
-                            if (statusSelecionado === 'aprovado' && selected.length > 0) {
-                              const produtosSemValor = selected.filter(p => p.preco <= 0);
-                              if (produtosSemValor.length > 0) {
-                                console.warn('Produtos selecionados sem valor:', produtosSemValor);
+                        {isMounted ? (
+                          <ReactSelect
+                            isMulti
+                            options={(produtosServicos || []).filter(p => p.tipo === 'produto').map(p => ({ 
+                              value: p.id, 
+                              label: `${p.codigo || 'N/A'} - ${p.nome} - R$ ${p.preco.toFixed(2)}/${p.unidade}`,
+                              data: p 
+                            }))}
+                            value={produtosSelecionados.map(p => ({ 
+                              value: p.id, 
+                              label: `${p.codigo || 'N/A'} - ${p.nome} - R$ ${p.preco.toFixed(2)}/${p.unidade}`,
+                              data: p 
+                            }))}
+                            onChange={(options) => {
+                              const selected = options ? options.map(opt => opt.data) : [];
+                              setProdutosSelecionados(selected);
+                              
+                              // Validação em tempo real para produtos sem valor
+                              if (statusSelecionado === 'aprovado' && selected.length > 0) {
+                                const produtosSemValor = selected.filter(p => p.preco <= 0);
+                                if (produtosSemValor.length > 0) {
+                                  console.warn('Produtos selecionados sem valor:', produtosSemValor);
+                                }
                               }
-                            }
-                          }}
-                          isLoading={loadingProdutos}
-                          placeholder={loadingProdutos ? "Carregando produtos..." : "Selecione os produtos..."}
-                          styles={{
-                            control: (provided) => ({
-                              ...provided,
-                              borderRadius: '0.5rem',
-                              borderColor: '#e5e7eb',
-                              minHeight: '44px',
-                              fontSize: '1rem',
-                              boxShadow: 'none',
-                              ':hover': { borderColor: '#3b82f6' }
-                            }),
-                            option: (provided, state) => ({
-                              ...provided,
-                              backgroundColor: state.isSelected
-                                ? '#111827'
-                                : state.isFocused
-                                ? '#e0e7ef'
-                                : 'white',
-                              color: state.isSelected ? 'white' : '#111827',
-                              fontSize: '1rem',
-                            }),
-                          }}
-                        />
+                            }}
+                            isLoading={loadingProdutos}
+                            placeholder={loadingProdutos ? "Carregando produtos..." : "Selecione os produtos..."}
+                            styles={{
+                              control: (provided) => ({
+                                ...provided,
+                                borderRadius: '0.5rem',
+                                borderColor: '#e5e7eb',
+                                minHeight: '44px',
+                                fontSize: '1rem',
+                                boxShadow: 'none',
+                                ':hover': { borderColor: '#3b82f6' }
+                              }),
+                              option: (provided, state) => ({
+                                ...provided,
+                                backgroundColor: state.isSelected
+                                  ? '#111827'
+                                  : state.isFocused
+                                  ? '#e0e7ef'
+                                  : 'white',
+                                color: state.isSelected ? 'white' : '#111827',
+                                fontSize: '1rem',
+                              }),
+                            }}
+                          />
+                        ) : (
+                          <div className="h-11 bg-gray-100 rounded-lg animate-pulse flex items-center px-3">
+                            <span className="text-gray-400">Carregando produtos...</span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Seleção de Serviços */}
@@ -1430,54 +1535,60 @@ function NovaOS2Content() {
                             + Cadastrar Serviço
                           </Button>
                         </div>
-                        <ReactSelect
-                          isMulti
-                          options={(produtosServicos || []).filter(s => s.tipo === 'servico').map(s => ({ 
-                            value: s.id, 
-                            label: `${s.codigo || 'N/A'} - ${s.nome} - R$ ${s.preco.toFixed(2)}`,
-                            data: s 
-                          }))}
-                          value={servicosSelecionados.map(s => ({ 
-                            value: s.id, 
-                            label: `${s.codigo || 'N/A'} - ${s.nome} - R$ ${s.preco.toFixed(2)}`,
-                            data: s 
-                          }))}
-                          onChange={(options) => {
-                            const selected = options ? options.map(opt => opt.data) : [];
-                            setServicosSelecionados(selected);
-                            
-                            // Validação em tempo real para serviços sem valor
-                            if (statusSelecionado === 'aprovado' && selected.length > 0) {
-                              const servicosSemValor = selected.filter(s => s.preco <= 0);
-                              if (servicosSemValor.length > 0) {
-                                console.warn('Serviços selecionados sem valor:', servicosSemValor);
+                        {isMounted ? (
+                          <ReactSelect
+                            isMulti
+                            options={(produtosServicos || []).filter(s => s.tipo === 'servico').map(s => ({ 
+                              value: s.id, 
+                              label: `${s.codigo || 'N/A'} - ${s.nome} - R$ ${s.preco.toFixed(2)}`,
+                              data: s 
+                            }))}
+                            value={servicosSelecionados.map(s => ({ 
+                              value: s.id, 
+                              label: `${s.codigo || 'N/A'} - ${s.nome} - R$ ${s.preco.toFixed(2)}`,
+                              data: s 
+                            }))}
+                            onChange={(options) => {
+                              const selected = options ? options.map(opt => opt.data) : [];
+                              setServicosSelecionados(selected);
+                              
+                              // Validação em tempo real para serviços sem valor
+                              if (statusSelecionado === 'aprovado' && selected.length > 0) {
+                                const servicosSemValor = selected.filter(s => s.preco <= 0);
+                                if (servicosSemValor.length > 0) {
+                                  console.warn('Serviços selecionados sem valor:', servicosSemValor);
+                                }
                               }
-                            }
-                          }}
-                          isLoading={loadingProdutos}
-                          placeholder={loadingProdutos ? "Carregando serviços..." : "Selecione os serviços..."}
-                          styles={{
-                            control: (provided) => ({
-                              ...provided,
-                              borderRadius: '0.5rem',
-                              borderColor: '#e5e7eb',
-                              minHeight: '44px',
-                              fontSize: '1rem',
-                              boxShadow: 'none',
-                              ':hover': { borderColor: '#3b82f6' }
-                            }),
-                            option: (provided, state) => ({
-                              ...provided,
-                              backgroundColor: state.isSelected
-                                ? '#111827'
-                                : state.isFocused
-                                ? '#e0e7ef'
-                                : 'white',
-                              color: state.isSelected ? 'white' : '#111827',
-                              fontSize: '1rem',
-                            }),
-                          }}
-                        />
+                            }}
+                            isLoading={loadingProdutos}
+                            placeholder={loadingProdutos ? "Carregando serviços..." : "Selecione os serviços..."}
+                            styles={{
+                              control: (provided) => ({
+                                ...provided,
+                                borderRadius: '0.5rem',
+                                borderColor: '#e5e7eb',
+                                minHeight: '44px',
+                                fontSize: '1rem',
+                                boxShadow: 'none',
+                                ':hover': { borderColor: '#3b82f6' }
+                              }),
+                              option: (provided, state) => ({
+                                ...provided,
+                                backgroundColor: state.isSelected
+                                  ? '#111827'
+                                  : state.isFocused
+                                  ? '#e0e7ef'
+                                  : 'white',
+                                color: state.isSelected ? 'white' : '#111827',
+                                fontSize: '1rem',
+                              }),
+                            }}
+                          />
+                        ) : (
+                          <div className="h-11 bg-gray-100 rounded-lg animate-pulse flex items-center px-3">
+                            <span className="text-gray-400">Carregando serviços...</span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Resumo dos itens selecionados */}

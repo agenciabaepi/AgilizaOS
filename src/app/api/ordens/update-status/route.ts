@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabaseClient';
+import { notificarN8nOSAprovada, notificarN8nStatusOS, gerarLinkOS } from '@/lib/n8n-integration';
 
 export async function POST(request: NextRequest) {
   try {
@@ -59,6 +60,73 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('✅ Status da OS atualizado com sucesso:', data);
+
+    // ✅ ENVIAR NOTIFICAÇÃO N8N PARA APROVAÇÃO OU MUDANÇA DE STATUS
+    if (newStatus || newStatusTecnico) {
+      console.log('📱 Enviando notificação N8N para mudança de status...');
+      try {
+        // Buscar dados completos da OS para notificação
+        const { data: osCompleta, error: osCompletaError } = await supabase
+          .from('ordens_servico')
+          .select(`
+            id,
+            numero_os,
+            empresa_id,
+            tecnico_id,
+            status,
+            status_tecnico,
+            servico,
+            equipamento,
+            valor_faturado,
+            clientes!inner(nome, telefone),
+            usuarios!inner(nome, whatsapp)
+          `)
+          .eq('id', osId)
+          .single();
+
+        if (!osCompletaError && osCompleta) {
+          const normalize = (s: string) => (s || '').toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+          const statusNormalizado = normalize(newStatus || osCompleta.status);
+          
+          // Preparar payload base
+          const n8nPayload = {
+            os_id: osCompleta.id,
+            empresa_id: osCompleta.empresa_id,
+            tecnico_nome: (osCompleta.usuarios as any)?.nome || 'Técnico não informado',
+            tecnico_whatsapp: (osCompleta.usuarios as any)?.whatsapp || '',
+            cliente_nome: (osCompleta.clientes as any)?.nome || 'Cliente não informado',
+            cliente_telefone: (osCompleta.clientes as any)?.telefone || '',
+            equipamento: osCompleta.equipamento || 'Equipamento não especificado',
+            servico: osCompleta.servico || 'Serviço não especificado',
+            numero_os: osCompleta.numero_os,
+            status: newStatus || osCompleta.status,
+            valor: osCompleta.valor_faturado || 0,
+            link_os: gerarLinkOS(osCompleta.id)
+          };
+
+          // Decidir qual webhook usar baseado no status
+          let n8nSuccess = false;
+          if (statusNormalizado === 'APROVADO') {
+            console.log('🎉 Status APROVADO detectado - enviando para webhook de aprovação');
+            n8nSuccess = await notificarN8nOSAprovada(n8nPayload);
+          } else {
+            console.log('🔄 Mudança de status geral - enviando para webhook de status');
+            n8nSuccess = await notificarN8nStatusOS(n8nPayload);
+          }
+          
+          if (n8nSuccess) {
+            console.log('✅ Notificação N8N enviada com sucesso');
+          } else {
+            console.warn('⚠️ Falha ao enviar notificação N8N');
+          }
+        } else {
+          console.warn('⚠️ Erro ao buscar dados completos da OS para notificação:', osCompletaError);
+        }
+      } catch (notificationError) {
+        console.error('❌ Erro ao enviar notificação N8N:', notificationError);
+        // Não falha a atualização por causa da notificação
+      }
+    }
 
     // ✅ REGISTRAR MUDANÇA NO HISTÓRICO
     console.log('📝 Registrando mudança no histórico...');

@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendNewOSNotification } from '@/lib/whatsapp-notifications';
+import { notificarNovaOSN8N, gerarURLOs, formatarWhatsApp } from '@/lib/n8n-nova-os';
 
 export async function POST(request: NextRequest) {
   try {
@@ -67,13 +68,101 @@ export async function POST(request: NextRequest) {
       console.warn('⚠️ Erro ao registrar histórico inicial:', historicoError);
     }
 
-    // Enviar notificação WhatsApp para o técnico responsável
-    console.log('🔔 Enviando notificação de nova OS para técnico...');
+    // ✅ ENVIAR NOTIFICAÇÃO WHATSAPP PARA NOVA OS (via N8N - webhook novo-aparelho)
+    console.log('📱 Enviando notificação WhatsApp para nova OS via N8N (webhook novo-aparelho)...');
     try {
-      const notificationSent = await sendNewOSNotification(osData.id);
-      console.log('📱 Notificação de nova OS:', notificationSent ? 'Enviada com sucesso' : 'Falha no envio');
+      // Buscar dados completos da OS incluindo cliente
+      const { data: osCompleta, error: osCompletaError } = await supabase
+        .from('ordens_servico')
+        .select(`
+          id,
+          numero_os,
+          marca,
+          modelo,
+          problema_relatado,
+          status,
+          tecnico_id,
+          clientes!inner(nome)
+        `)
+        .eq('id', osData.id)
+        .single();
+
+      // Buscar dados do técnico separadamente usando o tecnico_id da OS
+      let tecnico = null;
+      if (!osCompletaError && osCompleta?.tecnico_id) {
+        const { data: tecnicoData, error: tecnicoError } = await supabase
+          .from('usuarios')
+          .select('nome, whatsapp, tecnico_id')
+          .eq('tecnico_id', osCompleta.tecnico_id)
+          .single();
+        
+        if (!tecnicoError && tecnicoData) {
+          tecnico = tecnicoData;
+        }
+      }
+
+      if (!osCompletaError && osCompleta) {
+        const cliente = osCompleta.clientes as any;
+        
+        // ✅ DEBUG: Log dos dados recebidos
+        console.log('🔍 N8N: Dados da OS encontrados:', {
+          os_id: osCompleta.id,
+          numero_os: osCompleta.numero_os,
+          tecnico_id: osCompleta.tecnico_id,
+          tecnico_data: tecnico,
+          cliente_data: cliente,
+          marca: osCompleta.marca,
+          modelo: osCompleta.modelo,
+          problema_relatado: osCompleta.problema_relatado,
+          status: osCompleta.status
+        });
+        
+        // Montar descrição do equipamento com marca e modelo
+        const equipamento = `${osCompleta.marca || 'Marca não informada'} ${osCompleta.modelo || 'Modelo não informado'}`.trim();
+        const tecnicoWhatsApp = formatarWhatsApp(tecnico?.whatsapp || '');
+        const clienteNome = cliente?.nome || 'Cliente não informado';
+        const defeito = osCompleta.problema_relatado || 'Defeito não especificado';
+        const status = osCompleta.status || 'Pendente';
+
+        // Verificar se temos os dados necessários
+        if (!tecnicoWhatsApp) {
+          console.warn('⚠️ N8N: WhatsApp do técnico não encontrado, pulando notificação');
+        } else {
+          // Preparar payload completo para o webhook novo-aparelho
+          const n8nPayload = {
+            numero_os: parseInt(osCompleta.numero_os), // Converter para número
+            cliente_nome: clienteNome,
+            equipamento: equipamento,
+            defeito: defeito,
+            status: status,
+            tecnico_nome: tecnico?.nome || 'Técnico não informado',
+            tecnico_whatsapp: tecnicoWhatsApp,
+            link_os: gerarURLOs(osCompleta.id)
+          };
+
+          console.log('📱 N8N: Enviando payload completo para webhook novo-aparelho:', n8nPayload);
+
+          // Enviar para N8N usando webhook específico
+          const n8nSuccess = await notificarNovaOSN8N(n8nPayload);
+          
+          if (n8nSuccess) {
+            console.log('✅ N8N: Notificação enviada com sucesso para webhook novo-aparelho');
+          } else {
+            console.warn('⚠️ N8N: Falha ao enviar notificação para webhook novo-aparelho');
+          }
+        }
+
+        // Fallback: também tentar método antigo
+        const notificationSent = await sendNewOSNotification(osData.id);
+        console.log('📱 Notificação WhatsApp (fallback):', notificationSent ? 'Enviada com sucesso' : 'Falha no envio');
+      } else {
+        console.warn('⚠️ N8N: Erro ao buscar dados completos da OS:', osCompletaError);
+        // Fallback para método antigo
+        const notificationSent = await sendNewOSNotification(osData.id);
+        console.log('📱 Notificação WhatsApp (fallback):', notificationSent ? 'Enviada com sucesso' : 'Falha no envio');
+      }
     } catch (notificationError) {
-      console.error('❌ Erro ao enviar notificação de nova OS:', notificationError);
+      console.error('❌ N8N: Erro ao enviar notificação de nova OS:', notificationError);
       // Não falha a criação da OS se a notificação falhar
     }
 
