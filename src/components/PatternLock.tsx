@@ -83,11 +83,12 @@ export default function PatternLock({
     const width = rect.width;
     const height = rect.height;
     
-    // Calcular dimensões responsivas
-    const minDimension = Math.min(width, height);
-    const padding = Math.max(16, minDimension * 0.1); // Padding responsivo
-    const dotSize = Math.max(8, minDimension * 0.05); // Tamanho do ponto responsivo
-    const dotSpacing = (minDimension - padding * 2) / 2;
+    // Calcular dimensões para distribuição perfeita
+    const size = Math.min(width, height);
+    const padding = size * 0.15; // 15% de padding
+    const availableSpace = size - (padding * 2);
+    const dotSize = availableSpace * 0.08; // 8% do espaço disponível
+    const spacing = availableSpace / 3; // Dividir em 3 partes iguais
 
     // Limpar canvas
     ctx.clearRect(0, 0, width, height);
@@ -95,8 +96,8 @@ export default function PatternLock({
     // Desenhar pontos
     for (let row = 0; row < 3; row++) {
       for (let col = 0; col < 3; col++) {
-        const x = padding + col * dotSpacing;
-        const y = padding + row * dotSpacing;
+        const x = padding + (col + 0.5) * spacing;
+        const y = padding + (row + 0.5) * spacing;
         const dotIndex = row * 3 + col;
         const isSelected = selectedDots.includes(dotIndex);
 
