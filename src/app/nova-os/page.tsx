@@ -1079,49 +1079,90 @@ function NovaOS2Content() {
                     />
                   </div>
 
-                  {/* Seção de Senhas */}
-                  <div className="mt-6 border-t pt-6">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2 bg-indigo-100 rounded-lg">
-                        <FiShield className="w-5 h-5 text-indigo-600" />
+                  {/* Seção de Senhas - Design Premium */}
+                  <div className="mt-8 border-t border-gray-200 pt-8">
+                    <div className="text-center mb-8">
+                      <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl mb-3 shadow-lg">
+                        <FiShield className="w-6 h-6 text-white" />
                       </div>
-                      <h4 className="text-sm font-medium text-gray-700">Informações de Acesso</h4>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Informações de Acesso</h3>
+                      <p className="text-sm text-gray-600">Configure as credenciais de acesso do dispositivo</p>
                     </div>
                     
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Campo de Senha Simples */}
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-700">Senha do Aparelho</label>
-                        <input
-                          type="text"
-                          placeholder="Ex: 1234, senha123, etc."
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                          value={dadosEquipamento.senha}
-                          onChange={(e) => setDadosEquipamento(prev => ({ ...prev, senha: e.target.value }))}
-                        />
-                        <p className="text-xs text-gray-500">
-                          Digite a senha/pin do aparelho (opcional)
-                        </p>
-                      </div>
-
-                      {/* Padrão de Desenho Android */}
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-700">Padrão de Desenho Android</label>
-                        <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
-                          <PatternLock
-                            onPatternComplete={(pattern) => {
-                              setDadosEquipamento(prev => ({ ...prev, senha_padrao: pattern }));
-                            }}
-                            onPatternClear={() => {
-                              setDadosEquipamento(prev => ({ ...prev, senha_padrao: [] }));
-                            }}
-                            value={dadosEquipamento.senha_padrao}
-                            className="w-full aspect-square max-w-xs mx-auto"
-                          />
+                    <div className="max-w-4xl mx-auto">
+                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                        {/* Campo de Senha Simples - Card Premium */}
+                        <div className="group">
+                          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all duration-300 group-hover:border-blue-300">
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <span className="text-blue-600 text-sm font-semibold">🔐</span>
+                              </div>
+                              <h4 className="font-semibold text-gray-900">Senha do Aparelho</h4>
+                            </div>
+                            
+                            <div className="space-y-3">
+                              <input
+                                type="text"
+                                placeholder="Digite a senha ou PIN..."
+                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                                value={dadosEquipamento.senha}
+                                onChange={(e) => setDadosEquipamento(prev => ({ ...prev, senha: e.target.value }))}
+                              />
+                              
+                              {dadosEquipamento.senha && (
+                                <div className="flex items-center gap-2 text-sm text-green-600">
+                                  <FiCheckCircle className="w-4 h-4" />
+                                  <span>Senha registrada com sucesso</span>
+                                </div>
+                              )}
+                              
+                              <p className="text-xs text-gray-500 leading-relaxed">
+                                Informe a senha, PIN ou código de desbloqueio do dispositivo
+                              </p>
+                            </div>
+                          </div>
                         </div>
-                        <p className="text-xs text-gray-500">
-                          Desenhe o padrão de desbloqueio do Android (opcional)
-                        </p>
+
+                        {/* Padrão de Desenho Android - Card Premium */}
+                        <div className="group">
+                          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all duration-300 group-hover:border-purple-300">
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                                <span className="text-purple-600 text-sm font-semibold">📱</span>
+                              </div>
+                              <h4 className="font-semibold text-gray-900">Padrão Android</h4>
+                            </div>
+                            
+                            <div className="space-y-4">
+                              <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-xl p-6 flex justify-center">
+                                <div className="w-48 h-48">
+                                  <PatternLock
+                                    onPatternComplete={(pattern) => {
+                                      setDadosEquipamento(prev => ({ ...prev, senha_padrao: pattern }));
+                                    }}
+                                    onPatternClear={() => {
+                                      setDadosEquipamento(prev => ({ ...prev, senha_padrao: [] }));
+                                    }}
+                                    value={dadosEquipamento.senha_padrao}
+                                    className="w-full h-full"
+                                  />
+                                </div>
+                              </div>
+                              
+                              {dadosEquipamento.senha_padrao.length > 0 && (
+                                <div className="flex items-center gap-2 text-sm text-green-600">
+                                  <FiCheckCircle className="w-4 h-4" />
+                                  <span>Padrão registrado com sucesso</span>
+                                </div>
+                              )}
+                              
+                              <p className="text-xs text-gray-500 leading-relaxed">
+                                Desenhe o padrão de desbloqueio do Android conectando os pontos
+                              </p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
