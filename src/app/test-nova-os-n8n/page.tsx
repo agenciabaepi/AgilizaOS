@@ -6,16 +6,17 @@ export default function TestNovaOSN8N() {
   const [loading, setLoading] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
 
-  // Dados de teste padrão
-  const [testData, setTestData] = useState({
-    numero_os: '995',
-    cliente_nome: 'Lucas Oliveira',
-    equipamento: 'iPhone 14',
-    defeito: 'Face ID não funciona',
-    status: 'Orçamento',
-    tecnico_nome: 'Pedro',
-    tecnico_whatsapp: '12988353971'
-  });
+         // Dados de teste padrão
+         const [testData, setTestData] = useState({
+           tecnico_id: '5671d602-42e6-4103-953a-a2fffac04585',
+           numero_os: '995',
+           cliente_nome: 'Lucas Oliveira',
+           equipamento: 'iPhone 14',
+           defeito: 'Face ID não funciona',
+           status: 'Orçamento',
+           tecnico_nome: 'Pedro',
+           tecnico_whatsapp: '12988353971'
+         });
 
   const testarWebhookN8N = async () => {
     setLoading(true);
@@ -155,20 +156,21 @@ export default function TestNovaOSN8N() {
               {loading ? '⏳ Testando...' : '🧪 Testar Webhook N8N'}
             </button>
             
-            <button 
-              onClick={() => setTestData({
-                numero_os: '995',
-                cliente_nome: 'Lucas Oliveira',
-                equipamento: 'iPhone 14',
-                defeito: 'Face ID não funciona',
-                status: 'Orçamento',
-                tecnico_nome: 'Pedro',
-                tecnico_whatsapp: '12988353971'
-              })}
-              className="bg-gray-600 text-white px-6 py-3 rounded-md hover:bg-gray-700 flex items-center gap-2"
-            >
-              🔄 Resetar Dados
-            </button>
+                   <button
+                     onClick={() => setTestData({
+                       tecnico_id: '5671d602-42e6-4103-953a-a2fffac04585',
+                       numero_os: '995',
+                       cliente_nome: 'Lucas Oliveira',
+                       equipamento: 'iPhone 14',
+                       defeito: 'Face ID não funciona',
+                       status: 'Orçamento',
+                       tecnico_nome: 'Pedro',
+                       tecnico_whatsapp: '12988353971'
+                     })}
+                     className="bg-gray-600 text-white px-6 py-3 rounded-md hover:bg-gray-700 flex items-center gap-2"
+                   >
+                     🔄 Resetar Dados
+                   </button>
           </div>
 
           {/* Resultado do Teste */}
@@ -216,19 +218,20 @@ export default function TestNovaOSN8N() {
               <h4 className="font-semibold text-blue-800 mb-2">Webhook N8N:</h4>
               <p className="text-blue-700 font-mono text-sm">https://gestaoconsert.app.n8n.cloud/webhook/novo-aparelho</p>
               
-              <h4 className="font-semibold text-blue-800 mt-4 mb-2">Payload Esperado:</h4>
-              <pre className="text-blue-700 text-sm bg-blue-100 p-3 rounded overflow-x-auto">
-{`{
-  "numero_os": 995,
-  "cliente_nome": "Lucas Oliveira",
-  "equipamento": "iPhone 14",
-  "defeito": "Face ID não funciona",
-  "status": "Orçamento",
-  "tecnico_nome": "Pedro",
-  "tecnico_whatsapp": "5512988353971",
-  "link_os": "https://gestaoconsert.com.br/ordens/995"
-}`}
-              </pre>
+                     <h4 className="font-semibold text-blue-800 mt-4 mb-2">Payload Esperado:</h4>
+                     <pre className="text-blue-700 text-sm bg-blue-100 p-3 rounded overflow-x-auto">
+       {`{
+         "tecnico_id": "5671d602-42e6-4103-953a-a2fffac04585",
+         "numero_os": 995,
+         "cliente_nome": "Lucas Oliveira",
+         "equipamento": "iPhone 14",
+         "defeito": "Face ID não funciona",
+         "status": "Orçamento",
+         "tecnico_nome": "Pedro",
+         "tecnico_whatsapp": "5512988353971",
+         "link_os": "https://gestaoconsert.com.br/ordens/995"
+       }`}
+                     </pre>
               
               <h4 className="font-semibold text-blue-800 mt-4 mb-2">Mensagem Final:</h4>
               <div className="bg-white p-3 rounded border">

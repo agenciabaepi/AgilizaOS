@@ -6,6 +6,7 @@
  */
 
 interface NovaOSPayload {
+  tecnico_id?: string; // ✅ Adicionar ID do técnico
   numero_os: number;
   cliente_nome: string;
   equipamento: string;

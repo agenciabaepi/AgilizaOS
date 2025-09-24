@@ -90,14 +90,35 @@ export async function POST(request: NextRequest) {
       // Buscar dados do técnico separadamente usando o tecnico_id da OS
       let tecnico = null;
       if (!osCompletaError && osCompleta?.tecnico_id) {
+        console.log('🔍 N8N: Buscando técnico com ID:', osCompleta.tecnico_id);
+        
         const { data: tecnicoData, error: tecnicoError } = await supabase
           .from('usuarios')
           .select('nome, whatsapp, tecnico_id')
-          .eq('tecnico_id', osCompleta.tecnico_id)
+          .eq('id', osCompleta.tecnico_id)  // ✅ Corrigido: comparar com id da tabela usuarios
           .single();
         
         if (!tecnicoError && tecnicoData) {
           tecnico = tecnicoData;
+          console.log('✅ N8N: Dados do técnico encontrados:', tecnicoData);
+        } else {
+          console.error('❌ N8N: Erro ao buscar dados do técnico:', tecnicoError);
+          console.log('🔍 N8N: Tentando buscar técnico com ID:', osCompleta.tecnico_id);
+          
+          // Fallback: tentar buscar por tecnico_id na tabela usuarios
+          console.log('🔄 N8N: Tentando fallback - buscar por tecnico_id...');
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from('usuarios')
+            .select('nome, whatsapp, tecnico_id')
+            .eq('tecnico_id', osCompleta.tecnico_id)
+            .single();
+          
+          if (!fallbackError && fallbackData) {
+            tecnico = fallbackData;
+            console.log('✅ N8N: Dados do técnico encontrados via fallback:', fallbackData);
+          } else {
+            console.error('❌ N8N: Fallback também falhou:', fallbackError);
+          }
         }
       }
 
@@ -119,37 +140,78 @@ export async function POST(request: NextRequest) {
         
         // Montar descrição do equipamento com marca e modelo
         const equipamento = `${osCompleta.marca || 'Marca não informada'} ${osCompleta.modelo || 'Modelo não informado'}`.trim();
-        const tecnicoWhatsApp = formatarWhatsApp(tecnico?.whatsapp || '');
         const clienteNome = cliente?.nome || 'Cliente não informado';
         const defeito = osCompleta.problema_relatado || 'Defeito não especificado';
         const status = osCompleta.status || 'Pendente';
 
-        // Verificar se temos os dados necessários
-        if (!tecnicoWhatsApp) {
-          console.warn('⚠️ N8N: WhatsApp do técnico não encontrado, pulando notificação');
-        } else {
-          // Preparar payload completo para o webhook novo-aparelho
-          const n8nPayload = {
-            numero_os: parseInt(osCompleta.numero_os), // Converter para número
-            cliente_nome: clienteNome,
-            equipamento: equipamento,
-            defeito: defeito,
-            status: status,
-            tecnico_nome: tecnico?.nome || 'Técnico não informado',
-            tecnico_whatsapp: tecnicoWhatsApp,
-            link_os: gerarURLOs(osCompleta.id)
-          };
-
-          console.log('📱 N8N: Enviando payload completo para webhook novo-aparelho:', n8nPayload);
-
-          // Enviar para N8N usando webhook específico
-          const n8nSuccess = await notificarNovaOSN8N(n8nPayload);
+        // ✅ CORREÇÃO DEFINITIVA: Buscar técnico diretamente sempre
+        console.log('🔍 N8N: Buscando técnico diretamente com ID:', osCompleta.tecnico_id);
+        
+        let tecnicoFinal = null;
+        if (osCompleta.tecnico_id) {
+          const { data: tecnicoDireto, error: errorDireto } = await supabase
+            .from('usuarios')
+            .select('id, nome, whatsapp')
+            .eq('id', osCompleta.tecnico_id)
+            .single();
           
-          if (n8nSuccess) {
-            console.log('✅ N8N: Notificação enviada com sucesso para webhook novo-aparelho');
-          } else {
-            console.warn('⚠️ N8N: Falha ao enviar notificação para webhook novo-aparelho');
+          console.log('🔍 N8N: Resultado da busca direta:', {
+            tecnico: tecnicoDireto,
+            error: errorDireto,
+            tecnico_id_buscado: osCompleta.tecnico_id
+          });
+          
+          if (!errorDireto && tecnicoDireto) {
+            tecnicoFinal = tecnicoDireto;
+            console.log('✅ N8N: Técnico encontrado via busca direta:', tecnicoFinal);
           }
+        }
+
+        // Verificar se temos dados válidos do técnico
+        if (!tecnicoFinal || !tecnicoFinal.nome || !tecnicoFinal.whatsapp) {
+          console.error('❌ N8N: Não foi possível encontrar dados válidos do técnico, pulando notificação');
+          console.log('🔍 N8N: Dados finais do técnico:', tecnicoFinal);
+          return;
+        }
+
+        // Usar dados do técnico encontrado
+        const tecnicoNome = tecnicoFinal.nome;
+        const tecnicoWhatsApp = formatarWhatsApp(tecnicoFinal.whatsapp);
+        
+        console.log('✅ N8N: Dados finais do técnico validados:', {
+          nome: tecnicoNome,
+          whatsapp: tecnicoWhatsApp,
+          tecnico_id: osCompleta.tecnico_id
+        });
+
+        // Preparar payload com dados reais do técnico
+        const n8nPayload = {
+          tecnico_id: osCompleta.tecnico_id, // ✅ ID do técnico
+          numero_os: parseInt(osCompleta.numero_os), // Converter para número
+          cliente_nome: clienteNome,
+          equipamento: equipamento,
+          defeito: defeito,
+          status: status,
+          tecnico_nome: tecnicoNome, // ✅ Nome real do técnico (sem fallback)
+          tecnico_whatsapp: tecnicoWhatsApp, // ✅ WhatsApp real do técnico
+          link_os: gerarURLOs(osCompleta.id)
+        };
+
+        console.log('📱 N8N: Dados finais antes do envio:', {
+          tecnico_encontrado: !!tecnicoFinal,
+          tecnico_nome: tecnicoNome,
+          tecnico_whatsapp: tecnicoWhatsApp,
+          tecnico_id: osCompleta.tecnico_id,
+          payload_completo: n8nPayload
+        });
+
+        // Enviar para N8N usando webhook específico
+        const n8nSuccess = await notificarNovaOSN8N(n8nPayload);
+        
+        if (n8nSuccess) {
+          console.log('✅ N8N: Notificação enviada com sucesso para webhook novo-aparelho');
+        } else {
+          console.warn('⚠️ N8N: Falha ao enviar notificação para webhook novo-aparelho');
         }
 
         // Fallback: também tentar método antigo
@@ -158,7 +220,7 @@ export async function POST(request: NextRequest) {
       } else {
         console.warn('⚠️ N8N: Erro ao buscar dados completos da OS:', osCompletaError);
         // Fallback para método antigo
-        const notificationSent = await sendNewOSNotification(osData.id);
+      const notificationSent = await sendNewOSNotification(osData.id);
         console.log('📱 Notificação WhatsApp (fallback):', notificationSent ? 'Enviada com sucesso' : 'Falha no envio');
       }
     } catch (notificationError) {

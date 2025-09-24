@@ -788,7 +788,20 @@ function NovaOS2Content() {
                             .ilike('nome', `%${e.target.value}%`);
                           const clienteIds = clientesBusca?.map((c: any) => c.id) || [];
 
-                          // 2. Buscar OS por modelo
+                          // 2. Se for número, buscar por numero_os exato
+                          let osPorNumero: Record<string, unknown>[] = [];
+                          if (/^\d+$/.test(e.target.value)) {
+                            const numero = parseInt(e.target.value, 10);
+                            const { data } = await supabase
+                              .from('ordens_servico')
+                              .select('id, numero_os, cliente_id, modelo, numero_serie, marca, categoria, clientes:cliente_id(nome)')
+                              .eq('empresa_id', empresaData?.id)
+                              .eq('numero_os', numero)
+                              .limit(10);
+                            osPorNumero = data || [];
+                          }
+
+                          // 3. Buscar OS por modelo
                           const { data: osPorModelo } = await supabase
                             .from('ordens_servico')
                             .select('id, numero_os, cliente_id, modelo, numero_serie, marca, categoria, clientes:cliente_id(nome)')
@@ -796,7 +809,7 @@ function NovaOS2Content() {
                             .ilike('modelo', `%${e.target.value}%`)
                             .limit(10);
 
-                          // 3. Buscar OS por cliente_id
+                          // 4. Buscar OS por cliente_id
                           let osPorCliente: Record<string, unknown>[] = [];
                           if (clienteIds.length > 0) {
                             const { data } = await supabase
@@ -808,7 +821,7 @@ function NovaOS2Content() {
                             osPorCliente = data || [];
                           }
 
-                          // 4. Buscar OS por id se termo for UUID válido
+                          // 5. Buscar OS por id se termo for UUID válido
                           let osPorId: Record<string, unknown>[] = [];
                           const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
                           if (uuidRegex.test(e.target.value)) {
@@ -822,7 +835,7 @@ function NovaOS2Content() {
                           }
 
                           // Unir resultados e remover duplicados
-                          const todos = [...(osPorModelo || []), ...osPorCliente, ...osPorId];
+                          const todos = [...osPorNumero, ...(osPorModelo || []), ...osPorCliente, ...osPorId];
                           const vistos = new Set();
                           resultados = todos.filter(os => {
                             if (vistos.has(os.id)) return false;
@@ -830,6 +843,27 @@ function NovaOS2Content() {
                             return true;
                           });
                         }
+                        // 3) Garantir que todos tenham numero_os preenchido
+                        if (resultados.length > 0) {
+                          const faltandoNumero = resultados.filter(r => r.numero_os === null || r.numero_os === undefined);
+                          if (faltandoNumero.length > 0) {
+                            const preenchidos = await Promise.all(
+                              faltandoNumero.map(async (r) => {
+                                const { data: d } = await supabase
+                                  .from('ordens_servico')
+                                  .select('numero_os')
+                                  .eq('id', r.id)
+                                  .single();
+                                return { id: r.id, numero_os: d?.numero_os };
+                              })
+                            );
+                            resultados = resultados.map(r => {
+                              const p = preenchidos.find(x => x.id === r.id);
+                              return p && (p as any).numero_os ? { ...r, numero_os: (p as any).numero_os } : r;
+                            });
+                          }
+                        }
+
                         setOsGarantiaResultados(resultados);
                         setBuscandoOsGarantia(false);
                       }}
@@ -856,9 +890,13 @@ function NovaOS2Content() {
                                   senha: '',
                                   senha_padrao: []
                                 });
+                                // Fechar a lista ao selecionar
+                                setOsGarantiaResultados([]);
+                                // Preencher o campo com o número da OS selecionada
+                                setOsGarantiaBusca(String((os as any).numero_os ?? ''));
                               }}
                             >
-                              <span className="font-semibold">OS #{osTyped.id}</span> — {osTyped.clientes?.nome || 'Cliente'} — {osTyped.modelo}
+                              <span className="font-semibold">OS #{String((os as any).numero_os ?? 'sem número')}</span> — {osTyped.clientes?.nome || 'Cliente'} — {osTyped.modelo}
                             </li>
                           );
                         })}
@@ -1044,7 +1082,7 @@ function NovaOS2Content() {
                   <div className="mt-6 border-t pt-6">
                     <h4 className="text-sm font-medium text-gray-700 mb-4">Informações de Acesso</h4>
                     
-                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       {/* Campo de Senha Simples */}
                       <div className="space-y-2">
                         <label className="block text-sm font-medium text-gray-700">Senha do Aparelho</label>
@@ -1055,7 +1093,7 @@ function NovaOS2Content() {
                           value={dadosEquipamento.senha}
                           onChange={(e) => setDadosEquipamento(prev => ({ ...prev, senha: e.target.value }))}
                         />
-                        <p className="text-xs text-gray-500 leading-relaxed">
+                        <p className="text-xs text-gray-500">
                           Digite a senha/pin do aparelho (opcional)
                         </p>
                       </div>
@@ -1063,19 +1101,21 @@ function NovaOS2Content() {
                       {/* Padrão de Desenho Android */}
                       <div className="space-y-2">
                         <label className="block text-sm font-medium text-gray-700">Padrão de Desenho</label>
-                        <div className="w-full">
-                          <PatternLock
-                            onPatternComplete={(pattern) => {
-                              setDadosEquipamento(prev => ({ ...prev, senha_padrao: pattern }));
-                            }}
-                            onPatternClear={() => {
-                              setDadosEquipamento(prev => ({ ...prev, senha_padrao: [] }));
-                            }}
-                            value={dadosEquipamento.senha_padrao}
-                            className="w-full"
-                          />
+                        <div className="flex justify-center lg:justify-start">
+                          <div className="w-full max-w-[280px]">
+                            <PatternLock
+                              onPatternComplete={(pattern) => {
+                                setDadosEquipamento(prev => ({ ...prev, senha_padrao: pattern }));
+                              }}
+                              onPatternClear={() => {
+                                setDadosEquipamento(prev => ({ ...prev, senha_padrao: [] }));
+                              }}
+                              value={dadosEquipamento.senha_padrao}
+                              className="w-full"
+                            />
+                          </div>
                         </div>
-                        <p className="text-xs text-gray-500 leading-relaxed">
+                        <p className="text-xs text-gray-500">
                           Desenhe o padrão de desbloqueio do Android (opcional)
                         </p>
                       </div>
@@ -1088,7 +1128,7 @@ function NovaOS2Content() {
                           <span className="text-blue-600">📋</span>
                           Informações de Acesso Registradas
                         </h5>
-                        <div className="space-y-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {dadosEquipamento.senha && (
                             <div className="flex items-center gap-2 text-sm text-blue-600">
                               <span className="text-blue-500">🔐</span>
@@ -1311,7 +1351,7 @@ function NovaOS2Content() {
                           const numero = parseInt(termo, 10);
                           const { data } = await supabase
                             .from('ordens_servico')
-                            .select('id, numero_os, cliente_id, modelo, numero_serie, cliente:clientes(nome)')
+                            .select('id, numero_os, cliente_id, modelo, numero_serie, clientes:cliente_id(nome)')
                             .eq('empresa_id', empresaData?.id)
                             .neq('status', 'retorno_garantia')
                             .eq('numero_os', numero)
@@ -1323,10 +1363,10 @@ function NovaOS2Content() {
                         if (resultados.length === 0 && termo.length > 2) {
                           const { data: porCliente } = await supabase
                             .from('ordens_servico')
-                            .select('id, numero_os, cliente_id, modelo, numero_serie, cliente:clientes(nome)')
+                            .select('id, numero_os, cliente_id, modelo, numero_serie, clientes:cliente_id(nome)')
                             .eq('empresa_id', empresaData?.id)
                             .neq('status', 'retorno_garantia')
-                            .ilike('cliente.nome', `%${termo}%`)
+                            .ilike('clientes.nome', `%${termo}%`)
                             .limit(10);
                           if (porCliente && porCliente.length > 0) {
                             resultados = porCliente;
@@ -1336,7 +1376,7 @@ function NovaOS2Content() {
                         if (resultados.length === 0 && termo.length > 2) {
                           const { data: porModelo } = await supabase
                             .from('ordens_servico')
-                            .select('id, numero_os, cliente_id, modelo, numero_serie, cliente:clientes(nome)')
+                            .select('id, numero_os, cliente_id, modelo, numero_serie, clientes:cliente_id(nome)')
                             .eq('empresa_id', empresaData?.id)
                             .neq('status', 'retorno_garantia')
                             .ilike('modelo', `%${termo}%`)
@@ -1356,7 +1396,7 @@ function NovaOS2Content() {
                             className={`px-4 py-2 cursor-pointer hover:bg-lime-100 ${osGarantiaSelecionada?.id === os.id ? 'bg-lime-200' : ''}`}
                             onClick={() => setOsGarantiaSelecionada(os)}
                           >
-                            <span className="font-semibold">OS #{(os.numero_os as string) || (os.id as string)}</span> — {(os as any)?.cliente?.nome as string} — {os.modelo as string}
+                            <span className="font-semibold">OS #{String((os as any).numero_os ?? 'sem número')}</span> — {(os as any)?.clientes?.nome as string} — {os.modelo as string}
                           </li>
                         ))}
                       </ul>

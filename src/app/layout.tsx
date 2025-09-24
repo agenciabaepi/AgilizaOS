@@ -17,6 +17,7 @@ import TrialExpiredGuard from '@/components/TrialExpiredGuard';
 
 import { Toaster } from 'react-hot-toast';
 import StickyOrcamentoPopup from '@/components/StickyOrcamentoPopup';
+import { Analytics } from '@vercel/analytics/react';
 
 // Metadata removida conforme exigência do Next.js para arquivos com "use client"
 
@@ -128,6 +129,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </ConfirmProvider>
           </ToastProvider>
         </AuthProvider>
+        <Analytics />
       </body>
     </html>
   );
