@@ -852,7 +852,9 @@ function NovaOS2Content() {
                                   modelo: osTyped.modelo,
                                   cor: '',
                                   numero_serie: osTyped.numero_serie,
-                                  descricao_problema: ''
+                                  descricao_problema: '',
+                                  senha: '',
+                                  senha_padrao: []
                                 });
                               }}
                             >
