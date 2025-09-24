@@ -1080,12 +1080,12 @@ function NovaOS2Content() {
 
                   {/* Seção de Senhas */}
                   <div className="mt-6 border-t pt-6">
-                    <h4 className="text-sm font-medium text-gray-700 mb-6">Informações de Acesso</h4>
+                    <h4 className="text-sm font-medium text-gray-700 mb-4">Informações de Acesso</h4>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-6">
                       {/* Campo de Senha Simples */}
-                      <div className="space-y-3">
-                        <label className="block text-sm font-medium text-gray-700">Senha do Aparelho</label>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Senha do Aparelho</label>
                         <input
                           type="text"
                           placeholder="Ex: 1234, senha123, etc."
@@ -1093,27 +1093,25 @@ function NovaOS2Content() {
                           value={dadosEquipamento.senha}
                           onChange={(e) => setDadosEquipamento(prev => ({ ...prev, senha: e.target.value }))}
                         />
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-gray-500 mt-1">
                           Digite a senha/pin do aparelho (opcional)
                         </p>
                       </div>
 
                       {/* Padrão de Desenho Android */}
-                      <div className="space-y-3">
-                        <label className="block text-sm font-medium text-gray-700">Padrão de Desenho Android</label>
-                        <div className="border border-gray-300 rounded-lg p-2 bg-gray-50 h-48">
-                          <PatternLock
-                            onPatternComplete={(pattern) => {
-                              setDadosEquipamento(prev => ({ ...prev, senha_padrao: pattern }));
-                            }}
-                            onPatternClear={() => {
-                              setDadosEquipamento(prev => ({ ...prev, senha_padrao: [] }));
-                            }}
-                            value={dadosEquipamento.senha_padrao}
-                            className="w-full h-full"
-                          />
-                        </div>
-                        <p className="text-xs text-gray-500">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Padrão de Desenho Android</label>
+                        <PatternLock
+                          onPatternComplete={(pattern) => {
+                            setDadosEquipamento(prev => ({ ...prev, senha_padrao: pattern }));
+                          }}
+                          onPatternClear={() => {
+                            setDadosEquipamento(prev => ({ ...prev, senha_padrao: [] }));
+                          }}
+                          value={dadosEquipamento.senha_padrao}
+                          className="w-full max-w-xs mx-auto"
+                        />
+                        <p className="text-xs text-gray-500 mt-2 text-center">
                           Desenhe o padrão de desbloqueio do Android (opcional)
                         </p>
                       </div>
