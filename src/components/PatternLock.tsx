@@ -85,8 +85,8 @@ export default function PatternLock({
     
     // Calcular dimensões responsivas
     const minDimension = Math.min(width, height);
-    const padding = Math.max(16, minDimension * 0.12);
-    const dotSize = Math.max(16, minDimension * 0.12);
+    const padding = Math.max(20, minDimension * 0.15);
+    const dotSize = Math.max(12, minDimension * 0.08);
     const dotSpacing = (minDimension - padding * 2) / 2;
 
     // Limpar canvas
