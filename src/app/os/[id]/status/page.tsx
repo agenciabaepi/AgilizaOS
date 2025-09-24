@@ -437,64 +437,59 @@ export default function OSPublicPage() {
 
         {/* Informações de Acesso */}
         {(osData.senha_aparelho || osData.senha_padrao) && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-8 mb-6">
-            <div className="mb-8">
-              <h3 className="text-2xl font-semibold text-gray-900 tracking-tight">Informações de Acesso</h3>
-              <div className="w-12 h-0.5 bg-gray-200 mt-3"></div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <div className="flex items-center mb-4">
+              <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
+                <FiShield className="w-5 h-5 text-indigo-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Informações de Acesso</h3>
             </div>
             
-            <div className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {osData.senha_aparelho && (
-                <div className="flex items-start gap-6">
-                  <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center">
-                    <FiShield className="w-6 h-6 text-gray-600" />
+                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                  <div className="p-1.5 bg-gray-100 rounded">
+                    <FiShield className="w-4 h-4 text-gray-600" />
                   </div>
-                  <div className="flex-1">
-                    <h4 className="text-lg font-medium text-gray-900 mb-3">Senha do Aparelho</h4>
-                    <div className="inline-flex items-center px-4 py-2 bg-gray-50 rounded-xl">
-                      <code className="text-lg font-mono text-gray-900 tracking-wider">
-                        {osData.senha_aparelho}
-                      </code>
-                    </div>
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">Senha do Aparelho:</span>
+                    <p className="font-mono text-gray-800 bg-white px-2 py-1 rounded text-sm mt-1 border">
+                      {osData.senha_aparelho}
+                    </p>
                   </div>
                 </div>
               )}
               
               {osData.senha_padrao && (
-                <div className="flex items-start gap-6">
-                  <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center">
-                    <FiSmartphone className="w-6 h-6 text-gray-600" />
+                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                  <div className="p-1.5 bg-gray-100 rounded">
+                    <FiSmartphone className="w-4 h-4 text-gray-600" />
                   </div>
                   <div className="flex-1">
-                    <h4 className="text-lg font-medium text-gray-900 mb-4">Padrão de Desenho</h4>
-                    <div className="flex items-center gap-6">
-                      <div className="grid grid-cols-3 gap-3 p-4 bg-gray-50 rounded-2xl">
+                    <span className="text-sm font-medium text-gray-700">Padrão de Desenho:</span>
+                    <div className="mt-2">
+                      <div className="grid grid-cols-3 gap-1 w-24 bg-white border border-gray-300 rounded p-2">
                         {Array.from({ length: 9 }, (_, index) => {
                           const pattern = JSON.parse(osData.senha_padrao);
                           const isSelected = pattern.includes(index);
+                          const sequenceNumber = isSelected ? pattern.indexOf(index) + 1 : null;
                           return (
                             <div
                               key={index}
-                              className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${
+                              className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
                                 isSelected
-                                  ? 'bg-gray-900 border-gray-900'
-                                  : 'bg-white border-gray-300'
+                                  ? 'bg-gray-800 border-gray-800'
+                                  : 'bg-gray-100 border-gray-300'
                               }`}
                             >
                               {isSelected && (
-                                <div className="w-3 h-3 bg-white rounded-full"></div>
+                                <span className="text-xs font-medium text-white">
+                                  {sequenceNumber}
+                                </span>
                               )}
                             </div>
                           );
                         })}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        <div className="font-medium text-gray-900 mb-1">Sequência:</div>
-                        <code className="text-xs font-mono text-gray-600">
-                          {JSON.parse(osData.senha_padrao).map((dot: number) => 
-                            `${Math.floor(dot / 3) + 1},${dot % 3 + 1}`
-                          ).join(' → ')}
-                        </code>
                       </div>
                     </div>
                   </div>
