@@ -539,61 +539,65 @@ const VisualizarOrdemServicoPage = () => {
 
               {/* Informações de Acesso */}
               {(ordem.senha_aparelho || ordem.senha_padrao) && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-indigo-100 rounded-lg">
-                      <FiShield className="w-5 h-5 text-indigo-600" />
-                    </div>
-                    <h2 className="text-xl font-semibold text-gray-900">Informações de Acesso</h2>
+                <div className="bg-white rounded-2xl border border-gray-100 p-8">
+                  <div className="mb-8">
+                    <h2 className="text-2xl font-semibold text-gray-900 tracking-tight">Informações de Acesso</h2>
+                    <div className="w-12 h-0.5 bg-gray-200 mt-3"></div>
                   </div>
-                  <div className="space-y-4">
+                  
+                  <div className="space-y-8">
                     {ordem.senha_aparelho && (
-                      <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                        <div className="p-1.5 bg-blue-100 rounded">
-                          <FiShield className="w-4 h-4 text-blue-600" />
+                      <div className="flex items-start gap-6">
+                        <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center">
+                          <FiShield className="w-6 h-6 text-gray-600" />
                         </div>
-                        <div>
-                          <span className="text-sm font-medium text-blue-900">Senha do Aparelho:</span>
-                          <p className="font-mono text-blue-800 bg-blue-100 px-2 py-1 rounded text-sm mt-1">
-                            {ordem.senha_aparelho}
-                          </p>
+                        <div className="flex-1">
+                          <h3 className="text-lg font-medium text-gray-900 mb-3">Senha do Aparelho</h3>
+                          <div className="inline-flex items-center px-4 py-2 bg-gray-50 rounded-xl">
+                            <code className="text-lg font-mono text-gray-900 tracking-wider">
+                              {ordem.senha_aparelho}
+                            </code>
+                          </div>
                         </div>
                       </div>
                     )}
                     
                     {ordem.senha_padrao && (
-                      <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
-                        <div className="p-1.5 bg-green-100 rounded">
-                          <FiSmartphone className="w-4 h-4 text-green-600" />
+                      <div className="flex items-start gap-6">
+                        <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center">
+                          <FiSmartphone className="w-6 h-6 text-gray-600" />
                         </div>
                         <div className="flex-1">
-                          <span className="text-sm font-medium text-green-900">Padrão de Desenho:</span>
-                          <div className="mt-2">
-                            <div className="grid grid-cols-3 gap-1 w-24 bg-white border border-green-300 rounded p-2">
+                          <h3 className="text-lg font-medium text-gray-900 mb-4">Padrão de Desenho</h3>
+                          <div className="flex items-center gap-6">
+                            <div className="grid grid-cols-3 gap-3 p-4 bg-gray-50 rounded-2xl">
                               {Array.from({ length: 9 }, (_, index) => {
                                 const pattern = JSON.parse(ordem.senha_padrao);
                                 const isSelected = pattern.includes(index);
                                 return (
                                   <div
                                     key={index}
-                                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                                    className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${
                                       isSelected
-                                        ? 'bg-green-500 border-green-600'
-                                        : 'bg-gray-100 border-gray-300'
+                                        ? 'bg-gray-900 border-gray-900'
+                                        : 'bg-white border-gray-300'
                                     }`}
                                   >
                                     {isSelected && (
-                                      <div className="w-2 h-2 bg-white rounded-full"></div>
+                                      <div className="w-3 h-3 bg-white rounded-full"></div>
                                     )}
                                   </div>
                                 );
                               })}
                             </div>
-                            <p className="text-xs text-green-700 mt-2 font-mono">
-                              Sequência: {JSON.parse(ordem.senha_padrao).map((dot: number) => 
-                                `${Math.floor(dot / 3) + 1},${dot % 3 + 1}`
-                              ).join(' → ')}
-                            </p>
+                            <div className="text-sm text-gray-500">
+                              <div className="font-medium text-gray-900 mb-1">Sequência:</div>
+                              <code className="text-xs font-mono text-gray-600">
+                                {JSON.parse(ordem.senha_padrao).map((dot: number) => 
+                                  `${Math.floor(dot / 3) + 1},${dot % 3 + 1}`
+                                ).join(' → ')}
+                              </code>
+                            </div>
                           </div>
                         </div>
                       </div>
