@@ -1101,16 +1101,18 @@ function NovaOS2Content() {
                       {/* Padrão de Desenho Android */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Padrão de Desenho Android</label>
-                        <PatternLock
-                          onPatternComplete={(pattern) => {
-                            setDadosEquipamento(prev => ({ ...prev, senha_padrao: pattern }));
-                          }}
-                          onPatternClear={() => {
-                            setDadosEquipamento(prev => ({ ...prev, senha_padrao: [] }));
-                          }}
-                          value={dadosEquipamento.senha_padrao}
-                          className="w-full max-w-xs mx-auto"
-                        />
+                        <div className="w-64 h-64 mx-auto">
+                          <PatternLock
+                            onPatternComplete={(pattern) => {
+                              setDadosEquipamento(prev => ({ ...prev, senha_padrao: pattern }));
+                            }}
+                            onPatternClear={() => {
+                              setDadosEquipamento(prev => ({ ...prev, senha_padrao: [] }));
+                            }}
+                            value={dadosEquipamento.senha_padrao}
+                            className="w-full h-full"
+                          />
+                        </div>
                         <p className="text-xs text-gray-500 mt-2 text-center">
                           Desenhe o padrão de desbloqueio do Android (opcional)
                         </p>
