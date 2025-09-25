@@ -14,7 +14,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Suspense } from 'react';
 import { useToast } from '@/components/Toast';
 import PatternLock from '@/components/PatternLock';
-import { FiShield, FiSmartphone, FiCheckCircle } from 'react-icons/fi';
+import { FiShield, FiSmartphone, FiCheckCircle, FiInfo } from 'react-icons/fi';
 
 const etapas = ["Cliente", "Aparelho", "Técnico", "Status", "Imagens"];
 
@@ -910,39 +910,39 @@ function NovaOS2Content() {
                 )}
                 <label className="block text-sm font-medium text-gray-700 mb-2">Selecione o cliente</label>
                 {isMounted ? (
-                  <ReactSelect
-                    options={(clientes || []).map(c => ({ value: c.id, label: c.nome }))}
-                    value={(() => {
-                      const cliente = (clientes || []).find(c => c.id === clienteSelecionado);
-                      return cliente ? { value: clienteSelecionado, label: cliente.nome } : null;
-                    })()}
-                    onChange={opt => setClienteSelecionado(opt?.value || null)}
-                    isLoading={loadingClientes}
-                    placeholder={loadingClientes ? "Carregando clientes..." : "Buscar cliente..."}
-                    className="mb-4"
-                    styles={{
-                      control: (provided) => ({
-                        ...provided,
-                        borderRadius: '0.5rem',
-                        borderColor: '#e5e7eb',
-                        minHeight: '44px',
-                        fontSize: '1rem',
-                        boxShadow: 'none',
-                        ':hover': { borderColor: '#3b82f6' }
-                      }),
-                      option: (provided, state) => ({
-                        ...provided,
-                        backgroundColor: state.isSelected
-                          ? '#111827'
-                          : state.isFocused
-                          ? '#e0e7ef'
-                          : 'white',
-                        color: state.isSelected ? 'white' : '#111827',
-                        fontSize: '1rem',
-                      }),
-                    }}
-                    isDisabled={tipoEntrada === 'garantia' && !!osGarantiaSelecionada}
-                  />
+                <ReactSelect
+                  options={(clientes || []).map(c => ({ value: c.id, label: c.nome }))}
+                  value={(() => {
+                    const cliente = (clientes || []).find(c => c.id === clienteSelecionado);
+                    return cliente ? { value: clienteSelecionado, label: cliente.nome } : null;
+                  })()}
+                  onChange={opt => setClienteSelecionado(opt?.value || null)}
+                  isLoading={loadingClientes}
+                  placeholder={loadingClientes ? "Carregando clientes..." : "Buscar cliente..."}
+                  className="mb-4"
+                  styles={{
+                    control: (provided) => ({
+                      ...provided,
+                      borderRadius: '0.5rem',
+                      borderColor: '#e5e7eb',
+                      minHeight: '44px',
+                      fontSize: '1rem',
+                      boxShadow: 'none',
+                      ':hover': { borderColor: '#3b82f6' }
+                    }),
+                    option: (provided, state) => ({
+                      ...provided,
+                      backgroundColor: state.isSelected
+                        ? '#111827'
+                        : state.isFocused
+                        ? '#e0e7ef'
+                        : 'white',
+                      color: state.isSelected ? 'white' : '#111827',
+                      fontSize: '1rem',
+                    }),
+                  }}
+                  isDisabled={tipoEntrada === 'garantia' && !!osGarantiaSelecionada}
+                />
                 ) : (
                   <div className="mb-4 h-11 bg-gray-100 rounded-lg animate-pulse flex items-center px-3">
                     <span className="text-gray-400">Carregando...</span>
@@ -1089,27 +1089,42 @@ function NovaOS2Content() {
                     </div>
                     
                     <div className="space-y-6">
-                      {/* Primeira linha - Informações de Acesso */}
+                      {/* Informações de Acesso */}
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* Senha do Aparelho */}
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700">Senha do Aparelho</label>
-                          <input
-                            type="text"
-                            placeholder="Ex: 1234, senha123, etc."
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                            value={dadosEquipamento.senha}
-                            onChange={(e) => setDadosEquipamento(prev => ({ ...prev, senha: e.target.value }))}
-                          />
-                          <p className="text-xs text-gray-500">
-                            Digite a senha/pin do aparelho (opcional)
-                          </p>
+                        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 h-full flex flex-col">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Senha do Aparelho</label>
+                          <div className="relative flex-grow">
+                            <input
+                              type="text"
+                              placeholder="Ex: 1234, senha123, etc."
+                              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                              value={dadosEquipamento.senha}
+                              onChange={(e) => setDadosEquipamento(prev => ({ ...prev, senha: e.target.value }))}
+                            />
+                            <p className="text-xs text-gray-500 mt-2">
+                              Digite a senha/pin do aparelho (opcional)
+                            </p>
+                          </div>
+                          
+                           {/* Dicas de segurança - Adicionado para preencher o espaço vazio */}
+                           <div className="mt-auto pt-4">
+                             <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
+                               <h4 className="text-sm font-medium text-blue-700 flex items-center">
+                                 <FiInfo className="h-4 w-4 mr-1" />
+                                 Dica de segurança
+                               </h4>
+                               <p className="text-xs text-blue-600 mt-1">
+                                 Registrar a senha corretamente é essencial para o diagnóstico e testes do aparelho.
+                               </p>
+                             </div>
+                           </div>
                         </div>
 
                         {/* Padrão de Desenho Android */}
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700">Padrão de Desenho Android</label>
-                          <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 h-full flex flex-col">
+                          <label className="block text-sm font-medium text-gray-700 mb-2 text-center">Padrão de Desenho Android</label>
+                          <div className="flex justify-center items-center">
                             <PatternLock
                               onPatternComplete={(pattern) => {
                                 setDadosEquipamento(prev => ({ ...prev, senha_padrao: pattern }));
@@ -1118,10 +1133,19 @@ function NovaOS2Content() {
                                 setDadosEquipamento(prev => ({ ...prev, senha_padrao: [] }));
                               }}
                               value={dadosEquipamento.senha_padrao}
-                              className="w-full aspect-square max-w-xs mx-auto"
+                              className="w-full aspect-square"
                             />
                           </div>
-                          <p className="text-xs text-gray-500">
+                          <div className="flex justify-center mt-4">
+                            <button 
+                              type="button"
+                              onClick={() => setDadosEquipamento(prev => ({ ...prev, senha_padrao: [] }))}
+                              className="text-xs bg-blue-50 text-blue-600 px-3 py-1 rounded-full border border-blue-100 hover:bg-blue-100 transition-colors"
+                            >
+                              Limpar padrão
+                            </button>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-2 text-center">
                             Desenhe o padrão de desbloqueio do Android (opcional)
                           </p>
                         </div>
@@ -1132,34 +1156,34 @@ function NovaOS2Content() {
                         {/* Acessórios que Acompanham */}
                         <div className="space-y-2">
                           <label className="block text-sm font-medium text-gray-700">Acessórios que Acompanham</label>
-                          <textarea
-                            placeholder="Carregador, cabo, capa, manual, etc..."
+                      <textarea
+                        placeholder="Carregador, cabo, capa, manual, etc..."
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none"
                             rows={4}
-                            value={acessorios}
+                        value={acessorios}
                             onChange={(e) => setAcessorios(e.target.value)}
-                          />
+                      />
                           <p className="text-xs text-gray-500">
-                            Liste os acessórios que o cliente está deixando
-                          </p>
-                        </div>
+                        Liste os acessórios que o cliente está deixando
+                      </p>
+                    </div>
 
                         {/* Estado do Equipamento */}
                         <div className="space-y-2">
                           <label className="block text-sm font-medium text-gray-700">Estado do Equipamento</label>
-                          <textarea
-                            placeholder="Riscos, amassados, funcionando, etc..."
+                      <textarea
+                        placeholder="Riscos, amassados, funcionando, etc..."
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none"
                             rows={4}
-                            value={condicoesEquipamento}
+                        value={condicoesEquipamento}
                             onChange={(e) => setCondicoesEquipamento(e.target.value)}
-                          />
+                      />
                           <p className="text-xs text-gray-500">
-                            Descreva o estado físico do equipamento
-                          </p>
-                        </div>
-                      </div>
+                        Descreva o estado físico do equipamento
+                      </p>
                     </div>
+                  </div>
+                </div>
 
                     {/* Resumo das senhas */}
                     {(dadosEquipamento.senha || dadosEquipamento.senha_padrao.length > 0) && (
@@ -1204,43 +1228,43 @@ function NovaOS2Content() {
                 <div className="space-y-4">
                   <label className="block text-sm font-medium text-gray-700">Selecione o Técnico Responsável</label>
                   {isMounted ? (
-                    <ReactSelect
-                      options={(tecnicos || []).map(tecnico => ({ 
-                        value: tecnico.tecnico_id || tecnico.auth_user_id, 
+                  <ReactSelect
+                    options={(tecnicos || []).map(tecnico => ({ 
+                      value: tecnico.tecnico_id || tecnico.auth_user_id, 
+                      label: tecnico.nome 
+                    }))}
+                    value={(() => {
+                      const tecnico = (tecnicos || []).find(t => (t.tecnico_id || t.auth_user_id) === tecnicoResponsavel);
+                      return tecnicoResponsavel && tecnico ? { 
+                        value: tecnicoResponsavel, 
                         label: tecnico.nome 
-                      }))}
-                      value={(() => {
-                        const tecnico = (tecnicos || []).find(t => (t.tecnico_id || t.auth_user_id) === tecnicoResponsavel);
-                        return tecnicoResponsavel && tecnico ? { 
-                          value: tecnicoResponsavel, 
-                          label: tecnico.nome 
-                        } : null;
-                      })()}
-                      onChange={(option) => setTecnicoResponsavel(option?.value || null)}
-                      isLoading={loadingUsuarios}
-                      placeholder={loadingUsuarios ? "Carregando técnicos..." : "Selecione o técnico..."}
-                      styles={{
-                        control: (provided) => ({
-                          ...provided,
-                          borderRadius: '0.5rem',
-                          borderColor: '#e5e7eb',
-                          minHeight: '44px',
-                          fontSize: '1rem',
-                          boxShadow: 'none',
-                          ':hover': { borderColor: '#3b82f6' }
-                        }),
-                        option: (provided, state) => ({
-                          ...provided,
-                          backgroundColor: state.isSelected
-                            ? '#111827'
-                            : state.isFocused
-                            ? '#e0e7ef'
-                            : 'white',
-                          color: state.isSelected ? 'white' : '#111827',
-                          fontSize: '1rem',
-                        }),
-                      }}
-                    />
+                      } : null;
+                    })()}
+                    onChange={(option) => setTecnicoResponsavel(option?.value || null)}
+                    isLoading={loadingUsuarios}
+                    placeholder={loadingUsuarios ? "Carregando técnicos..." : "Selecione o técnico..."}
+                    styles={{
+                      control: (provided) => ({
+                        ...provided,
+                        borderRadius: '0.5rem',
+                        borderColor: '#e5e7eb',
+                        minHeight: '44px',
+                        fontSize: '1rem',
+                        boxShadow: 'none',
+                        ':hover': { borderColor: '#3b82f6' }
+                      }),
+                      option: (provided, state) => ({
+                        ...provided,
+                        backgroundColor: state.isSelected
+                          ? '#111827'
+                          : state.isFocused
+                          ? '#e0e7ef'
+                          : 'white',
+                        color: state.isSelected ? 'white' : '#111827',
+                        fontSize: '1rem',
+                      }),
+                    }}
+                  />
                   ) : (
                     <div className="h-11 bg-gray-100 rounded-lg animate-pulse flex items-center px-3">
                       <span className="text-gray-400">Carregando...</span>
@@ -1361,12 +1385,12 @@ function NovaOS2Content() {
                         if (/^\d+$/.test(termo)) {
                           const numero = parseInt(termo, 10);
                           const { data } = await supabase
-                            .from('ordens_servico')
+                          .from('ordens_servico')
                             .select('id, numero_os, cliente_id, modelo, numero_serie, clientes:cliente_id(nome)')
-                            .eq('empresa_id', empresaData?.id)
-                            .neq('status', 'retorno_garantia')
+                          .eq('empresa_id', empresaData?.id)
+                          .neq('status', 'retorno_garantia')
                             .eq('numero_os', numero)
-                            .limit(10);
+                          .limit(10);
                           resultados = data || [];
                         }
 
@@ -1537,54 +1561,54 @@ function NovaOS2Content() {
                           </Button>
                         </div>
                         {isMounted ? (
-                          <ReactSelect
-                            isMulti
-                            options={(produtosServicos || []).filter(p => p.tipo === 'produto').map(p => ({ 
-                              value: p.id, 
-                              label: `${p.codigo || 'N/A'} - ${p.nome} - R$ ${p.preco.toFixed(2)}/${p.unidade}`,
-                              data: p 
-                            }))}
-                            value={produtosSelecionados.map(p => ({ 
-                              value: p.id, 
-                              label: `${p.codigo || 'N/A'} - ${p.nome} - R$ ${p.preco.toFixed(2)}/${p.unidade}`,
-                              data: p 
-                            }))}
-                            onChange={(options) => {
-                              const selected = options ? options.map(opt => opt.data) : [];
-                              setProdutosSelecionados(selected);
-                              
-                              // Validação em tempo real para produtos sem valor
-                              if (statusSelecionado === 'aprovado' && selected.length > 0) {
-                                const produtosSemValor = selected.filter(p => p.preco <= 0);
-                                if (produtosSemValor.length > 0) {
-                                  console.warn('Produtos selecionados sem valor:', produtosSemValor);
-                                }
+                        <ReactSelect
+                          isMulti
+                          options={(produtosServicos || []).filter(p => p.tipo === 'produto').map(p => ({ 
+                            value: p.id, 
+                            label: `${p.codigo || 'N/A'} - ${p.nome} - R$ ${p.preco.toFixed(2)}/${p.unidade}`,
+                            data: p 
+                          }))}
+                          value={produtosSelecionados.map(p => ({ 
+                            value: p.id, 
+                            label: `${p.codigo || 'N/A'} - ${p.nome} - R$ ${p.preco.toFixed(2)}/${p.unidade}`,
+                            data: p 
+                          }))}
+                          onChange={(options) => {
+                            const selected = options ? options.map(opt => opt.data) : [];
+                            setProdutosSelecionados(selected);
+                            
+                            // Validação em tempo real para produtos sem valor
+                            if (statusSelecionado === 'aprovado' && selected.length > 0) {
+                              const produtosSemValor = selected.filter(p => p.preco <= 0);
+                              if (produtosSemValor.length > 0) {
+                                console.warn('Produtos selecionados sem valor:', produtosSemValor);
                               }
-                            }}
-                            isLoading={loadingProdutos}
-                            placeholder={loadingProdutos ? "Carregando produtos..." : "Selecione os produtos..."}
-                            styles={{
-                              control: (provided) => ({
-                                ...provided,
-                                borderRadius: '0.5rem',
-                                borderColor: '#e5e7eb',
-                                minHeight: '44px',
-                                fontSize: '1rem',
-                                boxShadow: 'none',
-                                ':hover': { borderColor: '#3b82f6' }
-                              }),
-                              option: (provided, state) => ({
-                                ...provided,
-                                backgroundColor: state.isSelected
-                                  ? '#111827'
-                                  : state.isFocused
-                                  ? '#e0e7ef'
-                                  : 'white',
-                                color: state.isSelected ? 'white' : '#111827',
-                                fontSize: '1rem',
-                              }),
-                            }}
-                          />
+                            }
+                          }}
+                          isLoading={loadingProdutos}
+                          placeholder={loadingProdutos ? "Carregando produtos..." : "Selecione os produtos..."}
+                          styles={{
+                            control: (provided) => ({
+                              ...provided,
+                              borderRadius: '0.5rem',
+                              borderColor: '#e5e7eb',
+                              minHeight: '44px',
+                              fontSize: '1rem',
+                              boxShadow: 'none',
+                              ':hover': { borderColor: '#3b82f6' }
+                            }),
+                            option: (provided, state) => ({
+                              ...provided,
+                              backgroundColor: state.isSelected
+                                ? '#111827'
+                                : state.isFocused
+                                ? '#e0e7ef'
+                                : 'white',
+                              color: state.isSelected ? 'white' : '#111827',
+                              fontSize: '1rem',
+                            }),
+                          }}
+                        />
                         ) : (
                           <div className="h-11 bg-gray-100 rounded-lg animate-pulse flex items-center px-3">
                             <span className="text-gray-400">Carregando produtos...</span>
@@ -1609,54 +1633,54 @@ function NovaOS2Content() {
                           </Button>
                         </div>
                         {isMounted ? (
-                          <ReactSelect
-                            isMulti
-                            options={(produtosServicos || []).filter(s => s.tipo === 'servico').map(s => ({ 
-                              value: s.id, 
-                              label: `${s.codigo || 'N/A'} - ${s.nome} - R$ ${s.preco.toFixed(2)}`,
-                              data: s 
-                            }))}
-                            value={servicosSelecionados.map(s => ({ 
-                              value: s.id, 
-                              label: `${s.codigo || 'N/A'} - ${s.nome} - R$ ${s.preco.toFixed(2)}`,
-                              data: s 
-                            }))}
-                            onChange={(options) => {
-                              const selected = options ? options.map(opt => opt.data) : [];
-                              setServicosSelecionados(selected);
-                              
-                              // Validação em tempo real para serviços sem valor
-                              if (statusSelecionado === 'aprovado' && selected.length > 0) {
-                                const servicosSemValor = selected.filter(s => s.preco <= 0);
-                                if (servicosSemValor.length > 0) {
-                                  console.warn('Serviços selecionados sem valor:', servicosSemValor);
-                                }
+                        <ReactSelect
+                          isMulti
+                          options={(produtosServicos || []).filter(s => s.tipo === 'servico').map(s => ({ 
+                            value: s.id, 
+                            label: `${s.codigo || 'N/A'} - ${s.nome} - R$ ${s.preco.toFixed(2)}`,
+                            data: s 
+                          }))}
+                          value={servicosSelecionados.map(s => ({ 
+                            value: s.id, 
+                            label: `${s.codigo || 'N/A'} - ${s.nome} - R$ ${s.preco.toFixed(2)}`,
+                            data: s 
+                          }))}
+                          onChange={(options) => {
+                            const selected = options ? options.map(opt => opt.data) : [];
+                            setServicosSelecionados(selected);
+                            
+                            // Validação em tempo real para serviços sem valor
+                            if (statusSelecionado === 'aprovado' && selected.length > 0) {
+                              const servicosSemValor = selected.filter(s => s.preco <= 0);
+                              if (servicosSemValor.length > 0) {
+                                console.warn('Serviços selecionados sem valor:', servicosSemValor);
                               }
-                            }}
-                            isLoading={loadingProdutos}
-                            placeholder={loadingProdutos ? "Carregando serviços..." : "Selecione os serviços..."}
-                            styles={{
-                              control: (provided) => ({
-                                ...provided,
-                                borderRadius: '0.5rem',
-                                borderColor: '#e5e7eb',
-                                minHeight: '44px',
-                                fontSize: '1rem',
-                                boxShadow: 'none',
-                                ':hover': { borderColor: '#3b82f6' }
-                              }),
-                              option: (provided, state) => ({
-                                ...provided,
-                                backgroundColor: state.isSelected
-                                  ? '#111827'
-                                  : state.isFocused
-                                  ? '#e0e7ef'
-                                  : 'white',
-                                color: state.isSelected ? 'white' : '#111827',
-                                fontSize: '1rem',
-                              }),
-                            }}
-                          />
+                            }
+                          }}
+                          isLoading={loadingProdutos}
+                          placeholder={loadingProdutos ? "Carregando serviços..." : "Selecione os serviços..."}
+                          styles={{
+                            control: (provided) => ({
+                              ...provided,
+                              borderRadius: '0.5rem',
+                              borderColor: '#e5e7eb',
+                              minHeight: '44px',
+                              fontSize: '1rem',
+                              boxShadow: 'none',
+                              ':hover': { borderColor: '#3b82f6' }
+                            }),
+                            option: (provided, state) => ({
+                              ...provided,
+                              backgroundColor: state.isSelected
+                                ? '#111827'
+                                : state.isFocused
+                                ? '#e0e7ef'
+                                : 'white',
+                              color: state.isSelected ? 'white' : '#111827',
+                              fontSize: '1rem',
+                            }),
+                          }}
+                        />
                         ) : (
                           <div className="h-11 bg-gray-100 rounded-lg animate-pulse flex items-center px-3">
                             <span className="text-gray-400">Carregando serviços...</span>

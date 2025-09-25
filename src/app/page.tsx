@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import Image from 'next/image';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
 import { useAppleParallax } from '@/hooks/useParallax';
@@ -77,7 +77,8 @@ export default function Home() {
     // Fechar dropdown quando clicar fora
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      if (!target.closest('.dropdown-container')) {
+      const dropdownButton = target.closest('button');
+      if (!dropdownButton || !dropdownButton.textContent?.includes('Mais')) {
         setIsMoreMenuOpen(false);
       }
     };
@@ -213,8 +214,8 @@ export default function Home() {
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           {/* Logo */}
           <div className="flex items-center justify-center">
-              <Image 
-                src="/assets/imagens/logobranco.png" 
+            <Image 
+              src="/assets/imagens/logobranco.png" 
               alt="Consert Logo" 
               width={160} 
               height={160}
@@ -250,45 +251,45 @@ export default function Home() {
             </button>
             
             {/* Dropdown Mais */}
-            <div className="relative dropdown-container">
+            <div className="relative">
               <button 
                 onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
                 className="text-white/80 hover:text-white transition-all duration-300 font-light text-lg tracking-wide flex items-center"
+                aria-controls="dropdown-menu"
+                aria-expanded={isMoreMenuOpen}
               >
                 Mais
-                <svg className={`w-4 h-4 ml-1 transition-transform duration-200 ${isMoreMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 ml-1 transition-transform duration-200" style={{ transform: isMoreMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
               
-              {/* Dropdown Menu */}
-              {isMoreMenuOpen && (
-                <div className="absolute top-full left-0 mt-2 w-48 bg-black/95 backdrop-blur-xl border border-white/20 rounded-lg shadow-xl z-50">
-                  <div className="py-2">
-                    <Link 
-                      href="/sobre" 
-                      className="block px-4 py-2 text-white/80 hover:text-[#D1FE6E] hover:bg-white/5 transition-all duration-200"
-                      onClick={() => setIsMoreMenuOpen(false)}
-                    >
-                      Sobre a Empresa
-                    </Link>
-                    <Link 
-                      href="/termos" 
-                      className="block px-4 py-2 text-white/80 hover:text-[#D1FE6E] hover:bg-white/5 transition-all duration-200"
-                      onClick={() => setIsMoreMenuOpen(false)}
-                    >
-                      Termos de Uso
-                    </Link>
-                    <Link 
-                      href="/politicas-privacidade" 
-                      className="block px-4 py-2 text-white/80 hover:text-[#D1FE6E] hover:bg-white/5 transition-all duration-200"
-                      onClick={() => setIsMoreMenuOpen(false)}
-                    >
-                      Políticas de Privacidade
-                    </Link>
-                  </div>
+              {/* Dropdown Menu - Always rendered with the same structure */}
+              <div className="absolute top-full left-0 mt-2 w-48 bg-black/95 backdrop-blur-xl border border-white/20 rounded-lg shadow-xl z-50 transition-opacity duration-200" id="dropdown-menu" style={{ opacity: isMoreMenuOpen ? 1 : 0, visibility: isMoreMenuOpen ? 'visible' : 'hidden' }}>
+                <div className="py-2">
+                  <a 
+                    href="/sobre" 
+                    className="block px-4 py-2 text-white/80 hover:text-[#D1FE6E] hover:bg-white/5 transition-all duration-200"
+                    onClick={() => setIsMoreMenuOpen(false)}
+                  >
+                    Sobre a Empresa
+                  </a>
+                  <a 
+                    href="/termos" 
+                    className="block px-4 py-2 text-white/80 hover:text-[#D1FE6E] hover:bg-white/5 transition-all duration-200"
+                    onClick={() => setIsMoreMenuOpen(false)}
+                  >
+                    Termos de Uso
+                  </a>
+                  <a 
+                    href="/politicas-privacidade" 
+                    className="block px-4 py-2 text-white/80 hover:text-[#D1FE6E] hover:bg-white/5 transition-all duration-200"
+                    onClick={() => setIsMoreMenuOpen(false)}
+                  >
+                    Políticas de Privacidade
+                  </a>
                 </div>
-              )}
+              </div>
             </div>
           </div>
 
@@ -351,27 +352,27 @@ export default function Home() {
               {/* Páginas Legais no Mobile */}
               <div className="pt-4 border-t border-[#D1FE6E]/20">
                 <p className="text-white/60 text-sm font-medium mb-3">Informações</p>
-                <Link 
+                <a 
                   href="/sobre" 
                   className="block text-white hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left py-2"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Sobre a Empresa
-                </Link>
-                <Link 
+                </a>
+                <a 
                   href="/termos" 
                   className="block text-white hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left py-2"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Termos de Uso
-                </Link>
-                <Link 
+                </a>
+                <a 
                   href="/politicas-privacidade" 
                   className="block text-white hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left py-2"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Políticas de Privacidade
-                </Link>
+                </a>
               </div>
               
               <div className="flex flex-col space-y-3 pt-4 border-t border-[#D1FE6E]/20">
@@ -759,7 +760,7 @@ export default function Home() {
               }`}
             >
               <Image 
-                src="/assets/imagens/macbook.png"
+                src="/macbook.png"
                 alt="MacBook Pro with Consert" 
                 width={1000} 
                 height={750}
