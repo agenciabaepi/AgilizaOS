@@ -1088,8 +1088,8 @@ function NovaOS2Content() {
                       <h4 className="text-sm font-medium text-gray-700">Informações de Acesso</h4>
                     </div>
                     
-                    <div className="max-w-2xl mx-auto">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="flex justify-center">
+                      <div className="w-full max-w-lg grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {/* Campo de Senha Simples */}
                         <div className="space-y-2">
                           <label className="block text-sm font-medium text-gray-700">Senha do Aparelho</label>
@@ -1108,8 +1108,8 @@ function NovaOS2Content() {
                         {/* Padrão de Desenho Android */}
                         <div className="space-y-2">
                           <label className="block text-sm font-medium text-gray-700">Padrão de Desenho Android</label>
-                          <div className="border border-gray-300 rounded-lg p-4 bg-gray-50 flex justify-center">
-                            <div className="w-48 h-48">
+                          <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+                            <div className="w-full aspect-square max-w-40 mx-auto">
                               <PatternLock
                                 onPatternComplete={(pattern) => {
                                   setDadosEquipamento(prev => ({ ...prev, senha_padrao: pattern }));
