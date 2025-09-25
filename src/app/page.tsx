@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
 import { useAppleParallax } from '@/hooks/useParallax';
 import UltraModernWordRotator from '@/components/UltraModernWordRotator';
+import macbookImage from '@/assets/imagens/macbook.png';
 
 export default function Home() {
   const router = useRouter();
@@ -760,7 +761,7 @@ export default function Home() {
               }`}
             >
               <Image 
-                src="/macbook.png"
+                src={macbookImage}
                 alt="MacBook Pro with Consert" 
                 width={1000} 
                 height={750}

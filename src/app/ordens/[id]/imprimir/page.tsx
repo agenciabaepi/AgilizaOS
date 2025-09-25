@@ -376,11 +376,6 @@ function OrdemPDF({ ordem }: { ordem: any }) {
                       );
                     })}
                   </View>
-                  <Text style={{ fontSize: 10, color: '#666' }}>
-                    Sequência: {JSON.parse(ordem.senha_padrao).map((dot: number) => 
-                      `${Math.floor(dot / 3) + 1},${dot % 3 + 1}`
-                    ).join(' → ')}
-                  </Text>
                 </View>
               </View>
             )}
