@@ -254,6 +254,13 @@ function NovaOS2Content() {
           cor: '#10b981',
           ordem: 2,
           tipo: 'os'
+        },
+        {
+          id: 'retorno_garantia',
+          nome: 'RETORNO GARANTIA',
+          cor: '#ef4444',
+          ordem: 3,
+          tipo: 'os'
         }
       ];
       
@@ -262,6 +269,18 @@ function NovaOS2Content() {
     }
     fetchStatus();
   }, [empresaData?.id]);
+
+  // Auto-selecionar status para retorno de garantia
+  useEffect(() => {
+    if (tipoEntrada === 'garantia' && statusOS.length > 0) {
+      const statusRetornoGarantia = statusOS.find(s => s.id === 'retorno_garantia');
+      if (statusRetornoGarantia) {
+        setStatusSelecionado('retorno_garantia');
+      }
+    } else if (tipoEntrada === 'nova' && statusOS.length > 0) {
+      setStatusSelecionado('orcamento');
+    }
+  }, [tipoEntrada, statusOS]);
 
   useEffect(() => {
     fetchProdutosServicos();
@@ -1328,6 +1347,8 @@ function NovaOS2Content() {
                             <p className="text-xs text-gray-500">
                               {status.nome === 'ORÇAMENTO' 
                                 ? 'Cliente deixou para orçamento - será necessário fazer orçamento posteriormente'
+                                : status.nome === 'RETORNO GARANTIA'
+                                ? 'Aparelho retornou para garantia - reparo sem custo adicional'
                                 : 'Cliente já aprovou o valor - OS pode prosseguir para execução'
                               }
                             </p>
@@ -1356,6 +1377,8 @@ function NovaOS2Content() {
                             <p className="text-xs text-gray-500">
                               {status.nome === 'ORÇAMENTO' 
                                 ? 'Será necessário fazer orçamento posteriormente' 
+                                : status.nome === 'RETORNO GARANTIA'
+                                ? 'Reparo sem custo adicional - aparelho em garantia'
                                 : 'OS pode prosseguir para execução'
                               }
                             </p>
