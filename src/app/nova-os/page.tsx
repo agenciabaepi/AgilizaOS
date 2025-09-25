@@ -593,7 +593,7 @@ function NovaOS2Content() {
         data_cadastro: new Date().toISOString(),
         os_garantia_id: tipoEntrada === 'garantia' && osGarantiaSelecionada ? osGarantiaSelecionada.id : null,
         termo_garantia_id: termoSelecionado || null,
-        tipo: 'Normal',
+        tipo: tipoEntrada === 'garantia' ? 'Retorno' : 'Normal',
         // Campos de senha
         senha_aparelho: dadosEquipamento.senha || null,
         senha_padrao: dadosEquipamento.senha_padrao.length > 0 ? JSON.stringify(dadosEquipamento.senha_padrao) : null,
