@@ -1081,47 +1081,85 @@ function NovaOS2Content() {
 
                   {/* Seção de Senhas */}
                   <div className="mt-6 border-t pt-6">
-                    <div className="flex items-center gap-3 mb-4">
+                    <div className="flex items-center gap-3 mb-6">
                       <div className="p-2 bg-indigo-100 rounded-lg">
                         <FiShield className="w-5 h-5 text-indigo-600" />
                       </div>
                       <h4 className="text-sm font-medium text-gray-700">Informações de Acesso</h4>
                     </div>
                     
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Campo de Senha Simples */}
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-700">Senha do Aparelho</label>
-                        <input
-                          type="text"
-                          placeholder="Ex: 1234, senha123, etc."
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                          value={dadosEquipamento.senha}
-                          onChange={(e) => setDadosEquipamento(prev => ({ ...prev, senha: e.target.value }))}
-                        />
-                        <p className="text-xs text-gray-500">
-                          Digite a senha/pin do aparelho (opcional)
-                        </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {/* Card 1: Senha do Aparelho */}
+                      <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                        <div className="space-y-3">
+                          <label className="block text-sm font-medium text-gray-700">Senha do Aparelho</label>
+                          <input
+                            type="text"
+                            placeholder="Ex: 1234, senha123, etc."
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                            value={dadosEquipamento.senha}
+                            onChange={(e) => setDadosEquipamento(prev => ({ ...prev, senha: e.target.value }))}
+                          />
+                          <p className="text-xs text-gray-500">
+                            Digite a senha/pin do aparelho (opcional)
+                          </p>
+                        </div>
                       </div>
 
-                      {/* Padrão de Desenho Android */}
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-700">Padrão de Desenho Android</label>
-                        <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
-                          <PatternLock
-                            onPatternComplete={(pattern) => {
-                              setDadosEquipamento(prev => ({ ...prev, senha_padrao: pattern }));
-                            }}
-                            onPatternClear={() => {
-                              setDadosEquipamento(prev => ({ ...prev, senha_padrao: [] }));
-                            }}
-                            value={dadosEquipamento.senha_padrao}
-                            className="w-full aspect-square max-w-xs mx-auto"
-                          />
+                      {/* Card 2: Padrão de Desenho Android */}
+                      <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                        <div className="space-y-3">
+                          <label className="block text-sm font-medium text-gray-700">Padrão Android</label>
+                          <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+                            <PatternLock
+                              onPatternComplete={(pattern) => {
+                                setDadosEquipamento(prev => ({ ...prev, senha_padrao: pattern }));
+                              }}
+                              onPatternClear={() => {
+                                setDadosEquipamento(prev => ({ ...prev, senha_padrao: [] }));
+                              }}
+                              value={dadosEquipamento.senha_padrao}
+                              className="w-full aspect-square max-w-32 mx-auto"
+                            />
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            Desenhe o padrão de desbloqueio (opcional)
+                          </p>
                         </div>
-                        <p className="text-xs text-gray-500">
-                          Desenhe o padrão de desbloqueio do Android (opcional)
-                        </p>
+                      </div>
+
+                      {/* Card 3: Acessórios que Acompanham */}
+                      <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                        <div className="space-y-3">
+                          <label className="block text-sm font-medium text-gray-700">Acessórios que Acompanham</label>
+                          <textarea
+                            placeholder="Carregador, cabo, capa, manual, etc..."
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none"
+                            rows={3}
+                            value={acessorios}
+                            onChange={(e) => setAcessorios(e.target.value)}
+                          />
+                          <p className="text-xs text-gray-500">
+                            Liste os acessórios que o cliente está deixando
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Card 4: Estado do Equipamento */}
+                      <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                        <div className="space-y-3">
+                          <label className="block text-sm font-medium text-gray-700">Estado do Equipamento</label>
+                          <textarea
+                            placeholder="Riscos, amassados, funcionando, etc..."
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none"
+                            rows={3}
+                            value={condicoesEquipamento}
+                            onChange={(e) => setCondicoesEquipamento(e.target.value)}
+                          />
+                          <p className="text-xs text-gray-500">
+                            Descreva o estado físico do equipamento
+                          </p>
+                        </div>
                       </div>
                     </div>
 
