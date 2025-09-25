@@ -325,6 +325,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {usuarioData?.nivel === 'tecnico' && (
             <SidebarButton path="/comissoes" icon={<FiDollarSign size={20} />} label="Comissões" isActive={pathname === '/comissoes'} menuRecolhido={menuRecolhido} />
           )}
+          
           <SidebarButton path="/perfil" icon={<FiUsers size={20} />} label="Meu Perfil" isActive={pathname === '/perfil'} menuRecolhido={menuRecolhido} />
           {podeVer('configuracoes') && usuarioData?.nivel && ['admin', 'usuarioteste'].includes(usuarioData.nivel) && (
             <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" isActive={pathname === '/configuracoes'} menuRecolhido={menuRecolhido} />
@@ -772,6 +773,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   onNavigate={() => setMobileMenuOpen(false)}
                 />
               )}
+              
               
               {/* Meu Perfil */}
               <MobileMenuItem

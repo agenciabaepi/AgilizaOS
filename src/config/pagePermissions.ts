@@ -52,6 +52,12 @@ export const PAGE_PERMISSIONS = {
   '/termos/[id]': 'termos',
   '/termos/novo': 'termos',
   
+  // Sobre a Empresa
+  '/sobre': 'dashboard', // Acessível a todos os usuários logados
+  
+  // Políticas de Privacidade
+  '/politicas-privacidade': 'dashboard', // Acessível a todos os usuários logados
+  
   // Comissões (apenas técnicos)
   '/comissoes': 'dashboard', // Técnicos sempre têm dashboard
   

@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
-import Image from 'next/image';
-import logopreto from '@/assets/imagens/logopreto.png';
+import Link from 'next/link';
+import PublicHeader from '@/components/PublicHeader';
 
 export default function PoliticasPrivacidadePage() {
   useEffect(() => {
@@ -12,19 +12,7 @@ export default function PoliticasPrivacidadePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-center">
-            <Image
-              src={logopreto}
-              alt="Consert Logo"
-              className="h-16 w-auto object-contain"
-              priority
-            />
-          </div>
-        </div>
-      </div>
+      <PublicHeader />
 
       {/* Conteúdo Principal */}
       <div className="container mx-auto px-4 py-12">
@@ -277,6 +265,14 @@ export default function PoliticasPrivacidadePage() {
                 <p className="text-gray-400 text-xs mt-2">
                   Sistema de Gestão de Ordens de Serviço
                 </p>
+                <div className="mt-4 space-x-4">
+                  <Link href="/termos" className="text-blue-600 hover:text-blue-800 text-sm">
+                    Termos de Uso
+                  </Link>
+                  <Link href="/sobre" className="text-blue-600 hover:text-blue-800 text-sm">
+                    Sobre a Empresa
+                  </Link>
+                </div>
               </div>
             </div>
           </div>

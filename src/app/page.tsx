@@ -12,6 +12,7 @@ import UltraModernWordRotator from '@/components/UltraModernWordRotator';
 export default function Home() {
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   
   // Hook para animações de scroll reveal
   const { isAnimated } = useScrollReveal();
@@ -73,14 +74,24 @@ export default function Home() {
       setScrollY(window.scrollY);
     };
 
+    // Fechar dropdown quando clicar fora
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.dropdown-container')) {
+        setIsMoreMenuOpen(false);
+      }
+    };
+
     window.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseleave', handleMouseLeave);
     window.addEventListener('scroll', handleScroll);
+    document.addEventListener('click', handleClickOutside);
     
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseleave', handleMouseLeave);
       window.removeEventListener('scroll', handleScroll);
+      document.removeEventListener('click', handleClickOutside);
     };
   }, []);
 
@@ -237,6 +248,48 @@ export default function Home() {
             >
               Recursos
             </button>
+            
+            {/* Dropdown Mais */}
+            <div className="relative dropdown-container">
+              <button 
+                onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
+                className="text-white/80 hover:text-white transition-all duration-300 font-light text-lg tracking-wide flex items-center"
+              >
+                Mais
+                <svg className={`w-4 h-4 ml-1 transition-transform duration-200 ${isMoreMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              
+              {/* Dropdown Menu */}
+              {isMoreMenuOpen && (
+                <div className="absolute top-full left-0 mt-2 w-48 bg-black/95 backdrop-blur-xl border border-white/20 rounded-lg shadow-xl z-50">
+                  <div className="py-2">
+                    <Link 
+                      href="/sobre" 
+                      className="block px-4 py-2 text-white/80 hover:text-[#D1FE6E] hover:bg-white/5 transition-all duration-200"
+                      onClick={() => setIsMoreMenuOpen(false)}
+                    >
+                      Sobre a Empresa
+                    </Link>
+                    <Link 
+                      href="/termos" 
+                      className="block px-4 py-2 text-white/80 hover:text-[#D1FE6E] hover:bg-white/5 transition-all duration-200"
+                      onClick={() => setIsMoreMenuOpen(false)}
+                    >
+                      Termos de Uso
+                    </Link>
+                    <Link 
+                      href="/politicas-privacidade" 
+                      className="block px-4 py-2 text-white/80 hover:text-[#D1FE6E] hover:bg-white/5 transition-all duration-200"
+                      onClick={() => setIsMoreMenuOpen(false)}
+                    >
+                      Políticas de Privacidade
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* CTA Buttons */}
@@ -294,6 +347,33 @@ export default function Home() {
               >
                 Recursos
               </button>
+              
+              {/* Páginas Legais no Mobile */}
+              <div className="pt-4 border-t border-[#D1FE6E]/20">
+                <p className="text-white/60 text-sm font-medium mb-3">Informações</p>
+                <Link 
+                  href="/sobre" 
+                  className="block text-white hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left py-2"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Sobre a Empresa
+                </Link>
+                <Link 
+                  href="/termos" 
+                  className="block text-white hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left py-2"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Termos de Uso
+                </Link>
+                <Link 
+                  href="/politicas-privacidade" 
+                  className="block text-white hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left py-2"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Políticas de Privacidade
+                </Link>
+              </div>
+              
               <div className="flex flex-col space-y-3 pt-4 border-t border-[#D1FE6E]/20">
                 <button 
                   onClick={() => router.push('/cadastro')}
@@ -1941,7 +2021,7 @@ export default function Home() {
               <h3 className="text-white font-medium text-lg mb-6">Legal</h3>
               <ul className="space-y-4">
                 <li>
-                  <Link href="#termos" className="text-white/70 hover:text-[#D1FE6E] transition-colors duration-300 flex items-center">
+                  <Link href="/termos" className="text-white/70 hover:text-[#D1FE6E] transition-colors duration-300 flex items-center">
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                     </svg>
@@ -1949,11 +2029,19 @@ export default function Home() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="#privacidade" className="text-white/70 hover:text-[#D1FE6E] transition-colors duration-300 flex items-center">
+                  <Link href="/politicas-privacidade" className="text-white/70 hover:text-[#D1FE6E] transition-colors duration-300 flex items-center">
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                     </svg>
                     Política de Privacidade
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/sobre" className="text-white/70 hover:text-[#D1FE6E] transition-colors duration-300 flex items-center">
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                    Sobre a Empresa
                   </Link>
                 </li>
                 <li>
@@ -2027,9 +2115,9 @@ export default function Home() {
                </p>
               
               <div className="flex items-center space-x-6">
-                <Link href="#" className="text-white/50 hover:text-white text-sm transition-colors duration-300">Termos</Link>
-                <Link href="#" className="text-white/50 hover:text-white text-sm transition-colors duration-300">Privacidade</Link>
-                <Link href="#" className="text-white/50 hover:text-white text-sm transition-colors duration-300">Cookies</Link>
+                <Link href="/termos" className="text-white/50 hover:text-white text-sm transition-colors duration-300">Termos</Link>
+                <Link href="/politicas-privacidade" className="text-white/50 hover:text-white text-sm transition-colors duration-300">Privacidade</Link>
+                <Link href="/sobre" className="text-white/50 hover:text-white text-sm transition-colors duration-300">Sobre</Link>
               </div>
             </div>
             
