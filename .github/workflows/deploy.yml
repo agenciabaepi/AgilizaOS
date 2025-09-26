@@ -1,4 +1,4 @@
-name: Deploy to VPS
+name: Deploy to VPS (PM2)
 on:
   push:
     branches: [ main ]
@@ -7,29 +7,52 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to VPS
+      - name: Deploy to VPS with PM2
         uses: appleboy/ssh-action@v0.1.5
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            echo "🚀 Iniciando deploy automático..."
-            echo "📋 Verificando diretório..."
+            echo "🚀 Iniciando deploy automático com PM2..."
+            
+            # Verificar se PM2 está instalado
+            if ! command -v pm2 &> /dev/null; then
+              echo "📦 Instalando PM2..."
+              npm install -g pm2
+            fi
+            
+            # Verificar diretório
             if [ ! -d "/opt/gestaoconsert" ]; then
-              echo "❌ Diretório /opt/gestaoconsert não existe!"
               echo "🔧 Criando diretório..."
               sudo mkdir -p /opt/gestaoconsert
               sudo chown $USER:$USER /opt/gestaoconsert
             fi
+            
             cd /opt/gestaoconsert
-            echo "📥 Baixando código mais recente..."
+            
+            # Baixar código
+            echo "📥 Baixando código..."
             git pull origin main || git clone https://github.com/agenciabaepi/AgilizaOS.git .
+            
+            # Instalar dependências
             echo "🔧 Instalando dependências..."
             yarn install --frozen-lockfile
+            
+            # Build
             echo "🏗️ Fazendo build..."
             yarn build
-            echo "🔄 Reiniciando containers..."
-            docker-compose down || echo "Nenhum container rodando"
-            docker-compose up -d --build
+            
+            # Parar aplicação anterior
+            echo "⏹️ Parando aplicação anterior..."
+            pm2 stop gestaoconsert || echo "Aplicação não estava rodando"
+            pm2 delete gestaoconsert || echo "Aplicação não existia"
+            
+            # Iniciar nova aplicação
+            echo "▶️ Iniciando nova aplicação..."
+            pm2 start yarn --name "gestaoconsert" -- start
+            pm2 save
+            pm2 startup
+            
             echo "✅ Deploy concluído com sucesso!"
+            echo "🌐 Aplicação rodando na porta 3000"

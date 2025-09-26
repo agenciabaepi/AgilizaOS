@@ -1,0 +1,35 @@
+name: Deploy to VPS
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v0.1.5
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            echo "🚀 Iniciando deploy automático..."
+            echo "📋 Verificando diretório..."
+            if [ ! -d "/opt/gestaoconsert" ]; then
+              echo "❌ Diretório /opt/gestaoconsert não existe!"
+              echo "🔧 Criando diretório..."
+              sudo mkdir -p /opt/gestaoconsert
+              sudo chown $USER:$USER /opt/gestaoconsert
+            fi
+            cd /opt/gestaoconsert
+            echo "📥 Baixando código mais recente..."
+            git pull origin main || git clone https://github.com/agenciabaepi/AgilizaOS.git .
+            echo "🔧 Instalando dependências..."
+            yarn install --frozen-lockfile
+            echo "🏗️ Fazendo build..."
+            yarn build
+            echo "🔄 Reiniciando containers..."
+            docker-compose down || echo "Nenhum container rodando"
+            docker-compose up -d --build
+            echo "✅ Deploy concluído com sucesso!"
