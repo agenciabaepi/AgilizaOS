@@ -12,7 +12,14 @@
     }
   ],
   "env": {
-    "NODE_ENV": "production"
+    "NODE_ENV": "production",
+    "NEXT_PUBLIC_SUPABASE_URL": "https://nxamrvfusyrtkcshehfm.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im54YW1ydmZ1c3lydGtjc2hlZmYiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc0Nzg2MTMxMCwiZXhwIjoyMDYzNDM3MzEwfQ.CWTKEVlWcMeRTv8kHgsPkk-WzoHxypFDb_QSf-DLPAQ",
+    "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im54YW1ydmZ1c3lydGtjc2hlZmYiLCJyb2xlIjoic2VydmljZV9yb2xlIiwiaWF0IjoxNzQ3ODYxMzEwLCJleHAiOjIwNjM0MzczMTB9.ax2dDACyrsila_Z97fjupFITA7DplPOTXoqyp-bezKc",
+    "NEXT_PUBLIC_SITE_URL": "https://gestaoconsert.com.br",
+    "PLATFORM_ADMIN_EMAILS": "lucas@hotmail.com",
+    "ADMIN_SAAS_ACCESS_CODE": "093718",
+    "ADMIN_SAAS_OPEN": "1"
   },
   "regions": ["iad1"],
   "build": {
