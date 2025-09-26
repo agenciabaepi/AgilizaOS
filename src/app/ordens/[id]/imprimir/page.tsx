@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
   },
 });
 
-function OrdemPDF({ ordem }: { ordem: any }) {
+function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[] }) {
   function formatDate(dateStr: string | null | undefined) {
     if (!dateStr) return '---';
     const m = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -329,7 +329,7 @@ function OrdemPDF({ ordem }: { ordem: any }) {
         </View>
 
         {/* Checklist de Entrada */}
-        <ChecklistPDF checklistData={ordem.checklist_entrada} styles={styles} />
+        <ChecklistPDF checklistData={ordem.checklist_entrada} checklistItens={checklistItens} styles={styles} />
 
         {/* Informações de Acesso */}
         {(ordem.senha_aparelho || ordem.senha_padrao) && (
@@ -488,6 +488,7 @@ function OrdemPDF({ ordem }: { ordem: any }) {
 export default function ImprimirOrdemPage() {
   const { id } = useParams();
   const [ordem, setOrdem] = useState<any>(null);
+  const [checklistItens, setChecklistItens] = useState<any[]>([]);
   const [PDFViewer, setPDFViewer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -594,6 +595,23 @@ export default function ImprimirOrdemPage() {
             relato: data.problema_relatado, // Mapear problema_relatado para relato
           };
           
+          // Buscar itens de checklist se houver empresa_id
+          if (data.empresa_id) {
+            try {
+              const { data: checklistData } = await supabase
+                .from('checklist_itens')
+                .select('id, nome, categoria')
+                .eq('empresa_id', data.empresa_id)
+                .eq('ativo', true)
+                .order('ordem');
+              
+              setChecklistItens(checklistData || []);
+            } catch (error) {
+              console.error('Erro ao buscar itens de checklist:', error);
+              setChecklistItens([]);
+            }
+          }
+          
           setOrdem(ordemMapeada);
           setLoading(false);
         } else {
@@ -679,7 +697,7 @@ export default function ImprimirOrdemPage() {
   return (
     
       <PDFViewer style={{ width: '100vw', height: '100vh' }}>
-        <OrdemPDF ordem={ordem} />
+        <OrdemPDF ordem={ordem} checklistItens={checklistItens} />
       </PDFViewer>
     
   );
