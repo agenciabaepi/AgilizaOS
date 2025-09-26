@@ -1,18 +1,4 @@
-'use client';
-
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext';
-import { View, Text, StyleSheet } from '@react-pdf/renderer';
-
-interface ChecklistItem {
-  id: string;
-  nome: string;
-  descricao?: string;
-  categoria: string;
-  ativo: boolean;
-  ordem: number;
-  obrigatorio: boolean;
-}
+import { View, Text } from '@react-pdf/renderer';
 
 interface ChecklistPDFProps {
   checklistData: string | null;
@@ -20,46 +6,6 @@ interface ChecklistPDFProps {
 }
 
 export default function ChecklistPDF({ checklistData, styles }: ChecklistPDFProps) {
-  const { empresaData } = useAuth();
-  const [itens, setItens] = useState<ChecklistItem[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // Carregar itens de checklist da empresa
-  useEffect(() => {
-    const fetchItens = async () => {
-      if (!empresaData?.id) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const response = await fetch(`/api/checklist-itens?empresa_id=${empresaData.id}&ativo=true`, {
-          method: 'GET',
-          headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0',
-            'Content-Type': 'application/json'
-          },
-          credentials: 'include'
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setItens(data.itens || []);
-        } else {
-          console.error('Erro ao carregar itens de checklist:', response.statusText);
-        }
-      } catch (error) {
-        console.error('Erro ao carregar itens de checklist:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchItens();
-  }, [empresaData?.id]);
-
   if (!checklistData) return null;
 
   try {
@@ -104,38 +50,19 @@ export default function ChecklistPDF({ checklistData, styles }: ChecklistPDFProp
       );
     }
 
-    if (loading) {
-      return (
-        <View style={styles.block}>
-          <Text style={styles.sectionTitle}>Checklist de Entrada</Text>
-          <Text style={[styles.paragraph, { fontSize: 9, color: '#666' }]}>
-            Carregando checklist...
-          </Text>
-        </View>
-      );
-    }
+    // Renderizar checklist baseado apenas nos dados fornecidos
+    const itensAprovados: string[] = [];
+    const itensReprovados: string[] = [];
 
-    if (itens.length === 0) {
-      return (
-        <View style={styles.block}>
-          <Text style={styles.sectionTitle}>Checklist de Entrada</Text>
-          <Text style={[styles.paragraph, { fontSize: 9, color: '#666' }]}>
-            Nenhum item de checklist configurado para esta empresa.
-          </Text>
-        </View>
-      );
-    }
-
-    // Separar itens aprovados e reprovados
-    const itensAprovados: ChecklistItem[] = [];
-    const itensReprovados: ChecklistItem[] = [];
-
-    itens.forEach(item => {
-      const isAprovado = checklist[item.id] === true;
-      if (isAprovado) {
-        itensAprovados.push(item);
-      } else {
-        itensReprovados.push(item);
+    // Processar dados do checklist diretamente
+    Object.keys(checklist).forEach(key => {
+      if (key !== 'aparelhoNaoLiga') {
+        const isAprovado = checklist[key] === true;
+        if (isAprovado) {
+          itensAprovados.push(key);
+        } else if (checklist[key] === false) {
+          itensReprovados.push(key);
+        }
       }
     });
 
@@ -149,8 +76,8 @@ export default function ChecklistPDF({ checklistData, styles }: ChecklistPDFProp
               ✅ Testes Aprovados:
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {itensAprovados.map(item => (
-                <View key={item.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+              {itensAprovados.map((item, index) => (
+                <View key={index} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
                   <View style={{ 
                     width: 12, 
                     height: 12, 
@@ -165,7 +92,7 @@ export default function ChecklistPDF({ checklistData, styles }: ChecklistPDFProp
                     <Text style={{ fontSize: 8, color: '#16a34a', fontWeight: 'bold' }}>✓</Text>
                   </View>
                   <Text style={[styles.paragraph, { fontSize: 8, color: '#16a34a' }]}>
-                    {item.nome}
+                    {item}
                   </Text>
                 </View>
               ))}
@@ -179,8 +106,8 @@ export default function ChecklistPDF({ checklistData, styles }: ChecklistPDFProp
               ❌ Testes Reprovados:
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {itensReprovados.map(item => (
-                <View key={item.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+              {itensReprovados.map((item, index) => (
+                <View key={index} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
                   <View style={{ 
                     width: 12, 
                     height: 12, 
@@ -195,7 +122,7 @@ export default function ChecklistPDF({ checklistData, styles }: ChecklistPDFProp
                     <Text style={{ fontSize: 8, color: '#d32f2f', fontWeight: 'bold' }}>×</Text>
                   </View>
                   <Text style={[styles.paragraph, { fontSize: 8, color: '#d32f2f' }]}>
-                    {item.nome}
+                    {item}
                   </Text>
                 </View>
               ))}
