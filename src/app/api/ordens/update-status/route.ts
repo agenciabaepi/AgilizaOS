@@ -43,6 +43,30 @@ export async function POST(request: NextRequest) {
     
     console.log('📝 Dados filtrados para atualização (sem campos vazios):', finalUpdateData);
 
+    // ✅ BUSCAR EQUIPAMENTO ANTERIOR ANTES DE ATUALIZAR
+    console.log('🔍 Buscando equipamento anterior ANTES de atualizar...');
+    const { data: osAnterior, error: osAnteriorError } = await supabase
+      .from('ordens_servico')
+      .select('equipamento, empresa_id')
+      .eq('id', osId)
+      .single();
+
+    if (osAnteriorError) {
+      console.error('❌ Erro ao buscar OS anterior:', osAnteriorError);
+      return NextResponse.json(
+        { error: 'Erro ao buscar dados da OS' },
+        { status: 500 }
+      );
+    }
+
+    const equipamentoAnterior = osAnterior?.equipamento;
+    const equipamentoNovo = finalUpdateData.equipamento;
+    const empresaId = osAnterior?.empresa_id;
+
+    console.log('🔍 Equipamento anterior:', equipamentoAnterior);
+    console.log('🔍 Equipamento novo:', equipamentoNovo);
+    console.log('🔍 Empresa ID:', empresaId);
+
     // Atualizar dados completos da OS no banco de dados
     const { data, error } = await supabase
       .from('ordens_servico')
@@ -60,6 +84,73 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('✅ Status da OS atualizado com sucesso:', data);
+
+    // ✅ ATUALIZAR CONTADOR DE EQUIPAMENTOS (se equipamento foi alterado)
+    console.log('🔢 Verificando atualização do contador de equipamentos...');
+    console.log('📋 Dados da atualização:', { equipamento: finalUpdateData.equipamento, osId });
+    
+    try {
+
+      // Se o equipamento mudou, recalcular contadores baseado na quantidade real
+      if (equipamentoAnterior !== equipamentoNovo && empresaId) {
+        console.log('🔄 Equipamento alterado! Recalculando contadores...');
+
+        // Lista de equipamentos que precisam ter contadores atualizados
+        const equipamentosParaAtualizar = [];
+        if (equipamentoAnterior) equipamentosParaAtualizar.push(equipamentoAnterior);
+        if (equipamentoNovo) equipamentosParaAtualizar.push(equipamentoNovo);
+
+        // Para cada equipamento, contar a quantidade real na tabela ordens_servico
+        for (const nomeEquipamento of equipamentosParaAtualizar) {
+          console.log(`🔍 Recalculando contador para ${nomeEquipamento}...`);
+          
+          // Contar quantidade real na tabela ordens_servico
+          const { count: quantidadeReal, error: countError } = await supabase
+            .from('ordens_servico')
+            .select('*', { count: 'exact', head: true })
+            .eq('equipamento', nomeEquipamento)
+            .eq('empresa_id', empresaId);
+
+          if (countError) {
+            console.error(`❌ Erro ao contar ${nomeEquipamento}:`, countError);
+            continue;
+          }
+
+          const quantidadeFinal = quantidadeReal || 0;
+          console.log(`📊 ${nomeEquipamento}: quantidade real = ${quantidadeFinal}`);
+
+          // Buscar o equipamento na tabela equipamentos_tipos
+          const { data: equipamentoData } = await supabase
+            .from('equipamentos_tipos')
+            .select('id, quantidade_cadastrada')
+            .eq('nome', nomeEquipamento)
+            .eq('empresa_id', empresaId)
+            .single();
+
+          if (equipamentoData) {
+            console.log(`📈 Atualizando ${nomeEquipamento} de ${equipamentoData.quantidade_cadastrada} para ${quantidadeFinal}`);
+            
+            const { error: updateCounterError } = await supabase
+              .from('equipamentos_tipos')
+              .update({ quantidade_cadastrada: quantidadeFinal })
+              .eq('id', equipamentoData.id);
+
+            if (updateCounterError) {
+              console.error(`❌ Erro ao atualizar contador:`, updateCounterError);
+            } else {
+              console.log(`✅ ${nomeEquipamento} atualizado com sucesso!`);
+            }
+          } else {
+            console.log(`⚠️ Equipamento ${nomeEquipamento} não encontrado na tabela equipamentos_tipos`);
+          }
+        }
+      } else {
+        console.log('✅ Equipamento não alterado ou empresa_id não encontrado, contadores mantidos');
+      }
+    } catch (counterError) {
+      console.error('❌ Erro ao atualizar contador de equipamentos:', counterError);
+      // Não falha a atualização da OS se o contador falhar
+    }
 
     // ✅ ENVIAR NOTIFICAÇÃO N8N PARA APROVAÇÃO OU MUDANÇA DE STATUS
     if (newStatus || newStatusTecnico) {

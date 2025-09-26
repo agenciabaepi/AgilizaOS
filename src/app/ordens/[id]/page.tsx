@@ -7,6 +7,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { FiArrowLeft, FiEdit, FiPrinter, FiDollarSign, FiMessageCircle, FiUser, FiSmartphone, FiFileText, FiCalendar, FiShield, FiTool, FiPackage, FiCheckCircle, FiClock, FiRefreshCw, FiExternalLink } from 'react-icons/fi';
 import ImagensOS from '@/components/ImagensOS';
+import ChecklistViewer from '@/components/ChecklistViewer';
 import { useToast } from '@/components/Toast';
 import { useAuth } from '@/context/AuthContext';
 import { useStatusHistorico } from '@/hooks/useStatusHistorico';
@@ -53,7 +54,6 @@ const VisualizarOrdemServicoPage = () => {
             tecnico:tecnico_id (
               nome
             ),
-            categoria,
             modelo,
             cor,
             marca,
@@ -71,6 +71,7 @@ const VisualizarOrdemServicoPage = () => {
             desconto,
             acessorios,
             condicoes_equipamento,
+            equipamento,
             problema_relatado,
             senha_aparelho,
             senha_padrao,
@@ -79,6 +80,7 @@ const VisualizarOrdemServicoPage = () => {
             termo_garantia_id,
             tipo,
             imagens,
+            checklist_entrada,
             termo_garantia:termo_garantia_id (
               id,
               nome,
@@ -151,6 +153,7 @@ const VisualizarOrdemServicoPage = () => {
     const tipo = ordem?.tipo?.toLowerCase();
     return tipo === 'retorno' || tipo === 'Retorno';
   };
+
 
   const fetchTermosGarantia = async () => {
     try {
@@ -507,8 +510,8 @@ const VisualizarOrdemServicoPage = () => {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-gray-600">Categoria:</span>
-                    <p className="font-medium text-gray-900">{ordem.categoria || '---'}</p>
+                    <span className="text-gray-600">Tipo de Equipamento:</span>
+                    <p className="font-medium text-gray-900">{ordem.equipamento || '---'}</p>
                   </div>
                   <div>
                     <span className="text-gray-600">Marca:</span>
@@ -537,7 +540,18 @@ const VisualizarOrdemServicoPage = () => {
                 </div>
               </div>
 
-              {/* Informações de Acesso */}
+              {/* Checklist de Entrada */}
+              {ordem.checklist_entrada && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <FiCheckCircle className="w-5 h-5 text-green-600" />
+                    </div>
+                    <h2 className="text-xl font-semibold text-gray-900">Checklist de Entrada</h2>
+                  </div>
+                  <ChecklistViewer checklistData={ordem.checklist_entrada} />
+                </div>
+              )}
               {(ordem.senha_aparelho || ordem.senha_padrao) && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                   <div className="flex items-center gap-3 mb-4">

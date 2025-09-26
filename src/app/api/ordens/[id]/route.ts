@@ -58,6 +58,20 @@ export async function PUT(
     if (updateData.tecnico_id && updateData.tecnico_id !== '') dataToUpdate.tecnico_id = updateData.tecnico_id;
     if (updateData.termo_garantia_id) dataToUpdate.termo_garantia_id = updateData.termo_garantia_id;
     
+    // ✅ CAMPOS DE EQUIPAMENTO
+    if (updateData.marca) dataToUpdate.marca = updateData.marca;
+    if (updateData.modelo) dataToUpdate.modelo = updateData.modelo;
+    if (updateData.cor) dataToUpdate.cor = updateData.cor;
+    if (updateData.numero_serie) dataToUpdate.numero_serie = updateData.numero_serie;
+    if (updateData.equipamento) dataToUpdate.equipamento = updateData.equipamento;
+    if (updateData.acessorios) dataToUpdate.acessorios = updateData.acessorios;
+    if (updateData.condicoes_equipamento) dataToUpdate.condicoes_equipamento = updateData.condicoes_equipamento;
+    if (updateData.problema_relatado) dataToUpdate.problema_relatado = updateData.problema_relatado;
+    if (updateData.laudo) dataToUpdate.laudo = updateData.laudo;
+    if (updateData.imagens) dataToUpdate.imagens = updateData.imagens;
+    if (updateData.observacao) dataToUpdate.observacao = updateData.observacao;
+    if (updateData.checklist_entrada) dataToUpdate.checklist_entrada = updateData.checklist_entrada;
+    
     // Lógica automática para status técnico
     if (updateData.status) {
       const normalize = (s: string) => (s || '').toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
@@ -93,6 +107,29 @@ export async function PUT(
     const valor_faturado = (updateData.qtd_servico * updateData.valor_servico) + (updateData.qtd_peca * updateData.valor_peca);
     dataToUpdate.valor_faturado = valor_faturado;
 
+    // 🔍 DEBUG: Log dos dados que serão atualizados
+    console.log('🔍 DEBUG API PUT - Dados que serão atualizados:');
+    console.log('📋 dataToUpdate:', dataToUpdate);
+    console.log('📋 updateData.equipamento:', updateData.equipamento);
+    console.log('📋 dataToUpdate.equipamento:', dataToUpdate.equipamento);
+
+    // ✅ BUSCAR EQUIPAMENTO ANTERIOR ANTES DE ATUALIZAR
+    console.log('🔢 Verificando atualização do contador de equipamentos...');
+    console.log('📋 Dados da atualização:', { equipamento: updateData.equipamento, empresa_id: empresaId });
+    
+    // Buscar o equipamento anterior da OS ANTES de atualizar
+    const { data: osAnterior } = await supabase
+      .from('ordens_servico')
+      .select('equipamento')
+      .eq('id', id)
+      .single();
+
+    const equipamentoAnterior = osAnterior?.equipamento;
+    const equipamentoNovo = updateData.equipamento;
+
+    console.log('🔍 Equipamento anterior:', equipamentoAnterior);
+    console.log('🔍 Equipamento novo:', equipamentoNovo);
+
     // Update the order
     const { data, error } = await supabase
       .from('ordens_servico')
@@ -104,6 +141,67 @@ export async function PUT(
     if (error) {
       console.error('API Route - Erro ao atualizar ordem:', error);
       return NextResponse.json({ error: 'Erro ao atualizar ordem: ' + error.message }, { status: 500 });
+    }
+
+    // ✅ ATUALIZAR CONTADOR DE EQUIPAMENTOS (se equipamento foi alterado)
+    // IMPORTANTE: Recalcular contadores APÓS atualizar a OS
+    try {
+
+      // Se o equipamento mudou, recalcular contadores baseado na quantidade real
+      if (equipamentoAnterior !== equipamentoNovo) {
+        console.log('🔄 Equipamento alterado! Recalculando contadores...');
+
+        // Lista de equipamentos que precisam ter contadores atualizados
+        const equipamentosParaAtualizar = [];
+        if (equipamentoAnterior) equipamentosParaAtualizar.push(equipamentoAnterior);
+        if (equipamentoNovo) equipamentosParaAtualizar.push(equipamentoNovo);
+
+        // Para cada equipamento, contar a quantidade real na tabela ordens_servico
+        for (const nomeEquipamento of equipamentosParaAtualizar) {
+          console.log(`🔍 Recalculando contador para ${nomeEquipamento}...`);
+          
+          // Contar quantidade real na tabela ordens_servico
+          const { count: quantidadeReal, error: countError } = await supabase
+            .from('ordens_servico')
+            .select('*', { count: 'exact', head: true })
+            .eq('equipamento', nomeEquipamento)
+            .eq('empresa_id', empresaId);
+
+          if (countError) {
+            console.error(`❌ Erro ao contar ${nomeEquipamento}:`, countError);
+            continue;
+          }
+
+          const quantidadeFinal = quantidadeReal || 0;
+          console.log(`📊 ${nomeEquipamento}: quantidade real = ${quantidadeFinal}`);
+
+          // Buscar o equipamento na tabela equipamentos_tipos
+          const { data: equipamentoData } = await supabase
+            .from('equipamentos_tipos')
+            .select('id, quantidade_cadastrada')
+            .eq('nome', nomeEquipamento)
+            .eq('empresa_id', empresaId)
+            .single();
+
+          if (equipamentoData) {
+            console.log(`📈 Atualizando ${nomeEquipamento} de ${equipamentoData.quantidade_cadastrada} para ${quantidadeFinal}`);
+            
+            await supabase
+              .from('equipamentos_tipos')
+              .update({ quantidade_cadastrada: quantidadeFinal })
+              .eq('id', equipamentoData.id);
+            
+            console.log(`✅ ${nomeEquipamento} atualizado com sucesso!`);
+          } else {
+            console.log(`⚠️ Equipamento ${nomeEquipamento} não encontrado na tabela equipamentos_tipos`);
+          }
+        }
+      } else {
+        console.log('✅ Equipamento não alterado, contadores mantidos');
+      }
+    } catch (counterError) {
+      console.error('❌ Erro ao atualizar contador de equipamentos:', counterError);
+      // Não falha a atualização da OS se o contador falhar
     }
 
     return NextResponse.json({ success: true, data });

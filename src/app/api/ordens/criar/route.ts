@@ -5,6 +5,7 @@ import { sendNewOSNotification } from '@/lib/whatsapp-notifications';
 import { notificarNovaOSN8N, gerarURLOs, formatarWhatsApp } from '@/lib/n8n-nova-os';
 
 export async function POST(request: NextRequest) {
+  console.log('🚀 API /api/ordens/criar chamada!');
   try {
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -40,6 +41,62 @@ export async function POST(request: NextRequest) {
         { error: 'Erro ao criar a Ordem de Serviço: ' + osError.message },
         { status: 500 }
       );
+    }
+
+    // ✅ ATUALIZAR CONTADOR DE EQUIPAMENTOS
+    console.log('🔢 Atualizando contador de equipamentos...');
+    console.log('📋 Dados da OS:', { equipamento: dadosOS.equipamento, empresa_id: dadosOS.empresa_id });
+    try {
+      if (dadosOS.equipamento) {
+        console.log('🔍 Buscando equipamento:', dadosOS.equipamento);
+        
+        // Buscar o equipamento na tabela equipamentos_tipos
+        const { data: equipamentoData, error: equipamentoError } = await supabase
+          .from('equipamentos_tipos')
+          .select('id, quantidade_cadastrada')
+          .eq('nome', dadosOS.equipamento)
+          .eq('empresa_id', dadosOS.empresa_id)
+          .single();
+
+        console.log('🔍 Resultado da busca:', { equipamentoData, equipamentoError });
+
+        if (!equipamentoError && equipamentoData) {
+          console.log('✅ Equipamento encontrado:', equipamentoData);
+          
+          // Contar quantidade real na tabela ordens_servico (incluindo a OS que acabou de ser criada)
+          const { count: quantidadeReal, error: countError } = await supabase
+            .from('ordens_servico')
+            .select('*', { count: 'exact', head: true })
+            .eq('equipamento', dadosOS.equipamento)
+            .eq('empresa_id', dadosOS.empresa_id);
+
+          if (countError) {
+            console.error(`❌ Erro ao contar ${dadosOS.equipamento}:`, countError);
+          } else {
+            const quantidadeFinal = quantidadeReal || 0;
+            console.log(`📊 ${dadosOS.equipamento}: quantidade real = ${quantidadeFinal}`);
+            console.log(`📈 Atualizando ${dadosOS.equipamento} de ${equipamentoData.quantidade_cadastrada} para ${quantidadeFinal}`);
+            
+            const { error: updateError } = await supabase
+              .from('equipamentos_tipos')
+              .update({ quantidade_cadastrada: quantidadeFinal })
+              .eq('id', equipamentoData.id);
+
+            if (updateError) {
+              console.error('❌ Erro ao atualizar contador:', updateError);
+            } else {
+              console.log(`✅ ${dadosOS.equipamento} atualizado com sucesso!`);
+            }
+          }
+        } else {
+          console.log('⚠️ Equipamento não encontrado na tabela equipamentos_tipos:', equipamentoError);
+        }
+      } else {
+        console.log('⚠️ Campo equipamento não preenchido na OS');
+      }
+    } catch (counterError) {
+      console.error('❌ Erro ao atualizar contador de equipamentos:', counterError);
+      // Não falha a criação da OS se o contador falhar
     }
 
     // ✅ REGISTRAR STATUS INICIAL NO HISTÓRICO

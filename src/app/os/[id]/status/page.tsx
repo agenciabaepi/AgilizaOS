@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { supabasePublic } from '@/lib/supabasePublicClient';
 import { FiClock, FiCheckCircle, FiAlertCircle, FiCamera, FiFileText, FiSmartphone, FiShield, FiUser, FiCalendar, FiTool, FiZoomIn, FiDownload, FiChevronRight } from 'react-icons/fi';
 import ImagensOS from '@/components/ImagensOS';
+import ChecklistPublic from '@/components/ChecklistPublic';
 import StatusHistoricoTimeline from '@/components/StatusHistoricoTimeline';
 
 export default function OSPublicPage() {
@@ -21,7 +22,7 @@ export default function OSPublicPage() {
   // Dados de exemplo para fallback
   const exemploOS = {
     numero_os: 1234,
-    categoria: 'Smartphone',
+    equipamento: 'Smartphone',
     marca: 'Samsung',
     modelo: 'Galaxy S21',
     status: 'EM_ANALISE',
@@ -131,7 +132,7 @@ export default function OSPublicPage() {
         console.log('🔍 Testando consulta simples primeiro...');
         const simpleQuery = supabasePublic
           .from('ordens_servico')
-          .select('id, numero_os, categoria, marca, modelo, status, servico, cliente_id, tecnico_id, empresa_id')
+          .select('id, numero_os, equipamento, marca, modelo, status, servico, cliente_id, tecnico_id, empresa_id')
           .eq('id', osId)
           .single();
 
@@ -162,7 +163,7 @@ export default function OSPublicPage() {
           .select(`
             id,
             numero_os,
-            categoria,
+            equipamento,
             marca,
             modelo,
             status,
@@ -174,6 +175,11 @@ export default function OSPublicPage() {
             senha_aparelho,
             senha_padrao,
             imagens,
+            checklist_entrada,
+            laudo,
+            cor,
+            numero_serie,
+            acessorios,
             cliente_id,
             tecnico_id,
             empresa_id,
@@ -350,6 +356,7 @@ export default function OSPublicPage() {
   const currentStatus = statusConfig[osData.status as keyof typeof statusConfig] || statusConfig.EM_ANALISE;
   const StatusIcon = currentStatus.icon;
 
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -400,9 +407,12 @@ export default function OSPublicPage() {
               <h3 className="text-lg font-semibold text-gray-900">Equipamento</h3>
             </div>
             <div className="space-y-2">
-              <p><span className="font-medium">Categoria:</span> {osData.categoria || 'Não informado'}</p>
+              <p><span className="font-medium">Tipo de Equipamento:</span> {osData.equipamento || 'Não informado'}</p>
               <p><span className="font-medium">Marca:</span> {osData.marca || 'Não informado'}</p>
               <p><span className="font-medium">Modelo:</span> {osData.modelo || 'Não informado'}</p>
+              {osData.cor && <p><span className="font-medium">Cor:</span> {osData.cor}</p>}
+              {osData.numero_serie && <p><span className="font-medium">Número de Série:</span> {osData.numero_serie}</p>}
+              {osData.acessorios && <p><span className="font-medium">Acessórios:</span> {osData.acessorios}</p>}
             </div>
           </div>
 
@@ -495,6 +505,36 @@ export default function OSPublicPage() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Checklist de Entrada */}
+        {osData.checklist_entrada && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <div className="flex items-center mb-4">
+              <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center mr-3">
+                <FiCheckCircle className="w-5 h-5 text-yellow-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Checklist de Entrada</h3>
+            </div>
+            <ChecklistPublic checklistData={osData.checklist_entrada} empresaId={osData.empresa_id} />
+          </div>
+        )}
+
+        {/* Laudo Técnico */}
+        {osData.laudo && osData.laudo.trim() !== '' && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <div className="flex items-center mb-4">
+              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
+                <FiFileText className="w-5 h-5 text-purple-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Laudo Técnico</h3>
+            </div>
+            <div className="prose max-w-none">
+              <div className="whitespace-pre-wrap text-gray-700 bg-gray-50 p-4 rounded-lg border">
+                {osData.laudo}
+              </div>
             </div>
           </div>
         )}

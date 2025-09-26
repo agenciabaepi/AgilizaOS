@@ -15,6 +15,7 @@ import { Suspense } from 'react';
 import { useToast } from '@/components/Toast';
 import PatternLock from '@/components/PatternLock';
 import { FiShield, FiSmartphone, FiCheckCircle, FiInfo } from 'react-icons/fi';
+import EquipamentoSelector from '@/components/EquipamentoSelector';
 
 const etapas = ["Cliente", "Aparelho", "Técnico", "Status", "Imagens"];
 
@@ -90,6 +91,31 @@ function NovaOS2Content() {
     senha: '',
     senha_padrao: [] as number[]
   });
+  
+  // Estado para equipamento selecionado do seletor
+  const [equipamentoSelecionado, setEquipamentoSelecionado] = useState<any>(null);
+
+  // Função para lidar com seleção de equipamento
+  const handleEquipamentoSelecionado = (equipamento: any) => {
+    setEquipamentoSelecionado(equipamento);
+    if (equipamento) {
+      // Preencher apenas o tipo (categoria) do equipamento
+      setDadosEquipamento(prev => ({
+        ...prev,
+        tipo: equipamento.nome, // Usar o nome como tipo (ex: CELULAR, NOTEBOOK)
+        marca: prev.marca, // Manter marca manual
+        modelo: prev.modelo, // Manter modelo manual
+        cor: prev.cor, // Manter cor manual
+        numero_serie: prev.numero_serie // Manter número de série manual
+      }));
+    } else {
+      // Limpar apenas o tipo se nenhum equipamento selecionado
+      setDadosEquipamento(prev => ({
+        ...prev,
+        tipo: ''
+      }));
+    }
+  };
 
   // Estado para acessórios
   const [acessorios, setAcessorios] = useState('');
@@ -597,6 +623,7 @@ function NovaOS2Content() {
         cliente_id: clienteSelecionado,
         tecnico_id: tecnicoResponsavel,  // ✅ Usar tecnico_id (campo que existe na tabela)
         status: nomeStatus,
+        equipamento: dadosEquipamento.tipo?.toUpperCase() || '', // ✅ Campo para contador
         categoria: dadosEquipamento.tipo?.toUpperCase() || '',
         marca: dadosEquipamento.marca?.toUpperCase() || '',
         modelo: dadosEquipamento.modelo?.toUpperCase() || '',
@@ -1032,14 +1059,13 @@ function NovaOS2Content() {
                   <h3 className="text-sm font-medium text-gray-700 mb-4">Informações do equipamento</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de equipamento</label>
-                      <input
-                        type="text"
-                        placeholder="Ex: Smartphone, Notebook, etc."
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                        value={dadosEquipamento.tipo}
-                        onChange={(e) => setDadosEquipamento(prev => ({ ...prev, tipo: e.target.value.toUpperCase() }))}
-                        readOnly={tipoEntrada === 'garantia' && !!osGarantiaSelecionada}
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Equipamento</label>
+                      <EquipamentoSelector
+                        empresaId={empresaData?.id || ''}
+                        value={equipamentoSelecionado?.id}
+                        onChange={handleEquipamentoSelecionado}
+                        placeholder="Selecione o tipo de equipamento (ex: CELULAR, NOTEBOOK)"
+                        className="w-full"
                       />
                     </div>
                     <div>

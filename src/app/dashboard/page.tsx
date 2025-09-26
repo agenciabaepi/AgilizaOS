@@ -34,9 +34,9 @@ import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import { v4 as uuidv4 } from 'uuid';
 // Removido ProtectedArea - agora é responsabilidade do MenuLayout
+import ModernPieChart from '@/components/ModernPieChart';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
-// Imports de sessão removidos temporariamente
 
 // Função para formatar data (pode ser ajustada conforme necessidade)
 function formatarData(data: string) {
@@ -810,6 +810,11 @@ export default function LembretesPage() {
             </div>
           </DashboardCard>
           </div>
+        </div>
+
+        {/* Gráfico de Pizza Moderno */}
+        <div className="px-2 md:px-0 mb-6 md:mb-8">
+          <ModernPieChart className="w-full" />
         </div>
 
         {/* Sistema de Calendário */}

@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabaseClient';
 import MenuLayout from '@/components/MenuLayout';
 
 import ProdutoServicoManager from '@/components/ProdutoServicoManager';
+import EquipamentoSelector from '@/components/EquipamentoSelector';
+import DynamicChecklist from '@/components/DynamicChecklist';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { useAuth } from '@/context/AuthContext';
@@ -30,6 +32,7 @@ interface Ordem {
   modelo?: string;
   cor?: string;
   numero_serie?: string;
+  equipamento?: string;
   relato?: string;
   observacoes?: string;
   problema_relatado?: string;
@@ -70,7 +73,7 @@ export default function EditarOSSimples() {
   const id = params?.id as string;
   const { addToast } = useToast();
   const confirm = useConfirm();
-  const { usuarioData } = useAuth();
+  const { usuarioData, empresaData } = useAuth();
   const { registrarMudancaStatus } = useStatusHistorico();
 
   const [ordem, setOrdem] = useState<Ordem | null>(null);
@@ -89,6 +92,7 @@ export default function EditarOSSimples() {
   const [numeroSerie, setNumeroSerie] = useState('');
   const [acessorios, setAcessorios] = useState('');
   const [condicoesEquipamento, setCondicoesEquipamento] = useState('');
+  const [equipamento, setEquipamento] = useState('');
   
   // Estados dos relatos (campos da tabela)
   const [relato, setRelato] = useState('');
@@ -105,6 +109,9 @@ export default function EditarOSSimples() {
   const [imagens, setImagens] = useState<string[]>([]);
   const [novasImagens, setNovasImagens] = useState<File[]>([]);
   const [uploadingImagens, setUploadingImagens] = useState(false);
+
+  // Checklist de entrada (opcional na criação, recomendado antes do técnico)
+  const [checklistEntrada, setChecklistEntrada] = useState<Record<string, boolean>>({});
 
   // Listas
   const [status, setStatus] = useState<Status[]>([]);
@@ -171,6 +178,12 @@ export default function EditarOSSimples() {
       }
 
       setOrdem(data);
+      
+      // 🔍 DEBUG: Log dos dados carregados
+      console.log('🔍 DEBUG fetchOrdem - Dados carregados:');
+      console.log('📋 data.equipamento:', data.equipamento);
+      console.log('📋 data completo:', data);
+      
       // Preencher todos os campos (usando campos reais da tabela)
       setObservacoesInternas(data.observacao || ''); // Campo observacao (singular) da tabela
       setMarca(data.marca || '');
@@ -179,6 +192,7 @@ export default function EditarOSSimples() {
       setNumeroSerie(data.numero_serie || '');
       setAcessorios(data.acessorios || '');
       setCondicoesEquipamento(data.condicoes_equipamento || '');
+      setEquipamento(data.equipamento || '');
       setRelato(data.problema_relatado || '');
       setObservacao(data.observacao || '');
       setLaudo(data.laudo || '');
@@ -186,6 +200,15 @@ export default function EditarOSSimples() {
       // setDataSaida(data.data_saida ? data.data_saida.split('T')[0] : '');
       // setPrazoEntrega(data.prazo_entrega ? data.prazo_entrega.split('T')[0] : '');
       setTermoGarantiaId(data.termo_garantia_id || '');
+      // Carregar checklist de entrada se existir na OS
+      try {
+        if (data.checklist_entrada) {
+          const parsed = typeof data.checklist_entrada === 'string' ? JSON.parse(data.checklist_entrada) : data.checklist_entrada;
+          if (parsed && typeof parsed === 'object') {
+            setChecklistEntrada((prev) => ({ ...prev, ...parsed }));
+          }
+        }
+      } catch (_) {}
       
       // Processar imagens
       if (data.imagens) {
@@ -296,6 +319,13 @@ export default function EditarOSSimples() {
     
     if (!confirmed) return;
 
+    // Se for avançar para técnico (há técnico selecionado), exigir checklist preenchido (ao menos 1 item marcado)
+    const algumItemChecklistMarcado = Object.values(checklistEntrada).some(Boolean);
+    if (tecnicoSelecionado && !algumItemChecklistMarcado) {
+      addToast('error', 'Preencha o Checklist de entrada antes de encaminhar ao técnico.');
+      return;
+    }
+
     setSaving(true);
     try {
       // Fazer upload das novas imagens primeiro
@@ -365,6 +395,7 @@ export default function EditarOSSimples() {
         modelo: modelo,
         cor: cor,
         numero_serie: numeroSerie,
+        equipamento: equipamento,
         acessorios: acessorios,
         condicoes_equipamento: condicoesEquipamento,
         // Relatos (campos reais da tabela)
@@ -378,6 +409,17 @@ export default function EditarOSSimples() {
         // prazo_entrega: prazoEntrega ? new Date(prazoEntrega).toISOString() : null,
         termo_garantia_id: termoGarantiaId || null
       };
+
+      // 🔍 DEBUG: Log dos dados sendo enviados
+      console.log('🔍 DEBUG handleSalvar - Dados sendo enviados:');
+      console.log('📋 updateData.equipamento:', updateData.equipamento);
+      console.log('📋 Estado equipamento atual:', equipamento);
+      console.log('📋 updateData completo:', updateData);
+
+      // Persistência do checklist de entrada como JSON (string)
+      if (checklistEntrada) {
+        updateData.checklist_entrada = JSON.stringify(checklistEntrada);
+      }
 
       // Adicionar técnico se selecionado
       if (tecnicoSelecionado?.tecnico_id || tecnicoSelecionado?.auth_user_id) {
@@ -479,6 +521,14 @@ export default function EditarOSSimples() {
       addToast('error', 'Erro ao salvar dados');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleEquipamentoSelecionado = (equipamento: any) => {
+    if (equipamento) {
+      setEquipamento(equipamento.nome);
+    } else {
+      setEquipamento('');
     }
   };
 
@@ -816,6 +866,15 @@ export default function EditarOSSimples() {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="md:col-span-2 lg:col-span-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Equipamento</label>
+                <EquipamentoSelector
+                  empresaId={empresaData?.id || ''}
+                  value={equipamento}
+                  onChange={handleEquipamentoSelecionado}
+                  placeholder="Selecione o tipo de equipamento (ex: CELULAR, NOTEBOOK)"
+                />
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Marca</label>
                 <input
@@ -909,6 +968,23 @@ export default function EditarOSSimples() {
 
               </div>
             </div>
+          </div>
+
+          {/* Checklist de entrada */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <FiCheckCircle className="w-5 h-5 text-green-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Checklist de entrada</h3>
+              <span className="text-sm text-gray-500">(Opcional na criação; recomendado antes de enviar ao técnico)</span>
+            </div>
+
+            <DynamicChecklist
+              value={checklistEntrada}
+              onChange={setChecklistEntrada}
+              showAparelhoNaoLiga={true}
+            />
           </div>
 
           {/* Relatos do Técnico */}

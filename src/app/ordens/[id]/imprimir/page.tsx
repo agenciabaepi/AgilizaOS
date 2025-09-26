@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 
 import QRCodePDF from '@/components/QRCodePDF';
+import ChecklistPDF from '@/components/ChecklistPDF';
 
 const styles = StyleSheet.create({
   page: {
@@ -268,6 +269,7 @@ function OrdemPDF({ ordem }: { ordem: any }) {
       </View>
     );
   }
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -320,11 +322,14 @@ function OrdemPDF({ ordem }: { ordem: any }) {
         {/* Aparelho */}
         <View style={styles.block}>
           <Text style={styles.sectionTitle}>Aparelho</Text>
-          <Text style={styles.paragraph}><Text style={styles.bold}>Equipamento:</Text> {ordem.categoria}   <Text style={styles.bold}>Marca:</Text> {ordem.marca}   <Text style={styles.bold}>Modelo:</Text> {ordem.modelo}</Text>
+          <Text style={styles.paragraph}><Text style={styles.bold}>Equipamento:</Text> {ordem.equipamento}   <Text style={styles.bold}>Marca:</Text> {ordem.marca}   <Text style={styles.bold}>Modelo:</Text> {ordem.modelo}</Text>
           <Text style={styles.paragraph}><Text style={styles.bold}>Cor:</Text> {ordem.cor}   <Text style={styles.bold}>Nº Série:</Text> {ordem.numero_serie}</Text>
           <Text style={styles.paragraph}><Text style={styles.bold}>Acessórios:</Text> {ordem.acessorios || '---'}</Text>
           <Text style={styles.paragraph}><Text style={styles.bold}>Condições:</Text> {ordem.condicoes_equipamento || '---'}</Text>
         </View>
+
+        {/* Checklist de Entrada */}
+        <ChecklistPDF checklistData={ordem.checklist_entrada} styles={styles} />
 
         {/* Informações de Acesso */}
         {(ordem.senha_aparelho || ordem.senha_padrao) && (
@@ -511,7 +516,7 @@ export default function ImprimirOrdemPage() {
           .select(`
             id,
             numero_os,
-            categoria,
+            equipamento,
             marca,
             modelo,
             status,
@@ -532,6 +537,7 @@ export default function ImprimirOrdemPage() {
             senha_padrao,
             laudo,
             imagens,
+            checklist_entrada,
             qtd_peca,
             peca,
             valor_peca,
