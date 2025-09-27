@@ -1,0 +1,30 @@
+{
+  "protected": {
+    "description": "⚠️ CONFIGURAÇÕES CRÍTICAS - NÃO MODIFICAR SEM VERIFICAR!",
+    "domain": {
+      "production_url": "https://gestaoconsert.com.br",
+      "api_url": "https://gestaoconsert.com.br/api",
+      "warning": "🚨 NUNCA usar consert.app - apenas gestaoconsert.com.br"
+    },
+    "supabase": {
+      "url": "https://nxamrvfusyrtkcshehfm.supabase.co",
+      "anon_key": "sb_publishable_yeCVZkUfO6Rut3Vr4EDzq5Ci9h7l1lUrukCwJMITS",
+      "service_key": "sb_secret_3dbdcMGcAyk8vN9ruzVRmZDjHRBAZEjt20fMCt4ClIzrhlLJ8PmcdLOFRIxd29hAGGWIX7W2lTUZjNJis",
+      "warning": "🚨 Usar apenas chaves formato sb_publishable_ e sb_secret_"
+    },
+    "admin": {
+      "emails": "lucas@hotmail.com",
+      "saas_code": "093718",
+      "warning": "🚨 Não alterar sem autorização do usuário"
+    }
+  },
+  "validation_rules": [
+    "✅ SEMPRE usar gestaoconsert.com.br (NUNCA consert.app)",
+    "✅ SEMPRE verificar chaves Supabase (formato sb_)",
+    "✅ SEMPRE testar em localhost antes de deploy",
+    "✅ SEMPRE confirmar Environment Variables no Vercel",
+    "❌ NUNCA alterar domínio sem consultar",
+    "❌ NUNCA usar chaves JWT antigas (eyJ...)",
+    "❌ NUNCA modificar configurações críticas sem backup"
+  ]
+}
