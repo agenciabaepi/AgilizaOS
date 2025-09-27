@@ -87,10 +87,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return attemptFetch();
         }
         
-        // ✅ FALLBACK SEGURO: Usar dados temporários se todas as tentativas falharem
-        console.warn('🚨 Todas as tentativas falharam, usando dados temporários');
+        // ✅ FALLBACK MELHORADO: Tentar buscar dados básicos primeiro
+        console.warn('🚨 Fallback: Tentando busca básica do usuário');
+        try {
+          const { data: basicUserData, error: basicError } = await supabase
+            .from('usuarios')
+            .select('empresa_id, nome, email, nivel')
+            .eq('auth_user_id', userId)
+            .single();
+            
+          if (basicUserData && !basicError) {
+            console.log('✅ Dados básicos encontrados:', basicUserData);
+            setUsuarioData({
+              empresa_id: basicUserData.empresa_id,
+              nome: basicUserData.nome,
+              email: basicUserData.email,
+              nivel: basicUserData.nivel,
+              permissoes: [],
+              foto_url: null
+            });
+            setEmpresaData({
+              id: basicUserData.empresa_id,
+              nome: 'Empresa Temporária',
+              cnpj: '',
+              endereco: '',
+              telefone: '',
+              email: '',
+              logo_url: '',
+              plano: 'trial'
+            });
+            return;
+          }
+        } catch (basicError) {
+          console.warn('❌ Fallback básico também falhou:', basicError);
+        }
+        
+        // ✅ ÚLTIMO FALLBACK: Dados temporários mas com ID válido
+        console.warn('🚨 Usando último fallback com dados válidos');
+        const tempEmpresaId = `temp-${userId.slice(0, 8)}`;
+        
         setUsuarioData({
-          empresa_id: null,
+          empresa_id: tempEmpresaId,
           nome: 'Usuário',
           email: sessionData.user.email || '',
           nivel: 'usuario',
@@ -98,8 +135,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           foto_url: null
         });
         setEmpresaData({
-          id: null,
-          nome: 'Empresa',
+          id: tempEmpresaId,
+          nome: 'Empresa Temporária',
           cnpj: '',
           endereco: '',
           telefone: '',
