@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -24,6 +24,9 @@ function LoginClientInner() {
   const [verificationCode, setVerificationCode] = useState('');
   const [verifyingCode, setVerifyingCode] = useState(false);
   const [pendingEmail, setPendingEmail] = useState('');
+  
+  // ✅ PROTEÇÃO ADICIONAL: Ref para controlar execução única
+  const loginInProgress = useRef(false);
   
   const router = useRouter();
   const auth = useAuth();
@@ -200,12 +203,19 @@ function LoginClientInner() {
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
-    // 🔒 PROTEÇÃO: Evitar múltiplas execuções simultâneas
-    if (isSubmitting) {
+    // 🔒 PROTEÇÃO ROBUSTA: Evitar múltiplas execuções simultâneas
+    if (isSubmitting || loginInProgress.current) {
+      console.warn('🚨 Login já está sendo processado, ignorando nova tentativa');
       return;
     }
     
+    // ✅ PROTEÇÃO DUPLA: State + Ref para máxima segurança
     setIsSubmitting(true);
+    loginInProgress.current = true;
+    
+    console.log('🔐 Iniciando processo de login para:', loginInput);
+    
+    try {
     let emailToLogin = loginInput;
     
     // Verificar se é email ou usuário
@@ -218,6 +228,7 @@ function LoginClientInner() {
         .single();
       if (error || !usuario?.email) {
         setIsSubmitting(false);
+      loginInProgress.current = false;
         addToast('error', 'Usuário não encontrado. Verifique o nome de usuário.');
         return;
       }
@@ -233,6 +244,7 @@ function LoginClientInner() {
     
     if (verificacaoError) {
       setIsSubmitting(false);
+      loginInProgress.current = false;
       addToast('error', 'Usuário não encontrado. Verifique suas credenciais.');
       return;
     }
@@ -240,6 +252,7 @@ function LoginClientInner() {
     // Se o usuário é ADMIN (criador da empresa), verificar se o email foi confirmado
     if (usuarioVerificacao?.nivel === 'admin' && !usuarioVerificacao?.email_verificado) {
       setIsSubmitting(false);
+      loginInProgress.current = false;
       setPendingEmail(emailToLogin);
       setShowVerification(true);
       addToast('warning', 'Email não verificado. Digite o código enviado para seu email.');
@@ -259,6 +272,7 @@ function LoginClientInner() {
       if (adminError) {
         console.error('🔍 Debug - Erro ao buscar admin da empresa:', adminError);
         setIsSubmitting(false);
+      loginInProgress.current = false;
         addToast('error', 'Erro ao verificar empresa. Tente novamente.');
         return;
       }
@@ -266,6 +280,7 @@ function LoginClientInner() {
       // Se o admin da empresa não foi verificado, o usuário não pode fazer login
       if (!adminEmpresa?.email_verificado) {
         setIsSubmitting(false);
+      loginInProgress.current = false;
         addToast('error', 'Empresa não verificada. Entre em contato com o administrador.');
         return;
       }
@@ -283,6 +298,7 @@ function LoginClientInner() {
     
     if (error) {
       setIsSubmitting(false);
+      loginInProgress.current = false;
       if (error.message.includes('Invalid login credentials')) {
         addToast('error', 'E-mail ou senha incorretos. Verifique suas credenciais.');
       } else if (error.message.includes('Email not confirmed')) {
@@ -295,6 +311,7 @@ function LoginClientInner() {
     
     if (!session?.user) {
       setIsSubmitting(false);
+      loginInProgress.current = false;
       addToast('error', 'Erro ao autenticar usuário. Tente novamente.');
       return;
     }
@@ -309,6 +326,7 @@ function LoginClientInner() {
     
     if (perfilError || !perfil) {
       setIsSubmitting(false);
+      loginInProgress.current = false;
       addToast('error', 'Erro ao buscar perfil do usuário. Tente novamente.');
       return;
     }
@@ -322,12 +340,14 @@ function LoginClientInner() {
     
     if (usuarioError || !usuario) {
       setIsSubmitting(false);
+      loginInProgress.current = false;
       addToast('error', 'Dados do usuário incompletos. Entre em contato com o suporte.');
       return;
     }
     
     if (!usuario.empresa_id) {
       setIsSubmitting(false);
+      loginInProgress.current = false;
       addToast('info', 'Redirecionando para criação de empresa...');
       router.replace('/criar-empresa');
       return;
@@ -343,12 +363,14 @@ function LoginClientInner() {
     if (empresaError) {
       console.error('Erro ao buscar empresa:', empresaError);
       setIsSubmitting(false);
+      loginInProgress.current = false;
       addToast('error', 'Erro ao verificar status da empresa. Tente novamente.');
       return;
     }
     
     if (empresa?.status === 'bloqueado') {
       setIsSubmitting(false);
+      loginInProgress.current = false;
       await confirm({
         title: 'Acesso bloqueado',
         message: empresa.motivobloqueio || 'Entre em contato com o suporte.',
@@ -405,6 +427,14 @@ function LoginClientInner() {
     
     // Resetar o estado de loading após o redirecionamento
     setIsSubmitting(false);
+      loginInProgress.current = false;
+      
+    } catch (error) {
+      console.error('🚨 Erro inesperado durante login:', error);
+      setIsSubmitting(false);
+      loginInProgress.current = false;
+      addToast('error', 'Erro inesperado. Tente novamente.');
+    }
   };
 
   const handlePasswordReset = async () => {

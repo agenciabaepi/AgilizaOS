@@ -1308,7 +1308,7 @@ export default function DetalheBancadaPage() {
                     Padrão Android:
                   </label>
                   <div className="bg-white border border-gray-300 rounded-lg p-3">
-                    <PatternDisplay pattern={os.senha_padrao} />
+                    <PatternDisplay pattern={os.senha_padrao as string | number[]} />
                   </div>
                 </div>
               )}
