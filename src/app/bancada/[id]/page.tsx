@@ -3,13 +3,51 @@
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { FiClipboard, FiSave, FiBox, FiTool, FiPlayCircle, FiX, FiCamera, FiTrash2, FiEdit, FiCheck, FiAlertCircle } from 'react-icons/fi';
+import { FiClipboard, FiSave, FiBox, FiTool, FiPlayCircle, FiX, FiCamera, FiTrash2, FiEdit, FiCheck, FiAlertCircle, FiLock } from 'react-icons/fi';
 import MenuLayout from '@/components/MenuLayout';
 // Removido ProtectedArea - agora é responsabilidade do MenuLayout
 import ProdutoServicoSearch from '@/components/ProdutoServicoSearch';
 import { Button } from '@/components/Button';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
+import ChecklistViewer from '@/components/ChecklistViewer';
+import DynamicChecklist from '@/components/DynamicChecklist';
+
+// Componente simples para exibir o padrão Android
+const PatternDisplay = ({ pattern }: { pattern: string | number[] }) => {
+  let positions: number[] = [];
+  
+  if (typeof pattern === 'string') {
+    try {
+      positions = JSON.parse(pattern);
+    } catch {
+      return <span className="text-gray-500">Padrão inválido</span>;
+    }
+  } else {
+    positions = pattern;
+  }
+  
+  if (!Array.isArray(positions) || positions.length === 0) {
+    return <span className="text-gray-500">Nenhum padrão definido</span>;
+  }
+  
+  return (
+    <div className="grid grid-cols-3 gap-2 w-24 mx-auto">
+      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+        <div
+          key={num}
+          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold ${
+            positions.includes(num)
+              ? 'bg-blue-500 border-blue-600 text-white'
+              : 'bg-gray-100 border-gray-300 text-gray-500'
+          }`}
+        >
+          {positions.includes(num) ? positions.indexOf(num) + 1 : ''}
+        </div>
+      ))}
+    </div>
+  );
+};
 
 export default function DetalheBancadaPage() {
   const params = useParams();
@@ -83,13 +121,23 @@ export default function DetalheBancadaPage() {
   const [previewImagens, setPreviewImagens] = useState<string[]>([]);
   const [imagensExistentes, setImagensExistentes] = useState<string[]>([]);
   const [uploadingImagens, setUploadingImagens] = useState(false);
+  
+  // Estados para checklist e senha
+  const [checklistData, setChecklistData] = useState<any>(null);
+  const [checklistItens, setChecklistItens] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchOS = async () => {
       setLoading(true);
       const { data, error } = await supabase
         .from('ordens_servico')
-        .select(`*, cliente:cliente_id(nome)`)
+        .select(`
+          *, 
+          cliente:cliente_id(nome), 
+          senha_aparelho, 
+          senha_padrao, 
+          checklist_entrada
+        `)
         .eq('id', id)
         .single();
         
@@ -120,6 +168,33 @@ export default function DetalheBancadaPage() {
         if (data.imagens) {
           const urls = data.imagens.split(',').filter((url: string) => url.trim() !== '');
           setImagensExistentes(urls);
+        }
+        
+        // Carregar dados do checklist
+        if (data.checklist_entrada) {
+          try {
+            const checklistParsed = typeof data.checklist_entrada === 'string' 
+              ? JSON.parse(data.checklist_entrada) 
+              : data.checklist_entrada;
+            setChecklistData(checklistParsed);
+          } catch (error) {
+            console.warn('Erro ao parsear checklist_entrada:', error);
+            setChecklistData(null);
+          }
+        }
+        
+        // Buscar itens do checklist da empresa
+        if (data.empresa_id) {
+          const { data: itensData } = await supabase
+            .from('checklist_itens')
+            .select('*')
+            .eq('empresa_id', data.empresa_id)
+            .eq('ativo', true)
+            .order('created_at');
+          
+          if (itensData) {
+            setChecklistItens(itensData);
+          }
         }
         
         // Definir status inicial baseado no status atual da OS
@@ -269,7 +344,9 @@ export default function DetalheBancadaPage() {
           valor_faturado: (calcularTotalProdutos() + calcularTotalServicos()).toString() 
         }),
         // ✅ PRESERVAR imagens - só atualizar se há imagens
-        ...(imagensString && { imagens: imagensString })
+        ...(imagensString && { imagens: imagensString }),
+        // ✅ SALVAR checklist se foi modificado
+        ...(checklistData && { checklist_entrada: JSON.stringify(checklistData) })
       };
       
       console.log('🔍 DEBUG BANCADA: Iniciando salvamento...', {
@@ -1202,6 +1279,63 @@ export default function DetalheBancadaPage() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Informações de Acesso do Aparelho */}
+          {(os?.senha_aparelho || os?.senha_padrao) && (
+            <div className="space-y-3 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                <FiLock className="text-yellow-600" />
+                Informações de Acesso
+              </h2>
+              
+              {os?.senha_aparelho && (
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Senha do Aparelho:
+                  </label>
+                  <div className="bg-white border border-gray-300 rounded-lg p-3">
+                    <code className="text-lg font-mono text-blue-600">
+                      {String(os.senha_aparelho)}
+                    </code>
+                  </div>
+                </div>
+              )}
+              
+              {os?.senha_padrao && (
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Padrão Android:
+                  </label>
+                  <div className="bg-white border border-gray-300 rounded-lg p-3">
+                    <PatternDisplay pattern={os.senha_padrao} />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Checklist de Entrada */}
+          <div className="space-y-3">
+            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+              <FiCheck className="text-green-600" />
+              Checklist de Entrada
+            </h2>
+            
+            {checklistItens.length > 0 ? (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <DynamicChecklist
+                  checklistItens={checklistItens}
+                  value={checklistData || {}}
+                  onChange={setChecklistData}
+                  readOnly={false}
+                />
+              </div>
+            ) : (
+              <div className="text-sm text-gray-500 italic">
+                Nenhum item de checklist configurado para esta empresa.
+              </div>
+            )}
           </div>
 
           {/* Observações técnicas */}

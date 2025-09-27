@@ -1,14 +1,16 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { supabaseConfig } from './supabase-config';
 
 /**
  * Cria o cliente do Supabase apenas no browser.
  * Evita erro "supabaseUrl is required" durante o build/prerender no servidor.
+ * Usa supabaseConfig com fallbacks para evitar "Invalid API key"
  */
 export const supabase: SupabaseClient | any =
   typeof window !== 'undefined'
     ? createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        supabaseConfig.url,
+        supabaseConfig.anonKey,
         {
           auth: {
             persistSession: true, // ✅ Persistir sessão
@@ -34,12 +36,8 @@ export const supabase: SupabaseClient | any =
     : ({} as any);
 
 export function createAdminClient(): SupabaseClient {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
-    throw new Error('SUPABASE_SERVICE_ROLE_KEY ou NEXT_PUBLIC_SUPABASE_URL não configurados');
-  }
-  return createClient(url, key);
+  // Usa supabaseConfig com fallbacks para evitar erros de configuração
+  return createClient(supabaseConfig.url, supabaseConfig.serviceRoleKey);
 }
 
 export const forceLogout = async () => {
