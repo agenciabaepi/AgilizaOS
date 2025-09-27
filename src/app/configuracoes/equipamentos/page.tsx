@@ -31,6 +31,9 @@ export default function EquipamentosConfigPage() {
   const [filterCategoria, setFilterCategoria] = useState('');
   const [filterAtivo, setFilterAtivo] = useState('');
   
+  // ✅ Estado para aguardar empresa estar disponível
+  const aguardandoEmpresa = !empresaData?.id;
+  
   // Estados para modal de edição/criação
   const [showModal, setShowModal] = useState(false);
   const [editingEquipamento, setEditingEquipamento] = useState<EquipamentoTipo | null>(null);
@@ -42,11 +45,11 @@ export default function EquipamentosConfigPage() {
 
   // Buscar equipamentos
   const fetchEquipamentos = async (forceRefresh = false) => {
+    // ✅ AGUARDAR empresaData estar disponível
     if (!empresaData?.id) {
-      console.error('❌ ERRO CRÍTICO: empresaData.id não encontrado!');
-      addToast('error', 'Erro: Empresa não identificada. Faça login novamente.');
+      console.warn('⚠️ Aguardando empresaData estar disponível...');
       setLoading(false);
-      return;
+      return; // Retorna sem erro, apenas aguarda
     }
     
     const empresaId = empresaData.id;
@@ -128,17 +131,17 @@ export default function EquipamentosConfigPage() {
     }
   };
 
+  // ✅ PRINCIPAL: Carregar quando empresaData estiver pronto ou filtros mudarem
   useEffect(() => {
-    fetchEquipamentos();
-  }, [filterCategoria, filterAtivo]);
-
-  // Carregar equipamentos quando o componente montar ou empresaData mudar
-  useEffect(() => {
-    if (empresaData?.id || true) { // Sempre carregar, mesmo sem empresa
-      console.log('🔄 Carregando equipamentos na montagem do componente...');
+    if (empresaData?.id) {
+      console.log('🔄 Carregando equipamentos...', { 
+        empresaId: empresaData.id, 
+        filterCategoria, 
+        filterAtivo 
+      });
       fetchEquipamentos();
     }
-  }, [empresaData?.id]);
+  }, [empresaData?.id, filterCategoria, filterAtivo]);
 
   // Filtrar equipamentos por busca
   const filteredEquipamentos = equipamentos.filter(equipamento =>
@@ -246,19 +249,14 @@ export default function EquipamentosConfigPage() {
   // Obter categorias únicas
   const categorias = [...new Set(equipamentos.map(e => e.categoria))];
 
-  // Verificar se há empresa válida
-  if (!empresaData?.id) {
+  // ✅ AGUARDAR empresaData antes de mostrar erro
+  if (aguardandoEmpresa) {
     return (
       <div className="p-6 max-w-7xl mx-auto">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-          <h2 className="text-lg font-semibold text-red-800 mb-2">Erro de Segurança</h2>
-          <p className="text-red-600 mb-4">Empresa não identificada. Faça login novamente para continuar.</p>
-          <button
-            onClick={() => window.location.href = '/login'}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg"
-          >
-            Fazer Login
-          </button>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <h2 className="text-lg font-semibold text-blue-800 mb-2">Carregando...</h2>
+          <p className="text-blue-600">Aguardando dados da empresa...</p>
         </div>
       </div>
     );
