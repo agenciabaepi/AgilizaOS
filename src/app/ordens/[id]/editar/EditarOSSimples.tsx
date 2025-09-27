@@ -548,7 +548,7 @@ export default function EditarOSSimples() {
     
     try {
       const formData = new FormData();
-      formData.append('ordemId', id);
+      formData.append('osId', id);
       
       novasImagens.forEach((file) => {
         formData.append('files', file);
@@ -584,11 +584,54 @@ export default function EditarOSSimples() {
   };
 
   // Função para remover anexo
-  const removerAnexo = (index: number) => {
-    const novasImagensList = [...imagens];
-    novasImagensList.splice(index, 1);
-    setImagens(novasImagensList);
-    addToast('success', 'Anexo removido com sucesso!');
+  const removerAnexo = async (index: number) => {
+    if (!confirm('Tem certeza que deseja remover este anexo?')) {
+      return;
+    }
+
+    try {
+      const novasImagensList = [...imagens];
+      const imagemRemover = novasImagensList[index];
+      
+      // Extrair o nome do arquivo da URL
+      const imagemUrl = new URL(imagemRemover);
+      const pathParts = imagemUrl.pathname.split('/');
+      const fileName = pathParts[pathParts.length - 1];
+      const filePath = `anexos-os/${id}/${fileName}`;
+      
+      // Remover do Supabase Storage
+      const { error: storageError } = await supabase.storage
+        .from('os-anexos')
+        .remove([filePath]);
+        
+      if (storageError) {
+        console.warn('Aviso ao remover do storage:', storageError);
+        // Continua mesmo com erro no storage para não bloquear
+      }
+      
+      // Remover da lista local
+      novasImagensList.splice(index, 1);
+      setImagens(novasImagensList);
+      
+      // Atualizar no banco de dados
+      const imagensString = novasImagensList.join(',');
+      const { error: updateError } = await supabase
+        .from('ordens_servico')
+        .update({ imagens: imagensString })
+        .eq('id', id);
+        
+      if (updateError) {
+        console.error('Erro ao atualizar imagens no banco:', updateError);
+        addToast('error', 'Erro ao atualizar o banco de dados');
+        return;
+      }
+      
+      addToast('success', 'Anexo removido com sucesso!');
+      
+    } catch (error) {
+      console.error('Erro ao remover anexo:', error);
+      addToast('error', 'Erro ao remover anexo');
+    }
   };
 
   // Função para converter texto em itens estruturados
@@ -1160,12 +1203,20 @@ export default function EditarOSSimples() {
                           className="w-full h-32 object-cover rounded-lg border border-gray-200"
                         />
                         <div className="absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => window.open(img, '_blank')}
-                            className="text-white text-sm font-medium px-3 py-1 bg-blue-600 rounded"
-                          >
-                            Ver
-                          </button>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => window.open(img, '_blank')}
+                              className="text-white text-sm font-medium px-3 py-1 bg-blue-600 rounded hover:bg-blue-700"
+                            >
+                              Ver
+                            </button>
+                            <button
+                              onClick={() => removerAnexo(index)}
+                              className="text-white text-sm font-medium px-3 py-1 bg-red-600 rounded hover:bg-red-700"
+                            >
+                              Remover
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))}
