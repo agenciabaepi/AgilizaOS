@@ -11,16 +11,6 @@
       "schedule": "0 3 * * *"
     }
   ],
-  "env": {
-    "NODE_ENV": "production",
-    "NEXT_PUBLIC_SUPABASE_URL": "https://nxamrvfusyrtkcshehfm.supabase.co",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_yeCVZkUfO6Rut3Vr4EDzq5Ci9h7l1lUrukCwJMITS",
-    "SUPABASE_SERVICE_ROLE_KEY": "sb_secret_3dbdcMGcAyk8vN9ruzVRmZDjHRBAZEjt20fMCt4ClIzrhlLJ8PmcdLOFRIxd29hAGGWIX7W2lTUZjNJis",
-    "NEXT_PUBLIC_SITE_URL": "https://gestaoconsert.com.br",
-    "PLATFORM_ADMIN_EMAILS": "lucas@hotmail.com",
-    "ADMIN_SAAS_ACCESS_CODE": "093718",
-    "ADMIN_SAAS_OPEN": "1"
-  },
   "regions": ["iad1"],
   "build": {
     "env": {
