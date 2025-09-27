@@ -13,13 +13,24 @@ interface ChecklistPDFProps {
 }
 
 export default function ChecklistPDF({ checklistData, checklistItens = [], styles }: ChecklistPDFProps) {
-  if (!checklistData) return null;
+  console.log('🔍 ChecklistPDF - Dados recebidos:', { 
+    checklistData: checklistData ? 'presente' : 'ausente', 
+    checklistItens: checklistItens.length,
+    itens: checklistItens 
+  });
+  
+  if (!checklistData) {
+    console.log('⚠️ ChecklistPDF - Nenhum checklistData fornecido');
+    return null;
+  }
 
   try {
     const checklist = typeof checklistData === 'string' ? JSON.parse(checklistData) : checklistData;
+    console.log('🔍 ChecklistPDF - Dados do checklist:', checklist);
     
     // Se o aparelho não liga, mostrar mensagem especial
-    if (checklist.aparelhoNaoLiga) {
+    if (checklist.aparelhoNaoLiga === true) {
+      console.log('⚠️ ChecklistPDF - Aparelho não liga detectado');
       return (
         <View style={styles.block}>
           <Text style={styles.sectionTitle}>Checklist de Entrada</Text>
@@ -46,7 +57,7 @@ export default function ChecklistPDF({ checklistData, checklistItens = [], style
                 <Text style={{ fontSize: 8, color: '#d32f2f', fontWeight: 'bold' }}>✕</Text>
               </View>
               <Text style={[styles.paragraph, { fontSize: 10, fontWeight: 'bold', color: '#d32f2f' }]}>
-                Aparelho não liga
+                ⚠️ Aparelho não liga
               </Text>
             </View>
             <Text style={[styles.paragraph, { fontSize: 9, color: '#d32f2f' }]}>
@@ -64,7 +75,36 @@ export default function ChecklistPDF({ checklistData, checklistItens = [], style
     // Processar dados do checklist com nomes reais dos itens
     Object.keys(checklist).forEach(key => {
       if (key !== 'aparelhoNaoLiga') {
-        const item = checklistItens.find(i => i.id === key);
+        // Primeiro tentar encontrar por ID (formato UUID)
+        let item = checklistItens.find(i => i.id === key);
+        
+        // Se não encontrar por ID, criar item fake para nomes antigos em camelCase
+        if (!item) {
+          // Mapear nomes antigos para nomes legíveis
+          const nomesMapeados: {[key: string]: string} = {
+            'altoFalante': 'Alto-falante',
+            'microfone': 'Microfone', 
+            'cameraFrontal': 'Câmera frontal',
+            'cameraTraseira': 'Câmera traseira',
+            'conectores': 'Conectores',
+            'botoes': 'Botões',
+            'vibracao': 'Vibração',
+            'wifi': 'WiFi',
+            'bluetooth': 'Bluetooth',
+            'biometria': 'Biometria',
+            'carga': 'Carga',
+            'toqueTela': 'Toque na tela'
+          };
+          
+          if (nomesMapeados[key]) {
+            item = {
+              id: key,
+              nome: nomesMapeados[key],
+              categoria: 'legacy'
+            };
+          }
+        }
+        
         if (item) {
           const isAprovado = checklist[key] === true;
           if (isAprovado) {
@@ -72,8 +112,16 @@ export default function ChecklistPDF({ checklistData, checklistItens = [], style
           } else if (checklist[key] === false) {
             itensReprovados.push(item);
           }
+        } else {
+          console.log('⚠️ Item de checklist não encontrado:', key);
         }
       }
+    });
+    
+    console.log('📊 ChecklistPDF - Resultado processamento:', {
+      totalKeys: Object.keys(checklist).length,
+      aprovados: itensAprovados.length,
+      reprovados: itensReprovados.length
     });
 
     return (
@@ -141,9 +189,18 @@ export default function ChecklistPDF({ checklistData, checklistItens = [], style
         )}
 
         {itensAprovados.length === 0 && itensReprovados.length === 0 && (
-          <Text style={[styles.paragraph, { fontSize: 9, color: '#666' }]}>
-            Nenhum teste foi realizado no checklist de entrada.
-          </Text>
+          <View style={{
+            backgroundColor: '#f8f9fa',
+            borderWidth: 1,
+            borderColor: '#dee2e6',
+            borderRadius: 8,
+            padding: 12,
+            marginTop: 8
+          }}>
+            <Text style={[styles.paragraph, { fontSize: 9, color: '#666', textAlign: 'center' }]}>
+              📋 Nenhum teste foi realizado no checklist de entrada.
+            </Text>
+          </View>
         )}
       </View>
     );
