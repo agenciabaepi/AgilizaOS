@@ -585,7 +585,13 @@ export default function EditarOSSimples() {
 
   // Função para remover anexo
   const removerAnexo = async (index: number) => {
-    if (!confirm('Tem certeza que deseja remover este anexo?')) {
+    const confirmed = await confirm({
+      title: 'Remover Anexo',
+      message: 'Tem certeza que deseja remover este anexo?',
+      confirmText: 'Remover',
+      cancelText: 'Cancelar'
+    });
+    if (!confirmed) {
       return;
     }
 
