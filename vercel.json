@@ -17,6 +17,15 @@
       "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD": "true",
       "PUPPETEER_EXECUTABLE_PATH": "/opt/render/project/.chromium/chromium"
     }
+  },
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "beta": true
+    }
+  },
+  "env": {
+    "NODE_ENV": "@node_env"
   }
 }
 
