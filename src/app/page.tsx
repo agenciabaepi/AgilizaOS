@@ -423,7 +423,7 @@ export default function Home() {
               isAnimated('headline') ? 'animated' : ''
             }`}
           >
-            Sua assistência com:
+            TESTE BETA - Sua assistência com:
             <span className="block font-medium text-gradient-secondary">
               <UltraModernWordRotator 
                 words={['gestão inteligente', 'sistema completo', 'resultados reais', 'crescimento contínuo']}
