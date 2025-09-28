@@ -1329,7 +1329,7 @@ export default function DetalheBancadaPage() {
                   value={checklistData || {}}
                   onChange={setChecklistData}
                   readOnly={false}
-                  equipamentoCategoria={os?.equipamento || undefined}
+                  equipamentoCategoria={os?.equipamento as string || undefined}
                 />
               </div>
             ) : (
