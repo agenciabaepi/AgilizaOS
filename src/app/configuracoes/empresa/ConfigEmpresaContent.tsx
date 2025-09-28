@@ -156,45 +156,24 @@ export default function ConfigEmpresaContent() {
 
     setUploadingLogo(true);
     try {
-      const fileExt = logoFile.name.split('.').pop();
-      // Usar crypto.randomUUID() ou timestamp apenas no cliente
-      const timestamp = typeof window !== 'undefined' ? Date.now() : Math.floor(Math.random() * 1000000);
-      const fileName = `${user.id}-${timestamp}.${fileExt}`;
-      const filePath = `logos/${fileName}`;
+      console.log('📤 Fazendo upload do logo via API');
 
-      console.log('📤 Fazendo upload do logo:', { fileName, filePath });
+      const formData = new FormData();
+      formData.append('file', logoFile);
 
-      // Verificar se o bucket existe
-      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
-      console.log('📦 Buckets disponíveis:', buckets);
-      
-      // Tentar primeiro com o bucket 'logos' que já existe
-      let bucketName = 'logos';
-      let { error: uploadError } = await supabase.storage
-        .from(bucketName)
-        .upload(filePath, logoFile);
+      const response = await fetch('/api/upload-logo', {
+        method: 'POST',
+        body: formData,
+      });
 
-      // Se falhar, tentar com 'empresa-assets'
-      if (uploadError) {
-        console.log('⚠️ Falha com bucket logos, tentando empresa-assets');
-        bucketName = 'empresa-assets';
-        const result = await supabase.storage
-          .from(bucketName)
-          .upload(filePath, logoFile);
-        uploadError = result.error;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro no upload');
       }
 
-      if (uploadError) {
-        console.error('❌ Erro no upload:', uploadError);
-        throw uploadError;
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from(bucketName)
-        .getPublicUrl(filePath);
-
-      console.log('✅ Upload concluído, URL pública:', publicUrl);
-      return publicUrl;
+      const data = await response.json();
+      console.log('✅ Upload concluído via API:', data.url);
+      return data.url;
     } catch (error) {
       console.error('Erro ao fazer upload do logo:', error);
       addToast('error', 'Erro ao fazer upload do logo');
