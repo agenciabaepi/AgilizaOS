@@ -147,8 +147,10 @@ export const isValidSession = async () => {
   }
 };
 
-// Função otimizada para buscar dados do usuário com timeout
-export const fetchUserDataOptimized = async (userId: string) => {
+// Função otimizada para buscar dados do usuário com timeout e retry
+export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => {
+  const maxRetries = 2;
+  
   try {
     // Validar se o userId é um UUID válido
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -156,7 +158,7 @@ export const fetchUserDataOptimized = async (userId: string) => {
       throw new Error(`ID de usuário inválido: ${userId}. Deve ser um UUID válido.`);
     }
     
-    console.log('🔍 Buscando dados otimizados para usuário:', userId);
+    console.log(`🔍 Buscando dados otimizados para usuário: ${userId} (tentativa ${retryCount + 1}/${maxRetries + 1})`);
     
     // ✅ TIMEOUT AGRESSIVO: Evitar queries lentas
     const userQueryPromise = supabase
@@ -174,7 +176,7 @@ export const fetchUserDataOptimized = async (userId: string) => {
       .single();
 
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Query timeout')), 2000)
+      setTimeout(() => reject(new Error('Query timeout')), 10000)
     );
 
     let { data, error } = await Promise.race([
@@ -245,7 +247,7 @@ export const fetchUserDataOptimized = async (userId: string) => {
       .single();
 
     const empresaTimeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Empresa query timeout')), 2000)
+      setTimeout(() => reject(new Error('Empresa query timeout')), 10000)
     );
 
     const { data: empresaData, error: empresaError } = await Promise.race([
@@ -303,10 +305,19 @@ export const fetchUserDataOptimized = async (userId: string) => {
       name: error instanceof Error ? error.name : 'UnknownError',
       stack: error instanceof Error ? error.stack : undefined,
       userId: userId,
+      retryCount: retryCount,
       timestamp: new Date().toISOString()
     };
     
     console.error('❌ Erro ao buscar dados otimizados:', errorDetails);
+    
+    // Retry automático em caso de timeout
+    if (retryCount < maxRetries && error instanceof Error && error.message.includes('timeout')) {
+      console.log(`🔄 Tentando novamente em 1 segundo... (${retryCount + 1}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return fetchUserDataOptimized(userId, retryCount + 1);
+    }
+    
     throw error;
   }
 };
