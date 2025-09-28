@@ -287,6 +287,13 @@ export default function ConfigEmpresaContent() {
       setLogoFile(null);
       setLogoPreview(null);
       addToast('success', 'Dados da empresa salvos com sucesso!');
+      
+      // Forçar atualização do estado da empresa com o novo logo
+      if (logoUrl) {
+        setEmpresa(prev => prev ? { ...prev, logo_url: logoUrl } : null);
+        console.log('🔄 Logo atualizado no estado:', logoUrl);
+      }
+      
       await fetchEmpresa();
     } catch (error) {
       console.error('Erro ao salvar empresa:', error);
@@ -359,9 +366,15 @@ export default function ConfigEmpresaContent() {
                           src={logoPreview || empresa?.logo_url}
                           alt="Logo da empresa"
                           className="w-full h-full object-contain"
+                          key={logoPreview || empresa?.logo_url} // Força re-render quando URL muda
                           onError={(e) => {
                             console.error('❌ Erro ao carregar imagem:', e);
                             console.error('❌ URL que falhou:', logoPreview || empresa?.logo_url);
+                            // Tentar recarregar a imagem
+                            const img = e.target as HTMLImageElement;
+                            setTimeout(() => {
+                              img.src = img.src + '?t=' + Date.now();
+                            }, 1000);
                           }}
                           onLoad={() => {
                             console.log('✅ Logo carregado com sucesso:', logoPreview || empresa?.logo_url);
@@ -393,6 +406,20 @@ export default function ConfigEmpresaContent() {
                   <p className="text-sm text-gray-600 mb-4">
                     Clique em "Editar" para modificar o logo da empresa
                   </p>
+                  
+                  {empresa?.logo_url && (
+                    <div className="mb-4">
+                      <button
+                        onClick={() => {
+                          console.log('🔄 Forçando recarregamento do logo');
+                          setEmpresa(prev => prev ? { ...prev, logo_url: prev.logo_url + '?t=' + Date.now() } : null);
+                        }}
+                        className="text-xs text-blue-600 hover:text-blue-800 underline"
+                      >
+                        🔄 Recarregar logo
+                      </button>
+                    </div>
+                  )}
 
                   {editMode && (
                     <div className="space-y-4">
