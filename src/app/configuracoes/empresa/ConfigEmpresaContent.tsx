@@ -365,18 +365,6 @@ export default function ConfigEmpresaContent() {
                     Clique em "Editar" para modificar o logo da empresa
                   </p>
                   
-                  {empresa?.logo_url && (
-                    <div className="mb-4">
-                      <button
-                        onClick={() => {
-                          setEmpresa(prev => prev ? { ...prev, logo_url: prev.logo_url + '?t=' + Date.now() } : null);
-                        }}
-                        className="text-xs text-blue-600 hover:text-blue-800 underline"
-                      >
-                        🔄 Recarregar logo
-                      </button>
-                    </div>
-                  )}
 
                   {editMode && (
                     <div className="space-y-4">
