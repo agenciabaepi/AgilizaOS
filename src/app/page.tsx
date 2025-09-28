@@ -167,7 +167,7 @@ export default function Home() {
   }, [showAnalyticsAnimation, hasAnimated]);
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-white">
       {/* Background Pattern com Parallax */}
       <div className="absolute inset-0 overflow-hidden">
         <div 
@@ -211,7 +211,7 @@ export default function Home() {
       )}
 
       {/* Navigation */}
-      <nav className="relative z-10 px-8 py-6 lg:px-12 bg-black/80 backdrop-blur-xl border-b border-white/10">
+      <nav className="relative z-10 px-8 py-6 lg:px-12 bg-white/80 backdrop-blur-xl border-b border-gray-300">
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           {/* Logo */}
           <div className="flex items-center justify-center">
@@ -228,25 +228,25 @@ export default function Home() {
           <div className="hidden md:flex items-center space-x-12">
             <button 
               onClick={() => scrollToSection('solucoes')}
-              className="text-white/80 hover:text-white transition-all duration-300 font-light text-lg tracking-wide"
+              className="text-gray-700 hover:text-gray-900 transition-all duration-300 font-light text-lg tracking-wide"
             >
               Soluções
             </button>
             <button 
               onClick={() => scrollToSection('analytics')}
-              className="text-white/80 hover:text-white transition-all duration-300 font-light text-lg tracking-wide"
+              className="text-gray-700 hover:text-gray-900 transition-all duration-300 font-light text-lg tracking-wide"
             >
               Analytics
             </button>
             <button 
               onClick={() => scrollToSection('precos')}
-              className="text-white/80 hover:text-white transition-all duration-300 font-light text-lg tracking-wide"
+              className="text-gray-700 hover:text-gray-900 transition-all duration-300 font-light text-lg tracking-wide"
             >
               Investimento
             </button>
             <button 
               onClick={() => scrollToSection('recursos')}
-              className="text-white/80 hover:text-white transition-all duration-300 font-light text-lg tracking-wide"
+              className="text-gray-700 hover:text-gray-900 transition-all duration-300 font-light text-lg tracking-wide"
             >
               Recursos
             </button>
@@ -266,25 +266,25 @@ export default function Home() {
               </button>
               
               {/* Dropdown Menu - Always rendered with the same structure */}
-              <div className="absolute top-full left-0 mt-2 w-48 bg-black/95 backdrop-blur-xl border border-white/20 rounded-lg shadow-xl z-50 transition-opacity duration-200" id="dropdown-menu" style={{ opacity: isMoreMenuOpen ? 1 : 0, visibility: isMoreMenuOpen ? 'visible' : 'hidden' }}>
+              <div className="absolute top-full left-0 mt-2 w-48 bg-white/95 backdrop-blur-xl border border-gray-300 rounded-lg shadow-xl z-50 transition-opacity duration-200" id="dropdown-menu" style={{ opacity: isMoreMenuOpen ? 1 : 0, visibility: isMoreMenuOpen ? 'visible' : 'hidden' }}>
                 <div className="py-2">
                   <a 
                     href="/sobre" 
-                    className="block px-4 py-2 text-white/80 hover:text-[#D1FE6E] hover:bg-white/5 transition-all duration-200"
+                    className="block px-4 py-2 text-gray-700 hover:text-[#D1FE6E] hover:bg-gray-100 transition-all duration-200"
                     onClick={() => setIsMoreMenuOpen(false)}
                   >
                     Sobre a Empresa
                   </a>
                   <a 
                     href="/termos" 
-                    className="block px-4 py-2 text-white/80 hover:text-[#D1FE6E] hover:bg-white/5 transition-all duration-200"
+                    className="block px-4 py-2 text-gray-700 hover:text-[#D1FE6E] hover:bg-gray-100 transition-all duration-200"
                     onClick={() => setIsMoreMenuOpen(false)}
                   >
                     Termos de Uso
                   </a>
                   <a 
                     href="/politicas-privacidade" 
-                    className="block px-4 py-2 text-white/80 hover:text-[#D1FE6E] hover:bg-white/5 transition-all duration-200"
+                    className="block px-4 py-2 text-gray-700 hover:text-[#D1FE6E] hover:bg-gray-100 transition-all duration-200"
                     onClick={() => setIsMoreMenuOpen(false)}
                   >
                     Políticas de Privacidade
@@ -323,29 +323,29 @@ export default function Home() {
 
         {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden mt-4 bg-black/90 backdrop-blur-xl rounded-xl p-6 border border-white/20">
+          <div className="md:hidden mt-4 bg-white/90 backdrop-blur-xl rounded-xl p-6 border border-gray-300">
             <div className="flex flex-col space-y-4">
               <button 
                 onClick={() => scrollToSection('solucoes')}
-                className="text-white hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left"
+                className="text-gray-700 hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left"
               >
                 Soluções
               </button>
               <button 
                 onClick={() => scrollToSection('analytics')}
-                className="text-white hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left"
+                className="text-gray-700 hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left"
               >
                 Analytics
               </button>
               <button 
                 onClick={() => scrollToSection('precos')}
-                className="text-white hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left"
+                className="text-gray-700 hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left"
               >
                 Preços
               </button>
               <button 
                 onClick={() => scrollToSection('recursos')}
-                className="text-white hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left"
+                className="text-gray-700 hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left"
               >
                 Recursos
               </button>
@@ -355,21 +355,21 @@ export default function Home() {
                 <p className="text-white/60 text-sm font-medium mb-3">Informações</p>
                 <a 
                   href="/sobre" 
-                  className="block text-white hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left py-2"
+                  className="block text-gray-700 hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left py-2"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Sobre a Empresa
                 </a>
                 <a 
                   href="/termos" 
-                  className="block text-white hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left py-2"
+                  className="block text-gray-700 hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left py-2"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Termos de Uso
                 </a>
                 <a 
                   href="/politicas-privacidade" 
-                  className="block text-white hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left py-2"
+                  className="block text-gray-700 hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left py-2"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Políticas de Privacidade
@@ -1653,7 +1653,7 @@ export default function Home() {
             >
               {/* Popular Badge */}
               <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 z-20">
-                <div className="bg-black text-white px-4 py-2 rounded-full text-xs font-medium">
+                <div className="bg-gray-800 text-white px-4 py-2 rounded-full text-xs font-medium">
                   POPULAR
                 </div>
               </div>
@@ -1976,7 +1976,7 @@ export default function Home() {
               <h3 className="text-white font-medium text-lg mb-6">Links Rápidos</h3>
               <ul className="space-y-4">
                 <li>
-                  <Link href="#recursos" className="text-white/70 hover:text-[#D1FE6E] transition-colors duration-300 flex items-center">
+                  <Link href="#recursos" className="text-gray-600 hover:text-[#D1FE6E] transition-colors duration-300 flex items-center">
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                     </svg>
