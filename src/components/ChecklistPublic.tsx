@@ -119,10 +119,11 @@ export default function ChecklistPublic({ checklistData, empresaId, equipamentoC
     const itensReprovados: ChecklistItem[] = [];
 
     itens.forEach(item => {
-      const isAprovado = checklist[item.id] === true;
-      if (isAprovado) {
+      const itemValue = checklist[item.id];
+      if (itemValue === true) {
         itensAprovados.push(item);
       } else {
+        // Itens não marcados (undefined) ou marcados como false são considerados reprovados
         itensReprovados.push(item);
       }
     });

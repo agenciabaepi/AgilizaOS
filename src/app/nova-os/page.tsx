@@ -1062,7 +1062,7 @@ function NovaOS2Content() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Equipamento</label>
                       <EquipamentoSelector
                         empresaId={empresaData?.id || ''}
-                        value={equipamentoSelecionado?.id}
+                        value={equipamentoSelecionado?.nome}
                         onChange={handleEquipamentoSelecionado}
                         placeholder="Selecione o tipo de equipamento (ex: CELULAR, NOTEBOOK)"
                         className="w-full"

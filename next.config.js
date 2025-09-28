@@ -35,12 +35,20 @@ const nextConfig = {
           { key: 'Cache-Control', value: 'public, max-age=86400' },
         ],
       },
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET, POST, PUT, DELETE, OPTIONS' },
+          { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization' },
+        ],
+      },
     ]
   },
 
   // Otimizações de imagem
   images: {
-    domains: ['localhost', 'supabase.co'],
+    domains: ['localhost', 'supabase.co', 'nxamrvfusyrtkcshehfm.supabase.co'],
     formats: ['image/webp', 'image/avif'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],

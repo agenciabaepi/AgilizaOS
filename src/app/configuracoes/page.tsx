@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useEffect, useState, lazy } from 'react'
+import dynamic from 'next/dynamic'
 import MenuLayout from '@/components/MenuLayout'
 import { Tab } from '@headlessui/react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -9,8 +10,9 @@ import { useAuth } from '@/context/AuthContext'
 import { ToastProvider } from '@/components/Toast'
 import { ConfirmProvider } from '@/components/ConfirmDialog'
 
-// Lazy loading das páginas para melhor performance
-const EmpresaPage = lazy(() => import('./empresa/page'))
+// Dynamic import com SSR desabilitado para a página de empresa
+const EmpresaPage = dynamic(() => import('./empresa/page'), { ssr: false })
+// Lazy loading das outras páginas para melhor performance
 const UsuariosPage = lazy(() => import('./usuarios/page'))
 const TermosPage = lazy(() => import('./termos/page'))
 const StatusPage = lazy(() => import('./status/page'))
@@ -135,7 +137,7 @@ function ConfiguracoesInner() {
           <Tab.Panels className="mt-6">
             {tabs.map((tab) => (
               <Tab.Panel key={tab.name}>
-                <Suspense fallback={<PageLoader />}>
+                <Suspense fallback={<PageLoader />} suppressHydrationWarning>
                   {tab.component}
                 </Suspense>
               </Tab.Panel>
@@ -160,5 +162,3 @@ export default function ConfiguracoesPage() {
     
   )
 }
-
-export const dynamic = 'force-dynamic'

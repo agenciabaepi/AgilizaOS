@@ -596,15 +596,19 @@ export default function ImprimirOrdemPage() {
             relato: data.problema_relatado, // Mapear problema_relatado para relato
           };
           
-          // Buscar itens de checklist se houver empresa_id
-          if (data.empresa_id) {
+          // Buscar itens de checklist se houver empresa_id e equipamento
+          if (data.empresa_id && data.equipamento) {
             try {
               const { data: checklistData } = await supabase
                 .from('checklist_itens')
                 .select('id, nome, categoria')
                 .eq('empresa_id', data.empresa_id)
+                .eq('equipamento_categoria', data.equipamento)
                 .eq('ativo', true)
                 .order('ordem');
+              
+              console.log('🔍 Buscando checklist para equipamento:', data.equipamento);
+              console.log('✅ Itens encontrados:', checklistData?.length || 0);
               
               setChecklistItens(checklistData || []);
             } catch (error) {

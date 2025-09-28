@@ -173,7 +173,8 @@ function processChecklistItems(checklist: any, checklistItens: ChecklistItem[]) 
       const itemValue = checklist[item.id];
       if (itemValue === true) {
         itensAprovados.push(item);
-      } else if (itemValue === false) {
+      } else {
+        // Itens não marcados (undefined) ou marcados como false são considerados reprovados
         itensReprovados.push(item);
       }
     });
@@ -197,7 +198,8 @@ function processChecklistItems(checklist: any, checklistItens: ChecklistItem[]) 
       
       if (value === true) {
         itensAprovados.push(item);
-      } else if (value === false) {
+      } else {
+        // Itens não marcados (undefined) ou marcados como false são considerados reprovados
         itensReprovados.push(item);
       }
     });

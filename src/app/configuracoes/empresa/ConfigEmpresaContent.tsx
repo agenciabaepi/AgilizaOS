@@ -95,6 +95,9 @@ export default function ConfigEmpresaContent() {
 
       if (data) {
         console.log('✅ Empresa encontrada:', data);
+        console.log('🔍 Logo URL:', data.logo_url);
+        console.log('🔍 Logo URL type:', typeof data.logo_url);
+        console.log('🔍 Logo URL length:', data.logo_url?.length);
         setEmpresa(data);
         setFormData({
           nome: data.nome || '',
@@ -159,16 +162,38 @@ export default function ConfigEmpresaContent() {
       const fileName = `${user.id}-${timestamp}.${fileExt}`;
       const filePath = `logos/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('empresa-assets')
+      console.log('📤 Fazendo upload do logo:', { fileName, filePath });
+
+      // Verificar se o bucket existe
+      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+      console.log('📦 Buckets disponíveis:', buckets);
+      
+      // Tentar primeiro com o bucket 'logos' que já existe
+      let bucketName = 'logos';
+      let { error: uploadError } = await supabase.storage
+        .from(bucketName)
         .upload(filePath, logoFile);
 
-      if (uploadError) throw uploadError;
+      // Se falhar, tentar com 'empresa-assets'
+      if (uploadError) {
+        console.log('⚠️ Falha com bucket logos, tentando empresa-assets');
+        bucketName = 'empresa-assets';
+        const result = await supabase.storage
+          .from(bucketName)
+          .upload(filePath, logoFile);
+        uploadError = result.error;
+      }
+
+      if (uploadError) {
+        console.error('❌ Erro no upload:', uploadError);
+        throw uploadError;
+      }
 
       const { data: { publicUrl } } = supabase.storage
-        .from('empresa-assets')
+        .from(bucketName)
         .getPublicUrl(filePath);
 
+      console.log('✅ Upload concluído, URL pública:', publicUrl);
       return publicUrl;
     } catch (error) {
       console.error('Erro ao fazer upload do logo:', error);
@@ -325,10 +350,22 @@ export default function ConfigEmpresaContent() {
                   <div className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50 relative overflow-hidden">
                     {logoPreview || empresa?.logo_url ? (
                       <>
+                        {console.log('🖼️ Renderizando logo:', {
+                          logoPreview,
+                          logoUrl: empresa?.logo_url,
+                          finalSrc: logoPreview || empresa?.logo_url
+                        })}
                         <img
                           src={logoPreview || empresa?.logo_url}
                           alt="Logo da empresa"
                           className="w-full h-full object-contain"
+                          onError={(e) => {
+                            console.error('❌ Erro ao carregar imagem:', e);
+                            console.error('❌ URL que falhou:', logoPreview || empresa?.logo_url);
+                          }}
+                          onLoad={() => {
+                            console.log('✅ Logo carregado com sucesso:', logoPreview || empresa?.logo_url);
+                          }}
                         />
                         {editMode && (
                           <button
@@ -344,6 +381,7 @@ export default function ConfigEmpresaContent() {
                       </>
                     ) : (
                       <div className="text-center">
+                        {console.log('📷 Sem logo para exibir:', { logoPreview, logoUrl: empresa?.logo_url })}
                         <FiImage className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                         <p className="text-sm text-gray-500">Sem logo</p>
                       </div>
