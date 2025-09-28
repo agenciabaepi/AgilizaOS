@@ -370,7 +370,7 @@ export default function ChecklistNovoPage() {
                 <Button
                   onClick={() => openModal()}
                   disabled={!categoriaSelecionada}
-                  variant="primary"
+                  variant="default"
                   className="flex items-center gap-2"
                 >
                   <FiPlus />
@@ -420,7 +420,7 @@ export default function ChecklistNovoPage() {
                     {!searchTerm && (
                       <Button
                         onClick={() => openModal()}
-                        variant="primary"
+                        variant="default"
                         className="flex items-center gap-2"
                       >
                         <FiPlus />
