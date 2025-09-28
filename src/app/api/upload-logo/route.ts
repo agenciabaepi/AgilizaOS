@@ -4,27 +4,7 @@ import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) { return cookieStore.get(name)?.value; },
-          set() {},
-          remove() {},
-        },
-      }
-    );
-
-    // Verificar autenticação
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    
-    if (userError || !user) {
-      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 });
-    }
-
-    // Criar cliente com service role para upload
+    // Usar service role key diretamente para upload
     const supabaseAdmin = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -46,7 +26,7 @@ export async function POST(request: NextRequest) {
 
     const fileExt = file.name.split('.').pop();
     const timestamp = Date.now();
-    const fileName = `${user.id}-${timestamp}.${fileExt}`;
+    const fileName = `logo-${timestamp}.${fileExt}`;
     const filePath = `logos/${fileName}`;
 
     // Fazer upload usando service role
