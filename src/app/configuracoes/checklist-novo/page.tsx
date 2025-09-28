@@ -575,7 +575,7 @@ export default function ChecklistNovoPage() {
               </Button>
               <Button
                 onClick={handleSave}
-                variant="primary"
+                variant="default"
               >
                 {editingItem ? 'Atualizar' : 'Criar'}
               </Button>
