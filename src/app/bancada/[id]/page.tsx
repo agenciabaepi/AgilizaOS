@@ -1325,10 +1325,9 @@ export default function DetalheBancadaPage() {
             {checklistItens.length > 0 ? (
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                 <DynamicChecklist
-                  checklistItens={checklistItens}
                   value={checklistData || {}}
                   onChange={setChecklistData}
-                  readOnly={false}
+                  disabled={false}
                   equipamentoCategoria={os?.equipamento as string || undefined}
                 />
               </div>
