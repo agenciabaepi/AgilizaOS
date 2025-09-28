@@ -137,7 +137,7 @@ function ConfiguracoesInner() {
           <Tab.Panels className="mt-6">
             {tabs.map((tab) => (
               <Tab.Panel key={tab.name}>
-                <Suspense fallback={<PageLoader />} suppressHydrationWarning>
+                <Suspense fallback={<PageLoader />}>
                   {tab.component}
                 </Suspense>
               </Tab.Panel>
