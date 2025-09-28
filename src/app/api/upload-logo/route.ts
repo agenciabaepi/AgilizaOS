@@ -49,15 +49,12 @@ export async function POST(request: NextRequest) {
     const fileName = `${user.id}-${timestamp}.${fileExt}`;
     const filePath = `logos/${fileName}`;
 
-    console.log('📤 Upload via API:', { fileName, filePath, size: file.size });
-
     // Fazer upload usando service role
     const { error: uploadError } = await supabaseAdmin.storage
       .from('logos')
       .upload(filePath, file);
 
     if (uploadError) {
-      console.error('❌ Erro no upload:', uploadError);
       return NextResponse.json({ error: uploadError.message }, { status: 500 });
     }
 
@@ -65,8 +62,6 @@ export async function POST(request: NextRequest) {
     const { data: { publicUrl } } = supabaseAdmin.storage
       .from('logos')
       .getPublicUrl(filePath);
-
-    console.log('✅ Upload concluído:', publicUrl);
 
     return NextResponse.json({ 
       success: true, 

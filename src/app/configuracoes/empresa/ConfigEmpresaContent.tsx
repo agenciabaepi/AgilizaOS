@@ -94,10 +94,6 @@ export default function ConfigEmpresaContent() {
       }
 
       if (data) {
-        console.log('✅ Empresa encontrada:', data);
-        console.log('🔍 Logo URL:', data.logo_url);
-        console.log('🔍 Logo URL type:', typeof data.logo_url);
-        console.log('🔍 Logo URL length:', data.logo_url?.length);
         setEmpresa(data);
         setFormData({
           nome: data.nome || '',
@@ -107,8 +103,6 @@ export default function ConfigEmpresaContent() {
           email: data.email || '',
           website: data.website || ''
         });
-      } else {
-        console.log('Nenhuma empresa encontrada para o usuário');
       }
     } catch (error) {
       console.error('Erro ao buscar empresa:', error);
@@ -156,8 +150,6 @@ export default function ConfigEmpresaContent() {
 
     setUploadingLogo(true);
     try {
-      console.log('📤 Fazendo upload do logo via API');
-
       const formData = new FormData();
       formData.append('file', logoFile);
 
@@ -172,7 +164,6 @@ export default function ConfigEmpresaContent() {
       }
 
       const data = await response.json();
-      console.log('✅ Upload concluído via API:', data.url);
       return data.url;
     } catch (error) {
       console.error('Erro ao fazer upload do logo:', error);
@@ -270,7 +261,6 @@ export default function ConfigEmpresaContent() {
       // Forçar atualização do estado da empresa com o novo logo
       if (logoUrl) {
         setEmpresa(prev => prev ? { ...prev, logo_url: logoUrl } : null);
-        console.log('🔄 Logo atualizado no estado:', logoUrl);
       }
       
       await fetchEmpresa();
@@ -336,27 +326,17 @@ export default function ConfigEmpresaContent() {
                   <div className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50 relative overflow-hidden">
                     {logoPreview || empresa?.logo_url ? (
                       <>
-                        {console.log('🖼️ Renderizando logo:', {
-                          logoPreview,
-                          logoUrl: empresa?.logo_url,
-                          finalSrc: logoPreview || empresa?.logo_url
-                        })}
                         <img
                           src={logoPreview || empresa?.logo_url}
                           alt="Logo da empresa"
                           className="w-full h-full object-contain"
-                          key={logoPreview || empresa?.logo_url} // Força re-render quando URL muda
+                          key={logoPreview || empresa?.logo_url}
                           onError={(e) => {
-                            console.error('❌ Erro ao carregar imagem:', e);
-                            console.error('❌ URL que falhou:', logoPreview || empresa?.logo_url);
                             // Tentar recarregar a imagem
                             const img = e.target as HTMLImageElement;
                             setTimeout(() => {
                               img.src = img.src + '?t=' + Date.now();
                             }, 1000);
-                          }}
-                          onLoad={() => {
-                            console.log('✅ Logo carregado com sucesso:', logoPreview || empresa?.logo_url);
                           }}
                         />
                         {editMode && (
@@ -373,7 +353,6 @@ export default function ConfigEmpresaContent() {
                       </>
                     ) : (
                       <div className="text-center">
-                        {console.log('📷 Sem logo para exibir:', { logoPreview, logoUrl: empresa?.logo_url })}
                         <FiImage className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                         <p className="text-sm text-gray-500">Sem logo</p>
                       </div>
@@ -390,7 +369,6 @@ export default function ConfigEmpresaContent() {
                     <div className="mb-4">
                       <button
                         onClick={() => {
-                          console.log('🔄 Forçando recarregamento do logo');
                           setEmpresa(prev => prev ? { ...prev, logo_url: prev.logo_url + '?t=' + Date.now() } : null);
                         }}
                         className="text-xs text-blue-600 hover:text-blue-800 underline"
