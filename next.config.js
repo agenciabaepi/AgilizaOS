@@ -3,10 +3,14 @@ const nextConfig = {
   // Otimizações para múltiplos usuários simultâneos
   experimental: {
     optimizeCss: false,
-    optimizePackageImports: ['@supabase/supabase-js', 'react-icons/fi']
+    optimizePackageImports: ['@supabase/supabase-js', 'react-icons/fi'],
+    esmExternals: true
     // ⚠️ 'experimental.turbo' foi removido no Next 15.
     // Se quiser usar Turbopack, não precisa declarar aqui.
   },
+
+  // Configuração para pacotes ESM
+  transpilePackages: ['@react-pdf/renderer'],
 
   // Cache estratégico para melhor performance
   async headers() {

@@ -547,9 +547,19 @@ const VisualizarOrdemServicoPage = () => {
                     <div className="p-2 bg-green-100 rounded-lg">
                       <FiCheckCircle className="w-5 h-5 text-green-600" />
                     </div>
-                    <h2 className="text-xl font-semibold text-gray-900">Checklist de Entrada</h2>
+                    <div className="flex-1">
+                      <h2 className="text-xl font-semibold text-gray-900">Checklist de Entrada</h2>
+                      {ordem.equipamento && (
+                        <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                          Categoria: {ordem.equipamento}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <ChecklistViewer checklistData={ordem.checklist_entrada} />
+                  <ChecklistViewer 
+                    checklistData={ordem.checklist_entrada} 
+                    equipamentoCategoria={ordem.equipamento || undefined}
+                  />
                 </div>
               )}
               {(ordem.senha_aparelho || ordem.senha_padrao) && (

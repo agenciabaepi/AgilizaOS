@@ -21,9 +21,10 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const empresaId = searchParams.get('empresa_id');
     const categoria = searchParams.get('categoria');
+    const equipamentoCategoria = searchParams.get('equipamento_categoria');
     const ativo = searchParams.get('ativo');
 
-    console.log('🔍 Parâmetros recebidos:', { empresaId, categoria, ativo });
+    console.log('🔍 Parâmetros recebidos:', { empresaId, categoria, equipamentoCategoria, ativo });
 
     if (!empresaId) {
       console.log('❌ empresa_id é obrigatório');
@@ -52,6 +53,11 @@ export async function GET(request: NextRequest) {
 
     if (categoria && categoria !== '') {
       query = query.eq('categoria', categoria);
+    }
+
+    // ✅ NOVO: Filtrar por categoria de equipamento
+    if (equipamentoCategoria && equipamentoCategoria !== '') {
+      query = query.eq('equipamento_categoria', equipamentoCategoria);
     }
 
     console.log('🔍 Executando query...');
@@ -105,7 +111,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     console.log('🔍 POST /api/checklist-itens - Body recebido:', body);
     
-    const { nome, descricao, categoria, empresa_id, ordem, obrigatorio } = body;
+    const { nome, descricao, categoria, equipamento_categoria, empresa_id, ordem, obrigatorio } = body;
 
     if (!nome || !empresa_id) {
       console.log('❌ Campos obrigatórios faltando:', { nome, empresa_id });
@@ -153,6 +159,7 @@ export async function POST(request: NextRequest) {
         nome,
         descricao: descricao || null,
         categoria: categoria || 'geral',
+        equipamento_categoria: equipamento_categoria || null,
         empresa_id,
         ordem: ordem || 0,
         obrigatorio: obrigatorio || false,
@@ -179,7 +186,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, nome, descricao, categoria, ordem, obrigatorio, ativo } = body;
+    const { id, nome, descricao, categoria, equipamento_categoria, ordem, obrigatorio, ativo } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'ID é obrigatório' }, { status: 400 });
@@ -189,6 +196,7 @@ export async function PUT(request: NextRequest) {
     if (nome !== undefined) updateData.nome = nome;
     if (descricao !== undefined) updateData.descricao = descricao;
     if (categoria !== undefined) updateData.categoria = categoria;
+    if (equipamento_categoria !== undefined) updateData.equipamento_categoria = equipamento_categoria;
     if (ordem !== undefined) updateData.ordem = ordem;
     if (obrigatorio !== undefined) updateData.obrigatorio = obrigatorio;
     if (ativo !== undefined) updateData.ativo = ativo;

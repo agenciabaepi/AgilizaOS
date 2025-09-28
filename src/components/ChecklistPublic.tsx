@@ -16,9 +16,10 @@ interface ChecklistItem {
 interface ChecklistPublicProps {
   checklistData: string | null;
   empresaId?: string;
+  equipamentoCategoria?: string; // Nova prop para filtrar por categoria
 }
 
-export default function ChecklistPublic({ checklistData, empresaId }: ChecklistPublicProps) {
+export default function ChecklistPublic({ checklistData, empresaId, equipamentoCategoria }: ChecklistPublicProps) {
   const [itens, setItens] = useState<ChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -31,7 +32,12 @@ export default function ChecklistPublic({ checklistData, empresaId }: ChecklistP
       }
 
       try {
-        const response = await fetch(`/api/checklist-itens?empresa_id=${empresaId}&ativo=true`, {
+        // ✅ NOVO: Usar categoria de equipamento se fornecida, caso contrário usar todos
+        const url = equipamentoCategoria 
+          ? `/api/checklist-itens?empresa_id=${empresaId}&equipamento_categoria=${encodeURIComponent(equipamentoCategoria)}&ativo=true`
+          : `/api/checklist-itens?empresa_id=${empresaId}&ativo=true`;
+          
+        const response = await fetch(url, {
           method: 'GET',
           headers: {
             'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -56,7 +62,7 @@ export default function ChecklistPublic({ checklistData, empresaId }: ChecklistP
     };
 
     fetchItens();
-  }, [empresaId]);
+  }, [empresaId, equipamentoCategoria]);
 
   if (!checklistData) return null;
 
@@ -66,15 +72,13 @@ export default function ChecklistPublic({ checklistData, empresaId }: ChecklistP
     // Se o aparelho não liga, mostrar mensagem especial
     if (checklist.aparelhoNaoLiga) {
       return (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-4 h-4 border-2 border-red-500 rounded flex items-center justify-center bg-red-50">
-              <span className="text-red-600 font-bold text-xs leading-none">×</span>
-            </div>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-2">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
             <div>
-              <h4 className="text-sm font-medium text-red-800">Aparelho não liga</h4>
-              <p className="text-sm text-red-700 mt-1">
-                Como o aparelho não liga, não é possível realizar o checklist para verificar quais funcionalidades estão operacionais. Após o técnico conseguir fazer o aparelho ligar (caso tenha conserto), será realizado o checklist completo para identificar quais componentes estão ou não funcionando.
+              <h4 className="text-xs font-medium text-red-800">Aparelho não liga</h4>
+              <p className="text-xs text-red-700 mt-1">
+                Como o aparelho não liga, não é possível realizar o checklist para verificar quais funcionalidades estão operacionais.
               </p>
             </div>
           </div>
@@ -101,7 +105,10 @@ export default function ChecklistPublic({ checklistData, empresaId }: ChecklistP
       return (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <p className="text-yellow-700 text-sm">
-            Nenhum item de checklist configurado para esta empresa.
+            {equipamentoCategoria 
+              ? `Nenhum item de checklist configurado para a categoria "${equipamentoCategoria}".`
+              : `Nenhum item de checklist configurado para esta empresa.`
+            }
           </p>
         </div>
       );
@@ -121,16 +128,14 @@ export default function ChecklistPublic({ checklistData, empresaId }: ChecklistP
     });
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-2">
         {itensAprovados.length > 0 && (
           <div>
-            <h4 className="text-sm font-medium text-green-700 mb-3">✅ Testes Aprovados:</h4>
-            <div className="grid grid-cols-2 gap-2">
+            <h4 className="text-xs font-medium text-green-700 mb-1 text-left">Funcionalidades Operacionais</h4>
+            <div className="grid grid-cols-2 gap-1">
               {itensAprovados.map(item => (
-                <div key={item.id} className="flex items-center gap-2 text-sm text-green-600">
-                  <div className="w-4 h-4 border-2 border-green-500 rounded flex items-center justify-center bg-green-50">
-                    <FiCheck className="w-3 h-3 text-green-600" />
-                  </div>
+                <div key={item.id} className="flex items-center gap-1 text-xs text-gray-700">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                   <span>{item.nome}</span>
                 </div>
               ))}
@@ -140,13 +145,11 @@ export default function ChecklistPublic({ checklistData, empresaId }: ChecklistP
 
         {itensReprovados.length > 0 && (
           <div>
-            <h4 className="text-sm font-medium text-red-600 mb-3">❌ Testes Reprovados:</h4>
-            <div className="grid grid-cols-2 gap-2">
+            <h4 className="text-xs font-medium text-red-600 mb-1 text-left">Funcionalidades com Problemas</h4>
+            <div className="grid grid-cols-2 gap-1">
               {itensReprovados.map(item => (
-                <div key={item.id} className="flex items-center gap-2 text-sm text-red-500">
-                  <div className="w-4 h-4 border-2 border-red-500 rounded flex items-center justify-center bg-red-50">
-                    <FiX className="w-3 h-3 text-red-600" />
-                  </div>
+                <div key={item.id} className="flex items-center gap-1 text-xs text-gray-700">
+                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
                   <span>{item.nome}</span>
                 </div>
               ))}
@@ -155,8 +158,8 @@ export default function ChecklistPublic({ checklistData, empresaId }: ChecklistP
         )}
 
         {itensAprovados.length === 0 && itensReprovados.length === 0 && (
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <p className="text-gray-600 text-sm">
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-2">
+            <p className="text-gray-600 text-xs">
               Nenhum teste foi realizado no checklist de entrada.
             </p>
           </div>

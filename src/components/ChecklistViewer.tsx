@@ -16,9 +16,10 @@ interface ChecklistItem {
 
 interface ChecklistViewerProps {
   checklistData: string | null;
+  equipamentoCategoria?: string; // Nova prop para filtrar por categoria
 }
 
-export default function ChecklistViewer({ checklistData }: ChecklistViewerProps) {
+export default function ChecklistViewer({ checklistData, equipamentoCategoria }: ChecklistViewerProps) {
   const { empresaData } = useAuth();
   const [itens, setItens] = useState<ChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,7 +33,12 @@ export default function ChecklistViewer({ checklistData }: ChecklistViewerProps)
       }
 
       try {
-        const response = await fetch(`/api/checklist-itens?empresa_id=${empresaData.id}&ativo=true`, {
+        // ✅ NOVO: Usar categoria de equipamento se fornecida, caso contrário usar todos
+        const url = equipamentoCategoria 
+          ? `/api/checklist-itens?empresa_id=${empresaData.id}&equipamento_categoria=${encodeURIComponent(equipamentoCategoria)}&ativo=true`
+          : `/api/checklist-itens?empresa_id=${empresaData.id}&ativo=true`;
+          
+        const response = await fetch(url, {
           method: 'GET',
           headers: {
             'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -57,7 +63,7 @@ export default function ChecklistViewer({ checklistData }: ChecklistViewerProps)
     };
 
     fetchItens();
-  }, [empresaData?.id]);
+  }, [empresaData?.id, equipamentoCategoria]);
 
   if (!checklistData) return null;
 
@@ -102,7 +108,10 @@ export default function ChecklistViewer({ checklistData }: ChecklistViewerProps)
       return (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <p className="text-yellow-700 text-sm">
-            Nenhum item de checklist configurado para esta empresa.
+            {equipamentoCategoria 
+              ? `Nenhum item de checklist configurado para a categoria "${equipamentoCategoria}".`
+              : `Nenhum item de checklist configurado para esta empresa.`
+            }
           </p>
         </div>
       );

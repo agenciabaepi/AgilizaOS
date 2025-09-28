@@ -10,7 +10,6 @@ import ProdutoServicoSearch from '@/components/ProdutoServicoSearch';
 import { Button } from '@/components/Button';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
-import ChecklistViewer from '@/components/ChecklistViewer';
 import DynamicChecklist from '@/components/DynamicChecklist';
 
 // Componente simples para exibir o padrão Android
@@ -136,7 +135,8 @@ export default function DetalheBancadaPage() {
           cliente:cliente_id(nome), 
           senha_aparelho, 
           senha_padrao, 
-          checklist_entrada
+          checklist_entrada,
+          equipamento
         `)
         .eq('id', id)
         .single();
@@ -1329,6 +1329,7 @@ export default function DetalheBancadaPage() {
                   value={checklistData || {}}
                   onChange={setChecklistData}
                   readOnly={false}
+                  equipamentoCategoria={os?.equipamento || undefined}
                 />
               </div>
             ) : (

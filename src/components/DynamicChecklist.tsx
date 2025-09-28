@@ -18,18 +18,28 @@ interface ChecklistData {
   [key: string]: boolean;
 }
 
+export interface ValidationResult {
+  isValid: boolean;
+  missingItems: ChecklistItem[];
+  message?: string;
+}
+
 interface DynamicChecklistProps {
   value?: ChecklistData;
   onChange?: (checklist: ChecklistData) => void;
   disabled?: boolean;
   showAparelhoNaoLiga?: boolean;
+  equipamentoCategoria?: string; // Nova prop para filtrar por categoria de equipamento
+  onValidationChange?: (validation: ValidationResult) => void;
 }
 
 export default function DynamicChecklist({ 
   value = {}, 
   onChange, 
   disabled = false,
-  showAparelhoNaoLiga = true 
+  showAparelhoNaoLiga = true,
+  equipamentoCategoria,
+  onValidationChange
 }: DynamicChecklistProps) {
   const { empresaData } = useAuth();
   const [itens, setItens] = useState<ChecklistItem[]>([]);
@@ -46,7 +56,12 @@ export default function DynamicChecklist({
       }
 
       try {
-        const response = await fetch(`/api/checklist-itens?empresa_id=${empresaData.id}&ativo=true`, {
+        // ✅ NOVO: Usar categoria de equipamento se fornecida, caso contrário usar todos
+        const url = equipamentoCategoria 
+          ? `/api/checklist-itens?empresa_id=${empresaData.id}&equipamento_categoria=${encodeURIComponent(equipamentoCategoria)}&ativo=true`
+          : `/api/checklist-itens?empresa_id=${empresaData.id}&ativo=true`;
+          
+        const response = await fetch(url, {
           method: 'GET',
           headers: {
             'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -71,7 +86,7 @@ export default function DynamicChecklist({
     };
 
     fetchItens();
-  }, [empresaData?.id]);
+  }, [empresaData?.id, equipamentoCategoria]);
 
   // Atualizar estado interno quando value prop muda
   useEffect(() => {
@@ -130,6 +145,36 @@ export default function DynamicChecklist({
     return labels[categoria] || categoria;
   };
 
+  // Função de validação para itens obrigatórios
+  const validateChecklist = (): ValidationResult => {
+    if (aparelhoNaoLiga) {
+      return {
+        isValid: true,
+        missingItems: [],
+        message: 'Validação dispensada - aparelho não liga'
+      };
+    }
+
+    const itensObrigatorios = itens.filter(item => item.obrigatorio && item.ativo);
+    const itensFaltando = itensObrigatorios.filter(item => !checklistData[item.id]);
+
+    return {
+      isValid: itensFaltando.length === 0,
+      missingItems: itensFaltando,
+      message: itensFaltando.length > 0 
+        ? `${itensFaltando.length} item(ns) obrigatório(s) não preenchido(s)`
+        : 'Todos os itens obrigatórios foram preenchidos'
+    };
+  };
+
+  // Monitorar mudanças e validar
+  useEffect(() => {
+    if (onValidationChange) {
+      const validation = validateChecklist();
+      onValidationChange(validation);
+    }
+  }, [checklistData, aparelhoNaoLiga, itens, onValidationChange]);
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -159,8 +204,10 @@ export default function DynamicChecklist({
     return (
       <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
         <p className="text-yellow-700 text-sm">
-          Nenhum item de checklist configurado para esta empresa. 
-          Configure os itens em <strong>Configurações → Checklist</strong>.
+          {equipamentoCategoria 
+            ? `Nenhum item de checklist configurado para a categoria "${equipamentoCategoria}". Configure os itens em Configurações → Checklist por Categoria.`
+            : `Nenhum item de checklist configurado para esta empresa. Configure os itens em Configurações → Checklist ou Checklist por Categoria.`
+          }
         </p>
       </div>
     );
@@ -258,12 +305,56 @@ export default function DynamicChecklist({
         </div>
       )}
 
-      {/* Resumo dos itens obrigatórios */}
-      {!aparelhoNaoLiga && (
-        <div className="text-xs text-gray-500">
-          <p>* Itens marcados com asterisco são obrigatórios</p>
-        </div>
-      )}
+      {/* Validação de itens obrigatórios */}
+      {!aparelhoNaoLiga && (() => {
+        const validation = validateChecklist();
+        const itensObrigatorios = itens.filter(item => item.obrigatorio && item.ativo);
+        
+        return (
+          <div className="space-y-3">
+            {/* Resumo dos itens obrigatórios */}
+            <div className="text-xs text-gray-500">
+              <p>* Itens marcados com asterisco são obrigatórios ({itensObrigatorios.length} total)</p>
+            </div>
+
+            {/* Alerta de validação */}
+            {validation.missingItems.length > 0 && (
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-start space-x-2">
+                  <FiX className="text-yellow-500 mt-0.5" size={16} />
+                  <div className="flex-1">
+                    <p className="text-yellow-800 font-medium text-sm">
+                      Itens obrigatórios pendentes
+                    </p>
+                    <p className="text-yellow-700 text-xs mt-1">
+                      {validation.message}
+                    </p>
+                    <div className="mt-2 space-y-1">
+                      {validation.missingItems.map(item => (
+                        <div key={item.id} className="text-xs text-yellow-700">
+                          • {item.nome} ({getCategoriaLabel(item.categoria)})
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Confirmação de validação */}
+            {validation.isValid && itensObrigatorios.length > 0 && (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <FiCheck className="text-green-500" size={16} />
+                  <p className="text-green-800 font-medium text-sm">
+                    Todos os itens obrigatórios foram preenchidos
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }

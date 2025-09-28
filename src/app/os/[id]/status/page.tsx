@@ -518,7 +518,11 @@ export default function OSPublicPage() {
               </div>
               <h3 className="text-lg font-semibold text-gray-900">Checklist de Entrada</h3>
             </div>
-            <ChecklistPublic checklistData={osData.checklist_entrada} empresaId={osData.empresa_id} />
+            <ChecklistPublic 
+              checklistData={osData.checklist_entrada} 
+              empresaId={osData.empresa_id} 
+              equipamentoCategoria={osData.equipamento || undefined}
+            />
           </div>
         )}
 

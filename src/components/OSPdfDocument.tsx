@@ -43,7 +43,7 @@ export const OSPdfDocument = ({
   <Document>
     <Page size="A4" style={styles.page}>
       <View style={styles.header}>
-        <Image src={logoUrl} style={styles.logo} />
+        {logoUrl && <Image src={logoUrl} style={styles.logo} />}
         <Text style={styles.title}>{empresa}</Text>
         <Text>{cnpj}</Text>
         <Text>{endereco}</Text>

@@ -2,6 +2,90 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    
+    // Usar service role key para bypass de autenticação (para página de impressão)
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        cookies: {
+          get() { return undefined; },
+          set() {},
+          remove() {},
+        },
+      }
+    );
+    
+    console.log('🔍 Buscando OS com ID:', id);
+    
+    // Buscar a OS primeiro
+    const { data: ordemData, error } = await supabase
+      .from('ordens_servico')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error('❌ Erro ao buscar OS:', error);
+      return NextResponse.json({ error: 'OS não encontrada: ' + error.message }, { status: 404 });
+    }
+
+    if (!ordemData) {
+      console.error('❌ OS não encontrada no banco');
+      return NextResponse.json({ error: 'OS não encontrada' }, { status: 404 });
+    }
+
+    // Buscar dados relacionados separadamente
+    const [empresaResult, clienteResult, termoResult] = await Promise.allSettled([
+      supabase.from('empresas').select('*').eq('id', ordemData.empresa_id).single(),
+      supabase.from('clientes').select('*').eq('id', ordemData.cliente_id).single(),
+      supabase.from('termos_garantia').select('*').eq('id', ordemData.termo_garantia_id).single()
+    ]);
+
+    // Buscar checklistItens se houver checklist_entrada e equipamento
+    let checklistItens = null;
+    if (ordemData.checklist_entrada && ordemData.equipamento) {
+      console.log('🔍 Buscando checklistItens para equipamento:', ordemData.equipamento);
+      const { data: checklistData, error: checklistError } = await supabase
+        .from('checklist_itens')
+        .select('*')
+        .eq('empresa_id', ordemData.empresa_id)
+        .eq('equipamento_categoria', ordemData.equipamento);
+      
+      if (checklistError) {
+        console.error('❌ Erro ao buscar checklistItens:', checklistError);
+      } else {
+        checklistItens = checklistData;
+        console.log('✅ ChecklistItens encontrados:', checklistItens?.length || 0);
+      }
+    }
+
+    // Montar objeto final com dados relacionados
+    const data = {
+      ...ordemData,
+      empresa: empresaResult.status === 'fulfilled' ? empresaResult.value.data : null,
+      cliente: clienteResult.status === 'fulfilled' ? clienteResult.value.data : null,
+      termo_garantia: termoResult.status === 'fulfilled' ? termoResult.value.data : null,
+      checklistItens: checklistItens,
+      // Usar o campo tecnico que já existe na OS
+      tecnico: ordemData.tecnico || null,
+    };
+
+    console.log('✅ OS encontrada:', data.numero_os);
+    return NextResponse.json(data);
+  } catch (error: unknown) {
+    console.error('❌ Erro na API GET /api/ordens/[id]:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Erro interno do servidor';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
+  }
+}
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -210,4 +294,4 @@ export async function PUT(
     const errorMessage = error instanceof Error ? error.message : 'Erro interno do servidor';
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
-} 
+}

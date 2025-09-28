@@ -1,8 +1,8 @@
 // Configuração centralizada do Supabase
 export const supabaseConfig = {
   url: process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://nxamrvfusyrtkcshehfm.supabase.co',
-  anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_yeCVZkUfO6Rut3Vr4EDzq5Ci9h7l1lUrukCwJMITS',
-  serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || 'sb_secret_3dbdcMGcAyk8vN9ruzVRmZDjHRBAZEjt20fMCt4ClIzrhlLJ8PmcdLOFRIxd29hAGGWIX7W2lTUZjNJis'
+  anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_yeCVZiOGAsnR7D9jDDkdNw_r-aOcv31',
+  serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || 'sb_secret_3dbdcMGcAy0QzCOOQh4TWg_deFhjsXQ'
 };
 
 // Validação das configurações

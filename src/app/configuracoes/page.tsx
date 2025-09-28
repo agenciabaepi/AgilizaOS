@@ -18,7 +18,7 @@ const ComissoesPage = lazy(() => import('./comissoes/page'))
 const CatalogoPage = lazy(() => import('./catalogo/page'))
 const WhatsAppPage = lazy(() => import('./whatsapp/page'))
 const EquipamentosPage = lazy(() => import('./equipamentos/page'))
-const ChecklistPage = lazy(() => import('./checklist/page'))
+const ChecklistNovoPage = lazy(() => import('./checklist-novo/page'))
 
 // Componente de loading para as páginas filhas
 const PageLoader = () => (
@@ -85,7 +85,7 @@ function ConfiguracoesInner() {
         { name: 'Usuários', component: <UsuariosPage /> },
         { name: 'Comissões', component: <ComissoesPage /> },
         { name: 'Equipamentos', component: <EquipamentosPage /> },
-        { name: 'Checklist', component: <ChecklistPage /> },
+        { name: 'Checklist', component: <ChecklistNovoPage /> },
         { name: 'Termos de Garantia', component: <TermosPage /> },
         { name: 'Status', component: <StatusPage /> },
         { name: 'Catálogo', component: <CatalogoPage /> },
@@ -100,7 +100,7 @@ function ConfiguracoesInner() {
         { name: 'Usuários', component: <UsuariosPage /> },
         { name: 'Comissões', component: <ComissoesPage /> },
         { name: 'Equipamentos', component: <EquipamentosPage /> },
-        { name: 'Checklist', component: <ChecklistPage /> },
+        { name: 'Checklist', component: <ChecklistNovoPage /> },
         { name: 'Termos de Garantia', component: <TermosPage /> },
         { name: 'Status', component: <StatusPage /> },
         { name: 'Catálogo', component: <CatalogoPage /> },

@@ -31,10 +31,17 @@ export async function POST(request: NextRequest) {
     if (newStatus) finalUpdateData.status = newStatus;
     if (newStatusTecnico) finalUpdateData.status_tecnico = newStatusTecnico;
     
-    // ✅ FILTRAR campos vazios - só atualizar se há conteúdo real
+    // ✅ FILTRAR campos vazios - MAS SEMPRE incluir checklist_entrada
     Object.keys(updateData).forEach(key => {
       const value = updateData[key];
-      // Só incluir se não for vazio, null, undefined ou string vazia
+      
+      // SEMPRE incluir checklist_entrada, mesmo se vazio (para limpar)
+      if (key === 'checklist_entrada') {
+        finalUpdateData[key] = value;
+        return;
+      }
+      
+      // Para outros campos, só incluir se não for vazio, null, undefined ou string vazia
       // Permitir '0' para valores monetários válidos
       if (value !== null && value !== undefined && value !== '') {
         finalUpdateData[key] = value;

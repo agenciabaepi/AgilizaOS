@@ -416,10 +416,8 @@ export default function EditarOSSimples() {
       console.log('📋 Estado equipamento atual:', equipamento);
       console.log('📋 updateData completo:', updateData);
 
-      // Persistência do checklist de entrada como JSON (string)
-      if (checklistEntrada) {
-        updateData.checklist_entrada = JSON.stringify(checklistEntrada);
-      }
+      // Persistência do checklist de entrada como JSON (string) - SEMPRE incluir
+      updateData.checklist_entrada = JSON.stringify(checklistEntrada || {});
 
       // Adicionar técnico se selecionado
       if (tecnicoSelecionado?.tecnico_id || tecnicoSelecionado?.auth_user_id) {
@@ -1025,14 +1023,24 @@ export default function EditarOSSimples() {
               <div className="p-2 bg-green-100 rounded-lg">
                 <FiCheckCircle className="w-5 h-5 text-green-600" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900">Checklist de entrada</h3>
-              <span className="text-sm text-gray-500">(Opcional na criação; recomendado antes de enviar ao técnico)</span>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900">Checklist de entrada</h3>
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <span>(Opcional na criação; recomendado antes de enviar ao técnico)</span>
+                  {equipamento && (
+                    <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                      Categoria: {equipamento}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
 
             <DynamicChecklist
               value={checklistEntrada}
               onChange={setChecklistEntrada}
               showAparelhoNaoLiga={true}
+              equipamentoCategoria={equipamento || undefined}
             />
           </div>
 

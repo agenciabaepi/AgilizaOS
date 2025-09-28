@@ -1,20 +1,18 @@
 import { ChecklistRenderer, ChecklistItem } from './ChecklistRenderer';
 
-interface ChecklistPDFProps {
+interface ChecklistPDFViewerProps {
   checklistData: string | null;
   checklistItens?: ChecklistItem[];
-  equipamentoCategoria?: string;
   styles: any;
 }
 
-export default function ChecklistPDF({ checklistData, checklistItens = [], equipamentoCategoria, styles }: ChecklistPDFProps) {
+export default function ChecklistPDFViewer({ checklistData, checklistItens = [], styles }: ChecklistPDFViewerProps) {
   return (
     <ChecklistRenderer 
       checklistData={checklistData}
       checklistItens={checklistItens}
-      equipamentoCategoria={equipamentoCategoria}
       styles={styles}
-      mode="pdf"
+      mode="viewer"
     />
   );
 }

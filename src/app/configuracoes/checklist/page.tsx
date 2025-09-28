@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/Button';
 import { useToast } from '@/components/Toast';
-import { FiPlus, FiEdit, FiTrash2, FiSearch, FiRefreshCw, FiEye, FiEyeOff } from 'react-icons/fi';
+import { FiPlus, FiEdit, FiTrash2, FiSearch, FiRefreshCw, FiEye, FiEyeOff, FiPackage, FiList, FiChevronDown } from 'react-icons/fi';
 
 interface ChecklistItem {
   id: string;

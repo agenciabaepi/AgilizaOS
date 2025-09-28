@@ -547,6 +547,7 @@ export default function ImprimirOrdemPage() {
             valor_faturado,
             desconto,
             termo_garantia_id,
+            empresa_id,
             clientes(nome, telefone, email, cpf, endereco),
             tecnico:usuarios(nome),
             empresas(nome, cnpj, endereco, telefone, email, logo_url),
@@ -598,7 +599,6 @@ export default function ImprimirOrdemPage() {
           // Buscar itens de checklist se houver empresa_id
           if (data.empresa_id) {
             try {
-              console.log('🔍 Buscando itens de checklist para empresa:', data.empresa_id);
               const { data: checklistData } = await supabase
                 .from('checklist_itens')
                 .select('id, nome, categoria')
@@ -606,15 +606,11 @@ export default function ImprimirOrdemPage() {
                 .eq('ativo', true)
                 .order('ordem');
               
-              console.log('📋 Itens de checklist carregados:', checklistData?.length || 0);
-              console.log('📋 Itens:', checklistData);
               setChecklistItens(checklistData || []);
             } catch (error) {
-              console.error('❌ Erro ao buscar itens de checklist:', error);
+              console.error('Erro ao buscar itens de checklist:', error);
               setChecklistItens([]);
             }
-          } else {
-            console.log('⚠️ Empresa ID não encontrado para buscar checklist');
           }
           
           setOrdem(ordemMapeada);
