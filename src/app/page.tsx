@@ -203,11 +203,19 @@ export default function Home() {
       
       {/* Subtle Gradient Overlay com Parallax */}
       <div 
-        className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-40"
+        className={`absolute inset-0 opacity-40 ${
+          isDarkMode 
+            ? 'bg-gradient-to-t from-black via-transparent to-transparent' 
+            : 'bg-gradient-to-t from-gray-900 via-transparent to-transparent'
+        }`}
         style={getBackgroundTransform(0.2)}
       ></div>
       <div 
-        className="absolute inset-0 bg-gradient-to-b from-black via-transparent to-transparent opacity-20"
+        className={`absolute inset-0 opacity-20 ${
+          isDarkMode 
+            ? 'bg-gradient-to-b from-black via-transparent to-transparent' 
+            : 'bg-gradient-to-b from-gray-800 via-transparent to-transparent'
+        }`}
         style={getBackgroundTransform(0.1)}
       ></div>
 
@@ -531,12 +539,18 @@ export default function Home() {
           {/* Social Proof Badge */}
           <div 
             data-reveal="badge"
-            className={`inline-flex items-center px-8 py-4 bg-white/5 backdrop-blur-xl border border-white/20 rounded-full mb-12 scroll-reveal-slide-up ${
+            className={`inline-flex items-center px-8 py-4 backdrop-blur-xl border rounded-full mb-12 scroll-reveal-slide-up ${
+              isDarkMode 
+                ? 'bg-white/5 border-white/20' 
+                : 'bg-white/90 border-gray-200'
+            } ${
               isAnimated('badge') ? 'animated' : ''
             }`}
             style={{
-              boxShadow: '0 8px 32px rgba(209, 254, 110, 0.1)',
-              background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
+              boxShadow: isDarkMode ? '0 8px 32px rgba(209, 254, 110, 0.1)' : '0 4px 16px rgba(0,0,0,0.1)',
+              background: isDarkMode 
+                ? 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
+                : 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(248,250,252,0.9) 100%)'
             }}
           >
             <div className="w-3 h-3 bg-[#D1FE6E] rounded-full mr-4 animate-pulse"></div>
@@ -601,7 +615,9 @@ export default function Home() {
                   : 'text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400'
               }`}
               style={{
-                background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
+                background: isDarkMode 
+                  ? 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
+                  : 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.95) 100%)'
               }}
             >
               Começar Grátis
