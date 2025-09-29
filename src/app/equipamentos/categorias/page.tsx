@@ -73,19 +73,24 @@ export default function CategoriasPage() {
 
   // Carregar dados
   useEffect(() => {
+    console.log('🔄 useEffect chamado com usuarioData:', { usuarioData });
     if (usuarioData?.empresa_id) {
+      console.log('✅ empresa_id disponível, carregando dados...');
       carregarDados();
+    } else {
+      console.log('❌ empresa_id não disponível');
     }
   }, [usuarioData]);
 
   const carregarDados = async () => {
     // Verificação de null adicionada
     if (!usuarioData?.empresa_id) {
-      console.error('Dados do usuário não disponíveis');
+      console.error('❌ Dados do usuário não disponíveis:', { usuarioData });
       setLoading(false);
       return;
     }
 
+    console.log('🔄 Carregando dados para empresa_id:', usuarioData.empresa_id);
     setLoading(true);
     try {
       // Carregar grupos
@@ -134,10 +139,14 @@ export default function CategoriasPage() {
       setCategorias(categoriasData || []);
       setSubcategorias(subcategoriasData || []);
       
-      console.log('Dados carregados:', { 
+      console.log('✅ Dados carregados com sucesso:', { 
+        empresa_id: usuarioData.empresa_id,
         grupos: gruposData?.length || 0, 
         categorias: categoriasData?.length || 0, 
-        subcategorias: subcategoriasData?.length || 0 
+        subcategorias: subcategoriasData?.length || 0,
+        gruposData: gruposData,
+        categoriasData: categoriasData,
+        subcategoriasData: subcategoriasData
       });
       
     } catch (error) {
