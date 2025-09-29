@@ -1,21 +1,14 @@
 import { useEffect, useRef } from 'react';
-import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-
-// Registrar o ScrollTrigger
-if (typeof window !== 'undefined') {
-  gsap.registerPlugin(ScrollTrigger);
-}
 
 interface UseGSAPTextAnimationProps {
   isDarkMode: boolean;
 }
 
 export const useGSAPTextAnimation = ({ isDarkMode }: UseGSAPTextAnimationProps) => {
-  const elementRef = useRef<any>(null);
+  const elementRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
-    if (!elementRef.current || typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !elementRef.current) return;
 
     const element = elementRef.current;
     const text = element.textContent?.trim() || '';
@@ -35,56 +28,30 @@ export const useGSAPTextAnimation = ({ isDarkMode }: UseGSAPTextAnimationProps) 
         span.textContent = char;
       }
 
-      // Aplicar estilos condicionais baseados no tema
+      // Estilos básicos
       span.style.display = 'inline-block';
       span.style.opacity = '0';
       span.style.fontWeight = '700';
       
-      // Cores condicionais - usar gradiente no modo escuro, cor sólida no modo claro
+      // Cores condicionais
       if (isDarkMode) {
-        // No modo escuro, manter o gradiente CSS original
-        span.style.color = 'inherit';
+        span.style.color = 'inherit'; // Herda o gradiente CSS
       } else {
-        span.style.color = '#1f2937'; // gray-800 para modo claro
-      }
-
-      // Tamanhos responsivos
-      if (window.innerWidth <= 600) {
-        span.style.fontSize = '28px';
-      } else {
-        span.style.fontSize = '48px';
+        span.style.color = '#1f2937'; // gray-800
       }
 
       element.appendChild(span);
     });
 
+    // Animação simples com CSS + setTimeout
     const spans = element.querySelectorAll('span');
+    spans.forEach((span, index) => {
+      setTimeout(() => {
+        span.style.transition = 'opacity 0.3s ease';
+        span.style.opacity = '1';
+      }, index * 50); // 50ms entre cada letra
+    });
 
-    // Configurar animação GSAP
-    gsap.fromTo(spans,
-      { opacity: 0 },
-      {
-        opacity: 1,
-        ease: "none",
-        stagger: 0.03,
-        scrollTrigger: {
-          trigger: element,
-          start: "top 65%",
-          end: "bottom 45%",
-          scrub: true,
-          once: false,
-        }
-      }
-    );
-
-    // Cleanup
-    return () => {
-      ScrollTrigger.getAll().forEach(trigger => {
-        if (trigger.trigger === element) {
-          trigger.kill();
-        }
-      });
-    };
   }, [isDarkMode]);
 
   return elementRef;

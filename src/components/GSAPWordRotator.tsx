@@ -1,13 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-
-// Registrar o ScrollTrigger
-if (typeof window !== 'undefined') {
-  gsap.registerPlugin(ScrollTrigger);
-}
+import { useEffect, useRef, useState } from 'react';
 
 interface GSAPWordRotatorProps {
   words: string[];
@@ -22,23 +15,32 @@ export default function GSAPWordRotator({
   isDarkMode,
   className = ''
 }: GSAPWordRotatorProps) {
-  const containerRef = useRef<HTMLSpanElement>(null);
-  const currentWordRef = useRef<HTMLSpanElement>(null);
-  const currentWordIndex = useRef(0);
+  const [currentWordIndex, setCurrentWordIndex] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const wordRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
-    if (!containerRef.current || !currentWordRef.current) return;
+    const intervalId = setInterval(() => {
+      setCurrentWordIndex((prev) => (prev + 1) % words.length);
+    }, interval);
 
-    const container = containerRef.current;
-    const wordElement = currentWordRef.current;
+    return () => clearInterval(intervalId);
+  }, [words.length, interval]);
 
-    // Função para animar mudança de palavra
-    const animateWordChange = (newWord: string) => {
-      const text = newWord;
+  useEffect(() => {
+    if (!wordRef.current) return;
+
+    const wordElement = wordRef.current;
+    const currentWord = words[currentWordIndex];
+    
+    // Função para animar entrada da palavra
+    const animateWordIn = () => {
+      setIsAnimating(true);
+      
       wordElement.innerHTML = '';
-
+      
       // Criar spans para cada caractere
-      [...text].forEach((char, i) => {
+      [...currentWord].forEach((char, i) => {
         const span = document.createElement('span');
         
         if (char === ' ') {
@@ -55,18 +57,9 @@ export default function GSAPWordRotator({
         
         // Cores condicionais
         if (isDarkMode) {
-          // No modo escuro, usar cor verde do gradiente
           span.style.color = '#D1FE6E';
         } else {
-          // No modo claro, usar cor cinza escura
           span.style.color = '#374151'; // gray-700
-        }
-
-        // Tamanhos responsivos
-        if (window.innerWidth <= 600) {
-          span.style.fontSize = '28px';
-        } else {
-          span.style.fontSize = '48px';
         }
 
         wordElement.appendChild(span);
@@ -74,44 +67,25 @@ export default function GSAPWordRotator({
 
       const spans = wordElement.querySelectorAll('span');
 
-      // Animação de entrada
-      gsap.fromTo(spans,
-        { opacity: 0 },
-        {
-          opacity: 1,
-          ease: "power2.out",
-          stagger: 0.05,
-          duration: 0.3
-        }
-      );
-    };
-
-    // Rotacionar palavras
-    const rotateWords = () => {
-      currentWordIndex.current = (currentWordIndex.current + 1) % words.length;
-      animateWordChange(words[currentWordIndex.current]);
-    };
-
-    // Inicializar com primeira palavra
-    animateWordChange(words[0]);
-
-    // Configurar intervalo
-    const intervalId = setInterval(rotateWords, interval);
-
-    // Cleanup
-    return () => {
-      clearInterval(intervalId);
-      ScrollTrigger.getAll().forEach(trigger => {
-        if (trigger.trigger === container) {
-          trigger.kill();
-        }
+      // Animação simples com CSS + setTimeout
+      spans.forEach((span, index) => {
+        setTimeout(() => {
+          span.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+          span.style.opacity = '1';
+          span.style.transform = 'translateY(0)';
+        }, index * 80); // 80ms entre cada letra
       });
+
+      // Marcar como não animando após um tempo
+      setTimeout(() => setIsAnimating(false), currentWord.length * 80 + 300);
     };
-  }, [words, interval, isDarkMode]);
+
+    animateWordIn();
+  }, [currentWordIndex, words, isDarkMode]);
 
   return (
-    <span ref={containerRef} className={className}>
-      <span ref={currentWordRef}></span>
+    <span className={className}>
+      <span ref={wordRef}></span>
     </span>
   );
 }
