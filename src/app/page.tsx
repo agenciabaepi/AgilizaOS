@@ -926,13 +926,14 @@ export default function Home() {
       <div id="solucoes" className="relative z-10 px-4 sm:px-6 md:px-8 pb-20 md:pb-32 lg:px-12">
         <div className="mx-auto max-w-6xl">
           <div className="flex flex-col items-center justify-center">
-            {/* MacBook Image com Parallax Avançado */}
-            <div 
-              data-reveal="macbook"
-              className={`relative mb-20 flex justify-center scroll-reveal-scale scroll-reveal-delay-300 ${
-                isAnimated('macbook') ? 'revealed' : ''
-              }`}
-            >
+            {/* MacBook Image com Parallax Avançado - Só no modo escuro */}
+            {isDarkMode && (
+              <div 
+                data-reveal="macbook"
+                className={`relative mb-20 flex justify-center scroll-reveal-scale scroll-reveal-delay-300 ${
+                  isAnimated('macbook') ? 'revealed' : ''
+                }`}
+              >
               <Image 
                 src={macbookImage}
                 alt="MacBook Pro with Consert" 
@@ -947,7 +948,8 @@ export default function Home() {
                   willChange: 'transform'
                 }}
               />
-            </div>
+              </div>
+            )}
 
                         {/* Seção Carrossel + Texto */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center mb-16">
