@@ -78,23 +78,6 @@ export default function CategoriasPage() {
     }
   }, [usuarioData]);
 
-  // Verificar se as tabelas existem
-  useEffect(() => {
-    const verificarTabelas = async () => {
-      try {
-        // Tentar carregar dados para verificar se as tabelas existem
-        await carregarDados();
-      } catch (error) {
-        console.error('Erro ao verificar tabelas:', error);
-        addToast('error', 'As tabelas de categorias ainda não foram criadas. Execute o SQL no Supabase primeiro.');
-      }
-    };
-
-    if (usuarioData?.empresa_id) {
-      verificarTabelas();
-    }
-  }, [usuarioData]);
-
   const carregarDados = async () => {
     // Verificação de null adicionada
     if (!usuarioData?.empresa_id) {
@@ -106,14 +89,19 @@ export default function CategoriasPage() {
     setLoading(true);
     try {
       // Carregar grupos
-      const { data: gruposData } = await supabase
+      const { data: gruposData, error: gruposError } = await supabase
         .from('grupos_produtos')
         .select('*')
         .eq('empresa_id', usuarioData.empresa_id)
         .order('nome');
 
+      if (gruposError) {
+        console.error('Erro ao carregar grupos:', gruposError);
+        throw gruposError;
+      }
+
       // Carregar categorias
-      const { data: categoriasData } = await supabase
+      const { data: categoriasData, error: categoriasError } = await supabase
         .from('categorias_produtos')
         .select(`
           *,
@@ -122,8 +110,13 @@ export default function CategoriasPage() {
         .eq('empresa_id', usuarioData.empresa_id)
         .order('nome');
 
+      if (categoriasError) {
+        console.error('Erro ao carregar categorias:', categoriasError);
+        throw categoriasError;
+      }
+
       // Carregar subcategorias
-      const { data: subcategoriasData } = await supabase
+      const { data: subcategoriasData, error: subcategoriasError } = await supabase
         .from('subcategorias_produtos')
         .select(`
           *,
@@ -132,12 +125,24 @@ export default function CategoriasPage() {
         .eq('empresa_id', usuarioData.empresa_id)
         .order('nome');
 
+      if (subcategoriasError) {
+        console.error('Erro ao carregar subcategorias:', subcategoriasError);
+        throw subcategoriasError;
+      }
+
       setGrupos(gruposData || []);
       setCategorias(categoriasData || []);
       setSubcategorias(subcategoriasData || []);
+      
+      console.log('Dados carregados:', { 
+        grupos: gruposData?.length || 0, 
+        categorias: categoriasData?.length || 0, 
+        subcategorias: subcategoriasData?.length || 0 
+      });
+      
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
-      addToast('error', 'Erro ao carregar categorias');
+      addToast('error', 'Erro ao carregar categorias. Verifique se as tabelas foram criadas.');
     } finally {
       setLoading(false);
     }

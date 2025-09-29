@@ -9,6 +9,7 @@ import { useScrollReveal } from '@/hooks/useScrollReveal';
 import { useAppleParallax } from '@/hooks/useParallax';
 import { useGSAPTextAnimation } from '@/hooks/useGSAPTextAnimation';
 import GSAPWordRotator from '@/components/GSAPWordRotator';
+import GSAPHeadlineRotator from '@/components/GSAPHeadlineRotator';
 import macbookImage from '@/assets/imagens/macbook.png';
 
 export default function Home() {
@@ -559,24 +560,29 @@ export default function Home() {
             }`}>+500 assistências confiam no Consert</span>
           </div>
 
-          {/* Main Headline */}
-          <h1 
-            ref={heroTextRef}
-            data-reveal="headline"
-            className={`text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-light mb-8 md:mb-12 leading-tight tracking-tight scroll-reveal-slide-up text-center ${
-              isDarkMode ? 'text-gradient-primary' : 'text-gray-800'
-            } ${isAnimated('headline') ? 'animated' : ''}`}
-          >
-            Sua assistência digital
+          {/* Main Headline - rotaciona 3 frases completas */}
+          <div data-reveal="headline" className={`scroll-reveal-slide-up ${isAnimated('headline') ? 'animated' : ''}`}>
+            <GSAPHeadlineRotator
+              phrases={[
+                'Sua assistência digital começa aqui',
+                'Automação e controle em um só lugar',
+                'Resultados reais, todos os dias'
+              ]}
+              interval={4000}
+              isDarkMode={isDarkMode}
+              className={`text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-light mb-8 md:mb-12 leading-tight tracking-tight text-center ${
+                isDarkMode ? 'text-gradient-primary' : 'text-gray-800'
+              }`}
+            />
             <span className={`block font-medium mt-2 ${isDarkMode ? 'text-gradient-secondary' : 'text-gray-700'}`}>
               <GSAPWordRotator 
-                words={['começa aqui', 'é simples', 'é inteligente', 'é agora']}
+                words={['simples de usar', 'feito para crescer', 'foco em resultados', 'comece agora']}
                 interval={3000}
                 isDarkMode={isDarkMode}
-                className={isDarkMode ? "text-gradient-secondary" : "text-gray-700"}
+                className={isDarkMode ? 'text-gradient-secondary' : 'text-gray-700'}
               />
             </span>
-          </h1>
+          </div>
 
           {/* Sub-headline */}
           <div 
