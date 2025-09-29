@@ -553,10 +553,10 @@ export default function Home() {
               isDarkMode ? 'text-gradient-primary' : 'text-gray-800'
             } ${isAnimated('headline') ? 'animated' : ''}`}
           >
-            Transforme sua oficina
+            Sua assistência digital
             <span className={`block font-medium mt-2 ${isDarkMode ? 'text-gradient-secondary' : 'text-gray-700'}`}>
               <GSAPWordRotator 
-                words={['em digital', 'com automação', 'no futuro', 'agora']}
+                words={['começa aqui', 'é simples', 'é inteligente', 'é agora']}
                 interval={3000}
                 isDarkMode={isDarkMode}
                 className={isDarkMode ? "text-gradient-secondary" : "text-gray-700"}
