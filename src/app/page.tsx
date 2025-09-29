@@ -7,13 +7,15 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
 import { useAppleParallax } from '@/hooks/useParallax';
-import UltraModernWordRotator from '@/components/UltraModernWordRotator';
+import { useGSAPTextAnimation } from '@/hooks/useGSAPTextAnimation';
+import GSAPWordRotator from '@/components/GSAPWordRotator';
 import macbookImage from '@/assets/imagens/macbook.png';
 
 export default function Home() {
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(true); // Padrão: modo escuro
   
   // Hook para animações de scroll reveal
   const { isAnimated } = useScrollReveal();
@@ -21,8 +23,24 @@ export default function Home() {
   // Hook para efeitos parallax estilo Apple
   const { getHeroTransform, getBackgroundTransform, getSectionTransform } = useAppleParallax();
   
+  // Hook para animação GSAP do texto
+  const heroTextRef = useGSAPTextAnimation({ isDarkMode });
+  
   // ✅ ACESSO TOTALMENTE LIVRE: Sem verificações de autenticação
   // Usuário pode acessar qualquer página sem redirecionamentos
+
+  // Persistir tema no localStorage
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+      setIsDarkMode(savedTheme === 'dark');
+    }
+  }, []);
+
+  // Salvar tema quando mudar
+  useEffect(() => {
+    localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode]);
 
   // Auto-rotate do carrossel
   useEffect(() => {
@@ -167,7 +185,7 @@ export default function Home() {
   }, [showAnalyticsAnimation, hasAnimated]);
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
       {/* Background Pattern com Parallax */}
       <div className="absolute inset-0 overflow-hidden">
         <div 
@@ -211,7 +229,11 @@ export default function Home() {
       )}
 
       {/* Navigation */}
-      <nav className="relative z-10 px-8 py-6 lg:px-12 bg-white/80 backdrop-blur-xl border-b border-gray-300">
+      <nav className={`relative z-10 px-8 py-6 lg:px-12 backdrop-blur-xl border-b transition-colors duration-300 ${
+        isDarkMode 
+          ? 'bg-black/80 border-white/10' 
+          : 'bg-white/80 border-gray-300'
+      }`}>
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           {/* Logo */}
           <div className="flex items-center justify-center">
@@ -228,25 +250,41 @@ export default function Home() {
           <div className="hidden md:flex items-center space-x-12">
             <button 
               onClick={() => scrollToSection('solucoes')}
-              className="text-gray-700 hover:text-gray-900 transition-all duration-300 font-light text-lg tracking-wide"
+              className={`transition-all duration-300 font-light text-lg tracking-wide ${
+                isDarkMode 
+                  ? 'text-white/80 hover:text-white' 
+                  : 'text-gray-700 hover:text-gray-900'
+              }`}
             >
               Soluções
             </button>
             <button 
               onClick={() => scrollToSection('analytics')}
-              className="text-gray-700 hover:text-gray-900 transition-all duration-300 font-light text-lg tracking-wide"
+              className={`transition-all duration-300 font-light text-lg tracking-wide ${
+                isDarkMode 
+                  ? 'text-white/80 hover:text-white' 
+                  : 'text-gray-700 hover:text-gray-900'
+              }`}
             >
               Analytics
             </button>
             <button 
               onClick={() => scrollToSection('precos')}
-              className="text-gray-700 hover:text-gray-900 transition-all duration-300 font-light text-lg tracking-wide"
+              className={`transition-all duration-300 font-light text-lg tracking-wide ${
+                isDarkMode 
+                  ? 'text-white/80 hover:text-white' 
+                  : 'text-gray-700 hover:text-gray-900'
+              }`}
             >
               Investimento
             </button>
             <button 
               onClick={() => scrollToSection('recursos')}
-              className="text-gray-700 hover:text-gray-900 transition-all duration-300 font-light text-lg tracking-wide"
+              className={`transition-all duration-300 font-light text-lg tracking-wide ${
+                isDarkMode 
+                  ? 'text-white/80 hover:text-white' 
+                  : 'text-gray-700 hover:text-gray-900'
+              }`}
             >
               Recursos
             </button>
@@ -255,7 +293,11 @@ export default function Home() {
             <div className="relative">
               <button 
                 onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
-                className="text-white/80 hover:text-white transition-all duration-300 font-light text-lg tracking-wide flex items-center"
+                className={`transition-all duration-300 font-light text-lg tracking-wide flex items-center ${
+                  isDarkMode 
+                    ? 'text-white/80 hover:text-white' 
+                    : 'text-gray-700 hover:text-gray-900'
+                }`}
                 aria-controls="dropdown-menu"
                 aria-expanded={isMoreMenuOpen}
               >
@@ -266,25 +308,41 @@ export default function Home() {
               </button>
               
               {/* Dropdown Menu - Always rendered with the same structure */}
-              <div className="absolute top-full left-0 mt-2 w-48 bg-white/95 backdrop-blur-xl border border-gray-300 rounded-lg shadow-xl z-50 transition-opacity duration-200" id="dropdown-menu" style={{ opacity: isMoreMenuOpen ? 1 : 0, visibility: isMoreMenuOpen ? 'visible' : 'hidden' }}>
+              <div className={`absolute top-full left-0 mt-2 w-48 backdrop-blur-xl border rounded-lg shadow-xl z-50 transition-opacity duration-200 ${
+                isDarkMode 
+                  ? 'bg-black/95 border-white/20' 
+                  : 'bg-white/95 border-gray-300'
+              }`} id="dropdown-menu" style={{ opacity: isMoreMenuOpen ? 1 : 0, visibility: isMoreMenuOpen ? 'visible' : 'hidden' }}>
                 <div className="py-2">
                   <a 
                     href="/sobre" 
-                    className="block px-4 py-2 text-gray-700 hover:text-[#D1FE6E] hover:bg-gray-100 transition-all duration-200"
+                    className={`block px-4 py-2 transition-all duration-200 hover:text-[#D1FE6E] ${
+                      isDarkMode 
+                        ? 'text-white/80 hover:bg-white/5' 
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
                     onClick={() => setIsMoreMenuOpen(false)}
                   >
                     Sobre a Empresa
                   </a>
                   <a 
                     href="/termos" 
-                    className="block px-4 py-2 text-gray-700 hover:text-[#D1FE6E] hover:bg-gray-100 transition-all duration-200"
+                    className={`block px-4 py-2 transition-all duration-200 hover:text-[#D1FE6E] ${
+                      isDarkMode 
+                        ? 'text-white/80 hover:bg-white/5' 
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
                     onClick={() => setIsMoreMenuOpen(false)}
                   >
                     Termos de Uso
                   </a>
                   <a 
                     href="/politicas-privacidade" 
-                    className="block px-4 py-2 text-gray-700 hover:text-[#D1FE6E] hover:bg-gray-100 transition-all duration-200"
+                    className={`block px-4 py-2 transition-all duration-200 hover:text-[#D1FE6E] ${
+                      isDarkMode 
+                        ? 'text-white/80 hover:bg-white/5' 
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
                     onClick={() => setIsMoreMenuOpen(false)}
                   >
                     Políticas de Privacidade
@@ -296,6 +354,29 @@ export default function Home() {
 
           {/* CTA Buttons */}
           <div className="hidden md:flex items-center space-x-6">
+            {/* Theme Toggle Button */}
+            <button
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className={`p-2 rounded-full transition-all duration-300 ${
+                isDarkMode 
+                  ? 'bg-gray-800 hover:bg-gray-700 text-white' 
+                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+              }`}
+              aria-label="Alternar tema"
+            >
+              {isDarkMode ? (
+                // Ícone do sol (modo claro)
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              ) : (
+                // Ícone da lua (modo escuro)
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+              )}
+            </button>
+            
             <button 
               onClick={() => router.push('/cadastro')}
               className="px-8 py-3 text-black bg-[#D1FE6E] rounded-full font-medium hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105"
@@ -304,7 +385,11 @@ export default function Home() {
             </button>
             <button 
               onClick={() => router.push('/login')}
-              className="px-8 py-3 text-white border border-white/20 rounded-full font-medium hover:bg-white/10 transition-all duration-300"
+              className={`px-8 py-3 border rounded-full font-medium transition-all duration-300 ${
+                isDarkMode 
+                  ? 'text-white border-white/20 hover:bg-white/10' 
+                  : 'text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}
             >
               Login
             </button>
@@ -312,7 +397,11 @@ export default function Home() {
 
           {/* Mobile Menu Button */}
           <button 
-            className="md:hidden text-white p-2 rounded-lg hover:bg-white/10 transition-colors"
+            className={`md:hidden p-2 rounded-lg transition-colors ${
+              isDarkMode 
+                ? 'text-white hover:bg-white/10' 
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
             onClick={() => setIsMenuOpen(!isMenuOpen)}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -323,53 +412,87 @@ export default function Home() {
 
         {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden mt-4 bg-white/90 backdrop-blur-xl rounded-xl p-6 border border-gray-300">
+          <div className={`md:hidden mt-4 backdrop-blur-xl rounded-xl p-6 border transition-colors duration-300 ${
+            isDarkMode 
+              ? 'bg-black/90 border-white/20' 
+              : 'bg-white/90 border-gray-300'
+          }`}>
             <div className="flex flex-col space-y-4">
               <button 
                 onClick={() => scrollToSection('solucoes')}
-                className="text-gray-700 hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left"
+                className={`transition-colors duration-300 font-medium text-left hover:text-[#D1FE6E] ${
+                  isDarkMode 
+                    ? 'text-white' 
+                    : 'text-gray-700'
+                }`}
               >
                 Soluções
               </button>
               <button 
                 onClick={() => scrollToSection('analytics')}
-                className="text-gray-700 hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left"
+                className={`transition-colors duration-300 font-medium text-left hover:text-[#D1FE6E] ${
+                  isDarkMode 
+                    ? 'text-white' 
+                    : 'text-gray-700'
+                }`}
               >
                 Analytics
               </button>
               <button 
                 onClick={() => scrollToSection('precos')}
-                className="text-gray-700 hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left"
+                className={`transition-colors duration-300 font-medium text-left hover:text-[#D1FE6E] ${
+                  isDarkMode 
+                    ? 'text-white' 
+                    : 'text-gray-700'
+                }`}
               >
                 Preços
               </button>
               <button 
                 onClick={() => scrollToSection('recursos')}
-                className="text-gray-700 hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left"
+                className={`transition-colors duration-300 font-medium text-left hover:text-[#D1FE6E] ${
+                  isDarkMode 
+                    ? 'text-white' 
+                    : 'text-gray-700'
+                }`}
               >
                 Recursos
               </button>
               
               {/* Páginas Legais no Mobile */}
               <div className="pt-4 border-t border-[#D1FE6E]/20">
-                <p className="text-white/60 text-sm font-medium mb-3">Informações</p>
+                <p className={`text-sm font-medium mb-3 ${
+                  isDarkMode ? 'text-white/60' : 'text-gray-600'
+                }`}>Informações</p>
                 <a 
                   href="/sobre" 
-                  className="block text-gray-700 hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left py-2"
+                  className={`block transition-colors duration-300 font-medium text-left py-2 hover:text-[#D1FE6E] ${
+                    isDarkMode 
+                      ? 'text-white' 
+                      : 'text-gray-700'
+                  }`}
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Sobre a Empresa
                 </a>
                 <a 
                   href="/termos" 
-                  className="block text-gray-700 hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left py-2"
+                  className={`block transition-colors duration-300 font-medium text-left py-2 hover:text-[#D1FE6E] ${
+                    isDarkMode 
+                      ? 'text-white' 
+                      : 'text-gray-700'
+                  }`}
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Termos de Uso
                 </a>
                 <a 
                   href="/politicas-privacidade" 
-                  className="block text-gray-700 hover:text-[#D1FE6E] transition-colors duration-300 font-medium text-left py-2"
+                  className={`block transition-colors duration-300 font-medium text-left py-2 hover:text-[#D1FE6E] ${
+                    isDarkMode 
+                      ? 'text-white' 
+                      : 'text-gray-700'
+                  }`}
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Políticas de Privacidade
@@ -385,7 +508,11 @@ export default function Home() {
                 </button>
                 <button 
                   onClick={() => router.push('/login')}
-                  className="px-6 py-3 text-gray-900 bg-white border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-all duration-300"
+                  className={`px-6 py-3 border rounded-lg font-semibold transition-all duration-300 ${
+                    isDarkMode 
+                      ? 'text-white bg-black border-white/20 hover:bg-white/10' 
+                      : 'text-gray-900 bg-white border-gray-300 hover:bg-gray-50'
+                  }`}
                 >
                   Login
                 </button>
@@ -413,22 +540,26 @@ export default function Home() {
             }}
           >
             <div className="w-3 h-3 bg-[#D1FE6E] rounded-full mr-4 animate-pulse"></div>
-            <span className="text-white/90 text-sm font-light tracking-wide">+500 assistências confiam no Consert</span>
+            <span className={`text-sm font-light tracking-wide ${
+              isDarkMode ? 'text-white/90' : 'text-gray-700'
+            }`}>+500 assistências confiam no Consert</span>
           </div>
 
           {/* Main Headline */}
           <h1 
+            ref={heroTextRef}
             data-reveal="headline"
-            className={`text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-light mb-8 md:mb-12 leading-tight tracking-tight scroll-reveal-slide-up text-gradient-primary ${
-              isAnimated('headline') ? 'animated' : ''
-            }`}
+            className={`text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-light mb-8 md:mb-12 leading-tight tracking-tight scroll-reveal-slide-up text-center ${
+              isDarkMode ? 'text-gradient-primary' : 'text-gray-800'
+            } ${isAnimated('headline') ? 'animated' : ''}`}
           >
-            TESTE BETA v2 - Sua assistência com:
-            <span className="block font-medium text-gradient-secondary">
-              <UltraModernWordRotator 
-                words={['gestão inteligente', 'sistema completo', 'resultados reais', 'crescimento contínuo']}
+            Transforme sua assistência técnica
+            <span className={`block font-medium ${isDarkMode ? 'text-gradient-secondary' : 'text-gray-700'}`}>
+              <GSAPWordRotator 
+                words={['em um negócio digital', 'com automação total', 'para o futuro', 'em poucos cliques']}
                 interval={3000}
-                textClassName="text-gradient-secondary"
+                isDarkMode={isDarkMode}
+                className={isDarkMode ? "text-gradient-secondary" : "text-gray-700"}
               />
             </span>
           </h1>
@@ -436,7 +567,9 @@ export default function Home() {
           {/* Sub-headline */}
           <div 
             data-reveal="subheadline"
-            className={`text-lg sm:text-xl md:text-2xl text-white/80 mb-12 md:mb-16 max-w-4xl mx-auto leading-relaxed font-light scroll-reveal-slide-up delay-300 ${
+            className={`text-lg sm:text-xl md:text-2xl mb-12 md:mb-16 max-w-4xl mx-auto leading-relaxed font-light scroll-reveal-slide-up delay-300 ${
+              isDarkMode ? 'text-white/80' : 'text-gray-600'
+            } ${
               isAnimated('subheadline') ? 'animated' : ''
             }`}
           >
@@ -462,7 +595,11 @@ export default function Home() {
             </button>
             <button 
               onClick={() => router.push('/cadastro?plano=unico')}
-              className="px-12 py-5 text-white border border-white/30 rounded-full font-medium text-lg hover:bg-white/10 hover:border-white/50 transition-all duration-500 backdrop-blur-sm"
+              className={`px-12 py-5 border rounded-full font-medium text-lg transition-all duration-500 backdrop-blur-sm ${
+                isDarkMode 
+                  ? 'text-white border-white/30 hover:bg-white/10 hover:border-white/50' 
+                  : 'text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400'
+              }`}
               style={{
                 background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
               }}
@@ -491,10 +628,14 @@ export default function Home() {
               isAnimated('tabs-header') ? 'animated' : ''
             }`}
           >
-            <h2 className="text-4xl md:text-5xl lg:text-6xl font-light mb-8 leading-tight tracking-tight text-gradient-accent">
+            <h2 className={`text-4xl md:text-5xl lg:text-6xl font-light mb-8 leading-tight tracking-tight ${
+              isDarkMode ? 'text-gradient-accent' : 'text-gray-800'
+            }`}>
               Veja o sistema em ação
             </h2>
-            <p className="text-white/70 text-lg md:text-xl max-w-3xl mx-auto leading-relaxed font-light">
+            <p className={`text-lg md:text-xl max-w-3xl mx-auto leading-relaxed font-light ${
+              isDarkMode ? 'text-white/70' : 'text-gray-600'
+            }`}>
               Explore as diferentes funcionalidades e visualize como o Consert pode transformar sua assistência
             </p>
           </div>
@@ -517,7 +658,9 @@ export default function Home() {
                   className={`flex items-center px-6 py-3 rounded-full font-medium transition-all duration-300 ${
                     activeTab === tab.id
                       ? 'bg-[#D1FE6E] text-black shadow-lg transform scale-105'
-                      : 'bg-white/5 text-white/80 hover:bg-white/10 hover:text-white border border-white/10'
+                      : isDarkMode 
+                        ? 'bg-white/5 text-white/80 hover:bg-white/10 hover:text-white border border-white/10'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 border border-gray-300'
                   }`}
                 >
                   <span className="mr-2 text-lg">{tab.icon}</span>
@@ -532,10 +675,14 @@ export default function Home() {
               {activeTab === 'dashboard' && (
                 <div className="space-y-8">
                   <div className="text-center">
-                    <h3 className="text-2xl md:text-3xl font-light text-white mb-4">
+                    <h3 className={`text-2xl md:text-3xl font-light mb-4 ${
+                      isDarkMode ? 'text-white' : 'text-gray-800'
+                    }`}>
                       Dashboard BI (em tempo real)
                     </h3>
-                    <div className="flex flex-wrap justify-center gap-4 text-sm text-white/70 mb-8">
+                    <div className={`flex flex-wrap justify-center gap-4 text-sm mb-8 ${
+                      isDarkMode ? 'text-white/70' : 'text-gray-600'
+                    }`}>
                       <span className="flex items-center">
                         <span className="w-2 h-2 bg-[#D1FE6E] rounded-full mr-2"></span>
                         Indicadores (KPIs)
@@ -619,7 +766,9 @@ export default function Home() {
               {activeTab === 'pdv' && (
                 <div className="space-y-8">
                   <div className="text-center">
-                    <h3 className="text-2xl md:text-3xl font-light text-white mb-4">
+                    <h3 className={`text-2xl md:text-3xl font-light mb-4 ${
+                      isDarkMode ? 'text-white' : 'text-gray-800'
+                    }`}>
                       Sistema PDV Integrado
                     </h3>
                     <p className="text-white/70 text-lg max-w-2xl mx-auto">
@@ -645,7 +794,9 @@ export default function Home() {
               {activeTab === 'notas' && (
                 <div className="space-y-8">
                   <div className="text-center">
-                    <h3 className="text-2xl md:text-3xl font-light text-white mb-4">
+                    <h3 className={`text-2xl md:text-3xl font-light mb-4 ${
+                      isDarkMode ? 'text-white' : 'text-gray-800'
+                    }`}>
                       Emissão de Notas Fiscais
                     </h3>
                     <p className="text-white/70 text-lg max-w-2xl mx-auto">
@@ -671,7 +822,9 @@ export default function Home() {
               {activeTab === 'financeiro' && (
                 <div className="space-y-8">
                   <div className="text-center">
-                    <h3 className="text-2xl md:text-3xl font-light text-white mb-4">
+                    <h3 className={`text-2xl md:text-3xl font-light mb-4 ${
+                      isDarkMode ? 'text-white' : 'text-gray-800'
+                    }`}>
                       Controle Financeiro Completo
                     </h3>
                     <p className="text-white/70 text-lg max-w-2xl mx-auto">
@@ -697,7 +850,9 @@ export default function Home() {
               {activeTab === 'estoque' && (
                 <div className="space-y-8">
                   <div className="text-center">
-                    <h3 className="text-2xl md:text-3xl font-light text-white mb-4">
+                    <h3 className={`text-2xl md:text-3xl font-light mb-4 ${
+                      isDarkMode ? 'text-white' : 'text-gray-800'
+                    }`}>
                       Gestão de Estoque Inteligente
                     </h3>
                     <p className="text-white/70 text-lg max-w-2xl mx-auto">
@@ -723,7 +878,9 @@ export default function Home() {
               {activeTab === 'mais' && (
                 <div className="space-y-8">
                   <div className="text-center">
-                    <h3 className="text-2xl md:text-3xl font-light text-white mb-4">
+                    <h3 className={`text-2xl md:text-3xl font-light mb-4 ${
+                      isDarkMode ? 'text-white' : 'text-gray-800'
+                    }`}>
                       Muito Mais Funcionalidades
                     </h3>
                     <p className="text-white/70 text-lg max-w-2xl mx-auto">
@@ -832,19 +989,28 @@ export default function Home() {
                         </div>
                         
                         {/* Título */}
-                        <h3 className="text-2xl font-bold text-white mb-3 tracking-tight">
-                          <span className="bg-gradient-to-r from-[#D1FE6E] to-[#B8E55A] bg-clip-text text-transparent">
+                        <h3 className={`text-2xl font-bold mb-3 tracking-tight ${
+                          isDarkMode ? 'text-white' : 'text-gray-800'
+                        }`}>
+                          <span className={isDarkMode 
+                            ? "bg-gradient-to-r from-[#D1FE6E] to-[#B8E55A] bg-clip-text text-transparent" 
+                            : "text-gray-800"
+                          }>
                             {card.title}
                           </span>
                         </h3>
                         
                         {/* Subtítulo */}
-                        <h4 className="text-lg text-gray-300 mb-4 font-light">
+                        <h4 className={`text-lg mb-4 font-light ${
+                          isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                        }`}>
                           {card.subtitle}
                         </h4>
                         
                         {/* Descrição */}
-                        <p className="text-gray-400 leading-relaxed text-sm">
+                        <p className={`leading-relaxed text-sm ${
+                          isDarkMode ? 'text-gray-400' : 'text-gray-700'
+                        }`}>
                           {card.description}
                         </p>
                         
@@ -876,14 +1042,21 @@ export default function Home() {
               {/* Lado Direito - Conteúdo Textual */}
               <div className="space-y-8">
                 <div>
-                  <h2 className="text-4xl md:text-5xl font-light mb-6 leading-tight tracking-tight text-white">
+                  <h2 className={`text-4xl md:text-5xl font-light mb-6 leading-tight tracking-tight ${
+                    isDarkMode ? 'text-white' : 'text-gray-800'
+                  }`}>
                     Funcionalidades que 
-                    <span className="bg-gradient-to-r from-[#D1FE6E] to-[#B8E55A] bg-clip-text text-transparent font-medium">
+                    <span className={`font-medium ${isDarkMode 
+                      ? "bg-gradient-to-r from-[#D1FE6E] to-[#B8E55A] bg-clip-text text-transparent" 
+                      : "text-gray-800"
+                    }`}>
                       {' '}transformam{' '}
                     </span>
                     seu negócio
                   </h2>
-                  <p className="text-white/70 text-lg md:text-xl leading-relaxed font-light">
+                  <p className={`text-lg md:text-xl leading-relaxed font-light ${
+                    isDarkMode ? 'text-white/70' : 'text-gray-600'
+                  }`}>
                     Uma plataforma completa que integra todas as operações da sua assistência técnica em um só lugar.
                   </p>
                 </div>
@@ -896,8 +1069,12 @@ export default function Home() {
                       </svg>
                     </div>
                     <div>
-                      <h3 className="text-white font-medium text-lg mb-2">Gestão Inteligente</h3>
-                      <p className="text-white/60 leading-relaxed">
+                      <h3 className={`font-medium text-lg mb-2 ${
+                        isDarkMode ? 'text-white' : 'text-gray-800'
+                      }`}>Gestão Inteligente</h3>
+                      <p className={`leading-relaxed ${
+                        isDarkMode ? 'text-white/60' : 'text-gray-600'
+                      }`}>
                         Automação de processos que reduz erros e aumenta a produtividade da sua equipe.
                       </p>
                     </div>
@@ -910,8 +1087,12 @@ export default function Home() {
                       </svg>
                     </div>
                     <div>
-                      <h3 className="text-white font-medium text-lg mb-2">Performance Otimizada</h3>
-                      <p className="text-white/60 leading-relaxed">
+                      <h3 className={`font-medium text-lg mb-2 ${
+                        isDarkMode ? 'text-white' : 'text-gray-800'
+                      }`}>Performance Otimizada</h3>
+                      <p className={`leading-relaxed ${
+                        isDarkMode ? 'text-white/60' : 'text-gray-600'
+                      }`}>
                         Interface responsiva e rápida, desenvolvida para máxima eficiência no dia a dia.
                       </p>
                     </div>
@@ -924,8 +1105,12 @@ export default function Home() {
                       </svg>
                     </div>
                     <div>
-                      <h3 className="text-white font-medium text-lg mb-2">Segurança Garantida</h3>
-                      <p className="text-white/60 leading-relaxed">
+                      <h3 className={`font-medium text-lg mb-2 ${
+                        isDarkMode ? 'text-white' : 'text-gray-800'
+                      }`}>Segurança Garantida</h3>
+                      <p className={`leading-relaxed ${
+                        isDarkMode ? 'text-white/60' : 'text-gray-600'
+                      }`}>
                         Seus dados protegidos com criptografia de ponta e backups automáticos.
                       </p>
                     </div>
@@ -996,10 +1181,14 @@ export default function Home() {
               isAnimated('features-header') ? 'revealed' : ''
             }`}
           >
-            <h2 className="text-6xl md:text-7xl font-light mb-12 leading-none tracking-tight text-gradient-accent">
+            <h2 className={`text-6xl md:text-7xl font-light mb-12 leading-none tracking-tight ${
+              isDarkMode ? 'text-gradient-accent' : 'text-gray-800'
+            }`}>
               Tudo que sua assistência precisa
             </h2>
-            <p className="text-white/70 text-xl md:text-2xl max-w-4xl mx-auto leading-relaxed font-light">
+            <p className={`text-xl md:text-2xl max-w-4xl mx-auto leading-relaxed font-light ${
+              isDarkMode ? 'text-white/70' : 'text-gray-600'
+            }`}>
               Uma plataforma completa com todas as ferramentas essenciais para modernizar sua assistência
             </p>
           </div>
@@ -1228,7 +1417,9 @@ export default function Home() {
           <div className="text-center mb-24">
             <h2 
               data-reveal="analytics-headline"
-              className={`text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-light mb-6 md:mb-8 leading-tight tracking-tight hero-reveal text-gradient-accent ${
+              className={`text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-light mb-6 md:mb-8 leading-tight tracking-tight hero-reveal ${
+                isDarkMode ? 'text-gradient-accent' : 'text-gray-800'
+              } ${
                 isAnimated('analytics-headline') ? 'revealed' : ''
               }`}
             >
@@ -1526,10 +1717,14 @@ export default function Home() {
               isAnimated('pricing-header') ? 'revealed' : ''
             }`}
           >
-            <h2 className="text-6xl md:text-7xl font-light mb-8 leading-none tracking-tight text-gradient-accent">
+            <h2 className={`text-6xl md:text-7xl font-light mb-8 leading-none tracking-tight ${
+              isDarkMode ? 'text-gradient-accent' : 'text-gray-800'
+            }`}>
               Nossos valores
             </h2>
-            <p className="text-white/70 text-xl md:text-2xl max-w-4xl mx-auto leading-relaxed font-light">
+            <p className={`text-xl md:text-2xl max-w-4xl mx-auto leading-relaxed font-light ${
+              isDarkMode ? 'text-white/70' : 'text-gray-600'
+            }`}>
               Acesso completo ao sistema por um valor único mensal
             </p>
           </div>
@@ -1569,7 +1764,11 @@ export default function Home() {
                 {/* Plan Info */}
                 <div className="relative z-10 flex-grow">
                   <div className="mb-4">
-                    <span className="inline-block px-2 py-0.5 bg-white/5 text-white/80 text-xs font-medium rounded mb-3">
+                    <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded mb-3 ${
+                      isDarkMode 
+                        ? 'bg-white/5 text-white/80' 
+                        : 'bg-gray-100 text-gray-700'
+                    }`}>
                       Acesso completo ao sistema
                     </span>
                     <h3 className="text-xl md:text-2xl font-light text-white mb-2">Básico</h3>
@@ -1653,7 +1852,11 @@ export default function Home() {
             >
               {/* Popular Badge */}
               <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 z-20">
-                <div className="bg-gray-800 text-white px-4 py-2 rounded-full text-xs font-medium">
+                <div className={`px-4 py-2 rounded-full text-xs font-medium ${
+                  isDarkMode 
+                    ? 'bg-gray-800 text-white' 
+                    : 'bg-gray-100 text-gray-800'
+                }`}>
                   POPULAR
                 </div>
               </div>
@@ -1919,7 +2122,11 @@ export default function Home() {
               </button>
               <button 
                 onClick={() => router.push('/login')}
-                className="px-12 py-5 text-white border border-white/30 rounded-full font-medium text-lg hover:bg-white/10 transition-all duration-300"
+                className={`px-12 py-5 border rounded-full font-medium text-lg transition-all duration-300 ${
+                  isDarkMode 
+                    ? 'text-white border-white/30 hover:bg-white/10' 
+                    : 'text-gray-700 border-gray-300 hover:bg-gray-50'
+                }`}
               >
                 Ver Demonstração
               </button>
@@ -1976,7 +2183,9 @@ export default function Home() {
               <h3 className="text-white font-medium text-lg mb-6">Links Rápidos</h3>
               <ul className="space-y-4">
                 <li>
-                  <Link href="#recursos" className="text-gray-600 hover:text-[#D1FE6E] transition-colors duration-300 flex items-center">
+                  <Link href="#recursos" className={`hover:text-[#D1FE6E] transition-colors duration-300 flex items-center ${
+                    isDarkMode ? 'text-white/70' : 'text-gray-600'
+                  }`}>
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                     </svg>
@@ -2097,7 +2306,11 @@ export default function Home() {
                   <input 
                     type="email" 
                     placeholder="Seu e-mail" 
-                    className="bg-white/5 border border-white/10 rounded-l-md px-4 py-2 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#D1FE6E]/50 w-full"
+                    className={`border rounded-l-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#D1FE6E]/50 w-full ${
+                      isDarkMode 
+                        ? 'bg-white/5 border-white/10 text-white placeholder-white/40' 
+                        : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500'
+                    }`}
                   />
                   <button className="bg-[#D1FE6E] text-black px-4 rounded-r-md hover:bg-[#B8E55A] transition-colors duration-300">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
