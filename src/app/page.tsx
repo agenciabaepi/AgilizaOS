@@ -553,10 +553,10 @@ export default function Home() {
               isDarkMode ? 'text-gradient-primary' : 'text-gray-800'
             } ${isAnimated('headline') ? 'animated' : ''}`}
           >
-            Transforme sua assistência técnica
-            <span className={`block font-medium ${isDarkMode ? 'text-gradient-secondary' : 'text-gray-700'}`}>
+            Transforme sua oficina
+            <span className={`block font-medium mt-2 ${isDarkMode ? 'text-gradient-secondary' : 'text-gray-700'}`}>
               <GSAPWordRotator 
-                words={['em um negócio digital', 'com automação total', 'para o futuro', 'em poucos cliques']}
+                words={['em digital', 'com automação', 'no futuro', 'agora']}
                 interval={3000}
                 isDarkMode={isDarkMode}
                 className={isDarkMode ? "text-gradient-secondary" : "text-gray-700"}

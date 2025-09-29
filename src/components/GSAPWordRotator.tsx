@@ -54,6 +54,8 @@ export default function GSAPWordRotator({
         span.style.display = 'inline-block';
         span.style.opacity = '0';
         span.style.fontWeight = '700';
+        span.style.lineHeight = '1.2';
+        span.style.marginBottom = '0';
         
         // Cores condicionais
         if (isDarkMode) {
