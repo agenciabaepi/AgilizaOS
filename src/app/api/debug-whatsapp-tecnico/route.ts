@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
       
       const { data: fallbackTecnico, error: fallbackError } = await supabase
         .from('usuarios')
-        .select('id, nome, whatsapp, email, nivel')
+        .select('id, auth_user_id, nome, whatsapp, email, nivel')
         .eq('nivel', 'tecnico')
         .limit(1)
         .single();
