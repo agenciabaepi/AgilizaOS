@@ -131,6 +131,19 @@ export default function CategoriasPage() {
           
         console.log('🔍 Grupos por empresa específica:', { gruposPorEmpresa, gruposPorEmpresaError });
         
+        // Verificar se existem grupos para outras empresas
+        if (todosGrupos && todosGrupos.length > 0) {
+          console.log('📊 Empresas que têm grupos:');
+          const empresasComGrupos = [...new Set(todosGrupos.map(g => g.empresa_id))];
+          empresasComGrupos.forEach(empresaId => {
+            const gruposDaEmpresa = todosGrupos.filter(g => g.empresa_id === empresaId);
+            console.log(`  - Empresa ${empresaId}: ${gruposDaEmpresa.length} grupos`);
+            gruposDaEmpresa.forEach(grupo => {
+              console.log(`    * ${grupo.nome}`);
+            });
+          });
+        }
+        
         // Verificar dados do usuário
         const { data: usuarioInfo, error: usuarioError } = await supabase
           .from('usuarios')
@@ -139,6 +152,21 @@ export default function CategoriasPage() {
           .single();
           
         console.log('🔍 Dados do usuário:', { usuarioInfo, usuarioError });
+        
+        // Testar consulta direta sem filtros
+        const { data: testeDireto, error: testeDiretoError } = await supabase
+          .from('grupos_produtos')
+          .select('*')
+          .limit(5);
+          
+        console.log('🔍 Teste direto (sem filtros):', { testeDireto, testeDiretoError });
+        
+        // Verificar se o problema é na tabela
+        const { data: countTest, error: countError } = await supabase
+          .from('grupos_produtos')
+          .select('*', { count: 'exact', head: true });
+          
+        console.log('🔍 Contagem de registros:', { countTest, countError });
       }
 
       // Carregar categorias
