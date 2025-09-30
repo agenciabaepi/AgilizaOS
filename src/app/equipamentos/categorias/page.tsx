@@ -73,28 +73,20 @@ export default function CategoriasPage() {
 
   // Carregar dados
   useEffect(() => {
-    console.log('🔄 useEffect chamado com usuarioData:', { usuarioData });
     if (usuarioData?.empresa_id) {
-      console.log('✅ empresa_id disponível, carregando dados...');
       carregarDados();
-    } else {
-      console.log('❌ empresa_id não disponível');
     }
   }, [usuarioData]);
 
   const carregarDados = async () => {
-    // Verificação de null adicionada
     if (!usuarioData?.empresa_id) {
-      console.error('❌ Dados do usuário não disponíveis:', { usuarioData });
       setLoading(false);
       return;
     }
 
-    console.log('🔄 Carregando dados para empresa_id:', usuarioData.empresa_id);
     setLoading(true);
     try {
       // Carregar grupos
-      console.log('🔍 Consultando grupos para empresa_id:', usuarioData.empresa_id);
       const { data: gruposData, error: gruposError } = await supabase
         .from('grupos_produtos')
         .select('*')
@@ -102,71 +94,7 @@ export default function CategoriasPage() {
         .order('nome');
 
       if (gruposError) {
-        console.error('❌ Erro ao carregar grupos:', gruposError);
         throw gruposError;
-      }
-      
-      console.log('📊 Resultado da consulta de grupos:', { 
-        empresa_id: usuarioData.empresa_id,
-        gruposEncontrados: gruposData?.length || 0,
-        gruposData: gruposData 
-      });
-      
-      if (gruposData && gruposData.length === 0) {
-        console.log('⚠️ Nenhum grupo encontrado para esta empresa. Verificando se existem grupos para outras empresas...');
-        
-        // Consulta de debug para ver todos os grupos
-        const { data: todosGrupos, error: todosGruposError } = await supabase
-          .from('grupos_produtos')
-          .select('*')
-          .order('nome');
-          
-        console.log('🔍 Todos os grupos no banco:', { todosGrupos, todosGruposError });
-        
-        // Testar consulta direta por empresa_id
-        const { data: gruposPorEmpresa, error: gruposPorEmpresaError } = await supabase
-          .from('grupos_produtos')
-          .select('*')
-          .eq('empresa_id', usuarioData.empresa_id);
-          
-        console.log('🔍 Grupos por empresa específica:', { gruposPorEmpresa, gruposPorEmpresaError });
-        
-        // Verificar se existem grupos para outras empresas
-        if (todosGrupos && todosGrupos.length > 0) {
-          console.log('📊 Empresas que têm grupos:');
-          const empresasComGrupos = [...new Set(todosGrupos.map(g => g.empresa_id))];
-          empresasComGrupos.forEach(empresaId => {
-            const gruposDaEmpresa = todosGrupos.filter(g => g.empresa_id === empresaId);
-            console.log(`  - Empresa ${empresaId}: ${gruposDaEmpresa.length} grupos`);
-            gruposDaEmpresa.forEach(grupo => {
-              console.log(`    * ${grupo.nome}`);
-            });
-          });
-        }
-        
-        // Verificar dados do usuário
-        const { data: usuarioInfo, error: usuarioError } = await supabase
-          .from('usuarios')
-          .select('*')
-          .eq('auth_user_id', (await supabase.auth.getUser()).data.user?.id)
-          .single();
-          
-        console.log('🔍 Dados do usuário:', { usuarioInfo, usuarioError });
-        
-        // Testar consulta direta sem filtros
-        const { data: testeDireto, error: testeDiretoError } = await supabase
-          .from('grupos_produtos')
-          .select('*')
-          .limit(5);
-          
-        console.log('🔍 Teste direto (sem filtros):', { testeDireto, testeDiretoError });
-        
-        // Verificar se o problema é na tabela
-        const { data: countTest, error: countError } = await supabase
-          .from('grupos_produtos')
-          .select('*', { count: 'exact', head: true });
-          
-        console.log('🔍 Contagem de registros:', { countTest, countError });
       }
 
       // Carregar categorias
@@ -199,26 +127,9 @@ export default function CategoriasPage() {
         throw subcategoriasError;
       }
 
-      console.log('🔄 Atualizando estados com dados carregados...');
       setGrupos(gruposData || []);
       setCategorias(categoriasData || []);
       setSubcategorias(subcategoriasData || []);
-      
-      console.log('✅ Estados atualizados:', {
-        gruposState: gruposData?.length || 0,
-        categoriasState: categoriasData?.length || 0,
-        subcategoriasState: subcategoriasData?.length || 0
-      });
-      
-      console.log('✅ Dados carregados com sucesso:', { 
-        empresa_id: usuarioData.empresa_id,
-        grupos: gruposData?.length || 0, 
-        categorias: categoriasData?.length || 0, 
-        subcategorias: subcategoriasData?.length || 0,
-        gruposData: gruposData,
-        categoriasData: categoriasData,
-        subcategoriasData: subcategoriasData
-      });
       
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
@@ -230,22 +141,16 @@ export default function CategoriasPage() {
 
   // Funções para grupos
   const salvarGrupo = async () => {
-    console.log('🔄 salvarGrupo chamado com:', { formGrupo, usuarioData });
-    
     if (!formGrupo.nome.trim()) {
-      console.log('❌ Nome do grupo é obrigatório');
       addToast('error', 'Nome do grupo é obrigatório');
       return;
     }
 
-    // Verificação de null adicionada
     if (!usuarioData?.empresa_id) {
-      console.log('❌ Dados do usuário não disponíveis:', { usuarioData });
       addToast('error', 'Dados do usuário não disponíveis');
       return;
     }
 
-    console.log('✅ Validações passaram, tentando salvar...');
     try {
       if (editandoGrupo) {
         await supabase
@@ -257,22 +162,15 @@ export default function CategoriasPage() {
           .eq('id', editandoGrupo.id);
         addToast('success', 'Grupo atualizado com sucesso!');
       } else {
-        console.log('📝 Inserindo novo grupo...');
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('grupos_produtos')
           .insert({
             nome: formGrupo.nome,
             descricao: formGrupo.descricao,
             empresa_id: usuarioData.empresa_id
-          })
-          .select();
+          });
           
-        if (error) {
-          console.error('❌ Erro ao inserir grupo:', error);
-          throw error;
-        }
-        
-        console.log('✅ Grupo inserido com sucesso:', data);
+        if (error) throw error;
         addToast('success', 'Grupo criado com sucesso!');
       }
 
@@ -472,7 +370,6 @@ export default function CategoriasPage() {
   };
 
   const abrirModalGrupo = (grupo?: Grupo) => {
-    console.log('🔄 abrirModalGrupo chamado com:', { grupo, usuarioData });
     if (grupo) {
       setEditandoGrupo(grupo);
       setFormGrupo({ nome: grupo.nome, descricao: grupo.descricao || '' });
@@ -481,7 +378,6 @@ export default function CategoriasPage() {
       setFormGrupo({ nome: '', descricao: '' });
     }
     setModalGrupo(true);
-    console.log('✅ Modal aberto');
   };
 
   const abrirModalCategoria = (categoria?: Categoria) => {
@@ -515,7 +411,6 @@ export default function CategoriasPage() {
   };
 
   if (loading) {
-    console.log('🔄 Página em loading...');
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
@@ -699,16 +594,7 @@ export default function CategoriasPage() {
               );
             })}
 
-            {(() => {
-              console.log('🔍 Renderizando lista de grupos:', { 
-                gruposLength: grupos.length, 
-                grupos: grupos,
-                loading: loading 
-              });
-              return null;
-            })()}
-            
-            {grupos.length === 0 && !loading && (
+        {grupos.length === 0 && !loading && (
               <div className="text-center py-12">
                 <FiFolder className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum grupo criado</h3>
