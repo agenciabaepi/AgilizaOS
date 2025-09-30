@@ -94,6 +94,7 @@ export default function CategoriasPage() {
     setLoading(true);
     try {
       // Carregar grupos
+      console.log('🔍 Consultando grupos para empresa_id:', usuarioData.empresa_id);
       const { data: gruposData, error: gruposError } = await supabase
         .from('grupos_produtos')
         .select('*')
@@ -101,9 +102,15 @@ export default function CategoriasPage() {
         .order('nome');
 
       if (gruposError) {
-        console.error('Erro ao carregar grupos:', gruposError);
+        console.error('❌ Erro ao carregar grupos:', gruposError);
         throw gruposError;
       }
+      
+      console.log('📊 Resultado da consulta de grupos:', { 
+        empresa_id: usuarioData.empresa_id,
+        gruposEncontrados: gruposData?.length || 0,
+        gruposData: gruposData 
+      });
 
       // Carregar categorias
       const { data: categoriasData, error: categoriasError } = await supabase
@@ -135,9 +142,16 @@ export default function CategoriasPage() {
         throw subcategoriasError;
       }
 
+      console.log('🔄 Atualizando estados com dados carregados...');
       setGrupos(gruposData || []);
       setCategorias(categoriasData || []);
       setSubcategorias(subcategoriasData || []);
+      
+      console.log('✅ Estados atualizados:', {
+        gruposState: gruposData?.length || 0,
+        categoriasState: categoriasData?.length || 0,
+        subcategoriasState: subcategoriasData?.length || 0
+      });
       
       console.log('✅ Dados carregados com sucesso:', { 
         empresa_id: usuarioData.empresa_id,
