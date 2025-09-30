@@ -111,6 +111,35 @@ export default function CategoriasPage() {
         gruposEncontrados: gruposData?.length || 0,
         gruposData: gruposData 
       });
+      
+      if (gruposData && gruposData.length === 0) {
+        console.log('⚠️ Nenhum grupo encontrado para esta empresa. Verificando se existem grupos para outras empresas...');
+        
+        // Consulta de debug para ver todos os grupos
+        const { data: todosGrupos, error: todosGruposError } = await supabase
+          .from('grupos_produtos')
+          .select('*')
+          .order('nome');
+          
+        console.log('🔍 Todos os grupos no banco:', { todosGrupos, todosGruposError });
+        
+        // Testar consulta direta por empresa_id
+        const { data: gruposPorEmpresa, error: gruposPorEmpresaError } = await supabase
+          .from('grupos_produtos')
+          .select('*')
+          .eq('empresa_id', usuarioData.empresa_id);
+          
+        console.log('🔍 Grupos por empresa específica:', { gruposPorEmpresa, gruposPorEmpresaError });
+        
+        // Verificar dados do usuário
+        const { data: usuarioInfo, error: usuarioError } = await supabase
+          .from('usuarios')
+          .select('*')
+          .eq('auth_user_id', (await supabase.auth.getUser()).data.user?.id)
+          .single();
+          
+        console.log('🔍 Dados do usuário:', { usuarioInfo, usuarioError });
+      }
 
       // Carregar categorias
       const { data: categoriasData, error: categoriasError } = await supabase
@@ -458,6 +487,7 @@ export default function CategoriasPage() {
   };
 
   if (loading) {
+    console.log('🔄 Página em loading...');
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
@@ -641,7 +671,16 @@ export default function CategoriasPage() {
               );
             })}
 
-            {grupos.length === 0 && (
+            {(() => {
+              console.log('🔍 Renderizando lista de grupos:', { 
+                gruposLength: grupos.length, 
+                grupos: grupos,
+                loading: loading 
+              });
+              return null;
+            })()}
+            
+            {grupos.length === 0 && !loading && (
               <div className="text-center py-12">
                 <FiFolder className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum grupo criado</h3>
