@@ -159,17 +159,22 @@ export default function CategoriasPage() {
 
   // Funções para grupos
   const salvarGrupo = async () => {
+    console.log('🔄 salvarGrupo chamado com:', { formGrupo, usuarioData });
+    
     if (!formGrupo.nome.trim()) {
+      console.log('❌ Nome do grupo é obrigatório');
       addToast('error', 'Nome do grupo é obrigatório');
       return;
     }
 
     // Verificação de null adicionada
     if (!usuarioData?.empresa_id) {
+      console.log('❌ Dados do usuário não disponíveis:', { usuarioData });
       addToast('error', 'Dados do usuário não disponíveis');
       return;
     }
 
+    console.log('✅ Validações passaram, tentando salvar...');
     try {
       if (editandoGrupo) {
         await supabase
@@ -181,13 +186,22 @@ export default function CategoriasPage() {
           .eq('id', editandoGrupo.id);
         addToast('success', 'Grupo atualizado com sucesso!');
       } else {
-        await supabase
+        console.log('📝 Inserindo novo grupo...');
+        const { data, error } = await supabase
           .from('grupos_produtos')
           .insert({
             nome: formGrupo.nome,
             descricao: formGrupo.descricao,
             empresa_id: usuarioData.empresa_id
-          });
+          })
+          .select();
+          
+        if (error) {
+          console.error('❌ Erro ao inserir grupo:', error);
+          throw error;
+        }
+        
+        console.log('✅ Grupo inserido com sucesso:', data);
         addToast('success', 'Grupo criado com sucesso!');
       }
 
@@ -387,6 +401,7 @@ export default function CategoriasPage() {
   };
 
   const abrirModalGrupo = (grupo?: Grupo) => {
+    console.log('🔄 abrirModalGrupo chamado com:', { grupo, usuarioData });
     if (grupo) {
       setEditandoGrupo(grupo);
       setFormGrupo({ nome: grupo.nome, descricao: grupo.descricao || '' });
@@ -395,6 +410,7 @@ export default function CategoriasPage() {
       setFormGrupo({ nome: '', descricao: '' });
     }
     setModalGrupo(true);
+    console.log('✅ Modal aberto');
   };
 
   const abrirModalCategoria = (categoria?: Categoria) => {
