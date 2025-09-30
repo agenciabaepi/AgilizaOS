@@ -48,6 +48,24 @@ interface ProdutoServico {
   categoria?: string;
   marca?: string;
   ativo: boolean;
+  grupo_id?: string | null;
+  categoria_id?: string | null;
+  subcategoria_id?: string | null;
+  fornecedor_id?: string | null;
+  situacao?: string;
+  ncm?: string;
+  cfop?: string;
+  cst?: string;
+  cest?: string;
+  largura_cm?: number;
+  altura_cm?: number;
+  profundidade_cm?: number;
+  peso_g?: number;
+  obs?: string;
+  imagens_url?: string[];
+  grupos_produtos?: {
+    nome: string;
+  } | null;
 }
 
 export default function ProdutosServicosPage() {
@@ -89,87 +107,46 @@ export default function ProdutosServicosPage() {
   // Função buscar movida para fora do useEffect para reuso
   const buscar = async () => {
     setCarregando(true);
-    
-    // ✅ SEGURANÇA: Timeout para evitar loading infinito
-    const timeoutId = setTimeout(() => {
-      setCarregando(false);
-      addToast('error', 'Tempo limite excedido. Tente recarregar a página.');
-    }, 15000); // 15 segundos
-    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
     try {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (!session || sessionError) {
-        clearTimeout(timeoutId);
-        setCarregando(false);
-        return;
+      // Determinar empresa_id
+      let empresaIdAtual = usuarioData?.empresa_id;
+      if (!empresaIdAtual) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) {
+          const { data } = await supabase
+            .from('usuarios')
+            .select('empresa_id')
+            .eq('auth_user_id', user.id)
+            .single();
+          empresaIdAtual = data?.empresa_id || null as any;
+        }
       }
 
-      const {
-        data: { user },
-        error: erroUser,
-      } = await supabase.auth.getUser();
-
-      if (erroUser || !user) {
-        setCarregando(false);
-        return;
-      }
-
-      const { data: usuarioData, error: erroUsuario } = await supabase
-        .from("usuarios")
-        .select("empresa_id")
-        .eq("auth_user_id", user.id)
-        .single();
-
-      if (erroUsuario || !usuarioData) {
-        setCarregando(false);
-        return;
-      }
-
-      const empresaId = usuarioData.empresa_id;
-
-      // ✅ SEGURANÇA: Validar empresa_id
-      if (!empresaId) {
-        clearTimeout(timeoutId);
-        setCarregando(false);
-        addToast('error', 'Empresa não identificada. Faça login novamente.');
-        return;
-      }
-
-      // ✅ SEGURANÇA: Filtrar fornecedores por empresa
-      const { data: fornecedoresData, error: fornecedoresError } = await supabase
-        .from("fornecedores")
-        .select("*")
-        .eq("empresa_id", empresaId);
-
-      if (fornecedoresError) {
-        console.error('Erro ao buscar fornecedores:', fornecedoresError);
-        addToast('error', 'Erro ao carregar fornecedores');
-      } else {
+      // Fornecedores (mantém supabase direto) – apenas se houver empresa definida
+      if (empresaIdAtual) {
+        const { data: fornecedoresData } = await supabase
+          .from('fornecedores')
+          .select('id,nome')
+          .eq('empresa_id', empresaIdAtual);
         setListaFornecedores(fornecedoresData || []);
+      } else {
+        setListaFornecedores([]);
       }
 
-      const { data: produtosServicosData, error: produtosError } = await interceptSupabaseQuery('produtos_servicos', async () => {
-        return await supabase
-          .from("produtos_servicos")
-          .select("*")
-          .eq("empresa_id", empresaId);
-      });
-      
-      // Suprimir erros 404 silenciosamente
-      if (produtosError && produtosError.code !== 'TABLE_NOT_EXISTS' && produtosError.code !== 'PGRST116' && !produtosError.message?.includes('404')) {
-        console.error('Erro ao buscar produtos/serviços:', produtosError);
-      }
-
-      // Sort by criado_em descending (newest first)
-      const sortedData = ((produtosServicosData as any[]) || []).slice().sort((a: any, b: any) => {
-        const aTime = new Date((b as any).criado_em).getTime();
-        const bTime = new Date((a as any).criado_em).getTime();
-        return aTime - bTime;
+      // Produtos e serviços via API interna - com filtro por empresa
+      const url = `/api/produtos-servicos/listar?empresaId=${encodeURIComponent(empresaIdAtual || '')}`;
+      const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
+      const dados = await res.json();
+      const sortedData = (Array.isArray(dados) ? dados : []).slice().sort((a: any, b: any) => {
+        const at = new Date(a.criado_em || a.created_at || 0).getTime();
+        const bt = new Date(b.criado_em || b.created_at || 0).getTime();
+        return bt - at;
       });
       setLista(sortedData);
-
     } catch (erro) {
-      console.error('Erro ao buscar dados:', erro);
       addToast('error', 'Erro ao carregar dados');
     } finally {
       clearTimeout(timeoutId);
@@ -418,6 +395,16 @@ export default function ProdutosServicosPage() {
       key: 'tipo',
       header: 'Tipo',
       render: row => <span className="capitalize">{row.tipo}</span>
+    },
+    // Nova coluna Grupo
+    {
+      key: 'grupos_produtos',
+      header: 'Grupo',
+      render: row => (
+        <span className="text-sm text-gray-600">
+          {row.grupos_produtos?.nome || '-'}
+        </span>
+      )
     },
     {
       key: 'situacao',

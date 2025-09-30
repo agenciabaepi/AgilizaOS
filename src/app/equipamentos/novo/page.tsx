@@ -68,46 +68,68 @@ export default function NovoProdutoPage() {
   const confirm = useConfirm();
   const { user, usuarioData } = useAuth();
 
-  // Função para carregar categorias
+  // Função para carregar categorias - usando as mesmas APIs da página de categorias
   const carregarCategorias = async () => {
-    if (!usuarioData?.empresa_id) {
-      // Aguarda dados da empresa antes de buscar categorias
-      return;
-    }
-
     setLoadingCategorias(true);
+    console.log('🔄 Carregando categorias...');
     try {
-      const empresaId = usuarioData.empresa_id;
-      // Carregar grupos
-      const { data: gruposData, error: gruposError } = await supabase
-        .from('grupos_produtos')
-        .select('id, nome')
-        .eq('empresa_id', empresaId)
-        .order('nome');
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
 
-      // Carregar categorias
-      const { data: categoriasData, error: categoriasError } = await supabase
-        .from('categorias_produtos')
-        .select('id, nome, grupo_id')
-        .eq('empresa_id', empresaId)
-        .order('nome');
+      const fetchJson = (url: string) =>
+        fetch(url, { cache: 'no-store', signal: controller.signal })
+          .then(r => (r.ok ? r.json() : []))
+          .catch(() => []);
 
-      // Carregar subcategorias
-      const { data: subcategoriasData, error: subcategoriasError } = await supabase
-        .from('subcategorias_produtos')
-        .select('id, nome, categoria_id')
-        .eq('empresa_id', empresaId)
-        .order('nome');
-
-      if (gruposError || categoriasError || subcategoriasError) {
-        throw gruposError || categoriasError || subcategoriasError;
+      console.log('📋 Buscando grupos, categorias e subcategorias...');
+      
+      // Determinar empresa_id
+      let empresaIdAtual = usuarioData?.empresa_id;
+      console.log('🔍 empresaId inicial:', empresaIdAtual);
+      
+      if (!empresaIdAtual && user?.id) {
+        console.log('🔍 Buscando empresa_id do usuário...');
+        try {
+          const response = await fetch(`/api/usuarios/buscar-empresa?authUserId=${user.id}`);
+          if (response.ok) {
+            const data = await response.json();
+            empresaIdAtual = data.empresa_id;
+            console.log('🔍 empresaId encontrado:', empresaIdAtual);
+          }
+        } catch (error) {
+          console.error('Erro ao buscar empresa_id:', error);
+        }
       }
+      
+      if (!empresaIdAtual) {
+        console.warn('⚠️ empresa_id não encontrado - usando empresa padrão');
+        // Usar empresa padrão para teste
+        empresaIdAtual = '3a3958e9-9ac7-4f04-9d0b-d537df70a4ac';
+      }
+      
+      console.log('🔍 empresaId final:', empresaIdAtual);
+      
+      const sufixo = `?empresaId=${encodeURIComponent(empresaIdAtual)}`;
+      const [gruposData, categoriasData, subcategoriasData] = await Promise.all([
+        fetchJson(`/api/grupos/listar${sufixo}`),
+        fetchJson(`/api/categorias/listar${sufixo}`),
+        fetchJson(`/api/subcategorias/listar${sufixo}`)
+      ]);
 
-      setGrupos(gruposData || []);
-      setCategorias(categoriasData || []);
-      setSubcategorias(subcategoriasData || []);
+      clearTimeout(timeout);
+      
+      console.log('📊 Resultados:', { 
+        grupos: gruposData?.length || 0, 
+        categorias: categoriasData?.length || 0, 
+        subcategorias: subcategoriasData?.length || 0 
+      });
+
+      setGrupos(Array.isArray(gruposData) ? gruposData : []);
+      setCategorias(Array.isArray(categoriasData) ? categoriasData : []);
+      setSubcategorias(Array.isArray(subcategoriasData) ? subcategoriasData : []);
+      console.log('✅ Categorias carregadas com sucesso');
     } catch (error) {
-      console.error('Erro ao carregar categorias:', error);
+      console.error('❌ Erro ao carregar categorias:', error);
       addToast('error', 'Erro ao carregar categorias');
     } finally {
       setLoadingCategorias(false);
@@ -123,22 +145,19 @@ export default function NovoProdutoPage() {
         return;
       }
 
-      const { data: usuarioData, error: userError } = await supabase
-        .from('usuarios')
-        .select('empresa_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (userError) {
-        console.error('Erro ao buscar usuário:', userError);
+      try {
+        const response = await fetch(`/api/usuarios/buscar-empresa?authUserId=${user.id}`);
+        if (!response.ok) {
         addToast('error', 'Erro ao buscar dados do usuário');
         return;
       }
-
-      if (!usuarioData?.empresa_id) {
+        const data = await response.json();
+        if (!data.empresa_id) {
         addToast('error', 'Empresa não encontrada. Verifique se você está associado a uma empresa.');
         return;
       }
+        
+        const usuarioData = { empresa_id: data.empresa_id };
 
       const { data: fornecedoresData } = await supabase
         .from('fornecedores')
@@ -148,6 +167,11 @@ export default function NovoProdutoPage() {
         .order('nome');
 
       setFornecedores(fornecedoresData || []);
+      } catch (error) {
+        console.error('Erro ao buscar usuário:', error);
+        addToast('error', 'Erro ao buscar dados do usuário');
+        return;
+      }
     } catch (error) {
       console.error('Erro ao carregar fornecedores:', error);
       addToast('error', 'Erro ao carregar fornecedores');
@@ -179,12 +203,10 @@ export default function NovoProdutoPage() {
     }));
   };
 
-  // Carregar categorias ao montar o componente
+  // Carregar categorias ao montar o componente - SEM FILTRO DE EMPRESA
   useEffect(() => {
-    if (usuarioData?.empresa_id) {
       carregarCategorias();
-    }
-  }, [usuarioData?.empresa_id]);
+  }, []);
 
   // Carregar fornecedores quando o usuário estiver disponível
   useEffect(() => {
@@ -194,47 +216,77 @@ export default function NovoProdutoPage() {
   }, [user]);
 
   useEffect(() => {
+    console.log('🔍 produtoId da URL:', produtoId);
     if (produtoId) {
-      supabase
-        .from('produtos_servicos')
-        .select('*')
-        .eq('id', produtoId)
-        .single()
+      console.log('📋 Buscando produto com ID:', produtoId);
+      // Buscar produto usando API
+      fetch(`/api/produtos-servicos/buscar?produtoId=${produtoId}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache'
+        }
+      })
+        .then(response => {
+          console.log('📡 Status da resposta:', response.status);
+          return response.json();
+        })
         .then(({ data, error }: { data: any; error: any }) => {
-          if (data && !error) {
-            setFormData({
-              nome: data.nome || '',
-              tipo: data.tipo || '',
-              codigo: data.codigo || '',
-              grupo: data.grupo_id || '',
-              categoria: data.categoria_id || '',
-              subcategoria: data.subcategoria_id || '',
-              custo: data.custo?.toString() || '',
-              preco: data.preco?.toString() || '',
-              unidade: data.unidade || '',
-              fornecedor_id: data.fornecedor_id || '',
-              marca: data.marca || '',
-              estoque_min: data.estoque_min?.toString() || '',
-              estoque_max: data.estoque_max?.toString() || '',
-              estoque_atual: data.estoque_atual?.toString() || '',
-              situacao: data.situacao || '',
-              ncm: data.ncm || '',
-              cfop: data.cfop || '',
-              cst: data.cst || '',
-              cest: data.cest || '',
-              largura_cm: data.largura_cm?.toString() || '',
-              altura_cm: data.altura_cm?.toString() || '',
-              profundidade_cm: data.profundidade_cm?.toString() || '',
-              peso_g: data.peso_g?.toString() || '',
-              obs: data.obs || '',
-              ativo: data.ativo ? 'true' : 'false',
-              codigo_barras: data.codigo_barras || '',
+          console.log('📊 Resposta da busca do produto:', { data, error });
+          const produtoData = data;
+          console.log('📦 produtoData processado:', produtoData);
+          if (produtoData && !error) {
+            console.log('✅ Carregando dados do produto no formulário...');
+            console.log('🔍 Dados específicos:', {
+              nome: produtoData.nome,
+              preco: produtoData.preco,
+              custo: produtoData.custo,
+              marca: produtoData.marca,
+              ncm: produtoData.ncm,
+              cfop: produtoData.cfop
             });
-            setExistingImageUrls(data.imagens_url || []);
+            setFormData({
+              nome: produtoData.nome || '',
+              tipo: produtoData.tipo || '',
+              codigo: produtoData.codigo || '',
+              grupo: produtoData.grupo_id || '',
+              categoria: produtoData.categoria_id || '',
+              subcategoria: produtoData.subcategoria_id || '',
+              custo: produtoData.custo?.toString() || '',
+              preco: produtoData.preco?.toString() || '',
+              unidade: produtoData.unidade || '',
+              fornecedor_id: produtoData.fornecedor_id || '',
+              marca: produtoData.marca || '',
+              estoque_min: produtoData.estoque_min?.toString() || '',
+              estoque_max: produtoData.estoque_max?.toString() || '',
+              estoque_atual: produtoData.estoque_atual?.toString() || '',
+              situacao: produtoData.situacao || '',
+              ncm: produtoData.ncm || '',
+              cfop: produtoData.cfop || '',
+              cst: produtoData.cst || '',
+              cest: produtoData.cest || '',
+              largura_cm: produtoData.largura_cm?.toString() || '',
+              altura_cm: produtoData.altura_cm?.toString() || '',
+              profundidade_cm: produtoData.profundidade_cm?.toString() || '',
+              peso_g: produtoData.peso_g?.toString() || '',
+              obs: produtoData.obs || '',
+              ativo: produtoData.ativo ? 'true' : 'false',
+              codigo_barras: produtoData.codigo_barras || '',
+            });
+            setExistingImageUrls(produtoData.imagens_url || []);
+            console.log('✅ Formulário atualizado com dados do produto');
+          } else {
+            console.log('❌ Erro ao carregar produto:', error);
+            addToast('error', 'Erro ao carregar produto para edição.');
           }
+        })
+        .catch(error => {
+          console.error('❌ Erro na requisição:', error);
+          addToast('error', 'Erro ao carregar produto para edição.');
         });
+    } else {
+      console.log('⚠️ Nenhum produtoId encontrado na URL');
     }
-  }, [produtoId]);
+  }, [produtoId, addToast]);
 
   const handleSubmit = async () => {
     // Gerar código sequencial por empresa, somente se não estiver editando (novo produto)
@@ -300,58 +352,99 @@ export default function NovoProdutoPage() {
     // empresa_id já obtido acima
 
     const data = {
-      nome: formData.nome,
-      tipo: formData.tipo,
-      codigo: formData.codigo,
+      nome: formData.nome || '',
+      tipo: formData.tipo || 'produto',
+      codigo: formData.codigo || '',
       grupo_id: formData.grupo || null,
       categoria_id: formData.categoria || null,
       subcategoria_id: formData.subcategoria || null,
       fornecedor_id: formData.fornecedor_id || null,
-      custo: parseFloat(formData.custo || '0'),
-      preco: parseFloat(formData.preco || '0'),
-      unidade: formData.unidade,
-      marca: formData.marca,
-      estoque_min: parseFloat(formData.estoque_min || '0'),
-      estoque_max: parseFloat(formData.estoque_max || '0'),
-      estoque_atual: parseFloat(formData.estoque_atual || '0'),
-      situacao: formData.situacao,
-      ncm: formData.ncm,
-      cfop: formData.cfop,
-      cst: formData.cst,
-      cest: formData.cest,
-      largura_cm: parseFloat(formData.largura_cm || '0'),
-      altura_cm: parseFloat(formData.altura_cm || '0'),
-      profundidade_cm: parseFloat(formData.profundidade_cm || '0'),
-      peso_g: parseFloat(formData.peso_g || '0'),
-      obs: formData.obs,
+      custo: formData.custo ? parseFloat(formData.custo) : 0,
+      preco: formData.preco ? parseFloat(formData.preco) : 0,
+      unidade: formData.unidade || '',
+      marca: formData.marca || '',
+      estoque_min: formData.estoque_min ? parseFloat(formData.estoque_min) : 0,
+      estoque_max: formData.estoque_max ? parseFloat(formData.estoque_max) : 0,
+      estoque_atual: formData.estoque_atual ? parseFloat(formData.estoque_atual) : 0,
+      situacao: formData.situacao || 'Ativo',
+      ncm: formData.ncm || '',
+      cfop: formData.cfop || '',
+      cst: formData.cst || '',
+      cest: formData.cest || '',
+      largura_cm: formData.largura_cm ? parseFloat(formData.largura_cm) : 0,
+      altura_cm: formData.altura_cm ? parseFloat(formData.altura_cm) : 0,
+      profundidade_cm: formData.profundidade_cm ? parseFloat(formData.profundidade_cm) : 0,
+      peso_g: formData.peso_g ? parseFloat(formData.peso_g) : 0,
+      obs: formData.obs || '',
       empresa_id,
-      ativo: true,
-      codigo_barras: formData.codigo_barras,
+      ativo: formData.ativo === 'true',
+      codigo_barras: formData.codigo_barras || '',
       imagens: [...existingImageUrls, ...uploadedImageUrls], // used in POST, not update
     };
+
 
     // Log dos dados para API
     // Se for edição, atualiza o produto existente
     if (produtoId) {
       const updatePayload = {
-        ...data,
-        grupo_id: formData.grupo || null,
-        categoria_id: formData.categoria || null,
-        subcategoria_id: formData.subcategoria || null,
+        nome: data.nome,
+        tipo: data.tipo,
+        codigo: data.codigo,
+        grupo_id: data.grupo_id,
+        categoria_id: data.categoria_id,
+        subcategoria_id: data.subcategoria_id,
+        fornecedor_id: data.fornecedor_id,
+        custo: data.custo,
+        preco: data.preco,
+        unidade: data.unidade,
+        marca: data.marca,
+        estoque_min: data.estoque_min,
+        estoque_max: data.estoque_max,
+        estoque_atual: data.estoque_atual,
+        situacao: data.situacao,
+        ncm: data.ncm,
+        cfop: data.cfop,
+        cst: data.cst,
+        cest: data.cest,
+        largura_cm: data.largura_cm,
+        altura_cm: data.altura_cm,
+        profundidade_cm: data.profundidade_cm,
+        peso_g: data.peso_g,
+        obs: data.obs,
+        ativo: data.ativo,
+        codigo_barras: data.codigo_barras,
+        imagens: [...existingImageUrls, ...uploadedImageUrls],
         imagens_url: [...existingImageUrls, ...uploadedImageUrls],
+        // Campos de texto para compatibilidade (podem ser null)
+        grupo: null,
+        categoria: null,
+        subcategoria: null,
+        fornecedor: null,
       };
-      const { error } = await supabase
-        .from('produtos_servicos')
-        .update(updatePayload)
-        .eq('id', produtoId);
-      if (error) {
-        console.error('Erro ao atualizar produto:', error);
-        addToast('error', 'Erro ao atualizar produto: ' + error.message);
+      
+      
+      try {
+        const response = await fetch(`/api/produtos-servicos/atualizar?produtoId=${produtoId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatePayload),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('❌ Erro ao atualizar produto:', errorData);
+          addToast('error', 'Erro ao atualizar produto: ' + (errorData.error || 'Erro desconhecido'));
+          return;
+        }
+        
+        addToast('success', 'Produto atualizado com sucesso!');
+        router.push('/equipamentos');
+        return;
+      } catch (error) {
+        console.error('❌ Erro ao atualizar produto:', error);
+        addToast('error', 'Erro ao atualizar produto');
         return;
       }
-      addToast('success', 'Produto atualizado com sucesso!');
-      router.push('/equipamentos');
-      return;
     }
 
     // Se não for edição, prossegue com o cadastro (POST)
