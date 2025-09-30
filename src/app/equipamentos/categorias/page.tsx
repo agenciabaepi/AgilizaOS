@@ -51,6 +51,7 @@ export default function CategoriasPage() {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [subcategorias, setSubcategorias] = useState<Subcategoria[]>([]);
   const [loading, setLoading] = useState(true);
+  const [empresaId, setEmpresaId] = useState<string | null>(null);
 
   // Estados para modais
   const [modalGrupo, setModalGrupo] = useState(false);
@@ -71,15 +72,62 @@ export default function CategoriasPage() {
   const [gruposExpandidos, setGruposExpandidos] = useState<Set<string>>(new Set());
   const [categoriasExpandidas, setCategoriasExpandidas] = useState<Set<string>>(new Set());
 
-  // Carregar dados
+  // Resolver empresa do usuário
   useEffect(() => {
-    if (usuarioData?.empresa_id) {
+    const resolverEmpresa = async () => {
+      console.log('🔍 Resolvendo empresa_id...', { usuarioData });
+      
+      const empresaValida = usuarioData?.empresa_id && !usuarioData.empresa_id.startsWith('temp-')
+        ? usuarioData.empresa_id
+        : null;
+
+      if (empresaValida) {
+        console.log('✅ Usando empresa_id do usuarioData:', empresaValida);
+        setEmpresaId(empresaValida);
+        return;
+      }
+
+      console.log('⚠️ empresa_id inválido, buscando diretamente...');
+      const { data: authData } = await supabase.auth.getUser();
+      const authUserId = authData?.user?.id;
+
+      if (!authUserId) {
+        console.log('❌ Usuário não autenticado');
+        return;
+      }
+
+      const { data: usuarioEmpresa, error } = await supabase
+        .from('usuarios')
+        .select('empresa_id')
+        .eq('auth_user_id', authUserId)
+        .single();
+
+      if (error) {
+        console.error('❌ Erro ao buscar empresa do usuário:', error);
+        return;
+      }
+
+      if (usuarioEmpresa?.empresa_id) {
+        console.log('✅ Empresa_id encontrado diretamente:', usuarioEmpresa.empresa_id);
+        setEmpresaId(usuarioEmpresa.empresa_id);
+      } else {
+        console.log('❌ Nenhum empresa_id encontrado');
+      }
+    };
+
+    resolverEmpresa();
+  }, [usuarioData?.empresa_id]);
+
+  // Carregar dados após obter empresa
+  useEffect(() => {
+    console.log('🔄 useEffect carregarDados chamado com empresaId:', empresaId);
+    if (empresaId) {
       carregarDados();
     }
-  }, [usuarioData]);
+  }, [empresaId]);
 
   const carregarDados = async () => {
-    if (!usuarioData?.empresa_id) {
+    if (!empresaId) {
       setLoading(false);
       return;
     }
@@ -87,15 +135,19 @@ export default function CategoriasPage() {
     setLoading(true);
     try {
       // Carregar grupos
+      console.log('🔍 Carregando grupos para empresa_id:', empresaId);
       const { data: gruposData, error: gruposError } = await supabase
         .from('grupos_produtos')
         .select('*')
-        .eq('empresa_id', usuarioData.empresa_id)
+        .eq('empresa_id', empresaId)
         .order('nome');
 
       if (gruposError) {
+        console.error('❌ Erro ao carregar grupos:', gruposError);
         throw gruposError;
       }
+
+      console.log('📊 Grupos carregados:', gruposData);
 
       // Carregar categorias
       const { data: categoriasData, error: categoriasError } = await supabase
@@ -104,7 +156,7 @@ export default function CategoriasPage() {
           *,
           grupo:grupos_produtos(nome)
         `)
-        .eq('empresa_id', usuarioData.empresa_id)
+        .eq('empresa_id', empresaId)
         .order('nome');
 
       if (categoriasError) {
@@ -119,7 +171,7 @@ export default function CategoriasPage() {
           *,
           categoria:categorias_produtos(nome)
         `)
-        .eq('empresa_id', usuarioData.empresa_id)
+        .eq('empresa_id', empresaId)
         .order('nome');
 
       if (subcategoriasError) {
@@ -127,9 +179,16 @@ export default function CategoriasPage() {
         throw subcategoriasError;
       }
 
+      console.log('🔄 Atualizando estados...');
       setGrupos(gruposData || []);
       setCategorias(categoriasData || []);
       setSubcategorias(subcategoriasData || []);
+      
+      console.log('✅ Estados atualizados:', {
+        grupos: gruposData?.length || 0,
+        categorias: categoriasData?.length || 0,
+        subcategorias: subcategoriasData?.length || 0
+      });
       
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
@@ -146,31 +205,45 @@ export default function CategoriasPage() {
       return;
     }
 
-    if (!usuarioData?.empresa_id) {
+    if (!empresaId) {
       addToast('error', 'Dados do usuário não disponíveis');
       return;
     }
 
     try {
       if (editandoGrupo) {
-        await supabase
+        const { error } = await supabase
           .from('grupos_produtos')
           .update({
             nome: formGrupo.nome,
             descricao: formGrupo.descricao
           })
           .eq('id', editandoGrupo.id);
+          
+        if (error) throw error;
         addToast('success', 'Grupo atualizado com sucesso!');
       } else {
-        const { error } = await supabase
+        console.log('🔄 Salvando grupo:', {
+          nome: formGrupo.nome,
+          descricao: formGrupo.descricao,
+          empresa_id: empresaId
+        });
+        
+        const { data, error } = await supabase
           .from('grupos_produtos')
           .insert({
             nome: formGrupo.nome,
             descricao: formGrupo.descricao,
-            empresa_id: usuarioData.empresa_id
-          });
+            empresa_id: empresaId
+          })
+          .select();
           
-        if (error) throw error;
+        if (error) {
+          console.error('❌ Erro ao inserir grupo:', error);
+          throw error;
+        }
+        
+        console.log('✅ Grupo inserido com sucesso:', data);
         addToast('success', 'Grupo criado com sucesso!');
       }
 
@@ -216,7 +289,7 @@ export default function CategoriasPage() {
     }
 
     // Verificação de null adicionada
-    if (!usuarioData?.empresa_id) {
+    if (!empresaId) {
       addToast('error', 'Dados do usuário não disponíveis');
       return;
     }
@@ -239,7 +312,7 @@ export default function CategoriasPage() {
             nome: formCategoria.nome,
             descricao: formCategoria.descricao,
             grupo_id: formCategoria.grupo_id,
-            empresa_id: usuarioData.empresa_id
+            empresa_id: empresaId
           });
         addToast('success', 'Categoria criada com sucesso!');
       }
@@ -286,7 +359,7 @@ export default function CategoriasPage() {
     }
 
     // Verificação de null adicionada
-    if (!usuarioData?.empresa_id) {
+    if (!empresaId) {
       addToast('error', 'Dados do usuário não disponíveis');
       return;
     }
@@ -309,7 +382,7 @@ export default function CategoriasPage() {
             nome: formSubcategoria.nome,
             descricao: formSubcategoria.descricao,
             categoria_id: formSubcategoria.categoria_id,
-            empresa_id: usuarioData.empresa_id
+            empresa_id: empresaId
           });
         addToast('success', 'Subcategoria criada com sucesso!');
       }
@@ -594,6 +667,15 @@ export default function CategoriasPage() {
               );
             })}
 
+        {(() => {
+          console.log('🔍 Renderizando lista de grupos:', { 
+            gruposLength: grupos.length, 
+            grupos: grupos,
+            loading: loading 
+          });
+          return null;
+        })()}
+        
         {grupos.length === 0 && !loading && (
               <div className="text-center py-12">
                 <FiFolder className="w-12 h-12 text-gray-400 mx-auto mb-4" />

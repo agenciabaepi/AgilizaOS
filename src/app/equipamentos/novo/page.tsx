@@ -66,29 +66,42 @@ export default function NovoProdutoPage() {
   // Usar o cliente importado
   const { addToast } = useToast();
   const confirm = useConfirm();
-  const { user } = useAuth();
+  const { user, usuarioData } = useAuth();
 
   // Função para carregar categorias
   const carregarCategorias = async () => {
+    if (!usuarioData?.empresa_id) {
+      // Aguarda dados da empresa antes de buscar categorias
+      return;
+    }
+
     setLoadingCategorias(true);
     try {
+      const empresaId = usuarioData.empresa_id;
       // Carregar grupos
-      const { data: gruposData } = await supabase
+      const { data: gruposData, error: gruposError } = await supabase
         .from('grupos_produtos')
         .select('id, nome')
+        .eq('empresa_id', empresaId)
         .order('nome');
 
       // Carregar categorias
-      const { data: categoriasData } = await supabase
+      const { data: categoriasData, error: categoriasError } = await supabase
         .from('categorias_produtos')
         .select('id, nome, grupo_id')
+        .eq('empresa_id', empresaId)
         .order('nome');
 
       // Carregar subcategorias
-      const { data: subcategoriasData } = await supabase
+      const { data: subcategoriasData, error: subcategoriasError } = await supabase
         .from('subcategorias_produtos')
         .select('id, nome, categoria_id')
+        .eq('empresa_id', empresaId)
         .order('nome');
+
+      if (gruposError || categoriasError || subcategoriasError) {
+        throw gruposError || categoriasError || subcategoriasError;
+      }
 
       setGrupos(gruposData || []);
       setCategorias(categoriasData || []);
@@ -168,8 +181,10 @@ export default function NovoProdutoPage() {
 
   // Carregar categorias ao montar o componente
   useEffect(() => {
-    carregarCategorias();
-  }, []);
+    if (usuarioData?.empresa_id) {
+      carregarCategorias();
+    }
+  }, [usuarioData?.empresa_id]);
 
   // Carregar fornecedores quando o usuário estiver disponível
   useEffect(() => {
@@ -288,10 +303,10 @@ export default function NovoProdutoPage() {
       nome: formData.nome,
       tipo: formData.tipo,
       codigo: formData.codigo,
-              grupo_id: formData.grupo,
-        categoria_id: formData.categoria,
-        subcategoria_id: formData.subcategoria,
-        fornecedor_id: formData.fornecedor_id || null,
+      grupo_id: formData.grupo || null,
+      categoria_id: formData.categoria || null,
+      subcategoria_id: formData.subcategoria || null,
+      fornecedor_id: formData.fornecedor_id || null,
       custo: parseFloat(formData.custo || '0'),
       preco: parseFloat(formData.preco || '0'),
       unidade: formData.unidade,
@@ -320,6 +335,9 @@ export default function NovoProdutoPage() {
     if (produtoId) {
       const updatePayload = {
         ...data,
+        grupo_id: formData.grupo || null,
+        categoria_id: formData.categoria || null,
+        subcategoria_id: formData.subcategoria || null,
         imagens_url: [...existingImageUrls, ...uploadedImageUrls],
       };
       const { error } = await supabase
