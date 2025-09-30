@@ -75,24 +75,19 @@ export default function CategoriasPage() {
   // Resolver empresa do usuário
   useEffect(() => {
     const resolverEmpresa = async () => {
-      console.log('🔍 Resolvendo empresa_id...', { usuarioData });
-      
       const empresaValida = usuarioData?.empresa_id && !usuarioData.empresa_id.startsWith('temp-')
         ? usuarioData.empresa_id
         : null;
 
       if (empresaValida) {
-        console.log('✅ Usando empresa_id do usuarioData:', empresaValida);
         setEmpresaId(empresaValida);
         return;
       }
 
-      console.log('⚠️ empresa_id inválido, buscando diretamente...');
       const { data: authData } = await supabase.auth.getUser();
       const authUserId = authData?.user?.id;
 
       if (!authUserId) {
-        console.log('❌ Usuário não autenticado');
         return;
       }
 
@@ -103,15 +98,11 @@ export default function CategoriasPage() {
         .single();
 
       if (error) {
-        console.error('❌ Erro ao buscar empresa do usuário:', error);
         return;
       }
 
       if (usuarioEmpresa?.empresa_id) {
-        console.log('✅ Empresa_id encontrado diretamente:', usuarioEmpresa.empresa_id);
         setEmpresaId(usuarioEmpresa.empresa_id);
-      } else {
-        console.log('❌ Nenhum empresa_id encontrado');
       }
     };
 
@@ -120,7 +111,6 @@ export default function CategoriasPage() {
 
   // Carregar dados após obter empresa
   useEffect(() => {
-    console.log('🔄 useEffect carregarDados chamado com empresaId:', empresaId);
     if (empresaId) {
       carregarDados();
     }
@@ -135,7 +125,6 @@ export default function CategoriasPage() {
     setLoading(true);
     try {
       // Carregar grupos
-      console.log('🔍 Carregando grupos para empresa_id:', empresaId);
       const { data: gruposData, error: gruposError } = await supabase
         .from('grupos_produtos')
         .select('*')
@@ -143,11 +132,8 @@ export default function CategoriasPage() {
         .order('nome');
 
       if (gruposError) {
-        console.error('❌ Erro ao carregar grupos:', gruposError);
         throw gruposError;
       }
-
-      console.log('📊 Grupos carregados:', gruposData);
 
       // Carregar categorias
       const { data: categoriasData, error: categoriasError } = await supabase
@@ -179,16 +165,9 @@ export default function CategoriasPage() {
         throw subcategoriasError;
       }
 
-      console.log('🔄 Atualizando estados...');
       setGrupos(gruposData || []);
       setCategorias(categoriasData || []);
       setSubcategorias(subcategoriasData || []);
-      
-      console.log('✅ Estados atualizados:', {
-        grupos: gruposData?.length || 0,
-        categorias: categoriasData?.length || 0,
-        subcategorias: subcategoriasData?.length || 0
-      });
       
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
@@ -223,27 +202,15 @@ export default function CategoriasPage() {
         if (error) throw error;
         addToast('success', 'Grupo atualizado com sucesso!');
       } else {
-        console.log('🔄 Salvando grupo:', {
-          nome: formGrupo.nome,
-          descricao: formGrupo.descricao,
-          empresa_id: empresaId
-        });
-        
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('grupos_produtos')
           .insert({
             nome: formGrupo.nome,
             descricao: formGrupo.descricao,
             empresa_id: empresaId
-          })
-          .select();
+          });
           
-        if (error) {
-          console.error('❌ Erro ao inserir grupo:', error);
-          throw error;
-        }
-        
-        console.log('✅ Grupo inserido com sucesso:', data);
+        if (error) throw error;
         addToast('success', 'Grupo criado com sucesso!');
       }
 
@@ -667,15 +634,6 @@ export default function CategoriasPage() {
               );
             })}
 
-        {(() => {
-          console.log('🔍 Renderizando lista de grupos:', { 
-            gruposLength: grupos.length, 
-            grupos: grupos,
-            loading: loading 
-          });
-          return null;
-        })()}
-        
         {grupos.length === 0 && !loading && (
               <div className="text-center py-12">
                 <FiFolder className="w-12 h-12 text-gray-400 mx-auto mb-4" />
