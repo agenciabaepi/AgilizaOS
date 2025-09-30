@@ -11,30 +11,10 @@ export function useTrialBlock() {
   const { assinatura, isTrialExpired, loading } = useSubscription();
 
   // Páginas que devem ser bloqueadas quando teste expirar
-  const paginasBloqueadas = [
-    '/dashboard',
-    '/caixa',
-    '/clientes',
-    '/fornecedores',
-    '/equipamentos',
-    '/ordens',
-    '/bancada',
-    '/financeiro',
-    '/lembretes',
-    '/perfil',
-    '/configuracoes'
-  ];
+  const paginasBloqueadas: string[] = []; // bloqueio desativado
 
   // Páginas que NÃO devem ser bloqueadas
-  const paginasPermitidas = [
-    '/login',
-    '/cadastro',
-    '/periodo-teste',
-    '/planos',
-    '/',
-    '/assets',
-    '/teste-expirado'
-  ];
+  const paginasPermitidas = ['/', '/login'];
 
   // Páginas que devem ser sempre permitidas para usuários com trial ativo
   const paginasPermitidasTrial = [
@@ -72,11 +52,7 @@ export function useTrialBlock() {
     }
 
     // Se o teste expirou e está em página que deve ser bloqueada
-    if (assinatura?.status === 'trial' && isTrialExpired() && deveSerBloqueada) {
-      setIsBlocked(true);
-      router.push('/teste-expirado');
-      return;
-    }
+    // bloqueio desativado
 
     // Se está no trial e está em página permitida para trial, não bloquear
     if (assinatura?.status === 'trial' && paginasPermitidasTrial.some(pagina => 

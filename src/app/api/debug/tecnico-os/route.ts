@@ -42,28 +42,17 @@ export async function POST(request: NextRequest) {
     let tecnicoError = null;
 
     if (osData.tecnico_id) {
-      // Tentar buscar por ID primeiro
+      // Buscar técnico por auth_user_id (correto)
       const { data: tecnicoData, error: tecnicoErr } = await supabase
         .from('usuarios')
-        .select('id, nome, whatsapp, tecnico_id')
-        .eq('id', osData.tecnico_id)
+        .select('id, auth_user_id, nome, whatsapp')
+        .eq('auth_user_id', osData.tecnico_id)  // ✅ Corrigido: usar auth_user_id
         .single();
 
       if (!tecnicoErr && tecnicoData) {
         tecnico = tecnicoData;
       } else {
-        // Fallback: buscar por tecnico_id
-        const { data: fallbackData, error: fallbackErr } = await supabase
-          .from('usuarios')
-          .select('id, nome, whatsapp, tecnico_id')
-          .eq('tecnico_id', osData.tecnico_id)
-          .single();
-
-        if (!fallbackErr && fallbackData) {
-          tecnico = fallbackData;
-        } else {
-          tecnicoError = fallbackErr;
-        }
+        tecnicoError = tecnicoErr;
       }
     }
 

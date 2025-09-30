@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
+import { supabaseConfig } from '@/lib/supabase-config';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { useToast } from '@/components/Toast';
@@ -42,7 +43,8 @@ interface Subcategoria {
 }
 
 export default function CategoriasPage() {
-  const { usuarioData } = useAuth();
+  
+  const { usuarioData, empresaData } = useAuth();
   const { addToast } = useToast();
   const confirm = useConfirm();
 
@@ -74,103 +76,72 @@ export default function CategoriasPage() {
 
   // Resolver empresa do usuário
   useEffect(() => {
+    
     const resolverEmpresa = async () => {
-      const empresaValida = usuarioData?.empresa_id && !usuarioData.empresa_id.startsWith('temp-')
-        ? usuarioData.empresa_id
-        : null;
-
-      if (empresaValida) {
-        setEmpresaId(empresaValida);
-        return;
-      }
-
-      const { data: authData } = await supabase.auth.getUser();
-      const authUserId = authData?.user?.id;
-
-      if (!authUserId) {
-        return;
-      }
-
-      const { data: usuarioEmpresa, error } = await supabase
-        .from('usuarios')
-        .select('empresa_id')
-        .eq('auth_user_id', authUserId)
-        .single();
-
-      if (error) {
-        return;
-      }
-
-      if (usuarioEmpresa?.empresa_id) {
-        setEmpresaId(usuarioEmpresa.empresa_id);
+      try {
+        
+        // Priorizar empresaData.id se disponível
+        if (empresaData?.id) {
+          setEmpresaId(empresaData.id);
+        } else if (usuarioData?.empresa_id) {
+          setEmpresaId(usuarioData.empresa_id);
+        } else {
+          const { data: { user } } = await supabase.auth.getUser();
+          
+          if (user) {
+            const { data: userData, error } = await supabase
+              .from('usuarios')
+              .select('empresa_id, nome, email, nivel')
+              .eq('auth_user_id', user.id)
+              .single();
+            
+            
+            if (userData?.empresa_id) {
+              setEmpresaId(userData.empresa_id);
+            } else {
+              
+            }
+          } else {
+            
+          }
+        }
+      } catch (error) {
+        
       }
     };
 
     resolverEmpresa();
-  }, [usuarioData?.empresa_id]);
+  }, [usuarioData?.empresa_id, empresaData?.id]);
 
   // Carregar dados após obter empresa
   useEffect(() => {
-    if (empresaId) {
-      carregarDados();
-    }
+    // Sempre carregar, independente de empresaId
+    carregarDados();
   }, [empresaId]);
 
   const carregarDados = async () => {
-    if (!empresaId) {
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
     try {
-      // Carregar grupos
-      const { data: gruposData, error: gruposError } = await supabase
-        .from('grupos_produtos')
-        .select('*')
-        .eq('empresa_id', empresaId)
-        .order('nome');
+      setLoading(true);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
 
-      if (gruposError) {
-        throw gruposError;
-      }
+      const fetchJson = (url: string) =>
+        fetch(url, { cache: 'no-store', signal: controller.signal })
+          .then(r => (r.ok ? r.json() : []))
+          .catch(() => []);
 
-      // Carregar categorias
-      const { data: categoriasData, error: categoriasError } = await supabase
-        .from('categorias_produtos')
-        .select(`
-          *,
-          grupo:grupos_produtos(nome)
-        `)
-        .eq('empresa_id', empresaId)
-        .order('nome');
+      const sufixo = empresaId ? `?empresaId=${empresaId}` : '';
+      const [grps, cats, subs] = await Promise.all([
+        fetchJson(`/api/grupos/listar${sufixo}`),
+        fetchJson(`/api/categorias/listar${sufixo}`),
+        fetchJson(`/api/subcategorias/listar${sufixo}`)
+      ]);
 
-      if (categoriasError) {
-        console.error('Erro ao carregar categorias:', categoriasError);
-        throw categoriasError;
-      }
-
-      // Carregar subcategorias
-      const { data: subcategoriasData, error: subcategoriasError } = await supabase
-        .from('subcategorias_produtos')
-        .select(`
-          *,
-          categoria:categorias_produtos(nome)
-        `)
-        .eq('empresa_id', empresaId)
-        .order('nome');
-
-      if (subcategoriasError) {
-        console.error('Erro ao carregar subcategorias:', subcategoriasError);
-        throw subcategoriasError;
-      }
-
-      setGrupos(gruposData || []);
-      setCategorias(categoriasData || []);
-      setSubcategorias(subcategoriasData || []);
-      
+      clearTimeout(timeout);
+      setGrupos(Array.isArray(grps) ? grps : []);
+      setCategorias(Array.isArray(cats) ? cats : []);
+      setSubcategorias(Array.isArray(subs) ? subs : []);
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
       addToast('error', 'Erro ao carregar categorias. Verifique se as tabelas foram criadas.');
     } finally {
       setLoading(false);
@@ -457,6 +428,8 @@ export default function CategoriasPage() {
       </div>
     );
   }
+
+  
 
   return (
     <>

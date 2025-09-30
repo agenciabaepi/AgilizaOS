@@ -67,37 +67,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     const attemptFetch = async (): Promise<void> => {
       try {
-        // Usar função otimizada com JOIN
         const { userData, empresaData: companyData } = await fetchUserDataOptimized(userId);
-
         setUsuarioData(userData);
         setEmpresaData(companyData);
-        
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-        console.warn(`⚠️ Erro na busca otimizada (tentativa ${retryCount + 1}):`, {
-          message: errorMessage,
-          userId: userId,
-          retryCount: retryCount + 1
-        });
-        
         if (retryCount < maxRetries - 1) {
           retryCount++;
           await new Promise(resolve => setTimeout(resolve, 2000));
           return attemptFetch();
         }
-        
-        // ✅ FALLBACK MELHORADO: Tentar buscar dados básicos primeiro
-        console.warn('🚨 Fallback: Tentando busca básica do usuário');
         try {
-          const { data: basicUserData, error: basicError } = await supabase
+          const { data: basicUserData } = await supabase
             .from('usuarios')
             .select('empresa_id, nome, email, nivel')
             .eq('auth_user_id', userId)
             .single();
-            
-          if (basicUserData && !basicError) {
-            console.log('✅ Dados básicos encontrados:', basicUserData);
+          if (basicUserData) {
             setUsuarioData({
               empresa_id: basicUserData.empresa_id,
               nome: basicUserData.nome,
@@ -118,14 +103,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             });
             return;
           }
-        } catch (basicError) {
-          console.warn('❌ Fallback básico também falhou:', basicError);
-        }
-        
-        // ✅ ÚLTIMO FALLBACK: Dados temporários mas com ID válido
-        console.warn('🚨 Usando último fallback com dados válidos');
+        } catch {}
         const tempEmpresaId = `temp-${userId.slice(0, 8)}`;
-        
         setUsuarioData({
           empresa_id: tempEmpresaId,
           nome: 'Usuário',
@@ -165,7 +144,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const initializeAuth = async () => {
       try {
         // ✅ SEM TIMEOUT: Deixar o Supabase responder naturalmente
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const { data: { session } } = await supabase.auth.getSession();
 
         if (!isMounted) return;
 
@@ -194,9 +173,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             // Silencioso - dados temporários já estão disponíveis
           });
         }
-      } catch (error) {
-        // Silencioso - continuar sem dados do Supabase
-      }
+      } catch {}
     };
 
     initializeAuth();

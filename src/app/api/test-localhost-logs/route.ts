@@ -67,12 +67,12 @@ export async function GET(req: NextRequest) {
       addLog('✅ PASSO 2A: Usuários encontrados: ' + JSON.stringify(allUsers, null, 2));
     }
     
-    // Agora buscar o técnico específico
+    // Agora buscar o técnico específico por auth_user_id
     let tecnicoData: any = null;
     const { data: specificTecnico, error: tecnicoError } = await supabase
       .from('usuarios')
-      .select('id, nome, whatsapp, email, nivel')
-      .eq('id', osData.tecnico_id)
+      .select('id, auth_user_id, nome, whatsapp, email, nivel')
+      .eq('auth_user_id', osData.tecnico_id)  // ✅ Corrigido: usar auth_user_id
       .single();
 
     if (tecnicoError) {

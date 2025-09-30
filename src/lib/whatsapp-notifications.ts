@@ -38,29 +38,12 @@ interface OSData {
 export async function getTecnicoData(tecnicoId: string): Promise<TecnicoData | null> {
   try {
     const supabase = createAdminClient();
-    let { data, error } = await supabase
+    const { data, error } = await supabase
       .from('usuarios')
-      .select('id, nome, whatsapp, email')
-      .eq('id', tecnicoId)
+      .select('id, auth_user_id, nome, whatsapp, email')
+      .eq('auth_user_id', tecnicoId)  // ✅ Corrigido: usar auth_user_id
       .eq('nivel', 'tecnico')
       .single();
-
-    // Se o técnico específico não existir, buscar qualquer técnico
-    if (error && error.code === 'PGRST116') {
-      console.log(`Técnico ID ${tecnicoId} não encontrado, buscando qualquer técnico...`);
-      const { data: fallbackTecnico, error: fallbackError } = await supabase
-        .from('usuarios')
-        .select('id, nome, whatsapp, email')
-        .eq('nivel', 'tecnico')
-        .limit(1)
-        .single();
-      
-      if (!fallbackError && fallbackTecnico) {
-        data = fallbackTecnico;
-        error = null;
-        console.log(`✅ Usando técnico fallback: ${fallbackTecnico.nome}`);
-      }
-    }
 
     if (error) {
       console.error('❌ Erro ao buscar dados do técnico:', error);

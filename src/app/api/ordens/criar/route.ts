@@ -201,26 +201,26 @@ export async function POST(request: NextRequest) {
         const defeito = osCompleta.problema_relatado || 'Defeito não especificado';
         const status = osCompleta.status || 'Pendente';
 
-        // ✅ CORREÇÃO DEFINITIVA: Buscar técnico diretamente sempre
-        console.log('🔍 N8N: Buscando técnico diretamente com ID:', osCompleta.tecnico_id);
+        // ✅ CORREÇÃO DEFINITIVA: Buscar técnico por auth_user_id (correto)
+        console.log('🔍 N8N: Buscando técnico por auth_user_id:', osCompleta.tecnico_id);
         
         let tecnicoFinal = null;
         if (osCompleta.tecnico_id) {
           const { data: tecnicoDireto, error: errorDireto } = await supabase
             .from('usuarios')
-            .select('id, nome, whatsapp')
-            .eq('id', osCompleta.tecnico_id)
+            .select('id, auth_user_id, nome, whatsapp')
+            .eq('auth_user_id', osCompleta.tecnico_id)  // ✅ Corrigido: usar auth_user_id
             .single();
           
-          console.log('🔍 N8N: Resultado da busca direta:', {
+          console.log('🔍 N8N: Resultado da busca por auth_user_id:', {
             tecnico: tecnicoDireto,
             error: errorDireto,
-            tecnico_id_buscado: osCompleta.tecnico_id
+            auth_user_id_buscado: osCompleta.tecnico_id
           });
           
           if (!errorDireto && tecnicoDireto) {
             tecnicoFinal = tecnicoDireto;
-            console.log('✅ N8N: Técnico encontrado via busca direta:', tecnicoFinal);
+            console.log('✅ N8N: Técnico encontrado via auth_user_id:', tecnicoFinal);
           }
         }
 

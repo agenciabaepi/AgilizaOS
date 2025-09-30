@@ -21,6 +21,13 @@
     'storage/v1/object/avatars'
     // Removemos assinaturas e planos pois podem existir
   ];
+
+  // Lista de URLs que DEVEM passar sem qualquer interceptação
+  const SAFE_ALLOW = [
+    '/rest/v1/grupos_produtos',
+    '/rest/v1/categorias_produtos',
+    '/rest/v1/subcategorias_produtos'
+  ];
   
   // Interceptar XMLHttpRequest
   const OriginalXHR = window.XMLHttpRequest;
@@ -31,6 +38,10 @@
     
     xhr.open = function(method, url, ...args) {
       const urlString = url.toString();
+      // Se a URL está explicitamente permitida, não interceptar
+      if (SAFE_ALLOW.some(pattern => urlString.includes(pattern))) {
+        return originalOpen.call(this, method, url, ...args);
+      }
       
       // Se a URL está na lista de bloqueadas, não fazer a requisição
       if (BLOCKED_PATTERNS.some(pattern => urlString.includes(pattern))) {
@@ -64,6 +75,10 @@
   const originalFetch = window.fetch;
   window.fetch = function(url, options) {
     const urlString = url.toString();
+    // Se a URL está explicitamente permitida, não interceptar
+    if (SAFE_ALLOW.some(pattern => urlString.includes(pattern))) {
+      return originalFetch(url, options);
+    }
     
     // Se a URL contém padrões bloqueados, retornar resposta fake imediatamente
     if (BLOCKED_PATTERNS.some(pattern => urlString.includes(pattern))) {

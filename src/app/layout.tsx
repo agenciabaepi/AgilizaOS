@@ -13,7 +13,7 @@ import { useRealtimeNotificacoes } from '@/hooks/useRealtimeNotificacoes';
 import { useAutoReload } from '@/hooks/useAutoReload';
 import { ToastProvider } from '@/components/Toast';
 import { ConfirmProvider } from '@/components/ConfirmDialog';
-import TrialExpiredGuard from '@/components/TrialExpiredGuard';
+// Removido TrialExpiredGuard (assinatura)
 
 import { Toaster } from 'react-hot-toast';
 import StickyOrcamentoPopup from '@/components/StickyOrcamentoPopup';
@@ -92,7 +92,7 @@ function AuthContent({ children }: { children: React.ReactNode }) {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const bypassTrialGuard = pathname?.startsWith('/admin-saas');
+  const bypassTrialGuard = true; // Sempre bypass (sem bloqueio por assinatura)
   
   // Suprimir logs e erros de rede em produção
   useEffect(() => {
@@ -107,8 +107,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
-        <script src="/suppress-errors.js"></script>
-        <script src="/aggressive-suppressor.js"></script>
+        <script src="/suppress-errors.js?v=2"></script>
+        <script src="/aggressive-suppressor.js?v=2"></script>
         <script src="/notification.js" defer></script>
       </head>
       <body suppressHydrationWarning>
@@ -117,13 +117,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <ConfirmProvider>
               <AuthContent>
                 <StickyOrcamentoPopup />
-                {bypassTrialGuard ? (
-                  <>{children}</>
-                ) : (
-                  <TrialExpiredGuard>
-                    {children}
-                  </TrialExpiredGuard>
-                )}
+                <>{children}</>
               </AuthContent>
               <Toaster position="top-right" />
             </ConfirmProvider>

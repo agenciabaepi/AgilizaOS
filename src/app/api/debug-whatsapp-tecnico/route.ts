@@ -61,11 +61,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Buscar técnico específico
+    // Buscar técnico específico por auth_user_id
     let { data: tecnicoData, error: tecnicoError } = await supabase
       .from('usuarios')
-      .select('id, nome, whatsapp, email, nivel')
-      .eq('id', osData.tecnico_id)
+      .select('id, auth_user_id, nome, whatsapp, email, nivel')
+      .eq('auth_user_id', osData.tecnico_id)  // ✅ Corrigido: usar auth_user_id
       .single();
 
     console.log('🔍 DEBUG: Resultado da busca específica:', {
