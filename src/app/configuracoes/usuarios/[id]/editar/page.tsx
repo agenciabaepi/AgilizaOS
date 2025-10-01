@@ -184,10 +184,12 @@ function EditarUsuarioPageInner() {
         .select('id')
         .eq('usuario', usuario.trim().toLowerCase())
         .neq('id', userId)
-        .single();
+        .limit(1);
       
-      return !data; // Retorna true se não existir (válido)
-    } catch {
+      // Se não há dados ou há erro, o usuário é válido
+      return !data || data.length === 0;
+    } catch (error) {
+      console.warn('Erro ao validar usuário único:', error);
       return true; // Se não encontrar, é válido
     }
   };
@@ -202,10 +204,12 @@ function EditarUsuarioPageInner() {
         .select('id')
         .eq('email', email.trim().toLowerCase())
         .neq('id', userId)
-        .single();
+        .limit(1);
       
-      return !data; // Retorna true se não existir (válido)
-    } catch {
+      // Se não há dados ou há erro, o email é válido
+      return !data || data.length === 0;
+    } catch (error) {
+      console.warn('Erro ao validar email único:', error);
       return true; // Se não encontrar, é válido
     }
   };
@@ -220,10 +224,12 @@ function EditarUsuarioPageInner() {
         .select('id')
         .eq('cpf', cpf.replace(/\D/g, ''))
         .neq('id', userId)
-        .single();
+        .limit(1);
       
-      return !data; // Retorna true se não existir (válido)
-    } catch {
+      // Se não há dados ou há erro, o CPF é válido
+      return !data || data.length === 0;
+    } catch (error) {
+      console.warn('Erro ao validar CPF único:', error);
       return true; // Se não encontrar, é válido
     }
   };
