@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendNewOSNotification } from '@/lib/whatsapp-notifications';
 import { notificarNovaOSN8N, gerarURLOs, formatarWhatsApp } from '@/lib/n8n-nova-os';
+import { buildOSWebhookPayload } from '@/lib/sanitize-os-data';
 
 export async function POST(request: NextRequest) {
   console.log('🚀 API /api/ordens/criar chamada!');
@@ -137,9 +138,11 @@ export async function POST(request: NextRequest) {
           marca,
           modelo,
           problema_relatado,
+          equipamento,
+          servico,
           status,
           tecnico_id,
-          clientes!inner(nome)
+          clientes!inner(nome, telefone)
         `)
         .eq('id', osData.id)
         .single();
@@ -241,26 +244,24 @@ export async function POST(request: NextRequest) {
           tecnico_id: osCompleta.tecnico_id
         });
 
-        // Preparar payload com dados reais do técnico
-        const n8nPayload = {
-          tecnico_id: osCompleta.tecnico_id, // ✅ ID do técnico
-          numero_os: parseInt(osCompleta.numero_os), // Converter para número
+        // Preparar payload sanitizado para webhook
+        // ✅ Usa helper que remove "Não informado/Não especificado" e normaliza dados
+        const n8nPayload = buildOSWebhookPayload({
+          os_id: osCompleta.id,
+          numero_os: osCompleta.numero_os,
+          status: osCompleta.status,
           cliente_nome: clienteNome,
-          equipamento: equipamento,
-          defeito: defeito,
-          status: status,
-          tecnico_nome: tecnicoNome, // ✅ Nome real do técnico (sem fallback)
-          tecnico_whatsapp: tecnicoWhatsApp, // ✅ WhatsApp real do técnico
-          link_os: gerarURLOs(osCompleta.id)
-        };
-
-        console.log('📱 N8N: Dados finais antes do envio:', {
-          tecnico_encontrado: !!tecnicoFinal,
+          cliente_telefone: cliente?.telefone,
+          equipamento: osCompleta.equipamento,
+          modelo: osCompleta.modelo,
+          problema_relatado: osCompleta.problema_relatado,
+          servico: osCompleta.servico,
           tecnico_nome: tecnicoNome,
-          tecnico_whatsapp: tecnicoWhatsApp,
-          tecnico_id: osCompleta.tecnico_id,
-          payload_completo: n8nPayload
+          tecnico_whatsapp: tecnicoFinal.whatsapp,
+          link_os: gerarURLOs(osCompleta.id)
         });
+
+        console.log('📱 N8N: Payload final sanitizado:', JSON.stringify(n8nPayload, null, 2));
 
         // Enviar para N8N usando webhook específico
         const n8nSuccess = await notificarNovaOSN8N(n8nPayload);
