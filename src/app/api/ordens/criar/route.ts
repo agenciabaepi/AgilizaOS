@@ -348,14 +348,22 @@ export async function POST(request: NextRequest) {
         console.warn('⚠️ N8N: Erro ao buscar dados completos da OS (usando fallback):', osCompletaError);
         // Fallback: montar a partir de dadosOS + buscas diretas de cliente e técnico
         const clienteId = dadosOS.cliente_id;
+        console.warn('[Webhook OS][FALLBACK] cliente_id recebido:', clienteId);
         let clienteNome = 'Cliente não informado';
         let clienteTelefone = '';
         if (clienteId) {
-          const { data: cli } = await supabase.from('clientes').select('nome, telefone').eq('id', clienteId).single();
+          console.warn('[Webhook OS][FALLBACK] Buscando cliente no banco...');
+          const { data: cli, error: cliError } = await supabase.from('clientes').select('nome, telefone').eq('id', clienteId).single();
+          console.warn('[Webhook OS][FALLBACK] Resultado busca cliente:', { cli, cliError });
           if (cli) { 
             clienteNome = cli.nome || clienteNome; 
             clienteTelefone = cli.telefone || ''; 
+            console.warn('[Webhook OS][FALLBACK] Cliente encontrado:', { nome: clienteNome, telefone: clienteTelefone });
+          } else {
+            console.warn('[Webhook OS][FALLBACK] Cliente não encontrado no banco');
           }
+        } else {
+          console.warn('[Webhook OS][FALLBACK] cliente_id não fornecido');
         }
         // Se ainda estiver vazio, usar dados do POST como último recurso
         if (!clienteNome || clienteNome === 'Cliente não informado') {
