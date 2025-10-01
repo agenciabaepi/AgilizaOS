@@ -3,7 +3,7 @@
  */
 
 // Regex para detectar valores inválidos
-const BAD = /^(n[ãa]o\s+informado|nao\s+informado|n[ãa]o\s+especificado|nao\s+especificado|n[ãa]o\s+informado|n[ãa]o\s+especificado)$/i;
+const BAD = /^(n[ãa]o\s+informado|nao\s+informado|n[ãa]o\s+especificado|nao\s+especificado|n[ãa]o\s+informado|n[ãa]o\s+especificado|não\s+informado|não\s+especificado)$/i;
 
 /**
  * Normaliza valor e retorna string vazia se for inválido
@@ -12,6 +12,12 @@ const norm = (v: any): string => {
   const s = (v ?? '').toString().trim();
   return BAD.test(s) ? '' : s;
 };
+
+/**
+ * Limpa valor removendo "Não especificado" e similares
+ * Alias para norm (compatibilidade)
+ */
+export const clean = (v: any): string => norm(v);
 
 /**
  * Remove valores como "Não informado", "Não especificado" e retorna string vazia
@@ -29,20 +35,25 @@ export function sanitizePhone(phone: string | null | undefined): string {
 }
 
 /**
+ * Normaliza telefone BR para formato E.164
+ * Remove espaços, +, parênteses, hífens
+ * Adiciona DDI 55 se necessário
+ * Substitui 0800 inicial por 55
+ */
+export function normalizeBRPhone(raw: string): string {
+  let s = (raw || '').replace(/\D/g, '').replace(/^0+/, '');
+  if (!s.startsWith('55')) s = '55' + s;
+  s = s.replace(/^5555/, '55'); // corrigir duplicação
+  return s; // sem + (o n8n coloca o +)
+}
+
+/**
  * Formata WhatsApp para o padrão com DDI (5512...)
+ * Alias para normalizeBRPhone
  */
 export function formatWhatsAppNumber(phone: string | null | undefined): string {
   if (!phone) return '';
-  
-  const cleanPhone = phone.toString().replace(/\D/g, '');
-  
-  // Se já começa com 55, retorna
-  if (cleanPhone.startsWith('55')) {
-    return cleanPhone;
-  }
-  
-  // Adiciona 55
-  return `55${cleanPhone}`;
+  return normalizeBRPhone(phone);
 }
 
 /**

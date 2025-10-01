@@ -5,6 +5,8 @@
  * O N8N processa e envia a mensagem no WhatsApp do técnico.
  */
 
+import { validateOSPayload } from '@/utils/osPayloadSchema';
+
 export interface NovaOSPayload {
   os_id: string;
   numero_os: number;
@@ -30,9 +32,18 @@ export async function notificarNovaOSN8N(payload: NovaOSPayload): Promise<boolea
   const webhookUrl = process.env.N8N_WEBHOOK_NOVA_OS_URL || 'https://gestaoconsert.app.n8n.cloud/webhook/consertos/nova-os';
   
   try {
+    // Validar payload antes de enviar
+    const validation = validateOSPayload(payload);
+    if (!validation.valid) {
+      console.error('❌ [Webhook OS] Payload inválido:', validation.errors);
+      console.error('❌ [Webhook OS] Payload rejeitado:', payload);
+      return false;
+    }
+    
     console.log('[Webhook OS][PROD] payload:', JSON.stringify(payload, null, 2));
     console.log('[Webhook OS] URL:', webhookUrl);
     console.log('[Webhook OS] Ambiente:', process.env.NODE_ENV);
+    console.log('[Webhook OS] Headers:', JSON.stringify({ 'Content-Type': 'application/json' }));
     
     const response = await fetch(webhookUrl, {
       method: 'POST',

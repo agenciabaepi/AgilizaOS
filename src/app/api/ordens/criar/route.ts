@@ -244,9 +244,8 @@ export async function POST(request: NextRequest) {
           tecnico_id: osCompleta.tecnico_id
         });
 
-        // Preparar payload sanitizado para webhook
-        // ✅ Usa helper que remove "Não informado/Não especificado" e normaliza dados
-        const n8nPayload = buildOSWebhookPayload({
+        // Log do objeto de origem ANTES do mapeamento
+        const sourceData = {
           os_id: osCompleta.id,
           numero_os: osCompleta.numero_os,
           status: osCompleta.status,
@@ -258,10 +257,17 @@ export async function POST(request: NextRequest) {
           servico: osCompleta.servico,
           tecnico_nome: tecnicoNome,
           tecnico_whatsapp: tecnicoFinal.whatsapp,
+        };
+        
+        console.log('[Webhook OS][PROD] src:', JSON.stringify({ body: sourceData }, null, 2));
+
+        // Preparar payload sanitizado para webhook
+        const n8nPayload = buildOSWebhookPayload({
+          ...sourceData,
           link_os: gerarURLOs(osCompleta.id)
         });
 
-        // Log do payload antes de enviar
+        // Log do payload APÓS sanitização
         console.log('[Webhook OS][PROD] payload:', JSON.stringify(n8nPayload, null, 2));
         console.log(`[Build] version=${process.env.VERCEL_GIT_COMMIT_SHA || process.env.BUILD_ID || 'unknown'}`);
 
