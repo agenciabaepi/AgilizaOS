@@ -29,9 +29,19 @@ export interface NovaOSPayload {
  */
 export async function notificarNovaOSN8N(payload: NovaOSPayload): Promise<boolean> {
   // Production URL do n8n
-  const webhookUrl = process.env.N8N_WEBHOOK_NOVA_OS_URL || 'https://gestaoconsert.app.n8n.cloud/webhook/consertos/nova-os';
+  const webhookUrl = process.env.N8N_WEBHOOK_NOVA_OS_URL || process.env.N8N_WEBHOOK_URL || 'https://gestaoconsert.app.n8n.cloud/webhook/consertos/nova-os';
   
   try {
+    // Debug seguro das envs
+    console.warn('[ENV DEBUG]', {
+      NOVA_OS: !!process.env.N8N_WEBHOOK_NOVA_OS_URL,
+      NOVA_OS_LEN: process.env.N8N_WEBHOOK_NOVA_OS_URL?.length || 0,
+      WEBHOOK_URL: !!process.env.N8N_WEBHOOK_URL,
+      WEBHOOK_URL_LEN: process.env.N8N_WEBHOOK_URL?.length || 0,
+      NODE_ENV: process.env.NODE_ENV,
+      VERCEL_ENV: process.env.VERCEL_ENV,
+    });
+
     // Validar payload antes de enviar
     const validation = validateOSPayload(payload);
     if (!validation.valid) {
