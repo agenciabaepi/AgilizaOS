@@ -247,7 +247,7 @@ export default function Home() {
           {/* Logo */}
           <div className="flex items-center justify-center">
             <Image 
-              src="/assets/imagens/logobranco.png" 
+              src={isDarkMode ? "/assets/imagens/logobranco.png" : "/assets/imagens/logopreto.png"} 
               alt="Consert Logo" 
               width={160} 
               height={160}
@@ -2167,7 +2167,7 @@ export default function Home() {
             {/* Coluna 1 - Logo e Descrição */}
             <div className="flex flex-col items-center md:items-start">
               <Image 
-                src="/assets/imagens/logobranco.png" 
+                src={isDarkMode ? "/assets/imagens/logobranco.png" : "/assets/imagens/logopreto.png"} 
                 alt="CONSERT Logo" 
                 width={180} 
                 height={180}
