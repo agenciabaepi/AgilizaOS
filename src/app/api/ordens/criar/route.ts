@@ -7,6 +7,9 @@ import { buildOSWebhookPayload } from '@/lib/sanitize-os-data';
 
 // Força execução no runtime Node.js (garante logs completos na Vercel)
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'force-no-store';
 
 export async function POST(request: NextRequest) {
   console.log('🚀 API /api/ordens/criar chamada!');
@@ -35,6 +38,13 @@ export async function POST(request: NextRequest) {
       servico: dadosOS.servico,
       tecnico_id: dadosOS.tecnico_id
     });
+
+    // Modo de diagnóstico: se passar ?debug=1, finaliza logo após logar
+    const debug = request.nextUrl?.searchParams?.get('debug');
+    if (debug === '1') {
+      console.warn('[Webhook OS][DEBUG] Encerrando cedo para garantir flush de logs');
+      return NextResponse.json({ ok: true, debug: true });
+    }
     // Verificar se empresa_id já está presente nos dados
     if (!dadosOS.empresa_id) {
       return NextResponse.json(
