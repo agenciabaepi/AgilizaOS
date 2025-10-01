@@ -40,10 +40,10 @@ export async function notificarNovaOSN8N(payload: NovaOSPayload): Promise<boolea
       return false;
     }
     
-    console.log('[Webhook OS][PROD] payload:', JSON.stringify(payload, null, 2));
-    console.log('[Webhook OS] URL:', webhookUrl);
-    console.log('[Webhook OS] Ambiente:', process.env.NODE_ENV);
-    console.log('[Webhook OS] Headers:', JSON.stringify({ 'Content-Type': 'application/json' }));
+    console.warn('[Webhook OS][PROD] payload:', JSON.stringify(payload, null, 2));
+    console.warn('[Webhook OS] URL:', webhookUrl);
+    console.warn('[Webhook OS] Ambiente:', process.env.NODE_ENV);
+    console.warn('[Webhook OS] Headers:', JSON.stringify({ 'Content-Type': 'application/json' }));
     
     const response = await fetch(webhookUrl, {
       method: 'POST',
@@ -53,7 +53,7 @@ export async function notificarNovaOSN8N(payload: NovaOSPayload): Promise<boolea
       body: JSON.stringify(payload),
     });
 
-    console.log('[Webhook OS] Response status:', response.status, response.statusText);
+    console.warn('[Webhook OS] Response status:', response.status, response.statusText);
 
     if (!response.ok) {
       const errorData = await response.text();
@@ -68,7 +68,7 @@ export async function notificarNovaOSN8N(payload: NovaOSPayload): Promise<boolea
     }
 
     const responseData = await response.text();
-    console.log('✅ N8N: Notificação enviada com sucesso. Response:', responseData);
+    console.warn('✅ N8N: Notificação enviada com sucesso. Response (primeiros 300):', responseData.slice(0, 300));
     return true;
     
   } catch (error) {
