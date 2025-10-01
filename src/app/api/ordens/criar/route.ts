@@ -5,6 +5,9 @@ import { sendNewOSNotification } from '@/lib/whatsapp-notifications';
 import { notificarNovaOSN8N, gerarURLOs, formatarWhatsApp } from '@/lib/n8n-nova-os';
 import { buildOSWebhookPayload } from '@/lib/sanitize-os-data';
 
+// Força execução no runtime Node.js (garante logs completos na Vercel)
+export const runtime = 'nodejs';
+
 export async function POST(request: NextRequest) {
   console.log('🚀 API /api/ordens/criar chamada!');
   try {
