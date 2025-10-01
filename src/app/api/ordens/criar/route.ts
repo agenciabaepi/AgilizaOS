@@ -20,7 +20,18 @@ export async function POST(request: NextRequest) {
         },
       }
     );
+    
     const dadosOS = await request.json();
+    
+    // Log do payload recebido ANTES de processar
+    console.log('[Webhook OS][PROD] payload recebido:', JSON.stringify(dadosOS, null, 2));
+    console.log('[Webhook OS][PROD] campos críticos:', {
+      equipamento: dadosOS.equipamento,
+      modelo: dadosOS.modelo,
+      problema_relatado: dadosOS.problema_relatado,
+      servico: dadosOS.servico,
+      tecnico_id: dadosOS.tecnico_id
+    });
     // Verificar se empresa_id já está presente nos dados
     if (!dadosOS.empresa_id) {
       return NextResponse.json(
@@ -301,8 +312,8 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Erro geral ao criar OS:', error);
-    console.error('Detalhes do erro:', {
+    console.error('[Webhook OS][ERRO] Erro geral ao criar OS:', error);
+    console.error('[Webhook OS][ERRO] Detalhes do erro:', {
       message: error instanceof Error ? error.message : 'Erro desconhecido',
       stack: error instanceof Error ? error.stack : undefined
     });
