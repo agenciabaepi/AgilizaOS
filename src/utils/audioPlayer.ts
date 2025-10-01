@@ -94,27 +94,67 @@ export class AudioPlayer {
   }
 
   async playNotificationSound(): Promise<boolean> {
-    console.log('🔔 AudioPlayer: Tentando reproduzir som de notificação...');
+    console.log('🔔 AudioPlayer: Tentando reproduzir som de notificação em tempo real...');
     console.log(`👆 AudioPlayer: Usuário interagiu: ${this.userInteracted}`);
 
-    // Se o usuário não interagiu ainda, tentar forçar interação
+    // Estratégia agressiva para reproduzir som sem interação do usuário (como WhatsApp Web)
+    console.log('🔔 AudioPlayer: Forçando reprodução automática...');
+    
+    // 1. Tentar ativar contexto de áudio automaticamente
     if (!this.userInteracted) {
-      console.log('⚠️ AudioPlayer: Usuário não interagiu ainda, tentando forçar permissão...');
+      console.log('⚠️ AudioPlayer: Ativando contexto de áudio automaticamente...');
       
-      // Tentar reproduzir um som silencioso para ativar o contexto de áudio
       try {
+        // Método 1: Som silencioso para ativar contexto
         const silentAudio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT');
-        silentAudio.volume = 0.01;
-        await silentAudio.play();
-        this.userInteracted = true;
-        console.log('✅ AudioPlayer: Contexto de áudio ativado com sucesso!');
+        silentAudio.volume = 0.001; // Volume ainda menor
+        silentAudio.play().then(() => {
+          this.userInteracted = true;
+          console.log('✅ AudioPlayer: Contexto de áudio ativado!');
+        }).catch(() => {
+          console.log('⚠️ AudioPlayer: Falha na ativação silenciosa, continuando...');
+        });
+        
+        // Método 2: Simular clique invisível para ativar contexto
+        setTimeout(() => {
+          if (!this.userInteracted) {
+            const fakeButton = document.createElement('button');
+            fakeButton.style.display = 'none';
+            fakeButton.style.position = 'absolute';
+            fakeButton.style.left = '-9999px';
+            document.body.appendChild(fakeButton);
+            fakeButton.click();
+            document.body.removeChild(fakeButton);
+            this.userInteracted = true;
+            console.log('✅ AudioPlayer: Contexto ativado via simulação de clique');
+          }
+        }, 100);
+        
       } catch (error) {
-        console.warn('⚠️ AudioPlayer: Não foi possível ativar contexto de áudio:', error);
-        return false;
+        console.warn('⚠️ AudioPlayer: Erro na ativação automática:', error);
+        // Marcar como interagido mesmo com erro para continuar tentando
+        this.userInteracted = true;
       }
     }
 
-    // Tentar múltiplas vezes com diferentes métodos
+    // Estratégia adicional: Tentar reproduzir SOM IMEDIATO sem esperar contexto
+    console.log('🔔 AudioPlayer: Tentando reprodução imediata (estratégia WhatsApp Web)...');
+    
+    // Tentar reproduzir som imediatamente, mesmo sem contexto ativo
+    try {
+      const immediateAudio = new Audio('/assets/sounds/Msn.mp3');
+      immediateAudio.volume = 0.8;
+      immediateAudio.play().then(() => {
+        console.log('✅ AudioPlayer: Som reproduzido IMEDIATAMENTE!');
+        this.userInteracted = true;
+      }).catch((error) => {
+        console.log('⚠️ AudioPlayer: Reprodução imediata falhou, tentando outros métodos...', error);
+      });
+    } catch (error) {
+      console.log('⚠️ AudioPlayer: Erro na reprodução imediata:', error);
+    }
+
+    // Tentar múltiplas vezes com diferentes métodos (fallback)
     const methods = [
       () => this.playWithPreloadedAudio(), // Usar áudio pré-carregado
       () => this.playWithHTML5Audio(),
@@ -136,9 +176,9 @@ export class AudioPlayer {
         console.warn(`⚠️ AudioPlayer: Tentativa ${i + 1} falhou:`, error);
       }
       
-      // Pequena pausa entre tentativas
+      // Pequena pausa entre tentativas (menor para tempo real)
       if (i < methods.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
     }
 
@@ -287,9 +327,14 @@ export class AudioPlayer {
     }
   }
 
-  // Método para criar botão de ativação de áudio (fallback para produção)
+  // Método para criar botão de ativação de áudio (fallback apenas quando necessário)
   createAudioActivationButton(): HTMLElement | null {
     if (typeof window === 'undefined' || this.userInteracted) return null;
+    
+    // Não criar botão automaticamente - tentar reproduzir som primeiro
+    console.log('🔔 AudioPlayer: Tentando reproduzir som sem botão de ativação...');
+    this.playNotificationSound();
+    return null;
 
     const button = document.createElement('button');
     button.innerHTML = '🔊 Ativar Notificações Sonoras';
@@ -351,4 +396,48 @@ export const requestAudioPermission = async (): Promise<boolean> => {
 export const createAudioActivationButton = (): HTMLElement | null => {
   const player = AudioPlayer.getInstance();
   return player.createAudioActivationButton();
+};
+
+// Função para inicializar automaticamente o contexto de áudio (como WhatsApp Web)
+export const initializeAudioContext = async (): Promise<void> => {
+  if (typeof window === 'undefined') return;
+  
+  console.log('🔔 Inicializando contexto de áudio automaticamente...');
+  
+  // Tentar ativar contexto de áudio assim que a página carrega
+  try {
+    const audioPlayer = AudioPlayer.getInstance();
+    
+    // Criar um evento de clique invisível para ativar contexto
+    const activateContext = () => {
+      console.log('🔔 Ativando contexto de áudio via evento de página...');
+      
+      // Simular interação do usuário
+      const fakeEvent = new MouseEvent('click', { bubbles: true });
+      document.dispatchEvent(fakeEvent);
+      
+      // Tentar reproduzir som silencioso
+      const silentAudio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT');
+      silentAudio.volume = 0.001;
+      silentAudio.play().then(() => {
+        console.log('✅ Contexto de áudio ativado automaticamente!');
+      }).catch(() => {
+        console.log('⚠️ Falha na ativação automática do contexto');
+      });
+    };
+    
+    // Ativar contexto em múltiplos eventos
+    document.addEventListener('DOMContentLoaded', activateContext);
+    window.addEventListener('load', activateContext);
+    document.addEventListener('click', activateContext, { once: true });
+    document.addEventListener('keydown', activateContext, { once: true });
+    
+    // Ativar contexto imediatamente se a página já carregou
+    if (document.readyState === 'complete') {
+      activateContext();
+    }
+    
+  } catch (error) {
+    console.warn('⚠️ Erro ao inicializar contexto de áudio:', error);
+  }
 };

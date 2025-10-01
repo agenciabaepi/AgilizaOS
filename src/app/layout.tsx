@@ -13,6 +13,7 @@ import { useRealtimeNotificacoes } from '@/hooks/useRealtimeNotificacoes';
 import { useAutoReload } from '@/hooks/useAutoReload';
 import { ToastProvider } from '@/components/Toast';
 import { ConfirmProvider } from '@/components/ConfirmDialog';
+import { initializeAudioContext } from '@/utils/audioPlayer';
 // Removido TrialExpiredGuard (assinatura)
 
 import { Toaster } from 'react-hot-toast';
@@ -27,6 +28,12 @@ function AuthContent({ children }: { children: React.ReactNode }) {
   useRealtimeNotificacoes(empresaData?.id);
   // ✅ DESABILITADO: Auto-reload estava causando problemas de redirecionamento
   // useAutoReload();
+  
+  // Inicializar contexto de áudio automaticamente (como WhatsApp Web)
+  useEffect(() => {
+    initializeAudioContext();
+  }, []);
+  
   // Banner simples de aviso de vencimento (frontend)
   const [banner, setBanner] = useState<{ texto: string } | null>(null);
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
