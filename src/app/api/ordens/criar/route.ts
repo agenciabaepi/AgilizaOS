@@ -295,6 +295,24 @@ export async function POST(request: NextRequest) {
         console.warn('[Webhook OS][PROD] payload:', JSON.stringify(n8nPayload, null, 2));
         console.warn(`[Build] version=${process.env.VERCEL_GIT_COMMIT_SHA || process.env.BUILD_ID || 'unknown'}`);
 
+        // Se estiver em modo debug=1, apenas retorne os dados sem enviar
+        const dbg = request.nextUrl?.searchParams?.get('debug');
+        if (dbg === '1') {
+          return NextResponse.json({ ok: true, debug: 'dry-run', src: sourceData, payload: n8nPayload });
+        }
+
+        // Se estiver em modo debug=send, envia e retorna detalhes da resposta
+        if (dbg === 'send') {
+          const webhookUrl = process.env.N8N_WEBHOOK_NOVA_OS_URL || 'https://gestaoconsert.app.n8n.cloud/webhook/consertos/nova-os';
+          const res = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(n8nPayload),
+          });
+          const text = await res.text();
+          return NextResponse.json({ ok: res.ok, status: res.status, url: webhookUrl, src: sourceData, payload: n8nPayload, response: text.slice(0, 500) });
+        }
+
         // Enviar para N8N usando webhook específico
         const n8nSuccess = await notificarNovaOSN8N(n8nPayload);
         
