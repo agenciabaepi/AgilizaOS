@@ -275,10 +275,10 @@ export async function POST(request: NextRequest) {
           status: osCompleta.status,
           cliente_nome: clienteNome,
           cliente_telefone: cliente?.telefone,
-          equipamento: osCompleta.equipamento,
-          modelo: osCompleta.modelo,
-          problema_relatado: osCompleta.problema_relatado,
-          servico: osCompleta.servico,
+          equipamento: osCompleta.equipamento || dadosOS.equipamento || '',
+          modelo: osCompleta.modelo || dadosOS.modelo || '',
+          problema_relatado: osCompleta.problema_relatado || dadosOS.problema_relatado || '',
+          servico: osCompleta.servico || dadosOS.servico || '',
           tecnico_nome: tecnicoNome,
           tecnico_whatsapp: tecnicoFinal.whatsapp,
         };
@@ -317,19 +317,12 @@ export async function POST(request: NextRequest) {
         const n8nSuccess = await notificarNovaOSN8N(n8nPayload);
         
         if (n8nSuccess) {
-          console.log('✅ N8N: Notificação enviada com sucesso para webhook novo-aparelho');
+          console.log('✅ N8N: Notificação enviada com sucesso para webhook nova-os');
         } else {
-          console.warn('⚠️ N8N: Falha ao enviar notificação para webhook novo-aparelho');
+          console.warn('⚠️ N8N: Falha ao enviar notificação para webhook nova-os');
         }
-
-        // Fallback: também tentar método antigo
-        const notificationSent = await sendNewOSNotification(osData.id);
-        console.log('📱 Notificação WhatsApp (fallback):', notificationSent ? 'Enviada com sucesso' : 'Falha no envio');
       } else {
         console.warn('⚠️ N8N: Erro ao buscar dados completos da OS:', osCompletaError);
-        // Fallback para método antigo
-      const notificationSent = await sendNewOSNotification(osData.id);
-        console.log('📱 Notificação WhatsApp (fallback):', notificationSent ? 'Enviada com sucesso' : 'Falha no envio');
       }
     } catch (notificationError) {
       console.error('❌ N8N: Erro ao enviar notificação de nova OS:', notificationError);
