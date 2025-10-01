@@ -2,34 +2,22 @@
  * Helper para sanitizar e normalizar dados de OS antes de enviar para webhooks
  */
 
+// Regex para detectar valores inválidos
+const BAD = /^(n[ãa]o\s+informado|nao\s+informado|n[ãa]o\s+especificado|nao\s+especificado|n[ãa]o\s+informado|n[ãa]o\s+especificado)$/i;
+
+/**
+ * Normaliza valor e retorna string vazia se for inválido
+ */
+const norm = (v: any): string => {
+  const s = (v ?? '').toString().trim();
+  return BAD.test(s) ? '' : s;
+};
+
 /**
  * Remove valores como "Não informado", "Não especificado" e retorna string vazia
  */
 export function sanitizeValue(value: string | null | undefined): string {
-  if (!value) return '';
-  
-  const str = value.toString().trim();
-  
-  // Lista de valores inválidos (case-insensitive, com ou sem acento)
-  const invalidValues = [
-    'não informado',
-    'nao informado',
-    'não especificado',
-    'nao especificado',
-    'não definido',
-    'nao definido',
-    '-',
-    'n/a',
-    'na'
-  ];
-  
-  // Verifica se o valor é inválido
-  const normalizedStr = str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  if (invalidValues.some(invalid => normalizedStr === invalid)) {
-    return '';
-  }
-  
-  return str;
+  return norm(value);
 }
 
 /**
@@ -93,35 +81,25 @@ export function buildOSWebhookPayload(data: {
   tecnico_whatsapp?: string;
   link_os: string;
 }): OSWebhookPayload {
-  // Mapear aparelho de múltiplas fontes possíveis
-  const aparelho = sanitizeValue(
-    data.aparelho || data.equipamento
-  );
-  
-  // Mapear modelo
-  const modelo = sanitizeValue(data.modelo);
-  
-  // Mapear defeito de múltiplas fontes possíveis
-  const defeito = sanitizeValue(
-    data.defeito || data.problema_relatado || data.reclamacao
-  );
-  
-  // Mapear serviço (usar defeito como fallback se não houver)
-  const servico = sanitizeValue(data.servico) || defeito;
+  // Mapear campos usando fallbacks múltiplos
+  const aparelho = norm(data.aparelho || data.equipamento);
+  const modelo = norm(data.modelo);
+  const defeito = norm(data.defeito || data.problema_relatado || data.reclamacao);
+  const servico = norm(data.servico);
   
   return {
-    os_id: data.os_id,
-    numero_os: typeof data.numero_os === 'string' ? parseInt(data.numero_os) || 0 : data.numero_os || 0,
-    status: sanitizeValue(data.status),
-    cliente_nome: sanitizeValue(data.cliente_nome),
-    cliente_telefone: sanitizePhone(data.cliente_telefone),
-    aparelho: aparelho,
-    modelo: modelo,
-    defeito: defeito,
-    servico: servico,
-    tecnico_nome: sanitizeValue(data.tecnico_nome),
+    os_id: data.os_id || '',
+    numero_os: Number(data.numero_os ?? 0),
+    status: norm(data.status),
+    cliente_nome: norm(data.cliente_nome),
+    cliente_telefone: (data.cliente_telefone || '').toString().replace(/\D/g, ''),
+    aparelho: aparelho || '',
+    modelo: modelo || '',
+    defeito: defeito || '',
+    servico: servico || '',
+    tecnico_nome: norm(data.tecnico_nome),
     tecnico_whatsapp: formatWhatsAppNumber(data.tecnico_whatsapp),
-    link_os: data.link_os
+    link_os: data.link_os || (data.numero_os ? `https://gestaoconsert.com.br/ordens/${data.numero_os}` : '')
   };
 }
 

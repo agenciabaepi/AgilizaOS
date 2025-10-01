@@ -261,7 +261,9 @@ export async function POST(request: NextRequest) {
           link_os: gerarURLOs(osCompleta.id)
         });
 
-        console.log('📱 N8N: Payload final sanitizado:', JSON.stringify(n8nPayload, null, 2));
+        // Log do payload antes de enviar
+        console.log('[Webhook OS][PROD] payload:', JSON.stringify(n8nPayload, null, 2));
+        console.log(`[Build] version=${process.env.VERCEL_GIT_COMMIT_SHA || process.env.BUILD_ID || 'unknown'}`);
 
         // Enviar para N8N usando webhook específico
         const n8nSuccess = await notificarNovaOSN8N(n8nPayload);

@@ -26,10 +26,13 @@ export interface NovaOSPayload {
  * @returns Promise<boolean> - true se enviado com sucesso
  */
 export async function notificarNovaOSN8N(payload: NovaOSPayload): Promise<boolean> {
+  // Production URL do n8n
   const webhookUrl = process.env.N8N_WEBHOOK_NOVA_OS_URL || 'https://gestaoconsert.app.n8n.cloud/webhook/consertos/nova-os';
   
   try {
-    console.log('📱 N8N: Payload enviado para webhook:', JSON.stringify(payload, null, 2));
+    console.log('[Webhook OS][PROD] payload:', JSON.stringify(payload, null, 2));
+    console.log('[Webhook OS] URL:', webhookUrl);
+    console.log('[Webhook OS] Ambiente:', process.env.NODE_ENV);
     
     const response = await fetch(webhookUrl, {
       method: 'POST',
@@ -39,12 +42,15 @@ export async function notificarNovaOSN8N(payload: NovaOSPayload): Promise<boolea
       body: JSON.stringify(payload),
     });
 
+    console.log('[Webhook OS] Response status:', response.status, response.statusText);
+
     if (!response.ok) {
       const errorData = await response.text();
       console.error('❌ N8N: Erro ao enviar notificação:', {
         status: response.status,
         statusText: response.statusText,
         error: errorData,
+        webhookUrl: webhookUrl,
         payload: payload
       });
       return false;
@@ -56,6 +62,7 @@ export async function notificarNovaOSN8N(payload: NovaOSPayload): Promise<boolea
     
   } catch (error) {
     console.error('❌ N8N: Erro na chamada do webhook:', error);
+    console.error('❌ N8N: URL tentada:', webhookUrl);
     console.error('❌ N8N: Payload que falhou:', payload);
     return false;
   }
