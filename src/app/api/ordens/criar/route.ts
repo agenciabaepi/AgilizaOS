@@ -232,7 +232,7 @@ export async function POST(request: NextRequest) {
         
         // Montar descrição do equipamento com marca e modelo
         const equipamento = `${osCompleta.marca || 'Marca não informada'} ${osCompleta.modelo || 'Modelo não informado'}`.trim();
-        const clienteNome = cliente?.nome || 'Cliente não informado';
+        // clienteNome será definido abaixo
         const defeito = osCompleta.problema_relatado || 'Defeito não especificado';
         const status = osCompleta.status || 'Pendente';
 
@@ -276,13 +276,28 @@ export async function POST(request: NextRequest) {
           tecnico_id: osCompleta.tecnico_id
         });
 
+        // Buscar dados do cliente pelo cliente_id (sempre necessário)
+        let clienteNome = 'Cliente não informado';
+        let clienteTelefone = '';
+        if (dadosOS.cliente_id) {
+          const { data: clienteData } = await supabase
+            .from('clientes')
+            .select('nome, telefone')
+            .eq('id', dadosOS.cliente_id)
+            .single();
+          if (clienteData) {
+            clienteNome = clienteData.nome || clienteNome;
+            clienteTelefone = clienteData.telefone || '';
+          }
+        }
+
         // Log do objeto de origem ANTES do mapeamento
         const sourceData = {
           os_id: osCompleta.id,
           numero_os: osCompleta.numero_os,
           status: osCompleta.status,
           cliente_nome: clienteNome,
-          cliente_telefone: cliente?.telefone,
+          cliente_telefone: clienteTelefone,
           equipamento: osCompleta.equipamento || dadosOS.equipamento || '',
           modelo: osCompleta.modelo || dadosOS.modelo || '',
           problema_relatado: osCompleta.problema_relatado || dadosOS.problema_relatado || '',
