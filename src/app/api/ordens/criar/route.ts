@@ -337,7 +337,17 @@ export async function POST(request: NextRequest) {
         let clienteTelefone = '';
         if (clienteId) {
           const { data: cli } = await supabase.from('clientes').select('nome, telefone').eq('id', clienteId).single();
-          if (cli) { clienteNome = cli.nome || clienteNome; clienteTelefone = cli.telefone || ''; }
+          if (cli) { 
+            clienteNome = cli.nome || clienteNome; 
+            clienteTelefone = cli.telefone || ''; 
+          }
+        }
+        // Se ainda estiver vazio, usar dados do POST como último recurso
+        if (!clienteNome || clienteNome === 'Cliente não informado') {
+          clienteNome = dadosOS.cliente_nome || dadosOS.cliente || 'Cliente não informado';
+        }
+        if (!clienteTelefone) {
+          clienteTelefone = dadosOS.cliente_telefone || dadosOS.telefone || '';
         }
         let tecnicoFinal: any = null;
         if (dadosOS.tecnico_id) {
