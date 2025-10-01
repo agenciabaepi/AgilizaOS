@@ -1,23 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { notificarNovaOSN8N, gerarURLOs, formatarWhatsApp } from '@/lib/n8n-nova-os';
+import { notificarNovaOSN8N, gerarURLOs } from '@/lib/n8n-nova-os';
+import { buildOSWebhookPayload } from '@/lib/sanitize-os-data';
 
 export async function POST(request: NextRequest) {
   try {
-    const { numero_os, cliente_nome, equipamento, defeito, status, tecnico_nome, tecnico_whatsapp } = await request.json();
+    const body = await request.json();
 
     // Dados de teste se não fornecidos
-    const testPayload = {
-      numero_os: numero_os || 995,
-      cliente_nome: cliente_nome || 'Lucas Oliveira',
-      equipamento: equipamento || 'iPhone 14',
-      defeito: defeito || 'Face ID não funciona',
-      status: status || 'Orçamento',
-      tecnico_nome: tecnico_nome || 'Pedro',
-      tecnico_whatsapp: formatarWhatsApp(tecnico_whatsapp || '12988353971'),
-      link_os: gerarURLOs(numero_os || '995')
-    };
+    const testPayload = buildOSWebhookPayload({
+      os_id: body.os_id || 'test-' + Date.now(),
+      numero_os: body.numero_os || 995,
+      cliente_nome: body.cliente_nome || 'Lucas Oliveira',
+      cliente_telefone: body.cliente_telefone || '12999887766',
+      equipamento: body.equipamento || body.aparelho || 'SMARTPHONE',
+      modelo: body.modelo || 'iPhone 14',
+      problema_relatado: body.problema_relatado || body.defeito || 'Face ID não funciona',
+      servico: body.servico || 'Troca de Face ID',
+      status: body.status || 'Orçamento',
+      tecnico_nome: body.tecnico_nome || 'Pedro',
+      tecnico_whatsapp: body.tecnico_whatsapp || '12988353971',
+      link_os: gerarURLOs(body.os_id || 'test-995')
+    });
 
-    console.log('🧪 N8N: Testando webhook novo-aparelho com payload:', testPayload);
+    console.log('🧪 N8N: Testando webhook com payload:', testPayload);
 
     const success = await notificarNovaOSN8N(testPayload);
 
