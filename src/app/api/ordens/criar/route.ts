@@ -153,23 +153,31 @@ export async function POST(request: NextRequest) {
     // ✅ ENVIAR NOTIFICAÇÃO WHATSAPP PARA NOVA OS (via N8N - webhook novo-aparelho)
     console.log('📱 Enviando notificação WhatsApp para nova OS via N8N (webhook novo-aparelho)...');
     try {
-      // Buscar dados completos da OS incluindo cliente
-      const { data: osCompleta, error: osCompletaError } = await supabase
-        .from('ordens_servico')
-        .select(`
-          id,
-          numero_os,
-          marca,
-          modelo,
-          problema_relatado,
-          equipamento,
-          servico,
-          status,
-          tecnico_id,
-          clientes!inner(nome, telefone)
-        `)
-        .eq('id', osData.id)
-        .single();
+      // Buscar dados completos da OS incluindo cliente (com retry para evitar lag de replicação)
+      let osCompleta: any = null;
+      let osCompletaError: any = null;
+      for (let tent = 0; tent < 3; tent++) {
+        const { data, error } = await supabase
+          .from('ordens_servico')
+          .select(`
+            id,
+            numero_os,
+            marca,
+            modelo,
+            problema_relatado,
+            equipamento,
+            servico,
+            status,
+            tecnico_id,
+            clientes!inner(nome, telefone)
+          `)
+          .eq('id', osData.id)
+          .single();
+        osCompleta = data; osCompletaError = error;
+        if (!error && data) break;
+        console.warn('⚠️ Retry busca OS completa (tentativa', tent + 1, '):', error?.code || error?.message);
+        await new Promise(r => setTimeout(r, 200));
+      }
 
       // Buscar dados do técnico separadamente usando o tecnico_id da OS
       let tecnico = null;
@@ -322,7 +330,46 @@ export async function POST(request: NextRequest) {
           console.warn('⚠️ N8N: Falha ao enviar notificação para webhook nova-os');
         }
       } else {
-        console.warn('⚠️ N8N: Erro ao buscar dados completos da OS:', osCompletaError);
+        console.warn('⚠️ N8N: Erro ao buscar dados completos da OS (usando fallback):', osCompletaError);
+        // Fallback: montar a partir de dadosOS + buscas diretas de cliente e técnico
+        const clienteId = dadosOS.cliente_id;
+        let clienteNome = 'Cliente não informado';
+        let clienteTelefone = '';
+        if (clienteId) {
+          const { data: cli } = await supabase.from('clientes').select('nome, telefone').eq('id', clienteId).single();
+          if (cli) { clienteNome = cli.nome || clienteNome; clienteTelefone = cli.telefone || ''; }
+        }
+        let tecnicoFinal: any = null;
+        if (dadosOS.tecnico_id) {
+          const { data: tecnicoDireto } = await supabase
+            .from('usuarios')
+            .select('id, auth_user_id, nome, whatsapp')
+            .eq('auth_user_id', dadosOS.tecnico_id)
+            .single();
+          tecnicoFinal = tecnicoDireto;
+        }
+        if (!tecnicoFinal?.whatsapp) {
+          console.error('❌ N8N: Técnico inválido no fallback, abortando envio');
+          return;
+        }
+        const sourceData = {
+          os_id: osData.id,
+          numero_os: osData.numero_os,
+          status: dadosOS.status,
+          cliente_nome: clienteNome,
+          cliente_telefone: clienteTelefone,
+          equipamento: dadosOS.equipamento || '',
+          modelo: dadosOS.modelo || '',
+          problema_relatado: dadosOS.problema_relatado || '',
+          servico: dadosOS.servico || '',
+          tecnico_nome: tecnicoFinal.nome,
+          tecnico_whatsapp: tecnicoFinal.whatsapp,
+        };
+        console.warn('[Webhook OS][PROD] src(fallback):', JSON.stringify({ body: sourceData }, null, 2));
+        const n8nPayload = buildOSWebhookPayload({ ...sourceData, link_os: gerarURLOs(osData.id) });
+        console.warn('[Webhook OS][PROD] payload(fallback):', JSON.stringify(n8nPayload, null, 2));
+        const n8nSuccess = await notificarNovaOSN8N(n8nPayload);
+        if (!n8nSuccess) console.warn('⚠️ N8N: Falha no envio (fallback)');
       }
     } catch (notificationError) {
       console.error('❌ N8N: Erro ao enviar notificação de nova OS:', notificationError);
