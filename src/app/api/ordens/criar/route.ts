@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendNewOSNotification } from '@/lib/whatsapp-notifications';
+import { createAdminClient } from '@/lib/supabaseClient';
 import { notificarNovaOSN8N, gerarURLOs, formatarWhatsApp } from '@/lib/n8n-nova-os';
 import { buildOSWebhookPayload } from '@/lib/sanitize-os-data';
 
@@ -353,7 +354,9 @@ export async function POST(request: NextRequest) {
         let clienteTelefone = '';
         if (clienteId) {
           console.warn('[Webhook OS][FALLBACK] Buscando cliente no banco...');
-          const { data: cli, error: cliError } = await supabase.from('clientes').select('nome, telefone').eq('id', clienteId).single();
+          // Usar createAdminClient para contornar RLS
+          const adminSupabase = createAdminClient();
+          const { data: cli, error: cliError } = await adminSupabase.from('clientes').select('nome, telefone').eq('id', clienteId).single();
           console.warn('[Webhook OS][FALLBACK] Resultado busca cliente:', { cli, cliError });
           if (cli) { 
             clienteNome = cli.nome || clienteNome; 
@@ -374,7 +377,9 @@ export async function POST(request: NextRequest) {
         }
         let tecnicoFinal: any = null;
         if (dadosOS.tecnico_id) {
-          const { data: tecnicoDireto } = await supabase
+          // Usar createAdminClient para contornar RLS
+          const adminSupabase = createAdminClient();
+          const { data: tecnicoDireto } = await adminSupabase
             .from('usuarios')
             .select('id, auth_user_id, nome, whatsapp')
             .eq('auth_user_id', dadosOS.tecnico_id)
