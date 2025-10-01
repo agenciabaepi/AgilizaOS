@@ -10,14 +10,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'ID do usuário não informado' }, { status: 400 });
     }
 
-    // Atualiza e-mail no Supabase Auth se fornecido
+    // Atualiza e-mail no Supabase Auth se fornecido e se o email mudou
     if (email && auth_user_id) {
-      const { error: emailError } = await supabaseAdmin.auth.admin.updateUserById(auth_user_id, { email: email });
-      if (emailError) {
-        console.error('Erro ao atualizar e-mail no Auth:', emailError);
-        return NextResponse.json({ error: 'Erro ao atualizar e-mail: ' + emailError.message }, { status: 400 });
+      // Buscar o usuário atual para verificar se o email mudou
+      const { data: currentUser, error: fetchError } = await supabaseAdmin.auth.admin.getUserById(auth_user_id);
+      
+      if (fetchError) {
+        console.error('Erro ao buscar usuário atual:', fetchError);
+        return NextResponse.json({ error: 'Erro ao verificar usuário atual' }, { status: 400 });
       }
+      
+      // Só atualizar o email se ele realmente mudou
+      if (currentUser?.user?.email !== email) {
+        const { error: emailError } = await supabaseAdmin.auth.admin.updateUserById(auth_user_id, { email: email });
+        if (emailError) {
+          console.error('Erro ao atualizar e-mail no Auth:', emailError);
+          return NextResponse.json({ error: 'Erro ao atualizar e-mail: ' + emailError.message }, { status: 400 });
+        }
       }
+    }
 
     // Atualiza senha no Supabase Auth se fornecida
     if (senha && auth_user_id) {

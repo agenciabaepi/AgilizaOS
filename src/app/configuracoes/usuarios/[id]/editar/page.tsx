@@ -19,6 +19,7 @@ import {
   FiX,
   FiCheck
 } from 'react-icons/fi';
+import { mask as masker } from 'remask';
 import { 
   User, 
   Users, 
@@ -792,7 +793,11 @@ function EditarUsuarioPageInner() {
                 type="text"
                 name="whatsapp"
                 value={form.whatsapp}
-                onChange={handleChange}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/\D/g, '');
+                  setForm({ ...form, whatsapp: masker(raw, ['(99) 99999-9999']) });
+                }}
+                maxLength={15}
                       className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
                       placeholder="(00) 00000-0000"
               />
