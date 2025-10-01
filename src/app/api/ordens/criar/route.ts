@@ -23,9 +23,9 @@ export async function POST(request: NextRequest) {
     
     const dadosOS = await request.json();
     
-    // Log do payload recebido ANTES de processar
-    console.log('[Webhook OS][PROD] payload recebido:', JSON.stringify(dadosOS, null, 2));
-    console.log('[Webhook OS][PROD] campos críticos:', {
+    // Log do payload recebido ANTES de processar (warn para aparecer no Vercel)
+    console.warn('[Webhook OS][PROD] payload recebido:', JSON.stringify(dadosOS, null, 2));
+    console.warn('[Webhook OS][PROD] campos críticos:', {
       equipamento: dadosOS.equipamento,
       modelo: dadosOS.modelo,
       problema_relatado: dadosOS.problema_relatado,
@@ -270,7 +270,7 @@ export async function POST(request: NextRequest) {
           tecnico_whatsapp: tecnicoFinal.whatsapp,
         };
         
-        console.log('[Webhook OS][PROD] src:', JSON.stringify({ body: sourceData }, null, 2));
+        console.warn('[Webhook OS][PROD] src:', JSON.stringify({ body: sourceData }, null, 2));
 
         // Preparar payload sanitizado para webhook
         const n8nPayload = buildOSWebhookPayload({
@@ -278,9 +278,9 @@ export async function POST(request: NextRequest) {
           link_os: gerarURLOs(osCompleta.id)
         });
 
-        // Log do payload APÓS sanitização
-        console.log('[Webhook OS][PROD] payload:', JSON.stringify(n8nPayload, null, 2));
-        console.log(`[Build] version=${process.env.VERCEL_GIT_COMMIT_SHA || process.env.BUILD_ID || 'unknown'}`);
+        // Log do payload APÓS sanitização (warn para aparecer)
+        console.warn('[Webhook OS][PROD] payload:', JSON.stringify(n8nPayload, null, 2));
+        console.warn(`[Build] version=${process.env.VERCEL_GIT_COMMIT_SHA || process.env.BUILD_ID || 'unknown'}`);
 
         // Enviar para N8N usando webhook específico
         const n8nSuccess = await notificarNovaOSN8N(n8nPayload);
