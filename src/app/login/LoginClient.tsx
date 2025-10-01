@@ -89,7 +89,15 @@ function LoginClientInner() {
     setIsMounted(true);
   }, []);
 
-  // 🔒 PROTEÇÃO EXTRA: Se já estiver logado, não renderizar NADA
+  // 🔒 PROTEÇÃO EXTRA: Se já estiver logado, redirecionar automaticamente
+  useEffect(() => {
+    if (auth.user && auth.session && !auth.loading) {
+      console.log('🔄 Usuário já logado, redirecionando para dashboard...');
+      router.replace('/dashboard');
+    }
+  }, [auth.user, auth.session, auth.loading, router]);
+
+  // 🔒 PROTEÇÃO EXTRA: Se já estiver logado, mostrar loading
   if (auth.user && auth.session && !auth.loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#cffb6d] to-[#e0ffe3] flex items-center justify-center">
