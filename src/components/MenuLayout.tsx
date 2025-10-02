@@ -31,7 +31,6 @@ import { SubscriptionStatus } from '@/components/SubscriptionStatus';
 import LogoutScreen from '@/components/LogoutScreen';
 import { useWhatsAppNotification } from '@/hooks/useWhatsAppNotification';
 import { useLogout } from '@/hooks/useLogout';
-import SimpleAuthGuard from './SimpleAuthGuard';
 
 // Funções locais como fallback
 const isUsuarioTesteLocal = (usuario: any) => {
@@ -174,8 +173,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const menuExpandidoFinal = menuExpandido ?? false;
   
   return (
-    <SimpleAuthGuard>
-      <div className="flex min-h-screen bg-white">
+    <div className="flex min-h-screen bg-white">
         {/* Sidebar Desktop */}
         <aside className={`${menuRecolhidoFinal ? 'w-16' : 'w-64'} bg-black border-r border-white/20 flex flex-col py-8 ${menuRecolhidoFinal ? 'px-2' : 'px-4'} h-screen fixed top-0 left-0 z-40 hidden md:flex transition-all duration-300 overflow-y-auto no-print`}>
         {/* Logo branco centralizado */}
@@ -821,7 +819,6 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
       
       
     </div>
-    </SimpleAuthGuard>
   );
 }
 

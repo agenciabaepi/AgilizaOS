@@ -165,18 +165,11 @@ export function rateLimitMiddleware(req: NextRequest): NextResponse | undefined 
   return NextResponse.next();
 }
 
-// Middleware para Next.js
+// Configuração do middleware (agora gerenciada pelo middleware.ts principal)
+// Esta função é chamada pelo middleware.ts principal
 export function middleware(req: NextRequest) {
   return rateLimitMiddleware(req);
 }
-
-// Configuração do middleware
-export const config = {
-  matcher: [
-    '/api/:path*',
-    '/((?!_next/static|_next/image|favicon.ico).*)',
-  ],
-};
 
 // Utilitários para monitoramento
 export const rateLimitUtils = {
