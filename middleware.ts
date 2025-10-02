@@ -5,6 +5,10 @@ import { rateLimitMiddleware } from './src/middleware/rateLimit';
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Debug: Log para verificar se middleware está executando
+  console.log(`🔍 Middleware executando para: ${pathname}`);
+  console.log(`🍪 Cookies disponíveis:`, request.cookies.getAll().map(c => c.name));
+
   // 1. Aplicar rate limiting para APIs
   const rateLimitResponse = rateLimitMiddleware(request);
   if (rateLimitResponse) {
@@ -31,13 +35,26 @@ export async function middleware(request: NextRequest) {
   // Verificar se é uma rota pública
   const isPublicPath = publicPaths.some(path => pathname.startsWith(path));
   
+  console.log(`🔐 Rota ${pathname} é pública: ${isPublicPath}`);
+  
   if (!isPublicPath) {
+    // Verificar cookies do Supabase (nomes corretos)
+    const supabaseCookies = request.cookies.getAll().filter(cookie => 
+      cookie.name.startsWith('sb-') || 
+      cookie.name.includes('supabase') ||
+      cookie.name.includes('auth')
+    );
+    
+    console.log(`🍪 Cookies Supabase encontrados:`, supabaseCookies.map(c => `${c.name}=${c.value.substring(0, 20)}...`));
+    
     // Verificar se usuário está autenticado
-    const session = request.cookies.get('sb-access-token')?.value || 
-                   request.cookies.get('session')?.value ||
-                   request.headers.get('authorization');
+    const hasValidSession = supabaseCookies.length > 0 && 
+                           supabaseCookies.some(cookie => cookie.value && cookie.value.length > 10);
 
-    if (!session) {
+    console.log(`🔑 Sessão válida encontrada: ${hasValidSession}`);
+
+    if (!hasValidSession) {
+      console.log(`🚫 Redirecionando para login: ${pathname}`);
       // Redirecionar para login mantendo a URL de destino
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('redirect', pathname);
