@@ -96,10 +96,13 @@ export default function Home() {
 
     // Fechar dropdown quando clicar fora
     const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      const dropdownButton = target.closest('button');
-      if (!dropdownButton || !dropdownButton.textContent?.includes('Mais')) {
-        setIsMoreMenuOpen(false);
+      const target = e.target;
+      // Verificar se o target é um Element e tem o método closest
+      if (target && typeof (target as any).closest === 'function') {
+        const dropdownButton = (target as Element).closest('button');
+        if (!dropdownButton || !dropdownButton.textContent?.includes('Mais')) {
+          setIsMoreMenuOpen(false);
+        }
       }
     };
 
@@ -192,10 +195,15 @@ export default function Home() {
         <div 
           className="absolute inset-0" 
           style={{
-            backgroundImage: `
-              linear-gradient(rgba(209, 254, 110, 0.08) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(209, 254, 110, 0.08) 1px, transparent 1px)
-            `,
+            backgroundImage: isDarkMode 
+              ? `
+                linear-gradient(rgba(209, 254, 110, 0.08) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(209, 254, 110, 0.08) 1px, transparent 1px)
+              `
+              : `
+                linear-gradient(rgba(0, 0, 0, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 0, 0, 0.02) 1px, transparent 1px)
+              `,
             backgroundSize: '100px 100px',
             ...getBackgroundTransform(0.3)
           }}
@@ -207,7 +215,7 @@ export default function Home() {
         className={`absolute inset-0 opacity-40 ${
           isDarkMode 
             ? 'bg-gradient-to-t from-black via-transparent to-transparent' 
-            : 'bg-gradient-to-t from-gray-900 via-transparent to-transparent'
+            : 'bg-gradient-to-t from-gray-50 via-transparent to-transparent'
         }`}
         style={getBackgroundTransform(0.2)}
       ></div>
@@ -215,7 +223,7 @@ export default function Home() {
         className={`absolute inset-0 opacity-20 ${
           isDarkMode 
             ? 'bg-gradient-to-b from-black via-transparent to-transparent' 
-            : 'bg-gradient-to-b from-gray-800 via-transparent to-transparent'
+            : 'bg-gradient-to-b from-gray-100 via-transparent to-transparent'
         }`}
         style={getBackgroundTransform(0.1)}
       ></div>
@@ -543,15 +551,17 @@ export default function Home() {
             className={`inline-flex items-center px-8 py-4 backdrop-blur-xl border rounded-full mb-12 scroll-reveal-slide-up ${
               isDarkMode 
                 ? 'bg-white/5 border-white/20' 
-                : 'bg-white/90 border-gray-200'
+                : 'bg-white/95 border-gray-300 shadow-lg'
             } ${
               isAnimated('badge') ? 'animated' : ''
             }`}
             style={{
-              boxShadow: isDarkMode ? '0 8px 32px rgba(209, 254, 110, 0.1)' : '0 4px 16px rgba(0,0,0,0.1)',
+              boxShadow: isDarkMode 
+                ? '0 8px 32px rgba(209, 254, 110, 0.1)' 
+                : '0 8px 32px rgba(0,0,0,0.15), 0 4px 16px rgba(0,0,0,0.1)',
               background: isDarkMode 
                 ? 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
-                : 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(248,250,252,0.9) 100%)'
+                : 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.95) 100%)'
             }}
           >
             <div className="w-3 h-3 bg-[#D1FE6E] rounded-full mr-4 animate-pulse"></div>
@@ -618,12 +628,15 @@ export default function Home() {
               className={`px-12 py-5 border rounded-full font-medium text-lg transition-all duration-500 backdrop-blur-sm ${
                 isDarkMode 
                   ? 'text-white border-white/30 hover:bg-white/10 hover:border-white/50' 
-                  : 'text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400'
+                  : 'text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-lg'
               }`}
               style={{
                 background: isDarkMode 
                   ? 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
-                  : 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.95) 100%)'
+                  : 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.95) 100%)',
+                boxShadow: isDarkMode 
+                  ? 'none' 
+                  : '0 8px 32px rgba(0,0,0,0.15), 0 4px 16px rgba(0,0,0,0.1)'
               }}
             >
               Começar Grátis

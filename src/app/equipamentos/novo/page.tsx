@@ -323,30 +323,46 @@ export default function NovoProdutoPage() {
     // Coleta das imagens selecionadas como arquivos
     const arquivos = selectedImages ? Array.from(selectedImages) : [];
     const uploadedImageUrls: string[] = [];
+    
+    console.log('🖼️ Processando imagens:', {
+      arquivosSelecionados: arquivos.length,
+      imagensExistentes: existingImageUrls.length,
+      empresaId: empresa_id
+    });
 
     // Envio de cada arquivo direto ao Supabase Storage
     for (const file of arquivos) {
-      // Gera nome de arquivo seguro, substituindo caracteres inválidos
-      const timestamp = Date.now();
-      const rawName = file.name;
-      const safeName = rawName.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-      const filePath = `produtos/${empresa_id}/${timestamp}_${safeName}`;
-      // Apaga logo anterior, se quiser comportamento similar ao logo
-      // await handleDeleteLogo? (não aplicável aqui)
-      const { error: uploadError } = await supabase
-        .storage
-        .from('produtos')
-        .upload(filePath, file, { upsert: false });
-      if (uploadError) {
-        console.error('Erro ao fazer upload da imagem:', uploadError);
-        addToast('error', `Erro ao fazer upload da imagem ${file.name}: ${uploadError.message}`);
-        continue;
+      try {
+        // Gera nome de arquivo seguro, substituindo caracteres inválidos
+        const timestamp = Date.now();
+        const rawName = file.name;
+        const safeName = rawName.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+        const filePath = `produtos/${empresa_id}/${timestamp}_${safeName}`;
+        
+        console.log('📤 Fazendo upload da imagem:', file.name, 'para:', filePath);
+        
+        const { error: uploadError } = await supabase
+          .storage
+          .from('produtos')
+          .upload(filePath, file, { upsert: false });
+          
+        if (uploadError) {
+          console.error('❌ Erro ao fazer upload da imagem:', uploadError);
+          addToast('error', `Erro ao fazer upload da imagem ${file.name}: ${uploadError.message}`);
+          continue;
+        }
+        
+        const { data: urlData } = supabase
+          .storage
+          .from('produtos')
+          .getPublicUrl(filePath);
+          
+        uploadedImageUrls.push(urlData.publicUrl);
+        console.log('✅ Imagem enviada com sucesso:', urlData.publicUrl);
+      } catch (error) {
+        console.error('❌ Erro inesperado no upload:', error);
+        addToast('error', `Erro inesperado ao fazer upload da imagem ${file.name}`);
       }
-      const { data: urlData } = supabase
-        .storage
-        .from('produtos')
-        .getPublicUrl(filePath);
-      uploadedImageUrls.push(urlData.publicUrl);
     }
     // Log dos dados enviados
     // empresa_id já obtido acima
@@ -381,6 +397,12 @@ export default function NovoProdutoPage() {
       codigo_barras: formData.codigo_barras || '',
       imagens: [...existingImageUrls, ...uploadedImageUrls], // used in POST, not update
     };
+    
+    console.log('📊 Dados finais para envio:', {
+      imagensExistentes: existingImageUrls.length,
+      imagensNovas: uploadedImageUrls.length,
+      totalImagens: [...existingImageUrls, ...uploadedImageUrls].length
+    });
 
 
     // Log dos dados para API
@@ -422,6 +444,12 @@ export default function NovoProdutoPage() {
         fornecedor: null,
       };
       
+      console.log('📊 Dados de atualização:', {
+        produtoId,
+        imagensExistentes: existingImageUrls.length,
+        imagensNovas: uploadedImageUrls.length,
+        totalImagens: [...existingImageUrls, ...uploadedImageUrls].length
+      });
       
       try {
         const response = await fetch(`/api/produtos-servicos/atualizar?produtoId=${produtoId}`, {
@@ -767,22 +795,26 @@ export default function NovoProdutoPage() {
                       <Input
                         id="imagens"
                         type="file"
+                        multiple
+                        accept="image/*"
                         onChange={(e) => {
                           const files = Array.from(e.target.files || []);
+                          console.log('📁 Arquivos selecionados:', files.length);
 
                           const oversized = files.filter((file) => file.size > 3 * 1024 * 1024);
                           if (oversized.length > 0) {
-                            alert("Algumas imagens excedem 3MB e foram ignoradas.");
+                            addToast('warning', `Algumas imagens excedem 3MB e foram ignoradas. (${oversized.length} arquivo(s))`);
                           }
 
                           const validFiles = files.filter((file) => file.size <= 3 * 1024 * 1024);
                           const totalImages = selectedImages.length + validFiles.length;
 
                           if (totalImages > 5) {
-                            alert("Você pode enviar no máximo 5 imagens de até 3MB cada.");
+                            addToast('error', "Você pode enviar no máximo 5 imagens de até 3MB cada.");
                             return;
                           }
 
+                          console.log('✅ Arquivos válidos adicionados:', validFiles.length);
                           setSelectedImages((prev) => [...prev, ...validFiles]);
                         }}
                       />

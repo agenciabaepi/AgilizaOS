@@ -63,14 +63,29 @@ export default function DashboardFinanceiroPage() {
   const [mesSelecionado, setMesSelecionado] = useState<number>(new Date().getMonth()); // Mês atual como padrão
   const [dadosMesSelecionado, setDadosMesSelecionado] = useState<FluxoCaixaMensal | null>(null);
   const [loadingMesSelecionado, setLoadingMesSelecionado] = useState(false);
+  
+  // ✅ CACHE: Evitar recarregamentos desnecessários
+  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
+  const [cacheKey, setCacheKey] = useState<string>('');
 
 
   useEffect(() => {
     if (empresaData?.id && anoSelecionado) {
-      fetchData();
-      fetchFluxoCaixaMensal();
+      const newCacheKey = `${empresaData.id}-${anoSelecionado}`;
+      const now = Date.now();
+      
+      // ✅ CACHE: Só recarregar se mudou a chave ou passou mais de 5 minutos
+      if (newCacheKey !== cacheKey || (now - lastFetchTime) > 300000) {
+        console.log('🔄 Recarregando dados do dashboard...');
+        setCacheKey(newCacheKey);
+        setLastFetchTime(now);
+        fetchData();
+        fetchFluxoCaixaMensal();
+      } else {
+        console.log('✅ Usando cache dos dados do dashboard');
+      }
     }
-  }, [empresaData?.id, anoSelecionado]);
+  }, [empresaData?.id, anoSelecionado, cacheKey, lastFetchTime]);
 
   // Carregar dados específicos do mês quando o fluxo de caixa mensal for carregado
   useEffect(() => {
@@ -113,27 +128,31 @@ export default function DashboardFinanceiroPage() {
         periodo: `${dataInicioFiltro} até ${dataFimFiltro}`
       });
 
-      // ✅ BUSCAR DADOS REAIS: Usar tabela vendas para receitas
-      const { data: vendasData, error: vendasError } = await supabase
-        .from('vendas')
-        .select('total, desconto, acrescimo, data_venda')
-        .eq('empresa_id', empresaData.id)
-        .gte('data_venda', `${dataInicioFiltro}T00:00:00`)
-        .lte('data_venda', `${dataFimFiltro}T23:59:59`);
+      // ✅ OTIMIZAÇÃO: Buscar dados em paralelo para melhor performance
+      const [vendasResult, contasResult] = await Promise.all([
+        supabase
+          .from('vendas')
+          .select('total, desconto, acrescimo, data_venda')
+          .eq('empresa_id', empresaData.id)
+          .gte('data_venda', `${dataInicioFiltro}T00:00:00`)
+          .lte('data_venda', `${dataFimFiltro}T23:59:59`),
+        
+        supabase
+          .from('contas_pagar')
+          .select('valor, status, data_vencimento, data_pagamento')
+          .eq('empresa_id', empresaData.id)
+      ]);
 
-      if (vendasError) {
-        console.error('Erro ao buscar vendas:', vendasError);
-        throw vendasError;
+      const vendasData = vendasResult.data;
+      const contasData = contasResult.data;
+
+      if (vendasResult.error) {
+        console.error('Erro ao buscar vendas:', vendasResult.error);
+        throw vendasResult.error;
       }
 
-      // ✅ BUSCAR DADOS REAIS: Usar tabela contas_pagar para despesas
-      const { data: contasData, error: contasError } = await supabase
-        .from('contas_pagar')
-        .select('valor, status, data_vencimento, data_pagamento')
-        .eq('empresa_id', empresaData.id);
-
-      if (contasError) {
-        console.warn('Erro ao buscar contas a pagar:', contasError);
+      if (contasResult.error) {
+        console.warn('Erro ao buscar contas a pagar:', contasResult.error);
       }
 
       // ✅ CALCULAR RECEITAS REAIS das vendas
@@ -238,40 +257,63 @@ export default function DashboardFinanceiroPage() {
     try {
       setLoadingFluxoCaixa(true);
       
+      console.log('🚀 Otimizando consultas do fluxo de caixa...');
+      
+      // ✅ OTIMIZAÇÃO: Buscar todos os dados do ano de uma vez
+      const inicioAno = new Date(parseInt(anoSelecionado), 0, 1);
+      const fimAno = new Date(parseInt(anoSelecionado), 11, 31);
+      
+      const dataInicioAno = inicioAno.toISOString().split('T')[0];
+      const dataFimAno = fimAno.toISOString().split('T')[0];
+      
+      // ✅ UMA CONSULTA para todas as vendas do ano
+      const { data: vendasAno } = await supabase
+        .from('vendas')
+        .select('total, desconto, acrescimo, data_venda')
+        .eq('empresa_id', empresaData.id)
+        .gte('data_venda', `${dataInicioAno}T00:00:00`)
+        .lte('data_venda', `${dataFimAno}T23:59:59`);
+      
+      // ✅ UMA CONSULTA para todas as contas do ano
+      const { data: contasAno } = await supabase
+        .from('contas_pagar')
+        .select('valor, status, data_vencimento')
+        .eq('empresa_id', empresaData.id)
+        .gte('data_vencimento', dataInicioAno)
+        .lte('data_vencimento', dataFimAno);
+      
+      console.log('📊 Dados carregados:', {
+        vendas: vendasAno?.length || 0,
+        contas: contasAno?.length || 0
+      });
+      
       const fluxoCaixa: FluxoCaixaMensal[] = [];
       
-      // Gerar dados para cada mês do ano
+      // ✅ PROCESSAR dados em memória (muito mais rápido)
       for (let mes = 0; mes < 12; mes++) {
         const inicioMes = new Date(parseInt(anoSelecionado), mes, 1);
         const fimMes = new Date(parseInt(anoSelecionado), mes + 1, 0);
         
-        const dataInicioMes = inicioMes.toISOString().split('T')[0];
-        const dataFimMes = fimMes.toISOString().split('T')[0];
+        // Filtrar vendas do mês
+        const vendasMes = vendasAno?.filter(venda => {
+          const dataVenda = new Date(venda.data_venda);
+          return dataVenda >= inicioMes && dataVenda <= fimMes;
+        }) || [];
         
-        // Buscar vendas do mês
-        const { data: vendasMes } = await supabase
-          .from('vendas')
-          .select('total, desconto, acrescimo')
-          .eq('empresa_id', empresaData.id)
-          .gte('data_venda', `${dataInicioMes}T00:00:00`)
-          .lte('data_venda', `${dataFimMes}T23:59:59`);
+        // Filtrar contas do mês
+        const contasMes = contasAno?.filter(conta => {
+          const dataVencimento = new Date(conta.data_vencimento);
+          return dataVencimento >= inicioMes && dataVencimento <= fimMes;
+        }) || [];
         
-        // Buscar contas do mês
-        const { data: contasMes } = await supabase
-          .from('contas_pagar')
-          .select('valor, status')
-          .eq('empresa_id', empresaData.id)
-          .gte('data_vencimento', dataInicioMes)
-          .lte('data_vencimento', dataFimMes);
-        
-        const entradas = vendasMes?.reduce((total, venda) => {
+        const entradas = vendasMes.reduce((total, venda) => {
           const receitaBruta = venda.total || 0;
           const desconto = venda.desconto || 0;
           const acrescimo = venda.acrescimo || 0;
           return total + (receitaBruta - desconto + acrescimo);
-        }, 0) || 0;
+        }, 0);
         
-        const saidas = contasMes?.reduce((total, conta) => total + (conta.valor || 0), 0) || 0;
+        const saidas = contasMes.reduce((total, conta) => total + (conta.valor || 0), 0);
         const saldoPeriodo = entradas - saidas;
         
         // Calcular saldo final acumulado
@@ -279,7 +321,6 @@ export default function DashboardFinanceiroPage() {
           fluxoCaixa[mes - 1].saldo_final + saldoPeriodo;
         
         const hoje = new Date();
-        const isMesAtual = parseInt(anoSelecionado) === hoje.getFullYear() && mes === hoje.getMonth();
         const isMesPassado = parseInt(anoSelecionado) < hoje.getFullYear() || 
           (parseInt(anoSelecionado) === hoje.getFullYear() && mes < hoje.getMonth());
         
@@ -293,6 +334,7 @@ export default function DashboardFinanceiroPage() {
         });
       }
       
+      console.log('✅ Fluxo de caixa processado:', fluxoCaixa.length, 'meses');
       setFluxoCaixaMensal(fluxoCaixa);
       
     } catch (error) {
@@ -320,6 +362,8 @@ export default function DashboardFinanceiroPage() {
   };
 
   const refreshData = () => {
+    console.log('🔄 Forçando atualização dos dados...');
+    setLastFetchTime(0); // Força recarregamento
     fetchData();
     fetchFluxoCaixaMensal();
   };
@@ -357,21 +401,25 @@ export default function DashboardFinanceiroPage() {
         empresaId: empresaData.id
       });
 
-      // Buscar vendas do mês específico
-      const { data: vendasMes } = await supabase
-        .from('vendas')
-        .select('total, desconto, acrescimo, data_venda, cliente, tecnico')
-        .eq('empresa_id', empresaData.id)
-        .gte('data_venda', `${dataInicioMes}T00:00:00`)
-        .lte('data_venda', `${dataFimMes}T23:59:59`);
+      // ✅ OTIMIZAÇÃO: Buscar dados do mês específico com consultas paralelas
+      const [vendasResult, contasResult] = await Promise.all([
+        supabase
+          .from('vendas')
+          .select('total, desconto, acrescimo, data_venda, cliente, tecnico')
+          .eq('empresa_id', empresaData.id)
+          .gte('data_venda', `${dataInicioMes}T00:00:00`)
+          .lte('data_venda', `${dataFimMes}T23:59:59`),
+        
+        supabase
+          .from('contas_pagar')
+          .select('valor, status, data_vencimento, data_pagamento, descricao, categoria')
+          .eq('empresa_id', empresaData.id)
+          .gte('data_vencimento', dataInicioMes)
+          .lte('data_vencimento', dataFimMes)
+      ]);
       
-      // Buscar contas do mês específico
-      const { data: contasMes } = await supabase
-        .from('contas_pagar')
-        .select('valor, status, data_vencimento, data_pagamento, descricao, categoria')
-        .eq('empresa_id', empresaData.id)
-        .gte('data_vencimento', dataInicioMes)
-        .lte('data_vencimento', dataFimMes);
+      const vendasMes = vendasResult.data;
+      const contasMes = contasResult.data;
       
       const entradas = vendasMes?.reduce((total, venda) => {
         const receitaBruta = venda.total || 0;

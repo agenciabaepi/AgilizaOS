@@ -18,7 +18,6 @@ interface Categoria {
   cor: string;
 }
 
-
 interface ContaPagar {
   id: string;
   descricao: string;
@@ -70,23 +69,19 @@ export default function ContasAPagarPage() {
   const [filtroStatus, setFiltroStatus] = useState('');
   const [filtroPeriodo, setFiltroPeriodo] = useState('');
   const [filtroMes, setFiltroMes] = useState(() => {
-    // Definir mês atual como padrão
+    // ✅ SEMPRE usar mês atual como padrão
     const hoje = new Date();
     const mesAtual = hoje.toISOString().slice(0, 7);
+    console.log('🗓️ Inicializando filtroMes com mês atual:', mesAtual);
     return mesAtual;
   });
   
   // Funções para navegação entre meses
   const navegarMes = (direcao: 'anterior' | 'proximo') => {
-    if (!filtroMes) {
-      // Se não há filtro, usar mês atual
-      const hoje = new Date();
-      const mesAtual = hoje.toISOString().slice(0, 7);
-      setFiltroMes(mesAtual);
-      return;
-    }
+    // ✅ SEMPRE garantir que há um mês selecionado
+    const mesBase = filtroMes || new Date().toISOString().slice(0, 7);
     
-    const [ano, mes] = filtroMes.split('-');
+    const [ano, mes] = mesBase.split('-');
     const dataAtual = new Date(parseInt(ano), parseInt(mes) - 1, 1);
     
     if (direcao === 'anterior') {
@@ -96,22 +91,37 @@ export default function ContasAPagarPage() {
     }
     
     const novoMesString = dataAtual.toISOString().slice(0, 7);
+    console.log('🔄 Navegando para:', novoMesString);
     setFiltroMes(novoMesString);
   };
   
   const irParaMesAtual = () => {
     const hoje = new Date();
     const mesAtual = hoje.toISOString().slice(0, 7);
+    console.log('🏠 Voltando para mês atual:', mesAtual);
     setFiltroMes(mesAtual);
   };
   
   const limparFiltroMes = () => {
-    setFiltroMes('');
+    console.log('🗑️ Limpando filtro de mês - voltando para mês atual');
+    const hoje = new Date();
+    const mesAtual = hoje.toISOString().slice(0, 7);
+    setFiltroMes(mesAtual); // ✅ Sempre voltar para mês atual, não limpar
   };
   
   // Formatar mês para exibição
   const formatarMes = (mes: string) => {
-    if (!mes) return 'Todos os meses';
+    if (!mes) {
+      // ✅ Se não há mês, usar mês atual
+      const hoje = new Date();
+      const mesAtual = hoje.toISOString().slice(0, 7);
+      const [ano, mesNumero] = mesAtual.split('-');
+      const meses = [
+        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+      ];
+      return `${meses[parseInt(mesNumero) - 1]} de ${ano}`;
+    }
     
     const [ano, mesNumero] = mes.split('-');
     const meses = [
@@ -124,19 +134,30 @@ export default function ContasAPagarPage() {
 
   // Gerar contas fixas virtuais para todos os meses relevantes
   const gerarContasFixasVirtuais = (contasOriginais: ContaPagar[], mesSelecionado: string): ContaPagar[] => {
-    const contasNaoFixas = contasOriginais.filter(conta => !conta.conta_fixa);
     const contasFixas = contasOriginais.filter(conta => conta.conta_fixa);
     const contasVirtuais: ContaPagar[] = [];
+    
+    console.log('🔍 Gerando contas fixas virtuais para:', mesSelecionado);
+    console.log('📋 Total de contas originais:', contasOriginais.length);
+    console.log('📋 Contas fixas encontradas:', contasFixas.length);
+    console.log('📋 Contas fixas:', contasFixas.map(c => ({ descricao: c.descricao, data_vencimento: c.data_vencimento, parcelas_totais: c.parcelas_totais })));
     
     contasFixas.forEach(conta => {
       if (!conta.data_fixa_mes || !conta.parcelas_totais) return;
       
-      // Para contas fixas, gerar parcelas virtuais APENAS para as parcelas futuras (2, 3, 4, etc.)
+      console.log('💳 Processando conta fixa:', conta.descricao, {
+        parcelaAtual: conta.parcela_atual,
+        parcelasTotais: conta.parcelas_totais,
+        dataFixaMes: conta.data_fixa_mes,
+        dataVencimento: conta.data_vencimento
+      });
+      
+      // Para contas fixas, gerar todas as parcelas desde a primeira
       const parcelasTotais = conta.parcelas_totais;
       
-      // Gerar parcelas virtuais da 2 até a total (pular a parcela 1 que é a original)
-      for (let parcela = 2; parcela <= parcelasTotais; parcela++) {
-        // Calcular quantos meses adicionar baseado na parcela (parcela 2 = 1 mês, parcela 3 = 2 meses, etc.)
+      // Gerar todas as parcelas (da 1 até a total)
+      for (let parcela = 1; parcela <= parcelasTotais; parcela++) {
+        // Calcular quantos meses adicionar baseado na parcela (parcela 1 = 0 meses, parcela 2 = 1 mês, etc.)
         const mesesAdicionais = parcela - 1;
         
         // Usar a data de vencimento original como base
@@ -152,6 +173,8 @@ export default function ContasAPagarPage() {
         
         const mesConta = novaData.toISOString().slice(0, 7);
         
+        console.log(`📅 Parcela ${parcela}/${parcelasTotais}: ${mesConta} (meses adicionais: ${mesesAdicionais})`);
+        
         // Gerar conta virtual para esta parcela
         const contaVirtual: ContaPagar = {
           ...conta,
@@ -160,17 +183,41 @@ export default function ContasAPagarPage() {
           parcela_atual: parcela,
           status: 'pendente' as const,
           // Marcar como virtual para identificação
-          observacoes: `${conta.observacoes || ''}`.trim()
+          observacoes: `${conta.observacoes || ''} [Conta Fixa - Parcela ${parcela}/${parcelasTotais}]`.trim()
         };
         
         contasVirtuais.push(contaVirtual);
+        console.log('✅ Conta virtual adicionada:', contaVirtual.descricao, contaVirtual.data_vencimento, 'para o mês:', mesConta);
       }
     });
     
-    // Combinar contas não-fixas + contas fixas originais + contas virtuais
-    const contasCombinadas = [...contasNaoFixas, ...contasFixas, ...contasVirtuais];
+    console.log('🎯 Total de contas virtuais geradas:', contasVirtuais.length);
     
-    return contasCombinadas;
+    // Combinar contas originais com virtuais
+    const contasCombinadas = [...contasOriginais, ...contasVirtuais];
+    
+    // Remover duplicatas (se uma conta original já está no mês selecionado)
+    const contasUnicas = contasCombinadas.filter((conta, index, array) => {
+      if (conta.conta_fixa) {
+        const mesConta = new Date(conta.data_vencimento).toISOString().slice(0, 7);
+        if (mesConta === mesSelecionado) {
+          // Se é uma conta fixa no mês selecionado, manter apenas a original
+          const isOriginal = !conta.id.includes('_virtual_');
+          console.log(`🔍 Conta fixa no mês ${mesSelecionado}: ${conta.descricao} - ${isOriginal ? 'ORIGINAL' : 'VIRTUAL'} - ${isOriginal ? 'MANTIDA' : 'REMOVIDA'}`);
+          return isOriginal;
+        }
+      }
+      return true;
+    });
+    
+    console.log('📊 Contas finais:', contasUnicas.length);
+    console.log('📊 Contas por mês:', contasUnicas.map(c => ({ 
+      descricao: c.descricao, 
+      mes: new Date(c.data_vencimento).toISOString().slice(0, 7),
+      tipo: c.id.includes('_virtual_') ? 'VIRTUAL' : 'ORIGINAL'
+    })));
+    
+    return contasUnicas;
   };
   
   // Formulário
@@ -194,45 +241,25 @@ export default function ContasAPagarPage() {
 
   // Carregar dados
   useEffect(() => {
-    console.log('🔄 useEffect executado - empresaData:', empresaData);
-    console.log('🔄 empresaData?.id:', empresaData?.id);
-    
     if (empresaData?.id) {
       console.log('🏢 Carregando dados para empresa:', empresaData.id);
       loadData();
-    } else {
-      console.log('⚠️ empresaData.id não disponível, não carregando dados');
-      console.log('📊 Estado atual:', { empresaData, loading });
     }
   }, [empresaData?.id]);
 
   const loadData = async () => {
-    if (!empresaData?.id) {
-      console.log('⚠️ EmpresaData não disponível:', empresaData);
-      return;
-    }
-    
-    console.log('🔄 Iniciando carregamento de dados para empresa:', empresaData.id);
     try {
       setLoading(true);
       
       // Carregar categorias
-      console.log('📂 Carregando categorias...');
-      const { data: categoriasData, error: categoriasError } = await supabase
+      const { data: categoriasData } = await supabase
         .from('categorias_contas')
         .select('*')
         .eq('empresa_id', empresaData.id)
         .eq('ativo', true)
         .order('nome');
       
-      if (categoriasError) {
-        console.error('❌ Erro ao carregar categorias:', categoriasError);
-      } else {
-        console.log('✅ Categorias carregadas:', categoriasData?.length || 0);
-      }
-      
       setCategorias(categoriasData || []);
-
       
       // Carregar ordens de serviço
       const { data: ordensData } = await supabase
@@ -249,8 +276,7 @@ export default function ContasAPagarPage() {
       setOrdensServico(ordensData || []);
       
       // Carregar contas
-      console.log('💰 Carregando contas...');
-      const { data: contasData, error: contasError } = await supabase
+      const { data: contasData } = await supabase
         .from('contas_pagar')
         .select(`
           *,
@@ -258,23 +284,6 @@ export default function ContasAPagarPage() {
         `)
         .eq('empresa_id', empresaData.id)
         .order('data_vencimento', { ascending: false });
-      
-      if (contasError) {
-        console.error('❌ Erro ao carregar contas:', contasError);
-        addToast('error', 'Erro ao carregar contas: ' + contasError.message);
-        setContas([]);
-        return;
-      } else {
-        console.log('✅ Contas carregadas com sucesso:', contasData?.length || 0);
-        if (contasData && contasData.length > 0) {
-          console.log('📋 Primeiras 3 contas:', contasData.slice(0, 3).map(c => ({
-            id: c.id,
-            descricao: c.descricao,
-            tipo: c.tipo,
-            valor: c.valor
-          })));
-        }
-      }
       
       console.log('📊 Dados carregados:', {
         categorias: categoriasData?.length || 0,
@@ -308,19 +317,13 @@ export default function ContasAPagarPage() {
     e.preventDefault();
     
     try {
-
-      // Garantir que a data esteja no formato correto (YYYY-MM-DD) sem problemas de fuso horário
-      const dataFormatada = formData.data_vencimento ? 
-        formData.data_vencimento : // Usar diretamente o formato YYYY-MM-DD do input
-        formData.data_vencimento;
-
       const contaData = {
         empresa_id: empresaData.id,
         categoria_id: formData.categoria_id,
         tipo: formData.tipo,
         descricao: formData.descricao,
         valor: parseFloat(formData.valor),
-        data_vencimento: dataFormatada,
+        data_vencimento: formData.data_vencimento,
         fornecedor: formData.fornecedor || null,
         observacoes: formData.observacoes || null,
         os_id: formData.os_id || null,
@@ -334,9 +337,8 @@ export default function ContasAPagarPage() {
         proxima_geracao: formData.conta_fixa ? calcularProximaGeracao(formData.data_vencimento, formData.data_fixa_mes) : null
       };
 
-
       if (editingConta) {
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('contas_pagar')
           .update(contaData)
           .eq('id', editingConta.id);
@@ -344,7 +346,7 @@ export default function ContasAPagarPage() {
         if (error) throw error;
         addToast('success', 'Conta atualizada com sucesso!');
       } else {
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('contas_pagar')
           .insert(contaData);
         
@@ -371,58 +373,32 @@ export default function ContasAPagarPage() {
   };
 
   const handleEdit = (conta: ContaPagar) => {
-    // Se é uma conta virtual, encontrar a conta original
-    let contaParaEditar = conta;
-    
-    if (conta.id.includes('_virtual_')) {
-      // Encontrar a conta original (sem _virtual_)
-      const contaOriginal = contas.find(c => 
-        c.id === conta.id.replace(/_virtual_\d+$/, '') && 
-        c.conta_fixa
-      );
-      
-      if (contaOriginal) {
-        contaParaEditar = contaOriginal;
-        addToast('info', 'Editando conta fixa original. As alterações se aplicarão a todas as parcelas.');
-      } else {
-        addToast('error', 'Não é possível editar contas virtuais. Edite a conta original.');
-        return;
-      }
-    }
-    
-    setEditingConta(contaParaEditar);
-
+    setEditingConta(conta);
     setFormData({
-      descricao: contaParaEditar.descricao,
-      categoria_id: contaParaEditar.categoria_id,
-      tipo: contaParaEditar.tipo,
-      valor: contaParaEditar.valor.toString(),
-      data_vencimento: contaParaEditar.data_vencimento,
-      fornecedor: contaParaEditar.fornecedor || '',
-      observacoes: contaParaEditar.observacoes || '',
-      os_id: contaParaEditar.os_id || '',
-      peca_nome: contaParaEditar.peca_nome || '',
-      peca_quantidade: contaParaEditar.peca_quantidade || 1,
+      descricao: conta.descricao,
+      categoria_id: conta.categoria_id,
+      tipo: conta.tipo,
+      valor: conta.valor.toString(),
+      data_vencimento: conta.data_vencimento,
+      fornecedor: conta.fornecedor || '',
+      observacoes: conta.observacoes || '',
+      os_id: conta.os_id || '',
+      peca_nome: conta.peca_nome || '',
+      peca_quantidade: conta.peca_quantidade || 1,
       // Novos campos
-      conta_fixa: contaParaEditar.conta_fixa || false,
-      parcelas_totais: contaParaEditar.parcelas_totais || 1,
-      parcela_atual: contaParaEditar.parcela_atual || 1,
-      data_fixa_mes: contaParaEditar.data_fixa_mes || 1
+      conta_fixa: conta.conta_fixa || false,
+      parcelas_totais: conta.parcelas_totais || 1,
+      parcela_atual: conta.parcela_atual || 1,
+      data_fixa_mes: conta.data_fixa_mes || 1
     });
     setShowModal(true);
   };
 
   const handleDelete = async (id: string) => {
-    // Se é uma conta virtual, não permitir exclusão
-    if (id.includes('_virtual_')) {
-      addToast('error', 'Não é possível excluir contas virtuais. Exclua a conta fixa original.');
-      return;
-    }
-    
     if (!confirm('Tem certeza que deseja excluir esta conta?')) return;
     
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('contas_pagar')
         .delete()
         .eq('id', id);
@@ -439,12 +415,6 @@ export default function ContasAPagarPage() {
   };
 
   const handleStatusChange = async (id: string, status: 'pendente' | 'pago') => {
-    // Se é uma conta virtual, não permitir alteração de status
-    if (id.includes('_virtual_')) {
-      addToast('error', 'Não é possível alterar status de contas virtuais. Altere o status da conta fixa original.');
-      return;
-    }
-    
     try {
       const updateData: any = { status };
       if (status === 'pago') {
@@ -453,7 +423,7 @@ export default function ContasAPagarPage() {
         updateData.data_pagamento = null;
       }
       
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('contas_pagar')
         .update(updateData)
         .eq('id', id);
@@ -496,9 +466,18 @@ export default function ContasAPagarPage() {
   };
 
   // Gerar contas com fixas virtuais
+  console.log('🔄 ANTES da geração:', { 
+    contasOriginais: contas.length, 
+    filtroMes, 
+    contasFixas: contas.filter(c => c.conta_fixa).length 
+  });
   
   const contasComFixasVirtuais = gerarContasFixasVirtuais(contas, filtroMes);
   
+  console.log('🔄 DEPOIS da geração:', { 
+    contasComFixasVirtuais: contasComFixasVirtuais.length,
+    contasFixas: contasComFixasVirtuais.filter(c => c.conta_fixa).length
+  });
 
   // Filtrar contas
   const filteredContas = contasComFixasVirtuais.filter(conta => {
@@ -510,45 +489,65 @@ export default function ContasAPagarPage() {
     const matchesCategoria = !filtroCategoria || conta.categoria_id === filtroCategoria;
     const matchesStatus = !filtroStatus || conta.status === filtroStatus;
     
-    // Filtro por mês
-    let matchesMes = true;
-    if (filtroMes) {
-      const contaMes = new Date(conta.data_vencimento).toISOString().slice(0, 7); // YYYY-MM
-      matchesMes = contaMes === filtroMes;
-      
+    // ✅ Filtro por mês - SEMPRE aplicar filtro
+    const mesParaFiltrar = filtroMes || new Date().toISOString().slice(0, 7);
+    const contaMes = new Date(conta.data_vencimento).toISOString().slice(0, 7); // YYYY-MM
+    const matchesMes = contaMes === mesParaFiltrar;
+    
+    const matches = matchesTab && matchesCategoria && matchesStatus && matchesMes;
+    
+    if (conta.conta_fixa) {
+      console.log(`🔍 Filtro conta fixa: ${conta.descricao}`, {
+        matchesTab,
+        matchesCategoria,
+        matchesStatus,
+        matchesMes,
+        contaMes: new Date(conta.data_vencimento).toISOString().slice(0, 7),
+        filtroMes: mesParaFiltrar,
+        matches,
+        activeTab,
+        tipo: conta.tipo
+      });
     }
-    
-    const matches = matchesTab && matchesCategoria && matchesTipoConta && matchesStatus && matchesMes;
-    
     
     return matches;
   });
   
+  console.log('🎯 RESULTADO FINAL:', {
+    filteredContas: filteredContas.length,
+    activeTab,
+    filtroMes: filtroMes || new Date().toISOString().slice(0, 7),
+    contasFixas: filteredContas.filter(c => c.conta_fixa).length
+  });
 
-  // Agrupar contas por mês - APENAS se há filtro de mês ativo
-  const contasPorMes = filtroMes ? 
-    // Se há filtro de mês, mostrar apenas contas do mês selecionado
-    { [filtroMes]: filteredContas } :
-    // Se não há filtro, agrupar por mês normalmente
-    filteredContas.reduce((acc, conta) => {
-      const mes = new Date(conta.data_vencimento).toISOString().slice(0, 7); // YYYY-MM
-      if (!acc[mes]) {
-        acc[mes] = [];
-      }
-      acc[mes].push(conta);
-      return acc;
-    }, {} as Record<string, ContaPagar[]>);
+  // Agrupar contas por mês
+  const contasPorMes = filteredContas.reduce((acc, conta) => {
+    const mes = new Date(conta.data_vencimento).toISOString().slice(0, 7); // YYYY-MM
+    if (!acc[mes]) {
+      acc[mes] = [];
+    }
+    acc[mes].push(conta);
+    return acc;
+  }, {} as Record<string, ContaPagar[]>);
 
   // Ordenar meses
   const mesesOrdenados = Object.keys(contasPorMes).sort();
 
-  // Calcular totais baseado nas contas filtradas (com filtro de mês aplicado)
-  const totalPendente = filteredContas
-    .filter(c => c.status === 'pendente')
+  // ✅ Calcular totais baseados no mês atual
+  const mesParaTotais = filtroMes || new Date().toISOString().slice(0, 7);
+  
+  const totalPendente = contas
+    .filter(c => {
+      const contaMes = new Date(c.data_vencimento).toISOString().slice(0, 7);
+      return c.status === 'pendente' && contaMes === mesParaTotais;
+    })
     .reduce((sum, c) => sum + c.valor, 0);
   
-  const totalPago = filteredContas
-    .filter(c => c.status === 'pago')
+  const totalPago = contas
+    .filter(c => {
+      const contaMes = new Date(c.data_vencimento).toISOString().slice(0, 7);
+      return c.status === 'pago' && contaMes === mesParaTotais;
+    })
     .reduce((sum, c) => sum + c.valor, 0);
 
   if (loading) {
@@ -570,12 +569,10 @@ export default function ContasAPagarPage() {
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Contas a Pagar</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Contas a Pagar - {formatarMes(filtroMes || new Date().toISOString().slice(0, 7))}
+            </h1>
             <p className="text-gray-600">Gerencie todas as contas da empresa</p>
-            {/* Debug info */}
-            <div className="text-xs text-gray-500 mt-1">
-              Debug: empresaData.id = {empresaData?.id || 'NÃO DISPONÍVEL'} | contas = {contas.length}
-            </div>
           </div>
           <div className="flex gap-2">
             <Button
@@ -587,14 +584,6 @@ export default function ContasAPagarPage() {
               Categorias
             </Button>
             <Button
-              onClick={() => loadData()}
-              variant="outline"
-              size="sm"
-              className="mr-2"
-            >
-              🔄 Recarregar
-            </Button>
-            <Button
               onClick={openModal}
               size="sm"
             >
@@ -604,6 +593,63 @@ export default function ContasAPagarPage() {
           </div>
         </div>
 
+        {/* Resumo Mensal */}
+        {filtroMes && (
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <FiCalendar className="w-5 h-5 text-blue-600" />
+                <div>
+                  <h3 className="font-semibold text-blue-900">
+                    Resumo de {formatarMes(filtroMes)}
+                  </h3>
+                  <p className="text-sm text-blue-700">
+                    Controle mensal das despesas
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex space-x-6 text-sm">
+                <div className="text-center">
+                  <div className="font-semibold text-blue-900">
+                    {filteredContas.length}
+                  </div>
+                  <div className="text-blue-700">Contas</div>
+                </div>
+                
+                <div className="text-center">
+                  <div className="font-semibold text-green-600">
+                    R$ {filteredContas
+                      .filter(c => c.status === 'pago')
+                      .reduce((acc, c) => acc + c.valor, 0)
+                      .toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                  <div className="text-blue-700">Pagas</div>
+                </div>
+                
+                <div className="text-center">
+                  <div className="font-semibold text-orange-600">
+                    R$ {filteredContas
+                      .filter(c => c.status === 'pendente')
+                      .reduce((acc, c) => acc + c.valor, 0)
+                      .toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                  <div className="text-blue-700">Pendentes</div>
+                </div>
+                
+                <div className="text-center">
+                  <div className="font-semibold text-red-600">
+                    R$ {filteredContas
+                      .filter(c => c.status === 'vencido')
+                      .reduce((acc, c) => acc + c.valor, 0)
+                      .toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                  <div className="text-blue-700">Vencidas</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Resumo */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -639,7 +685,15 @@ export default function ContasAPagarPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Total de Contas</p>
-                <p className="text-2xl font-bold text-blue-600">{filteredContas.length}</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {(() => {
+                    const mesParaContagens = filtroMes || new Date().toISOString().slice(0, 7);
+                    return contas.filter(c => {
+                      const contaMes = new Date(c.data_vencimento).toISOString().slice(0, 7);
+                      return contaMes === mesParaContagens;
+                    }).length;
+                  })()}
+                </p>
               </div>
               <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                 <FiEye className="w-6 h-6 text-blue-600" />
@@ -652,10 +706,19 @@ export default function ContasAPagarPage() {
         <div className="bg-white rounded-lg border border-gray-200 mb-6">
           <div className="flex border-b border-gray-200">
             {(() => {
+              // ✅ Calcular contagens baseadas no mês atual
               const mesParaContagens = filtroMes || new Date().toISOString().slice(0, 7);
+              
               const contasDoMes = contas.filter(c => {
                 const contaMes = new Date(c.data_vencimento).toISOString().slice(0, 7);
                 return contaMes === mesParaContagens;
+              });
+              
+              console.log('📊 Contagens das abas para o mês:', mesParaContagens, {
+                total: contasDoMes.length,
+                fixas: contasDoMes.filter(c => c.tipo === 'fixa').length,
+                variaveis: contasDoMes.filter(c => c.tipo === 'variavel').length,
+                pecas: contasDoMes.filter(c => c.tipo === 'pecas').length
               });
               
               return [
@@ -664,7 +727,7 @@ export default function ContasAPagarPage() {
                 { key: 'variaveis', label: 'Variáveis', count: contasDoMes.filter(c => c.tipo === 'variavel').length },
                 { key: 'pecas', label: 'Peças', count: contasDoMes.filter(c => c.tipo === 'pecas').length }
               ];
-            })().map(tab => (
+            })()}.map(tab => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key as any)}
@@ -687,7 +750,7 @@ export default function ContasAPagarPage() {
 
         {/* Filtros */}
         <div className="bg-white p-4 rounded-lg border border-gray-200 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Select
               value={filtroCategoria}
               onChange={(e) => setFiltroCategoria(e.target.value)}
@@ -696,16 +759,6 @@ export default function ContasAPagarPage() {
               {categorias.map(cat => (
                 <option key={cat.id} value={cat.id}>{cat.nome}</option>
               ))}
-            </Select>
-            
-            <Select
-              value={filtroTipoConta}
-              onChange={(e) => setFiltroTipoConta(e.target.value)}
-            >
-                      <option value="">Todos os tipos</option>
-                      {(tiposConta || []).map(tipo => (
-                        <option key={tipo.id} value={tipo.id}>{tipo.nome}</option>
-                      ))}
             </Select>
             
             <Select
@@ -754,16 +807,14 @@ export default function ContasAPagarPage() {
                 Hoje
               </Button>
               
-              {filtroMes && (
-                <Button
-                  onClick={limparFiltroMes}
-                  variant="outline"
-                  size="sm"
-                  className="text-xs"
-                >
-                  Todos
-                </Button>
-              )}
+              <Button
+                onClick={limparFiltroMes}
+                variant="outline"
+                size="sm"
+                className="text-xs"
+              >
+                Mês Atual
+              </Button>
             </div>
             
             <Input
@@ -775,22 +826,37 @@ export default function ContasAPagarPage() {
           </div>
         </div>
 
-        {/* Lista de Contas Agrupadas por Mês */}
-        {mesesOrdenados.length > 0 ? (
-          <div className="space-y-6">
-            {mesesOrdenados.map((mes) => {
-              const contasDoMes = contasPorMes[mes];
-              const totalMes = contasDoMes.reduce((sum, conta) => sum + conta.valor, 0);
-              const totalPendenteMes = contasDoMes
-                .filter(c => c.status === 'pendente')
-                .reduce((sum, c) => sum + c.valor, 0);
-              
-              
-              return (
-                <div key={mes} className="bg-white rounded-lg border border-gray-200">
-                  
-                  {/* Tabela de Contas do Mês */}
-                  <div className="overflow-x-auto">
+        {/* Lista de Contas do Mês Selecionado */}
+        {filteredContas.length > 0 ? (
+          (() => {
+            // ✅ Mostrar apenas o mês selecionado
+            const mesSelecionado = filtroMes || new Date().toISOString().slice(0, 7);
+            const contasDoMesSelecionado = filteredContas;
+            const totalMes = contasDoMesSelecionado.reduce((sum, conta) => sum + conta.valor, 0);
+            const totalPendenteMes = contasDoMesSelecionado
+              .filter(c => c.status === 'pendente')
+              .reduce((sum, c) => sum + c.valor, 0);
+            
+            return (
+              <div className="bg-white rounded-lg border border-gray-200">
+                {/* Cabeçalho do Mês Selecionado */}
+                <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        {formatarMes(mesSelecionado)}
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        {contasDoMesSelecionado.length} conta{contasDoMesSelecionado.length !== 1 ? 's' : ''} • 
+                        Total: R$ {totalMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} • 
+                        Pendente: R$ {totalPendenteMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Tabela de Contas do Mês */}
+                <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
@@ -818,7 +884,7 @@ export default function ContasAPagarPage() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {contasDoMes.map((conta) => (
+                        {contasDoMesSelecionado.map((conta) => (
                           <tr key={conta.id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div>
@@ -852,7 +918,7 @@ export default function ContasAPagarPage() {
                               R$ {conta.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {conta.data_vencimento ? conta.data_vencimento.split('-').reverse().join('/') : '-'}
+                              {new Date(conta.data_vencimento).toLocaleDateString('pt-BR')}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -876,14 +942,17 @@ export default function ContasAPagarPage() {
                                     : conta.tipo === 'variavel'
                                     ? 'bg-yellow-100 text-yellow-800'
                                     : 'bg-green-100 text-green-800'
-                                }`}
-                              >
-                                {conta.tipo === 'fixa' ? 'Fixa'
-                                 : conta.tipo === 'variavel' ? 'Variável' : 'Peças'}
-                              </span>
+                                }`}>
+                                  {conta.tipo === 'fixa' ? 
+                                    conta.id.includes('_virtual_') ? 'Fixa (Virtual)' : 'Fixa'
+                                   : conta.tipo === 'variavel' ? 'Variável' : 'Peças'}
+                                </span>
                                 {conta.conta_fixa && (
                                   <div className="text-xs text-gray-500">
                                     {conta.parcela_atual}/{conta.parcelas_totais} • Dia {conta.data_fixa_mes}
+                                    {conta.id.includes('_virtual_') && (
+                                      <span className="text-purple-600 font-medium"> • Gerada automaticamente</span>
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -927,11 +996,10 @@ export default function ContasAPagarPage() {
                         ))}
                       </tbody>
                     </table>
-                  </div>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })()}
         ) : (
           <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -987,7 +1055,6 @@ export default function ContasAPagarPage() {
                       ))}
                     </Select>
                   </div>
-                  
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">

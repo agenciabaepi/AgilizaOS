@@ -1,21 +1,12 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { rateLimitMiddleware } from './src/middleware/rateLimit';
 
-export async function middleware(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-
-  // Debug: Log para verificar se middleware está executando
-  console.log(`🔍 Middleware executando para: ${pathname}`);
-  console.log(`🍪 Cookies disponíveis:`, request.cookies.getAll().map(c => c.name));
-
-  // 1. Aplicar rate limiting para APIs
-  const rateLimitResponse = rateLimitMiddleware(request);
-  if (rateLimitResponse) {
-    return rateLimitResponse;
-  }
-
-  // 2. Verificar autenticação para rotas protegidas
+  
+  console.log(`🔍 MIDDLEWARE EXECUTANDO: ${pathname}`);
+  
+  // Lista de rotas públicas (não exigem autenticação)
   const publicPaths = [
     '/login',
     '/cadastro', 
@@ -37,24 +28,31 @@ export async function middleware(request: NextRequest) {
   
   console.log(`🔐 Rota ${pathname} é pública: ${isPublicPath}`);
   
+  // Se NÃO é uma rota pública, verificar autenticação
   if (!isPublicPath) {
-    // Verificar cookies do Supabase (nomes corretos)
+    // Verificar cookies do Supabase
     const supabaseCookies = request.cookies.getAll().filter(cookie => 
       cookie.name.startsWith('sb-') || 
       cookie.name.includes('supabase') ||
       cookie.name.includes('auth')
     );
     
-    console.log(`🍪 Cookies Supabase encontrados:`, supabaseCookies.map(c => `${c.name}=${c.value.substring(0, 20)}...`));
+    console.log(`🍪 Cookies Supabase encontrados:`, supabaseCookies.length);
+    console.log(`🍪 Todos os cookies:`, request.cookies.getAll().map(c => c.name));
     
-    // Verificar se usuário está autenticado
+    // Verificar se usuário está autenticado - SER MAIS RIGOROSO
     const hasValidSession = supabaseCookies.length > 0 && 
-                           supabaseCookies.some(cookie => cookie.value && cookie.value.length > 10);
+                           supabaseCookies.some(cookie => {
+                             const hasValue = cookie.value && cookie.value.length > 10;
+                             console.log(`🔍 Cookie ${cookie.name}: ${hasValue ? 'VÁLIDO' : 'INVÁLIDO'} (${cookie.value?.length || 0} chars)`);
+                             return hasValue;
+                           });
 
     console.log(`🔑 Sessão válida encontrada: ${hasValidSession}`);
 
-    if (!hasValidSession) {
-      console.log(`🚫 Redirecionando para login: ${pathname}`);
+    // FORÇAR REDIRECIONAMENTO PARA TESTE
+    if (!hasValidSession || supabaseCookies.length === 0) {
+      console.log(`🚫 REDIRECIONANDO PARA LOGIN: ${pathname}`);
       // Redirecionar para login mantendo a URL de destino
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('redirect', pathname);
@@ -62,31 +60,24 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // 3. Verificar se está tentando acessar login com sessão ativa
+  // Se está tentando acessar login com sessão ativa
   if (pathname === '/login') {
     const session = request.cookies.get('sb-access-token')?.value || 
                    request.cookies.get('session')?.value;
     
     if (session) {
+      console.log(`✅ Já está logado, redirecionando para dashboard`);
       // Se já está logado, redirecionar para dashboard
       const redirectUrl = request.nextUrl.searchParams.get('redirect') || '/dashboard';
       return NextResponse.redirect(new URL(redirectUrl, request.url));
     }
   }
-
+  
   return NextResponse.next();
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes - rate limiting já cuida)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public files
-     */
     '/((?!api|_next/static|_next/image|favicon.ico|.*\\.png|.*\\.jpg|.*\\.jpeg|.*\\.gif|.*\\.svg|.*\\.ico|.*\\.mp3|.*\\.mp4|.*\\.pdf).*)',
   ],
 }
