@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabaseClient';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
+
+export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,6 +45,20 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // Cliente autenticado via cookies (mesmo padrão já usado no projeto para uploads)
+    const cookieStore = await cookies();
+    const supabaseSsr = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) { return cookieStore.get(name)?.value; },
+          set() {},
+          remove() {},
+        },
+      }
+    );
+
     const supabase = createAdminClient();
 
     // Gerar nome único para o arquivo
@@ -49,7 +67,7 @@ export async function POST(request: NextRequest) {
     const fileExtension = file.name.split('.').pop();
     const fileName = `anexo_${contaId}_${timestamp}_${randomString}.${fileExtension}`;
 
-    // Fazer upload do arquivo para o Supabase Storage
+    // Fazer upload do arquivo para o Supabase Storage com credencial de admin (bypass RLS)
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('anexos-contas')
       .upload(fileName, file, {
@@ -59,8 +77,12 @@ export async function POST(request: NextRequest) {
 
     if (uploadError) {
       console.error('Erro no upload:', uploadError);
+      const message = uploadError?.message || 'Erro ao fazer upload do arquivo';
+      // Dica comum: bucket inexistente
+      const hint = message.includes('not found') ? 'Verifique se o bucket "anexos-contas" existe e está público.' : undefined;
       return NextResponse.json({ 
-        error: 'Erro ao fazer upload do arquivo' 
+        error: message,
+        hint
       }, { status: 500 });
     }
 
