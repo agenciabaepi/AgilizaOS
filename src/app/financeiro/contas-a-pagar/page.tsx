@@ -8,8 +8,9 @@ import MenuLayout from '@/components/MenuLayout';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { Select } from '@/components/Select';
-import { FiPlus, FiEdit, FiTrash2, FiCheck, FiX, FiFilter, FiDownload, FiEye, FiChevronLeft, FiChevronRight, FiCalendar } from 'react-icons/fi';
+import { FiPlus, FiEdit, FiTrash2, FiCheck, FiX, FiFilter, FiDownload, FiEye, FiChevronLeft, FiChevronRight, FiCalendar, FiPaperclip } from 'react-icons/fi';
 import { useRouter } from 'next/navigation';
+import AnexosManager from '@/components/AnexosManager';
 
 interface Categoria {
   id: string;
@@ -34,6 +35,7 @@ interface ContaPagar {
   os_id?: string;
   peca_nome?: string;
   peca_quantidade?: number;
+  anexos_url?: string[]; // URLs dos anexos (comprovantes, etc.)
   // Novos campos para contas fixas
   conta_fixa?: boolean;
   parcelas_totais?: number;
@@ -804,6 +806,9 @@ export default function ContasAPagarPage() {
                             Tipo
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Anexos
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Ações
                           </th>
                         </tr>
@@ -876,6 +881,20 @@ export default function ContasAPagarPage() {
                                   <div className="text-xs text-gray-500">
                                     {conta.parcela_atual}/{conta.parcelas_totais} • Dia {conta.data_fixa_mes}
                                   </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                              <div className="flex items-center gap-1">
+                                {conta.anexos_url && conta.anexos_url.length > 0 ? (
+                                  <div className="flex items-center gap-1">
+                                    <FiPaperclip className="w-4 h-4 text-blue-600" />
+                                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                      {conta.anexos_url.length}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400 text-xs">-</span>
                                 )}
                               </div>
                             </td>
@@ -1153,6 +1172,23 @@ export default function ContasAPagarPage() {
                     placeholder="Observações adicionais..."
                   />
                 </div>
+
+                {/* Seção de Anexos - apenas para edição */}
+                {editingConta && (
+                  <div className="border-t pt-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <FiPaperclip className="w-5 h-5 text-gray-600" />
+                      <h3 className="text-lg font-medium text-gray-900">Anexos</h3>
+                    </div>
+                    <AnexosManager
+                      contaId={editingConta.id}
+                      anexos={editingConta.anexos_url || []}
+                      onAnexosChange={(anexos) => {
+                        setEditingConta({...editingConta, anexos_url: anexos});
+                      }}
+                    />
+                  </div>
+                )}
                 
                 <div className="flex justify-end gap-2 pt-4">
                   <Button
