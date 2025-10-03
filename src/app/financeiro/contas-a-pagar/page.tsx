@@ -518,7 +518,7 @@ export default function ContasAPagarPage() {
       
     }
     
-    const matches = matchesTab && matchesCategoria && matchesTipoConta && matchesStatus && matchesMes;
+    const matches = matchesTab && matchesCategoria && matchesStatus && matchesMes;
     
     
     return matches;
@@ -698,15 +698,6 @@ export default function ContasAPagarPage() {
               ))}
             </Select>
             
-            <Select
-              value={filtroTipoConta}
-              onChange={(e) => setFiltroTipoConta(e.target.value)}
-            >
-                      <option value="">Todos os tipos</option>
-                      {(tiposConta || []).map(tipo => (
-                        <option key={tipo.id} value={tipo.id}>{tipo.nome}</option>
-                      ))}
-            </Select>
             
             <Select
               value={filtroStatus}
