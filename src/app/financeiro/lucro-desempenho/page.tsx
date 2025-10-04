@@ -144,6 +144,14 @@ export default function LucroDesempenhoPage() {
   const [fluxoCaixaMensal, setFluxoCaixaMensal] = useState<FluxoCaixaMensal[]>([]);
   const [loadingFluxoCaixa, setLoadingFluxoCaixa] = useState(false);
   const [anoSelecionado, setAnoSelecionado] = useState<string>(new Date().getFullYear().toString());
+  
+  // Estados para DRE - custos da empresa
+  const [custosEmpresa, setCustosEmpresa] = useState({
+    contasPagas: 0,
+    contasPendentes: 0,
+    totalContas: 0,
+    despesasOperacionais: 0
+  });
 
   // Navegação por mês
   const navegarMes = (direcao: 'anterior' | 'proximo') => {
@@ -464,6 +472,68 @@ export default function LucroDesempenhoPage() {
     }
   };
 
+  // Função para buscar custos da empresa para DRE
+  const fetchCustosEmpresa = async () => {
+    if (!empresaData?.id) return;
+
+    try {
+      const { dataInicio, dataFim } = calcularPeriodo();
+      
+      console.log('💰 Buscando custos da empresa para DRE...', {
+        empresaId: empresaData.id,
+        periodo: `${dataInicio} a ${dataFim}`
+      });
+
+      // Buscar todas as contas a pagar do período
+      const { data: todasContas, error: contasError } = await supabase
+        .from('contas_pagar')
+        .select('valor, status, data_vencimento, tipo, descricao')
+        .eq('empresa_id', empresaData.id)
+        .gte('data_vencimento', `${dataInicio}T00:00:00`)
+        .lte('data_vencimento', `${dataFim}T23:59:59`);
+
+      if (contasError) {
+        console.error('❌ Erro ao buscar contas a pagar:', contasError);
+        return;
+      }
+
+      console.log('📊 Contas encontradas:', todasContas?.length || 0);
+
+      // Calcular custos por categoria
+      const contasPagas = todasContas?.filter(conta => conta.status === 'paga') || [];
+      const contasPendentes = todasContas?.filter(conta => conta.status === 'pendente') || [];
+      
+      // Separar custos por tipo
+      const custosPecas = todasContas?.filter(conta => conta.tipo === 'pecas') || [];
+      const despesasOperacionais = todasContas?.filter(conta => 
+        conta.tipo !== 'pecas' && conta.tipo !== 'servicos'
+      ) || [];
+
+      const totalContasPagas = contasPagas.reduce((acc, conta) => acc + (conta.valor || 0), 0);
+      const totalContasPendentes = contasPendentes.reduce((acc, conta) => acc + (conta.valor || 0), 0);
+      const totalDespesasOperacionais = despesasOperacionais.reduce((acc, conta) => acc + (conta.valor || 0), 0);
+
+      setCustosEmpresa({
+        contasPagas: totalContasPagas,
+        contasPendentes: totalContasPendentes,
+        totalContas: totalContasPagas + totalContasPendentes,
+        despesasOperacionais: totalDespesasOperacionais
+      });
+
+      console.log('✅ Custos da empresa calculados:', {
+        contasPagas: totalContasPagas,
+        contasPendentes: totalContasPendentes,
+        totalContas: totalContasPagas + totalContasPendentes,
+        despesasOperacionais: totalDespesasOperacionais,
+        custosPecas: custosPecas.length,
+        despesasOperacionaisCount: despesasOperacionais.length
+      });
+
+    } catch (error) {
+      console.error('❌ Erro ao buscar custos da empresa:', error);
+    }
+  };
+
   // Calcular métricas
   const calcularMetricas = () => {
     const totalReceita = ordens.reduce((acc, ordem) => {
@@ -595,7 +665,7 @@ export default function LucroDesempenhoPage() {
       
       <div className="p-6">
         {/* Resumo Executivo */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-green-50 rounded-lg p-4 border border-green-200">
             <div className="flex items-center justify-between">
               <div>
@@ -616,17 +686,27 @@ export default function LucroDesempenhoPage() {
             </div>
           </div>
           
-          <div className={`rounded-lg p-4 border ${metricas.lucroTotal >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+          <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className={`text-sm font-medium ${metricas.lucroTotal >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                <p className="text-sm font-medium text-orange-700">Despesas Operacionais</p>
+                <p className="text-2xl font-bold text-orange-900">{formatarMoeda(custosEmpresa.despesasOperacionais)}</p>
+              </div>
+              <FiAlertCircle className="w-8 h-8 text-orange-600" />
+            </div>
+          </div>
+          
+          <div className={`rounded-lg p-4 border ${(metricas.lucroTotal - custosEmpresa.despesasOperacionais) >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-sm font-medium ${(metricas.lucroTotal - custosEmpresa.despesasOperacionais) >= 0 ? 'text-green-700' : 'text-red-700'}`}>
                   Resultado Líquido
                 </p>
-                <p className={`text-2xl font-bold ${metricas.lucroTotal >= 0 ? 'text-green-900' : 'text-red-900'}`}>
-                  {formatarMoeda(metricas.lucroTotal)}
+                <p className={`text-2xl font-bold ${(metricas.lucroTotal - custosEmpresa.despesasOperacionais) >= 0 ? 'text-green-900' : 'text-red-900'}`}>
+                  {formatarMoeda(metricas.lucroTotal - custosEmpresa.despesasOperacionais)}
                 </p>
               </div>
-              {metricas.lucroTotal >= 0 ? (
+              {(metricas.lucroTotal - custosEmpresa.despesasOperacionais) >= 0 ? (
                 <FiTrendingUp className="w-8 h-8 text-green-600" />
               ) : (
                 <FiTrendingDown className="w-8 h-8 text-red-600" />
@@ -689,9 +769,27 @@ export default function LucroDesempenhoPage() {
             <div className="flex justify-between items-center py-2 border-b border-gray-200">
               <div>
                 <p className="font-medium text-gray-900">(-) Despesas Operacionais</p>
-                <p className="text-sm text-gray-600">Administrativas, comerciais e gerais</p>
+                <p className="text-sm text-gray-600">Aluguel, energia, telefone, etc.</p>
               </div>
-              <p className="text-red-600">R$ 0,00</p>
+              <p className="font-semibold text-red-600">{formatarMoeda(custosEmpresa.despesasOperacionais)}</p>
+            </div>
+
+            {/* Detalhamento das Despesas Operacionais */}
+            <div className="ml-4 space-y-2 border-b border-gray-200 pb-2">
+              <div className="flex justify-between items-center py-1">
+                <div>
+                  <p className="text-sm text-gray-700">• Contas Pagas</p>
+                  <p className="text-xs text-gray-500">Despesas já pagas no período</p>
+                </div>
+                <p className="text-sm text-red-600">{formatarMoeda(custosEmpresa.contasPagas)}</p>
+              </div>
+              <div className="flex justify-between items-center py-1">
+                <div>
+                  <p className="text-sm text-gray-700">• Contas Pendentes</p>
+                  <p className="text-xs text-gray-500">Despesas a pagar</p>
+                </div>
+                <p className="text-sm text-orange-600">{formatarMoeda(custosEmpresa.contasPendentes)}</p>
+              </div>
             </div>
 
             {/* Resultado Operacional */}
@@ -699,8 +797,8 @@ export default function LucroDesempenhoPage() {
               <div>
                 <p className="font-semibold text-gray-900">Resultado Operacional</p>
               </div>
-              <p className={`font-bold ${metricas.lucroTotal >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {formatarMoeda(metricas.lucroTotal)}
+              <p className={`font-bold ${(metricas.lucroTotal - custosEmpresa.despesasOperacionais) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {formatarMoeda(metricas.lucroTotal - custosEmpresa.despesasOperacionais)}
               </p>
             </div>
 
@@ -717,10 +815,12 @@ export default function LucroDesempenhoPage() {
             <div className="flex justify-between items-center py-3 bg-gray-100 rounded-lg">
               <div>
                 <p className="text-lg font-bold text-gray-900">RESULTADO LÍQUIDO</p>
-                <p className="text-sm text-gray-600">Margem: {metricas.margemMedia.toFixed(1)}%</p>
+                <p className="text-sm text-gray-600">
+                  Margem: {metricas.totalReceita > 0 ? ((metricas.lucroTotal - custosEmpresa.despesasOperacionais) / metricas.totalReceita * 100).toFixed(1) : '0.0'}%
+                </p>
               </div>
-              <p className={`text-2xl font-bold ${metricas.lucroTotal >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {formatarMoeda(metricas.lucroTotal)}
+              <p className={`text-2xl font-bold ${(metricas.lucroTotal - custosEmpresa.despesasOperacionais) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {formatarMoeda(metricas.lucroTotal - custosEmpresa.despesasOperacionais)}
               </p>
             </div>
           </div>
@@ -798,6 +898,7 @@ export default function LucroDesempenhoPage() {
       console.log('✅ Chamando loadData...');
       loadData();
       fetchFluxoCaixaMensal();
+      fetchCustosEmpresa();
     } else {
       console.log('❌ empresaData.id não disponível, não chamando loadData');
     }
