@@ -400,7 +400,15 @@ export default function LucroDesempenhoPage() {
       const ordensDoDia = ordens.filter(ordem => {
         // Usar apenas created_at (data de criação da OS)
         const dataOrdem = ordem.created_at.split('T')[0];
-        return dataOrdem === dataDia;
+        const match = dataOrdem === dataDia;
+        if (match) {
+          console.log(`✅ OS ${ordem.numero_os} encontrada no dia ${dia}:`, {
+            dataOrdem,
+            dataDia,
+            receita: ordem.valor_faturado || ordem.valor_total || 0
+          });
+        }
+        return match;
       });
       
       const receita = ordensDoDia.reduce((acc, ordem) => {
@@ -425,9 +433,16 @@ export default function LucroDesempenhoPage() {
     // Filtrar apenas dias com dados e adicionar logs
     const diasComDados = dadosPorDia.filter(d => d.receita > 0 || d.custos > 0);
     console.log('📊 Dados diários para gráfico:', {
+      mes: formatarMesAno(currentMonth),
       totalDias: dadosPorDia.length,
       diasComDados: diasComDados.length,
-      amostra: diasComDados.slice(0, 3)
+      amostra: diasComDados.slice(0, 5),
+      todasOS: ordens.map(o => ({
+        numero: o.numero_os,
+        data: o.created_at,
+        dataFormatada: o.created_at.split('T')[0],
+        receita: o.valor_faturado || o.valor_total || 0
+      })).slice(0, 3)
     });
     
     setDadosDiarios(dadosPorDia);
