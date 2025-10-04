@@ -302,10 +302,12 @@ export default function LucroDesempenhoPage() {
 
         // Mapear os dados relacionados
         const ordensCompletas = (ordensData || []).map(ordem => {
-          const vendas = todasVendas?.filter(venda => 
-            venda.observacoes?.includes(`O.S. #${ordem.numero_os}`) || 
-            venda.observacoes?.includes(`OS #${ordem.numero_os}`)
-          ) || [];
+          const vendas = todasVendas?.filter(venda => {
+            const obs = venda.observacoes || '';
+            return obs.includes(`O.S. #${ordem.numero_os}`) || 
+                   obs.includes(`OS #${ordem.numero_os}`) ||
+                   obs.includes(`#${ordem.numero_os}`);
+          }) || [];
         
         const custos = todosCustos?.filter(custo => 
           custo.os_id === ordem.id
