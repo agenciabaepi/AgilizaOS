@@ -339,11 +339,11 @@ export default function LucroDesempenhoPage() {
           }
         }
 
+        // Buscar TODAS as contas de peças da empresa (não apenas as vinculadas a OS)
         const { data: todosCustos } = await supabase
           .from('contas_pagar')
-          .select('id, descricao, valor, tipo, data_vencimento, os_id')
+          .select('id, descricao, valor, tipo, data_vencimento, os_id, status, data_pagamento')
           .eq('empresa_id', empresaData.id)
-          .in('os_id', ordensIds)
           .eq('tipo', 'pecas');
 
         console.log('💰 Dados encontrados:', {
@@ -730,20 +730,11 @@ export default function LucroDesempenhoPage() {
     // Receita total = soma de todas as vendas filtradas (igual à página de vendas!)
     const totalReceita = vendasFiltradas.reduce((acc, venda) => acc + venda.total, 0);
 
-    // Filtrar custos pelo período selecionado (igual à página de contas a pagar)
+    // Calcular custos igual à página de contas a pagar
     const mesAtual = currentMonth.toISOString().slice(0, 7); // YYYY-MM
-    const totalCustos = ordens.reduce((acc, ordem) => {
-      // Filtrar custos que pertencem ao mês selecionado (baseado em data_vencimento)
-      const custosDoPeriodo = ordem.custos?.filter(custo => {
-        if (!custo.data_vencimento) return false;
-        
-        // Usar mesma lógica da página de contas a pagar
-        const custoMes = new Date(custo.data_vencimento).toISOString().slice(0, 7); // YYYY-MM
-        return custoMes === mesAtual;
-      }) || [];
-      
-      return acc + custosDoPeriodo.reduce((custoAcc, custo) => custoAcc + custo.valor, 0);
-    }, 0);
+    
+    // Usar custosEmpresa que já foi calculado com contas virtuais
+    const totalCustos = custosEmpresa.custosPecas;
 
     const lucroTotal = totalReceita - totalCustos;
     const margemMedia = totalReceita > 0 ? (lucroTotal / totalReceita) * 100 : 0;
