@@ -150,7 +150,8 @@ export default function LucroDesempenhoPage() {
     contasPagas: 0,
     contasPendentes: 0,
     totalContas: 0,
-    despesasOperacionais: 0
+    despesasOperacionais: 0,
+    custosPecas: 0
   });
 
   // Navegação por mês
@@ -487,7 +488,7 @@ export default function LucroDesempenhoPage() {
       // Buscar todas as contas a pagar do período
       const { data: todasContas, error: contasError } = await supabase
         .from('contas_pagar')
-        .select('valor, status, data_vencimento, tipo, descricao')
+        .select('valor, status, data_vencimento, tipo, descricao, os_id')
         .eq('empresa_id', empresaData.id)
         .gte('data_vencimento', `${dataInicio}T00:00:00`)
         .lte('data_vencimento', `${dataFim}T23:59:59`);
@@ -498,6 +499,7 @@ export default function LucroDesempenhoPage() {
       }
 
       console.log('📊 Contas encontradas:', todasContas?.length || 0);
+      console.log('📊 Dados das contas:', todasContas);
 
       // Calcular custos por categoria
       const contasPagas = todasContas?.filter(conta => conta.status === 'paga') || [];
@@ -512,12 +514,14 @@ export default function LucroDesempenhoPage() {
       const totalContasPagas = contasPagas.reduce((acc, conta) => acc + (conta.valor || 0), 0);
       const totalContasPendentes = contasPendentes.reduce((acc, conta) => acc + (conta.valor || 0), 0);
       const totalDespesasOperacionais = despesasOperacionais.reduce((acc, conta) => acc + (conta.valor || 0), 0);
+      const totalCustosPecas = custosPecas.reduce((acc, conta) => acc + (conta.valor || 0), 0);
 
       setCustosEmpresa({
         contasPagas: totalContasPagas,
         contasPendentes: totalContasPendentes,
         totalContas: totalContasPagas + totalContasPendentes,
-        despesasOperacionais: totalDespesasOperacionais
+        despesasOperacionais: totalDespesasOperacionais,
+        custosPecas: totalCustosPecas
       });
 
       console.log('✅ Custos da empresa calculados:', {
@@ -526,6 +530,7 @@ export default function LucroDesempenhoPage() {
         totalContas: totalContasPagas + totalContasPendentes,
         despesasOperacionais: totalDespesasOperacionais,
         custosPecas: custosPecas.length,
+        custosPecasTotal: totalCustosPecas,
         despesasOperacionaisCount: despesasOperacionais.length
       });
 
@@ -680,7 +685,7 @@ export default function LucroDesempenhoPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-red-700">Custos Totais</p>
-                <p className="text-2xl font-bold text-red-900">{formatarMoeda(metricas.totalCustos)}</p>
+                <p className="text-2xl font-bold text-red-900">{formatarMoeda(custosEmpresa.custosPecas)}</p>
               </div>
               <FiTarget className="w-8 h-8 text-red-600" />
             </div>
@@ -752,7 +757,7 @@ export default function LucroDesempenhoPage() {
                 <p className="font-medium text-gray-900">(-) Custos dos Produtos/Serviços</p>
                 <p className="text-sm text-gray-600">Peças, mão de obra e materiais</p>
               </div>
-              <p className="font-semibold text-red-600">{formatarMoeda(metricas.totalCustos)}</p>
+              <p className="font-semibold text-red-600">{formatarMoeda(custosEmpresa.custosPecas)}</p>
             </div>
 
             {/* Lucro Bruto */}
