@@ -176,31 +176,36 @@ export default function LucroDesempenhoPage() {
         periodo: `${dataInicio} a ${dataFim}`
       });
 
-      console.log('🔍 Executando query ordens_servico...');
-
-      // Buscar ordens de serviço - query mínima para debug
+      // Buscar ordens de serviço com joins otimizados
       const { data: ordensData, error: ordensError } = await supabase
         .from('ordens_servico')
-        .select('id, numero_os, created_at, valor_faturado')
+        .select(`
+          id,
+          numero_os,
+          cliente_id,
+          tecnico_id,
+          status,
+          valor_faturado,
+          valor_peca,
+          valor_servico,
+          qtd_peca,
+          qtd_servico,
+          desconto,
+          created_at,
+          data_entrada,
+          data_saida,
+          prazo_entrega,
+          clientes!cliente_id(nome),
+          tecnico:usuarios!tecnico_id(nome)
+        `)
         .eq('empresa_id', empresaData.id)
         .gte('created_at', `${dataInicio}T00:00:00`)
         .lte('created_at', `${dataFim}T23:59:59`)
-        .limit(10);
-
-      console.log('📋 Resultado da query ordens:', { 
-        ordensCount: ordensData?.length || 0, 
-        hasError: !!ordensError,
-        error: ordensError 
-      });
+        .order('created_at', { ascending: false })
+        .limit(200);
 
       if (ordensError) {
         console.error('❌ Erro ao buscar ordens:', ordensError);
-        console.error('❌ Detalhes do erro:', {
-          message: ordensError.message,
-          details: ordensError.details,
-          hint: ordensError.hint,
-          code: ordensError.code
-        });
         addToast('error', `Erro ao carregar ordens de serviço: ${ordensError.message}`);
         return;
       }
