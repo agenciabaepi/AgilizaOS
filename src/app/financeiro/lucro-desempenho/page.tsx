@@ -33,7 +33,7 @@ interface OrdemServico {
   id: string;
   numero_os: string;
   cliente_id: string;
-  usuario_id?: string;
+  tecnico_id?: string;
   valor_faturado?: number;
   valor_peca?: number;
   valor_servico?: number;
@@ -192,7 +192,7 @@ export default function LucroDesempenhoPage() {
           id,
           numero_os,
           cliente_id,
-          usuario_id,
+          tecnico_id,
           valor_faturado,
           valor_peca,
           valor_servico,
