@@ -302,8 +302,36 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               
               {financeiroExpanded && !menuRecolhido && (
                 <div className="ml-6 flex flex-col gap-1 mt-1">
+                  {podeVer('lucro-desempenho') && (
+                    <SidebarButton 
+                      path="/financeiro/lucro-desempenho" 
+                      icon={
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                          <polyline points="17 6 23 6 23 12"></polyline>
+                        </svg>
+                      } 
+                      label="Lucro & Desempenho" 
+                      isActive={pathname === '/financeiro/lucro-desempenho'} 
+                      menuRecolhido={menuRecolhido} 
+                    />
+                  )}
                   {podeVer('vendas') && (
-                    <SidebarButton path="/financeiro/vendas" icon={<FiFileText size={18} />} label="Vendas" isActive={pathname === '/financeiro/vendas'} menuRecolhido={menuRecolhido} />
+                    <SidebarButton 
+                      path="/financeiro/vendas" 
+                      icon={
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                          <polyline points="14,2 14,8 20,8"></polyline>
+                          <line x1="16" y1="13" x2="8" y2="13"></line>
+                          <line x1="16" y1="17" x2="8" y2="17"></line>
+                          <polyline points="10,9 9,9 8,9"></polyline>
+                        </svg>
+                      } 
+                      label="Vendas" 
+                      isActive={pathname === '/financeiro/vendas'} 
+                      menuRecolhido={menuRecolhido} 
+                    />
                   )}
                   {podeVer('movimentacao-caixa') && (
                     <SidebarButton 
@@ -320,19 +348,17 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                     />
                   )}
                   {podeVer('contas-a-pagar') && (
-                    <SidebarButton path="/financeiro/contas-a-pagar" icon={<FiFileText size={18} />} label="Contas a Pagar" isActive={pathname === '/financeiro/contas-a-pagar'} menuRecolhido={menuRecolhido} />
-                  )}
-                  {podeVer('lucro-desempenho') && (
                     <SidebarButton 
-                      path="/financeiro/lucro-desempenho" 
+                      path="/financeiro/contas-a-pagar" 
                       icon={
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
-                          <polyline points="17 6 23 6 23 12"></polyline>
+                          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                          <line x1="8" y1="21" x2="16" y2="21"></line>
+                          <line x1="12" y1="17" x2="12" y2="21"></line>
                         </svg>
                       } 
-                      label="Lucro & Desempenho" 
-                      isActive={pathname === '/financeiro/lucro-desempenho'} 
+                      label="Contas a Pagar" 
+                      isActive={pathname === '/financeiro/contas-a-pagar'} 
                       menuRecolhido={menuRecolhido} 
                     />
                   )}
@@ -467,19 +493,6 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                     />
                   </div>
                   
-                  {financeiroExpanded && (
-                    <div className="ml-6 flex flex-col gap-1 mt-1">
-                      {podeVer('vendas') && (
-                        <SidebarButton path="/financeiro/vendas" icon={<FiFileText size={18} />} label="Vendas" isActive={pathname === '/financeiro/vendas'} menuRecolhido={menuRecolhido} />
-                      )}
-                      {podeVer('movimentacao-caixa') && (
-                        <SidebarButton path="/financeiro/movimentacoes-caixa" icon={<FiDollarSign size={18} />} label="Movimentações Caixa" isActive={pathname === '/financeiro/movimentacoes-caixa'} menuRecolhido={menuRecolhido} />
-                      )}
-                      {podeVer('contas-a-pagar') && (
-                        <SidebarButton path="/financeiro/contas-a-pagar" icon={<FiFileText size={18} />} label="Contas a Pagar" isActive={pathname === '/financeiro/contas-a-pagar'} menuRecolhido={menuRecolhido} />
-                      )}
-                    </div>
-                  )}
                 </>
               )}
               {podeVer('bancada') && (
@@ -741,8 +754,28 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               {podeVer('financeiro') && (
                 <>
                   <MobileMenuItem
+                    path="/financeiro/lucro-desempenho"
+                    icon={
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                        <polyline points="17 6 23 6 23 12"></polyline>
+                      </svg>
+                    }
+                    label="Lucro & Desempenho"
+                    isActive={pathname === '/financeiro/lucro-desempenho'}
+                    onNavigate={() => setMobileMenuOpen(false)}
+                  />
+                  <MobileMenuItem
                     path="/financeiro/vendas"
-                    icon={<FiFileText size={20} />}
+                    icon={
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14,2 14,8 20,8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10,9 9,9 8,9"></polyline>
+                      </svg>
+                    }
                     label="Vendas"
                     isActive={pathname === '/financeiro/vendas'}
                     onNavigate={() => setMobileMenuOpen(false)}
@@ -761,21 +794,15 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   />
                   <MobileMenuItem
                     path="/financeiro/contas-a-pagar"
-                    icon={<FiFileText size={20} />}
-                    label="Contas a Pagar"
-                    isActive={pathname === '/financeiro/contas-a-pagar'}
-                    onNavigate={() => setMobileMenuOpen(false)}
-                  />
-                  <MobileMenuItem
-                    path="/financeiro/lucro-desempenho"
                     icon={
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
-                        <polyline points="17 6 23 6 23 12"></polyline>
+                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                        <line x1="8" y1="21" x2="16" y2="21"></line>
+                        <line x1="12" y1="17" x2="12" y2="21"></line>
                       </svg>
                     }
-                    label="Lucro & Desempenho"
-                    isActive={pathname === '/financeiro/lucro-desempenho'}
+                    label="Contas a Pagar"
+                    isActive={pathname === '/financeiro/contas-a-pagar'}
                     onNavigate={() => setMobileMenuOpen(false)}
                   />
                 </>
