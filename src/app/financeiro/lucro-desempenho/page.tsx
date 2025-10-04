@@ -500,12 +500,14 @@ export default function LucroDesempenhoPage() {
         periodo: `${dataInicio} a ${dataFim}`
       });
 
-      // Buscar TODAS as contas a pagar da empresa (sem filtro de data para debug)
-      console.log('🔍 Buscando TODAS as contas da empresa para debug...');
+      // Buscar contas a pagar do período correto (baseado na data de vencimento)
+      console.log('🔍 Buscando contas do período:', `${dataInicio} a ${dataFim}`);
       const { data: todasContas, error: contasError } = await supabase
         .from('contas_pagar')
         .select('valor, status, data_vencimento, tipo, descricao, os_id, created_at')
-        .eq('empresa_id', empresaData.id);
+        .eq('empresa_id', empresaData.id)
+        .gte('data_vencimento', `${dataInicio}T00:00:00`)
+        .lte('data_vencimento', `${dataFim}T23:59:59`);
 
       if (contasError) {
         console.error('❌ Erro ao buscar contas a pagar:', contasError);
@@ -523,20 +525,33 @@ export default function LucroDesempenhoPage() {
         });
         
         const totalGeral = todasContas.reduce((acc, conta) => acc + (conta.valor || 0), 0);
-        const contasPagas = todasContas.filter(c => c.status === 'paga');
-        const contasPendentes = todasContas.filter(c => c.status === 'pendente');
-        const totalPagas = contasPagas.reduce((acc, conta) => acc + (conta.valor || 0), 0);
-        const totalPendentes = contasPendentes.reduce((acc, conta) => acc + (conta.valor || 0), 0);
+        const contasPagasLog = todasContas.filter(c => 
+          c.status === 'paga' || c.status === 'paid' || c.status === 'Pago'
+        );
+        const contasPendentesLog = todasContas.filter(c => 
+          c.status === 'pendente' || c.status === 'pending' || c.status === 'Pendente'
+        );
+        const totalPagas = contasPagasLog.reduce((acc, conta) => acc + (conta.valor || 0), 0);
+        const totalPendentes = contasPendentesLog.reduce((acc, conta) => acc + (conta.valor || 0), 0);
         
         console.log('💰 RESUMO GERAL:');
         console.log(`  Total Geral: R$ ${totalGeral.toFixed(2)}`);
-        console.log(`  Contas Pagas: R$ ${totalPagas.toFixed(2)} (${contasPagas.length} contas)`);
-        console.log(`  Contas Pendentes: R$ ${totalPendentes.toFixed(2)} (${contasPendentes.length} contas)`);
+        console.log(`  Contas Pagas: R$ ${totalPagas.toFixed(2)} (${contasPagasLog.length} contas)`);
+        console.log(`  Contas Pendentes: R$ ${totalPendentes.toFixed(2)} (${contasPendentesLog.length} contas)`);
       }
 
-      // Calcular custos por categoria
-      const contasPagas = todasContas?.filter(conta => conta.status === 'paga') || [];
-      const contasPendentes = todasContas?.filter(conta => conta.status === 'pendente') || [];
+      // Calcular custos por categoria - verificar todos os possíveis status
+      console.log('📊 Status únicos encontrados:', [...new Set(todasContas?.map(c => c.status) || [])]);
+      
+      const contasPagas = todasContas?.filter(conta => 
+        conta.status === 'paga' || conta.status === 'paid' || conta.status === 'Pago'
+      ) || [];
+      const contasPendentes = todasContas?.filter(conta => 
+        conta.status === 'pendente' || conta.status === 'pending' || conta.status === 'Pendente'
+      ) || [];
+      
+      console.log('📊 Contas pagas encontradas:', contasPagas.length);
+      console.log('📊 Contas pendentes encontradas:', contasPendentes.length);
       
       // Separar custos por tipo
       const custosPecas = todasContas?.filter(conta => conta.tipo === 'pecas') || [];
