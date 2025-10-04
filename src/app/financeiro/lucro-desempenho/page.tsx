@@ -42,7 +42,6 @@ interface OrdemServico {
   qtd_servico?: number;
   desconto?: number;
   created_at: string;
-  data_entrada?: string;
   data_saida?: string;
   prazo_entrega?: string;
   clientes?: {
@@ -203,7 +202,6 @@ export default function LucroDesempenhoPage() {
           qtd_servico,
           desconto,
           created_at,
-          data_entrada,
           data_saida,
           prazo_entrega
         `)
@@ -367,8 +365,8 @@ export default function LucroDesempenhoPage() {
       const dataDia = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
       
       const ordensDoDia = ordens.filter(ordem => {
-        // Usar data_saida se disponível (quando foi finalizada), senão data_entrada, senão created_at
-        const dataFaturamento = ordem.data_saida || ordem.data_entrada || ordem.created_at;
+        // Usar data_saida se disponível (quando foi finalizada), senão created_at
+        const dataFaturamento = ordem.data_saida || ordem.created_at;
         const dataOrdem = dataFaturamento.split('T')[0];
         return dataOrdem === dataDia;
       });
