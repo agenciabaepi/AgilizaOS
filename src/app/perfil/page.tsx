@@ -104,25 +104,33 @@ export default function PerfilPage() {
 
   // Validação em tempo real
   useEffect(() => {
-    if (form.email) {
+    if (form.email && perfil) {
       const emailFormatValido = validarEmail(form.email);
       if (!emailFormatValido) {
         setEmailValido(false);
         return;
       }
-      validarEmailUnico(form.email).then(setEmailValido);
-    } else {
-      setEmailValido(true);
+      // Se o email não mudou, é válido
+      if (form.email === perfil.email) {
+        setEmailValido(true);
+      } else {
+        // Só valida unicidade se o email mudou
+        validarEmailUnico(form.email).then(setEmailValido);
+      }
     }
-  }, [form.email]);
+  }, [form.email, perfil]);
 
   useEffect(() => {
-    if (form.usuario) {
-      validarUsuarioUnico(form.usuario).then(setUsuarioValido);
-    } else {
-      setUsuarioValido(true);
+    if (form.usuario && perfil) {
+      // Se o nome de usuário não mudou, é válido
+      if (form.usuario === perfil.usuario) {
+        setUsuarioValido(true);
+      } else {
+        // Só valida unicidade se o usuário mudou
+        validarUsuarioUnico(form.usuario).then(setUsuarioValido);
+      }
     }
-  }, [form.usuario]);
+  }, [form.usuario, perfil]);
 
   // Função para validar email
   const validarEmail = (email: string) => {
@@ -140,15 +148,14 @@ export default function PerfilPage() {
         .select('id')
         .eq('usuario', usuario.trim().toLowerCase())
         .neq('id', perfil.id)
-        .single();
+        .limit(1);
       
-      // Suprimir erros 406 específicos
-      if (error && (error.code === '406' || error.message?.includes('406') || error.message?.includes('Not Acceptable'))) {
-        console.warn('⚠️ Erro 406 suprimido na validação de usuário:', error);
-        return true; // Assumir válido em caso de erro 406
+      if (error) {
+        console.warn('⚠️ Erro na validação de usuário:', error);
+        return true; // Assumir válido em caso de erro
       }
       
-      return !data; // Retorna true se não existir (válido)
+      return !data || data.length === 0; // Retorna true se não existir (válido)
     } catch {
       return true; // Se não encontrar, é válido
     }
@@ -164,15 +171,14 @@ export default function PerfilPage() {
         .select('id')
         .eq('email', email.trim().toLowerCase())
         .neq('id', perfil.id)
-        .single();
+        .limit(1);
       
-      // Suprimir erros 406 específicos
-      if (error && (error.code === '406' || error.message?.includes('406') || error.message?.includes('Not Acceptable'))) {
-        console.warn('⚠️ Erro 406 suprimido na validação de email:', error);
-        return true; // Assumir válido em caso de erro 406
+      if (error) {
+        console.warn('⚠️ Erro na validação de email:', error);
+        return true; // Assumir válido em caso de erro
       }
       
-      return !data; // Retorna true se não existir (válido)
+      return !data || data.length === 0; // Retorna true se não existir (válido)
     } catch {
       return true; // Se não encontrar, é válido
     }
