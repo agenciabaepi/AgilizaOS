@@ -34,7 +34,11 @@ interface OrdemServico {
   numero_os: string;
   cliente_id: string;
   usuario_id?: string;
-  valor_total?: number;
+  valor_faturado?: number;
+  valor_peca?: number;
+  valor_servico?: number;
+  qtd_peca?: number;
+  qtd_servico?: number;
   status: string;
   data_entrada?: string;
   data_saida?: string;
@@ -181,7 +185,7 @@ export default function LucroDesempenhoPage() {
         periodo: `${dataInicio} a ${dataFim}`
       });
 
-      // Buscar ordens de serviço - campos realmente usados
+      // Buscar ordens de serviço - campos reais da tabela
       const { data: ordensData, error: ordensError } = await supabase
         .from('ordens_servico')
         .select(`
@@ -189,7 +193,11 @@ export default function LucroDesempenhoPage() {
           numero_os,
           cliente_id,
           usuario_id,
-          valor_total,
+          valor_faturado,
+          valor_peca,
+          valor_servico,
+          qtd_peca,
+          qtd_servico,
           status,
           data_entrada,
           data_saida,
@@ -400,7 +408,7 @@ export default function LucroDesempenhoPage() {
       
       const receita = ordensDoDia.reduce((acc, ordem) => {
         const receitaVendas = ordem.vendas?.reduce((vendaAcc, venda) => vendaAcc + venda.valor_pago, 0) || 0;
-        const receitaOS = ordem.valor_total || 0;
+        const receitaOS = ordem.valor_faturado || 0;
         return acc + receitaVendas + receitaOS;
       }, 0);
       
