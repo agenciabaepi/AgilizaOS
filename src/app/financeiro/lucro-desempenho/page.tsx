@@ -232,12 +232,12 @@ export default function LucroDesempenhoPage() {
         .select('id, nome')
         .in('id', clienteIds);
 
-      const { data: todasVendas } = await supabase
-        .from('vendas')
-        .select('id, valor_total, valor_pago, data_venda, observacoes')
-        .eq('empresa_id', empresaData.id)
-        .eq('status', 'finalizada')
-        .in('observacoes', ordensNumeros.map(num => `OS: ${num}`));
+        const { data: todasVendas } = await supabase
+          .from('vendas')
+          .select('id, valor_total, valor_pago, data_venda, observacoes')
+          .eq('empresa_id', empresaData.id)
+          .eq('status', 'finalizada')
+          .or(ordensNumeros.map(num => `observacoes.ilike.%O.S. #${num}%,observacoes.ilike.%OS #${num}%`).join(','));
 
       const { data: todosCustos } = await supabase
         .from('contas_pagar')
@@ -270,11 +270,12 @@ export default function LucroDesempenhoPage() {
       // Criar mapas para lookup rápido
       const clientesMap = new Map(clientes?.map(c => [c.id, c]) || []);
 
-      // Mapear os dados relacionados
-      const ordensCompletas = (ordensData || []).map(ordem => {
-        const vendas = todasVendas?.filter(venda => 
-          venda.observacoes?.includes(`OS: ${ordem.numero_os}`)
-        ) || [];
+        // Mapear os dados relacionados
+        const ordensCompletas = (ordensData || []).map(ordem => {
+          const vendas = todasVendas?.filter(venda => 
+            venda.observacoes?.includes(`O.S. #${ordem.numero_os}`) || 
+            venda.observacoes?.includes(`OS #${ordem.numero_os}`)
+          ) || [];
         
         const custos = todosCustos?.filter(custo => 
           custo.os_id === ordem.id
