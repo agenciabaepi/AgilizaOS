@@ -445,8 +445,10 @@ export default function LucroDesempenhoPage() {
         
         // Filtrar contas do mês (baseado na data de vencimento)
         const contasMes = contasData?.filter(conta => {
-          const dataVencimento = new Date(conta.data_vencimento);
-          return dataVencimento >= inicioMes && dataVencimento <= fimMes;
+          // Usar substring para evitar problemas de timezone
+          const dataVencimento = conta.data_vencimento.substring(0, 7); // YYYY-MM
+          const mesVencimento = `${inicioMes.getFullYear()}-${String(inicioMes.getMonth() + 1).padStart(2, '0')}`;
+          return dataVencimento === mesVencimento;
         }) || [];
         
         // Calcular totais
@@ -569,7 +571,8 @@ export default function LucroDesempenhoPage() {
       
       // Filtrar contas pelo mês selecionado (incluindo as virtuais)
       const contasDoMes = contasComVirtuais.filter(conta => {
-        const contaMes = new Date(conta.data_vencimento).toISOString().slice(0, 7); // YYYY-MM
+        // Usar substring para evitar problemas de timezone
+        const contaMes = conta.data_vencimento.substring(0, 7); // YYYY-MM
         return contaMes === mesAtual;
       });
       
@@ -983,7 +986,10 @@ export default function LucroDesempenhoPage() {
                           <div className="flex-1 truncate">
                             <p className="text-gray-800 truncate">{conta.descricao}</p>
                             <p className="text-gray-500">
-                              {new Date(conta.data_vencimento).toLocaleDateString('pt-BR')}
+                              {conta.data_vencimento ? 
+                                conta.data_vencimento.split('-').reverse().join('/') : 
+                                'Data não informada'
+                              }
                             </p>
                           </div>
                           <div className="text-right ml-2">
