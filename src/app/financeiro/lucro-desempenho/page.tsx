@@ -176,7 +176,7 @@ export default function LucroDesempenhoPage() {
         periodo: `${dataInicio} a ${dataFim}`
       });
 
-      // Buscar ordens de serviço com joins otimizados
+      // Buscar ordens de serviço - sem joins primeiro para testar
       const { data: ordensData, error: ordensError } = await supabase
         .from('ordens_servico')
         .select(`
@@ -194,9 +194,7 @@ export default function LucroDesempenhoPage() {
           created_at,
           data_entrada,
           data_saida,
-          prazo_entrega,
-          clientes!cliente_id(nome),
-          tecnico:usuarios!tecnico_id(nome)
+          prazo_entrega
         `)
         .eq('empresa_id', empresaData.id)
         .gte('created_at', `${dataInicio}T00:00:00`)
@@ -204,9 +202,19 @@ export default function LucroDesempenhoPage() {
         .order('created_at', { ascending: false })
         .limit(200);
 
+      console.log('📊 Query executada:', {
+        empresaId: empresaData.id,
+        dataInicio,
+        dataFim,
+        ordensCount: ordensData?.length || 0,
+        hasError: !!ordensError,
+        error: ordensError
+      });
+
       if (ordensError) {
         console.error('❌ Erro ao buscar ordens:', ordensError);
-        addToast('error', `Erro ao carregar ordens de serviço: ${ordensError.message}`);
+        console.error('❌ Detalhes completos:', JSON.stringify(ordensError, null, 2));
+        addToast('error', `Erro ao carregar ordens de serviço: ${ordensError.message || 'Erro desconhecido'}`);
         return;
       }
 
