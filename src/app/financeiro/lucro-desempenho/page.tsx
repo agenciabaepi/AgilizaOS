@@ -645,10 +645,11 @@ export default function LucroDesempenhoPage() {
                         const height = 300;
                         const padding = { top: 20, right: 40, bottom: 60, left: 80 };
                         
-                        // Calcular escala incluindo lucro (pode ser negativo)
-                        const allValues = dadosComDados.flatMap(d => [d.receita, d.custos, d.lucro]);
-                        const maxValue = Math.max(...allValues);
-                        const minValue = Math.min(...allValues);
+                        // Calcular escala incluindo receita (positiva) e custos (negativos)
+                        const maxReceita = Math.max(...dadosComDados.map(d => d.receita));
+                        const maxCusto = Math.max(...dadosComDados.map(d => d.custos));
+                        const maxValue = Math.max(maxReceita, maxCusto);
+                        const minValue = -maxCusto; // Custos vão para baixo (negativos)
                         const valueRange = maxValue - minValue;
                         
                         // Função para converter valor para coordenada Y
@@ -696,6 +697,16 @@ export default function LucroDesempenhoPage() {
                           return path;
                         };
                         
+                        // Função para obter altura da barra de receita (para cima)
+                        const getReceitaHeight = (receita: number) => {
+                          return Math.abs(getY(receita) - getY(0));
+                        };
+                        
+                        // Função para obter altura da barra de custo (para baixo)
+                        const getCustoHeight = (custo: number) => {
+                          return Math.abs(getY(0) - getY(-custo));
+                        };
+                        
                         const yLabels = generateYLabels();
                         
                         return (
@@ -727,55 +738,56 @@ export default function LucroDesempenhoPage() {
                             ))}
                             
                             {/* Linha de referência zero */}
-                            {minValue < 0 && (
-                              <line
-                                x1={padding.left}
-                                y1={getY(0)}
-                                x2={width - padding.right}
-                                y2={getY(0)}
-                                stroke="#6b7280"
-                                strokeWidth="2"
-                                strokeDasharray="5,5"
-                              />
-                            )}
+                            <line
+                              x1={padding.left}
+                              y1={getY(0)}
+                              x2={width - padding.right}
+                              y2={getY(0)}
+                              stroke="#6b7280"
+                              strokeWidth="2"
+                              strokeDasharray="5,5"
+                            />
                             
-                            {/* Barras de Receita */}
+                            {/* Colunas Combinadas - Receita para cima + Custo para baixo */}
                             {dadosComDados.map((dado, index) => {
                               const x = getX(index);
                               const barWidth = getBarWidth();
-                              const barHeight = Math.abs(getY(dado.receita) - getY(0));
-                              const y = getY(Math.max(0, dado.receita));
+                              const zeroY = getY(0);
+                              
+                              // Barra de Receita (para cima)
+                              const receitaHeight = getReceitaHeight(dado.receita);
+                              const receitaY = zeroY - receitaHeight;
+                              
+                              // Barra de Custo (para baixo)
+                              const custoHeight = getCustoHeight(dado.custos);
+                              const custoY = zeroY;
                               
                               return (
-                                <rect
-                                  key={`receita-${index}`}
-                                  x={x - barWidth/2}
-                                  y={y}
-                                  width={barWidth * 0.4}
-                                  height={barHeight}
-                                  fill="url(#receitaGradient)"
-                                  className="cursor-pointer hover:opacity-80 transition-opacity"
-                                />
-                              );
-                            })}
-                            
-                            {/* Barras de Custos */}
-                            {dadosComDados.map((dado, index) => {
-                              const x = getX(index);
-                              const barWidth = getBarWidth();
-                              const barHeight = Math.abs(getY(dado.custos) - getY(0));
-                              const y = getY(Math.max(0, dado.custos));
-                              
-                              return (
-                                <rect
-                                  key={`custos-${index}`}
-                                  x={x + barWidth/2 - barWidth * 0.4}
-                                  y={y}
-                                  width={barWidth * 0.4}
-                                  height={barHeight}
-                                  fill="url(#custoGradient)"
-                                  className="cursor-pointer hover:opacity-80 transition-opacity"
-                                />
+                                <g key={`coluna-${index}`}>
+                                  {/* Receita (verde para cima) */}
+                                  {dado.receita > 0 && (
+                                    <rect
+                                      x={x - barWidth/2}
+                                      y={receitaY}
+                                      width={barWidth}
+                                      height={receitaHeight}
+                                      fill="url(#receitaGradient)"
+                                      className="cursor-pointer hover:opacity-80 transition-opacity"
+                                    />
+                                  )}
+                                  
+                                  {/* Custo (vermelho para baixo) */}
+                                  {dado.custos > 0 && (
+                                    <rect
+                                      x={x - barWidth/2}
+                                      y={custoY}
+                                      width={barWidth}
+                                      height={custoHeight}
+                                      fill="url(#custoGradient)"
+                                      className="cursor-pointer hover:opacity-80 transition-opacity"
+                                    />
+                                  )}
+                                </g>
                               );
                             })}
                             
