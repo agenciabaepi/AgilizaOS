@@ -5,7 +5,6 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import MenuLayout from '@/components/MenuLayout';
 import { Button } from '@/components/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import DashboardCard from '@/components/ui/DashboardCard';
 import FluxoCaixaChart from '@/components/FluxoCaixaChart';
 import { 

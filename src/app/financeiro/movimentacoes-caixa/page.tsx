@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import MenuLayout from '@/components/MenuLayout';
-import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
+import DashboardCard from '@/components/ui/DashboardCard';
 import { Button } from '@/components/Button';
 import { useAuth } from '@/context/AuthContext';
 import { TurnoCaixa, MovimentacaoCaixa } from '@/hooks/useCaixa';
@@ -208,72 +208,42 @@ export default function MovimentacoesCaixaPage() {
         </div>
 
         {/* Dashboard Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center">
-                <div className="p-3 rounded-full bg-blue-100 text-blue-600">
-                  <FiClock size={24} />
-                </div>
-                <div className="ml-4">
-                  <CardTitle className="text-sm font-medium text-gray-500">Turnos</CardTitle>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-gray-900">{metrics.totalTurnos}</p>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
+          <DashboardCard
+            title="Turnos"
+            value={metrics.totalTurnos}
+            description="Turnos registrados"
+            descriptionColorClass="text-blue-600"
+            icon={<FiClock className="w-5 h-5" />}
+            svgPolyline={{ color: '#3b82f6', points: '0,15 10,17 20,15 30,13 40,15 50,17 60,15 70,17' }}
+          />
 
-          <Card>
-            <CardHeader>
-              <div className="flex items-center">
-                <div className="p-3 rounded-full bg-green-100 text-green-600">
-                  <FiDollarSign size={24} />
-                </div>
-                <div className="ml-4">
-                  <CardTitle className="text-sm font-medium text-gray-500">Faturamento</CardTitle>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(metrics.faturamentoTotal)}</p>
-            </CardContent>
-          </Card>
+          <DashboardCard
+            title="Faturamento"
+            value={formatCurrency(metrics.faturamentoTotal)}
+            description="Receita total"
+            descriptionColorClass="text-green-600"
+            icon={<FiDollarSign className="w-5 h-5" />}
+            svgPolyline={{ color: '#22c55e', points: '0,20 10,18 20,16 30,14 40,12 50,10 60,8 70,6' }}
+          />
 
-          <Card>
-            <CardHeader>
-              <div className="flex items-center">
-                <div className="p-3 rounded-full bg-purple-100 text-purple-600">
-                  <FiTrendingUp size={24} />
-                </div>
-                <div className="ml-4">
-                  <CardTitle className="text-sm font-medium text-gray-500">Ticket Médio</CardTitle>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(metrics.ticketMedio)}</p>
-            </CardContent>
-          </Card>
+          <DashboardCard
+            title="Ticket Médio"
+            value={formatCurrency(metrics.ticketMedio)}
+            description="Valor médio por turno"
+            descriptionColorClass="text-purple-600"
+            icon={<FiTrendingUp className="w-5 h-5" />}
+            svgPolyline={{ color: '#8b5cf6', points: '0,12 10,14 20,12 30,10 40,12 50,14 60,12 70,14' }}
+          />
 
-          <Card>
-            <CardHeader>
-              <div className="flex items-center">
-                <div className="p-3 rounded-full bg-orange-100 text-orange-600">
-                  <FiUsers size={24} />
-                </div>
-                <div className="ml-4">
-                  <CardTitle className="text-sm font-medium text-gray-500">Diferenças</CardTitle>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className={`text-2xl font-bold ${metrics.diferencaTotal >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {formatCurrency(metrics.diferencaTotal)}
-              </p>
-            </CardContent>
-          </Card>
+          <DashboardCard
+            title="Diferenças"
+            value={formatCurrency(metrics.diferencaTotal)}
+            description="Diferença no caixa"
+            descriptionColorClass={metrics.diferencaTotal >= 0 ? "text-green-600" : "text-red-500"}
+            icon={<FiUsers className="w-5 h-5" />}
+            svgPolyline={{ color: metrics.diferencaTotal >= 0 ? '#22c55e' : '#ef4444', points: '0,18 10,16 20,18 30,20 40,18 50,16 60,18 70,20' }}
+          />
         </div>
 
         {/* Layout em duas colunas */}
