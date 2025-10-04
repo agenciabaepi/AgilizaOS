@@ -76,10 +76,10 @@ interface CategoriaDetalhada {
 
 interface Venda {
   id: string;
-  valor_total: number;
-  valor_pago: number;
+  total: number;
   data_venda: string;
-  observacoes?: string;
+  status: string;
+  empresa_id: string;
 }
 
 interface ContaCusto {
@@ -169,8 +169,9 @@ export default function LucroDesempenhoPage() {
     categoriasDetalhadas: []
   });
 
-  // Estado para vendas (muito mais simples!)
+  // Estado para vendas (igual à página de vendas!)
   const [vendas, setVendas] = useState<Venda[]>([]);
+  const [vendasFiltradas, setVendasFiltradas] = useState<Venda[]>([]);
 
   // Navegação por mês
   const navegarMes = (direcao: 'anterior' | 'proximo') => {
@@ -206,6 +207,21 @@ export default function LucroDesempenhoPage() {
     return { dataInicio, dataFim };
   };
 
+  // Filtrar vendas por período (igual à página de vendas!)
+  const filtrarVendas = () => {
+    const { dataInicio, dataFim } = calcularPeriodo();
+    const inicio = new Date(dataInicio);
+    const fim = new Date(dataFim);
+    fim.setHours(23, 59, 59, 999);
+
+    const filtradas = vendas.filter(venda => {
+      const dataVenda = new Date(venda.data_venda);
+      return dataVenda >= inicio && dataVenda <= fim;
+    });
+
+    setVendasFiltradas(filtradas);
+  };
+
   // Carregar dados
   const loadData = async () => {
     if (!empresaData?.id) {
@@ -224,29 +240,27 @@ export default function LucroDesempenhoPage() {
         periodo: `${dataInicio} a ${dataFim}`
       });
 
-      // Buscar ordens de serviço - campos que realmente existem na tabela
-      const { data: ordensData, error: ordensError } = await supabase
-        .from('ordens_servico')
-        .select(`
-          id,
-          numero_os,
-          cliente_id,
-          tecnico_id,
-          tecnico,
-          valor_faturado,
-          valor_total,
-          valor_peca,
-          valor_servico,
-          qtd_peca,
-          qtd_servico,
-          status,
-          created_at
-        `)
-        .eq('empresa_id', empresaData.id)
-        .gte('created_at', `${dataInicio}T00:00:00`)
-        .lte('created_at', `${dataFim}T23:59:59`)
-        .order('created_at', { ascending: false })
-        .limit(200);
+        // Buscar TODAS as ordens de serviço da empresa (sem filtro de data)
+        const { data: ordensData, error: ordensError } = await supabase
+          .from('ordens_servico')
+          .select(`
+            id,
+            numero_os,
+            cliente_id,
+            tecnico_id,
+            tecnico,
+            valor_faturado,
+            valor_total,
+            valor_peca,
+            valor_servico,
+            qtd_peca,
+            qtd_servico,
+            status,
+            created_at
+          `)
+          .eq('empresa_id', empresaData.id)
+          .order('created_at', { ascending: false })
+          .limit(200);
 
       console.log('📊 Resultado query completa:', {
         empresaId: empresaData.id,
@@ -287,14 +301,13 @@ export default function LucroDesempenhoPage() {
         .select('id, nome')
         .in('id', clienteIds);
 
-        // Buscar vendas do período (muito mais simples!)
+        // Buscar TODAS as vendas da empresa (sem filtro de período)
         const { data: todasVendas, error: errorVendas } = await supabase
           .from('vendas')
-          .select('id, valor_total, valor_pago, data_venda, observacoes')
+          .select('id, total, data_venda, status, empresa_id, observacoes')
           .eq('empresa_id', empresaData.id)
           .eq('status', 'finalizada')
-          .gte('data_venda', `${dataInicio}T00:00:00`)
-          .lte('data_venda', `${dataFim}T23:59:59`);
+          .order('data_venda', { ascending: false });
 
         console.log('🔍 EMPRESA ATUAL:', empresaData.id);
         console.log('🔍 TOTAL VENDAS ENCONTRADAS:', todasVendas?.length || 0);
@@ -304,7 +317,7 @@ export default function LucroDesempenhoPage() {
         if (todasVendas && todasVendas.length > 0) {
           console.log('🔍 PRIMEIRAS VENDAS:');
           todasVendas.slice(0, 3).forEach((venda, i) => {
-            console.log(`  ${i+1}. Total: R$ ${venda.valor_total}, Pago: R$ ${venda.valor_pago} - "${venda.observacoes}"`);
+            console.log(`  ${i+1}. Total: R$ ${venda.valor_total}, Pago: R$ ${venda.total} - "${venda.observacoes}"`);
           });
         }
 
@@ -313,7 +326,7 @@ export default function LucroDesempenhoPage() {
           console.log('⚠️ NENHUMA VENDA ENCONTRADA PARA ESTA EMPRESA');
           const { data: todasVendasGeral } = await supabase
             .from('vendas')
-            .select('id, valor_total, valor_pago, data_venda, observacoes, empresa_id')
+            .select('id, valor_total, total, data_venda, observacoes, empresa_id')
             .eq('status', 'finalizada')
             .limit(10);
           
@@ -321,7 +334,7 @@ export default function LucroDesempenhoPage() {
           if (todasVendasGeral && todasVendasGeral.length > 0) {
             console.log('🔍 PRIMEIRAS VENDAS GERAL:');
             todasVendasGeral.slice(0, 3).forEach((venda, i) => {
-              console.log(`  ${i+1}. Empresa: ${venda.empresa_id} - Total: R$ ${venda.valor_total}, Pago: R$ ${venda.valor_pago} - "${venda.observacoes}"`);
+              console.log(`  ${i+1}. Empresa: ${venda.empresa_id} - Total: R$ ${venda.valor_total}, Pago: R$ ${venda.total} - "${venda.observacoes}"`);
             });
           }
         }
@@ -364,30 +377,47 @@ export default function LucroDesempenhoPage() {
                    obs.includes(`OS #${ordem.numero_os}`) ||
                    obs.includes(`#${ordem.numero_os}`);
           }) || [];
-        
-        const custos = todosCustos?.filter(custo => 
-          custo.os_id === ordem.id
-        ) || [];
+          
+          const custos = todosCustos?.filter(custo => 
+            custo.os_id === ordem.id
+          ) || [];
 
-        return {
-          ...ordem,
-          clientes: clientesMap.get(ordem.cliente_id),
-          tecnico_nome: ordem.tecnico || 'N/A',
-          vendas,
-          custos
-        };
-      });
+          return {
+            ...ordem,
+            clientes: clientesMap.get(ordem.cliente_id),
+            tecnico_nome: ordem.tecnico || 'N/A',
+            vendas,
+            custos
+          };
+        });
 
-      setOrdens(ordensCompletas);
+        // Filtrar vendas por período (igual à página de vendas)
+        const vendasDoPeriodo = todasVendas?.filter(venda => {
+          const dataVenda = new Date(venda.data_venda);
+          const inicio = new Date(dataInicio);
+          const fim = new Date(dataFim);
+          fim.setHours(23, 59, 59, 999);
+          return dataVenda >= inicio && dataVenda <= fim;
+        }) || [];
+
+        // Filtrar apenas OS que tiveram vendas no período
+        const ordensComVendasNoPeriodo = ordensCompletas.filter(ordem => {
+          // Verificar se alguma venda desta OS está no período
+          return ordem.vendas.some(venda => 
+            vendasDoPeriodo.some(vendaPeriodo => vendaPeriodo.id === venda.id)
+          );
+        });
+
+        setOrdens(ordensComVendasNoPeriodo);
       
-        // Definir vendas no estado (muito mais simples!)
+        // Definir vendas no estado (igual à página de vendas!)
         setVendas(todasVendas || []);
 
         console.log('✅ Dados carregados:', {
-          totalOrdens: ordensCompletas.length,
-          totalVendas: todasVendas?.length || 0,
-          ordensComVendas: ordensCompletas.filter(o => o.vendas?.length > 0).length,
-          ordensComCustos: ordensCompletas.filter(o => o.custos?.length > 0).length,
+          totalOrdensEncontradas: ordensCompletas.length,
+          totalVendasEncontradas: todasVendas?.length || 0,
+          vendasDoPeriodo: vendasDoPeriodo.length,
+          ordensComVendasNoPeriodo: ordensComVendasNoPeriodo.length,
           mes: formatarMesAno(currentMonth)
         });
 
@@ -697,8 +727,14 @@ export default function LucroDesempenhoPage() {
 
   // Calcular métricas
   const calcularMetricas = () => {
-    // Receita total = soma de todas as vendas do período (muito mais simples!)
-    const totalReceita = vendas.reduce((acc, venda) => acc + venda.valor_pago, 0);
+    console.log('📊 Calculando métricas:', {
+      vendasFiltradasLength: vendasFiltradas.length,
+      vendasFiltradas: vendasFiltradas.map(v => ({ id: v.id, total: v.total, data: v.data_venda })),
+      ordensLength: ordens.length
+    });
+    
+    // Receita total = soma de todas as vendas filtradas (igual à página de vendas!)
+    const totalReceita = vendasFiltradas.reduce((acc, venda) => acc + venda.total, 0);
 
     const totalCustos = ordens.reduce((acc, ordem) => {
       const custosContas = ordem.custos?.reduce((custoAcc, custo) => custoAcc + custo.valor, 0) || 0;
@@ -709,7 +745,7 @@ export default function LucroDesempenhoPage() {
     const margemMedia = totalReceita > 0 ? (lucroTotal / totalReceita) * 100 : 0;
 
     const ordensComLucro = ordens.map(ordem => {
-      const receita = ordem.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0;
+      const receita = ordem.vendas?.reduce((acc, venda) => acc + venda.total, 0) || 0;
       const custos = ordem.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
       return { ...ordem, receita, custos, lucro: receita - custos };
     });
@@ -740,7 +776,7 @@ export default function LucroDesempenhoPage() {
       // Se há custos, adicionar na data da OS
       if (custosContas > 0) {
         const dataOrdem = ordem.created_at.split('T')[0];
-        const dia = new Date(dataOrdem).getDate();
+        const dia = parseInt(dataOrdem.split('-')[2]); // Extrair dia diretamente da string
         
         if (!dadosPorData.has(dia)) {
           dadosPorData.set(dia, {
@@ -759,7 +795,7 @@ export default function LucroDesempenhoPage() {
       if (ordem.vendas && ordem.vendas.length > 0) {
         ordem.vendas.forEach(venda => {
           const dataPagamento = venda.data_venda.split('T')[0];
-          const diaPagamento = new Date(dataPagamento).getDate();
+          const diaPagamento = parseInt(dataPagamento.split('-')[2]); // Extrair dia diretamente da string
           
           if (!dadosPorData.has(diaPagamento)) {
             dadosPorData.set(diaPagamento, {
@@ -771,7 +807,7 @@ export default function LucroDesempenhoPage() {
           }
           
           const dadosDia = dadosPorData.get(diaPagamento);
-          dadosDia.receita += venda.valor_pago;
+          dadosDia.receita += venda.total;
         });
       }
       // Removido: não considerar receita de OS sem pagamento efetivo
@@ -804,7 +840,7 @@ export default function LucroDesempenhoPage() {
     ordens.forEach(ordem => {
       if (!ordem.tecnico_nome || ordem.tecnico_nome === 'N/A') return;
 
-      const receita = ordem.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0;
+      const receita = ordem.vendas?.reduce((acc, venda) => acc + venda.total, 0) || 0;
       const custos = ordem.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
       const lucro = receita - custos;
 
@@ -1115,7 +1151,7 @@ export default function LucroDesempenhoPage() {
                 <span className="text-gray-600">OS Lucrativas:</span>
                 <span className="font-medium text-green-600">
                   {ordens.filter(o => {
-                    const receita = o.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0;
+                    const receita = o.vendas?.reduce((acc, venda) => acc + venda.total, 0) || 0;
                     const custos = o.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
                     return (receita - custos) > 0;
                   }).length}
@@ -1125,7 +1161,7 @@ export default function LucroDesempenhoPage() {
                 <span className="text-gray-600">OS com Prejuízo:</span>
                 <span className="font-medium text-red-600">
                   {ordens.filter(o => {
-                    const receita = o.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0;
+                    const receita = o.vendas?.reduce((acc, venda) => acc + venda.total, 0) || 0;
                     const custos = o.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
                     return (receita - custos) < 0;
                   }).length}
@@ -1157,12 +1193,18 @@ export default function LucroDesempenhoPage() {
   }, [empresaData?.id, currentMonth, anoSelecionado]);
 
   useEffect(() => {
-    if (ordens.length > 0 && vendas.length >= 0) { // vendas pode ser 0
+    if (vendas.length > 0) {
+      filtrarVendas();
+    }
+  }, [vendas, currentMonth]);
+
+  useEffect(() => {
+    if (ordens.length > 0 && vendasFiltradas.length >= 0) { // vendasFiltradas pode ser 0
       calcularMetricas();
       calcularAnaliseTecnicos();
       calcularDadosDiarios();
     }
-  }, [ordens, vendas]);
+  }, [ordens, vendasFiltradas]);
 
   // Formatação de valores
   const formatarMoeda = (valor: number) => {
@@ -1581,7 +1623,7 @@ export default function LucroDesempenhoPage() {
   // Renderizar tabela de OS
   const renderTabelaOS = () => {
     const ordensComLucro = ordens.map(ordem => {
-      const receita = ordem.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0;
+      const receita = ordem.vendas?.reduce((acc, venda) => acc + venda.total, 0) || 0;
       const custos = ordem.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
       return { ...ordem, receita, custos, lucro: receita - custos };
     });
