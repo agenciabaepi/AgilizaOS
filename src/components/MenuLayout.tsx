@@ -116,13 +116,17 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
 
   // Inicializar estados de expansão
   useEffect(() => {
-    // Expandir automaticamente se estiver na página de categorias
-    if (pathname === '/equipamentos/categorias') {
+    // Expandir automaticamente se estiver em qualquer página de equipamentos
+    if (pathname.startsWith('/equipamentos/')) {
       setEquipamentosExpanded(true);
     }
     // Expandir automaticamente se estiver nas páginas de contatos
     if (pathname === '/clientes' || pathname === '/fornecedores') {
       setContatosExpanded(true);
+    }
+    // Expandir automaticamente se estiver em qualquer página do financeiro
+    if (pathname.startsWith('/financeiro/')) {
+      setFinanceiroExpanded(true);
     }
   }, [pathname]);
 
