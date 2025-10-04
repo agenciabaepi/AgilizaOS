@@ -1034,76 +1034,51 @@ export default function LucroDesempenhoPage() {
               </div>
             </div>
 
-            {/* Detalhamento por Categorias */}
+            {/* Resumo dos Custos + Link para Detalhes */}
             {custosEmpresa.categoriasDetalhadas.length > 0 && (
-              <div className="ml-4 space-y-3 border-b border-gray-200 pb-2">
-                <p className="text-sm font-medium text-gray-800 mt-2">Detalhamento por Categoria:</p>
-                {custosEmpresa.categoriasDetalhadas.map((categoria, index) => (
-                  <div key={index} className="bg-gray-50 rounded-lg p-3">
-                    <div className="flex justify-between items-center mb-2">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 capitalize">
+              <div className="ml-4 border-b border-gray-200 pb-4">
+                <div className="flex justify-between items-center mb-3 mt-2">
+                  <p className="text-sm font-medium text-gray-800">Resumo por Categoria</p>
+                  <a 
+                    href="/financeiro/contas-a-pagar" 
+                    className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    <FiEye className="w-3 h-3 mr-1.5" />
+                    Ver Detalhes
+                  </a>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {custosEmpresa.categoriasDetalhadas.map((categoria, index) => (
+                    <div key={index} className="bg-gray-50 rounded-lg p-3">
+                      <div className="text-center">
+                        <h5 className="text-sm font-medium text-gray-900 capitalize mb-1">
                           {categoria.categoria}
-                        </p>
-                        <p className="text-xs text-gray-600">
-                          {categoria.quantidade} conta{categoria.quantidade !== 1 ? 's' : ''}
-                        </p>
-                      </div>
-                      <p className="text-sm font-semibold text-gray-900">
-                        {formatarMoeda(categoria.total)}
-                      </p>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Pagas:</span>
-                        <span className="text-green-600 font-medium">
-                          {formatarMoeda(categoria.contasPagas)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Pendentes:</span>
-                        <span className="text-orange-600 font-medium">
-                          {formatarMoeda(categoria.contasPendentes)}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Lista de contas da categoria */}
-                    <div className="mt-2 space-y-1">
-                      {categoria.contas.slice(0, 3).map((conta, contaIndex) => (
-                        <div key={contaIndex} className="flex justify-between items-center text-xs bg-white rounded px-2 py-1">
-                          <div className="flex-1 truncate">
-                            <p className="text-gray-800 truncate">{conta.descricao}</p>
-                            <p className="text-gray-500">
-                              {conta.data_vencimento ? 
-                                conta.data_vencimento.split('-').reverse().join('/') : 
-                                'Data não informada'
-                              }
-                            </p>
+                        </h5>
+                        <div className="text-lg font-bold text-gray-900 mb-2">
+                          {formatarMoeda(categoria.total)}
+                        </div>
+                        <div className="text-xs text-gray-600 space-y-1">
+                          <div className="flex justify-between">
+                            <span className="text-green-600">Pagas:</span>
+                            <span className="text-green-600 font-medium">
+                              {formatarMoeda(categoria.contasPagas)}
+                            </span>
                           </div>
-                          <div className="text-right ml-2">
-                            <p className="font-medium text-gray-900">
-                              {formatarMoeda(conta.valor)}
-                            </p>
-                            <span className={`inline-flex px-1 py-0.5 rounded text-xs ${
-                              conta.status === 'paga' 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-orange-100 text-orange-800'
-                            }`}>
-                              {conta.status}
+                          <div className="flex justify-between">
+                            <span className="text-orange-600">Pendentes:</span>
+                            <span className="text-orange-600 font-medium">
+                              {formatarMoeda(categoria.contasPendentes)}
                             </span>
                           </div>
                         </div>
-                      ))}
-                      {categoria.contas.length > 3 && (
-                        <p className="text-xs text-gray-500 text-center">
-                          +{categoria.contas.length - 3} outra{categoria.contas.length - 3 !== 1 ? 's' : ''}
+                        <p className="text-xs text-gray-500 mt-2">
+                          {categoria.quantidade} conta{categoria.quantidade !== 1 ? 's' : ''}
                         </p>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
 
