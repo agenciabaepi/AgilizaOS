@@ -33,12 +33,8 @@ interface OrdemServico {
   id: string;
   numero_os: string;
   cliente_id: string;
-  tecnico_id?: string;
-  valor_faturado?: number;
-  valor_peca?: number;
-  valor_servico?: number;
-  qtd_peca?: number;
-  qtd_servico?: number;
+  usuario_id?: string;
+  valor_total?: number;
   status: string;
   created_at: string;
   clientes?: {
@@ -190,12 +186,8 @@ export default function LucroDesempenhoPage() {
           id,
           numero_os,
           cliente_id,
-          tecnico_id,
-          valor_faturado,
-          valor_peca,
-          valor_servico,
-          qtd_peca,
-          qtd_servico,
+          usuario_id,
+          valor_total,
           status,
           created_at
         `)
@@ -231,11 +223,13 @@ export default function LucroDesempenhoPage() {
       const ordensIds = ordensData?.map(o => o.id) || [];
       const ordensNumeros = ordensData?.map(o => o.numero_os) || [];
       const clienteIds = [...new Set(ordensData?.map(o => o.cliente_id) || [])];
+      const tecnicoIds = [...new Set(ordensData?.map(o => o.usuario_id).filter(Boolean) || [])];
 
       console.log('🔍 Buscando dados relacionados:', {
         ordensIds: ordensIds.slice(0, 3),
         ordensNumeros: ordensNumeros.slice(0, 3),
-        clienteIds: clienteIds.slice(0, 3)
+        clienteIds: clienteIds.slice(0, 3),
+        tecnicoIds: tecnicoIds.slice(0, 3)
       });
 
       // Buscar clientes
@@ -243,6 +237,12 @@ export default function LucroDesempenhoPage() {
         .from('clientes')
         .select('id, nome')
         .in('id', clienteIds);
+
+      // Buscar técnicos
+      const { data: tecnicos } = await supabase
+        .from('usuarios')
+        .select('id, nome')
+        .in('id', tecnicoIds);
 
         // Buscar vendas específicas das OS - campos corretos do schema
         const { data: todasVendas, error: errorVendas } = await supabase
@@ -302,16 +302,14 @@ export default function LucroDesempenhoPage() {
         todasOS: ordensData?.map(os => ({
           id: os.id,
           numero: os.numero_os,
-          valor_faturado: os.valor_faturado,
-          valor_peca: os.valor_peca,
-          valor_servico: os.valor_servico,
-          qtd_peca: os.qtd_peca,
-          qtd_servico: os.qtd_servico
+          valor_total: os.valor_total,
+          usuario_id: os.usuario_id
         }))
       });
 
       // Criar mapas para lookup rápido
       const clientesMap = new Map(clientes?.map(c => [c.id, c]) || []);
+      const tecnicosMap = new Map(tecnicos?.map(t => [t.id, t]) || []);
 
         // Mapear os dados relacionados
         const ordensCompletas = (ordensData || []).map(ordem => {
@@ -329,6 +327,7 @@ export default function LucroDesempenhoPage() {
         return {
           ...ordem,
           clientes: clientesMap.get(ordem.cliente_id),
+          tecnico: tecnicosMap.get(ordem.usuario_id),
           vendas,
           custos
         };
@@ -355,7 +354,7 @@ export default function LucroDesempenhoPage() {
   const calcularMetricas = () => {
     const totalReceita = ordens.reduce((acc, ordem) => {
       const receitaVendas = ordem.vendas?.reduce((vendaAcc, venda) => vendaAcc + venda.valor_pago, 0) || 0;
-      const receitaOS = ordem.valor_faturado || 0;
+      const receitaOS = ordem.valor_total || 0;
       return acc + receitaVendas + receitaOS;
     }, 0);
 
@@ -368,7 +367,7 @@ export default function LucroDesempenhoPage() {
     const margemMedia = totalReceita > 0 ? (lucroTotal / totalReceita) * 100 : 0;
 
     const ordensComLucro = ordens.map(ordem => {
-      const receita = (ordem.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0) + (ordem.valor_faturado || 0);
+      const receita = (ordem.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0) + (ordem.valor_total || 0);
       const custos = ordem.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
       return { ...ordem, receita, custos, lucro: receita - custos };
     });
@@ -404,7 +403,7 @@ export default function LucroDesempenhoPage() {
       
       const receita = ordensDoDia.reduce((acc, ordem) => {
         const receitaVendas = ordem.vendas?.reduce((vendaAcc, venda) => vendaAcc + venda.valor_pago, 0) || 0;
-        const receitaOS = ordem.valor_faturado || 0;
+        const receitaOS = ordem.valor_total || 0;
         return acc + receitaVendas + receitaOS;
       }, 0);
       
@@ -429,22 +428,22 @@ export default function LucroDesempenhoPage() {
     const tecnicosMap = new Map<string, AnaliseTecnico>();
 
     ordens.forEach(ordem => {
-      if (!ordem.tecnico_id || !ordem.tecnico?.nome) return;
+      if (!ordem.usuario_id || !ordem.tecnico?.nome) return;
 
-      const receita = (ordem.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0) + (ordem.valor_faturado || 0);
+      const receita = (ordem.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0) + (ordem.valor_total || 0);
       const custos = ordem.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
       const lucro = receita - custos;
 
-      if (tecnicosMap.has(ordem.tecnico_id)) {
-        const tecnico = tecnicosMap.get(ordem.tecnico_id)!;
+      if (tecnicosMap.has(ordem.usuario_id)) {
+        const tecnico = tecnicosMap.get(ordem.usuario_id)!;
         tecnico.totalOS += 1;
         tecnico.receitaTotal += receita;
         tecnico.custosTotal += custos;
         tecnico.lucroTotal += lucro;
         tecnico.margemMedia = tecnico.receitaTotal > 0 ? (tecnico.lucroTotal / tecnico.receitaTotal) * 100 : 0;
       } else {
-        tecnicosMap.set(ordem.tecnico_id, {
-          tecnico_id: ordem.tecnico_id,
+        tecnicosMap.set(ordem.usuario_id, {
+          tecnico_id: ordem.usuario_id,
           nome: ordem.tecnico.nome,
           totalOS: 1,
           receitaTotal: receita,
@@ -803,7 +802,7 @@ export default function LucroDesempenhoPage() {
   // Renderizar tabela de OS
   const renderTabelaOS = () => {
     const ordensComLucro = ordens.map(ordem => {
-      const receita = (ordem.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0) + (ordem.valor_faturado || 0);
+      const receita = (ordem.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0) + (ordem.valor_total || 0);
       const custos = ordem.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
       return { ...ordem, receita, custos, lucro: receita - custos };
     });
