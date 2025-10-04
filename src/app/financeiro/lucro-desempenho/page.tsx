@@ -125,7 +125,7 @@ export default function LucroDesempenhoPage() {
   
   // Estados de navegação por mês
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [visualizacaoAtiva, setVisualizacaoAtiva] = useState<'dashboard' | 'os' | 'tecnicos'>('dashboard');
+  const [visualizacaoAtiva, setVisualizacaoAtiva] = useState<'dashboard' | 'os' | 'tecnicos' | 'dre'>('dashboard');
   
   // Estados para dados diários
   const [dadosDiarios, setDadosDiarios] = useState<Array<{
@@ -584,6 +584,207 @@ export default function LucroDesempenhoPage() {
     
     setAnaliseTecnicos(tecnicosArray);
   };
+
+  // Renderizar DRE (Demonstração do Resultado do Exercício)
+  const renderDRE = () => (
+    <div className="bg-white rounded-xl shadow-md overflow-hidden">
+      <div className="p-6 border-b border-gray-200">
+        <h3 className="text-lg font-semibold text-gray-900">Demonstração do Resultado do Exercício</h3>
+        <p className="text-sm text-gray-600 mt-1">Análise detalhada da performance financeira - {formatarMesAno(currentMonth)}</p>
+      </div>
+      
+      <div className="p-6">
+        {/* Resumo Executivo */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-700">Receita Líquida</p>
+                <p className="text-2xl font-bold text-green-900">{formatarMoeda(metricas.totalReceita)}</p>
+              </div>
+              <FiTrendingUp className="w-8 h-8 text-green-600" />
+            </div>
+          </div>
+          
+          <div className="bg-red-50 rounded-lg p-4 border border-red-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-red-700">Custos Totais</p>
+                <p className="text-2xl font-bold text-red-900">{formatarMoeda(metricas.totalCustos)}</p>
+              </div>
+              <FiTarget className="w-8 h-8 text-red-600" />
+            </div>
+          </div>
+          
+          <div className={`rounded-lg p-4 border ${metricas.lucroTotal >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-sm font-medium ${metricas.lucroTotal >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                  Resultado Líquido
+                </p>
+                <p className={`text-2xl font-bold ${metricas.lucroTotal >= 0 ? 'text-green-900' : 'text-red-900'}`}>
+                  {formatarMoeda(metricas.lucroTotal)}
+                </p>
+              </div>
+              {metricas.lucroTotal >= 0 ? (
+                <FiTrendingUp className="w-8 h-8 text-green-600" />
+              ) : (
+                <FiTrendingDown className="w-8 h-8 text-red-600" />
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* DRE Detalhada */}
+        <div className="bg-gray-50 rounded-lg p-6">
+          <h4 className="text-lg font-semibold text-gray-900 mb-4">DRE Detalhada</h4>
+          
+          <div className="space-y-4">
+            {/* Receita Bruta */}
+            <div className="flex justify-between items-center py-2 border-b border-gray-200">
+              <div>
+                <p className="font-medium text-gray-900">Receita Bruta</p>
+                <p className="text-sm text-gray-600">Vendas de produtos e serviços</p>
+              </div>
+              <p className="font-semibold text-green-600">{formatarMoeda(metricas.totalReceita)}</p>
+            </div>
+
+            {/* Deduções */}
+            <div className="flex justify-between items-center py-2 border-b border-gray-200 ml-4">
+              <div>
+                <p className="text-gray-700">(-) Deduções</p>
+                <p className="text-sm text-gray-600">Descontos e devoluções</p>
+              </div>
+              <p className="text-red-600">R$ 0,00</p>
+            </div>
+
+            {/* Receita Líquida */}
+            <div className="flex justify-between items-center py-2 border-b border-gray-300 bg-green-50">
+              <div>
+                <p className="font-semibold text-gray-900">Receita Líquida</p>
+              </div>
+              <p className="font-bold text-green-600">{formatarMoeda(metricas.totalReceita)}</p>
+            </div>
+
+            {/* Custos */}
+            <div className="flex justify-between items-center py-2 border-b border-gray-200">
+              <div>
+                <p className="font-medium text-gray-900">(-) Custos dos Produtos/Serviços</p>
+                <p className="text-sm text-gray-600">Peças, mão de obra e materiais</p>
+              </div>
+              <p className="font-semibold text-red-600">{formatarMoeda(metricas.totalCustos)}</p>
+            </div>
+
+            {/* Lucro Bruto */}
+            <div className="flex justify-between items-center py-2 border-b border-gray-300 bg-blue-50">
+              <div>
+                <p className="font-semibold text-gray-900">Lucro Bruto</p>
+              </div>
+              <p className={`font-bold ${metricas.lucroTotal >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {formatarMoeda(metricas.lucroTotal)}
+              </p>
+            </div>
+
+            {/* Despesas Operacionais */}
+            <div className="flex justify-between items-center py-2 border-b border-gray-200">
+              <div>
+                <p className="font-medium text-gray-900">(-) Despesas Operacionais</p>
+                <p className="text-sm text-gray-600">Administrativas, comerciais e gerais</p>
+              </div>
+              <p className="text-red-600">R$ 0,00</p>
+            </div>
+
+            {/* Resultado Operacional */}
+            <div className="flex justify-between items-center py-2 border-b border-gray-300 bg-yellow-50">
+              <div>
+                <p className="font-semibold text-gray-900">Resultado Operacional</p>
+              </div>
+              <p className={`font-bold ${metricas.lucroTotal >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {formatarMoeda(metricas.lucroTotal)}
+              </p>
+            </div>
+
+            {/* Resultado Financeiro */}
+            <div className="flex justify-between items-center py-2 border-b border-gray-200">
+              <div>
+                <p className="font-medium text-gray-900">Resultado Financeiro</p>
+                <p className="text-sm text-gray-600">Receitas e despesas financeiras</p>
+              </div>
+              <p className="text-gray-600">R$ 0,00</p>
+            </div>
+
+            {/* Resultado Líquido */}
+            <div className="flex justify-between items-center py-3 bg-gray-100 rounded-lg">
+              <div>
+                <p className="text-lg font-bold text-gray-900">RESULTADO LÍQUIDO</p>
+                <p className="text-sm text-gray-600">Margem: {metricas.margemMedia.toFixed(1)}%</p>
+              </div>
+              <p className={`text-2xl font-bold ${metricas.lucroTotal >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {formatarMoeda(metricas.lucroTotal)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Análise de Performance */}
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white rounded-lg border p-6">
+            <h5 className="font-semibold text-gray-900 mb-4">Análise de Margem</h5>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Margem Bruta:</span>
+                <span className={`font-medium ${metricas.margemMedia >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {metricas.margemMedia.toFixed(1)}%
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Receita por OS:</span>
+                <span className="font-medium text-gray-900">
+                  {metricas.totalOS > 0 ? formatarMoeda(metricas.totalReceita / metricas.totalOS) : 'R$ 0,00'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Custo por OS:</span>
+                <span className="font-medium text-gray-900">
+                  {metricas.totalOS > 0 ? formatarMoeda(metricas.totalCustos / metricas.totalOS) : 'R$ 0,00'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg border p-6">
+            <h5 className="font-semibold text-gray-900 mb-4">Indicadores</h5>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Total de OS:</span>
+                <span className="font-medium text-gray-900">{metricas.totalOS}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">OS Lucrativas:</span>
+                <span className="font-medium text-green-600">
+                  {ordens.filter(o => {
+                    const receita = o.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0;
+                    const custos = o.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
+                    return (receita - custos) > 0;
+                  }).length}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">OS com Prejuízo:</span>
+                <span className="font-medium text-red-600">
+                  {ordens.filter(o => {
+                    const receita = o.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0;
+                    const custos = o.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
+                    return (receita - custos) < 0;
+                  }).length}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   // Efeitos
   useEffect(() => {
@@ -1294,6 +1495,17 @@ export default function LucroDesempenhoPage() {
                     <FiUsers className="w-4 h-4 inline mr-2" />
                     Por Técnico
                   </button>
+                  <button
+                    onClick={() => setVisualizacaoAtiva('dre')}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                      visualizacaoAtiva === 'dre'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <FiBarChart className="w-4 h-4 inline mr-2" />
+                    DRE
+                  </button>
                 </nav>
               </div>
             </div>
@@ -1303,6 +1515,7 @@ export default function LucroDesempenhoPage() {
               {visualizacaoAtiva === 'dashboard' && renderDashboard()}
               {visualizacaoAtiva === 'os' && renderTabelaOS()}
               {visualizacaoAtiva === 'tecnicos' && renderAnaliseTecnicos()}
+              {visualizacaoAtiva === 'dre' && renderDRE()}
             </div>
 
             {/* Tabela Saldo Anual */}
