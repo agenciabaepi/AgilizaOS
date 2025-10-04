@@ -488,6 +488,51 @@ export default function LucroDesempenhoPage() {
     }
   };
 
+  // Função para gerar contas fixas virtuais (mesma lógica da página Contas a Pagar)
+  const gerarContasFixasVirtuais = (contasOriginais: any[], mesSelecionado: string): any[] => {
+    const contasNaoFixas = contasOriginais.filter(conta => !conta.conta_fixa);
+    const contasFixas = contasOriginais.filter(conta => conta.conta_fixa);
+    const contasVirtuais: any[] = [];
+    
+    contasFixas.forEach(conta => {
+      if (!conta.data_fixa_mes || !conta.parcelas_totais) return;
+      
+      // Para contas fixas, gerar parcelas virtuais APENAS para as parcelas futuras (2, 3, 4, etc.)
+      const parcelasTotais = conta.parcelas_totais;
+      
+      for (let parcela = 2; parcela <= parcelasTotais; parcela++) {
+        // Calcular data da parcela
+        const dataOriginal = new Date(conta.data_vencimento);
+        const novaData = new Date(dataOriginal);
+        novaData.setMonth(dataOriginal.getMonth() + (parcela - 1));
+        
+        // Ajustar dia se necessário (ex: 31/01 -> 28/02)
+        const diaFixo = Math.min(conta.data_fixa_mes, new Date(novaData.getFullYear(), novaData.getMonth() + 1, 0).getDate());
+        novaData.setDate(diaFixo);
+        
+        const mesConta = novaData.toISOString().slice(0, 7);
+        
+        // Gerar conta virtual para esta parcela
+        const contaVirtual = {
+          ...conta,
+          id: `${conta.id}_virtual_${parcela}`,
+          data_vencimento: novaData.toISOString().split('T')[0],
+          parcela_atual: parcela,
+          status: 'pendente' as const,
+          // Marcar como virtual para identificação
+          observacoes: `${conta.observacoes || ''}`.trim()
+        };
+        
+        contasVirtuais.push(contaVirtual);
+      }
+    });
+    
+    // Combinar contas não-fixas + contas fixas originais + contas virtuais
+    const contasCombinadas = [...contasNaoFixas, ...contasFixas, ...contasVirtuais];
+    
+    return contasCombinadas;
+  };
+
   // Função para buscar custos da empresa para DRE
   const fetchCustosEmpresa = async () => {
     if (!empresaData?.id) return;
@@ -504,7 +549,7 @@ export default function LucroDesempenhoPage() {
       console.log('🔍 Buscando TODAS as contas da empresa...');
       const { data: todasContas, error: contasError } = await supabase
         .from('contas_pagar')
-        .select('valor, status, data_vencimento, tipo, descricao, os_id, created_at')
+        .select('*') // Buscar todos os campos para incluir conta_fixa, parcelas_totais, etc.
         .eq('empresa_id', empresaData.id)
         .order('data_vencimento', { ascending: false });
 
@@ -513,16 +558,20 @@ export default function LucroDesempenhoPage() {
         return;
       }
 
-      console.log('📊 Contas encontradas:', todasContas?.length || 0);
+      console.log('📊 Contas originais encontradas:', todasContas?.length || 0);
       
-      // Filtrar contas pelo mês selecionado (mesma lógica da página Contas a Pagar)
+      // Gerar contas virtuais (mesma lógica da página Contas a Pagar)
       const mesAtual = currentMonth.toISOString().slice(0, 7); // YYYY-MM
-      console.log('📅 Filtrando pelo mês:', mesAtual);
+      console.log('📅 Gerando contas virtuais para o mês:', mesAtual);
       
-      const contasDoMes = todasContas?.filter(conta => {
+      const contasComVirtuais = gerarContasFixasVirtuais(todasContas || [], mesAtual);
+      console.log('📊 Contas com virtuais geradas:', contasComVirtuais.length);
+      
+      // Filtrar contas pelo mês selecionado (incluindo as virtuais)
+      const contasDoMes = contasComVirtuais.filter(conta => {
         const contaMes = new Date(conta.data_vencimento).toISOString().slice(0, 7); // YYYY-MM
         return contaMes === mesAtual;
-      }) || [];
+      });
       
       console.log('📊 Contas do mês selecionado:', contasDoMes.length);
       
