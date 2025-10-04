@@ -908,54 +908,60 @@ export default function LucroDesempenhoPage() {
       
       <div className="p-6">
         {/* Resumo Executivo */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-green-700">Receita Líquida</p>
-                <p className="text-2xl font-bold text-green-900">{formatarMoeda(metricas.totalReceita)}</p>
-              </div>
-              <FiTrendingUp className="w-8 h-8 text-green-600" />
-            </div>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
+          <DashboardCard
+            title="Receita Líquida"
+            value={<span className="text-green-600">{formatarMoeda(metricas.totalReceita)}</span>}
+            icon={<FiTrendingUp className="w-5 h-5" />}
+            colorClass="text-black"
+            bgClass="bg-white"
+            description="Vendas de produtos e serviços"
+            descriptionColorClass="text-green-600"
+            svgPolyline={{ color: '#22c55e', points: '0,20 10,18 20,16 30,14 40,12 50,10 60,8 70,6' }}
+          />
           
-          <div className="bg-red-50 rounded-lg p-4 border border-red-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-red-700">Custos Totais</p>
-                <p className="text-2xl font-bold text-red-900">{formatarMoeda(custosEmpresa.custosPecas)}</p>
-              </div>
-              <FiTarget className="w-8 h-8 text-red-600" />
-            </div>
-          </div>
+          <DashboardCard
+            title="Custos Totais"
+            value={<span className="text-red-600">{formatarMoeda(custosEmpresa.custosPecas)}</span>}
+            icon={<FiTarget className="w-5 h-5" />}
+            colorClass="text-black"
+            bgClass="bg-white"
+            description="Peças e serviços"
+            descriptionColorClass="text-red-500"
+            svgPolyline={{ color: '#ef4444', points: '0,6 10,8 20,10 30,12 40,14 50,16 60,18 70,20' }}
+          />
           
-          <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-orange-700">Despesas Operacionais</p>
-                <p className="text-2xl font-bold text-orange-900">{formatarMoeda(custosEmpresa.despesasOperacionais)}</p>
-              </div>
-              <FiAlertCircle className="w-8 h-8 text-orange-600" />
-            </div>
-          </div>
+          <DashboardCard
+            title="Despesas Operacionais"
+            value={<span className="text-orange-600">{formatarMoeda(custosEmpresa.despesasOperacionais)}</span>}
+            icon={<FiAlertCircle className="w-5 h-5" />}
+            colorClass="text-black"
+            bgClass="bg-white"
+            description="Contas a pagar e operacionais"
+            descriptionColorClass="text-orange-600"
+            svgPolyline={{ color: '#f97316', points: '0,18 10,16 20,18 30,20 40,18 50,16 60,18 70,20' }}
+          />
           
-          <div className={`rounded-lg p-4 border ${(metricas.lucroTotal - custosEmpresa.despesasOperacionais) >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className={`text-sm font-medium ${(metricas.lucroTotal - custosEmpresa.despesasOperacionais) >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                  Resultado Líquido
-                </p>
-                <p className={`text-2xl font-bold ${(metricas.lucroTotal - custosEmpresa.despesasOperacionais) >= 0 ? 'text-green-900' : 'text-red-900'}`}>
-                  {formatarMoeda(metricas.lucroTotal - custosEmpresa.despesasOperacionais)}
-                </p>
-              </div>
-              {(metricas.lucroTotal - custosEmpresa.despesasOperacionais) >= 0 ? (
-                <FiTrendingUp className="w-8 h-8 text-green-600" />
-              ) : (
-                <FiTrendingDown className="w-8 h-8 text-red-600" />
-              )}
-            </div>
-          </div>
+          <DashboardCard
+            title="Resultado Líquido"
+            value={
+              <span className={(metricas.lucroTotal - custosEmpresa.despesasOperacionais) >= 0 ? 'text-green-600' : 'text-red-600'}>
+                {formatarMoeda(metricas.lucroTotal - custosEmpresa.despesasOperacionais)}
+              </span>
+            }
+            icon={(metricas.lucroTotal - custosEmpresa.despesasOperacionais) >= 0 ? 
+              <FiTrendingUp className="w-5 h-5" /> : 
+              <FiTrendingDown className="w-5 h-5" />
+            }
+            colorClass="text-black"
+            bgClass="bg-white"
+            description={(metricas.lucroTotal - custosEmpresa.despesasOperacionais) >= 0 ? 'Lucro operacional' : 'Prejuízo operacional'}
+            descriptionColorClass={(metricas.lucroTotal - custosEmpresa.despesasOperacionais) >= 0 ? 'text-green-600' : 'text-red-500'}
+            svgPolyline={{ 
+              color: (metricas.lucroTotal - custosEmpresa.despesasOperacionais) >= 0 ? '#22c55e' : '#ef4444', 
+              points: '0,20 10,18 20,16 30,14 40,12 50,10 60,8 70,6' 
+            }}
+          />
         </div>
 
         {/* DRE Detalhada */}
