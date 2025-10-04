@@ -727,12 +727,6 @@ export default function LucroDesempenhoPage() {
 
   // Calcular métricas
   const calcularMetricas = () => {
-    console.log('📊 Calculando métricas:', {
-      vendasFiltradasLength: vendasFiltradas.length,
-      vendasFiltradas: vendasFiltradas.map(v => ({ id: v.id, total: v.total, data: v.data_venda })),
-      ordensLength: ordens.length
-    });
-    
     // Receita total = soma de todas as vendas filtradas (igual à página de vendas!)
     const totalReceita = vendasFiltradas.reduce((acc, venda) => acc + venda.total, 0);
 
