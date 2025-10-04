@@ -730,9 +730,19 @@ export default function LucroDesempenhoPage() {
     // Receita total = soma de todas as vendas filtradas (igual à página de vendas!)
     const totalReceita = vendasFiltradas.reduce((acc, venda) => acc + venda.total, 0);
 
+    // Filtrar custos pelo período selecionado (igual à página de contas a pagar)
+    const mesAtual = currentMonth.toISOString().slice(0, 7); // YYYY-MM
     const totalCustos = ordens.reduce((acc, ordem) => {
-      const custosContas = ordem.custos?.reduce((custoAcc, custo) => custoAcc + custo.valor, 0) || 0;
-      return acc + custosContas;
+      // Filtrar custos que pertencem ao mês selecionado (baseado em data_vencimento)
+      const custosDoPeriodo = ordem.custos?.filter(custo => {
+        if (!custo.data_vencimento) return false;
+        
+        // Usar mesma lógica da página de contas a pagar
+        const custoMes = new Date(custo.data_vencimento).toISOString().slice(0, 7); // YYYY-MM
+        return custoMes === mesAtual;
+      }) || [];
+      
+      return acc + custosDoPeriodo.reduce((custoAcc, custo) => custoAcc + custo.valor, 0);
     }, 0);
 
     const lucroTotal = totalReceita - totalCustos;
@@ -740,7 +750,17 @@ export default function LucroDesempenhoPage() {
 
     const ordensComLucro = ordens.map(ordem => {
       const receita = ordem.vendas?.reduce((acc, venda) => acc + venda.total, 0) || 0;
-      const custos = ordem.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
+      
+      // Filtrar custos pelo período selecionado (igual à página de contas a pagar)
+      const custosDoPeriodo = ordem.custos?.filter(custo => {
+        if (!custo.data_vencimento) return false;
+        
+        // Usar mesma lógica da página de contas a pagar
+        const custoMes = new Date(custo.data_vencimento).toISOString().slice(0, 7); // YYYY-MM
+        return custoMes === mesAtual;
+      }) || [];
+      
+      const custos = custosDoPeriodo.reduce((acc, custo) => acc + custo.valor, 0);
       return { ...ordem, receita, custos, lucro: receita - custos };
     });
 
@@ -763,14 +783,25 @@ export default function LucroDesempenhoPage() {
     // Criar mapa de dados por data do pagamento (não da OS)
     const dadosPorData = new Map();
     
+    const mesAtual = currentMonth.toISOString().slice(0, 7); // YYYY-MM
+    
     ordens.forEach(ordem => {
-      // Calcular custos (baseados na data da OS)
-      const custosContas = ordem.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
+      // Filtrar custos pelo período selecionado (igual à página de contas a pagar)
+      const custosDoPeriodo = ordem.custos?.filter(custo => {
+        if (!custo.data_vencimento) return false;
+        
+        // Usar mesma lógica da página de contas a pagar
+        const custoMes = new Date(custo.data_vencimento).toISOString().slice(0, 7); // YYYY-MM
+        return custoMes === mesAtual;
+      }) || [];
       
-      // Se há custos, adicionar na data da OS
+      const custosContas = custosDoPeriodo.reduce((acc, custo) => acc + custo.valor, 0);
+      
+      // Se há custos no período, adicionar na data de vencimento
       if (custosContas > 0) {
-        const dataOrdem = ordem.created_at.split('T')[0];
-        const dia = parseInt(dataOrdem.split('-')[2]); // Extrair dia diretamente da string
+        // Usar a data de vencimento para agrupar no gráfico
+        const primeiraConta = custosDoPeriodo[0];
+        const dia = parseInt(primeiraConta.data_vencimento.split('-')[2]); // Extrair dia diretamente da string
         
         if (!dadosPorData.has(dia)) {
           dadosPorData.set(dia, {
@@ -830,12 +861,23 @@ export default function LucroDesempenhoPage() {
   // Calcular análise de técnicos
   const calcularAnaliseTecnicos = () => {
     const tecnicosMap = new Map<string, AnaliseTecnico>();
+    const mesAtual = currentMonth.toISOString().slice(0, 7); // YYYY-MM
 
     ordens.forEach(ordem => {
       if (!ordem.tecnico_nome || ordem.tecnico_nome === 'N/A') return;
 
       const receita = ordem.vendas?.reduce((acc, venda) => acc + venda.total, 0) || 0;
-      const custos = ordem.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
+      
+      // Filtrar custos pelo período selecionado (igual à página de contas a pagar)
+      const custosDoPeriodo = ordem.custos?.filter(custo => {
+        if (!custo.data_vencimento) return false;
+        
+        // Usar mesma lógica da página de contas a pagar
+        const custoMes = new Date(custo.data_vencimento).toISOString().slice(0, 7); // YYYY-MM
+        return custoMes === mesAtual;
+      }) || [];
+      
+      const custos = custosDoPeriodo.reduce((acc, custo) => acc + custo.valor, 0);
       const lucro = receita - custos;
 
       if (tecnicosMap.has(ordem.tecnico_nome)) {
