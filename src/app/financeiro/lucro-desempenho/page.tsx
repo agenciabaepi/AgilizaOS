@@ -242,8 +242,24 @@ export default function LucroDesempenhoPage() {
           empresaId: empresaData.id,
           totalVendas: todasVendas?.length || 0,
           errorVendas: errorVendas,
-          sampleVendas: todasVendas?.slice(0, 3)
+          sampleVendas: todasVendas?.slice(0, 3),
+          ordensNumeros: ordensNumeros.slice(0, 3)
         });
+
+        // Se não encontrou vendas para esta empresa, buscar em todas as empresas para debug
+        if (!todasVendas || todasVendas.length === 0) {
+          const { data: todasVendasGeral } = await supabase
+            .from('vendas')
+            .select('id, total, data_venda, observacoes, empresa_id')
+            .eq('status', 'finalizada')
+            .limit(10);
+          
+          console.log('🔍 Debug vendas geral (todas empresas):', {
+            totalVendasGeral: todasVendasGeral?.length || 0,
+            sampleVendasGeral: todasVendasGeral?.slice(0, 3),
+            empresasComVendas: todasVendasGeral?.map(v => v.empresa_id) || []
+          });
+        }
 
         const { data: todosCustos } = await supabase
           .from('contas_pagar')
