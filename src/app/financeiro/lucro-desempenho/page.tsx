@@ -187,7 +187,7 @@ export default function LucroDesempenhoPage() {
         periodo: `${dataInicio} a ${dataFim}`
       });
 
-      // Buscar ordens de serviço com todos os campos necessários
+      // Buscar ordens de serviço sem joins (problema está nos joins)
       const { data: ordensData, error: ordensError } = await supabase
         .from('ordens_servico')
         .select(`
@@ -205,9 +205,7 @@ export default function LucroDesempenhoPage() {
           created_at,
           data_entrada,
           data_saida,
-          prazo_entrega,
-          clientes!cliente_id(nome),
-          tecnico:usuarios!tecnico_id(nome)
+          prazo_entrega
         `)
         .eq('empresa_id', empresaData.id)
         .gte('created_at', `${dataInicio}T00:00:00`)
@@ -237,14 +235,30 @@ export default function LucroDesempenhoPage() {
         return;
       }
 
-      // Buscar vendas e custos em lote
+      // Buscar dados relacionados separadamente
       const ordensIds = ordensData?.map(o => o.id) || [];
       const ordensNumeros = ordensData?.map(o => o.numero_os) || [];
+      const clienteIds = [...new Set(ordensData?.map(o => o.cliente_id) || [])];
+      const tecnicoIds = [...new Set(ordensData?.map(o => o.tecnico_id) || [])];
 
-      console.log('🔍 Buscando vendas e custos:', {
+      console.log('🔍 Buscando dados relacionados:', {
         ordensIds: ordensIds.slice(0, 3),
-        ordensNumeros: ordensNumeros.slice(0, 3)
+        ordensNumeros: ordensNumeros.slice(0, 3),
+        clienteIds: clienteIds.slice(0, 3),
+        tecnicoIds: tecnicoIds.slice(0, 3)
       });
+
+      // Buscar clientes
+      const { data: clientes } = await supabase
+        .from('clientes')
+        .select('id, nome')
+        .in('id', clienteIds);
+
+      // Buscar técnicos
+      const { data: tecnicos } = await supabase
+        .from('usuarios')
+        .select('id, nome')
+        .in('id', tecnicoIds);
 
       const { data: todasVendas } = await supabase
         .from('vendas')
@@ -267,6 +281,10 @@ export default function LucroDesempenhoPage() {
         sampleCusto: todosCustos?.[0]
       });
 
+      // Criar mapas para lookup rápido
+      const clientesMap = new Map(clientes?.map(c => [c.id, c]) || []);
+      const tecnicosMap = new Map(tecnicos?.map(t => [t.id, t]) || []);
+
       // Mapear os dados relacionados
       const ordensCompletas = (ordensData || []).map(ordem => {
         const vendas = todasVendas?.filter(venda => 
@@ -279,6 +297,8 @@ export default function LucroDesempenhoPage() {
 
         return {
           ...ordem,
+          clientes: clientesMap.get(ordem.cliente_id),
+          tecnico: tecnicosMap.get(ordem.tecnico_id),
           vendas,
           custos
         };
