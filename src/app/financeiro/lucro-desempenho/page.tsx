@@ -186,30 +186,13 @@ export default function LucroDesempenhoPage() {
         periodo: `${dataInicio} a ${dataFim}`
       });
 
-      // Buscar ordens de serviço sem joins (problema está nos joins)
+      // Query mínima para testar se a tabela existe
+      console.log('🔍 Testando query mínima na tabela ordens_servico...');
       const { data: ordensData, error: ordensError } = await supabase
         .from('ordens_servico')
-        .select(`
-          id,
-          numero_os,
-          cliente_id,
-          tecnico_id,
-          status,
-          valor_faturado,
-          valor_peca,
-          valor_servico,
-          qtd_peca,
-          qtd_servico,
-          desconto,
-          created_at,
-          data_saida,
-          prazo_entrega
-        `)
+        .select('id, numero_os, created_at')
         .eq('empresa_id', empresaData.id)
-        .gte('created_at', `${dataInicio}T00:00:00`)
-        .lte('created_at', `${dataFim}T23:59:59`)
-        .order('created_at', { ascending: false })
-        .limit(200);
+        .limit(10);
 
       console.log('📊 Resultado query completa:', {
         empresaId: empresaData.id,
