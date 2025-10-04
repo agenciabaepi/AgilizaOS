@@ -610,7 +610,7 @@ export default function LucroDesempenhoPage() {
               
               <div className="p-6">
                 <div className="relative">
-                  {/* Gráfico estilo Dashboard Financeiro */}
+                  {/* Gráfico Lucro OS Diário - Estilo Dashboard Financeiro */}
                   <div className="relative">
                     <svg
                       width="100%"
@@ -623,7 +623,7 @@ export default function LucroDesempenhoPage() {
                         <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
                           <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#f3f4f6" strokeWidth="1"/>
                         </pattern>
-                        <linearGradient id="faturamentoGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <linearGradient id="receitaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
                           <stop offset="0%" stopColor="#10b981" stopOpacity="0.8"/>
                           <stop offset="100%" stopColor="#10b981" stopOpacity="0.4"/>
                         </linearGradient>
@@ -645,10 +645,10 @@ export default function LucroDesempenhoPage() {
                         const height = 300;
                         const padding = { top: 20, right: 40, bottom: 60, left: 80 };
                         
-                        // Calcular escala
-                        const allValues = dadosComDados.flatMap(d => [d.receita, d.custos]);
+                        // Calcular escala incluindo lucro (pode ser negativo)
+                        const allValues = dadosComDados.flatMap(d => [d.receita, d.custos, d.lucro]);
                         const maxValue = Math.max(...allValues);
-                        const minValue = 0;
+                        const minValue = Math.min(...allValues);
                         const valueRange = maxValue - minValue;
                         
                         // Função para converter valor para coordenada Y
@@ -676,6 +676,24 @@ export default function LucroDesempenhoPage() {
                             labels.push(minValue + (step * i));
                           }
                           return labels;
+                        };
+                        
+                        // Gerar path da linha do lucro acumulado
+                        const createLucroPath = () => {
+                          if (dadosComDados.length < 2) return '';
+                          
+                          let lucroAcumulado = 0;
+                          let path = `M ${getX(0)} ${getY(lucroAcumulado + dadosComDados[0].lucro)}`;
+                          lucroAcumulado += dadosComDados[0].lucro;
+                          
+                          for (let i = 1; i < dadosComDados.length; i++) {
+                            lucroAcumulado += dadosComDados[i].lucro;
+                            const x = getX(i);
+                            const y = getY(lucroAcumulado);
+                            path += ` L ${x} ${y}`;
+                          }
+                          
+                          return path;
                         };
                         
                         const yLabels = generateYLabels();
@@ -708,7 +726,20 @@ export default function LucroDesempenhoPage() {
                               />
                             ))}
                             
-                            {/* Barras de Faturamento */}
+                            {/* Linha de referência zero */}
+                            {minValue < 0 && (
+                              <line
+                                x1={padding.left}
+                                y1={getY(0)}
+                                x2={width - padding.right}
+                                y2={getY(0)}
+                                stroke="#6b7280"
+                                strokeWidth="2"
+                                strokeDasharray="5,5"
+                              />
+                            )}
+                            
+                            {/* Barras de Receita */}
                             {dadosComDados.map((dado, index) => {
                               const x = getX(index);
                               const barWidth = getBarWidth();
@@ -717,12 +748,12 @@ export default function LucroDesempenhoPage() {
                               
                               return (
                                 <rect
-                                  key={`faturamento-${index}`}
+                                  key={`receita-${index}`}
                                   x={x - barWidth/2}
                                   y={y}
                                   width={barWidth * 0.4}
                                   height={barHeight}
-                                  fill="url(#faturamentoGradient)"
+                                  fill="url(#receitaGradient)"
                                   className="cursor-pointer hover:opacity-80 transition-opacity"
                                 />
                               );
@@ -744,6 +775,36 @@ export default function LucroDesempenhoPage() {
                                   height={barHeight}
                                   fill="url(#custoGradient)"
                                   className="cursor-pointer hover:opacity-80 transition-opacity"
+                                />
+                              );
+                            })}
+                            
+                            {/* Linha do Lucro Acumulado */}
+                            <path
+                              d={createLucroPath()}
+                              fill="none"
+                              stroke="#8b5cf6"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              className="drop-shadow-sm"
+                            />
+                            
+                            {/* Pontos da linha do lucro acumulado */}
+                            {dadosComDados.map((dado, index) => {
+                              let lucroAcumulado = 0;
+                              for (let i = 0; i <= index; i++) {
+                                lucroAcumulado += dadosComDados[i].lucro;
+                              }
+                              
+                              return (
+                                <circle
+                                  key={`lucro-${index}`}
+                                  cx={getX(index)}
+                                  cy={getY(lucroAcumulado)}
+                                  r="4"
+                                  fill="#8b5cf6"
+                                  className="cursor-pointer hover:r-6 transition-all"
                                 />
                               );
                             })}
@@ -773,11 +834,11 @@ export default function LucroDesempenhoPage() {
                   <div className="flex justify-center mt-6 gap-2 text-xs">
                     <div className="flex items-center gap-1">
                       <div className="w-3 h-3 bg-green-200 rounded"></div>
-                      <span>Faturamento previsto</span>
+                      <span>Receita prevista</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <div className="w-3 h-3 bg-green-600 rounded"></div>
-                      <span>Faturamento</span>
+                      <span>Receita</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <div className="w-3 h-3 bg-red-200 rounded"></div>
@@ -786,6 +847,14 @@ export default function LucroDesempenhoPage() {
                     <div className="flex items-center gap-1">
                       <div className="w-3 h-3 bg-red-600 rounded"></div>
                       <span>Custos</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 bg-purple-200 rounded"></div>
+                      <span>Lucro acumulado previsto</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 bg-purple-600 rounded"></div>
+                      <span>Lucro acumulado</span>
                     </div>
                   </div>
                 </div>
