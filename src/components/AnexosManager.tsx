@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { FiUpload, FiX, FiFile, FiDownload, FiEye, FiTrash2 } from 'react-icons/fi';
-import { useToast } from '@/hooks/useToast';
+import { useToast } from '@/components/Toast';
 
 interface AnexosManagerProps {
   contaId: string;

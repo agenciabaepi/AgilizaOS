@@ -39,7 +39,8 @@ import {
   EyeOff,
   Truck,
   Grid,
-  Star
+  Star,
+  TrendingUp
 } from 'lucide-react';
 
 // Sistema de permissões em cascata
@@ -64,6 +65,7 @@ const PERMISSOES_CASCATA = {
       { key: 'vendas', label: 'Vendas', icon: ShoppingCart, description: 'Gestão de vendas' },
       { key: 'movimentacao-caixa', label: 'Movimentações Caixa', icon: DollarSign, description: 'Controle de movimentações' },
       { key: 'contas-a-pagar', label: 'Contas a Pagar', icon: FileText, description: 'Gestão de contas' },
+      { key: 'lucro-desempenho', label: 'Lucro & Desempenho', icon: TrendingUp, description: 'Análise de lucratividade' },
     ]
   },
   

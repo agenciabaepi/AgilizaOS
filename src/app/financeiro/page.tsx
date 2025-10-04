@@ -32,6 +32,13 @@ export default function FinanceiroPage() {
       icon: FiTrendingUp,
       href: '/financeiro/movimentacoes-caixa',
       color: 'bg-purple-500'
+    },
+    {
+      title: 'Lucro & Desempenho',
+      description: 'Análise de lucratividade por OS',
+      icon: FiTrendingUp,
+      href: '/financeiro/lucro-desempenho',
+      color: 'bg-orange-500'
     }
   ];
 
