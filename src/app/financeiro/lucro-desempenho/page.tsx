@@ -33,7 +33,11 @@ interface OrdemServico {
   id: string;
   numero_os: string;
   cliente_id: string;
+  usuario_id?: string;
+  valor_total?: number;
   status: string;
+  data_entrada?: string;
+  data_saida?: string;
   created_at: string;
   clientes?: {
     nome: string;
@@ -47,7 +51,8 @@ interface OrdemServico {
 
 interface Venda {
   id: string;
-  total: number;
+  valor_total: number;
+  valor_pago: number;
   data_venda: string;
   observacoes?: string;
 }
@@ -176,14 +181,18 @@ export default function LucroDesempenhoPage() {
         periodo: `${dataInicio} a ${dataFim}`
       });
 
-      // Buscar ordens de serviço - apenas campos que existem
+      // Buscar ordens de serviço - campos realmente usados
       const { data: ordensData, error: ordensError } = await supabase
         .from('ordens_servico')
         .select(`
           id,
           numero_os,
           cliente_id,
+          usuario_id,
+          valor_total,
           status,
+          data_entrada,
+          data_saida,
           created_at
         `)
         .eq('empresa_id', empresaData.id)
@@ -231,10 +240,10 @@ export default function LucroDesempenhoPage() {
         .select('id, nome')
         .in('id', clienteIds);
 
-        // Buscar vendas específicas das OS - usando campo correto 'total'
+        // Buscar vendas específicas das OS - campos corretos do schema
         const { data: todasVendas, error: errorVendas } = await supabase
           .from('vendas')
-          .select('id, total, data_venda, observacoes')
+          .select('id, valor_total, valor_pago, data_venda, observacoes')
           .eq('empresa_id', empresaData.id)
           .eq('status', 'finalizada');
 
@@ -246,7 +255,7 @@ export default function LucroDesempenhoPage() {
         if (todasVendas && todasVendas.length > 0) {
           console.log('🔍 PRIMEIRAS VENDAS:');
           todasVendas.slice(0, 3).forEach((venda, i) => {
-            console.log(`  ${i+1}. R$ ${venda.total} - "${venda.observacoes}"`);
+            console.log(`  ${i+1}. Total: R$ ${venda.valor_total}, Pago: R$ ${venda.valor_pago} - "${venda.observacoes}"`);
           });
         }
 
@@ -255,7 +264,7 @@ export default function LucroDesempenhoPage() {
           console.log('⚠️ NENHUMA VENDA ENCONTRADA PARA ESTA EMPRESA');
           const { data: todasVendasGeral } = await supabase
             .from('vendas')
-            .select('id, total, data_venda, observacoes, empresa_id')
+            .select('id, valor_total, valor_pago, data_venda, observacoes, empresa_id')
             .eq('status', 'finalizada')
             .limit(10);
           
@@ -263,7 +272,7 @@ export default function LucroDesempenhoPage() {
           if (todasVendasGeral && todasVendasGeral.length > 0) {
             console.log('🔍 PRIMEIRAS VENDAS GERAL:');
             todasVendasGeral.slice(0, 3).forEach((venda, i) => {
-              console.log(`  ${i+1}. Empresa: ${venda.empresa_id} - R$ ${venda.total} - "${venda.observacoes}"`);
+              console.log(`  ${i+1}. Empresa: ${venda.empresa_id} - Total: R$ ${venda.valor_total}, Pago: R$ ${venda.valor_pago} - "${venda.observacoes}"`);
             });
           }
         }
@@ -390,8 +399,9 @@ export default function LucroDesempenhoPage() {
       });
       
       const receita = ordensDoDia.reduce((acc, ordem) => {
-        const receitaVendas = ordem.vendas?.reduce((vendaAcc, venda) => vendaAcc + venda.total, 0) || 0;
-        return acc + receitaVendas;
+        const receitaVendas = ordem.vendas?.reduce((vendaAcc, venda) => vendaAcc + venda.valor_pago, 0) || 0;
+        const receitaOS = ordem.valor_total || 0;
+        return acc + receitaVendas + receitaOS;
       }, 0);
       
       const custos = ordensDoDia.reduce((acc, ordem) => {
