@@ -40,8 +40,6 @@ interface OrdemServico {
   qtd_peca?: number;
   qtd_servico?: number;
   status: string;
-  data_entrada?: string;
-  data_saida?: string;
   created_at: string;
   clientes?: {
     nome: string;
@@ -185,7 +183,7 @@ export default function LucroDesempenhoPage() {
         periodo: `${dataInicio} a ${dataFim}`
       });
 
-      // Buscar ordens de serviço - campos reais da tabela
+      // Buscar ordens de serviço - apenas campos que sabemos que existem
       const { data: ordensData, error: ordensError } = await supabase
         .from('ordens_servico')
         .select(`
@@ -199,8 +197,6 @@ export default function LucroDesempenhoPage() {
           qtd_peca,
           qtd_servico,
           status,
-          data_entrada,
-          data_saida,
           created_at
         `)
         .eq('empresa_id', empresaData.id)
