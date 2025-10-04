@@ -33,17 +33,11 @@ interface OrdemServico {
   id: string;
   numero_os: string;
   cliente_id: string;
-  tecnico_id: string;
+  usuario_id: string;
   status: string;
-  valor_faturado?: number;
-  valor_peca?: number;
-  valor_servico?: number;
-  qtd_peca?: number;
-  qtd_servico?: number;
-  desconto?: number;
+  valor_total?: number;
   created_at: string;
-  data_saida?: string;
-  prazo_entrega?: string;
+  updated_at: string;
   clientes?: {
     nome: string;
   };
@@ -186,24 +180,18 @@ export default function LucroDesempenhoPage() {
         periodo: `${dataInicio} a ${dataFim}`
       });
 
-      // Buscar ordens de serviço com todos os campos necessários
+      // Buscar ordens de serviço - apenas campos que definitivamente existem
       const { data: ordensData, error: ordensError } = await supabase
         .from('ordens_servico')
         .select(`
           id,
           numero_os,
           cliente_id,
-          tecnico_id,
+          usuario_id,
           status,
-          valor_faturado,
-          valor_peca,
-          valor_servico,
-          qtd_peca,
-          qtd_servico,
-          desconto,
+          valor_total,
           created_at,
-          data_saida,
-          prazo_entrega
+          updated_at
         `)
         .eq('empresa_id', empresaData.id)
         .gte('created_at', `${dataInicio}T00:00:00`)
@@ -237,7 +225,7 @@ export default function LucroDesempenhoPage() {
       const ordensIds = ordensData?.map(o => o.id) || [];
       const ordensNumeros = ordensData?.map(o => o.numero_os) || [];
       const clienteIds = [...new Set(ordensData?.map(o => o.cliente_id) || [])];
-      const tecnicoIds = [...new Set(ordensData?.map(o => o.tecnico_id) || [])];
+      const tecnicoIds = [...new Set(ordensData?.map(o => o.usuario_id) || [])];
 
       console.log('🔍 Buscando dados relacionados:', {
         ordensIds: ordensIds.slice(0, 3),
@@ -310,7 +298,7 @@ export default function LucroDesempenhoPage() {
         return {
           ...ordem,
           clientes: clientesMap.get(ordem.cliente_id),
-          tecnico: tecnicosMap.get(ordem.tecnico_id),
+          tecnico: tecnicosMap.get(ordem.usuario_id),
           vendas,
           custos
         };
@@ -379,15 +367,14 @@ export default function LucroDesempenhoPage() {
       const dataDia = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
       
       const ordensDoDia = ordens.filter(ordem => {
-        // Usar data_saida se disponível (quando foi finalizada), senão created_at
-        const dataFaturamento = ordem.data_saida || ordem.created_at;
-        const dataOrdem = dataFaturamento.split('T')[0];
+        // Usar apenas created_at (data de criação da OS)
+        const dataOrdem = ordem.created_at.split('T')[0];
         return dataOrdem === dataDia;
       });
       
       const receita = ordensDoDia.reduce((acc, ordem) => {
         const receitaVendas = ordem.vendas?.reduce((vendaAcc, venda) => vendaAcc + venda.valor_pago, 0) || 0;
-        const receitaOS = ordem.valor_faturado || 0;
+        const receitaOS = ordem.valor_total || 0;
         return acc + receitaVendas + receitaOS;
       }, 0);
       
