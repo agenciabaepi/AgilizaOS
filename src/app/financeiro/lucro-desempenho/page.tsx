@@ -34,6 +34,7 @@ interface OrdemServico {
   numero_os: string;
   cliente_id: string;
   status: string;
+  valor_total?: number;
   created_at: string;
   clientes?: {
     nome: string;
@@ -177,7 +178,7 @@ export default function LucroDesempenhoPage() {
         periodo: `${dataInicio} a ${dataFim}`
       });
 
-      // Buscar ordens de serviço - apenas campos básicos que existem
+      // Buscar ordens de serviço - incluindo valor_total para faturamento
       const { data: ordensData, error: ordensError } = await supabase
         .from('ordens_servico')
         .select(`
@@ -185,6 +186,7 @@ export default function LucroDesempenhoPage() {
           numero_os,
           cliente_id,
           status,
+          valor_total,
           created_at
         `)
         .eq('empresa_id', empresaData.id)
@@ -358,7 +360,8 @@ export default function LucroDesempenhoPage() {
       
       const receita = ordensDoDia.reduce((acc, ordem) => {
         const receitaVendas = ordem.vendas?.reduce((vendaAcc, venda) => vendaAcc + venda.valor_pago, 0) || 0;
-        return acc + receitaVendas;
+        const receitaOS = ordem.valor_total || 0;
+        return acc + receitaVendas + receitaOS;
       }, 0);
       
       const custos = ordensDoDia.reduce((acc, ordem) => {
