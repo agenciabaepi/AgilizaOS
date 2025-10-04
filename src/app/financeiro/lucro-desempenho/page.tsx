@@ -34,6 +34,7 @@ interface OrdemServico {
   numero_os: string;
   cliente_id: string;
   tecnico_id?: string;
+  tecnico?: string;
   valor_faturado?: number;
   valor_total?: number;
   valor_peca?: number;
@@ -45,9 +46,7 @@ interface OrdemServico {
   clientes?: {
     nome: string;
   };
-  tecnico?: {
-    nome: string;
-  };
+  tecnico_nome?: string;
   vendas?: Venda[];
   custos?: ContaCusto[];
 }
@@ -192,6 +191,7 @@ export default function LucroDesempenhoPage() {
           numero_os,
           cliente_id,
           tecnico_id,
+          tecnico,
           valor_faturado,
           valor_total,
           valor_peca,
@@ -233,13 +233,11 @@ export default function LucroDesempenhoPage() {
       const ordensIds = ordensData?.map(o => o.id) || [];
       const ordensNumeros = ordensData?.map(o => o.numero_os) || [];
       const clienteIds = [...new Set(ordensData?.map(o => o.cliente_id) || [])];
-      const tecnicoIds = [...new Set(ordensData?.map(o => o.tecnico_id).filter(Boolean) || [])];
 
       console.log('🔍 Buscando dados relacionados:', {
         ordensIds: ordensIds.slice(0, 3),
         ordensNumeros: ordensNumeros.slice(0, 3),
-        clienteIds: clienteIds.slice(0, 3),
-        tecnicoIds: tecnicoIds.slice(0, 3)
+        clienteIds: clienteIds.slice(0, 3)
       });
 
       // Buscar clientes
@@ -247,12 +245,6 @@ export default function LucroDesempenhoPage() {
         .from('clientes')
         .select('id, nome')
         .in('id', clienteIds);
-
-      // Buscar técnicos
-      const { data: tecnicos } = await supabase
-        .from('usuarios')
-        .select('id, nome')
-        .in('id', tecnicoIds);
 
         // Buscar vendas específicas das OS - campos corretos do schema
         const { data: todasVendas, error: errorVendas } = await supabase
@@ -314,13 +306,12 @@ export default function LucroDesempenhoPage() {
           numero: os.numero_os,
           valor_faturado: os.valor_faturado,
           valor_total: os.valor_total,
-          tecnico_id: os.tecnico_id
+          tecnico: os.tecnico
         }))
       });
 
       // Criar mapas para lookup rápido
       const clientesMap = new Map(clientes?.map(c => [c.id, c]) || []);
-      const tecnicosMap = new Map(tecnicos?.map(t => [t.id, t]) || []);
 
         // Mapear os dados relacionados
         const ordensCompletas = (ordensData || []).map(ordem => {
@@ -338,7 +329,7 @@ export default function LucroDesempenhoPage() {
         return {
           ...ordem,
           clientes: clientesMap.get(ordem.cliente_id),
-          tecnico: tecnicosMap.get(ordem.tecnico_id),
+          tecnico_nome: ordem.tecnico || 'N/A',
           vendas,
           custos
         };
@@ -439,23 +430,23 @@ export default function LucroDesempenhoPage() {
     const tecnicosMap = new Map<string, AnaliseTecnico>();
 
     ordens.forEach(ordem => {
-      if (!ordem.tecnico_id || !ordem.tecnico?.nome) return;
+      if (!ordem.tecnico_nome || ordem.tecnico_nome === 'N/A') return;
 
       const receita = (ordem.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0) + (ordem.valor_faturado || ordem.valor_total || 0);
       const custos = ordem.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
       const lucro = receita - custos;
 
-      if (tecnicosMap.has(ordem.tecnico_id)) {
-        const tecnico = tecnicosMap.get(ordem.tecnico_id)!;
+      if (tecnicosMap.has(ordem.tecnico_nome)) {
+        const tecnico = tecnicosMap.get(ordem.tecnico_nome)!;
         tecnico.totalOS += 1;
         tecnico.receitaTotal += receita;
         tecnico.custosTotal += custos;
         tecnico.lucroTotal += lucro;
         tecnico.margemMedia = tecnico.receitaTotal > 0 ? (tecnico.lucroTotal / tecnico.receitaTotal) * 100 : 0;
       } else {
-        tecnicosMap.set(ordem.tecnico_id, {
-          tecnico_id: ordem.tecnico_id,
-          nome: ordem.tecnico.nome,
+        tecnicosMap.set(ordem.tecnico_nome, {
+          tecnico_id: ordem.tecnico_nome,
+          nome: ordem.tecnico_nome,
           totalOS: 1,
           receitaTotal: receita,
           custosTotal: custos,
@@ -850,7 +841,7 @@ export default function LucroDesempenhoPage() {
                       {ordem.clientes?.nome || 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {ordem.tecnico?.nome || 'N/A'}
+                      {ordem.tecnico_nome || 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
                       {formatarMoeda(ordem.receita)}
