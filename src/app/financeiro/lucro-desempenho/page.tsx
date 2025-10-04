@@ -33,11 +33,8 @@ interface OrdemServico {
   id: string;
   numero_os: string;
   cliente_id: string;
-  usuario_id: string;
   status: string;
-  valor_total?: number;
   created_at: string;
-  updated_at: string;
   clientes?: {
     nome: string;
   };
@@ -180,18 +177,15 @@ export default function LucroDesempenhoPage() {
         periodo: `${dataInicio} a ${dataFim}`
       });
 
-      // Buscar ordens de serviço - apenas campos que definitivamente existem
+      // Buscar ordens de serviço - apenas campos básicos que existem
       const { data: ordensData, error: ordensError } = await supabase
         .from('ordens_servico')
         .select(`
           id,
           numero_os,
           cliente_id,
-          usuario_id,
           status,
-          valor_total,
-          created_at,
-          updated_at
+          created_at
         `)
         .eq('empresa_id', empresaData.id)
         .gte('created_at', `${dataInicio}T00:00:00`)
@@ -225,13 +219,11 @@ export default function LucroDesempenhoPage() {
       const ordensIds = ordensData?.map(o => o.id) || [];
       const ordensNumeros = ordensData?.map(o => o.numero_os) || [];
       const clienteIds = [...new Set(ordensData?.map(o => o.cliente_id) || [])];
-      const tecnicoIds = [...new Set(ordensData?.map(o => o.usuario_id) || [])];
 
       console.log('🔍 Buscando dados relacionados:', {
         ordensIds: ordensIds.slice(0, 3),
         ordensNumeros: ordensNumeros.slice(0, 3),
-        clienteIds: clienteIds.slice(0, 3),
-        tecnicoIds: tecnicoIds.slice(0, 3)
+        clienteIds: clienteIds.slice(0, 3)
       });
 
       // Buscar clientes
@@ -239,12 +231,6 @@ export default function LucroDesempenhoPage() {
         .from('clientes')
         .select('id, nome')
         .in('id', clienteIds);
-
-      // Buscar técnicos
-      const { data: tecnicos } = await supabase
-        .from('usuarios')
-        .select('id, nome')
-        .in('id', tecnicoIds);
 
       const { data: todasVendas } = await supabase
         .from('vendas')
@@ -283,7 +269,6 @@ export default function LucroDesempenhoPage() {
 
       // Criar mapas para lookup rápido
       const clientesMap = new Map(clientes?.map(c => [c.id, c]) || []);
-      const tecnicosMap = new Map(tecnicos?.map(t => [t.id, t]) || []);
 
       // Mapear os dados relacionados
       const ordensCompletas = (ordensData || []).map(ordem => {
@@ -298,7 +283,6 @@ export default function LucroDesempenhoPage() {
         return {
           ...ordem,
           clientes: clientesMap.get(ordem.cliente_id),
-          tecnico: tecnicosMap.get(ordem.usuario_id),
           vendas,
           custos
         };
@@ -374,8 +358,7 @@ export default function LucroDesempenhoPage() {
       
       const receita = ordensDoDia.reduce((acc, ordem) => {
         const receitaVendas = ordem.vendas?.reduce((vendaAcc, venda) => vendaAcc + venda.valor_pago, 0) || 0;
-        const receitaOS = ordem.valor_total || 0;
-        return acc + receitaVendas + receitaOS;
+        return acc + receitaVendas;
       }, 0);
       
       const custos = ordensDoDia.reduce((acc, ordem) => {
