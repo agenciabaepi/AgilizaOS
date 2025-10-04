@@ -232,6 +232,23 @@ export default function LucroDesempenhoPage() {
         .select('id, nome')
         .in('id', clienteIds);
 
+        // Buscar todas as vendas do período primeiro para debug
+        const { data: todasVendasPeriodo } = await supabase
+          .from('vendas')
+          .select('id, valor_total, valor_pago, data_venda, observacoes')
+          .eq('empresa_id', empresaData.id)
+          .eq('status', 'finalizada')
+          .gte('data_venda', `${dataInicio}T00:00:00`)
+          .lte('data_venda', `${dataFim}T23:59:59`);
+
+        console.log('🔍 Debug vendas:', {
+          periodo: `${dataInicio} a ${dataFim}`,
+          totalVendasPeriodo: todasVendasPeriodo?.length || 0,
+          sampleVendas: todasVendasPeriodo?.slice(0, 3),
+          ordensNumeros: ordensNumeros.slice(0, 3)
+        });
+
+        // Buscar vendas específicas das OS
         const { data: todasVendas } = await supabase
           .from('vendas')
           .select('id, valor_total, valor_pago, data_venda, observacoes')
@@ -239,19 +256,20 @@ export default function LucroDesempenhoPage() {
           .eq('status', 'finalizada')
           .or(ordensNumeros.map(num => `observacoes.ilike.%O.S. #${num}%,observacoes.ilike.%OS #${num}%`).join(','));
 
-      const { data: todosCustos } = await supabase
-        .from('contas_pagar')
-        .select('id, descricao, valor, tipo, data_vencimento, os_id')
-        .eq('empresa_id', empresaData.id)
-        .in('os_id', ordensIds)
-        .eq('tipo', 'pecas');
+        const { data: todosCustos } = await supabase
+          .from('contas_pagar')
+          .select('id, descricao, valor, tipo, data_vencimento, os_id')
+          .eq('empresa_id', empresaData.id)
+          .in('os_id', ordensIds)
+          .eq('tipo', 'pecas');
 
-      console.log('💰 Dados encontrados:', {
-        vendasCount: todasVendas?.length || 0,
-        custosCount: todosCustos?.length || 0,
-        sampleVenda: todasVendas?.[0],
-        sampleCusto: todosCustos?.[0]
-      });
+        console.log('💰 Dados encontrados:', {
+          vendasCount: todasVendas?.length || 0,
+          custosCount: todosCustos?.length || 0,
+          sampleVenda: todasVendas?.[0],
+          sampleCusto: todosCustos?.[0],
+          todasVendas: todasVendas
+        });
 
       // Log dos dados das OS para debug
       console.log('📋 Dados das OS:', {
