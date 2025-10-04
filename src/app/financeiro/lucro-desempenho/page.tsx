@@ -187,16 +187,37 @@ export default function LucroDesempenhoPage() {
         periodo: `${dataInicio} a ${dataFim}`
       });
 
-      // Query super simples para testar
-      console.log('🔍 Testando query básica...');
+      // Buscar ordens de serviço com todos os campos necessários
       const { data: ordensData, error: ordensError } = await supabase
         .from('ordens_servico')
-        .select('id, numero_os, created_at')
+        .select(`
+          id,
+          numero_os,
+          cliente_id,
+          tecnico_id,
+          status,
+          valor_faturado,
+          valor_peca,
+          valor_servico,
+          qtd_peca,
+          qtd_servico,
+          desconto,
+          created_at,
+          data_entrada,
+          data_saida,
+          prazo_entrega,
+          clientes!cliente_id(nome),
+          tecnico:usuarios!tecnico_id(nome)
+        `)
         .eq('empresa_id', empresaData.id)
-        .limit(5);
+        .gte('created_at', `${dataInicio}T00:00:00`)
+        .lte('created_at', `${dataFim}T23:59:59`)
+        .order('created_at', { ascending: false })
+        .limit(200);
 
-      console.log('📊 Resultado query básica:', {
+      console.log('📊 Resultado query completa:', {
         empresaId: empresaData.id,
+        periodo: `${dataInicio} a ${dataFim}`,
         ordensCount: ordensData?.length || 0,
         hasError: !!ordensError,
         error: ordensError,
@@ -204,14 +225,13 @@ export default function LucroDesempenhoPage() {
       });
 
       if (ordensError) {
-        console.error('❌ Erro na query básica:', ordensError);
-        console.error('❌ Detalhes completos:', JSON.stringify(ordensError, null, 2));
-        addToast('error', `Erro ao carregar ordens de serviço: ${ordensError.message || 'Erro desconhecido'}`);
+        console.error('❌ Erro na query:', ordensError);
+        addToast('error', `Erro ao carregar ordens de serviço: ${ordensError.message}`);
         return;
       }
 
       if (!ordensData || ordensData.length === 0) {
-        console.log('⚠️ Nenhuma ordem encontrada para esta empresa');
+        console.log('⚠️ Nenhuma ordem encontrada para este período');
         setOrdens([]);
         setLoading(false);
         return;
@@ -220,6 +240,11 @@ export default function LucroDesempenhoPage() {
       // Buscar vendas e custos em lote
       const ordensIds = ordensData?.map(o => o.id) || [];
       const ordensNumeros = ordensData?.map(o => o.numero_os) || [];
+
+      console.log('🔍 Buscando vendas e custos:', {
+        ordensIds: ordensIds.slice(0, 3),
+        ordensNumeros: ordensNumeros.slice(0, 3)
+      });
 
       const { data: todasVendas } = await supabase
         .from('vendas')
@@ -234,6 +259,13 @@ export default function LucroDesempenhoPage() {
         .eq('empresa_id', empresaData.id)
         .in('os_id', ordensIds)
         .eq('tipo', 'pecas');
+
+      console.log('💰 Dados encontrados:', {
+        vendasCount: todasVendas?.length || 0,
+        custosCount: todosCustos?.length || 0,
+        sampleVenda: todasVendas?.[0],
+        sampleCusto: todosCustos?.[0]
+      });
 
       // Mapear os dados relacionados
       const ordensCompletas = (ordensData || []).map(ordem => {
