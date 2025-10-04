@@ -93,12 +93,20 @@ interface AnaliseTecnico {
 }
 
 export default function LucroDesempenhoPage() {
-  const { empresaData } = useAuth();
+  const { empresaData, user, loading: authLoading } = useAuth();
   const { addToast } = useToast();
   
   // Estados principais
   const [ordens, setOrdens] = useState<OrdemServico[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Debug: Log inicial
+  console.log('🔍 LucroDesempenhoPage inicializado:', {
+    user: user?.id,
+    empresaData: empresaData?.id,
+    authLoading,
+    loading
+  });
   const [metricas, setMetricas] = useState<Metricas>({
     totalReceita: 0,
     totalCustos: 0,
@@ -374,8 +382,17 @@ export default function LucroDesempenhoPage() {
 
   // Efeitos
   useEffect(() => {
+    console.log('🔄 useEffect empresaData mudou:', {
+      empresaId: empresaData?.id,
+      currentMonth: formatarMesAno(currentMonth),
+      willCallLoadData: !!empresaData?.id
+    });
+    
     if (empresaData?.id) {
+      console.log('✅ Chamando loadData...');
       loadData();
+    } else {
+      console.log('❌ empresaData.id não disponível, não chamando loadData');
     }
   }, [empresaData?.id, currentMonth]);
 
