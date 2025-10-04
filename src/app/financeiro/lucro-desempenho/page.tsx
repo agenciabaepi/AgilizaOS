@@ -724,34 +724,73 @@ export default function LucroDesempenhoPage() {
 
   // Calcular dados diários do mês
   const calcularDadosDiarios = () => {
-    // Criar mapa de dados por data real das OS
+    // Criar mapa de dados por data do pagamento (não da OS)
     const dadosPorData = new Map();
     
     ordens.forEach(ordem => {
-      const dataOrdem = ordem.created_at.split('T')[0];
-      const dia = new Date(dataOrdem).getDate();
+      // Calcular custos (baseados na data da OS)
+      const custosContas = ordem.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
       
-      if (!dadosPorData.has(dia)) {
-        dadosPorData.set(dia, {
-          dia,
-          receita: 0,
-          custos: 0,
-          lucro: 0
-        });
+      // Se há custos, adicionar na data da OS
+      if (custosContas > 0) {
+        const dataOrdem = ordem.created_at.split('T')[0];
+        const dia = new Date(dataOrdem).getDate();
+        
+        if (!dadosPorData.has(dia)) {
+          dadosPorData.set(dia, {
+            dia,
+            receita: 0,
+            custos: 0,
+            lucro: 0
+          });
+        }
+        
+        const dadosDia = dadosPorData.get(dia);
+        dadosDia.custos += custosContas;
       }
       
-      const dadosDia = dadosPorData.get(dia);
-      
-      // Calcular receita
-      const receitaVendas = ordem.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0;
-      const receitaOS = ordem.valor_faturado || ordem.valor_total || 0;
-      dadosDia.receita += receitaVendas + receitaOS;
-      
-      // Calcular custos
-      const custosContas = ordem.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
-      dadosDia.custos += custosContas;
-      
-      // Calcular lucro
+      // Calcular receita baseada na data do pagamento
+      if (ordem.vendas && ordem.vendas.length > 0) {
+        ordem.vendas.forEach(venda => {
+          const dataPagamento = venda.data_venda.split('T')[0];
+          const diaPagamento = new Date(dataPagamento).getDate();
+          
+          if (!dadosPorData.has(diaPagamento)) {
+            dadosPorData.set(diaPagamento, {
+              dia: diaPagamento,
+              receita: 0,
+              custos: 0,
+              lucro: 0
+            });
+          }
+          
+          const dadosDia = dadosPorData.get(diaPagamento);
+          dadosDia.receita += venda.valor_pago;
+        });
+      } else {
+        // Se não há vendas específicas, usar valor da OS na data da OS
+        const receitaOS = ordem.valor_faturado || ordem.valor_total || 0;
+        if (receitaOS > 0) {
+          const dataOrdem = ordem.created_at.split('T')[0];
+          const dia = new Date(dataOrdem).getDate();
+          
+          if (!dadosPorData.has(dia)) {
+            dadosPorData.set(dia, {
+              dia,
+              receita: 0,
+              custos: 0,
+              lucro: 0
+            });
+          }
+          
+          const dadosDia = dadosPorData.get(dia);
+          dadosDia.receita += receitaOS;
+        }
+      }
+    });
+    
+    // Calcular lucro para cada dia
+    dadosPorData.forEach(dadosDia => {
       dadosDia.lucro = dadosDia.receita - dadosDia.custos;
     });
     
