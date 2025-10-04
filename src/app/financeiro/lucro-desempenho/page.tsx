@@ -178,31 +178,14 @@ export default function LucroDesempenhoPage() {
 
       console.log('🔍 Executando query ordens_servico...');
 
-      // Buscar ordens de serviço - query simplificada para debug
+      // Buscar ordens de serviço - query mínima para debug
       const { data: ordensData, error: ordensError } = await supabase
         .from('ordens_servico')
-        .select(`
-          id,
-          numero_os,
-          cliente_id,
-          tecnico_id,
-          status,
-          valor_faturado,
-          valor_peca,
-          valor_servico,
-          qtd_peca,
-          qtd_servico,
-          desconto,
-          created_at,
-          data_entrada,
-          data_saida,
-          prazo_entrega
-        `)
+        .select('id, numero_os, created_at, valor_faturado')
         .eq('empresa_id', empresaData.id)
         .gte('created_at', `${dataInicio}T00:00:00`)
         .lte('created_at', `${dataFim}T23:59:59`)
-        .order('created_at', { ascending: false })
-        .limit(200);
+        .limit(10);
 
       console.log('📋 Resultado da query ordens:', { 
         ordensCount: ordensData?.length || 0, 
