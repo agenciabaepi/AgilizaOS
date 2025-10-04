@@ -485,149 +485,216 @@ export default function LucroDesempenhoPage() {
         />
       </div>
 
-      {/* Gráfico de Barras Divergente */}
-      <div className="bg-white rounded-xl shadow-md overflow-hidden chart-container">
-        <div className="p-6 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Análise Diária do Mês</h3>
-          <p className="text-sm text-gray-600 mt-1">Comparação entre receita e custos por dia</p>
-        </div>
-        
-        <div className="p-6">
-          <div className="relative">
-            {/* Gráfico SVG */}
-            <svg 
-              width="100%" 
-              height="350" 
-              viewBox="0 0 1000 350" 
-              className="overflow-visible"
-            >
-              <defs>
-                {/* Gradientes mais suaves */}
-                <linearGradient id="receitaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#10B981" stopOpacity="1"/>
-                  <stop offset="100%" stopColor="#059669" stopOpacity="0.9"/>
-                </linearGradient>
-                <linearGradient id="custosGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#3B82F6" stopOpacity="1"/>
-                  <stop offset="100%" stopColor="#1D4ED8" stopOpacity="0.9"/>
-                </linearGradient>
-                <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-                  <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="#00000020"/>
-                </filter>
-              </defs>
+          {/* Layout Principal: Gráfico + Cards Laterais */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Gráfico Principal - 3 colunas */}
+            <div className="lg:col-span-3 bg-white rounded-xl shadow-md overflow-hidden chart-container">
+              <div className="p-6 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">Portfolio</h3>
+                <p className="text-sm text-gray-600 mt-1">{formatarMesAno(currentMonth)}</p>
+              </div>
               
-              {/* Linhas de grid horizontais */}
-              <line x1="100" y1="50" x2="900" y2="50" stroke="#E5E7EB" strokeWidth="1"/>
-              <line x1="100" y1="125" x2="900" y2="125" stroke="#E5E7EB" strokeWidth="1"/>
-              <line x1="100" y1="200" x2="900" y2="200" stroke="#374151" strokeWidth="2"/>
-              <line x1="100" y1="275" x2="900" y2="275" stroke="#E5E7EB" strokeWidth="1"/>
-              <line x1="100" y1="350" x2="900" y2="350" stroke="#E5E7EB" strokeWidth="1"/>
-              
-              {/* Labels do eixo Y */}
-              <text x="90" y="55" textAnchor="end" className="text-sm fill-gray-600 font-medium">
-                R$ 2k
-              </text>
-              <text x="90" y="130" textAnchor="end" className="text-sm fill-gray-600 font-medium">
-                R$ 1k
-              </text>
-              <text x="90" y="205" textAnchor="end" className="text-sm fill-gray-700 font-semibold">
-                R$ 0
-              </text>
-              <text x="90" y="280" textAnchor="end" className="text-sm fill-gray-600 font-medium">
-                -R$ 1k
-              </text>
-              <text x="90" y="355" textAnchor="end" className="text-sm fill-gray-600 font-medium">
-                -R$ 2k
-              </text>
-              
-              {/* Bars */}
-              {dadosDiarios.map((dado, index) => {
-                const x = 120 + (index * 30);
-                const maxValor = Math.max(...dadosDiarios.map(d => Math.max(d.receita, d.custos)));
-                const escala = maxValor > 0 ? 150 / maxValor : 0;
-                
-                const alturaReceita = dado.receita * escala;
-                const alturaCustos = dado.custos * escala;
-                
-                return (
-                  <g key={dado.dia}>
-                    {/* Receita bar (upward) */}
-                    <rect
-                      x={x - 8}
-                      y={200 - alturaReceita}
-                      width="16"
-                      height={alturaReceita}
-                      fill="url(#receitaGradient)"
-                      rx="4"
-                      filter="url(#shadow)"
-                      className="bar-hover transition-all duration-300 ease-out hover:scale-105"
-                      style={{
-                        transformOrigin: `${x}px 200px`,
-                        animation: `slideUp 0.8s ease-out ${index * 0.03}s both`
-                      }}
-                    />
+              <div className="p-6">
+                <div className="relative">
+                  {/* Gráfico SVG */}
+                  <svg 
+                    width="100%" 
+                    height="400" 
+                    viewBox="0 0 1000 400" 
+                    className="overflow-visible"
+                  >
+                    <defs>
+                      {/* Gradientes mais suaves */}
+                      <linearGradient id="receitaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="#10B981" stopOpacity="1"/>
+                        <stop offset="100%" stopColor="#059669" stopOpacity="0.9"/>
+                      </linearGradient>
+                      <linearGradient id="custosGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="#1E40AF" stopOpacity="1"/>
+                        <stop offset="100%" stopColor="#1E3A8A" stopOpacity="0.9"/>
+                      </linearGradient>
+                      <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+                        <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="#00000020"/>
+                      </filter>
+                    </defs>
                     
-                    {/* Custos bar (downward) */}
-                    <rect
-                      x={x - 8}
-                      y={200}
-                      width="16"
-                      height={alturaCustos}
-                      fill="url(#custosGradient)"
-                      rx="4"
-                      filter="url(#shadow)"
-                      className="bar-hover transition-all duration-300 ease-out hover:scale-105"
-                      style={{
-                        transformOrigin: `${x}px 200px`,
-                        animation: `slideDown 0.8s ease-out ${index * 0.03}s both`
-                      }}
-                    />
+                    {/* Linhas de grid horizontais */}
+                    <line x1="80" y1="50" x2="920" y2="50" stroke="#E5E7EB" strokeWidth="1"/>
+                    <line x1="80" y1="125" x2="920" y2="125" stroke="#E5E7EB" strokeWidth="1"/>
+                    <line x1="80" y1="200" x2="920" y2="200" stroke="#374151" strokeWidth="2"/>
+                    <line x1="80" y1="275" x2="920" y2="275" stroke="#E5E7EB" strokeWidth="1"/>
+                    <line x1="80" y1="350" x2="920" y2="350" stroke="#E5E7EB" strokeWidth="1"/>
                     
-                    {/* Day label */}
-                    <text
-                      x={x}
-                      y="320"
-                      textAnchor="middle"
-                      className="text-xs fill-gray-500 font-medium"
-                    >
-                      {dado.dia}
+                    {/* Labels do eixo Y */}
+                    <text x="70" y="55" textAnchor="end" className="text-sm fill-gray-600 font-medium">
+                      R$ 5k
+                    </text>
+                    <text x="70" y="130" textAnchor="end" className="text-sm fill-gray-600 font-medium">
+                      R$ 2.5k
+                    </text>
+                    <text x="70" y="205" textAnchor="end" className="text-sm fill-gray-700 font-semibold">
+                      R$ 0
+                    </text>
+                    <text x="70" y="280" textAnchor="end" className="text-sm fill-gray-600 font-medium">
+                      R$ 2.5k
+                    </text>
+                    <text x="70" y="355" textAnchor="end" className="text-sm fill-gray-600 font-medium">
+                      R$ 5k
                     </text>
                     
-                    {/* Tooltip data */}
-                    <rect
-                      x={x - 8}
-                      y="0"
-                      width="16"
-                      height="350"
-                      fill="transparent"
-                      className="cursor-pointer"
-                    >
-                      <title>
-                        Dia {dado.dia}:{'\n'}
-                        Receita: {formatarMoeda(dado.receita)}{'\n'}
-                        Custos: {formatarMoeda(dado.custos)}{'\n'}
-                        Lucro: {formatarMoeda(dado.lucro)}
-                      </title>
-                    </rect>
-                  </g>
-                );
-              })}
-            </svg>
-            
-            {/* Legend */}
-            <div className="flex justify-center space-x-8 mt-6">
-              <div className="flex items-center space-x-3">
-                <div className="w-5 h-5 bg-gradient-to-b from-green-500 to-green-600 rounded shadow-sm"></div>
-                <span className="text-sm text-gray-700 font-semibold">Receita</span>
+                    {/* Bars */}
+                    {dadosDiarios.filter(d => d.receita > 0 || d.custos > 0).map((dado, index) => {
+                      const x = 100 + (index * 35);
+                      const maxValor = 5000; // Escala fixa como na imagem
+                      const escala = 175 / maxValor;
+                      
+                      const alturaReceita = Math.min(dado.receita * escala, 175);
+                      const alturaCustos = Math.min(dado.custos * escala, 175);
+                      
+                      return (
+                        <g key={dado.dia}>
+                          {/* Receita bar (upward) */}
+                          {dado.receita > 0 && (
+                            <rect
+                              x={x - 12}
+                              y={200 - alturaReceita}
+                              width="24"
+                              height={alturaReceita}
+                              fill="url(#receitaGradient)"
+                              rx="6"
+                              filter="url(#shadow)"
+                              className="bar-hover transition-all duration-300 ease-out hover:scale-105"
+                              style={{
+                                transformOrigin: `${x}px 200px`,
+                                animation: `slideUp 0.8s ease-out ${index * 0.03}s both`
+                              }}
+                            />
+                          )}
+                          
+                          {/* Custos bar (downward) */}
+                          {dado.custos > 0 && (
+                            <rect
+                              x={x - 12}
+                              y={200}
+                              width="24"
+                              height={alturaCustos}
+                              fill="url(#custosGradient)"
+                              rx="6"
+                              filter="url(#shadow)"
+                              className="bar-hover transition-all duration-300 ease-out hover:scale-105"
+                              style={{
+                                transformOrigin: `${x}px 200px`,
+                                animation: `slideDown 0.8s ease-out ${index * 0.03}s both`
+                              }}
+                            />
+                          )}
+                          
+                          {/* Day label */}
+                          <text
+                            x={x}
+                            y="380"
+                            textAnchor="middle"
+                            className="text-xs fill-gray-500 font-medium"
+                          >
+                            {dado.dia}
+                          </text>
+                          
+                          {/* Tooltip data */}
+                          <rect
+                            x={x - 12}
+                            y="0"
+                            width="24"
+                            height="400"
+                            fill="transparent"
+                            className="cursor-pointer"
+                          >
+                            <title>
+                              Dia {dado.dia}:{'\n'}
+                              Receita: {formatarMoeda(dado.receita)}{'\n'}
+                              Custos: {formatarMoeda(dado.custos)}{'\n'}
+                              Lucro: {formatarMoeda(dado.lucro)}
+                            </title>
+                          </rect>
+                        </g>
+                      );
+                    })}
+                  </svg>
+                </div>
               </div>
-              <div className="flex items-center space-x-3">
-                <div className="w-5 h-5 bg-gradient-to-b from-blue-500 to-blue-600 rounded shadow-sm"></div>
-                <span className="text-sm text-gray-700 font-semibold">Custos</span>
+            </div>
+
+            {/* Cards de Resumo - 1 coluna */}
+            <div className="lg:col-span-1 space-y-4">
+              {/* Card Lucro Total */}
+              <div className="bg-white rounded-xl shadow-md p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-sm font-semibold text-gray-600">Lucro</h4>
+                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                    <FiTrendingUp className="w-4 h-4 text-green-600" />
+                  </div>
+                </div>
+                <div className="text-2xl font-bold text-gray-900 mb-2">
+                  {formatarMoeda(metricas.lucroTotal)}
+                </div>
+                <div className="flex items-center text-sm">
+                  <span className={`font-medium ${metricas.lucroTotal >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {metricas.lucroTotal >= 0 ? '+' : ''}{metricas.margemMedia.toFixed(1)}%
+                  </span>
+                  <span className="text-gray-500 ml-2">vs mês anterior</span>
+                </div>
+              </div>
+
+              {/* Card Receita */}
+              <div className="bg-white rounded-xl shadow-md p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-sm font-semibold text-gray-600">Receita</h4>
+                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                    <FiDollarSign className="w-4 h-4 text-green-600" />
+                  </div>
+                </div>
+                <div className="text-2xl font-bold text-gray-900 mb-2">
+                  {formatarMoeda(metricas.totalReceita)}
+                </div>
+                <div className="flex items-center text-sm">
+                  <span className="font-medium text-green-600">+{metricas.totalOS} OS</span>
+                  <span className="text-gray-500 ml-2">processadas</span>
+                </div>
+              </div>
+
+              {/* Card Custos */}
+              <div className="bg-white rounded-xl shadow-md p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-sm font-semibold text-gray-600">Custos</h4>
+                  <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                    <FiTarget className="w-4 h-4 text-red-600" />
+                  </div>
+                </div>
+                <div className="text-2xl font-bold text-gray-900 mb-2">
+                  {formatarMoeda(metricas.totalCustos)}
+                </div>
+                <div className="flex items-center text-sm">
+                  <span className="font-medium text-gray-600">Peças & Serviços</span>
+                </div>
+              </div>
+
+              {/* Card Margem */}
+              <div className="bg-white rounded-xl shadow-md p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-sm font-semibold text-gray-600">Margem</h4>
+                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                    <FiPercent className="w-4 h-4 text-blue-600" />
+                  </div>
+                </div>
+                <div className="text-2xl font-bold text-gray-900 mb-2">
+                  {formatarPercentual(metricas.margemMedia)}
+                </div>
+                <div className="flex items-center text-sm">
+                  <span className="font-medium text-blue-600">{metricas.osLucrativas} lucrativas</span>
+                  <span className="text-gray-500 ml-2">de {metricas.totalOS}</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </div>
     </div>
   );
 
