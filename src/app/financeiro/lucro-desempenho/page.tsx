@@ -60,6 +60,20 @@ interface FluxoCaixaMensal {
   situacao: 'realizado' | 'previsto';
 }
 
+interface CategoriaDetalhada {
+  categoria: string;
+  total: number;
+  contasPagas: number;
+  contasPendentes: number;
+  quantidade: number;
+  contas: Array<{
+    descricao: string;
+    valor: number;
+    status: string;
+    data_vencimento: string;
+  }>;
+}
+
 interface Venda {
   id: string;
   valor_total: number;
@@ -151,7 +165,8 @@ export default function LucroDesempenhoPage() {
     contasPendentes: 0,
     totalContas: 0,
     despesasOperacionais: 0,
-    custosPecas: 0
+    custosPecas: 0,
+    categoriasDetalhadas: []
   });
 
   // Navegação por mês
@@ -516,12 +531,50 @@ export default function LucroDesempenhoPage() {
       const totalDespesasOperacionais = despesasOperacionais.reduce((acc, conta) => acc + (conta.valor || 0), 0);
       const totalCustosPecas = custosPecas.reduce((acc, conta) => acc + (conta.valor || 0), 0);
 
+      // Calcular categorias detalhadas
+      const categoriasMap = new Map<string, CategoriaDetalhada>();
+      
+      todasContas?.forEach(conta => {
+        const categoria = conta.tipo || 'Outros';
+        
+        if (!categoriasMap.has(categoria)) {
+          categoriasMap.set(categoria, {
+            categoria,
+            total: 0,
+            contasPagas: 0,
+            contasPendentes: 0,
+            quantidade: 0,
+            contas: []
+          });
+        }
+        
+        const categoriaData = categoriasMap.get(categoria)!;
+        categoriaData.total += conta.valor || 0;
+        categoriaData.quantidade += 1;
+        categoriaData.contas.push({
+          descricao: conta.descricao || '',
+          valor: conta.valor || 0,
+          status: conta.status || '',
+          data_vencimento: conta.data_vencimento || ''
+        });
+        
+        if (conta.status === 'paga') {
+          categoriaData.contasPagas += conta.valor || 0;
+        } else {
+          categoriaData.contasPendentes += conta.valor || 0;
+        }
+      });
+      
+      const categoriasDetalhadas = Array.from(categoriasMap.values())
+        .sort((a, b) => b.total - a.total);
+
       setCustosEmpresa({
         contasPagas: totalContasPagas,
         contasPendentes: totalContasPendentes,
         totalContas: totalContasPagas + totalContasPendentes,
         despesasOperacionais: totalDespesasOperacionais,
-        custosPecas: totalCustosPecas
+        custosPecas: totalCustosPecas,
+        categoriasDetalhadas
       });
 
       console.log('✅ Custos da empresa calculados:', {
@@ -796,6 +849,76 @@ export default function LucroDesempenhoPage() {
                 <p className="text-sm text-orange-600">{formatarMoeda(custosEmpresa.contasPendentes)}</p>
               </div>
             </div>
+
+            {/* Detalhamento por Categorias */}
+            {custosEmpresa.categoriasDetalhadas.length > 0 && (
+              <div className="ml-4 space-y-3 border-b border-gray-200 pb-2">
+                <p className="text-sm font-medium text-gray-800 mt-2">Detalhamento por Categoria:</p>
+                {custosEmpresa.categoriasDetalhadas.map((categoria, index) => (
+                  <div key={index} className="bg-gray-50 rounded-lg p-3">
+                    <div className="flex justify-between items-center mb-2">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900 capitalize">
+                          {categoria.categoria}
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          {categoria.quantidade} conta{categoria.quantidade !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {formatarMoeda(categoria.total)}
+                      </p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Pagas:</span>
+                        <span className="text-green-600 font-medium">
+                          {formatarMoeda(categoria.contasPagas)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Pendentes:</span>
+                        <span className="text-orange-600 font-medium">
+                          {formatarMoeda(categoria.contasPendentes)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Lista de contas da categoria */}
+                    <div className="mt-2 space-y-1">
+                      {categoria.contas.slice(0, 3).map((conta, contaIndex) => (
+                        <div key={contaIndex} className="flex justify-between items-center text-xs bg-white rounded px-2 py-1">
+                          <div className="flex-1 truncate">
+                            <p className="text-gray-800 truncate">{conta.descricao}</p>
+                            <p className="text-gray-500">
+                              {new Date(conta.data_vencimento).toLocaleDateString('pt-BR')}
+                            </p>
+                          </div>
+                          <div className="text-right ml-2">
+                            <p className="font-medium text-gray-900">
+                              {formatarMoeda(conta.valor)}
+                            </p>
+                            <span className={`inline-flex px-1 py-0.5 rounded text-xs ${
+                              conta.status === 'paga' 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-orange-100 text-orange-800'
+                            }`}>
+                              {conta.status}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                      {categoria.contas.length > 3 && (
+                        <p className="text-xs text-gray-500 text-center">
+                          +{categoria.contas.length - 3} outra{categoria.contas.length - 3 !== 1 ? 's' : ''}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Resultado Operacional */}
             <div className="flex justify-between items-center py-2 border-b border-gray-300 bg-yellow-50">
