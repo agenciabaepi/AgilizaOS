@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabaseClient';
 import MenuLayout from '@/components/MenuLayout';
 import { Button } from '@/components/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import DashboardCard from '@/components/ui/DashboardCard';
 import FluxoCaixaChart from '@/components/FluxoCaixaChart';
 import { 
   FiDollarSign, 
@@ -653,75 +654,51 @@ export default function DashboardFinanceiroPage() {
           <h2 className="text-lg md:text-xl font-semibold text-gray-900 mb-4">
             Resumo - {gerarNomesMeses()[mesSelecionado]} {anoSelecionado}
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-6">
-            {/* Saldo Anterior */}
-            <Card className="border-gray-200">
-              <CardContent className="p-3 md:p-6">
-                    <div className="space-y-1">
-                  <p className="text-xs md:text-sm font-medium text-gray-600">SALDO ANTERIOR</p>
-                  <p className="text-lg md:text-2xl font-bold text-gray-900">
-                    {formatCurrency(obterDadosMesSelecionado()?.saldo_final || 0)}
-                      </p>
-                  <p className="text-xs text-gray-500">Saldo do mês anterior</p>
-                    </div>
-                  </CardContent>
-                </Card>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6">
+            <DashboardCard
+              title="Saldo Anterior"
+              value={formatCurrency(obterDadosMesSelecionado()?.saldo_final || 0)}
+              description="Saldo do mês anterior"
+              descriptionColorClass="text-gray-500"
+              icon={<FiDollarSign className="w-5 h-5" />}
+              svgPolyline={{ color: '#6b7280', points: '0,15 10,17 20,15 30,13 40,15 50,17 60,15 70,17' }}
+            />
 
-            {/* Entradas */}
-            <Card className="border-green-200">
-              <CardContent className="p-3 md:p-6">
-                    <div className="space-y-1">
-                  <p className="text-xs md:text-sm font-medium text-gray-600">ENTRADAS</p>
-                  <p className="text-lg md:text-2xl font-bold text-green-600">
-                    {formatCurrency(obterDadosMesSelecionado()?.entradas || 0)}
-                      </p>
-                  <p className="text-xs text-gray-500">
-                    {(obterDadosMesSelecionado() as any)?.detalhes?.totalVendas || 0} vendas
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
+            <DashboardCard
+              title="Entradas"
+              value={formatCurrency(obterDadosMesSelecionado()?.entradas || 0)}
+              description={`${(obterDadosMesSelecionado() as any)?.detalhes?.totalVendas || 0} vendas`}
+              descriptionColorClass="text-green-600"
+              icon={<FiTrendingUp className="w-5 h-5" />}
+              svgPolyline={{ color: '#22c55e', points: '0,20 10,18 20,16 30,14 40,12 50,10 60,8 70,6' }}
+            />
 
-            {/* Saídas */}
-            <Card className="border-red-200">
-              <CardContent className="p-3 md:p-6">
-                <div className="space-y-1">
-                  <p className="text-xs md:text-sm font-medium text-gray-600">SAÍDAS</p>
-                  <p className="text-lg md:text-2xl font-bold text-red-600">
-                    {formatCurrency(obterDadosMesSelecionado()?.saidas || 0)}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {(obterDadosMesSelecionado() as any)?.detalhes?.totalContas || 0} contas
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            <DashboardCard
+              title="Saídas"
+              value={formatCurrency(obterDadosMesSelecionado()?.saidas || 0)}
+              description={`${(obterDadosMesSelecionado() as any)?.detalhes?.totalContas || 0} contas`}
+              descriptionColorClass="text-red-500"
+              icon={<FiTrendingDown className="w-5 h-5" />}
+              svgPolyline={{ color: '#ef4444', points: '0,6 10,8 20,10 30,12 40,14 50,16 60,18 70,20' }}
+            />
 
-            {/* Saldo do Período */}
-            <Card className="border-blue-200">
-              <CardContent className="p-3 md:p-6">
-                <div className="space-y-1">
-                  <p className="text-xs md:text-sm font-medium text-gray-600">SALDO DO PERÍODO</p>
-                  <p className={`text-lg md:text-2xl font-bold ${(obterDadosMesSelecionado()?.saldo_periodo || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {formatCurrency(obterDadosMesSelecionado()?.saldo_periodo || 0)}
-                  </p>
-                  <p className="text-xs text-gray-500">Diferença entre as entradas e saídas</p>
-                </div>
-              </CardContent>
-            </Card>
+            <DashboardCard
+              title="Saldo do Período"
+              value={formatCurrency(obterDadosMesSelecionado()?.saldo_periodo || 0)}
+              description="Diferença entre entradas e saídas"
+              descriptionColorClass={(obterDadosMesSelecionado()?.saldo_periodo || 0) >= 0 ? "text-green-600" : "text-red-500"}
+              icon={<FiCalendar className="w-5 h-5" />}
+              svgPolyline={{ color: (obterDadosMesSelecionado()?.saldo_periodo || 0) >= 0 ? '#22c55e' : '#ef4444', points: '0,15 10,13 20,15 30,17 40,15 50,13 60,15 70,17' }}
+            />
 
-            {/* Saldo Final */}
-            <Card className="border-purple-200">
-              <CardContent className="p-3 md:p-6">
-                <div className="space-y-1">
-                  <p className="text-xs md:text-sm font-medium text-gray-600">SALDO FINAL</p>
-                  <p className={`text-lg md:text-2xl font-bold ${(obterDadosMesSelecionado()?.saldo_final || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {formatCurrency(obterDadosMesSelecionado()?.saldo_final || 0)}
-                  </p>
-                  <p className="text-xs text-gray-500">Saldo acumulado até este mês</p>
-                </div>
-              </CardContent>
-            </Card>
+            <DashboardCard
+              title="Saldo Final"
+              value={formatCurrency(obterDadosMesSelecionado()?.saldo_final || 0)}
+              description="Saldo acumulado até este mês"
+              descriptionColorClass={(obterDadosMesSelecionado()?.saldo_final || 0) >= 0 ? "text-green-600" : "text-red-500"}
+              icon={<FiDollarSign className="w-5 h-5" />}
+              svgPolyline={{ color: (obterDadosMesSelecionado()?.saldo_final || 0) >= 0 ? '#22c55e' : '#ef4444', points: '0,12 10,14 20,12 30,10 40,12 50,14 60,12 70,14' }}
+            />
           </div>
         </div>
 
