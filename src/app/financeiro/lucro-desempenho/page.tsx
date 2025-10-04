@@ -233,7 +233,7 @@ export default function LucroDesempenhoPage() {
         .in('id', clienteIds);
 
         // Buscar todas as vendas do período primeiro para debug
-        const { data: todasVendasPeriodo } = await supabase
+        const { data: todasVendasPeriodo, error: errorVendasPeriodo } = await supabase
           .from('vendas')
           .select('id, valor_total, valor_pago, data_venda, observacoes')
           .eq('empresa_id', empresaData.id)
@@ -241,20 +241,26 @@ export default function LucroDesempenhoPage() {
           .gte('data_venda', `${dataInicio}T00:00:00`)
           .lte('data_venda', `${dataFim}T23:59:59`);
 
-        console.log('🔍 Debug vendas:', {
+        console.log('🔍 Debug vendas período:', {
           periodo: `${dataInicio} a ${dataFim}`,
           totalVendasPeriodo: todasVendasPeriodo?.length || 0,
+          errorVendasPeriodo: errorVendasPeriodo,
           sampleVendas: todasVendasPeriodo?.slice(0, 3),
           ordensNumeros: ordensNumeros.slice(0, 3)
         });
 
-        // Buscar vendas específicas das OS
-        const { data: todasVendas } = await supabase
+        // Buscar vendas específicas das OS - versão simplificada
+        const { data: todasVendas, error: errorVendas } = await supabase
           .from('vendas')
           .select('id, valor_total, valor_pago, data_venda, observacoes')
           .eq('empresa_id', empresaData.id)
-          .eq('status', 'finalizada')
-          .or(ordensNumeros.map(num => `observacoes.ilike.%O.S. #${num}%,observacoes.ilike.%OS #${num}%`).join(','));
+          .eq('status', 'finalizada');
+
+        console.log('🔍 Debug todas vendas:', {
+          totalVendas: todasVendas?.length || 0,
+          errorVendas: errorVendas,
+          sampleVendas: todasVendas?.slice(0, 5)
+        });
 
         const { data: todosCustos } = await supabase
           .from('contas_pagar')
