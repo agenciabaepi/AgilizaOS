@@ -1,21 +1,32 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/Toast';
 import MenuLayout from '@/components/MenuLayout';
+import DashboardCard from '@/components/ui/DashboardCard';
 import { 
   FiTrendingUp, 
   FiTrendingDown, 
   FiDollarSign, 
-  FiTarget,
-  FiUsers,
+  FiTarget, 
+  FiRefreshCw, 
+  FiUsers, 
   FiCalendar,
   FiFilter,
-  FiRefreshCw,
+  FiSearch,
+  FiBarChart,
+  FiList,
+  FiTool,
   FiEye,
-  FiDownload
+  FiDownload,
+  FiChevronLeft,
+  FiChevronRight,
+  FiPercent,
+  FiActivity,
+  FiAward,
+  FiAlertCircle
 } from 'react-icons/fi';
 
 interface OrdemServico {
@@ -32,6 +43,7 @@ interface OrdemServico {
   desconto?: number;
   created_at: string;
   data_entrega?: string;
+  data_saida?: string;
   prazo_entrega?: string;
   clientes?: {
     nome: string;
@@ -48,6 +60,7 @@ interface Venda {
   valor_total: number;
   valor_pago: number;
   data_venda: string;
+  observacoes?: string;
 }
 
 interface ContaCusto {
@@ -56,9 +69,10 @@ interface ContaCusto {
   valor: number;
   tipo: string;
   data_vencimento: string;
+  os_id: string;
 }
 
-interface MetricasLucro {
+interface Metricas {
   totalReceita: number;
   totalCustos: number;
   lucroTotal: number;
@@ -78,16 +92,14 @@ interface AnaliseTecnico {
   margemMedia: number;
 }
 
-type FiltroPeriodo = 'hoje' | 'semana' | 'mes' | 'trimestre' | 'ano' | 'personalizado';
-
 export default function LucroDesempenhoPage() {
   const { empresaData } = useAuth();
   const { addToast } = useToast();
   
   // Estados principais
-  const [loading, setLoading] = useState(true);
   const [ordens, setOrdens] = useState<OrdemServico[]>([]);
-  const [metricas, setMetricas] = useState<MetricasLucro>({
+  const [loading, setLoading] = useState(true);
+  const [metricas, setMetricas] = useState<Metricas>({
     totalReceita: 0,
     totalCustos: 0,
     lucroTotal: 0,
@@ -98,52 +110,73 @@ export default function LucroDesempenhoPage() {
   });
   const [analiseTecnicos, setAnaliseTecnicos] = useState<AnaliseTecnico[]>([]);
   
+  // Estados de navegação por mês
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [visualizacaoAtiva, setVisualizacaoAtiva] = useState<'dashboard' | 'os' | 'tecnicos'>('dashboard');
+  
+  // Estados para dados diários
+  const [dadosDiarios, setDadosDiarios] = useState<Array<{
+    dia: number;
+    receita: number;
+    custos: number;
+    lucro: number;
+  }>>([]);
+  
   // Estados de filtros
-  const [filtroPeriodo, setFiltroPeriodo] = useState<FiltroPeriodo>('mes');
-  const [dataInicio, setDataInicio] = useState('');
-  const [dataFim, setDataFim] = useState('');
   const [filtroTecnico, setFiltroTecnico] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('');
   const [filtroLucratividade, setFiltroLucratividade] = useState('');
-  
-  // Estados de visualização
-  const [visualizacaoAtiva, setVisualizacaoAtiva] = useState<'dashboard' | 'os' | 'tecnicos'>('dashboard');
-  const [ordenacao, setOrdenacao] = useState<{campo: string, direcao: 'asc' | 'desc'}>({
-    campo: 'lucroTotal',
-    direcao: 'desc'
-  });
 
-  useEffect(() => {
-    if (empresaData?.id) {
-      loadData();
+  // Navegação por mês
+  const navegarMes = (direcao: 'anterior' | 'proximo') => {
+    const novoMes = new Date(currentMonth);
+    if (direcao === 'anterior') {
+      novoMes.setMonth(novoMes.getMonth() - 1);
+    } else {
+      novoMes.setMonth(novoMes.getMonth() + 1);
     }
-  }, [empresaData?.id]);
+    setCurrentMonth(novoMes);
+  };
 
-  useEffect(() => {
-    if (ordens.length > 0) {
-      calcularMetricas();
-      calcularAnaliseTecnicos();
-    }
-  }, [ordens]);
+  const irParaMesAtual = () => {
+    setCurrentMonth(new Date());
+  };
 
+  // Formatação de data
+  const formatarMesAno = (data: Date) => {
+    return data.toLocaleDateString('pt-BR', { 
+      month: 'long', 
+      year: 'numeric' 
+    });
+  };
+
+  // Calcular período do mês selecionado
+  const calcularPeriodo = () => {
+    const inicioMes = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+    const fimMes = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+    
+    const dataInicio = inicioMes.toISOString().split('T')[0];
+    const dataFim = fimMes.toISOString().split('T')[0];
+    
+    return { dataInicio, dataFim };
+  };
+
+  // Carregar dados
   const loadData = async () => {
     if (!empresaData?.id) return;
     
     setLoading(true);
-    const startTime = Date.now();
     
     try {
-      // Calcular datas do período selecionado
-      const { dataInicioFiltro, dataFimFiltro } = calcularPeriodo();
+      const { dataInicio, dataFim } = calcularPeriodo();
       
       console.log('📊 Carregando dados de lucro e desempenho...', {
         empresaId: empresaData.id,
-        periodo: filtroPeriodo,
-        dataInicio: dataInicioFiltro,
-        dataFim: dataFimFiltro
+        mes: formatarMesAno(currentMonth),
+        periodo: `${dataInicio} a ${dataFim}`
       });
 
-      // Buscar ordens de serviço com joins otimizados (1 query apenas)
+      // Buscar ordens de serviço com joins otimizados
       const { data: ordensData, error: ordensError } = await supabase
         .from('ordens_servico')
         .select(`
@@ -160,33 +193,27 @@ export default function LucroDesempenhoPage() {
           desconto,
           created_at,
           data_entrega,
+          data_saida,
           prazo_entrega,
           clientes!cliente_id(nome),
           tecnico:usuarios!tecnico_id(nome)
         `)
         .eq('empresa_id', empresaData.id)
-        .gte('created_at', `${dataInicioFiltro}T00:00:00`)
-        .lte('created_at', `${dataFimFiltro}T23:59:59`)
+        .gte('created_at', `${dataInicio}T00:00:00`)
+        .lte('created_at', `${dataFim}T23:59:59`)
         .order('created_at', { ascending: false })
-        .limit(100); // Limitar para melhor performance
+        .limit(200);
 
       if (ordensError) {
         console.error('❌ Erro ao buscar ordens:', ordensError);
-        console.error('❌ Detalhes do erro:', {
-          message: ordensError.message,
-          details: ordensError.details,
-          hint: ordensError.hint,
-          code: ordensError.code
-        });
         addToast('error', `Erro ao carregar ordens de serviço: ${ordensError.message}`);
         return;
       }
 
-      // Buscar vendas e custos em lote (2 queries apenas)
+      // Buscar vendas e custos em lote
       const ordensIds = ordensData?.map(o => o.id) || [];
       const ordensNumeros = ordensData?.map(o => o.numero_os) || [];
 
-      // Buscar todas as vendas relacionadas às OSs
       const { data: todasVendas } = await supabase
         .from('vendas')
         .select('id, valor_total, valor_pago, data_venda, observacoes')
@@ -194,7 +221,6 @@ export default function LucroDesempenhoPage() {
         .eq('status', 'finalizada')
         .in('observacoes', ordensNumeros.map(num => `OS: ${num}`));
 
-      // Buscar todos os custos relacionados às OSs
       const { data: todosCustos } = await supabase
         .from('contas_pagar')
         .select('id, descricao, valor, tipo, data_vencimento, os_id')
@@ -221,12 +247,11 @@ export default function LucroDesempenhoPage() {
 
       setOrdens(ordensCompletas);
       
-      const loadTime = Date.now() - startTime;
       console.log('✅ Dados carregados:', {
         totalOrdens: ordensCompletas.length,
         ordensComVendas: ordensCompletas.filter(o => o.vendas?.length > 0).length,
         ordensComCustos: ordensCompletas.filter(o => o.custos?.length > 0).length,
-        tempoCarregamento: `${loadTime}ms`
+        mes: formatarMesAno(currentMonth)
       });
 
     } catch (error) {
@@ -237,56 +262,16 @@ export default function LucroDesempenhoPage() {
     }
   };
 
-  const calcularPeriodo = () => {
-    const hoje = new Date();
-    let dataInicioFiltro = '';
-    let dataFimFiltro = '';
-
-    switch (filtroPeriodo) {
-      case 'hoje':
-        dataInicioFiltro = hoje.toISOString().split('T')[0];
-        dataFimFiltro = hoje.toISOString().split('T')[0];
-        break;
-      case 'semana':
-        const inicioSemana = new Date(hoje.setDate(hoje.getDate() - hoje.getDay()));
-        dataInicioFiltro = inicioSemana.toISOString().split('T')[0];
-        dataFimFiltro = new Date().toISOString().split('T')[0];
-        break;
-      case 'mes':
-        dataInicioFiltro = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().split('T')[0];
-        dataFimFiltro = new Date().toISOString().split('T')[0];
-        break;
-      case 'trimestre':
-        const trimestre = Math.floor(hoje.getMonth() / 3);
-        dataInicioFiltro = new Date(hoje.getFullYear(), trimestre * 3, 1).toISOString().split('T')[0];
-        dataFimFiltro = new Date().toISOString().split('T')[0];
-        break;
-      case 'ano':
-        dataInicioFiltro = new Date(hoje.getFullYear(), 0, 1).toISOString().split('T')[0];
-        dataFimFiltro = new Date().toISOString().split('T')[0];
-        break;
-      case 'personalizado':
-        dataInicioFiltro = dataInicio || new Date().toISOString().split('T')[0];
-        dataFimFiltro = dataFim || new Date().toISOString().split('T')[0];
-        break;
-    }
-
-    return { dataInicioFiltro, dataFimFiltro };
-  };
-
+  // Calcular métricas
   const calcularMetricas = () => {
     const totalReceita = ordens.reduce((acc, ordem) => {
-      // Receita das vendas relacionadas + valor faturado da OS
       const receitaVendas = ordem.vendas?.reduce((vendaAcc, venda) => vendaAcc + venda.valor_pago, 0) || 0;
       const receitaOS = ordem.valor_faturado || 0;
       return acc + receitaVendas + receitaOS;
     }, 0);
 
     const totalCustos = ordens.reduce((acc, ordem) => {
-      // APENAS custos reais das contas a pagar vinculadas à OS
       const custosContas = ordem.custos?.reduce((custoAcc, custo) => custoAcc + custo.valor, 0) || 0;
-      
-      // NÃO usar valores da OS como fallback - apenas custos reais
       return acc + custosContas;
     }, 0);
 
@@ -295,10 +280,7 @@ export default function LucroDesempenhoPage() {
 
     const ordensComLucro = ordens.map(ordem => {
       const receita = (ordem.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0) + (ordem.valor_faturado || 0);
-      
-      // APENAS custos reais das contas a pagar vinculadas
       const custos = ordem.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
-      
       return { ...ordem, receita, custos, lucro: receita - custos };
     });
 
@@ -316,6 +298,45 @@ export default function LucroDesempenhoPage() {
     });
   };
 
+  // Calcular dados diários do mês
+  const calcularDadosDiarios = () => {
+    const { dataInicio, dataFim } = calcularPeriodo();
+    const diasNoMes = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
+    
+    const dadosPorDia = Array.from({ length: diasNoMes }, (_, index) => {
+      const dia = index + 1;
+      const dataDia = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+      
+      const ordensDoDia = ordens.filter(ordem => {
+        // Usar data_entrega se disponível, senão data_saida, senão created_at
+        const dataFaturamento = ordem.data_entrega || ordem.data_saida || ordem.created_at;
+        const dataOrdem = dataFaturamento.split('T')[0];
+        return dataOrdem === dataDia;
+      });
+      
+      const receita = ordensDoDia.reduce((acc, ordem) => {
+        const receitaVendas = ordem.vendas?.reduce((vendaAcc, venda) => vendaAcc + venda.valor_pago, 0) || 0;
+        const receitaOS = ordem.valor_faturado || 0;
+        return acc + receitaVendas + receitaOS;
+      }, 0);
+      
+      const custos = ordensDoDia.reduce((acc, ordem) => {
+        const custosContas = ordem.custos?.reduce((custoAcc, custo) => custoAcc + custo.valor, 0) || 0;
+        return acc + custosContas;
+      }, 0);
+      
+      return {
+        dia,
+        receita,
+        custos,
+        lucro: receita - custos
+      };
+    });
+    
+    setDadosDiarios(dadosPorDia);
+  };
+
+  // Calcular análise de técnicos
   const calcularAnaliseTecnicos = () => {
     const tecnicosMap = new Map<string, AnaliseTecnico>();
 
@@ -323,8 +344,6 @@ export default function LucroDesempenhoPage() {
       if (!ordem.tecnico_id || !ordem.tecnico?.nome) return;
 
       const receita = (ordem.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0) + (ordem.valor_faturado || 0);
-      
-      // APENAS custos reais das contas a pagar vinculadas
       const custos = ordem.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
       const lucro = receita - custos;
 
@@ -354,6 +373,22 @@ export default function LucroDesempenhoPage() {
     setAnaliseTecnicos(tecnicosArray);
   };
 
+  // Efeitos
+  useEffect(() => {
+    if (empresaData?.id) {
+      loadData();
+    }
+  }, [empresaData?.id, currentMonth]);
+
+  useEffect(() => {
+    if (ordens.length > 0) {
+      calcularMetricas();
+      calcularAnaliseTecnicos();
+      calcularDadosDiarios();
+    }
+  }, [ordens]);
+
+  // Formatação de valores
   const formatarMoeda = (valor: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -365,206 +400,273 @@ export default function LucroDesempenhoPage() {
     return `${valor.toFixed(1)}%`;
   };
 
+  // Renderizar dashboard
   const renderDashboard = () => (
     <div className="space-y-6">
-      {/* Cards de Métricas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
-          <div className="flex items-center">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <FiDollarSign className="w-6 h-6 text-green-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Receita Total</p>
-              <p className="text-2xl font-bold text-gray-900">{formatarMoeda(metricas.totalReceita)}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-red-500">
-          <div className="flex items-center">
-            <div className="p-2 bg-red-100 rounded-lg">
-              <FiTrendingDown className="w-6 h-6 text-red-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Custos Total</p>
-              <p className="text-2xl font-bold text-gray-900">{formatarMoeda(metricas.totalCustos)}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
-          <div className="flex items-center">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <FiTrendingUp className="w-6 h-6 text-blue-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Lucro Total</p>
-              <p className={`text-2xl font-bold ${metricas.lucroTotal >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {formatarMoeda(metricas.lucroTotal)}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-purple-500">
-          <div className="flex items-center">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <FiTarget className="w-6 h-6 text-purple-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Margem Média</p>
-              <p className={`text-2xl font-bold ${metricas.margemMedia >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {formatarPercentual(metricas.margemMedia)}
-              </p>
-            </div>
-          </div>
-        </div>
+      {/* Cards de Métricas Principais */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <DashboardCard
+          title="Receita Total"
+          value={<span className="text-green-600">{formatarMoeda(metricas.totalReceita)}</span>}
+          icon={<FiDollarSign className="text-green-600" />}
+          colorClass="text-black"
+          bgClass="bg-white"
+          description={`${metricas.totalOS} OS processadas`}
+          svgPolyline={{ color: '#10B981', points: '0,20 20,10 40,15 60,5 80,12 100,8' }}
+        />
+        
+        <DashboardCard
+          title="Custos Totais"
+          value={<span className="text-red-600">{formatarMoeda(metricas.totalCustos)}</span>}
+          icon={<FiTarget className="text-red-600" />}
+          colorClass="text-black"
+          bgClass="bg-white"
+          description="Peças e serviços"
+          svgPolyline={{ color: '#EF4444', points: '0,15 20,20 40,10 60,18 80,8 100,12' }}
+        />
+        
+        <DashboardCard
+          title="Lucro Total"
+          value={
+            <span className={metricas.lucroTotal >= 0 ? 'text-green-600' : 'text-red-600'}>
+              {formatarMoeda(metricas.lucroTotal)}
+            </span>
+          }
+          icon={metricas.lucroTotal >= 0 ? <FiTrendingUp className="text-green-600" /> : <FiTrendingDown className="text-red-600" />}
+          colorClass="text-black"
+          bgClass="bg-white"
+          description={metricas.lucroTotal >= 0 ? 'Resultado positivo' : 'Resultado negativo'}
+          svgPolyline={{ 
+            color: metricas.lucroTotal >= 0 ? '#10B981' : '#EF4444', 
+            points: '0,20 20,15 40,10 60,5 80,8 100,3' 
+          }}
+        />
+        
+        <DashboardCard
+          title="Margem Média"
+          value={
+            <span className={metricas.margemMedia >= 0 ? 'text-green-600' : 'text-red-600'}>
+              {formatarPercentual(metricas.margemMedia)}
+            </span>
+          }
+          icon={<FiPercent className={metricas.margemMedia >= 0 ? 'text-green-600' : 'text-red-600'} />}
+          colorClass="text-black"
+          bgClass="bg-white"
+          description={`${metricas.osLucrativas} OS lucrativas`}
+          svgPolyline={{ 
+            color: metricas.margemMedia >= 0 ? '#10B981' : '#EF4444', 
+            points: '0,18 20,12 40,16 60,8 80,14 100,6' 
+          }}
+        />
       </div>
 
-      {/* Resumo de OS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Resumo de OS</h3>
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Total de OS:</span>
-              <span className="font-semibold">{metricas.totalOS}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">OS Lucrativas:</span>
-              <span className="font-semibold text-green-600">{metricas.osLucrativas}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">OS com Prejuízo:</span>
-              <span className="font-semibold text-red-600">{metricas.osPrejuizo}</span>
-            </div>
-          </div>
-        </div>
+      {/* Cards de Análise */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <DashboardCard
+          title="OS Lucrativas"
+          value={<span className="text-green-600">{metricas.osLucrativas}</span>}
+          icon={<FiAward className="text-green-600" />}
+          colorClass="text-black"
+          bgClass="bg-white"
+          description={`${metricas.totalOS > 0 ? ((metricas.osLucrativas / metricas.totalOS) * 100).toFixed(1) : 0}% do total`}
+        />
+        
+        <DashboardCard
+          title="OS com Prejuízo"
+          value={<span className="text-red-600">{metricas.osPrejuizo}</span>}
+          icon={<FiAlertCircle className="text-red-600" />}
+          colorClass="text-black"
+          bgClass="bg-white"
+          description={`${metricas.totalOS > 0 ? ((metricas.osPrejuizo / metricas.totalOS) * 100).toFixed(1) : 0}% do total`}
+        />
+        
+        <DashboardCard
+          title="Total de OS"
+          value={<span className="text-gray-600">{metricas.totalOS}</span>}
+          icon={<FiActivity className="text-gray-600" />}
+          colorClass="text-black"
+          bgClass="bg-white"
+          description="Ordens processadas"
+        />
+      </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Top 5 OS Mais Lucrativas</h3>
-          <div className="space-y-2">
-            {ordens
-              .map(ordem => {
-                const receita = (ordem.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0) + (ordem.valor_faturado || 0);
+      {/* Gráfico de Barras Divergente */}
+      <div className="bg-white rounded-xl shadow-md overflow-hidden chart-container">
+        <div className="p-6 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">Análise Diária do Mês</h3>
+          <p className="text-sm text-gray-600 mt-1">Comparação entre receita e custos por dia</p>
+        </div>
+        
+        <div className="p-6">
+          <div className="relative">
+            {/* Gráfico SVG */}
+            <svg 
+              width="100%" 
+              height="350" 
+              viewBox="0 0 1000 350" 
+              className="overflow-visible"
+            >
+              <defs>
+                {/* Gradientes mais suaves */}
+                <linearGradient id="receitaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="#10B981" stopOpacity="1"/>
+                  <stop offset="100%" stopColor="#059669" stopOpacity="0.9"/>
+                </linearGradient>
+                <linearGradient id="custosGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="#3B82F6" stopOpacity="1"/>
+                  <stop offset="100%" stopColor="#1D4ED8" stopOpacity="0.9"/>
+                </linearGradient>
+                <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+                  <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="#00000020"/>
+                </filter>
+              </defs>
+              
+              {/* Linhas de grid horizontais */}
+              <line x1="100" y1="50" x2="900" y2="50" stroke="#E5E7EB" strokeWidth="1"/>
+              <line x1="100" y1="125" x2="900" y2="125" stroke="#E5E7EB" strokeWidth="1"/>
+              <line x1="100" y1="200" x2="900" y2="200" stroke="#374151" strokeWidth="2"/>
+              <line x1="100" y1="275" x2="900" y2="275" stroke="#E5E7EB" strokeWidth="1"/>
+              <line x1="100" y1="350" x2="900" y2="350" stroke="#E5E7EB" strokeWidth="1"/>
+              
+              {/* Labels do eixo Y */}
+              <text x="90" y="55" textAnchor="end" className="text-sm fill-gray-600 font-medium">
+                R$ 2k
+              </text>
+              <text x="90" y="130" textAnchor="end" className="text-sm fill-gray-600 font-medium">
+                R$ 1k
+              </text>
+              <text x="90" y="205" textAnchor="end" className="text-sm fill-gray-700 font-semibold">
+                R$ 0
+              </text>
+              <text x="90" y="280" textAnchor="end" className="text-sm fill-gray-600 font-medium">
+                -R$ 1k
+              </text>
+              <text x="90" y="355" textAnchor="end" className="text-sm fill-gray-600 font-medium">
+                -R$ 2k
+              </text>
+              
+              {/* Bars */}
+              {dadosDiarios.map((dado, index) => {
+                const x = 120 + (index * 30);
+                const maxValor = Math.max(...dadosDiarios.map(d => Math.max(d.receita, d.custos)));
+                const escala = maxValor > 0 ? 150 / maxValor : 0;
                 
-                // APENAS custos reais das contas a pagar vinculadas
-                const custos = ordem.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
-                const lucro = receita - custos;
-                return { ...ordem, receita, custos, lucro };
-              })
-              .sort((a, b) => b.lucro - a.lucro)
-              .slice(0, 5)
-              .map((ordem, index) => (
-                <div key={ordem.id} className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600">#{ordem.numero_os}</span>
-                  <span className={`font-semibold ${ordem.lucro >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {formatarMoeda(ordem.lucro)}
-                  </span>
-                </div>
-              ))}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Top 5 Técnicos</h3>
-          <div className="space-y-2">
-            {analiseTecnicos.slice(0, 5).map((tecnico, index) => (
-              <div key={tecnico.tecnico_id} className="flex justify-between items-center text-sm">
-                <span className="text-gray-600 truncate">{tecnico.nome}</span>
-                <span className={`font-semibold ${tecnico.lucroTotal >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatarMoeda(tecnico.lucroTotal)}
-                </span>
+                const alturaReceita = dado.receita * escala;
+                const alturaCustos = dado.custos * escala;
+                
+                return (
+                  <g key={dado.dia}>
+                    {/* Receita bar (upward) */}
+                    <rect
+                      x={x - 8}
+                      y={200 - alturaReceita}
+                      width="16"
+                      height={alturaReceita}
+                      fill="url(#receitaGradient)"
+                      rx="4"
+                      filter="url(#shadow)"
+                      className="bar-hover transition-all duration-300 ease-out hover:scale-105"
+                      style={{
+                        transformOrigin: `${x}px 200px`,
+                        animation: `slideUp 0.8s ease-out ${index * 0.03}s both`
+                      }}
+                    />
+                    
+                    {/* Custos bar (downward) */}
+                    <rect
+                      x={x - 8}
+                      y={200}
+                      width="16"
+                      height={alturaCustos}
+                      fill="url(#custosGradient)"
+                      rx="4"
+                      filter="url(#shadow)"
+                      className="bar-hover transition-all duration-300 ease-out hover:scale-105"
+                      style={{
+                        transformOrigin: `${x}px 200px`,
+                        animation: `slideDown 0.8s ease-out ${index * 0.03}s both`
+                      }}
+                    />
+                    
+                    {/* Day label */}
+                    <text
+                      x={x}
+                      y="320"
+                      textAnchor="middle"
+                      className="text-xs fill-gray-500 font-medium"
+                    >
+                      {dado.dia}
+                    </text>
+                    
+                    {/* Tooltip data */}
+                    <rect
+                      x={x - 8}
+                      y="0"
+                      width="16"
+                      height="350"
+                      fill="transparent"
+                      className="cursor-pointer"
+                    >
+                      <title>
+                        Dia {dado.dia}:{'\n'}
+                        Receita: {formatarMoeda(dado.receita)}{'\n'}
+                        Custos: {formatarMoeda(dado.custos)}{'\n'}
+                        Lucro: {formatarMoeda(dado.lucro)}
+                      </title>
+                    </rect>
+                  </g>
+                );
+              })}
+            </svg>
+            
+            {/* Legend */}
+            <div className="flex justify-center space-x-8 mt-6">
+              <div className="flex items-center space-x-3">
+                <div className="w-5 h-5 bg-gradient-to-b from-green-500 to-green-600 rounded shadow-sm"></div>
+                <span className="text-sm text-gray-700 font-semibold">Receita</span>
               </div>
-            ))}
+              <div className="flex items-center space-x-3">
+                <div className="w-5 h-5 bg-gradient-to-b from-blue-500 to-blue-600 rounded shadow-sm"></div>
+                <span className="text-sm text-gray-700 font-semibold">Custos</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
 
+  // Renderizar tabela de OS
   const renderTabelaOS = () => {
-    const ordensFiltradas = ordens
-      .filter(ordem => {
-        if (filtroTecnico && ordem.tecnico_id !== filtroTecnico) return false;
-        if (filtroStatus && ordem.status !== filtroStatus) return false;
-        
-        const receita = (ordem.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0) + (ordem.valor_faturado || 0);
-        
-        // APENAS custos reais das contas a pagar vinculadas
-        const custos = ordem.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
-        const lucro = receita - custos;
-        
-        if (filtroLucratividade === 'lucrativa' && lucro <= 0) return false;
-        if (filtroLucratividade === 'prejuizo' && lucro >= 0) return false;
-        if (filtroLucratividade === 'neutra' && lucro !== 0) return false;
-        
-        return true;
-      })
-      .sort((a, b) => {
-        const aReceita = (a.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0) + (a.valor_faturado || 0);
-        const aCustos = a.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
-        const aLucro = aReceita - aCustos;
-        
-        const bReceita = (b.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0) + (b.valor_faturado || 0);
-        const bCustos = b.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
-        const bLucro = bReceita - bCustos;
-        
-        return ordenacao.direcao === 'asc' ? aLucro - bLucro : bLucro - aLucro;
-      });
+    const ordensComLucro = ordens.map(ordem => {
+      const receita = (ordem.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0) + (ordem.valor_faturado || 0);
+      const custos = ordem.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
+      return { ...ordem, receita, custos, lucro: receita - custos };
+    });
 
     return (
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Análise Detalhada por OS</h3>
-          <p className="text-sm text-gray-600 mt-1">
-            {ordensFiltradas.length} de {ordens.length} ordens de serviço
-          </p>
+      <div className="bg-white rounded-xl shadow-md overflow-hidden">
+        <div className="p-6 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">Análise por OS</h3>
+          <p className="text-sm text-gray-600 mt-1">Detalhamento de lucratividade por ordem de serviço</p>
         </div>
         
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  OS
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Cliente
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Técnico
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Receita
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Custos
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Lucro
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Margem
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Data
-                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OS</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Técnico</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Receita</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Custos</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Lucro</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Margem</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {ordensFiltradas.map((ordem) => {
-                const receita = (ordem.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0) + (ordem.valor_faturado || 0);
-                
-                // APENAS custos reais das contas a pagar vinculadas
-                const custos = ordem.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
-                const lucro = receita - custos;
-                const margem = receita > 0 ? (lucro / receita) * 100 : 0;
-                
+              {ordensComLucro.map((ordem) => {
+                const margem = ordem.receita > 0 ? (ordem.lucro / ordem.receita) * 100 : 0;
                 return (
                   <tr key={ordem.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -576,33 +678,21 @@ export default function LucroDesempenhoPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {ordem.tecnico?.nome || 'N/A'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        ordem.status === 'finalizada' ? 'bg-green-100 text-green-800' :
-                        ordem.status === 'em_andamento' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {ordem.status}
-                      </span>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
+                      {formatarMoeda(ordem.receita)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatarMoeda(receita)}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
+                      {formatarMoeda(ordem.custos)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatarMoeda(custos)}
-                    </td>
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${
-                      lucro >= 0 ? 'text-green-600' : 'text-red-600'
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-medium ${
+                      ordem.lucro >= 0 ? 'text-green-600' : 'text-red-600'
                     }`}>
-                      {formatarMoeda(lucro)}
+                      {formatarMoeda(ordem.lucro)}
                     </td>
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-medium ${
                       margem >= 0 ? 'text-green-600' : 'text-red-600'
                     }`}>
                       {formatarPercentual(margem)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(ordem.created_at).toLocaleDateString('pt-BR')}
                     </td>
                   </tr>
                 );
@@ -614,66 +704,47 @@ export default function LucroDesempenhoPage() {
     );
   };
 
+  // Renderizar análise de técnicos
   const renderAnaliseTecnicos = () => (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-200">
+    <div className="bg-white rounded-xl shadow-md overflow-hidden">
+      <div className="p-6 border-b border-gray-200">
         <h3 className="text-lg font-semibold text-gray-900">Análise por Técnico</h3>
-        <p className="text-sm text-gray-600 mt-1">
-          Ranking de desempenho e lucratividade
-        </p>
+        <p className="text-sm text-gray-600 mt-1">Performance e lucratividade por técnico</p>
       </div>
       
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
+        <table className="w-full">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                #
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Técnico
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Total OS
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Receita
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Custos
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Lucro
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Margem
-              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Técnico</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">OS</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Receita</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Custos</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Lucro</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Margem</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {analiseTecnicos.map((tecnico, index) => (
+            {analiseTecnicos.map((tecnico) => (
               <tr key={tecnico.tecnico_id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  #{index + 1}
-                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                   {tecnico.nome}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
                   {tecnico.totalOS}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
                   {formatarMoeda(tecnico.receitaTotal)}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
                   {formatarMoeda(tecnico.custosTotal)}
                 </td>
-                <td className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${
+                <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-medium ${
                   tecnico.lucroTotal >= 0 ? 'text-green-600' : 'text-red-600'
                 }`}>
                   {formatarMoeda(tecnico.lucroTotal)}
                 </td>
-                <td className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${
+                <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-medium ${
                   tecnico.margemMedia >= 0 ? 'text-green-600' : 'text-red-600'
                 }`}>
                   {formatarPercentual(tecnico.margemMedia)}
@@ -687,190 +758,150 @@ export default function LucroDesempenhoPage() {
   );
 
   return (
-        <MenuLayout>
-          {loading ? (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-              <div className="text-center">
-                <FiRefreshCw className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
-                <p className="text-gray-600 font-medium">Carregando dados de lucro e desempenho...</p>
-                <p className="text-gray-500 text-sm mt-2">Otimizando consultas para melhor performance</p>
-              </div>
-            </div>
-          ) : (
+    <MenuLayout>
+      <style jsx>{`
+        @keyframes slideUp {
+          from {
+            transform: scaleY(0);
+            opacity: 0;
+          }
+          to {
+            transform: scaleY(1);
+            opacity: 1;
+          }
+        }
+        
+        @keyframes slideDown {
+          from {
+            transform: scaleY(0);
+            opacity: 0;
+          }
+          to {
+            transform: scaleY(1);
+            opacity: 1;
+          }
+        }
+        
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .chart-container {
+          animation: fadeInUp 0.6s ease-out;
+        }
+        
+        .bar-hover {
+          transition: all 0.3s ease;
+        }
+        
+        .bar-hover:hover {
+          transform: scaleY(1.05);
+          filter: brightness(1.1) drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+        }
+      `}</style>
+      
+      {loading ? (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <FiRefreshCw className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
+            <p className="text-gray-600 font-medium">Carregando dados de lucro e desempenho...</p>
+            <p className="text-gray-500 text-sm mt-2">{formatarMesAno(currentMonth)}</p>
+          </div>
+        </div>
+      ) : (
         <div className="min-h-screen bg-gray-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {/* Header */}
+            {/* Header com Navegação de Mês */}
             <div className="mb-8">
-              <h1 className="text-3xl font-bold text-gray-900">Lucro & Desempenho</h1>
-              <p className="mt-2 text-gray-600">
-                Análise detalhada de lucratividade e performance por OS e técnico
-              </p>
-            </div>
-
-            {/* Filtros */}
-            <div className="bg-white rounded-lg shadow mb-6 p-6">
-              <div className="flex flex-wrap gap-4 items-end">
-                <div className="flex-1 min-w-[200px]">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Período
-                  </label>
-                  <select
-                    value={filtroPeriodo}
-                    onChange={(e) => setFiltroPeriodo(e.target.value as FiltroPeriodo)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="hoje">Hoje</option>
-                    <option value="semana">Esta Semana</option>
-                    <option value="mes">Este Mês</option>
-                    <option value="trimestre">Este Trimestre</option>
-                    <option value="ano">Este Ano</option>
-                    <option value="personalizado">Personalizado</option>
-                  </select>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h1 className="text-3xl font-bold text-gray-900">Lucro & Desempenho</h1>
+                  <p className="mt-2 text-gray-600">
+                    Análise detalhada de lucratividade e performance por OS e técnico
+                  </p>
                 </div>
-
-                {filtroPeriodo === 'personalizado' && (
-                  <>
-                    <div className="flex-1 min-w-[150px]">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Data Início
-                      </label>
-                      <input
-                        type="date"
-                        value={dataInicio}
-                        onChange={(e) => setDataInicio(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div className="flex-1 min-w-[150px]">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Data Fim
-                      </label>
-                      <input
-                        type="date"
-                        value={dataFim}
-                        onChange={(e) => setDataFim(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </>
-                )}
-
-                <div className="flex gap-2">
+                
+                {/* Navegação por Mês */}
+                <div className="mt-4 sm:mt-0 flex items-center space-x-4">
                   <button
-                    onClick={loadData}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center gap-2"
+                    onClick={() => navegarMes('anterior')}
+                    className="p-2 rounded-lg bg-white shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors"
                   >
-                    <FiRefreshCw className="w-4 h-4" />
-                    Atualizar
+                    <FiChevronLeft className="w-5 h-5 text-gray-600" />
+                  </button>
+                  
+                  <div className="text-center min-w-[200px]">
+                    <div className="text-lg font-semibold text-gray-900 capitalize">
+                      {formatarMesAno(currentMonth)}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {metricas.totalOS} OS • {formatarMoeda(metricas.lucroTotal)} lucro
+                    </div>
+                  </div>
+                  
+                  <button
+                    onClick={() => navegarMes('proximo')}
+                    className="p-2 rounded-lg bg-white shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors"
+                  >
+                    <FiChevronRight className="w-5 h-5 text-gray-600" />
+                  </button>
+                  
+                  <button
+                    onClick={irParaMesAtual}
+                    className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                  >
+                    Hoje
                   </button>
                 </div>
               </div>
-
-              {/* Filtros adicionais para visualizações específicas */}
-              {(visualizacaoAtiva === 'os' || visualizacaoAtiva === 'tecnicos') && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <div className="flex flex-wrap gap-4 items-end">
-                    {visualizacaoAtiva === 'os' && (
-                      <>
-                        <div className="flex-1 min-w-[150px]">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Técnico
-                          </label>
-                          <select
-                            value={filtroTecnico}
-                            onChange={(e) => setFiltroTecnico(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            <option value="">Todos</option>
-                            {Array.from(new Set(ordens.map(o => o.tecnico_id)))
-                              .filter(Boolean)
-                              .map(tecnicoId => {
-                                const tecnico = ordens.find(o => o.tecnico_id === tecnicoId)?.tecnico;
-                                return tecnico ? { id: tecnicoId, nome: tecnico.nome } : null;
-                              })
-                              .filter(Boolean)
-                              .map(tecnico => (
-                                <option key={tecnico!.id} value={tecnico!.id}>
-                                  {tecnico!.nome}
-                                </option>
-                              ))}
-                          </select>
-                        </div>
-                        <div className="flex-1 min-w-[150px]">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Status
-                          </label>
-                          <select
-                            value={filtroStatus}
-                            onChange={(e) => setFiltroStatus(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            <option value="">Todos</option>
-                            <option value="aberta">Aberta</option>
-                            <option value="em_andamento">Em Andamento</option>
-                            <option value="finalizada">Finalizada</option>
-                            <option value="cancelada">Cancelada</option>
-                          </select>
-                        </div>
-                        <div className="flex-1 min-w-[150px]">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Lucratividade
-                          </label>
-                          <select
-                            value={filtroLucratividade}
-                            onChange={(e) => setFiltroLucratividade(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            <option value="">Todas</option>
-                            <option value="lucrativa">Lucrativa</option>
-                            <option value="prejuizo">Prejuízo</option>
-                            <option value="neutra">Neutra</option>
-                          </select>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
 
-            {/* Navegação de Visualização */}
+            {/* Tabs de Visualização */}
             <div className="mb-6">
-              <nav className="flex space-x-8">
-                <button
-                  onClick={() => setVisualizacaoAtiva('dashboard')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    visualizacaoAtiva === 'dashboard'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <FiTarget className="w-4 h-4 inline mr-2" />
-                  Dashboard
-                </button>
-                <button
-                  onClick={() => setVisualizacaoAtiva('os')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    visualizacaoAtiva === 'os'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <FiEye className="w-4 h-4 inline mr-2" />
-                  Por OS
-                </button>
-                <button
-                  onClick={() => setVisualizacaoAtiva('tecnicos')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    visualizacaoAtiva === 'tecnicos'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <FiUsers className="w-4 h-4 inline mr-2" />
-                  Por Técnico
-                </button>
-              </nav>
+              <div className="border-b border-gray-200">
+                <nav className="-mb-px flex space-x-8">
+                  <button
+                    onClick={() => setVisualizacaoAtiva('dashboard')}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                      visualizacaoAtiva === 'dashboard'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <FiBarChart className="w-4 h-4 inline mr-2" />
+                    Dashboard
+                  </button>
+                  <button
+                    onClick={() => setVisualizacaoAtiva('os')}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                      visualizacaoAtiva === 'os'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <FiList className="w-4 h-4 inline mr-2" />
+                    Por OS
+                  </button>
+                  <button
+                    onClick={() => setVisualizacaoAtiva('tecnicos')}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                      visualizacaoAtiva === 'tecnicos'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <FiUsers className="w-4 h-4 inline mr-2" />
+                    Por Técnico
+                  </button>
+                </nav>
+              </div>
             </div>
 
             {/* Conteúdo Principal */}
