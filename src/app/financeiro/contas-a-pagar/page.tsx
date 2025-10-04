@@ -8,7 +8,7 @@ import MenuLayout from '@/components/MenuLayout';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { Select } from '@/components/Select';
-import { FiPlus, FiEdit, FiTrash2, FiCheck, FiX, FiFilter, FiDownload, FiEye, FiChevronLeft, FiChevronRight, FiCalendar, FiPaperclip } from 'react-icons/fi';
+import { FiPlus, FiEdit, FiTrash2, FiCheck, FiX, FiFilter, FiDownload, FiEye, FiChevronLeft, FiChevronRight, FiCalendar, FiPaperclip, FiDollarSign } from 'react-icons/fi';
 import { useRouter } from 'next/navigation';
 import AnexosManager from '@/components/AnexosManager';
 
@@ -608,7 +608,7 @@ export default function ContasAPagarPage() {
 
 
         {/* Resumo */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="bg-white p-4 rounded-lg border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
@@ -640,11 +640,25 @@ export default function ContasAPagarPage() {
           <div className="bg-white p-4 rounded-lg border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total de Contas</p>
-                <p className="text-2xl font-bold text-blue-600">{filteredContas.length}</p>
+                <p className="text-sm text-gray-600">Total das Despesas</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  R$ {(totalPendente + totalPago).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
               </div>
               <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                <FiEye className="w-6 h-6 text-blue-600" />
+                <FiDollarSign className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white p-4 rounded-lg border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total de Contas</p>
+                <p className="text-2xl font-bold text-purple-600">{filteredContas.length}</p>
+              </div>
+              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                <FiEye className="w-6 h-6 text-purple-600" />
               </div>
             </div>
           </div>
