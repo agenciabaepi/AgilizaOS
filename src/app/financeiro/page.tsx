@@ -6,6 +6,13 @@ import { FiDollarSign, FiFileText, FiTrendingUp } from 'react-icons/fi';
 export default function FinanceiroPage() {
   const menuItems = [
     {
+      title: 'Lucro & Desempenho',
+      description: 'Análise de lucratividade por OS',
+      icon: FiTrendingUp,
+      href: '/financeiro/lucro-desempenho',
+      color: 'bg-orange-500'
+    },
+    {
       title: 'Vendas',
       description: 'Gestão de vendas e receitas',
       icon: FiDollarSign,
@@ -25,13 +32,6 @@ export default function FinanceiroPage() {
       icon: FiTrendingUp,
       href: '/financeiro/movimentacoes-caixa',
       color: 'bg-purple-500'
-    },
-    {
-      title: 'Lucro & Desempenho',
-      description: 'Análise de lucratividade por OS',
-      icon: FiTrendingUp,
-      href: '/financeiro/lucro-desempenho',
-      color: 'bg-orange-500'
     }
   ];
 
