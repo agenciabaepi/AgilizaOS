@@ -1248,7 +1248,8 @@ export default function LucroDesempenhoPage() {
           colorClass="text-black"
           bgClass="bg-white"
           description={`${metricas.totalOS} OS processadas`}
-          svgPolyline={{ color: '#10B981', points: '0,20 20,10 40,15 60,5 80,12 100,8' }}
+          descriptionColorClass="text-green-600"
+          svgPolyline={{ color: '#22c55e', points: '0,20 10,18 20,16 30,14 40,12 50,10 60,8 70,6' }}
         />
         
         <DashboardCard
@@ -1258,7 +1259,8 @@ export default function LucroDesempenhoPage() {
           colorClass="text-black"
           bgClass="bg-white"
           description="Peças e serviços"
-          svgPolyline={{ color: '#EF4444', points: '0,15 20,20 40,10 60,18 80,8 100,12' }}
+          descriptionColorClass="text-red-500"
+          svgPolyline={{ color: '#ef4444', points: '0,6 10,8 20,10 30,12 40,14 50,16 60,18 70,20' }}
         />
         
         <DashboardCard
@@ -1272,9 +1274,10 @@ export default function LucroDesempenhoPage() {
           colorClass="text-black"
           bgClass="bg-white"
           description={metricas.lucroTotal >= 0 ? 'Resultado positivo' : 'Resultado negativo'}
+          descriptionColorClass={metricas.lucroTotal >= 0 ? 'text-green-600' : 'text-red-500'}
           svgPolyline={{ 
-            color: metricas.lucroTotal >= 0 ? '#10B981' : '#EF4444', 
-            points: '0,20 20,15 40,10 60,5 80,8 100,3' 
+            color: metricas.lucroTotal >= 0 ? '#22c55e' : '#ef4444', 
+            points: '0,20 10,18 20,16 30,14 40,12 50,10 60,8 70,6' 
           }}
         />
         
@@ -1289,9 +1292,10 @@ export default function LucroDesempenhoPage() {
           colorClass="text-black"
           bgClass="bg-white"
           description={`${metricas.osLucrativas} OS lucrativas`}
+          descriptionColorClass={metricas.margemMedia >= 0 ? 'text-green-600' : 'text-red-500'}
           svgPolyline={{ 
-            color: metricas.margemMedia >= 0 ? '#10B981' : '#EF4444', 
-            points: '0,18 20,12 40,16 60,8 80,14 100,6' 
+            color: metricas.margemMedia >= 0 ? '#22c55e' : '#ef4444', 
+            points: '0,12 10,14 20,12 30,10 40,12 50,14 60,12 70,14' 
           }}
         />
       </div>
@@ -1305,6 +1309,8 @@ export default function LucroDesempenhoPage() {
           colorClass="text-black"
           bgClass="bg-white"
           description={`${metricas.totalOS > 0 ? ((metricas.osLucrativas / metricas.totalOS) * 100).toFixed(1) : 0}% do total`}
+          descriptionColorClass="text-green-600"
+          svgPolyline={{ color: '#22c55e', points: '0,20 10,18 20,16 30,14 40,12 50,10 60,8 70,6' }}
         />
         
         <DashboardCard
@@ -1314,6 +1320,8 @@ export default function LucroDesempenhoPage() {
           colorClass="text-black"
           bgClass="bg-white"
           description={`${metricas.totalOS > 0 ? ((metricas.osPrejuizo / metricas.totalOS) * 100).toFixed(1) : 0}% do total`}
+          descriptionColorClass="text-red-500"
+          svgPolyline={{ color: '#ef4444', points: '0,6 10,8 20,10 30,12 40,14 50,16 60,18 70,20' }}
         />
         
         <DashboardCard
@@ -1323,6 +1331,8 @@ export default function LucroDesempenhoPage() {
           colorClass="text-black"
           bgClass="bg-white"
           description="Ordens processadas"
+          descriptionColorClass="text-gray-600"
+          svgPolyline={{ color: '#6b7280', points: '0,15 10,17 20,15 30,13 40,15 50,17 60,15 70,17' }}
         />
       </div>
 
