@@ -238,27 +238,34 @@ export default function LucroDesempenhoPage() {
           .eq('empresa_id', empresaData.id)
           .eq('status', 'finalizada');
 
-        console.log('🔍 Debug vendas:', {
-          empresaId: empresaData.id,
-          totalVendas: todasVendas?.length || 0,
-          errorVendas: errorVendas,
-          sampleVendas: todasVendas?.slice(0, 3),
-          ordensNumeros: ordensNumeros.slice(0, 3)
-        });
+        console.log('🔍 EMPRESA ATUAL:', empresaData.id);
+        console.log('🔍 TOTAL VENDAS ENCONTRADAS:', todasVendas?.length || 0);
+        console.log('🔍 ERRO VENDAS:', errorVendas);
+        console.log('🔍 NUMEROS DAS OS:', ordensNumeros.slice(0, 5));
+        
+        if (todasVendas && todasVendas.length > 0) {
+          console.log('🔍 PRIMEIRAS VENDAS:');
+          todasVendas.slice(0, 3).forEach((venda, i) => {
+            console.log(`  ${i+1}. R$ ${venda.total} - "${venda.observacoes}"`);
+          });
+        }
 
         // Se não encontrou vendas para esta empresa, buscar em todas as empresas para debug
         if (!todasVendas || todasVendas.length === 0) {
+          console.log('⚠️ NENHUMA VENDA ENCONTRADA PARA ESTA EMPRESA');
           const { data: todasVendasGeral } = await supabase
             .from('vendas')
             .select('id, total, data_venda, observacoes, empresa_id')
             .eq('status', 'finalizada')
             .limit(10);
           
-          console.log('🔍 Debug vendas geral (todas empresas):', {
-            totalVendasGeral: todasVendasGeral?.length || 0,
-            sampleVendasGeral: todasVendasGeral?.slice(0, 3),
-            empresasComVendas: todasVendasGeral?.map(v => v.empresa_id) || []
-          });
+          console.log('🔍 TOTAL VENDAS GERAL (todas empresas):', todasVendasGeral?.length || 0);
+          if (todasVendasGeral && todasVendasGeral.length > 0) {
+            console.log('🔍 PRIMEIRAS VENDAS GERAL:');
+            todasVendasGeral.slice(0, 3).forEach((venda, i) => {
+              console.log(`  ${i+1}. Empresa: ${venda.empresa_id} - R$ ${venda.total} - "${venda.observacoes}"`);
+            });
+          }
         }
 
         const { data: todosCustos } = await supabase
