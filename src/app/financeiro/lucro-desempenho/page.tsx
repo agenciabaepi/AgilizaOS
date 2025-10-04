@@ -1636,6 +1636,7 @@ export default function LucroDesempenhoPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OS</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Técnico</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data Faturamento</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Receita</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Custos</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Lucro</th>
@@ -1645,6 +1646,12 @@ export default function LucroDesempenhoPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {ordensComLucro.map((ordem) => {
                 const margem = ordem.receita > 0 ? (ordem.lucro / ordem.receita) * 100 : 0;
+                
+                // Obter a data de faturamento (data da venda mais recente)
+                const dataFaturamento = ordem.vendas && ordem.vendas.length > 0 
+                  ? ordem.vendas.sort((a, b) => new Date(b.data_venda).getTime() - new Date(a.data_venda).getTime())[0].data_venda
+                  : null;
+                
                 return (
                   <tr key={ordem.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -1655,6 +1662,12 @@ export default function LucroDesempenhoPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {ordem.tecnico_nome || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {dataFaturamento 
+                        ? new Date(dataFaturamento).toLocaleDateString('pt-BR')
+                        : 'N/A'
+                      }
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
                       {formatarMoeda(ordem.receita)}
