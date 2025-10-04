@@ -607,102 +607,119 @@ export default function LucroDesempenhoPage() {
               
               <div className="p-6">
                 <div className="relative">
-                  {/* Gráfico SVG */}
+                  {/* Gráfico de Barras Agrupadas Diárias */}
                   <svg 
                     width="100%" 
                     height="400" 
-                    viewBox="0 0 1000 400" 
+                    viewBox="0 0 1200 400" 
                     className="overflow-visible"
                   >
                     <defs>
-                      {/* Gradientes mais suaves */}
-                      <linearGradient id="receitaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                      {/* Gradientes */}
+                      <linearGradient id="faturamentoGradient" x1="0%" y1="0%" x2="0%" y2="100%">
                         <stop offset="0%" stopColor="#10B981" stopOpacity="1"/>
                         <stop offset="100%" stopColor="#059669" stopOpacity="0.9"/>
                       </linearGradient>
-                      <linearGradient id="custosGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#1E40AF" stopOpacity="1"/>
-                        <stop offset="100%" stopColor="#1E3A8A" stopOpacity="0.9"/>
+                      <linearGradient id="custoGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="#EF4444" stopOpacity="1"/>
+                        <stop offset="100%" stopColor="#DC2626" stopOpacity="0.9"/>
                       </linearGradient>
                       <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-                        <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="#00000020"/>
+                        <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#00000015"/>
                       </filter>
                     </defs>
                     
                     {/* Linhas de grid horizontais */}
-                    <line x1="80" y1="50" x2="920" y2="50" stroke="#E5E7EB" strokeWidth="1"/>
-                    <line x1="80" y1="125" x2="920" y2="125" stroke="#E5E7EB" strokeWidth="1"/>
-                    <line x1="80" y1="200" x2="920" y2="200" stroke="#374151" strokeWidth="2"/>
-                    <line x1="80" y1="275" x2="920" y2="275" stroke="#E5E7EB" strokeWidth="1"/>
-                    <line x1="80" y1="350" x2="920" y2="350" stroke="#E5E7EB" strokeWidth="1"/>
+                    <line x1="100" y1="50" x2="1100" y2="50" stroke="#E5E7EB" strokeWidth="1"/>
+                    <line x1="100" y1="125" x2="1100" y2="125" stroke="#E5E7EB" strokeWidth="1"/>
+                    <line x1="100" y1="200" x2="1100" y2="200" stroke="#E5E7EB" strokeWidth="1"/>
+                    <line x1="100" y1="275" x2="1100" y2="275" stroke="#E5E7EB" strokeWidth="1"/>
+                    <line x1="100" y1="350" x2="1100" y2="350" stroke="#E5E7EB" strokeWidth="1"/>
                     
                     {/* Labels do eixo Y */}
-                    <text x="70" y="55" textAnchor="end" className="text-sm fill-gray-600 font-medium">
-                      R$ 5k
+                    <text x="90" y="55" textAnchor="end" className="text-sm fill-gray-600 font-medium">
+                      R$ 2k
                     </text>
-                    <text x="70" y="130" textAnchor="end" className="text-sm fill-gray-600 font-medium">
-                      R$ 2.5k
+                    <text x="90" y="130" textAnchor="end" className="text-sm fill-gray-600 font-medium">
+                      R$ 1k
                     </text>
-                    <text x="70" y="205" textAnchor="end" className="text-sm fill-gray-700 font-semibold">
+                    <text x="90" y="205" textAnchor="end" className="text-sm fill-gray-700 font-semibold">
+                      R$ 500
+                    </text>
+                    <text x="90" y="280" textAnchor="end" className="text-sm fill-gray-600 font-medium">
+                      R$ 250
+                    </text>
+                    <text x="90" y="355" textAnchor="end" className="text-sm fill-gray-600 font-medium">
                       R$ 0
                     </text>
-                    <text x="70" y="280" textAnchor="end" className="text-sm fill-gray-600 font-medium">
-                      R$ 2.5k
-                    </text>
-                    <text x="70" y="355" textAnchor="end" className="text-sm fill-gray-600 font-medium">
-                      R$ 5k
-                    </text>
                     
-                    {/* Bars - apenas dias com dados */}
+                    {/* Barras agrupadas por dia */}
                     {dadosDiarios.filter(d => d.receita > 0 || d.custos > 0).map((dado, index) => {
-                      const x = 100 + (index * 30); // Reduzir espaçamento para mais dados
-                      const maxValor = 5000; // Escala fixa como na imagem
-                      const escala = 175 / maxValor;
+                      const x = 120 + (index * 45); // Espaçamento entre grupos
+                      const maxValor = 2000; // Escala ajustada para dados reais
+                      const escala = 300 / maxValor;
                       
-                      const alturaReceita = Math.max(dado.receita * escala, 2); // Mínimo 2px para visibilidade
-                      const alturaCustos = Math.max(dado.custos * escala, 2); // Mínimo 2px para visibilidade
+                      const alturaFaturamento = Math.max(dado.receita * escala, 2);
+                      const alturaCusto = Math.max(dado.custos * escala, 2);
                       
                       return (
                         <g key={dado.dia}>
-                          {/* Receita bar (upward) */}
+                          {/* Barra de Faturamento */}
+                          <rect
+                            x={x - 8}
+                            y={350 - alturaFaturamento}
+                            width="16"
+                            height={alturaFaturamento}
+                            fill="url(#faturamentoGradient)"
+                            rx="2"
+                            filter="url(#shadow)"
+                            className="bar-hover transition-all duration-300 ease-out hover:scale-105"
+                            style={{
+                              animation: `slideUp 0.8s ease-out ${index * 0.05}s both`
+                            }}
+                          />
+                          
+                          {/* Barra de Custo */}
+                          <rect
+                            x={x + 8}
+                            y={350 - alturaCusto}
+                            width="16"
+                            height={alturaCusto}
+                            fill="url(#custoGradient)"
+                            rx="2"
+                            filter="url(#shadow)"
+                            className="bar-hover transition-all duration-300 ease-out hover:scale-105"
+                            style={{
+                              animation: `slideUp 0.8s ease-out ${index * 0.05 + 0.1}s both`
+                            }}
+                          />
+                          
+                          {/* Labels dos valores nas barras */}
                           {dado.receita > 0 && (
-                            <rect
-                              x={x - 8}
-                              y={200 - alturaReceita}
-                              width="16"
-                              height={alturaReceita}
-                              fill="url(#receitaGradient)"
-                              rx="4"
-                              filter="url(#shadow)"
-                              className="bar-hover transition-all duration-300 ease-out hover:scale-105"
-                              style={{
-                                transformOrigin: `${x}px 200px`,
-                                animation: `slideUp 0.8s ease-out ${index * 0.03}s both`
-                              }}
-                            />
+                            <text
+                              x={x}
+                              y={350 - alturaFaturamento - 5}
+                              textAnchor="middle"
+                              className="text-xs fill-gray-700 font-semibold"
+                            >
+                              {formatarMoeda(dado.receita).replace('R$ ', '')}
+                            </text>
                           )}
                           
-                          {/* Custos bar (downward) */}
                           {dado.custos > 0 && (
-                            <rect
-                              x={x - 8}
-                              y={200}
-                              width="16"
-                              height={alturaCustos}
-                              fill="url(#custosGradient)"
-                              rx="4"
-                              filter="url(#shadow)"
-                              className="bar-hover transition-all duration-300 ease-out hover:scale-105"
-                              style={{
-                                transformOrigin: `${x}px 200px`,
-                                animation: `slideDown 0.8s ease-out ${index * 0.03}s both`
-                              }}
-                            />
+                            <text
+                              x={x + 16}
+                              y={350 - alturaCusto - 5}
+                              textAnchor="middle"
+                              className="text-xs fill-gray-700 font-semibold"
+                            >
+                              {formatarMoeda(dado.custos).replace('R$ ', '')}
+                            </text>
                           )}
                           
-                          {/* Day label */}
+                          {/* Label do dia */}
                           <text
-                            x={x}
+                            x={x + 8}
                             y="380"
                             textAnchor="middle"
                             className="text-xs fill-gray-500 font-medium"
@@ -714,14 +731,14 @@ export default function LucroDesempenhoPage() {
                           <rect
                             x={x - 8}
                             y="0"
-                            width="16"
+                            width="32"
                             height="400"
                             fill="transparent"
                             className="cursor-pointer"
                           >
                             <title>
                               Dia {dado.dia}:{'\n'}
-                              Receita: {formatarMoeda(dado.receita)}{'\n'}
+                              Faturamento: {formatarMoeda(dado.receita)}{'\n'}
                               Custos: {formatarMoeda(dado.custos)}{'\n'}
                               Lucro: {formatarMoeda(dado.lucro)}
                             </title>
@@ -735,10 +752,10 @@ export default function LucroDesempenhoPage() {
                   <div className="flex justify-center mt-6 space-x-8">
                     <div className="flex items-center">
                       <div className="w-4 h-4 bg-green-500 rounded mr-2"></div>
-                      <span className="text-sm font-medium text-gray-700">Receita</span>
+                      <span className="text-sm font-medium text-gray-700">Faturamento</span>
                     </div>
                     <div className="flex items-center">
-                      <div className="w-4 h-4 bg-blue-500 rounded mr-2"></div>
+                      <div className="w-4 h-4 bg-red-500 rounded mr-2"></div>
                       <span className="text-sm font-medium text-gray-700">Custos</span>
                     </div>
                   </div>
