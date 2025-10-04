@@ -690,8 +690,8 @@ export default function LucroDesempenhoPage() {
   const calcularMetricas = () => {
     const totalReceita = ordens.reduce((acc, ordem) => {
       const receitaVendas = ordem.vendas?.reduce((vendaAcc, venda) => vendaAcc + venda.valor_pago, 0) || 0;
-      const receitaOS = ordem.valor_faturado || ordem.valor_total || 0;
-      return acc + receitaVendas + receitaOS;
+      // Só considerar receita se há vendas efetivas (pagamentos realizados)
+      return acc + receitaVendas;
     }, 0);
 
     const totalCustos = ordens.reduce((acc, ordem) => {
@@ -703,7 +703,7 @@ export default function LucroDesempenhoPage() {
     const margemMedia = totalReceita > 0 ? (lucroTotal / totalReceita) * 100 : 0;
 
     const ordensComLucro = ordens.map(ordem => {
-      const receita = (ordem.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0) + (ordem.valor_faturado || ordem.valor_total || 0);
+      const receita = ordem.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0;
       const custos = ordem.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
       return { ...ordem, receita, custos, lucro: receita - custos };
     });
@@ -767,26 +767,8 @@ export default function LucroDesempenhoPage() {
           const dadosDia = dadosPorData.get(diaPagamento);
           dadosDia.receita += venda.valor_pago;
         });
-      } else {
-        // Se não há vendas específicas, usar valor da OS na data da OS
-        const receitaOS = ordem.valor_faturado || ordem.valor_total || 0;
-        if (receitaOS > 0) {
-          const dataOrdem = ordem.created_at.split('T')[0];
-          const dia = new Date(dataOrdem).getDate();
-          
-          if (!dadosPorData.has(dia)) {
-            dadosPorData.set(dia, {
-              dia,
-              receita: 0,
-              custos: 0,
-              lucro: 0
-            });
-          }
-          
-          const dadosDia = dadosPorData.get(dia);
-          dadosDia.receita += receitaOS;
-        }
       }
+      // Removido: não considerar receita de OS sem pagamento efetivo
     });
     
     // Calcular lucro para cada dia
@@ -816,7 +798,7 @@ export default function LucroDesempenhoPage() {
     ordens.forEach(ordem => {
       if (!ordem.tecnico_nome || ordem.tecnico_nome === 'N/A') return;
 
-      const receita = (ordem.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0) + (ordem.valor_faturado || ordem.valor_total || 0);
+      const receita = ordem.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0;
       const custos = ordem.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
       const lucro = receita - custos;
 
@@ -1593,7 +1575,7 @@ export default function LucroDesempenhoPage() {
   // Renderizar tabela de OS
   const renderTabelaOS = () => {
     const ordensComLucro = ordens.map(ordem => {
-      const receita = (ordem.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0) + (ordem.valor_faturado || ordem.valor_total || 0);
+      const receita = ordem.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0;
       const custos = ordem.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
       return { ...ordem, receita, custos, lucro: receita - custos };
     });
