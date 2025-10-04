@@ -390,62 +390,50 @@ export default function LucroDesempenhoPage() {
 
   // Calcular dados diários do mês
   const calcularDadosDiarios = () => {
-    const { dataInicio, dataFim } = calcularPeriodo();
-    const diasNoMes = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
+    // Criar mapa de dados por data real das OS
+    const dadosPorData = new Map();
     
-    const dadosPorDia = Array.from({ length: diasNoMes }, (_, index) => {
-      const dia = index + 1;
-      const dataDia = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+    ordens.forEach(ordem => {
+      const dataOrdem = ordem.created_at.split('T')[0];
+      const dia = new Date(dataOrdem).getDate();
       
-      const ordensDoDia = ordens.filter(ordem => {
-        // Usar apenas created_at (data de criação da OS)
-        const dataOrdem = ordem.created_at.split('T')[0];
-        const match = dataOrdem === dataDia;
-        if (match) {
-          console.log(`✅ OS ${ordem.numero_os} encontrada no dia ${dia}:`, {
-            dataOrdem,
-            dataDia,
-            receita: ordem.valor_faturado || ordem.valor_total || 0
-          });
-        }
-        return match;
-      });
+      if (!dadosPorData.has(dia)) {
+        dadosPorData.set(dia, {
+          dia,
+          receita: 0,
+          custos: 0,
+          lucro: 0
+        });
+      }
       
-      const receita = ordensDoDia.reduce((acc, ordem) => {
-        const receitaVendas = ordem.vendas?.reduce((vendaAcc, venda) => vendaAcc + venda.valor_pago, 0) || 0;
-        const receitaOS = ordem.valor_faturado || ordem.valor_total || 0;
-        return acc + receitaVendas + receitaOS;
-      }, 0);
+      const dadosDia = dadosPorData.get(dia);
       
-      const custos = ordensDoDia.reduce((acc, ordem) => {
-        const custosContas = ordem.custos?.reduce((custoAcc, custo) => custoAcc + custo.valor, 0) || 0;
-        return acc + custosContas;
-      }, 0);
+      // Calcular receita
+      const receitaVendas = ordem.vendas?.reduce((acc, venda) => acc + venda.valor_pago, 0) || 0;
+      const receitaOS = ordem.valor_faturado || ordem.valor_total || 0;
+      dadosDia.receita += receitaVendas + receitaOS;
       
-      return {
-        dia,
-        receita,
-        custos,
-        lucro: receita - custos
-      };
+      // Calcular custos
+      const custosContas = ordem.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
+      dadosDia.custos += custosContas;
+      
+      // Calcular lucro
+      dadosDia.lucro = dadosDia.receita - dadosDia.custos;
     });
     
-    // Filtrar apenas dias com dados e adicionar logs
-    const diasComDados = dadosPorDia.filter(d => d.receita > 0 || d.custos > 0);
-    console.log('📊 Dados diários para gráfico:', {
+    // Converter para array e ordenar por dia
+    const dadosDiariosArray = Array.from(dadosPorData.values())
+      .filter(d => d.receita > 0 || d.custos > 0)
+      .sort((a, b) => a.dia - b.dia);
+    
+    console.log('📊 Dados diários corrigidos:', {
       mes: formatarMesAno(currentMonth),
-      totalDias: dadosPorDia.length,
-      diasComDados: diasComDados.length,
-      amostra: diasComDados.slice(0, 5),
-      todasOS: ordens.map(o => ({
-        numero: o.numero_os,
-        data: o.created_at,
-        dataFormatada: o.created_at.split('T')[0],
-        receita: o.valor_faturado || o.valor_total || 0
-      })).slice(0, 3)
+      totalOS: ordens.length,
+      diasComDados: dadosDiariosArray.length,
+      amostra: dadosDiariosArray.slice(0, 5)
     });
     
-    setDadosDiarios(dadosPorDia);
+    setDadosDiarios(dadosDiariosArray);
   };
 
   // Calcular análise de técnicos
