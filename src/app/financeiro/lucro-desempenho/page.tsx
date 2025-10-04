@@ -611,7 +611,7 @@ export default function LucroDesempenhoPage() {
               <div className="p-6">
                 <div className="relative">
                   {/* Gráfico Lucro OS Diário - Estilo Dashboard Financeiro */}
-                  <div className="relative">
+                  <div className="relative chart-container">
                     <svg
                       width="100%"
                       height="300"
@@ -773,6 +773,10 @@ export default function LucroDesempenhoPage() {
                                       height={receitaHeight}
                                       fill="url(#receitaGradient)"
                                       className="cursor-pointer hover:opacity-80 transition-opacity"
+                                      style={{
+                                        animationDelay: `${index * 0.1}s`,
+                                        animation: 'slideUpParallax 0.8s ease-out forwards'
+                                      }}
                                     />
                                   )}
                                   
@@ -785,41 +789,16 @@ export default function LucroDesempenhoPage() {
                                       height={custoHeight}
                                       fill="url(#custoGradient)"
                                       className="cursor-pointer hover:opacity-80 transition-opacity"
+                                      style={{
+                                        animationDelay: `${index * 0.1 + 0.2}s`,
+                                        animation: 'slideDownParallax 0.8s ease-out forwards'
+                                      }}
                                     />
                                   )}
                                 </g>
                               );
                             })}
                             
-                            {/* Linha do Lucro Acumulado */}
-                            <path
-                              d={createLucroPath()}
-                              fill="none"
-                              stroke="#8b5cf6"
-                              strokeWidth="3"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              className="drop-shadow-sm"
-                            />
-                            
-                            {/* Pontos da linha do lucro acumulado */}
-                            {dadosComDados.map((dado, index) => {
-                              let lucroAcumulado = 0;
-                              for (let i = 0; i <= index; i++) {
-                                lucroAcumulado += dadosComDados[i].lucro;
-                              }
-                              
-                              return (
-                                <circle
-                                  key={`lucro-${index}`}
-                                  cx={getX(index)}
-                                  cy={getY(lucroAcumulado)}
-                                  r="4"
-                                  fill="#8b5cf6"
-                                  className="cursor-pointer hover:r-6 transition-all"
-                                />
-                              );
-                            })}
                             
                             {/* Labels dos dias */}
                             {dadosComDados.map((dado, index) => {
@@ -842,31 +821,15 @@ export default function LucroDesempenhoPage() {
                     </svg>
                   </div>
                   
-                  {/* Legenda estilo Dashboard Financeiro */}
-                  <div className="flex justify-center mt-6 gap-2 text-xs">
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 bg-green-200 rounded"></div>
-                      <span>Receita prevista</span>
-                    </div>
+                  {/* Legenda Simplificada - Só Receita e Custo */}
+                  <div className="flex justify-center mt-6 gap-4 text-xs">
                     <div className="flex items-center gap-1">
                       <div className="w-3 h-3 bg-green-600 rounded"></div>
                       <span>Receita</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 bg-red-200 rounded"></div>
-                      <span>Custos previstos</span>
-                    </div>
-                    <div className="flex items-center gap-1">
                       <div className="w-3 h-3 bg-red-600 rounded"></div>
                       <span>Custos</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 bg-purple-200 rounded"></div>
-                      <span>Lucro acumulado previsto</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 bg-purple-600 rounded"></div>
-                      <span>Lucro acumulado</span>
                     </div>
                   </div>
                 </div>
@@ -1072,41 +1035,47 @@ export default function LucroDesempenhoPage() {
   return (
     <MenuLayout>
       <style jsx>{`
-        @keyframes slideUp {
-          from {
-            transform: scaleY(0);
+        @keyframes slideUpParallax {
+          0% {
+            transform: translateY(100px);
             opacity: 0;
           }
-          to {
-            transform: scaleY(1);
-            opacity: 1;
+          50% {
+            opacity: 0.7;
           }
-        }
-        
-        @keyframes slideDown {
-          from {
-            transform: scaleY(0);
-            opacity: 0;
-          }
-          to {
-            transform: scaleY(1);
-            opacity: 1;
-          }
-        }
-        
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
+          100% {
             transform: translateY(0);
+            opacity: 1;
+          }
+        }
+        
+        @keyframes slideDownParallax {
+          0% {
+            transform: translateY(-100px);
+            opacity: 0;
+          }
+          50% {
+            opacity: 0.7;
+          }
+          100% {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+        
+        @keyframes fadeInScale {
+          0% {
+            transform: scale(0.8);
+            opacity: 0;
+          }
+          100% {
+            transform: scale(1);
+            opacity: 1;
           }
         }
         
         .chart-container {
-          animation: fadeInUp 0.6s ease-out;
+          animation: fadeInScale 1s ease-out;
         }
         
         .bar-hover {
