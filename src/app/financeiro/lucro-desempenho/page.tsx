@@ -163,7 +163,10 @@ export default function LucroDesempenhoPage() {
 
   // Carregar dados
   const loadData = async () => {
-    if (!empresaData?.id) return;
+    if (!empresaData?.id) {
+      console.log('❌ empresaData.id não está disponível:', empresaData);
+      return;
+    }
     
     setLoading(true);
     
@@ -176,45 +179,33 @@ export default function LucroDesempenhoPage() {
         periodo: `${dataInicio} a ${dataFim}`
       });
 
-      // Buscar ordens de serviço - sem joins primeiro para testar
+      // Query super simples para testar
+      console.log('🔍 Testando query básica...');
       const { data: ordensData, error: ordensError } = await supabase
         .from('ordens_servico')
-        .select(`
-          id,
-          numero_os,
-          cliente_id,
-          tecnico_id,
-          status,
-          valor_faturado,
-          valor_peca,
-          valor_servico,
-          qtd_peca,
-          qtd_servico,
-          desconto,
-          created_at,
-          data_entrada,
-          data_saida,
-          prazo_entrega
-        `)
+        .select('id, numero_os, created_at')
         .eq('empresa_id', empresaData.id)
-        .gte('created_at', `${dataInicio}T00:00:00`)
-        .lte('created_at', `${dataFim}T23:59:59`)
-        .order('created_at', { ascending: false })
-        .limit(200);
+        .limit(5);
 
-      console.log('📊 Query executada:', {
+      console.log('📊 Resultado query básica:', {
         empresaId: empresaData.id,
-        dataInicio,
-        dataFim,
         ordensCount: ordensData?.length || 0,
         hasError: !!ordensError,
-        error: ordensError
+        error: ordensError,
+        sampleData: ordensData?.[0]
       });
 
       if (ordensError) {
-        console.error('❌ Erro ao buscar ordens:', ordensError);
+        console.error('❌ Erro na query básica:', ordensError);
         console.error('❌ Detalhes completos:', JSON.stringify(ordensError, null, 2));
         addToast('error', `Erro ao carregar ordens de serviço: ${ordensError.message || 'Erro desconhecido'}`);
+        return;
+      }
+
+      if (!ordensData || ordensData.length === 0) {
+        console.log('⚠️ Nenhuma ordem encontrada para esta empresa');
+        setOrdens([]);
+        setLoading(false);
         return;
       }
 
