@@ -691,7 +691,8 @@ export default function LucroDesempenhoPage() {
           data_vencimento: conta.data_vencimento || ''
         });
         
-        if (conta.status === 'paga') {
+        // Usar mesma lógica da página Contas a Pagar
+        if (conta.status === 'pago') {
           categoriaData.contasPagas += conta.valor || 0;
         } else {
           categoriaData.contasPendentes += conta.valor || 0;
@@ -1037,44 +1038,59 @@ export default function LucroDesempenhoPage() {
             {/* Resumo dos Custos + Link para Detalhes */}
             {custosEmpresa.categoriasDetalhadas.length > 0 && (
               <div className="ml-4 border-b border-gray-200 pb-4">
-                <div className="flex justify-between items-center mb-3 mt-2">
-                  <p className="text-sm font-medium text-gray-800">Resumo por Categoria</p>
+                <div className="flex justify-between items-center mb-4 mt-2">
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">Resumo por Categoria</p>
+                    <p className="text-xs text-gray-500">Detalhamento dos custos por tipo</p>
+                  </div>
                   <a 
                     href="/financeiro/contas-a-pagar" 
-                    className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 transition-colors"
+                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
                   >
-                    <FiEye className="w-3 h-3 mr-1.5" />
-                    Ver Detalhes
+                    <FiEye className="w-4 h-4 mr-2" />
+                    Ver Detalhes Completos
                   </a>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {custosEmpresa.categoriasDetalhadas.map((categoria, index) => (
-                    <div key={index} className="bg-gray-50 rounded-lg p-3">
-                      <div className="text-center">
-                        <h5 className="text-sm font-medium text-gray-900 capitalize mb-1">
+                    <div key={index} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-center justify-between mb-3">
+                        <h5 className="text-sm font-semibold text-gray-900 capitalize">
                           {categoria.categoria}
                         </h5>
-                        <div className="text-lg font-bold text-gray-900 mb-2">
+                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                          {categoria.quantidade} conta{categoria.quantidade !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      
+                      <div className="text-center mb-3">
+                        <div className="text-xl font-bold text-gray-900">
                           {formatarMoeda(categoria.total)}
                         </div>
-                        <div className="text-xs text-gray-600 space-y-1">
-                          <div className="flex justify-between">
-                            <span className="text-green-600">Pagas:</span>
-                            <span className="text-green-600 font-medium">
-                              {formatarMoeda(categoria.contasPagas)}
-                            </span>
+                        <p className="text-xs text-gray-500">Total da categoria</p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between py-2 px-3 bg-green-50 rounded-md">
+                          <div className="flex items-center">
+                            <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                            <span className="text-sm text-green-700">Pagas</span>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-orange-600">Pendentes:</span>
-                            <span className="text-orange-600 font-medium">
-                              {formatarMoeda(categoria.contasPendentes)}
-                            </span>
-                          </div>
+                          <span className="text-sm font-semibold text-green-700">
+                            {formatarMoeda(categoria.contasPagas)}
+                          </span>
                         </div>
-                        <p className="text-xs text-gray-500 mt-2">
-                          {categoria.quantidade} conta{categoria.quantidade !== 1 ? 's' : ''}
-                        </p>
+                        
+                        <div className="flex items-center justify-between py-2 px-3 bg-orange-50 rounded-md">
+                          <div className="flex items-center">
+                            <div className="w-2 h-2 bg-orange-500 rounded-full mr-2"></div>
+                            <span className="text-sm text-orange-700">Pendentes</span>
+                          </div>
+                          <span className="text-sm font-semibold text-orange-700">
+                            {formatarMoeda(categoria.contasPendentes)}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   ))}
