@@ -51,6 +51,15 @@ interface OrdemServico {
   custos?: ContaCusto[];
 }
 
+interface FluxoCaixaMensal {
+  mes: string;
+  entradas: number;
+  saidas: number;
+  saldo_periodo: number;
+  saldo_final: number;
+  situacao: 'realizado' | 'previsto';
+}
+
 interface Venda {
   id: string;
   valor_total: number;
@@ -130,6 +139,11 @@ export default function LucroDesempenhoPage() {
   const [filtroTecnico, setFiltroTecnico] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('');
   const [filtroLucratividade, setFiltroLucratividade] = useState('');
+  
+  // Estados para tabela anual
+  const [fluxoCaixaMensal, setFluxoCaixaMensal] = useState<FluxoCaixaMensal[]>([]);
+  const [loadingFluxoCaixa, setLoadingFluxoCaixa] = useState(false);
+  const [anoSelecionado, setAnoSelecionado] = useState<string>(new Date().getFullYear().toString());
 
   // Navegação por mês
   const navegarMes = (direcao: 'anterior' | 'proximo') => {
@@ -352,6 +366,104 @@ export default function LucroDesempenhoPage() {
     }
   };
 
+  // Função para buscar fluxo de caixa mensal
+  const fetchFluxoCaixaMensal = async () => {
+    if (!empresaData?.id || !anoSelecionado) return;
+
+    try {
+      setLoadingFluxoCaixa(true);
+      
+      console.log('🚀 Carregando fluxo de caixa mensal...');
+      
+      // Calcular datas do ano selecionado
+      const inicioAno = new Date(parseInt(anoSelecionado), 0, 1);
+      const fimAno = new Date(parseInt(anoSelecionado), 11, 31);
+      
+      const dataInicioFiltro = inicioAno.toISOString().split('T')[0];
+      const dataFimFiltro = fimAno.toISOString().split('T')[0];
+
+      // Buscar dados em paralelo
+      const [vendasResult, contasResult] = await Promise.all([
+        supabase
+          .from('vendas')
+          .select('total, data_venda')
+          .eq('empresa_id', empresaData.id)
+          .gte('data_venda', `${dataInicioFiltro}T00:00:00`)
+          .lte('data_venda', `${dataFimFiltro}T23:59:59`)
+          .eq('status', 'finalizada'),
+        
+        supabase
+          .from('contas_pagar')
+          .select('valor, data_vencimento, data_pagamento, status')
+          .eq('empresa_id', empresaData.id)
+      ]);
+
+      const vendasData = vendasResult.data;
+      const contasData = contasResult.data;
+
+      console.log('📊 Dados carregados:', {
+        vendas: vendasData?.length || 0,
+        contas: contasData?.length || 0
+      });
+      
+      const fluxoCaixa: FluxoCaixaMensal[] = [];
+      
+      // Processar dados em memória
+      for (let mes = 0; mes < 12; mes++) {
+        const inicioMes = new Date(parseInt(anoSelecionado), mes, 1);
+        const fimMes = new Date(parseInt(anoSelecionado), mes + 1, 0);
+        
+        // Filtrar vendas do mês
+        const vendasMes = vendasData?.filter(venda => {
+          const dataVenda = new Date(venda.data_venda);
+          return dataVenda >= inicioMes && dataVenda <= fimMes;
+        }) || [];
+        
+        // Filtrar contas do mês (baseado na data de vencimento)
+        const contasMes = contasData?.filter(conta => {
+          const dataVencimento = new Date(conta.data_vencimento);
+          return dataVencimento >= inicioMes && dataVencimento <= fimMes;
+        }) || [];
+        
+        // Calcular totais
+        const entradas = vendasMes.reduce((total, venda) => total + (venda.total || 0), 0);
+        const saidas = contasMes.reduce((total, conta) => total + (conta.valor || 0), 0);
+        const saldoPeriodo = entradas - saidas;
+        
+        // Calcular saldo final acumulado
+        let saldoFinal = saldoPeriodo;
+        for (let i = 0; i < mes; i++) {
+          if (fluxoCaixa[i]) {
+            saldoFinal += fluxoCaixa[i].saldo_periodo;
+          }
+        }
+        
+        // Determinar se é realizado ou previsto
+        const hoje = new Date();
+        const isMesPassado = parseInt(anoSelecionado) < hoje.getFullYear() || 
+          (parseInt(anoSelecionado) === hoje.getFullYear() && mes < hoje.getMonth());
+        
+        fluxoCaixa.push({
+          mes: inicioMes.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }),
+          entradas,
+          saidas,
+          saldo_periodo: saldoPeriodo,
+          saldo_final: saldoFinal,
+          situacao: isMesPassado ? 'realizado' : 'previsto'
+        });
+      }
+      
+      console.log('✅ Fluxo de caixa processado:', fluxoCaixa.length, 'meses');
+      setFluxoCaixaMensal(fluxoCaixa);
+      
+    } catch (error) {
+      console.error('Erro ao buscar fluxo de caixa mensal:', error);
+      setFluxoCaixaMensal([]);
+    } finally {
+      setLoadingFluxoCaixa(false);
+    }
+  };
+
   // Calcular métricas
   const calcularMetricas = () => {
     const totalReceita = ordens.reduce((acc, ordem) => {
@@ -484,10 +596,11 @@ export default function LucroDesempenhoPage() {
     if (empresaData?.id) {
       console.log('✅ Chamando loadData...');
       loadData();
+      fetchFluxoCaixaMensal();
     } else {
       console.log('❌ empresaData.id não disponível, não chamando loadData');
     }
-  }, [empresaData?.id, currentMonth]);
+  }, [empresaData?.id, currentMonth, anoSelecionado]);
 
   useEffect(() => {
     if (ordens.length > 0) {
@@ -1190,6 +1303,108 @@ export default function LucroDesempenhoPage() {
               {visualizacaoAtiva === 'dashboard' && renderDashboard()}
               {visualizacaoAtiva === 'os' && renderTabelaOS()}
               {visualizacaoAtiva === 'tecnicos' && renderAnaliseTecnicos()}
+            </div>
+
+            {/* Tabela Saldo Anual */}
+            <div className="mt-8">
+              <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">SALDO ANUAL</h3>
+                      <p className="text-sm text-gray-600 mt-1">Fluxo de caixa mensal - {anoSelecionado}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setAnoSelecionado((parseInt(anoSelecionado) - 1).toString())}
+                        className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+                      >
+                        <FiChevronLeft className="w-4 h-4 text-gray-600" />
+                      </button>
+                      <span className="text-sm font-medium text-gray-700 min-w-[80px] text-center">
+                        {anoSelecionado}
+                      </span>
+                      <button
+                        onClick={() => setAnoSelecionado((parseInt(anoSelecionado) + 1).toString())}
+                        className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+                      >
+                        <FiChevronRight className="w-4 h-4 text-gray-600" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 md:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">
+                          Data
+                        </th>
+                        <th className="px-3 md:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">
+                          Entradas
+                        </th>
+                        <th className="px-3 md:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">
+                          Saídas
+                        </th>
+                        <th className="px-3 md:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">
+                          Saldo do período
+                        </th>
+                        <th className="px-3 md:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">
+                          Saldo final
+                        </th>
+                        <th className="px-3 md:px-6 py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider">
+                          Situação
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {loadingFluxoCaixa ? (
+                        <tr>
+                          <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                            Carregando dados...
+                          </td>
+                        </tr>
+                      ) : fluxoCaixaMensal.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                            Nenhum dado encontrado
+                          </td>
+                        </tr>
+                      ) : (
+                        fluxoCaixaMensal.map((mes, index) => (
+                          <tr key={index} className="hover:bg-gray-50">
+                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {mes.mes}
+                            </td>
+                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-green-600">
+                              {formatarMoeda(mes.entradas)}
+                            </td>
+                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-red-600">
+                              {formatarMoeda(mes.saidas)}
+                            </td>
+                            <td className={`px-3 md:px-6 py-4 whitespace-nowrap text-sm font-medium ${mes.saldo_periodo >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {formatarMoeda(mes.saldo_periodo)}
+                            </td>
+                            <td className={`px-3 md:px-6 py-4 whitespace-nowrap text-sm font-medium ${mes.saldo_final >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {formatarMoeda(mes.saldo_final)}
+                            </td>
+                            <td className="px-3 md:px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                mes.situacao === 'realizado' 
+                                  ? 'bg-blue-100 text-blue-800' 
+                                  : 'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {mes.situacao === 'realizado' ? 'Realizado' : 'Previsto'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
         </div>
