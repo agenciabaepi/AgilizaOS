@@ -186,13 +186,30 @@ export default function LucroDesempenhoPage() {
         periodo: `${dataInicio} a ${dataFim}`
       });
 
-      // Query mínima para testar se a tabela existe
-      console.log('🔍 Testando query mínima na tabela ordens_servico...');
+      // Buscar ordens de serviço com todos os campos necessários
       const { data: ordensData, error: ordensError } = await supabase
         .from('ordens_servico')
-        .select('id, numero_os, created_at')
+        .select(`
+          id,
+          numero_os,
+          cliente_id,
+          tecnico_id,
+          status,
+          valor_faturado,
+          valor_peca,
+          valor_servico,
+          qtd_peca,
+          qtd_servico,
+          desconto,
+          created_at,
+          data_saida,
+          prazo_entrega
+        `)
         .eq('empresa_id', empresaData.id)
-        .limit(10);
+        .gte('created_at', `${dataInicio}T00:00:00`)
+        .lte('created_at', `${dataFim}T23:59:59`)
+        .order('created_at', { ascending: false })
+        .limit(200);
 
       console.log('📊 Resultado query completa:', {
         empresaId: empresaData.id,
@@ -260,6 +277,20 @@ export default function LucroDesempenhoPage() {
         custosCount: todosCustos?.length || 0,
         sampleVenda: todasVendas?.[0],
         sampleCusto: todosCustos?.[0]
+      });
+
+      // Log dos dados das OS para debug
+      console.log('📋 Dados das OS:', {
+        primeiraOS: ordensData?.[0],
+        todasOS: ordensData?.map(os => ({
+          id: os.id,
+          numero: os.numero_os,
+          valor_faturado: os.valor_faturado,
+          valor_peca: os.valor_peca,
+          valor_servico: os.valor_servico,
+          qtd_peca: os.qtd_peca,
+          qtd_servico: os.qtd_servico
+        }))
       });
 
       // Criar mapas para lookup rápido
