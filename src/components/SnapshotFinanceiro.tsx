@@ -28,7 +28,7 @@ export function SnapshotFinanceiro({ dataInicio, dataFim }: SnapshotFinanceiroPr
   };
 
   const handleVerDetalhes = () => {
-    router.push('/financeiro/dashboard');
+    router.push('/financeiro/lucro-desempenho');
   };
 
   if (loading) {

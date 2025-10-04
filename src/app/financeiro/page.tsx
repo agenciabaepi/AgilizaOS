@@ -1,17 +1,10 @@
 
 import MenuLayout from '@/components/MenuLayout';
 import Link from 'next/link';
-import { FiBarChart, FiDollarSign, FiFileText, FiTrendingUp, FiCalendar, FiCreditCard } from 'react-icons/fi';
+import { FiDollarSign, FiFileText, FiTrendingUp } from 'react-icons/fi';
 
 export default function FinanceiroPage() {
   const menuItems = [
-    {
-      title: 'Dashboard',
-      description: 'Visão geral financeira',
-      icon: FiBarChart,
-      href: '/financeiro/dashboard',
-      color: 'bg-blue-500'
-    },
     {
       title: 'Vendas',
       description: 'Gestão de vendas e receitas',

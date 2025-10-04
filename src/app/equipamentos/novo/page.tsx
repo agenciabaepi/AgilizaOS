@@ -333,31 +333,31 @@ export default function NovoProdutoPage() {
     // Envio de cada arquivo direto ao Supabase Storage
     for (const file of arquivos) {
       try {
-        // Gera nome de arquivo seguro, substituindo caracteres inválidos
-        const timestamp = Date.now();
-        const rawName = file.name;
-        const safeName = rawName.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-        const filePath = `produtos/${empresa_id}/${timestamp}_${safeName}`;
+      // Gera nome de arquivo seguro, substituindo caracteres inválidos
+      const timestamp = Date.now();
+      const rawName = file.name;
+      const safeName = rawName.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+      const filePath = `produtos/${empresa_id}/${timestamp}_${safeName}`;
         
         console.log('📤 Fazendo upload da imagem:', file.name, 'para:', filePath);
         
-        const { error: uploadError } = await supabase
-          .storage
-          .from('produtos')
-          .upload(filePath, file, { upsert: false });
+      const { error: uploadError } = await supabase
+        .storage
+        .from('produtos')
+        .upload(filePath, file, { upsert: false });
           
-        if (uploadError) {
+      if (uploadError) {
           console.error('❌ Erro ao fazer upload da imagem:', uploadError);
-          addToast('error', `Erro ao fazer upload da imagem ${file.name}: ${uploadError.message}`);
-          continue;
-        }
+        addToast('error', `Erro ao fazer upload da imagem ${file.name}: ${uploadError.message}`);
+        continue;
+      }
         
-        const { data: urlData } = supabase
-          .storage
-          .from('produtos')
-          .getPublicUrl(filePath);
+      const { data: urlData } = supabase
+        .storage
+        .from('produtos')
+        .getPublicUrl(filePath);
           
-        uploadedImageUrls.push(urlData.publicUrl);
+      uploadedImageUrls.push(urlData.publicUrl);
         console.log('✅ Imagem enviada com sucesso:', urlData.publicUrl);
       } catch (error) {
         console.error('❌ Erro inesperado no upload:', error);
@@ -462,12 +462,12 @@ export default function NovoProdutoPage() {
           const errorData = await response.json();
           console.error('❌ Erro ao atualizar produto:', errorData);
           addToast('error', 'Erro ao atualizar produto: ' + (errorData.error || 'Erro desconhecido'));
-          return;
-        }
-        
-        addToast('success', 'Produto atualizado com sucesso!');
-        router.push('/equipamentos');
         return;
+      }
+        
+      addToast('success', 'Produto atualizado com sucesso!');
+      router.push('/equipamentos');
+      return;
       } catch (error) {
         console.error('❌ Erro ao atualizar produto:', error);
         addToast('error', 'Erro ao atualizar produto');

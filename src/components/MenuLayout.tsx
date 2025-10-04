@@ -302,9 +302,6 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               
               {financeiroExpanded && !menuRecolhido && (
                 <div className="ml-6 flex flex-col gap-1 mt-1">
-                  {podeVer('dashboard') && (
-                    <SidebarButton path="/financeiro/dashboard" icon={<FiBarChart size={18} />} label="Dashboard" isActive={pathname === '/financeiro/dashboard'} menuRecolhido={menuRecolhido} />
-                  )}
                   {podeVer('vendas') && (
                     <SidebarButton path="/financeiro/vendas" icon={<FiFileText size={18} />} label="Vendas" isActive={pathname === '/financeiro/vendas'} menuRecolhido={menuRecolhido} />
                   )}
@@ -743,15 +740,6 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               {/* Financeiro */}
               {podeVer('financeiro') && (
                 <>
-                  {podeVer('dashboard') && (
-                    <MobileMenuItem
-                      path="/financeiro/dashboard"
-                      icon={<FiBarChart size={20} />}
-                      label="Dashboard"
-                      isActive={pathname === '/financeiro/dashboard'}
-                      onNavigate={() => setMobileMenuOpen(false)}
-                    />
-                  )}
                   <MobileMenuItem
                     path="/financeiro/vendas"
                     icon={<FiFileText size={20} />}
