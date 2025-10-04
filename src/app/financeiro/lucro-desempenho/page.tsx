@@ -47,8 +47,7 @@ interface OrdemServico {
 
 interface Venda {
   id: string;
-  valor_total: number;
-  valor_pago: number;
+  total: number;
   data_venda: string;
   observacoes?: string;
 }
@@ -232,34 +231,18 @@ export default function LucroDesempenhoPage() {
         .select('id, nome')
         .in('id', clienteIds);
 
-        // Buscar todas as vendas do período primeiro para debug
-        const { data: todasVendasPeriodo, error: errorVendasPeriodo } = await supabase
-          .from('vendas')
-          .select('id, valor_total, valor_pago, data_venda, observacoes')
-          .eq('empresa_id', empresaData.id)
-          .eq('status', 'finalizada')
-          .gte('data_venda', `${dataInicio}T00:00:00`)
-          .lte('data_venda', `${dataFim}T23:59:59`);
-
-        console.log('🔍 Debug vendas período:', {
-          periodo: `${dataInicio} a ${dataFim}`,
-          totalVendasPeriodo: todasVendasPeriodo?.length || 0,
-          errorVendasPeriodo: errorVendasPeriodo,
-          sampleVendas: todasVendasPeriodo?.slice(0, 3),
-          ordensNumeros: ordensNumeros.slice(0, 3)
-        });
-
-        // Buscar vendas específicas das OS - versão simplificada
+        // Buscar vendas específicas das OS - usando campo correto 'total'
         const { data: todasVendas, error: errorVendas } = await supabase
           .from('vendas')
-          .select('id, valor_total, valor_pago, data_venda, observacoes')
+          .select('id, total, data_venda, observacoes')
           .eq('empresa_id', empresaData.id)
           .eq('status', 'finalizada');
 
-        console.log('🔍 Debug todas vendas:', {
+        console.log('🔍 Debug vendas:', {
+          empresaId: empresaData.id,
           totalVendas: todasVendas?.length || 0,
           errorVendas: errorVendas,
-          sampleVendas: todasVendas?.slice(0, 5)
+          sampleVendas: todasVendas?.slice(0, 3)
         });
 
         const { data: todosCustos } = await supabase
@@ -382,7 +365,7 @@ export default function LucroDesempenhoPage() {
       });
       
       const receita = ordensDoDia.reduce((acc, ordem) => {
-        const receitaVendas = ordem.vendas?.reduce((vendaAcc, venda) => vendaAcc + venda.valor_pago, 0) || 0;
+        const receitaVendas = ordem.vendas?.reduce((vendaAcc, venda) => vendaAcc + venda.total, 0) || 0;
         return acc + receitaVendas;
       }, 0);
       
