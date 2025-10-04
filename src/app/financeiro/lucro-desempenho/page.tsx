@@ -169,6 +169,9 @@ export default function LucroDesempenhoPage() {
     categoriasDetalhadas: []
   });
 
+  // Estado para vendas (muito mais simples!)
+  const [vendas, setVendas] = useState<Venda[]>([]);
+
   // Navegação por mês
   const navegarMes = (direcao: 'anterior' | 'proximo') => {
     const novoMes = new Date(currentMonth);
@@ -284,12 +287,14 @@ export default function LucroDesempenhoPage() {
         .select('id, nome')
         .in('id', clienteIds);
 
-        // Buscar vendas específicas das OS - campos corretos do schema
+        // Buscar vendas do período (muito mais simples!)
         const { data: todasVendas, error: errorVendas } = await supabase
           .from('vendas')
           .select('id, valor_total, valor_pago, data_venda, observacoes')
           .eq('empresa_id', empresaData.id)
-          .eq('status', 'finalizada');
+          .eq('status', 'finalizada')
+          .gte('data_venda', `${dataInicio}T00:00:00`)
+          .lte('data_venda', `${dataFim}T23:59:59`);
 
         console.log('🔍 EMPRESA ATUAL:', empresaData.id);
         console.log('🔍 TOTAL VENDAS ENCONTRADAS:', todasVendas?.length || 0);
@@ -375,12 +380,16 @@ export default function LucroDesempenhoPage() {
 
       setOrdens(ordensCompletas);
       
-      console.log('✅ Dados carregados:', {
-        totalOrdens: ordensCompletas.length,
-        ordensComVendas: ordensCompletas.filter(o => o.vendas?.length > 0).length,
-        ordensComCustos: ordensCompletas.filter(o => o.custos?.length > 0).length,
-        mes: formatarMesAno(currentMonth)
-      });
+        // Definir vendas no estado (muito mais simples!)
+        setVendas(todasVendas || []);
+
+        console.log('✅ Dados carregados:', {
+          totalOrdens: ordensCompletas.length,
+          totalVendas: todasVendas?.length || 0,
+          ordensComVendas: ordensCompletas.filter(o => o.vendas?.length > 0).length,
+          ordensComCustos: ordensCompletas.filter(o => o.custos?.length > 0).length,
+          mes: formatarMesAno(currentMonth)
+        });
 
     } catch (error) {
       console.error('❌ Erro ao carregar dados:', error);
@@ -688,11 +697,8 @@ export default function LucroDesempenhoPage() {
 
   // Calcular métricas
   const calcularMetricas = () => {
-    const totalReceita = ordens.reduce((acc, ordem) => {
-      const receitaVendas = ordem.vendas?.reduce((vendaAcc, venda) => vendaAcc + venda.valor_pago, 0) || 0;
-      // Só considerar receita se há vendas efetivas (pagamentos realizados)
-      return acc + receitaVendas;
-    }, 0);
+    // Receita total = soma de todas as vendas do período (muito mais simples!)
+    const totalReceita = vendas.reduce((acc, venda) => acc + venda.valor_pago, 0);
 
     const totalCustos = ordens.reduce((acc, ordem) => {
       const custosContas = ordem.custos?.reduce((custoAcc, custo) => custoAcc + custo.valor, 0) || 0;
@@ -1151,12 +1157,12 @@ export default function LucroDesempenhoPage() {
   }, [empresaData?.id, currentMonth, anoSelecionado]);
 
   useEffect(() => {
-    if (ordens.length > 0) {
+    if (ordens.length > 0 && vendas.length >= 0) { // vendas pode ser 0
       calcularMetricas();
       calcularAnaliseTecnicos();
       calcularDadosDiarios();
     }
-  }, [ordens]);
+  }, [ordens, vendas]);
 
   // Formatação de valores
   const formatarMoeda = (valor: number) => {
