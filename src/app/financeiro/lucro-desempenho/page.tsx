@@ -422,6 +422,14 @@ export default function LucroDesempenhoPage() {
       };
     });
     
+    // Filtrar apenas dias com dados e adicionar logs
+    const diasComDados = dadosPorDia.filter(d => d.receita > 0 || d.custos > 0);
+    console.log('📊 Dados diários para gráfico:', {
+      totalDias: dadosPorDia.length,
+      diasComDados: diasComDados.length,
+      amostra: diasComDados.slice(0, 3)
+    });
+    
     setDadosDiarios(dadosPorDia);
   };
 
@@ -645,26 +653,26 @@ export default function LucroDesempenhoPage() {
                       R$ 5k
                     </text>
                     
-                    {/* Bars */}
+                    {/* Bars - apenas dias com dados */}
                     {dadosDiarios.filter(d => d.receita > 0 || d.custos > 0).map((dado, index) => {
-                      const x = 100 + (index * 35);
+                      const x = 100 + (index * 30); // Reduzir espaçamento para mais dados
                       const maxValor = 5000; // Escala fixa como na imagem
                       const escala = 175 / maxValor;
                       
-                      const alturaReceita = Math.min(dado.receita * escala, 175);
-                      const alturaCustos = Math.min(dado.custos * escala, 175);
+                      const alturaReceita = Math.max(dado.receita * escala, 2); // Mínimo 2px para visibilidade
+                      const alturaCustos = Math.max(dado.custos * escala, 2); // Mínimo 2px para visibilidade
                       
                       return (
                         <g key={dado.dia}>
                           {/* Receita bar (upward) */}
                           {dado.receita > 0 && (
                             <rect
-                              x={x - 12}
+                              x={x - 8}
                               y={200 - alturaReceita}
-                              width="24"
+                              width="16"
                               height={alturaReceita}
                               fill="url(#receitaGradient)"
-                              rx="6"
+                              rx="4"
                               filter="url(#shadow)"
                               className="bar-hover transition-all duration-300 ease-out hover:scale-105"
                               style={{
@@ -677,12 +685,12 @@ export default function LucroDesempenhoPage() {
                           {/* Custos bar (downward) */}
                           {dado.custos > 0 && (
                             <rect
-                              x={x - 12}
+                              x={x - 8}
                               y={200}
-                              width="24"
+                              width="16"
                               height={alturaCustos}
                               fill="url(#custosGradient)"
-                              rx="6"
+                              rx="4"
                               filter="url(#shadow)"
                               className="bar-hover transition-all duration-300 ease-out hover:scale-105"
                               style={{
@@ -704,9 +712,9 @@ export default function LucroDesempenhoPage() {
                           
                           {/* Tooltip data */}
                           <rect
-                            x={x - 12}
+                            x={x - 8}
                             y="0"
-                            width="24"
+                            width="16"
                             height="400"
                             fill="transparent"
                             className="cursor-pointer"
@@ -722,6 +730,18 @@ export default function LucroDesempenhoPage() {
                       );
                     })}
                   </svg>
+                  
+                  {/* Legenda */}
+                  <div className="flex justify-center mt-6 space-x-8">
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 bg-green-500 rounded mr-2"></div>
+                      <span className="text-sm font-medium text-gray-700">Receita</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 bg-blue-500 rounded mr-2"></div>
+                      <span className="text-sm font-medium text-gray-700">Custos</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
