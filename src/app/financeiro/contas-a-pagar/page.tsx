@@ -9,6 +9,7 @@ import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { Select } from '@/components/Select';
 import { FiPlus, FiEdit, FiTrash2, FiCheck, FiX, FiFilter, FiDownload, FiEye, FiChevronLeft, FiChevronRight, FiCalendar, FiPaperclip, FiDollarSign } from 'react-icons/fi';
+import DashboardCard from '@/components/ui/DashboardCard';
 import { useRouter } from 'next/navigation';
 import AnexosManager from '@/components/AnexosManager';
 
@@ -608,60 +609,42 @@ export default function ContasAPagarPage() {
 
 
         {/* Resumo */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-4 rounded-lg border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Pendente</p>
-                <p className="text-2xl font-bold text-red-600">
-                  R$ {totalPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                <FiX className="w-6 h-6 text-red-600" />
-              </div>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
+          <DashboardCard
+            title="Total Pendente"
+            value={`R$ ${totalPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+            description="Contas em aberto"
+            descriptionColorClass="text-red-500"
+            icon={<FiX className="w-5 h-5" />}
+            svgPolyline={{ color: '#ef4444', points: '0,18 10,16 20,18 30,20 40,18 50,20 60,18 70,20' }}
+          />
           
-          <div className="bg-white p-4 rounded-lg border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Pago</p>
-                <p className="text-2xl font-bold text-green-600">
-                  R$ {totalPago.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                <FiCheck className="w-6 h-6 text-green-600" />
-              </div>
-            </div>
-          </div>
+          <DashboardCard
+            title="Total Pago"
+            value={`R$ ${totalPago.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+            description="Contas quitadas"
+            descriptionColorClass="text-green-600"
+            icon={<FiCheck className="w-5 h-5" />}
+            svgPolyline={{ color: '#22c55e', points: '0,20 10,18 20,16 30,14 40,12 50,10 60,8 70,6' }}
+          />
           
-          <div className="bg-white p-4 rounded-lg border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total das Despesas</p>
-                <p className="text-2xl font-bold text-blue-600">
-                  R$ {(totalPendente + totalPago).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                <FiDollarSign className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-          </div>
+          <DashboardCard
+            title="Total das Despesas"
+            value={`R$ ${(totalPendente + totalPago).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+            description="Valor total geral"
+            descriptionColorClass="text-blue-600"
+            icon={<FiDollarSign className="w-5 h-5" />}
+            svgPolyline={{ color: '#3b82f6', points: '0,15 10,17 20,15 30,13 40,15 50,17 60,15 70,17' }}
+          />
           
-          <div className="bg-white p-4 rounded-lg border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total de Contas</p>
-                <p className="text-2xl font-bold text-purple-600">{filteredContas.length}</p>
-              </div>
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                <FiEye className="w-6 h-6 text-purple-600" />
-              </div>
-            </div>
-          </div>
+          <DashboardCard
+            title="Total de Contas"
+            value={filteredContas.length}
+            description="Contas cadastradas"
+            descriptionColorClass="text-purple-600"
+            icon={<FiEye className="w-5 h-5" />}
+            svgPolyline={{ color: '#8b5cf6', points: '0,12 10,14 20,12 30,10 40,12 50,14 60,12 70,14' }}
+          />
         </div>
 
         {/* Abas */}
