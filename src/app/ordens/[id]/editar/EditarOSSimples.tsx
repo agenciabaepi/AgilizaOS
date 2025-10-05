@@ -442,7 +442,7 @@ export default function EditarOSSimples() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          osId: id,
+          osId: ordem?.numero_os, // ✅ Usar numero_os em vez do UUID
           newStatus: statusSelecionado?.nome,
           newStatusTecnico: novoStatusTecnico,
           ...updateData // Incluir todos os dados de atualização

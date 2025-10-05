@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabaseClient';
+import { createClient } from '@supabase/supabase-js';
 import { notificarN8nOSAprovada, notificarN8nStatusOS, gerarLinkOS } from '@/lib/n8n-integration';
 
 export async function POST(request: NextRequest) {
@@ -21,7 +21,10 @@ export async function POST(request: NextRequest) {
     });
 
     // Preparar cliente Supabase
-    const supabase = createAdminClient();
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
 
 
     // ✅ CORREÇÃO CRÍTICA: Filtrar campos vazios para evitar perda de dados
@@ -54,8 +57,8 @@ export async function POST(request: NextRequest) {
     console.log('🔍 Buscando equipamento anterior ANTES de atualizar...');
     const { data: osAnterior, error: osAnteriorError } = await supabase
       .from('ordens_servico')
-      .select('equipamento, empresa_id')
-      .eq('id', osId)
+      .select('equipamento, empresa_id, id')
+      .eq('numero_os', osId)
       .single();
 
     if (osAnteriorError) {
@@ -78,7 +81,7 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase
       .from('ordens_servico')
       .update(finalUpdateData)
-      .eq('id', osId)
+      .eq('id', osAnterior.id)
       .select()
       .single();
 
@@ -179,7 +182,7 @@ export async function POST(request: NextRequest) {
             clientes!inner(nome, telefone),
             usuarios!inner(nome, whatsapp)
           `)
-          .eq('id', osId)
+          .eq('numero_os', osId)
           .single();
 
         if (!osCompletaError && osCompleta) {
@@ -232,8 +235,8 @@ export async function POST(request: NextRequest) {
       // Buscar dados anteriores da OS para comparar
       const { data: osAnterior } = await supabase
         .from('ordens_servico')
-        .select('status, status_tecnico')
-        .eq('id', osId)
+        .select('id, status, status_tecnico')
+        .eq('numero_os', osId)
         .single();
       
       // Determinar se houve mudança de status
@@ -257,7 +260,7 @@ export async function POST(request: NextRequest) {
         const { error: historicoError } = await supabase
           .from('status_historico')
           .insert({
-            os_id: osId,
+            os_id: osAnterior.id,
             status_anterior: statusAnterior,
             status_novo: newStatus || statusAnterior,
             status_tecnico_anterior: statusTecnicoAnterior,
