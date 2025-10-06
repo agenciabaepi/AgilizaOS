@@ -21,6 +21,7 @@ const VisualizarOrdemServicoPage = () => {
   const { historico, loading: loadingHistorico } = useStatusHistorico(id as string);
   const [ordem, setOrdem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [custosOS, setCustosOS] = useState<number>(0);
 
   // Estados para sistema de entrega
   const [modalEntrega, setModalEntrega] = useState(false);
@@ -106,6 +107,20 @@ const VisualizarOrdemServicoPage = () => {
           };
           
           setOrdem(ordemMapeada);
+          // Buscar custos vinculados à OS (contas_pagar por os_id)
+          try {
+            const { data: contas } = await supabase
+              .from('contas_pagar')
+              .select('valor, tipo, status')
+              .eq('empresa_id', data.empresa_id)
+              .eq('os_id', String(id));
+            const totalCustos = (contas || [])
+              .filter((c: any) => c.tipo === 'pecas' || c.tipo === 'servicos')
+              .reduce((acc: number, c: any) => acc + Number(c.valor || 0), 0);
+            setCustosOS(totalCustos);
+          } catch (e) {
+            setCustosOS(0);
+          }
         }
       } catch (error) {
         console.error('Erro ao carregar OS:', error);
@@ -346,6 +361,14 @@ const VisualizarOrdemServicoPage = () => {
     const valorFinal = valorTotal - desconto;
     
     return { valorTotal, valorFinal };
+  };
+
+  const calcularPrevisao = () => {
+    const { valorFinal } = calcularValores();
+    const custoPrevisto = Number(custosOS || 0);
+    const lucroPrevisto = valorFinal - custoPrevisto;
+    const margemPrevista = valorFinal > 0 ? (lucroPrevisto / valorFinal) * 100 : 0;
+    return { valorPrevisto: valorFinal, custoPrevisto, lucroPrevisto, margemPrevista };
   };
 
   if (loading) {
@@ -855,6 +878,41 @@ const VisualizarOrdemServicoPage = () => {
                   );
                 })()}
               </div>
+
+              {/* Previsão Financeira (quando ainda não entregue/faturada) */}
+              {ordem.status !== 'ENTREGUE' && (
+                <div className="bg-white rounded-xl shadow-sm border border-yellow-200 p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-yellow-100 rounded-lg">
+                      <FiDollarSign className="w-5 h-5 text-yellow-700" />
+                    </div>
+                    <h2 className="text-xl font-semibold text-gray-900">Previsão Financeira</h2>
+                  </div>
+                  {(() => {
+                    const { valorPrevisto, custoPrevisto, lucroPrevisto, margemPrevista } = calcularPrevisao();
+                    return (
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-700">Receita prevista:</span>
+                          <span className="font-semibold text-green-700">{formatCurrency(valorPrevisto)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-700">Custos previstos (peças/serviços):</span>
+                          <span className="font-semibold text-red-700">{formatCurrency(custoPrevisto)}</span>
+                        </div>
+                        <div className="flex justify-between border-t pt-2">
+                          <span className="text-gray-900 font-medium">Lucro previsto:</span>
+                          <span className={`font-bold ${lucroPrevisto >= 0 ? 'text-green-700' : 'text-red-700'}`}>{formatCurrency(lucroPrevisto)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-700">Margem prevista:</span>
+                          <span className={`font-medium ${margemPrevista >= 0 ? 'text-green-700' : 'text-red-700'}`}>{margemPrevista.toFixed(1)}%</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
 
               {/* Garantia */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

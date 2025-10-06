@@ -165,3 +165,4 @@ FROM pg_policies
 WHERE schemaname = 'public'
 GROUP BY tablename
 ORDER BY policy_count DESC;
+
