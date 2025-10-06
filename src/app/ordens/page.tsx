@@ -29,6 +29,10 @@ interface OrdemTransformada {
   foiFaturada: boolean;
   formaPagamento: string;
   observacao?: string | null;
+  // Previsões
+  valorPrevisto?: number;
+  custoPrevisto?: number;
+  lucroPrevisto?: number;
 }
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -405,6 +409,27 @@ export default function ListaOrdensPage() {
           // Continuar sem dados de vendas
         }
 
+        // Buscar custos por OS (contas_pagar vinculadas) em paralelo
+        const osIds = data.map((d: any) => d.id);
+        const custosPorOS: Record<string, number> = {};
+        try {
+          const { data: contasData } = await supabase
+            .from('contas_pagar')
+            .select('id, os_id, valor, status, tipo')
+            .eq('empresa_id', empresaId)
+            .in('os_id', osIds);
+          (contasData || []).forEach((c: any) => {
+            // considerar custos previstos: contas de pecas/servicos que estejam pendentes ou pagas
+            const relevante = (c.tipo === 'pecas' || c.tipo === 'servicos');
+            if (!relevante) return;
+            const valor = Number(c.valor || 0);
+            if (!custosPorOS[c.os_id]) custosPorOS[c.os_id] = 0;
+            custosPorOS[c.os_id] += valor;
+          });
+        } catch (e) {
+          // segue sem custos
+        }
+
         const mapped = data.map((item: any) => {
           // manter datas como YYYY-MM-DD para evitar timezone
           const entregaCalc = item.data_entrega
@@ -421,6 +446,12 @@ export default function ListaOrdensPage() {
           const valorFaturado = item.valor_faturado || 0;
           const vendaOS = vendasDict[item.id];
           
+          // Previsão de valores (para qualquer OS, especialmente as não finalizadas)
+          const subtotal = ((item.valor_peca || 0) * (item.qtd_peca || 1)) + ((item.valor_servico || 0) * (item.qtd_servico || 1));
+          const valorPrevisto = subtotal - (item.desconto || 0);
+          const custoPrevisto = Number(custosPorOS[item.id] || 0);
+          const lucroPrevisto = valorPrevisto - custoPrevisto;
+
           return {
           id: item.id,
             numero: item.numero_os,
@@ -449,6 +480,9 @@ export default function ListaOrdensPage() {
             foiFaturada: valorFaturado > 0 && (item.status === 'ENTREGUE' || item.status_tecnico === 'FINALIZADA'),
             formaPagamento: getFormaPagamento(item, vendaOS),
             observacao: item.observacao || null,
+            valorPrevisto,
+            custoPrevisto,
+            lucroPrevisto,
           };
         });
 

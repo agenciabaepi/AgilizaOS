@@ -136,6 +136,12 @@ export default function LucroDesempenhoPage() {
     osPrejuizo: 0
   });
   const [analiseTecnicos, setAnaliseTecnicos] = useState<AnaliseTecnico[]>([]);
+  const [metricasPrevistas, setMetricasPrevistas] = useState({
+    receitaPrevista: 0,
+    custosPrevistos: 0,
+    lucroPrevisto: 0,
+    margemPrevista: 0
+  });
   
   // Estados de navegação por mês
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -408,7 +414,54 @@ export default function LucroDesempenhoPage() {
           );
         });
 
-        setOrdens(ordensComVendasNoPeriodo);
+        // ====== PREVISÃO (Receita e Custos) para o mês selecionado ======
+        const mesAtual = currentMonth.toISOString().slice(0, 7); // YYYY-MM
+        // Receita Prevista: OS sem venda no período e não entregues/finalizadas
+        const ordensSemVendaNoPeriodo = (ordensCompletas || []).filter(o => {
+          const createdMes = (o.created_at || '').toString().slice(0, 7);
+          const entregue = (o.status || '').toUpperCase() === 'ENTREGUE' || (o.status_tecnico || '').toUpperCase() === 'FINALIZADA';
+          const temVendaNoPeriodo = (o.vendas || []).some(v => vendasDoPeriodo.some(vp => vp.id === v.id));
+          return createdMes === mesAtual && !entregue && !temVendaNoPeriodo;
+        });
+
+        const calcularValorFinalOS = (o: any) => {
+          const valorServico = Number(o.valor_servico || 0);
+          const qtdServico = Number(o.qtd_servico || 1);
+          const valorPeca = Number(o.valor_peca || 0);
+          const qtdPeca = Number(o.qtd_peca || 1);
+          const desconto = Number(o.desconto || 0);
+          const subtotal = (valorServico * qtdServico) + (valorPeca * qtdPeca);
+          return Math.max(0, subtotal - desconto);
+        };
+
+        // Apenas O.S do mês com valor previsto > 0
+        const ordensPrevistasComValor = ordensSemVendaNoPeriodo.filter(o => calcularValorFinalOS(o) > 0);
+        const receitaPrevista = ordensPrevistasComValor.reduce((acc, o) => acc + calcularValorFinalOS(o), 0);
+
+        // Custos previstos: contas de peças vinculadas ao mês selecionado e pendentes
+        const contasMes = (todosCustos || []).filter(conta => {
+          const vencMes = (conta.data_vencimento || '').toString().slice(0, 7);
+          return vencMes === mesAtual;
+        });
+        const contasPendentes = contasMes.filter(c => 
+          c.status === 'pendente' || c.status === 'pending' || c.status === 'Pendente'
+        );
+        const custosPrevistos = contasPendentes.reduce((acc, c: any) => acc + Number(c.valor || 0), 0);
+
+        const lucroPrevisto = receitaPrevista - custosPrevistos;
+        const margemPrevista = receitaPrevista > 0 ? (lucroPrevisto / receitaPrevista) * 100 : 0;
+        setMetricasPrevistas({
+          receitaPrevista,
+          custosPrevistos,
+          lucroPrevisto,
+          margemPrevista
+        });
+
+        // Incluir também as OS sem venda (pendentes) na listagem Por OS
+        const ordensCombinadas = [...ordensComVendasNoPeriodo, ...ordensPrevistasComValor];
+        // Ordenar por data de criação mais recente
+        ordensCombinadas.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        setOrdens(ordensCombinadas);
       
         // Definir vendas no estado (igual à página de vendas!)
         setVendas(todasVendas || []);
@@ -870,7 +923,19 @@ export default function LucroDesempenhoPage() {
       }) || [];
       
       const custos = custosDoPeriodo.reduce((acc, custo) => acc + custo.valor, 0);
-      const lucro = receita - custos;
+      let lucro = receita - custos;
+
+      // Incluir previsão para OS sem venda: usar valor final da OS como receita prevista
+      if (receita === 0) {
+        const valorServico = Number((ordem as any).valor_servico || 0);
+        const qtdServico = Number((ordem as any).qtd_servico || 1);
+        const valorPeca = Number((ordem as any).valor_peca || 0);
+        const qtdPeca = Number((ordem as any).qtd_peca || 1);
+        const desconto = Number((ordem as any).desconto || 0);
+        const subtotal = (valorServico * qtdServico) + (valorPeca * qtdPeca);
+        const receitaPrevista = Math.max(0, subtotal - desconto);
+        lucro = receitaPrevista - custos;
+      }
 
       if (tecnicosMap.has(ordem.tecnico_nome)) {
         const tecnico = tecnicosMap.get(ordem.tecnico_nome)!;
@@ -969,7 +1034,7 @@ export default function LucroDesempenhoPage() {
           <h4 className="text-lg font-semibold text-gray-900 mb-4">DRE Detalhada</h4>
           
           <div className="space-y-4">
-            {/* Receita Bruta */}
+          {/* Receita Bruta */}
             <div className="flex justify-between items-center py-2 border-b border-gray-200">
               <div>
                 <p className="font-medium text-gray-900">Receita Bruta</p>
@@ -977,6 +1042,23 @@ export default function LucroDesempenhoPage() {
               </div>
               <p className="font-semibold text-green-600">{formatarMoeda(metricas.totalReceita)}</p>
             </div>
+
+          {/* Receita Prevista */}
+          <div className="flex justify-between items-center py-2 border-b border-gray-200 ml-4">
+            <div>
+              <p className="text-gray-700">(+)&nbsp;Receita Prevista</p>
+              <p className="text-xs text-gray-500">OS pendentes do mês</p>
+            </div>
+            <p className="text-yellow-600 font-semibold">{formatarMoeda(metricasPrevistas.receitaPrevista)}</p>
+          </div>
+
+          {/* Receita Bruta Total (Real + Previsto) */}
+          <div className="flex justify-between items-center py-2 border-b border-gray-300 bg-yellow-50">
+            <div>
+              <p className="font-semibold text-gray-900">Receita Bruta Total (Real + Previsto)</p>
+            </div>
+            <p className="font-bold text-yellow-700">{formatarMoeda(metricas.totalReceita + metricasPrevistas.receitaPrevista)}</p>
+          </div>
 
             {/* Deduções */}
             <div className="flex justify-between items-center py-2 border-b border-gray-200 ml-4">
@@ -995,7 +1077,7 @@ export default function LucroDesempenhoPage() {
               <p className="font-bold text-green-600">{formatarMoeda(metricas.totalReceita)}</p>
             </div>
 
-            {/* Custos */}
+          {/* Custos */}
             <div className="flex justify-between items-center py-2 border-b border-gray-200">
               <div>
                 <p className="font-medium text-gray-900">(-) Custos dos Produtos/Serviços</p>
@@ -1004,7 +1086,24 @@ export default function LucroDesempenhoPage() {
               <p className="font-semibold text-red-600">{formatarMoeda(custosEmpresa.custosPecas)}</p>
             </div>
 
-            {/* Lucro Bruto */}
+          {/* Custos Previsto */}
+          <div className="flex justify-between items-center py-2 border-b border-gray-200 ml-4">
+            <div>
+              <p className="text-gray-700">(-)&nbsp;Custos Previstos</p>
+              <p className="text-xs text-gray-500">Contas de peças pendentes do mês</p>
+            </div>
+            <p className="font-semibold text-yellow-700">{formatarMoeda(metricasPrevistas.custosPrevistos)}</p>
+          </div>
+
+          {/* Custos Totais (Real + Previsto) */}
+          <div className="flex justify-between items-center py-2 border-b border-gray-300 bg-yellow-50">
+            <div>
+              <p className="font-semibold text-gray-900">Custos Totais (Real + Previsto)</p>
+            </div>
+            <p className="font-bold text-yellow-700">{formatarMoeda(custosEmpresa.custosPecas + metricasPrevistas.custosPrevistos)}</p>
+          </div>
+
+          {/* Lucro Bruto */}
             <div className="flex justify-between items-center py-2 border-b border-gray-300 bg-blue-50">
               <div>
                 <p className="font-semibold text-gray-900">Lucro Bruto</p>
@@ -1013,6 +1112,24 @@ export default function LucroDesempenhoPage() {
                 {formatarMoeda(metricas.lucroTotal)}
               </p>
             </div>
+
+          {/* Lucro Bruto Previsto */}
+          <div className="flex justify-between items-center py-2 border-b border-gray-200 ml-4">
+            <div>
+              <p className="text-gray-700">Lucro Bruto Previsto</p>
+            </div>
+            <p className={`font-semibold text-yellow-600`}>
+              {formatarMoeda(metricasPrevistas.lucroPrevisto)}
+            </p>
+          </div>
+
+          {/* Lucro Bruto Total (Real + Previsto) */}
+          <div className="flex justify-between items-center py-2 border-b border-gray-300 bg-yellow-50">
+            <div>
+              <p className="font-semibold text-gray-900">Lucro Bruto Total (Real + Previsto)</p>
+            </div>
+            <p className="font-bold text-yellow-700">{formatarMoeda(metricas.lucroTotal + metricasPrevistas.lucroPrevisto)}</p>
+          </div>
 
             {/* Despesas Operacionais */}
             <div className="flex justify-between items-center py-2 border-b border-gray-200">
@@ -1124,7 +1241,7 @@ export default function LucroDesempenhoPage() {
             </div>
 
             {/* Resultado Líquido */}
-            <div className="flex justify-between items-center py-3 bg-gray-100 rounded-lg">
+          <div className="flex justify-between items-center py-3 bg-gray-100 rounded-lg">
               <div>
                 <p className="text-lg font-bold text-gray-900">RESULTADO LÍQUIDO</p>
                 <p className="text-sm text-gray-600">
@@ -1135,6 +1252,31 @@ export default function LucroDesempenhoPage() {
                 {formatarMoeda(metricas.lucroTotal - custosEmpresa.despesasOperacionais)}
               </p>
             </div>
+
+          {/* Resultado Líquido Previsto (sem despesas operacionais) */}
+          <div className="flex justify-between items-center py-2">
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Resultado Líquido Previsto</p>
+              <p className="text-xs text-yellow-700 font-medium">Margem prevista: {metricasPrevistas.receitaPrevista > 0 ? (metricasPrevistas.margemPrevista).toFixed(1) : '0.0'}%</p>
+            </div>
+            <p className={`text-lg font-bold text-yellow-600`}>
+              {formatarMoeda(metricasPrevistas.lucroPrevisto)}
+            </p>
+          </div>
+
+          {/* Resultado Líquido Total (Real + Previsto) */}
+          <div className="flex justify-between items-center py-3 bg-yellow-50 rounded-lg">
+            <div>
+              <p className="text-lg font-bold text-gray-900">RESULTADO LÍQUIDO TOTAL (Real + Previsto)</p>
+            </div>
+            <p className="text-2xl font-bold text-yellow-700">
+              {(() => {
+                const real = metricas.lucroTotal - custosEmpresa.despesasOperacionais;
+                const total = real + metricasPrevistas.lucroPrevisto;
+                return formatarMoeda(total);
+              })()}
+            </p>
+          </div>
           </div>
         </div>
 
@@ -1245,7 +1387,7 @@ export default function LucroDesempenhoPage() {
   // Renderizar dashboard
   const renderDashboard = () => (
     <div className="space-y-6">
-      {/* Cards de Métricas Principais */}
+      {/* Cards de Métricas Principais (somente realizados) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <DashboardCard
           title="Receita Total"
@@ -1286,6 +1428,7 @@ export default function LucroDesempenhoPage() {
             points: '0,20 10,18 20,16 30,14 40,12 50,10 60,8 70,6' 
           }}
         />
+
         
         <DashboardCard
           title="Margem Média"
@@ -1302,6 +1445,66 @@ export default function LucroDesempenhoPage() {
           svgPolyline={{ 
             color: metricas.margemMedia >= 0 ? '#22c55e' : '#ef4444', 
             points: '0,12 10,14 20,12 30,10 40,12 50,14 60,12 70,14' 
+          }}
+        />
+      </div>
+
+      {/* Linha separada para previsão */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <DashboardCard
+          title="Receita Prevista"
+          value={<span className="text-yellow-600">{formatarMoeda(metricasPrevistas.receitaPrevista)}</span>}
+          icon={<FiDollarSign className="text-yellow-600" />}
+          colorClass="text-black"
+          bgClass="bg-white"
+          description="OS pendentes do mês"
+          descriptionColorClass="text-yellow-600"
+          svgPolyline={{ color: '#f59e0b', points: '0,18 10,16 20,14 30,12 40,10 50,12 60,10 70,8' }}
+        />
+
+        <DashboardCard
+          title="Custos Previstos (Peças)"
+          value={<span className="text-yellow-700">{formatarMoeda(metricasPrevistas.custosPrevistos)}</span>}
+          icon={<FiTarget className="text-yellow-700" />}
+          colorClass="text-black"
+          bgClass="bg-white"
+          description="Contas de peças pendentes"
+          descriptionColorClass="text-yellow-700"
+          svgPolyline={{ color: '#f59e0b', points: '0,8 10,10 20,12 30,14 40,16 50,18 60,16 70,14' }}
+        />
+        <DashboardCard
+          title="Lucro Previsto"
+          value={
+            <span className="text-yellow-600">
+              {formatarMoeda(metricasPrevistas.lucroPrevisto)}
+            </span>
+          }
+          icon={<FiTrendingUp className="text-yellow-600" />}
+          colorClass="text-black"
+          bgClass="bg-white"
+          description={`Margem prevista: ${metricasPrevistas.margemPrevista.toFixed(1)}%`}
+          descriptionColorClass={'text-yellow-600'}
+          svgPolyline={{ 
+            color: '#f59e0b', 
+            points: '0,20 10,18 20,16 30,14 40,12 50,10 60,8 70,6' 
+          }}
+        />
+
+        <DashboardCard
+          title="Lucro Total (Real + Previsto)"
+          value={
+            <span className="text-yellow-700">
+              {formatarMoeda(metricas.lucroTotal + metricasPrevistas.lucroPrevisto)}
+            </span>
+          }
+          icon={<FiTrendingUp className="text-yellow-700" />}
+          colorClass="text-black"
+          bgClass="bg-white"
+          description="Real + Previsto"
+          descriptionColorClass={'text-yellow-700'}
+          svgPolyline={{ 
+            color: '#f59e0b', 
+            points: '0,20 10,18 20,16 30,14 40,12 50,10 60,8 70,6' 
           }}
         />
       </div>
@@ -1657,9 +1860,19 @@ export default function LucroDesempenhoPage() {
   // Renderizar tabela de OS
   const renderTabelaOS = () => {
     const ordensComLucro = ordens.map(ordem => {
-      const receita = ordem.vendas?.reduce((acc, venda) => acc + venda.total, 0) || 0;
+      const receitaReal = ordem.vendas?.reduce((acc, venda) => acc + venda.total, 0) || 0;
       const custos = ordem.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
-      return { ...ordem, receita, custos, lucro: receita - custos };
+      if (receitaReal > 0) {
+        return { ...ordem, receita: receitaReal, custos, lucro: receitaReal - custos, previsto: false };
+      }
+      const valorServico = Number((ordem as any).valor_servico || 0);
+      const qtdServico = Number((ordem as any).qtd_servico || 1);
+      const valorPeca = Number((ordem as any).valor_peca || 0);
+      const qtdPeca = Number((ordem as any).qtd_peca || 1);
+      const desconto = Number((ordem as any).desconto || 0);
+      const subtotal = (valorServico * qtdServico) + (valorPeca * qtdPeca);
+      const receitaPrevista = Math.max(0, subtotal - desconto);
+      return { ...ordem, receita: receitaPrevista, custos, lucro: receitaPrevista - custos, previsto: true };
     });
 
     return (
@@ -1681,6 +1894,7 @@ export default function LucroDesempenhoPage() {
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Custos</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Lucro</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Margem</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -1720,10 +1934,15 @@ export default function LucroDesempenhoPage() {
                     }`}>
                       {formatarMoeda(ordem.lucro)}
                     </td>
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-medium ${
-                      margem >= 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-medium ${margem >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       {formatarPercentual(margem)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-xs text-right">
+                      {ordem.previsto ? (
+                        <span className="inline-flex px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 border border-yellow-200 font-semibold">Previsto</span>
+                      ) : (
+                        <span className="inline-flex px-2 py-1 rounded-full bg-green-100 text-green-800 border border-green-200 font-medium">Realizado</span>
+                      )}
                     </td>
                   </tr>
                 );

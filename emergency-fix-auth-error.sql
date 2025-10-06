@@ -124,3 +124,4 @@ ORDER BY tablename;
 -- CREATE POLICY "usuarios_all_policy" ON public.usuarios FOR ALL USING (true);
 -- 
 -- -- ... (repetir para todas as tabelas)
+
