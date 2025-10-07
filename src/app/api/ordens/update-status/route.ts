@@ -78,12 +78,11 @@ export async function POST(request: NextRequest) {
     console.log('🔍 Empresa ID:', empresaId);
 
     // Atualizar dados completos da OS no banco de dados
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('ordens_servico')
       .update(finalUpdateData)
       .eq('id', osAnterior.id)
-      .select()
-      .single();
+      .select();
 
     if (error) {
       console.error('❌ Erro ao atualizar status da OS:', error);
@@ -93,7 +92,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('✅ Status da OS atualizado com sucesso:', data);
+    console.log('✅ Status da OS atualizado com sucesso');
 
     // ✅ ATUALIZAR CONTADOR DE EQUIPAMENTOS (se equipamento foi alterado)
     console.log('🔢 Verificando atualização do contador de equipamentos...');
@@ -279,11 +278,7 @@ export async function POST(request: NextRequest) {
       console.warn('⚠️ Erro ao registrar histórico:', historicoError);
     }
 
-    return NextResponse.json({
-      success: true,
-      data: data,
-      message: 'Status atualizado com sucesso'
-    });
+    return NextResponse.json({ success: true, message: 'Status atualizado com sucesso' });
 
   } catch (error) {
     console.error('❌ Erro interno ao atualizar status:', error);
