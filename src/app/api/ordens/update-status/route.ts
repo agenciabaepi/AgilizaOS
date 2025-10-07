@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     if (osAnteriorError) {
       console.error('❌ Erro ao buscar OS anterior:', osAnteriorError);
       return NextResponse.json(
-        { error: 'Erro ao buscar dados da OS' },
+        { error: 'Erro ao buscar dados da OS', supabaseError: osAnteriorError },
         { status: 500 }
       );
     }
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('❌ Erro ao atualizar status da OS:', error);
       return NextResponse.json(
-        { error: 'Erro ao atualizar status da OS' },
+        { error: 'Erro ao atualizar status da OS', supabaseError: error },
         { status: 500 }
       );
     }
