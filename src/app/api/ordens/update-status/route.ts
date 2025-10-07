@@ -4,13 +4,38 @@ import { notificarN8nOSAprovada, notificarN8nStatusOS, gerarLinkOS } from '@/lib
 
 export async function POST(request: NextRequest) {
   try {
-    const { osId, newStatus, newStatusTecnico, ...updateData } = await request.json();
+    const { osId: osIdRaw, newStatus, newStatusTecnico, ...updateData } = await request.json();
 
-    if (!osId) {
+    // Normalizar osId: aceitar UUID (id) ou numero_os (numérico)
+    let osId = osIdRaw as string;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!osId || osId.toString().trim() === '') {
       return NextResponse.json(
         { error: 'ID da OS é obrigatório' },
         { status: 400 }
       );
+    }
+
+    // Preparar cliente Supabase (service role para bypass de RLS)
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    // Se não for UUID, tratar como numero_os e resolver para o UUID
+    if (!uuidRegex.test(String(osId))) {
+      const { data: osPorNumero, error: numeroError } = await supabase
+        .from('ordens_servico')
+        .select('id')
+        .eq('numero_os', osId)
+        .single();
+      if (numeroError || !osPorNumero?.id) {
+        return NextResponse.json(
+          { error: 'OS não encontrada pelo numero_os', supabaseError: numeroError },
+          { status: 400 }
+        );
+      }
+      osId = osPorNumero.id as string;
     }
 
     console.log('🔄 Atualizando status da OS:', {
@@ -20,11 +45,7 @@ export async function POST(request: NextRequest) {
       updateData: updateData
     });
 
-    // Preparar cliente Supabase (service role para bypass de RLS)
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    // supabase já definido acima
 
 
     // ✅ CORREÇÃO CRÍTICA: Filtrar campos vazios para evitar perda de dados
