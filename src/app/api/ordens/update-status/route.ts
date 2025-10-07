@@ -178,9 +178,7 @@ export async function POST(request: NextRequest) {
             status_tecnico,
             servico,
             equipamento,
-            valor_faturado,
-            clientes!inner(nome, telefone),
-            usuarios!inner(nome, whatsapp)
+            valor_faturado
           `)
           .eq('id', osId)
           .single();
@@ -193,10 +191,10 @@ export async function POST(request: NextRequest) {
           const n8nPayload = {
             os_id: osCompleta.id,
             empresa_id: osCompleta.empresa_id,
-            tecnico_nome: (osCompleta.usuarios as any)?.nome || 'Técnico não informado',
-            tecnico_whatsapp: (osCompleta.usuarios as any)?.whatsapp || '',
-            cliente_nome: (osCompleta.clientes as any)?.nome || 'Cliente não informado',
-            cliente_telefone: (osCompleta.clientes as any)?.telefone || '',
+            tecnico_nome: '',
+            tecnico_whatsapp: '',
+            cliente_nome: '',
+            cliente_telefone: '',
             equipamento: osCompleta.equipamento || 'Equipamento não especificado',
             servico: osCompleta.servico || 'Serviço não especificado',
             numero_os: osCompleta.numero_os,
