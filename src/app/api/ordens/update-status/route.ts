@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     const { data: osAnterior, error: osAnteriorError } = await supabase
       .from('ordens_servico')
       .select('equipamento, empresa_id, id')
-      .eq('numero_os', osId)
+      .eq('id', osId)
       .single();
 
     if (osAnteriorError) {
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
             clientes!inner(nome, telefone),
             usuarios!inner(nome, whatsapp)
           `)
-          .eq('numero_os', osId)
+          .eq('id', osId)
           .single();
 
         if (!osCompletaError && osCompleta) {
@@ -236,7 +236,7 @@ export async function POST(request: NextRequest) {
       const { data: osAnterior } = await supabase
         .from('ordens_servico')
         .select('id, status, status_tecnico')
-        .eq('numero_os', osId)
+        .eq('id', osId)
         .single();
       
       // Determinar se houve mudança de status
