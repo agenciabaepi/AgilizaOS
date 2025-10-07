@@ -4,13 +4,38 @@ import { notificarN8nOSAprovada, notificarN8nStatusOS, gerarLinkOS } from '@/lib
 
 export async function POST(request: NextRequest) {
   try {
-    const { osId, newStatus, newStatusTecnico, ...updateData } = await request.json();
+    const { osId: osIdRaw, newStatus, newStatusTecnico, ...updateData } = await request.json();
 
-    if (!osId) {
+    // Normalizar osId: aceitar UUID (id) ou numero_os (numérico)
+    let osId = osIdRaw as string;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!osId || osId.toString().trim() === '') {
       return NextResponse.json(
         { error: 'ID da OS é obrigatório' },
         { status: 400 }
       );
+    }
+
+    // Preparar cliente Supabase (service role para bypass de RLS)
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    // Se não for UUID, tratar como numero_os e resolver para o UUID
+    if (!uuidRegex.test(String(osId))) {
+      const { data: osPorNumero, error: numeroError } = await supabase
+        .from('ordens_servico')
+        .select('id')
+        .eq('numero_os', osId)
+        .single();
+      if (numeroError || !osPorNumero?.id) {
+        return NextResponse.json(
+          { error: 'OS não encontrada pelo numero_os', supabaseError: numeroError },
+          { status: 400 }
+        );
+      }
+      osId = osPorNumero.id as string;
     }
 
     console.log('🔄 Atualizando status da OS:', {
@@ -20,11 +45,7 @@ export async function POST(request: NextRequest) {
       updateData: updateData
     });
 
-    // Preparar cliente Supabase
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    // supabase já definido acima
 
 
     // ✅ CORREÇÃO CRÍTICA: Filtrar campos vazios para evitar perda de dados
@@ -58,13 +79,13 @@ export async function POST(request: NextRequest) {
     const { data: osAnterior, error: osAnteriorError } = await supabase
       .from('ordens_servico')
       .select('equipamento, empresa_id, id')
-      .eq('numero_os', osId)
+      .eq('id', osId)
       .single();
 
     if (osAnteriorError) {
       console.error('❌ Erro ao buscar OS anterior:', osAnteriorError);
       return NextResponse.json(
-        { error: 'Erro ao buscar dados da OS' },
+        { error: 'Erro ao buscar dados da OS', supabaseError: osAnteriorError },
         { status: 500 }
       );
     }
@@ -78,22 +99,21 @@ export async function POST(request: NextRequest) {
     console.log('🔍 Empresa ID:', empresaId);
 
     // Atualizar dados completos da OS no banco de dados
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('ordens_servico')
       .update(finalUpdateData)
       .eq('id', osAnterior.id)
-      .select()
-      .single();
+      .select();
 
     if (error) {
       console.error('❌ Erro ao atualizar status da OS:', error);
       return NextResponse.json(
-        { error: 'Erro ao atualizar status da OS' },
+        { error: 'Erro ao atualizar status da OS', supabaseError: error },
         { status: 500 }
       );
     }
 
-    console.log('✅ Status da OS atualizado com sucesso:', data);
+    console.log('✅ Status da OS atualizado com sucesso');
 
     // ✅ ATUALIZAR CONTADOR DE EQUIPAMENTOS (se equipamento foi alterado)
     console.log('🔢 Verificando atualização do contador de equipamentos...');
@@ -178,11 +198,9 @@ export async function POST(request: NextRequest) {
             status_tecnico,
             servico,
             equipamento,
-            valor_faturado,
-            clientes!inner(nome, telefone),
-            usuarios!inner(nome, whatsapp)
+            valor_faturado
           `)
-          .eq('numero_os', osId)
+          .eq('id', osId)
           .single();
 
         if (!osCompletaError && osCompleta) {
@@ -193,10 +211,10 @@ export async function POST(request: NextRequest) {
           const n8nPayload = {
             os_id: osCompleta.id,
             empresa_id: osCompleta.empresa_id,
-            tecnico_nome: (osCompleta.usuarios as any)?.nome || 'Técnico não informado',
-            tecnico_whatsapp: (osCompleta.usuarios as any)?.whatsapp || '',
-            cliente_nome: (osCompleta.clientes as any)?.nome || 'Cliente não informado',
-            cliente_telefone: (osCompleta.clientes as any)?.telefone || '',
+            tecnico_nome: '',
+            tecnico_whatsapp: '',
+            cliente_nome: '',
+            cliente_telefone: '',
             equipamento: osCompleta.equipamento || 'Equipamento não especificado',
             servico: osCompleta.servico || 'Serviço não especificado',
             numero_os: osCompleta.numero_os,
@@ -236,7 +254,7 @@ export async function POST(request: NextRequest) {
       const { data: osAnterior } = await supabase
         .from('ordens_servico')
         .select('id, status, status_tecnico')
-        .eq('numero_os', osId)
+        .eq('id', osId)
         .single();
       
       // Determinar se houve mudança de status
@@ -281,11 +299,7 @@ export async function POST(request: NextRequest) {
       console.warn('⚠️ Erro ao registrar histórico:', historicoError);
     }
 
-    return NextResponse.json({
-      success: true,
-      data: data,
-      message: 'Status atualizado com sucesso'
-    });
+    return NextResponse.json({ success: true, message: 'Status atualizado com sucesso' });
 
   } catch (error) {
     console.error('❌ Erro interno ao atualizar status:', error);
