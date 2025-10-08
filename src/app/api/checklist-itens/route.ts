@@ -4,7 +4,8 @@ import { createClient } from '@supabase/supabase-js';
 // Função para criar cliente Supabase
 const getSupabaseClient = () => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // Usar chave de serviço para operações administrativas (bypass RLS)
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   
   if (!supabaseUrl || !supabaseKey) {
     throw new Error('Variáveis de ambiente do Supabase não encontradas');
@@ -117,7 +118,30 @@ export async function POST(request: NextRequest) {
       console.log('❌ Campos obrigatórios faltando:', { nome, empresa_id });
       return NextResponse.json({ 
         error: 'Nome e empresa_id são obrigatórios' 
-      }, { status: 400 });
+      }, { 
+        status: 400,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        }
+      });
+    }
+
+    // Validar se empresa_id é um UUID válido
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(empresa_id)) {
+      console.log('❌ empresa_id não é um UUID válido:', empresa_id);
+      return NextResponse.json({ 
+        error: 'empresa_id deve ser um UUID válido' 
+      }, { 
+        status: 400,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        }
+      });
     }
 
     // Verificar se já existe item com o mesmo nome na empresa
@@ -127,21 +151,28 @@ export async function POST(request: NextRequest) {
       .from('checklist_itens')
       .select('id')
       .eq('nome', nome)
-      .eq('empresa_id', empresa_id)
-      .single();
+      .eq('empresa_id', empresa_id);
 
-    if (checkError && checkError.code !== 'PGRST116') {
+    if (checkError) {
       console.log('❌ Erro ao verificar item existente:', checkError);
       return NextResponse.json({ 
-        error: 'Erro ao verificar item existente' 
-      }, { status: 500 });
+        error: 'Erro ao verificar item existente',
+        details: checkError.message
+      }, { 
+        status: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        }
+      });
     }
 
-    if (existing) {
+    if (existing && existing.length > 0) {
       console.log('❌ Item já existe:', existing);
       return NextResponse.json({
         error: 'Já existe um item com este nome',
-        item: existing
+        item: existing[0]
       }, { 
         status: 409,
         headers: {
@@ -153,32 +184,65 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('🔍 Inserindo novo item...');
+    
+    // Preparar dados para inserção
+    const insertData: any = {
+      nome,
+      descricao: descricao || null,
+      categoria: categoria || 'geral',
+      empresa_id,
+      ordem: ordem || 0,
+      obrigatorio: obrigatorio || false,
+      ativo: true
+    };
+    
+    // Adicionar equipamento_categoria apenas se fornecido
+    if (equipamento_categoria) {
+      insertData.equipamento_categoria = equipamento_categoria;
+    }
+    
     const { data, error } = await client
       .from('checklist_itens')
-      .insert({
-        nome,
-        descricao: descricao || null,
-        categoria: categoria || 'geral',
-        equipamento_categoria: equipamento_categoria || null,
-        empresa_id,
-        ordem: ordem || 0,
-        obrigatorio: obrigatorio || false,
-        ativo: true
-      })
+      .insert(insertData)
       .select()
       .single();
 
     if (error) {
       console.error('❌ Erro ao criar item:', error);
-      return NextResponse.json({ error: 'Erro ao criar item' }, { status: 500 });
+      return NextResponse.json({ 
+        error: 'Erro ao criar item',
+        details: error.message,
+        code: error.code
+      }, { 
+        status: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        }
+      });
     }
 
     console.log('✅ Item criado com sucesso:', data);
 
-    return NextResponse.json({ item: data }, { status: 201 });
+    return NextResponse.json({ item: data }, { 
+      status: 201,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      }
+    });
   } catch (error) {
     console.error('Erro na API de checklist:', error);
-    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
+    return NextResponse.json({ error: 'Erro interno do servidor' }, { 
+      status: 500,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      }
+    });
   }
 }
 
@@ -189,7 +253,14 @@ export async function PUT(request: NextRequest) {
     const { id, nome, descricao, categoria, equipamento_categoria, ordem, obrigatorio, ativo } = body;
 
     if (!id) {
-      return NextResponse.json({ error: 'ID é obrigatório' }, { status: 400 });
+      return NextResponse.json({ error: 'ID é obrigatório' }, { 
+        status: 400,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        }
+      });
     }
 
     const updateData: any = {};
@@ -211,13 +282,33 @@ export async function PUT(request: NextRequest) {
 
     if (error) {
       console.error('Erro ao atualizar item:', error);
-      return NextResponse.json({ error: 'Erro ao atualizar item' }, { status: 500 });
+      return NextResponse.json({ error: 'Erro ao atualizar item' }, { 
+        status: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        }
+      });
     }
 
-    return NextResponse.json({ item: data });
+    return NextResponse.json({ item: data }, {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      }
+    });
   } catch (error) {
     console.error('Erro na API de checklist:', error);
-    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
+    return NextResponse.json({ error: 'Erro interno do servidor' }, { 
+      status: 500,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      }
+    });
   }
 }
 

@@ -17,14 +17,17 @@ interface Notificacao {
 
 export default function StickyOrcamentoPopup() {
   const router = useRouter();
-  const { empresaData } = useAuth();
+  const { empresaData, usuarioData } = useAuth();
   const [open, setOpen] = useState(false);
   const [notif, setNotif] = useState<Notificacao | null>(null);
   const [numeroOS, setNumeroOS] = useState<string | number | null>(null);
 
-  // Reproduzir som quando a modal for aberta
+  // ✅ Verificar se o usuário é atendente
+  const isAtendente = usuarioData?.nivel === 'atendente';
+
+  // Reproduzir som quando a modal for aberta - APENAS para atendentes
   useEffect(() => {
-    if (open && notif) {
+    if (open && notif && isAtendente) {
       console.log('🔔 StickyOrcamentoPopup: Modal aberta, tentando reproduzir som...');
       
       // Tentar reproduzir som múltiplas vezes para garantir que funcione
@@ -64,8 +67,10 @@ export default function StickyOrcamentoPopup() {
       };
       
       tryPlaySound();
+    } else if (open && notif && !isAtendente) {
+      console.log('🔔 StickyOrcamentoPopup: Som não reproduzido - usuário não é atendente');
     }
-  }, [open, notif]);
+  }, [open, notif, isAtendente]);
 
   function isPendente(status?: string | null, statusTecnico?: string | null) {
     // ✅ CORREÇÃO: Só exibe modal se orçamento enviado E status não indica conclusão
@@ -145,7 +150,8 @@ export default function StickyOrcamentoPopup() {
     return () => { cancelled = true; if (channel) supabase.removeChannel(channel); };
   }, [empresaData?.id]);
 
-  if (!open || !notif) return null;
+  // ✅ Não exibir modal se não for atendente
+  if (!isAtendente || !open || !notif) return null;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm">
