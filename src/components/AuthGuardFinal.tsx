@@ -3,18 +3,26 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
+import { useAuth } from '@/context/AuthContext';
 
 interface AuthGuardFinalProps {
   children: React.ReactNode;
+  requiredPermission?: string;
+  fallbackPath?: string;
 }
 
 /**
  * AuthGuard Final - Versão otimizada sem loops
  * Redirecionamento rápido mas seguro
  */
-export default function AuthGuardFinal({ children }: AuthGuardFinalProps) {
+export default function AuthGuardFinal({ 
+  children, 
+  requiredPermission, 
+  fallbackPath = '/dashboard' 
+}: AuthGuardFinalProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const { usuarioData, loading: authContextLoading } = useAuth();
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
 
@@ -41,8 +49,34 @@ export default function AuthGuardFinal({ children }: AuthGuardFinalProps) {
           
           return;
         }
+
+        // Se tem sessão, mas AuthContext ainda carregando
+        if (authContextLoading) {
+          console.log('⏳ AuthGuardFinal: AuthContext ainda carregando...');
+          setTimeout(checkAuth, 50);
+          return;
+        }
+
+        // Verificar permissões se necessário
+        if (requiredPermission) {
+          if (!usuarioData) {
+            console.log('⏳ AuthGuardFinal: Aguardando usuarioData para permissões...');
+            setTimeout(checkAuth, 50);
+            return;
+          }
+          
+          const hasPermission = checkPermission(usuarioData, requiredPermission);
+          if (!hasPermission) {
+            console.log(`🚫 AuthGuardFinal: Sem permissão '${requiredPermission}', redirecionando para fallback.`);
+            setIsRedirecting(true);
+            setTimeout(() => {
+              router.replace(fallbackPath);
+            }, 50);
+            return;
+          }
+        }
         
-        // Se tem sessão, autorizar
+        // Se tem sessão e permissões (se necessário), autorizar
         console.log('✅ AuthGuardFinal: Autorizado!');
         setIsAuthorized(true);
         
@@ -67,7 +101,13 @@ export default function AuthGuardFinal({ children }: AuthGuardFinalProps) {
     }, 200);
     
     return () => clearTimeout(timeout);
-  }, [isAuthorized, isRedirecting, pathname, router]);
+  }, [isAuthorized, isRedirecting, pathname, router, requiredPermission, fallbackPath, usuarioData, authContextLoading]);
+
+  // Helper para verificar permissões
+  const checkPermission = (user: any, permission: string): boolean => {
+    if (user.nivel === 'usuarioteste' || user.nivel === 'admin') return true;
+    return user.permissoes && user.permissoes.includes(permission);
+  };
 
   // Se está redirecionando, não renderizar nada
   if (isRedirecting) {
