@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { playNotificationSound, createAudioActivationButton } from '@/utils/audioPlayer';
+import { useAuth } from '@/context/AuthContext';
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
 interface ToastMessage {
@@ -21,10 +22,13 @@ let toastCount = 0;
 export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [modal, setModal] = useState<{ title: string; message?: string; messageNode?: ReactNode; confirmLabel?: string; onConfirm?: () => void; onClose?: () => void } | null>(null);
+  const { usuarioData } = useAuth();
 
-  // Reproduzir som quando modal de orçamento for exibida
+  // Reproduzir som quando modal de orçamento for exibida - APENAS para atendentes
   useEffect(() => {
-    if (modal && modal.title.toLowerCase().includes('orçamento')) {
+    const isAtendente = usuarioData?.nivel === 'atendente';
+    
+    if (modal && modal.title.toLowerCase().includes('orçamento') && isAtendente) {
       console.log('🔔 Toast: Modal de orçamento detectada, tentando reproduzir som...');
       console.log('📋 Toast: Título da modal:', modal.title);
       
@@ -65,8 +69,10 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       };
       
       tryPlaySound();
+    } else if (modal && modal.title.toLowerCase().includes('orçamento') && !isAtendente) {
+      console.log('🔔 Toast: Som não reproduzido - usuário não é atendente');
     }
-  }, [modal]);
+  }, [modal, usuarioData]);
 
   const addToast = useCallback((type: ToastType, content: string) => {
     const id = ++toastCount;

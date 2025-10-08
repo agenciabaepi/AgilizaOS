@@ -1,5 +1,4 @@
 
-
 'use client';
 export const dynamic = 'force-dynamic';
 
@@ -33,7 +32,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import { v4 as uuidv4 } from 'uuid';
-// Removido ProtectedArea - agora é responsabilidade do MenuLayout
+import AuthGuardFinal from '@/components/AuthGuardFinal';
 import ModernPieChart from '@/components/ModernPieChart';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
@@ -185,9 +184,18 @@ export default function LembretesPage() {
   const [dataAtual, setDataAtual] = useState(new Date());
   const [visualizacaoCalendario, setVisualizacaoCalendario] = useState<'mes' | 'semana' | 'dia'>('semana');
 
-  // Carregando depende apenas de empresa_id
+  // Carregando depende apenas de empresa_id - com timeout reduzido
   useEffect(() => {
-    if (empresa_id) setCarregando(false);
+    if (empresa_id) {
+      setCarregando(false);
+    } else {
+      // Timeout reduzido: se não tem empresa_id em 500ms, parar de carregar
+      const timeout = setTimeout(() => {
+        setCarregando(false);
+      }, 500);
+      
+      return () => clearTimeout(timeout);
+    }
   }, [empresa_id]);
 
   // Buscar colunas salvas do banco ao carregar empresa_id
@@ -717,7 +725,8 @@ export default function LembretesPage() {
   }
 
   return (
-    <MenuLayout>
+    <AuthGuardFinal>
+      <MenuLayout>
               {/* Componentes de sessão removidos temporariamente */}
         {/* Cards principais - Dados do Calendário */}
         <div className="px-2 md:px-0">
@@ -1272,6 +1281,7 @@ export default function LembretesPage() {
           {/* Remover ToastContainer do react-toastify */}
         </div>
       </MenuLayout>
+    </AuthGuardFinal>
   );
 }
 

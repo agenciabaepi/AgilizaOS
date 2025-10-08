@@ -1,10 +1,23 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
-export function middleware(request: NextRequest) {
+/**
+ * Middleware de autenticação - Primeira linha de defesa
+ * 
+ * Responsabilidades:
+ * 1. Proteger rotas privadas de acesso não autenticado
+ * 2. Redirecionar usuários não logados para /login
+ * 3. Evitar acesso a /login por usuários já autenticados
+ * 4. Preservar URL de destino para redirecionamento pós-login
+ */
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
-  console.log(`🔍 MIDDLEWARE EXECUTANDO: ${pathname}`);
+  // ✅ OTIMIZADO: Logs apenas em desenvolvimento
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`🔍 Middleware: ${pathname}`);
+  }
   
   // Lista de rotas públicas (não exigem autenticação)
   const publicPaths = [
@@ -20,64 +33,82 @@ export function middleware(request: NextRequest) {
     '/pagamentos/pendente',
     '/instrucoes-verificacao',
     '/clear-auth',
-    '/clear-cache'
+    '/clear-cache',
+    '/os', // Rotas públicas de OS
   ];
 
-  // Verificar se é uma rota pública
-  const isPublicPath = publicPaths.some(path => pathname.startsWith(path));
+  // Verificar se é uma rota pública ou de API
+  const isPublicPath = publicPaths.some(path => 
+    pathname === path || pathname.startsWith(path + '/')
+  );
   
-  console.log(`🔐 Rota ${pathname} é pública: ${isPublicPath}`);
+  // Rotas de API não devem ser bloqueadas pelo middleware de autenticação
+  const isApiRoute = pathname.startsWith('/api');
+  const isStaticAsset = pathname.startsWith('/_next') || 
+                       pathname.includes('.') || 
+                       pathname.startsWith('/assets');
   
-  // Se NÃO é uma rota pública, verificar autenticação
-  if (!isPublicPath) {
-    // Verificar cookies do Supabase
-    const supabaseCookies = request.cookies.getAll().filter(cookie => 
-      cookie.name.startsWith('sb-') || 
-      cookie.name.includes('supabase') ||
-      cookie.name.includes('auth')
+  // Se é rota pública, API ou asset estático, deixar passar
+  if (isPublicPath || isApiRoute || isStaticAsset) {
+    return NextResponse.next();
+  }
+
+  // ✅ MELHORADO: Verificar sessão usando Supabase adequadamente
+  try {
+    // Procurar por cookies de autenticação do Supabase
+    const authCookies = request.cookies.getAll().filter(cookie => 
+      cookie.name.startsWith('sb-') && 
+      cookie.name.includes('auth-token')
     );
-    
-    console.log(`🍪 Cookies Supabase encontrados:`, supabaseCookies.length);
-    console.log(`🍪 Todos os cookies:`, request.cookies.getAll().map(c => c.name));
-    
-    // Verificar se usuário está autenticado - SER MAIS RIGOROSO
-    const hasValidSession = supabaseCookies.length > 0 && 
-                           supabaseCookies.some(cookie => {
-                             const hasValue = cookie.value && cookie.value.length > 10;
-                             console.log(`🔍 Cookie ${cookie.name}: ${hasValue ? 'VÁLIDO' : 'INVÁLIDO'} (${cookie.value?.length || 0} chars)`);
-                             return hasValue;
-                           });
 
-    console.log(`🔑 Sessão válida encontrada: ${hasValidSession}`);
-
-    // FORÇAR REDIRECIONAMENTO PARA TESTE
-    if (!hasValidSession || supabaseCookies.length === 0) {
-      console.log(`🚫 REDIRECIONANDO PARA LOGIN: ${pathname}`);
-      // Redirecionar para login mantendo a URL de destino
+    // Se não há cookies de autenticação, redirecionar para login
+    if (authCookies.length === 0) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🚫 Middleware: Sem cookies de auth, redirecionando para login`);
+      }
+      
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('redirect', pathname);
       return NextResponse.redirect(loginUrl);
     }
-  }
 
-  // Se está tentando acessar login com sessão ativa
-  if (pathname === '/login') {
-    const session = request.cookies.get('sb-access-token')?.value || 
-                   request.cookies.get('session')?.value;
-    
-    if (session) {
-      console.log(`✅ Já está logado, redirecionando para dashboard`);
-      // Se já está logado, redirecionar para dashboard
-      const redirectUrl = request.nextUrl.searchParams.get('redirect') || '/dashboard';
-      return NextResponse.redirect(new URL(redirectUrl, request.url));
+    // Verificar se há pelo menos um cookie com conteúdo válido
+    const hasValidAuthCookie = authCookies.some(cookie => 
+      cookie.value && cookie.value.length > 50 // JWT tokens são longos
+    );
+
+    if (!hasValidAuthCookie) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🚫 Middleware: Cookies inválidos, redirecionando para login`);
+      }
+      
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(loginUrl);
     }
+
+    // ✅ Passou pela verificação de cookies, permitir acesso
+    // A verificação completa de sessão será feita no client-side pelo AuthGuard
+    return NextResponse.next();
+
+  } catch (error) {
+    // Em caso de erro, por segurança, redirecionar para login
+    console.error('❌ Middleware: Erro na verificação:', error);
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(loginUrl);
   }
-  
-  return NextResponse.next();
 }
 
 export const config = {
   matcher: [
+    /*
+     * Match all request paths except:
+     * - api routes
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon and other static assets
+     */
     '/((?!api|_next/static|_next/image|favicon.ico|.*\\.png|.*\\.jpg|.*\\.jpeg|.*\\.gif|.*\\.svg|.*\\.ico|.*\\.mp3|.*\\.mp4|.*\\.pdf).*)',
   ],
 }

@@ -40,6 +40,7 @@ import { useRouter } from 'next/navigation';
 import { FiRefreshCw, FiPlus, FiSearch, FiFilter, FiUser, FiSmartphone, FiDollarSign, FiClock, FiAlertCircle, FiFileText, FiCheckCircle } from 'react-icons/fi';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
+import AuthGuardFinal from '@/components/AuthGuardFinal';
 // Removido ProtectedArea - agora é responsabilidade do MenuLayout
 import DashboardCard from '@/components/ui/DashboardCard';
 import MenuLayout from '@/components/MenuLayout';
@@ -906,17 +907,9 @@ export default function ListaOrdensPage() {
             os.statusTecnico?.toLowerCase() === 'aprovado');
   }).length;
 
-  // ✅ OTIMIZADO: Validação com timeout para evitar loops
-  if (!empresaData?.id) {
-    return (
-      <MenuLayout>
-        <OSFullPageSkeleton />
-      </MenuLayout>
-    );
-  }
-
   return (
-    <MenuLayout>
+    <AuthGuardFinal requiredPermission="ordens">
+      <MenuLayout>
         <div className="p-4 md:p-8">
           {/* Header com título e botão */}
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 md:mb-8 gap-4">
@@ -1570,5 +1563,6 @@ export default function ListaOrdensPage() {
         {/* Alerta de Laudos Prontos */}
         <LaudoProntoAlert />
       </MenuLayout>
+    </AuthGuardFinal>
   );
 }

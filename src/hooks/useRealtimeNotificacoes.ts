@@ -5,8 +5,10 @@ import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/Toast';
 import { useRouter } from 'next/navigation';
 import { playNotificationSound, createAudioActivationButton } from '@/utils/audioPlayer';
+import { useAuth } from '@/context/AuthContext';
 
 export function useRealtimeNotificacoes(empresaId?: string | null) {
+  const { usuarioData } = useAuth();
   const { addToast, showModal } = useToast();
   const router = useRouter();
   
@@ -64,7 +66,14 @@ export function useRealtimeNotificacoes(empresaId?: string | null) {
       // Notificação de reparo concluído - NÃO exibe toast, apenas adiciona à lista fixa
       // NÃO chama addToast aqui, pois será exibida como notificação fixa
     } else if (tipo.includes('laudo') || tipo.includes('orcamento')) {
-      // Modal para orçamento enviado - SEMPRE reproduzir som
+      // ✅ Modal para orçamento enviado - APENAS para usuários atendentes
+      const isAtendente = usuarioData?.nivel === 'atendente';
+      
+      if (!isAtendente) {
+        console.log('🔔 [NOTIF] Modal de orçamento não exibida - usuário não é atendente');
+        return;
+      }
+      
       console.log('🔔 [NOTIF] Exibindo modal de orçamento com som...');
       
       // Reproduzir som imediatamente
