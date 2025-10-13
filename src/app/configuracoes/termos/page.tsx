@@ -12,6 +12,7 @@ import Link from '@tiptap/extension-link'
 import Underline from '@tiptap/extension-underline'
 import { useToast } from '@/components/Toast'
 import { useConfirm } from '@/components/ConfirmDialog'
+import { useConfigPermission, AcessoNegadoComponent } from '@/hooks/useConfigPermission'
 
 interface Termo {
   id: string
@@ -28,6 +29,8 @@ export default function TermosPage() {
   const { empresaData } = useAuth()
   const { addToast } = useToast()
   const confirm = useConfirm()
+  const { podeAcessar } = useConfigPermission('termos')
+  
   const [termos, setTermos] = useState<Termo[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -39,6 +42,11 @@ export default function TermosPage() {
     conteudo: '',
     ativo: true
   })
+
+  // Se não tem permissão, mostrar mensagem
+  if (!podeAcessar) {
+    return <AcessoNegadoComponent />;
+  }
 
   // Garantir que o componente está montado no cliente
   useEffect(() => {

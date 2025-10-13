@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/Button';
 import { useToast } from '@/components/Toast';
 import { FiPlus, FiEdit, FiTrash2, FiSearch, FiRefreshCw, FiPackage, FiList, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import { useConfigPermission, AcessoNegadoComponent } from '@/hooks/useConfigPermission';
 
 interface ChecklistItem {
   id: string;
@@ -28,6 +29,12 @@ interface CategoriaEquipamento {
 export default function ChecklistNovoPage() {
   const { empresaData } = useAuth();
   const { addToast } = useToast();
+  const { podeAcessar } = useConfigPermission('checklist');
+  
+  // Se não tem permissão, mostrar mensagem
+  if (!podeAcessar) {
+    return <AcessoNegadoComponent />;
+  }
   
   const [categorias, setCategorias] = useState<CategoriaEquipamento[]>([]);
   const [categoriaSelecionada, setCategoriaSelecionada] = useState<string>('');
@@ -54,12 +61,10 @@ export default function ChecklistNovoPage() {
     if (!empresaData?.id) return;
 
     try {
-      console.log('🔍 Buscando categorias de equipamentos...');
       const response = await fetch(`/api/equipamentos-tipos/categorias?empresa_id=${empresaData.id}`);
       
       if (response.ok) {
         const data = await response.json();
-        console.log('✅ Categorias carregadas:', data.categorias?.length || 0);
         setCategorias(data.categorias || []);
         
         // Auto-selecionar primeira categoria se houver
@@ -89,14 +94,12 @@ export default function ChecklistNovoPage() {
     setLoadingItens(true);
 
     try {
-      console.log(`🔍 Buscando itens para categoria: ${categoriaSelecionada}`);
       const response = await fetch(
         `/api/checklist-itens?empresa_id=${empresaData.id}&equipamento_categoria=${encodeURIComponent(categoriaSelecionada)}&ativo=true`
       );
       
       if (response.ok) {
         const data = await response.json();
-        console.log(`✅ ${data.itens?.length || 0} itens carregados para ${categoriaSelecionada}`);
         setItens(data.itens || []);
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));

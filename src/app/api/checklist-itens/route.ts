@@ -144,14 +144,24 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Verificar se já existe item com o mesmo nome na empresa
-    console.log('🔍 Verificando se item já existe...');
+    // Verificar se já existe item com o mesmo nome na mesma categoria/equipamento_categoria
+    console.log('🔍 Verificando se item já existe na mesma categoria...');
     const client = getSupabaseClient();
-    const { data: existing, error: checkError } = await client
+    
+    let query = client
       .from('checklist_itens')
       .select('id')
       .eq('nome', nome)
       .eq('empresa_id', empresa_id);
+    
+    // Se equipamento_categoria for especificado, verificar apenas nessa categoria
+    if (equipamento_categoria) {
+      query = query.eq('equipamento_categoria', equipamento_categoria);
+    } else if (categoria) {
+      query = query.eq('categoria', categoria);
+    }
+    
+    const { data: existing, error: checkError } = await query;
 
     if (checkError) {
       console.log('❌ Erro ao verificar item existente:', checkError);
@@ -169,9 +179,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (existing && existing.length > 0) {
-      console.log('❌ Item já existe:', existing);
+      const categoriaInfo = equipamento_categoria ? `categoria "${equipamento_categoria}"` : categoria ? `categoria "${categoria}"` : 'empresa';
+      console.log('❌ Item já existe:', { nome, empresa_id, equipamento_categoria, categoria });
       return NextResponse.json({
-        error: 'Já existe um item com este nome',
+        error: `Item "${nome}" já existe na ${categoriaInfo}`,
         item: existing[0]
       }, { 
         status: 409,

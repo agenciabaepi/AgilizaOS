@@ -7,6 +7,7 @@ import { Input } from '@/components/Input';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { useAuth } from '@/context/AuthContext';
+import { useConfigPermission, AcessoNegadoComponent } from '@/hooks/useConfigPermission';
 import { 
   BuildingOfficeIcon as FiBuilding,
   PhotoIcon as FiImage,
@@ -43,6 +44,12 @@ export default function ConfigEmpresaContent() {
   const { user } = useAuth();
   const { addToast } = useToast();
   const confirm = useConfirm();
+  const { podeAcessar } = useConfigPermission('empresa');
+  
+  // Se não tem permissão, mostrar mensagem
+  if (!podeAcessar) {
+    return <AcessoNegadoComponent />;
+  }
   
   const [empresa, setEmpresa] = useState<EmpresaData | null>(null);
   const [loading, setLoading] = useState(false);

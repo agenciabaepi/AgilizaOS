@@ -155,13 +155,21 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
       return true; // ✅ Acesso total garantido
     }
     
+    // Admin tem acesso a TUDO
+    if (usuarioData?.nivel === 'admin') {
+      return true;
+    }
+    
     // Técnicos sempre podem ver dashboard
     if (area === 'dashboard' && usuarioData?.nivel === 'tecnico') {
       return true;
     }
     
-    const resultado = usuarioData?.nivel === 'admin' || (usuarioData?.permissoes && usuarioData.permissoes.includes(area));
-    return resultado;
+    // Verificar se o usuário tem a permissão específica
+    const temPermissao = usuarioData?.permissoes && usuarioData.permissoes.includes(area);
+    
+    
+    return temPermissao;
   };
 
   const toggleMenu = () => {
@@ -378,7 +386,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           )}
           
           <SidebarButton path="/perfil" icon={<FiUsers size={20} />} label="Meu Perfil" isActive={pathname === '/perfil'} menuRecolhido={menuRecolhido} />
-          {podeVer('configuracoes') && usuarioData?.nivel && ['admin', 'usuarioteste'].includes(usuarioData.nivel) && (
+          {podeVer('configuracoes') && (
             <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" isActive={pathname === '/configuracoes'} menuRecolhido={menuRecolhido} />
           )}
           <SidebarButton path="#logout" icon={<FiLogOut size={20} />} label="Sair" isActive={false} menuRecolhido={menuRecolhido} onClick={logout} />
@@ -388,6 +396,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             v1.0.0
           </div>
         )}
+        
       </aside>
       
       {/* Mobile Menu */}

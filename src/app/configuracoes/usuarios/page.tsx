@@ -18,6 +18,7 @@ import { useAuth } from '@/context/AuthContext'
 
 import { useRouter } from 'next/navigation';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useConfigPermission, AcessoNegadoComponent } from '@/hooks/useConfigPermission';
 import { FiAlertTriangle } from 'react-icons/fi';
 import { ToastProvider, useToast } from '@/components/Toast';
 import { ConfirmProvider, useConfirm } from '@/components/ConfirmDialog';
@@ -28,6 +29,12 @@ function UsuariosPageInner() {
   const { carregarLimites, limites, podeCriar, assinatura, isTrialExpired } = useSubscription();
   const { addToast } = useToast();
   const confirm = useConfirm();
+  const { podeAcessar } = useConfigPermission('usuarios');
+  
+  // Se não tem permissão, mostrar mensagem
+  if (!podeAcessar) {
+    return <AcessoNegadoComponent />;
+  }
 
   // Estados do formulário
   const [nome, setNome] = useState('')

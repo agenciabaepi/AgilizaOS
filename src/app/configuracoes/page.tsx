@@ -76,45 +76,39 @@ function ConfiguracoesInner() {
     )
   }
 
-  // ✅ CORRIGIDO: Usar diretamente o contexto em vez de estado local
-  // ✅ CORRIGIDO: Incluir usuarioteste com acesso total
+  // ✅ CORRIGIDO: Verificar permissões específicas do usuário
   const isAdmin = usuarioData.nivel === 'admin';
   const isUsuarioTeste = usuarioData.nivel === 'usuarioteste';
+  const permissoes = usuarioData.permissoes || [];
   
-  const tabs = (isAdmin || isUsuarioTeste)
-    ? [
-        { name: 'Empresa', component: <EmpresaPage /> },
-        { name: 'Usuários', component: <UsuariosPage /> },
-        { name: 'Comissões', component: <ComissoesPage /> },
-        { name: 'Equipamentos', component: <EquipamentosPage /> },
-        { name: 'Checklist', component: <ChecklistNovoPage /> },
-        { name: 'Termos de Garantia', component: <TermosPage /> },
-        { name: 'Status', component: <StatusPage /> },
-        { name: 'Catálogo', component: <CatalogoPage /> },
-        { name: 'WhatsApp', component: <WhatsAppPage /> },
-      ]
-    : usuarioData.nivel === 'atendente'
-    ? [
-        { name: 'Termos de Garantia', component: <TermosPage /> },
-      ]
-    : [
-        { name: 'Empresa', component: <EmpresaPage /> },
-        { name: 'Usuários', component: <UsuariosPage /> },
-        { name: 'Comissões', component: <ComissoesPage /> },
-        { name: 'Equipamentos', component: <EquipamentosPage /> },
-        { name: 'Checklist', component: <ChecklistNovoPage /> },
-        { name: 'Termos de Garantia', component: <TermosPage /> },
-        { name: 'Status', component: <StatusPage /> },
-        { name: 'Catálogo', component: <CatalogoPage /> },
-        { name: 'WhatsApp', component: <WhatsAppPage /> },
-      ];
+  // Função para verificar se o usuário tem permissão para uma configuração específica
+  const podeAcessar = (configPermissao: string) => {
+    if (isAdmin || isUsuarioTeste) return true;
+    return permissoes.includes(configPermissao);
+  };
+  
+  // Construir abas baseado nas permissões do usuário
+  const tabsConfig = [
+    { name: 'Empresa', component: <EmpresaPage />, permissao: 'empresa' },
+    { name: 'Usuários', component: <UsuariosPage />, permissao: 'usuarios' },
+    { name: 'Comissões', component: <ComissoesPage />, permissao: 'comissoes' },
+    { name: 'Equipamentos', component: <EquipamentosPage />, permissao: 'equipamentos' },
+    { name: 'Checklist', component: <ChecklistNovoPage />, permissao: 'checklist' },
+    { name: 'Termos de Garantia', component: <TermosPage />, permissao: 'termos' },
+    { name: 'Status', component: <StatusPage />, permissao: 'status' },
+    { name: 'Catálogo', component: <CatalogoPage />, permissao: 'catalogo' },
+    { name: 'WhatsApp', component: <WhatsAppPage />, permissao: 'whatsapp' },
+  ];
+  
+  // Filtrar abas baseado nas permissões do usuário
+  const tabs = tabsConfig
+    .filter(tab => podeAcessar(tab.permissao))
+    .map(tab => ({ name: tab.name, component: tab.component }));
 
   return (
     <MenuLayout>
       <div className="p-8">
         <h1 className="text-2xl font-bold mb-6">Configurações Gerais</h1>
-        {/* DEBUG: Exibir nível do usuário na interface */}
-        <div className="mb-4 text-xs text-gray-400">Nível detectado: {usuarioData.nivel || 'desconhecido'}</div>
 
         <Tab.Group selectedIndex={tabIndex} onChange={handleTabChange}>
           <Tab.List className="flex space-x-2 bg-gray-100 p-1 rounded-lg overflow-x-auto">
