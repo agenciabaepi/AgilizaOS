@@ -28,6 +28,7 @@ export const PAGE_PERMISSIONS = {
   '/caixa': 'caixa',
   '/caixa/pdv': 'caixa',
   '/caixa/movimentacoes': 'caixa',
+  '/fluxo-caixa': 'caixa',
   
   // Clientes
   '/clientes': 'clientes',

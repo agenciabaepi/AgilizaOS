@@ -62,6 +62,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const [financeiroExpanded, setFinanceiroExpanded] = useState(false);
   const [equipamentosExpanded, setEquipamentosExpanded] = useState(false);
   const [contatosExpanded, setContatosExpanded] = useState(false);
+  const [caixaExpanded, setCaixaExpanded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [menuRecolhido, setMenuRecolhido] = useState<boolean>(false);
@@ -226,7 +227,33 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} menuRecolhido={menuRecolhidoFinal} />
           )}
           {podeVer('caixa') && (
-                            <SidebarButton path="/caixa" icon={<FiDollarSign size={20} />} label="Caixa" isActive={pathname === '/caixa'} menuRecolhido={menuRecolhido || false} />
+            <>
+              <div 
+                className={`flex items-center px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10
+                  ${menuRecolhido ? 'justify-center' : 'justify-between'}`}
+                onClick={() => setCaixaExpanded(!caixaExpanded)}
+                style={{ minHeight: 48 }}
+                title="Caixa"
+              >
+                <div className="flex items-center">
+                  <FiDollarSign size={20} />
+                  {!menuRecolhido && <span className="ml-3">Caixa</span>}
+                </div>
+                {!menuRecolhido && (
+                  <FiChevronDown 
+                    size={16} 
+                    className={`transition-transform ${caixaExpanded ? 'rotate-180' : ''}`} 
+                  />
+                )}
+              </div>
+              
+              {caixaExpanded && !menuRecolhido && (
+                <div className="ml-6 flex flex-col gap-1 mt-1">
+                  <SidebarButton path="/caixa" icon={<FiDollarSign size={18} />} label="Caixa PDV" isActive={pathname === '/caixa'} menuRecolhido={menuRecolhido || false} />
+                  <SidebarButton path="/fluxo-caixa" icon={<FiTrendingUp size={18} />} label="Fluxo de Caixa" isActive={pathname === '/fluxo-caixa'} menuRecolhido={menuRecolhido || false} />
+                </div>
+              )}
+            </>
           )}
           {podeVer('clientes') && (
             <>
