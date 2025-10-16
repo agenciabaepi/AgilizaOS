@@ -31,11 +31,6 @@ export default function ChecklistNovoPage() {
   const { addToast } = useToast();
   const { podeAcessar } = useConfigPermission('checklist');
   
-  // Se não tem permissão, mostrar mensagem
-  if (!podeAcessar) {
-    return <AcessoNegadoComponent />;
-  }
-  
   const [categorias, setCategorias] = useState<CategoriaEquipamento[]>([]);
   const [categoriaSelecionada, setCategoriaSelecionada] = useState<string>('');
   const [itens, setItens] = useState<ChecklistItem[]>([]);
@@ -129,6 +124,11 @@ export default function ChecklistNovoPage() {
       fetchItens();
     }
   }, [fetchItens, categoriaSelecionada]);
+
+  // Se não tem permissão, mostrar mensagem
+  if (!podeAcessar) {
+    return <AcessoNegadoComponent />;
+  }
 
   // Filtrar itens por busca
   const filteredItens = itens.filter(item =>

@@ -46,11 +46,6 @@ export default function ConfigEmpresaContent() {
   const confirm = useConfirm();
   const { podeAcessar } = useConfigPermission('empresa');
   
-  // Se não tem permissão, mostrar mensagem
-  if (!podeAcessar) {
-    return <AcessoNegadoComponent />;
-  }
-  
   const [empresa, setEmpresa] = useState<EmpresaData | null>(null);
   const [loading, setLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -122,6 +117,11 @@ export default function ConfigEmpresaContent() {
   useEffect(() => {
     fetchEmpresa();
   }, [user?.id]);
+
+  // Se não tem permissão, mostrar mensagem
+  if (!podeAcessar) {
+    return <AcessoNegadoComponent />;
+  }
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({

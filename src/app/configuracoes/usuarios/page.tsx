@@ -31,11 +31,6 @@ function UsuariosPageInner() {
   const confirm = useConfirm();
   const { podeAcessar } = useConfigPermission('usuarios');
   
-  // Se não tem permissão, mostrar mensagem
-  if (!podeAcessar) {
-    return <AcessoNegadoComponent />;
-  }
-
   // Estados do formulário
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
@@ -64,6 +59,11 @@ function UsuariosPageInner() {
     auth_user_id: string
   }>>([])
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
+
+  // Se não tem permissão, mostrar mensagem
+  if (!podeAcessar) {
+    return <AcessoNegadoComponent />;
+  }
 
   // Função para validar CPF
   const validarCPF = (cpf: string) => {

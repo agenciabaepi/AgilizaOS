@@ -43,11 +43,6 @@ export default function TermosPage() {
     ativo: true
   })
 
-  // Se não tem permissão, mostrar mensagem
-  if (!podeAcessar) {
-    return <AcessoNegadoComponent />;
-  }
-
   // Garantir que o componente está montado no cliente
   useEffect(() => {
     setMounted(true)
@@ -113,6 +108,11 @@ export default function TermosPage() {
   useEffect(() => {
     fetchTermos()
   }, [empresaData?.id])
+
+  // Se não tem permissão, mostrar mensagem
+  if (!podeAcessar) {
+    return <AcessoNegadoComponent />;
+  }
 
   // Salvar termo
   const salvarTermo = async () => {
