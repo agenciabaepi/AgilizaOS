@@ -308,7 +308,6 @@ export default function ListaOrdensPage() {
             servico,
             tipo,
             observacao,
-            problema_relatado,
             clientes!left(nome, telefone, email),
             tecnico:usuarios!left(nome)
           `)
@@ -1251,12 +1250,6 @@ export default function ListaOrdensPage() {
                     </div>
                   </th>
                   <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <div className="flex items-center gap-1">
-                      <FiMessageCircle className="w-3 h-3" />
-                      <span className="hidden sm:inline">Relato</span>
-                    </div>
-                  </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       <span className="hidden sm:inline">Serviço</span>
                   </th>
                   <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1338,17 +1331,6 @@ export default function ListaOrdensPage() {
                           {[os.aparelhoCategoria, os.aparelhoMarca].filter(Boolean).join(' • ')}
                         </div>
                       )}
-                    </td>
-                    <td className="px-1 py-2">
-                      <div className="text-xs text-gray-700 min-w-0 max-w-32">
-                        {os.problema_relatado ? (
-                          <div className="truncate" title={os.problema_relatado}>
-                            {os.problema_relatado}
-                          </div>
-                        ) : (
-                          <span className="text-gray-400 italic">Sem relato</span>
-                        )}
-                      </div>
                     </td>
                     <td className="px-1 py-2">
                       <div className="text-xs text-gray-900 min-w-0">
@@ -1487,14 +1469,6 @@ export default function ListaOrdensPage() {
                   <div className="text-sm font-medium text-gray-800">{os.aparelho || 'N/A'}</div>
                   <div className="text-xs text-gray-600">{os.servico || 'Aguardando'}</div>
                 </div>
-
-                {/* Relato do Cliente */}
-                {os.problema_relatado && (
-                  <div className="mb-3 p-2 bg-gray-50 rounded-lg border border-gray-200">
-                    <div className="text-xs text-gray-500 font-medium mb-1">Relato do Cliente:</div>
-                    <div className="text-xs text-gray-700 line-clamp-2">{os.problema_relatado}</div>
-                  </div>
-                )}
 
                 {/* Informações técnicas */}
                 <div className="grid grid-cols-2 gap-4 mb-3 text-xs">
