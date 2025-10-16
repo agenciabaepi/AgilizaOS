@@ -37,7 +37,7 @@ interface OrdemTransformada {
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { FiRefreshCw, FiPlus, FiSearch, FiFilter, FiUser, FiSmartphone, FiDollarSign, FiClock, FiAlertCircle, FiFileText, FiCheckCircle, FiMessageCircle } from 'react-icons/fi';
+import { FiRefreshCw, FiPlus, FiSearch, FiFilter, FiUser, FiSmartphone, FiDollarSign, FiClock, FiAlertCircle, FiFileText, FiCheckCircle } from 'react-icons/fi';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import AuthGuardFinal from '@/components/AuthGuardFinal';
