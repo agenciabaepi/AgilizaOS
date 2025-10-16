@@ -3,7 +3,7 @@
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { FiClipboard, FiSave, FiBox, FiTool, FiPlayCircle, FiX, FiCamera, FiTrash2, FiEdit, FiCheck, FiAlertCircle, FiLock } from 'react-icons/fi';
+import { FiClipboard, FiSave, FiBox, FiTool, FiPlayCircle, FiX, FiCamera, FiTrash2, FiEdit, FiCheck, FiAlertCircle, FiLock, FiArrowLeft, FiUser, FiDollarSign, FiMessageCircle, FiPackage, FiAlertTriangle } from 'react-icons/fi';
 import MenuLayout from '@/components/MenuLayout';
 // Removido ProtectedArea - agora é responsabilidade do MenuLayout
 import ProdutoServicoSearch from '@/components/ProdutoServicoSearch';
@@ -730,154 +730,213 @@ export default function DetalheBancadaPage() {
   // const valor = ((os.valor_servico || 0) + (os.valor_peca || 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   return (
-    
-      <MenuLayout>
-      <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <Button
-            onClick={() => window.history.back()}
-            variant="ghost"
-            size="sm"
-            className="text-blue-600 hover:text-blue-700 inline-flex items-center gap-2 w-fit"
-          >
-            ← Voltar para Bancada
-          </Button>
-          
-          <div className="flex items-center gap-3">
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-              os.status === 'ABERTA' ? 'bg-yellow-100 text-yellow-800' :
-              os.status === 'EM_ANALISE' ? 'bg-blue-100 text-blue-800' :
-              os.status === 'AGUARDANDO_PECA' ? 'bg-orange-100 text-orange-800' :
-              os.status === 'CONCLUIDO' ? 'bg-green-100 text-green-800' :
-              'bg-gray-100 text-gray-800'
-            }`}>
-              {os.status === 'ABERTA' ? 'Aguardando' :
-               os.status === 'EM_ANALISE' ? 'Em Análise' :
-               os.status === 'AGUARDANDO_PECA' ? 'Aguardando Peça' :
-               os.status === 'CONCLUIDO' ? 'Concluído' : os.status}
-            </span>
+    <MenuLayout>
+      {/* Mobile-First Layout */}
+      <div className="min-h-screen bg-gray-50">
+        {/* Header Mobile App-like */}
+        <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
+          <div className="px-4 py-3">
+            <div className="flex items-center justify-between">
+              <Button
+                onClick={() => window.history.back()}
+                variant="ghost"
+                size="sm"
+                className="text-blue-600 hover:text-blue-700 p-2 -ml-2"
+              >
+                <FiArrowLeft className="w-5 h-5" />
+              </Button>
+              
+              <div className="flex-1 text-center">
+                <h1 className="text-lg font-semibold text-gray-900">
+                  OS #{os.numero_os || os.id}
+                </h1>
+              </div>
+              
+              <div className="w-9 h-9"></div> {/* Spacer for centering */}
+            </div>
+            
+            {/* Status Badge */}
+            <div className="flex justify-center mt-2">
+              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                os.status === 'ABERTA' ? 'bg-yellow-100 text-yellow-800' :
+                os.status === 'EM_ANALISE' ? 'bg-blue-100 text-blue-800' :
+                os.status === 'AGUARDANDO_PECA' ? 'bg-orange-100 text-orange-800' :
+                os.status === 'CONCLUIDO' ? 'bg-green-100 text-green-800' :
+                'bg-gray-100 text-gray-800'
+              }`}>
+                {os.status === 'ABERTA' ? 'Aguardando' :
+                 os.status === 'EM_ANALISE' ? 'Em Análise' :
+                 os.status === 'AGUARDANDO_PECA' ? 'Aguardando Peça' :
+                 os.status === 'CONCLUIDO' ? 'Concluído' : os.status}
+              </span>
+            </div>
           </div>
         </div>
-        
-        <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2 mb-6">
-          <FiClipboard className="text-blue-600" />
-          Ordem #{os.numero_os || os.id}
-        </h1>
+
+        {/* Content Container */}
+        <div className="px-4 py-4 space-y-4">
 
         {/* Barra de progresso da OS (mock, pode ser melhorada com status reais) */}
         {/* ... manter steps ou adaptar conforme status reais ... */}
 
-        <section className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8 shadow-sm">
-          <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-4 sm:mb-6">
-            <FiClipboard className="text-blue-600" />
-            Detalhes da OS
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-500">Cliente</p>
-              <p className="text-base text-gray-800 font-medium">{os.cliente?.nome || '---'}</p>
+          {/* Cliente Card - Mobile App Style */}
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                <FiUser className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 text-base">Cliente</h3>
+                <p className="text-sm text-gray-500">Informações do cliente</p>
+              </div>
+            </div>
+            <p className="text-lg font-medium text-gray-900">{os.cliente?.nome || '---'}</p>
+          </div>
+
+          {/* Aparelho Card */}
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+                <FiBox className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 text-base">Aparelho</h3>
+                <p className="text-sm text-gray-500">Equipamento em reparo</p>
+              </div>
+            </div>
+            <p className="text-lg font-medium text-gray-900 mb-2">{aparelho || '---'}</p>
+            {os.numero_serie && (
+              <p className="text-sm text-gray-600">Série: {os.numero_serie}</p>
+            )}
+          </div>
+
+          {/* Valor Card */}
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
+                <FiDollarSign className="w-5 h-5 text-yellow-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 text-base">Valor Total</h3>
+                <p className="text-sm text-gray-500">Orçamento da OS</p>
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-blue-600">
+              {((parseFloat(os.valor_servico || '0') + parseFloat(os.valor_peca || '0'))).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </p>
+          </div>
+
+          {/* Info Card */}
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+                <FiClipboard className="w-5 h-5 text-purple-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 text-base">Informações</h3>
+                <p className="text-sm text-gray-500">Detalhes da OS</p>
+              </div>
             </div>
             <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-500">Aparelho</p>
-              <p className="text-base text-gray-800">{aparelho || '---'}</p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-500">Número de Série</p>
-              <p className="text-base text-gray-800">{os.numero_serie || '---'}</p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-500">Data de Entrada</p>
-              <p className="text-base text-gray-800">
-                {os.created_at ? new Date(os.created_at).toLocaleDateString('pt-BR') : '---'}
-              </p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-500">Valor Total</p>
-              <p className="text-base font-semibold text-blue-600">
-                {((parseFloat(os.valor_servico || '0') + parseFloat(os.valor_peca || '0'))).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-              </p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-500">Atendente</p>
-              <p className="text-base text-gray-800">{os.atendente || '---'}</p>
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600">Data de Entrada:</span>
+                <span className="text-sm font-medium text-gray-900">
+                  {os.created_at ? new Date(os.created_at).toLocaleDateString('pt-BR') : '---'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600">Atendente:</span>
+                <span className="text-sm font-medium text-gray-900">{os.atendente || '---'}</span>
+              </div>
             </div>
           </div>
           
-          {/* Debug do relato */}
-          {(() => {
-            console.log('🔍 DEBUG RENDERIZAÇÃO: Relato na bancada:', {
-              tem_os: !!os,
-              relato: os?.relato,
-              tem_relato: !!os?.relato,
-              relato_length: os?.relato?.length || 0
-            });
-            return null;
-          })()}
-          
+          {/* Relato do Cliente Card */}
           {os?.relato && (
-            <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm font-medium text-gray-700 mb-2">Relato do Cliente</p>
-              <p className="text-sm text-gray-600 leading-relaxed">{os.relato}</p>
-            </div>
-          )}
-          
-          {/* Debug: Mostrar sempre se não tem relato */}
-          {!os?.relato && (
-            <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm font-medium text-yellow-800 mb-2">⚠️ Debug: Relato não encontrado</p>
-              <p className="text-sm text-yellow-700">
-                OS ID: {os?.id}<br/>
-                Relato: {os?.relato || 'null/undefined'}<br/>
-                Tem relato: {os?.relato ? 'Sim' : 'Não'}
-              </p>
-            </div>
-          )}
-          
-          {(os.acessorios || os.condicoes_equipamento) && (
-            <div className="mt-4 sm:mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-              {os.acessorios && (
-                <div className="p-3 sm:p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm font-medium text-gray-700 mb-2">Acessórios</p>
-                  <p className="text-sm text-gray-600">{os.acessorios}</p>
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
+                  <FiMessageCircle className="w-5 h-5 text-orange-600" />
                 </div>
-              )}
-              {os.condicoes_equipamento && (
-                <div className="p-3 sm:p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm font-medium text-gray-700 mb-2">Condições do Equipamento</p>
-                  <p className="text-sm text-gray-600">{os.condicoes_equipamento}</p>
+                <div>
+                  <h3 className="font-semibold text-gray-900 text-base">Relato do Cliente</h3>
+                  <p className="text-sm text-gray-500">Problema relatado</p>
                 </div>
-              )}
+              </div>
+              <div className="bg-orange-50 rounded-xl p-3">
+                <p className="text-sm text-gray-700 leading-relaxed">{os.relato}</p>
+              </div>
             </div>
           )}
-        </section>
+          {/* Acessórios Card */}
+          {os.acessorios && (
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <FiPackage className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 text-base">Acessórios</h3>
+                  <p className="text-sm text-gray-500">Itens acompanhantes</p>
+                </div>
+              </div>
+              <div className="bg-blue-50 rounded-xl p-3">
+                <p className="text-sm text-gray-700 leading-relaxed">{os.acessorios}</p>
+              </div>
+            </div>
+          )}
 
-        <div className="bg-white p-4 sm:p-8 rounded-xl shadow-sm border border-gray-200 space-y-6 sm:space-y-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-            {/* Status Técnico */}
-            <div className="space-y-3">
-              <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                <FiClipboard className="text-blue-600" />
-                Status Técnico
-              </h2>
-              <select
-                className="w-full border border-gray-300 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                value={statusTecnico}
-                onChange={e => setStatusTecnico(e.target.value)}
-              >
-                <option value="">Selecione o status</option>
-                {statusTecnicoOptions.map(option => (
-                  <option key={option.id} value={option.nome}>{option.nome}</option>
-                ))}
-              </select>
+          {/* Condições do Equipamento Card */}
+          {os.condicoes_equipamento && (
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
+                  <FiAlertTriangle className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 text-base">Condições do Equipamento</h3>
+                  <p className="text-sm text-gray-500">Estado do aparelho</p>
+                </div>
+              </div>
+              <div className="bg-red-50 rounded-xl p-3">
+                <p className="text-sm text-gray-700 leading-relaxed">{os.condicoes_equipamento}</p>
+              </div>
             </div>
+          )}
+          {/* Status Técnico Card */}
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                <FiClipboard className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 text-base">Status Técnico</h3>
+                <p className="text-sm text-gray-500">Atualizar progresso</p>
+              </div>
+            </div>
+            <select
+              className="w-full border border-gray-300 px-4 py-3 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white"
+              value={statusTecnico}
+              onChange={e => setStatusTecnico(e.target.value)}
+            >
+              <option value="">Selecione o status</option>
+              {statusTecnicoOptions.map(option => (
+                <option key={option.id} value={option.nome}>{option.nome}</option>
+              ))}
+            </select>
           </div>
 
-          {/* Produtos utilizados */}
-          <div className="space-y-3">
-            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-              <FiBox className="text-blue-600" />
-              Produtos utilizados
-            </h2>
+          {/* Produtos Utilizados Card */}
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+                <FiBox className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 text-base">Produtos Utilizados</h3>
+                <p className="text-sm text-gray-500">Adicionar peças e materiais</p>
+              </div>
+            </div>
             
             {/* Busca de produtos */}
             <ProdutoServicoSearch
@@ -1166,26 +1225,36 @@ export default function DetalheBancadaPage() {
             )}
           </div>
 
-          {/* Laudo Técnico */}
-          <div className="space-y-3">
-            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-              <FiClipboard className="text-blue-600" />
-              Laudo Técnico
-            </h2>
+          {/* Laudo Técnico Card */}
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+                <FiEdit className="w-5 h-5 text-purple-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 text-base">Laudo Técnico</h3>
+                <p className="text-sm text-gray-500">Diagnóstico detalhado</p>
+              </div>
+            </div>
             <textarea
-              className="w-full border border-gray-300 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm min-h-[120px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
+              className="w-full border border-gray-300 px-4 py-3 rounded-xl text-sm min-h-[120px] focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors resize-none bg-white"
               value={laudo}
               onChange={e => setLaudo(e.target.value)}
               placeholder="Descreva o diagnóstico técnico com todos os detalhes relevantes..."
             />
           </div>
 
-          {/* Imagens do Equipamento */}
-          <div className="space-y-3">
-            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-              <FiCamera className="text-blue-600" />
-              Imagens do Equipamento
-            </h2>
+          {/* Imagens do Equipamento Card */}
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+                <FiCamera className="w-5 h-5 text-indigo-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 text-base">Imagens do Equipamento</h3>
+                <p className="text-sm text-gray-500">Fotos do aparelho</p>
+              </div>
+            </div>
             
             {/* Upload de novas imagens */}
             <div className="space-y-4">
@@ -1289,20 +1358,25 @@ export default function DetalheBancadaPage() {
             </div>
           </div>
 
-          {/* Informações de Acesso do Aparelho */}
+          {/* Informações de Acesso Card */}
           {(os?.senha_aparelho || os?.senha_padrao) && (
-            <div className="space-y-3 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                <FiLock className="text-yellow-600" />
-                Informações de Acesso
-              </h2>
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
+                  <FiLock className="w-5 h-5 text-yellow-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 text-base">Informações de Acesso</h3>
+                  <p className="text-sm text-gray-500">Senhas e padrões</p>
+                </div>
+              </div>
               
               {os?.senha_aparelho && (
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Senha do Aparelho:
                   </label>
-                  <div className="bg-white border border-gray-300 rounded-lg p-3">
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
                     <code className="text-lg font-mono text-blue-600">
                       {String(os.senha_aparelho)}
                     </code>
@@ -1311,11 +1385,11 @@ export default function DetalheBancadaPage() {
               )}
               
               {os?.senha_padrao && (
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Padrão Android:
                   </label>
-                  <div className="bg-white border border-gray-300 rounded-lg p-3">
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
                     <PatternDisplay pattern={os.senha_padrao as string | number[]} />
                   </div>
                 </div>
@@ -1323,12 +1397,17 @@ export default function DetalheBancadaPage() {
             </div>
           )}
 
-          {/* Checklist de Entrada */}
-          <div className="space-y-3">
-            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-              <FiCheck className="text-green-600" />
-              Checklist de Entrada
-            </h2>
+          {/* Checklist de Entrada Card */}
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+                <FiCheck className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 text-base">Checklist de Entrada</h3>
+                <p className="text-sm text-gray-500">Verificações iniciais</p>
+              </div>
+            </div>
             
             {checklistItens.length > 0 ? (
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -1346,42 +1425,48 @@ export default function DetalheBancadaPage() {
             )}
           </div>
 
-          {/* Observações técnicas */}
-          <div className="space-y-3">
-            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-              <FiClipboard className="text-blue-600" />
-              Observações técnicas
-            </h2>
+          {/* Observações Técnicas Card */}
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center">
+                <FiClipboard className="w-5 h-5 text-gray-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 text-base">Observações Técnicas</h3>
+                <p className="text-sm text-gray-500">Notas adicionais</p>
+              </div>
+            </div>
             <textarea
-              className="w-full border border-gray-300 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm min-h-[80px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
+              className="w-full border border-gray-300 px-4 py-3 rounded-xl text-sm min-h-[80px] focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors resize-none bg-white"
               value={observacoes}
               onChange={e => setObservacoes(e.target.value)}
               placeholder="Observações adicionais do técnico..."
             />
           </div>
 
-          <div className="pt-4 border-t border-gray-200 flex flex-col sm:flex-row gap-3">
-            {mostrarBotaoIniciar && (
+          {/* Botões de Ação - Mobile App Style */}
+          <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 -mx-4 -mb-4">
+            <div className="space-y-3">
+              {mostrarBotaoIniciar && (
+                <Button
+                  onClick={handleIniciarOS}
+                  disabled={salvando}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-4 rounded-xl shadow-lg"
+                >
+                  <FiPlayCircle size={20} className="mr-2" /> 
+                  {salvando ? 'Iniciando...' : 'Iniciar OS'}
+                </Button>
+              )}
+              
               <Button
-                onClick={handleIniciarOS}
+                onClick={handleSalvar}
                 disabled={salvando}
-                className="inline-flex justify-center items-center gap-2 bg-green-600 text-white hover:bg-green-700 w-full sm:w-auto"
-                size="lg"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-xl shadow-lg"
               >
-                <FiPlayCircle size={16} /> 
-                {salvando ? 'Iniciando...' : 'Iniciar OS'}
+                <FiSave size={20} className="mr-2" /> 
+                {salvando ? 'Salvando...' : 'Salvar Alterações'}
               </Button>
-            )}
-            
-            <Button
-              onClick={handleSalvar}
-              disabled={salvando}
-              size="lg"
-              className="inline-flex justify-center items-center gap-2 w-full sm:w-auto"
-            >
-              <FiSave size={16} /> 
-              {salvando ? 'Salvando...' : 'Salvar Alterações'}
-            </Button>
+            </div>
           </div>
         </div>
       </div>
