@@ -60,11 +60,6 @@ function UsuariosPageInner() {
   }>>([])
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
 
-  // Se não tem permissão, mostrar mensagem
-  if (!podeAcessar) {
-    return <AcessoNegadoComponent />;
-  }
-
   // Função para validar CPF
   const validarCPF = (cpf: string) => {
     const cpfLimpo = cpf.replace(/\D/g, '');
@@ -283,6 +278,11 @@ function UsuariosPageInner() {
       fetchUsuarios()
     }
   }, [session])
+
+  // Se não tem permissão, mostrar mensagem
+  if (!podeAcessar) {
+    return <AcessoNegadoComponent />;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
