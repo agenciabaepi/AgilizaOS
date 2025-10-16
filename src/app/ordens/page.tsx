@@ -308,6 +308,7 @@ export default function ListaOrdensPage() {
             servico,
             tipo,
             observacao,
+            problema_relatado,
             clientes!left(nome, telefone, email),
             tecnico:usuarios!left(nome)
           `)
