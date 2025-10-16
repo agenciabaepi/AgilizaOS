@@ -1332,6 +1332,11 @@ export default function ListaOrdensPage() {
                           {[os.aparelhoCategoria, os.aparelhoMarca].filter(Boolean).join(' • ')}
                         </div>
                       )}
+                      {os.problema_relatado && (
+                        <div className="text-xs text-blue-600 truncate mt-1" title={os.problema_relatado}>
+                          💬 {os.problema_relatado}
+                        </div>
+                      )}
                     </td>
                     <td className="px-1 py-2">
                       <div className="text-xs text-gray-900 min-w-0">
@@ -1470,6 +1475,14 @@ export default function ListaOrdensPage() {
                   <div className="text-sm font-medium text-gray-800">{os.aparelho || 'N/A'}</div>
                   <div className="text-xs text-gray-600">{os.servico || 'Aguardando'}</div>
                 </div>
+
+                {/* Relato do Cliente */}
+                {os.problema_relatado && (
+                  <div className="mb-3 p-2 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="text-xs text-blue-600 font-medium mb-1">💬 Relato do Cliente:</div>
+                    <div className="text-xs text-blue-700 line-clamp-2">{os.problema_relatado}</div>
+                  </div>
+                )}
 
                 {/* Informações técnicas */}
                 <div className="grid grid-cols-2 gap-4 mb-3 text-xs">
