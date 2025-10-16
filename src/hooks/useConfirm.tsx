@@ -33,7 +33,7 @@ export const useConfirm = () => {
         resolve
       });
     });
-  });
+  }, []);
 
   const handleConfirm = useCallback(() => {
     if (confirmState.resolve) {

@@ -89,7 +89,7 @@ export default function OSPublicPage() {
         
         // Timeout de 10 segundos para consultas
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Timeout na consulta')), 10000);
+          setTimeout(() => reject(new Error('Timeout na consulta - Supabase demorou mais de 15 segundos')), 15000);
         });
         
         // Primeiro verificar se a OS existe e validar senha
@@ -358,127 +358,205 @@ export default function OSPublicPage() {
 
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+    <div className="min-h-screen bg-white">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Header com Logo da Empresa */}
+        <div className="text-center mb-12">
+          {/* Logo da Empresa */}
+          <div className="flex justify-center mb-8">
+            <div className="relative group">
+              {osData.empresas?.logo_url ? (
+                <img 
+                  src={osData.empresas.logo_url} 
+                  alt={`Logo ${osData.empresas.nome}`}
+                  width={120}
+                  height={120}
+                  className="transition-all duration-300 hover:scale-105 object-contain"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    const nextElement = e.currentTarget.nextElementSibling as HTMLElement;
+                    if (nextElement) {
+                      nextElement.style.display = 'flex';
+                    }
+                  }}
+                />
+              ) : null}
+              <div className={`w-[120px] h-[120px] bg-gray-50 rounded-2xl flex items-center justify-center shadow-sm border border-gray-100 ${osData.empresas?.logo_url ? 'hidden' : ''}`}>
+                <div className="text-center">
+                  <div className="w-10 h-10 bg-gray-200 rounded-full mx-auto mb-2 flex items-center justify-center">
+                    <FiFileText className="w-5 h-5 text-gray-500" />
+                  </div>
+                  <span className="text-gray-600 font-medium text-sm">
+                    {osData.empresas?.nome || 'Empresa'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <h1 className="text-3xl font-light text-gray-900 mb-3 tracking-tight">
             Acompanhamento de OS
           </h1>
-          <p className="text-xl text-gray-600">OS #{osData.numero_os}</p>
+          <div className="inline-flex items-center bg-gray-900 text-white px-6 py-2 rounded-lg text-sm font-medium">
+            <FiFileText className="w-4 h-4 mr-2" />
+            OS #{osData.numero_os}
+          </div>
         </div>
 
         {/* Status Atual */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex items-center justify-center mb-4">
-            <div className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${currentStatus.color}`}>
-              <StatusIcon className="w-4 h-4 mr-2" />
-              {currentStatus.label}
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-8">
+          <div className="text-center">
+            <div className="flex items-center justify-center mb-4">
+              <div className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${currentStatus.color}`}>
+                <StatusIcon className="w-4 h-4 mr-2" />
+                {currentStatus.label}
+              </div>
             </div>
+            <p className="text-gray-600 font-light">
+              Status atualizado em {new Date(osData.created_at).toLocaleDateString('pt-BR')}
+            </p>
           </div>
-          <p className="text-center text-gray-600">
-            Status atualizado em {new Date(osData.created_at).toLocaleDateString('pt-BR')}
-          </p>
         </div>
 
         {/* Grid de Informações */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           {/* Informações do Cliente */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center mb-4">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                <FiUser className="w-5 h-5 text-blue-600" />
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+            <div className="flex items-center mb-5">
+              <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center mr-3">
+                <FiUser className="w-5 h-5 text-gray-600" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900">Cliente</h3>
+              <h3 className="text-lg font-medium text-gray-900">Cliente</h3>
             </div>
-            <div className="space-y-2">
-              <p><span className="font-medium">Nome:</span> {osData.clientes?.nome || 'Não informado'}</p>
-              <p><span className="font-medium">Telefone:</span> {osData.clientes?.telefone || 'Não informado'}</p>
-              <p><span className="font-medium">Email:</span> {osData.clientes?.email || 'Não informado'}</p>
+            <div className="space-y-3">
+              <div>
+                <span className="text-sm font-medium text-gray-500">Nome</span>
+                <p className="text-gray-900 font-light">{osData.clientes?.nome || 'Não informado'}</p>
+              </div>
+              <div>
+                <span className="text-sm font-medium text-gray-500">Telefone</span>
+                <p className="text-gray-900 font-light">{osData.clientes?.telefone || 'Não informado'}</p>
+              </div>
+              <div>
+                <span className="text-sm font-medium text-gray-500">Email</span>
+                <p className="text-gray-900 font-light">{osData.clientes?.email || 'Não informado'}</p>
+              </div>
             </div>
           </div>
 
           {/* Informações do Equipamento */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center mb-4">
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
-                <FiSmartphone className="w-5 h-5 text-green-600" />
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+            <div className="flex items-center mb-5">
+              <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center mr-3">
+                <FiSmartphone className="w-5 h-5 text-gray-600" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900">Equipamento</h3>
+              <h3 className="text-lg font-medium text-gray-900">Equipamento</h3>
             </div>
-            <div className="space-y-2">
-              <p><span className="font-medium">Tipo de Equipamento:</span> {osData.equipamento || 'Não informado'}</p>
-              <p><span className="font-medium">Marca:</span> {osData.marca || 'Não informado'}</p>
-              <p><span className="font-medium">Modelo:</span> {osData.modelo || 'Não informado'}</p>
-              {osData.cor && <p><span className="font-medium">Cor:</span> {osData.cor}</p>}
-              {osData.numero_serie && <p><span className="font-medium">Número de Série:</span> {osData.numero_serie}</p>}
-              {osData.acessorios && <p><span className="font-medium">Acessórios:</span> {osData.acessorios}</p>}
+            <div className="space-y-3">
+              <div>
+                <span className="text-sm font-medium text-gray-500">Tipo</span>
+                <p className="text-gray-900 font-light">{osData.equipamento || 'Não informado'}</p>
+              </div>
+              <div>
+                <span className="text-sm font-medium text-gray-500">Marca</span>
+                <p className="text-gray-900 font-light">{osData.marca || 'Não informado'}</p>
+              </div>
+              <div>
+                <span className="text-sm font-medium text-gray-500">Modelo</span>
+                <p className="text-gray-900 font-light">{osData.modelo || 'Não informado'}</p>
+              </div>
+              {osData.cor && (
+                <div>
+                  <span className="text-sm font-medium text-gray-500">Cor</span>
+                  <p className="text-gray-900 font-light">{osData.cor}</p>
+                </div>
+              )}
+              {osData.numero_serie && (
+                <div>
+                  <span className="text-sm font-medium text-gray-500">Número de Série</span>
+                  <p className="text-gray-900 font-light">{osData.numero_serie}</p>
+                </div>
+              )}
+              {osData.acessorios && (
+                <div>
+                  <span className="text-sm font-medium text-gray-500">Acessórios</span>
+                  <p className="text-gray-900 font-light">{osData.acessorios}</p>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Informações do Serviço */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center mb-4">
-              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
-                <FiFileText className="w-5 h-5 text-purple-600" />
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+            <div className="flex items-center mb-5">
+              <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center mr-3">
+                <FiFileText className="w-5 h-5 text-gray-600" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900">Serviço</h3>
+              <h3 className="text-lg font-medium text-gray-900">Serviço</h3>
             </div>
-            <div className="space-y-2">
-              <p><span className="font-medium">Técnico:</span> {osData.tecnico?.nome || 'Não informado'}</p>
+            <div className="space-y-3">
+              <div>
+                <span className="text-sm font-medium text-gray-500">Técnico Responsável</span>
+                <p className="text-gray-900 font-light">{osData.tecnico?.nome || 'Não informado'}</p>
+              </div>
             </div>
           </div>
 
           {/* Informações da Empresa */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center mb-4">
-              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center mr-3">
-                <FiCalendar className="w-5 h-5 text-orange-600" />
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+            <div className="flex items-center mb-5">
+              <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center mr-3">
+                <FiCalendar className="w-5 h-5 text-gray-600" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900">Empresa</h3>
+              <h3 className="text-lg font-medium text-gray-900">Empresa</h3>
             </div>
-            <div className="space-y-2">
-              <p><span className="font-medium">Nome:</span> {osData.empresas?.nome || 'Não informado'}</p>
-              <p><span className="font-medium">Telefone:</span> {osData.empresas?.telefone || 'Não informado'}</p>
-              <p><span className="font-medium">Email:</span> {osData.empresas?.email || 'Não informado'}</p>
+            <div className="space-y-3">
+              <div>
+                <span className="text-sm font-medium text-gray-500">Nome</span>
+                <p className="text-gray-900 font-light">{osData.empresas?.nome || 'Não informado'}</p>
+              </div>
+              <div>
+                <span className="text-sm font-medium text-gray-500">Telefone</span>
+                <p className="text-gray-900 font-light">{osData.empresas?.telefone || 'Não informado'}</p>
+              </div>
+              <div>
+                <span className="text-sm font-medium text-gray-500">Email</span>
+                <p className="text-gray-900 font-light">{osData.empresas?.email || 'Não informado'}</p>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Informações de Acesso */}
         {(osData.senha_aparelho || osData.senha_padrao) && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-            <div className="flex items-center mb-4">
-              <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
-                <FiShield className="w-5 h-5 text-indigo-600" />
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-8">
+            <div className="flex items-center mb-5">
+              <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center mr-3">
+                <FiShield className="w-5 h-5 text-gray-600" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900">Informações de Acesso</h3>
+              <h3 className="text-lg font-medium text-gray-900">Informações de Acesso</h3>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {osData.senha_aparelho && (
-                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                  <div className="p-1.5 bg-gray-100 rounded">
-                    <FiShield className="w-4 h-4 text-gray-600" />
-                  </div>
+                <div className="space-y-3">
                   <div>
-                    <span className="text-sm font-medium text-gray-700">Senha do Aparelho:</span>
-                    <p className="font-mono text-gray-800 bg-white px-2 py-1 rounded text-sm mt-1 border">
-                      {osData.senha_aparelho}
-                    </p>
+                    <span className="text-sm font-medium text-gray-500">Senha do Aparelho</span>
+                    <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                      <p className="font-mono text-lg text-gray-900 font-medium text-center">
+                        {osData.senha_aparelho}
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
               
               {osData.senha_padrao && (
-                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                  <div className="p-1.5 bg-gray-100 rounded">
-                    <FiSmartphone className="w-4 h-4 text-gray-600" />
-                  </div>
-                  <div className="flex-1">
-                    <span className="text-sm font-medium text-gray-700">Padrão de Desenho:</span>
-                    <div className="mt-2">
-                      <div className="grid grid-cols-3 gap-1 w-24 bg-white border border-gray-300 rounded p-2">
+                <div className="space-y-3">
+                  <div>
+                    <span className="text-sm font-medium text-gray-500">Padrão de Desenho</span>
+                    <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                      <div className="grid grid-cols-3 gap-2 w-24 mx-auto">
                         {Array.from({ length: 9 }, (_, index) => {
                           const pattern = JSON.parse(osData.senha_padrao);
                           const isSelected = pattern.includes(index);

@@ -89,16 +89,27 @@ export const useFluxoCaixa = () => {
 
   // Adicionar nova movimentação
   const adicionarMovimentacao = async (formData: FluxoCaixaFormData) => {
-    if (!usuarioData?.empresa_id || !usuarioData?.id) {
+    if (!usuarioData?.empresa_id) {
       throw new Error('Dados do usuário não encontrados');
     }
 
     try {
+      // Buscar o ID do usuário na tabela usuarios
+      const { data: userData, error: userError } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('auth_user_id', usuarioData.auth_user_id)
+        .single();
+
+      if (userError || !userData) {
+        throw new Error('Usuário não encontrado na base de dados');
+      }
+
       const { data, error } = await supabase
         .from('fluxo_caixa')
         .insert({
           empresa_id: usuarioData.empresa_id,
-          usuario_id: usuarioData.id,
+          usuario_id: userData.id,
           tipo: formData.tipo,
           categoria: formData.categoria,
           descricao: formData.descricao,
