@@ -758,16 +758,6 @@ const VisualizarOrdemServicoPage = () => {
                     </p>
                   )}
                   
-                  {/* Debug temporário */}
-                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs">
-                    <div className="font-bold text-yellow-800 mb-2">🐛 Debug - Relato do Cliente:</div>
-                    <div className="text-yellow-700">
-                      <div><strong>OS ID:</strong> {ordem?.id}</div>
-                      <div><strong>Relato (problema_relatado):</strong> {ordem?.problema_relatado || 'null/undefined'}</div>
-                      <div><strong>Relato mapeado:</strong> {ordem?.relato || 'null/undefined'}</div>
-                      <div><strong>Tem relato:</strong> {ordem?.relato ? 'Sim' : 'Não'}</div>
-                    </div>
-                  </div>
                 </div>
 
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
