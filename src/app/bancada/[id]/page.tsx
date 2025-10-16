@@ -731,20 +731,18 @@ export default function DetalheBancadaPage() {
 
   return (
     <MenuLayout>
-      {/* Mobile-First Layout */}
-      <div className="min-h-screen bg-gray-50">
-        {/* Header Mobile App-like */}
+      {/* Mobile-First Layout - Full Screen */}
+      <div className="fixed inset-0 bg-gray-50 overflow-y-auto">
+        {/* Header Mobile App-like - Fixed */}
         <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
           <div className="px-4 py-3">
             <div className="flex items-center justify-between">
-              <Button
+              <button
                 onClick={() => window.history.back()}
-                variant="ghost"
-                size="sm"
-                className="text-blue-600 hover:text-blue-700 p-2 -ml-2"
+                className="text-blue-600 hover:text-blue-700 p-2 -ml-2 rounded-lg hover:bg-blue-50"
               >
-                <FiArrowLeft className="w-5 h-5" />
-              </Button>
+                <FiArrowLeft className="w-6 h-6" />
+              </button>
               
               <div className="flex-1 text-center">
                 <h1 className="text-lg font-semibold text-gray-900">
@@ -752,12 +750,12 @@ export default function DetalheBancadaPage() {
                 </h1>
               </div>
               
-              <div className="w-9 h-9"></div> {/* Spacer for centering */}
+              <div className="w-10 h-10"></div> {/* Spacer for centering */}
             </div>
             
             {/* Status Badge */}
             <div className="flex justify-center mt-2">
-              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+              <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${
                 os.status === 'ABERTA' ? 'bg-yellow-100 text-yellow-800' :
                 os.status === 'EM_ANALISE' ? 'bg-blue-100 text-blue-800' :
                 os.status === 'AGUARDANDO_PECA' ? 'bg-orange-100 text-orange-800' :
@@ -773,38 +771,38 @@ export default function DetalheBancadaPage() {
           </div>
         </div>
 
-        {/* Content Container */}
-        <div className="px-4 py-4 space-y-4">
+        {/* Content Container - Mobile Optimized */}
+        <div className="px-4 py-4 pb-24 space-y-4">
 
         {/* Barra de progresso da OS (mock, pode ser melhorada com status reais) */}
         {/* ... manter steps ou adaptar conforme status reais ... */}
 
           {/* Cliente Card - Mobile App Style */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mx-0">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                <FiUser className="w-5 h-5 text-blue-600" />
+              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                <FiUser className="w-6 h-6 text-blue-600" />
               </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 text-base">Cliente</h3>
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900 text-lg">Cliente</h3>
                 <p className="text-sm text-gray-500">Informações do cliente</p>
               </div>
             </div>
-            <p className="text-lg font-medium text-gray-900">{os.cliente?.nome || '---'}</p>
+            <p className="text-xl font-semibold text-gray-900">{os.cliente?.nome || '---'}</p>
           </div>
 
           {/* Aparelho Card */}
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-                <FiBox className="w-5 h-5 text-green-600" />
+              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                <FiBox className="w-6 h-6 text-green-600" />
               </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 text-base">Aparelho</h3>
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900 text-lg">Aparelho</h3>
                 <p className="text-sm text-gray-500">Equipamento em reparo</p>
               </div>
             </div>
-            <p className="text-lg font-medium text-gray-900 mb-2">{aparelho || '---'}</p>
+            <p className="text-lg font-semibold text-gray-900 mb-2">{aparelho || '---'}</p>
             {os.numero_serie && (
               <p className="text-sm text-gray-600">Série: {os.numero_serie}</p>
             )}
@@ -813,15 +811,15 @@ export default function DetalheBancadaPage() {
           {/* Valor Card */}
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
-                <FiDollarSign className="w-5 h-5 text-yellow-600" />
+              <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
+                <FiDollarSign className="w-6 h-6 text-yellow-600" />
               </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 text-base">Valor Total</h3>
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900 text-lg">Valor Total</h3>
                 <p className="text-sm text-gray-500">Orçamento da OS</p>
               </div>
             </div>
-            <p className="text-2xl font-bold text-blue-600">
+            <p className="text-3xl font-bold text-blue-600">
               {((parseFloat(os.valor_servico || '0') + parseFloat(os.valor_peca || '0'))).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </p>
           </div>
@@ -829,24 +827,24 @@ export default function DetalheBancadaPage() {
           {/* Info Card */}
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
-                <FiClipboard className="w-5 h-5 text-purple-600" />
+              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                <FiClipboard className="w-6 h-6 text-purple-600" />
               </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 text-base">Informações</h3>
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900 text-lg">Informações</h3>
                 <p className="text-sm text-gray-500">Detalhes da OS</p>
               </div>
             </div>
-            <div className="space-y-2">
-              <div className="flex justify-between">
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Data de Entrada:</span>
-                <span className="text-sm font-medium text-gray-900">
+                <span className="text-sm font-semibold text-gray-900">
                   {os.created_at ? new Date(os.created_at).toLocaleDateString('pt-BR') : '---'}
                 </span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Atendente:</span>
-                <span className="text-sm font-medium text-gray-900">{os.atendente || '---'}</span>
+                <span className="text-sm font-semibold text-gray-900">{os.atendente || '---'}</span>
               </div>
             </div>
           </div>
@@ -855,16 +853,16 @@ export default function DetalheBancadaPage() {
           {os?.relato && (
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
-                  <FiMessageCircle className="w-5 h-5 text-orange-600" />
+                <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
+                  <FiMessageCircle className="w-6 h-6 text-orange-600" />
                 </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900 text-base">Relato do Cliente</h3>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-900 text-lg">Relato do Cliente</h3>
                   <p className="text-sm text-gray-500">Problema relatado</p>
                 </div>
               </div>
-              <div className="bg-orange-50 rounded-xl p-3">
-                <p className="text-sm text-gray-700 leading-relaxed">{os.relato}</p>
+              <div className="bg-orange-50 rounded-xl p-4">
+                <p className="text-base text-gray-700 leading-relaxed">{os.relato}</p>
               </div>
             </div>
           )}
@@ -872,16 +870,16 @@ export default function DetalheBancadaPage() {
           {os.acessorios && (
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <FiPackage className="w-5 h-5 text-blue-600" />
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <FiPackage className="w-6 h-6 text-blue-600" />
                 </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900 text-base">Acessórios</h3>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-900 text-lg">Acessórios</h3>
                   <p className="text-sm text-gray-500">Itens acompanhantes</p>
                 </div>
               </div>
-              <div className="bg-blue-50 rounded-xl p-3">
-                <p className="text-sm text-gray-700 leading-relaxed">{os.acessorios}</p>
+              <div className="bg-blue-50 rounded-xl p-4">
+                <p className="text-base text-gray-700 leading-relaxed">{os.acessorios}</p>
               </div>
             </div>
           )}
@@ -890,32 +888,32 @@ export default function DetalheBancadaPage() {
           {os.condicoes_equipamento && (
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">
-                  <FiAlertTriangle className="w-5 h-5 text-red-600" />
+                <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+                  <FiAlertTriangle className="w-6 h-6 text-red-600" />
                 </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900 text-base">Condições do Equipamento</h3>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-900 text-lg">Condições do Equipamento</h3>
                   <p className="text-sm text-gray-500">Estado do aparelho</p>
                 </div>
               </div>
-              <div className="bg-red-50 rounded-xl p-3">
-                <p className="text-sm text-gray-700 leading-relaxed">{os.condicoes_equipamento}</p>
+              <div className="bg-red-50 rounded-xl p-4">
+                <p className="text-base text-gray-700 leading-relaxed">{os.condicoes_equipamento}</p>
               </div>
             </div>
           )}
           {/* Status Técnico Card */}
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                <FiClipboard className="w-5 h-5 text-blue-600" />
+              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                <FiClipboard className="w-6 h-6 text-blue-600" />
               </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 text-base">Status Técnico</h3>
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900 text-lg">Status Técnico</h3>
                 <p className="text-sm text-gray-500">Atualizar progresso</p>
               </div>
             </div>
             <select
-              className="w-full border border-gray-300 px-4 py-3 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white"
+              className="w-full border border-gray-300 px-4 py-4 rounded-xl text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white"
               value={statusTecnico}
               onChange={e => setStatusTecnico(e.target.value)}
             >
@@ -929,11 +927,11 @@ export default function DetalheBancadaPage() {
           {/* Produtos Utilizados Card */}
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-                <FiBox className="w-5 h-5 text-green-600" />
+              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                <FiBox className="w-6 h-6 text-green-600" />
               </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 text-base">Produtos Utilizados</h3>
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900 text-lg">Produtos Utilizados</h3>
                 <p className="text-sm text-gray-500">Adicionar peças e materiais</p>
               </div>
             </div>
@@ -1228,16 +1226,16 @@ export default function DetalheBancadaPage() {
           {/* Laudo Técnico Card */}
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
-                <FiEdit className="w-5 h-5 text-purple-600" />
+              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                <FiEdit className="w-6 h-6 text-purple-600" />
               </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 text-base">Laudo Técnico</h3>
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900 text-lg">Laudo Técnico</h3>
                 <p className="text-sm text-gray-500">Diagnóstico detalhado</p>
               </div>
             </div>
             <textarea
-              className="w-full border border-gray-300 px-4 py-3 rounded-xl text-sm min-h-[120px] focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors resize-none bg-white"
+              className="w-full border border-gray-300 px-4 py-4 rounded-xl text-base min-h-[140px] focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors resize-none bg-white"
               value={laudo}
               onChange={e => setLaudo(e.target.value)}
               placeholder="Descreva o diagnóstico técnico com todos os detalhes relevantes..."
@@ -1247,11 +1245,11 @@ export default function DetalheBancadaPage() {
           {/* Imagens do Equipamento Card */}
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-                <FiCamera className="w-5 h-5 text-indigo-600" />
+              <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
+                <FiCamera className="w-6 h-6 text-indigo-600" />
               </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 text-base">Imagens do Equipamento</h3>
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900 text-lg">Imagens do Equipamento</h3>
                 <p className="text-sm text-gray-500">Fotos do aparelho</p>
               </div>
             </div>
@@ -1362,11 +1360,11 @@ export default function DetalheBancadaPage() {
           {(os?.senha_aparelho || os?.senha_padrao) && (
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
-                  <FiLock className="w-5 h-5 text-yellow-600" />
+                <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
+                  <FiLock className="w-6 h-6 text-yellow-600" />
                 </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900 text-base">Informações de Acesso</h3>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-900 text-lg">Informações de Acesso</h3>
                   <p className="text-sm text-gray-500">Senhas e padrões</p>
                 </div>
               </div>
@@ -1376,8 +1374,8 @@ export default function DetalheBancadaPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Senha do Aparelho:
                   </label>
-                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
-                    <code className="text-lg font-mono text-blue-600">
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                    <code className="text-xl font-mono text-blue-600">
                       {String(os.senha_aparelho)}
                     </code>
                   </div>
@@ -1389,7 +1387,7 @@ export default function DetalheBancadaPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Padrão Android:
                   </label>
-                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
                     <PatternDisplay pattern={os.senha_padrao as string | number[]} />
                   </div>
                 </div>
@@ -1400,11 +1398,11 @@ export default function DetalheBancadaPage() {
           {/* Checklist de Entrada Card */}
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-                <FiCheck className="w-5 h-5 text-green-600" />
+              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                <FiCheck className="w-6 h-6 text-green-600" />
               </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 text-base">Checklist de Entrada</h3>
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900 text-lg">Checklist de Entrada</h3>
                 <p className="text-sm text-gray-500">Verificações iniciais</p>
               </div>
             </div>
@@ -1428,16 +1426,16 @@ export default function DetalheBancadaPage() {
           {/* Observações Técnicas Card */}
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center">
-                <FiClipboard className="w-5 h-5 text-gray-600" />
+              <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center">
+                <FiClipboard className="w-6 h-6 text-gray-600" />
               </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 text-base">Observações Técnicas</h3>
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900 text-lg">Observações Técnicas</h3>
                 <p className="text-sm text-gray-500">Notas adicionais</p>
               </div>
             </div>
             <textarea
-              className="w-full border border-gray-300 px-4 py-3 rounded-xl text-sm min-h-[80px] focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors resize-none bg-white"
+              className="w-full border border-gray-300 px-4 py-4 rounded-xl text-base min-h-[100px] focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors resize-none bg-white"
               value={observacoes}
               onChange={e => setObservacoes(e.target.value)}
               placeholder="Observações adicionais do técnico..."
