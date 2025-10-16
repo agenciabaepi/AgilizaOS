@@ -76,6 +76,7 @@ const VisualizarOrdemServicoPage = () => {
             problema_relatado,
             senha_aparelho,
             senha_padrao,
+            senha_acesso,
             laudo,
             vencimento_garantia,
             termo_garantia_id,
@@ -585,7 +586,7 @@ const VisualizarOrdemServicoPage = () => {
                   />
                 </div>
               )}
-              {(ordem.senha_aparelho || ordem.senha_padrao) && (
+              {(ordem.senha_aparelho || ordem.senha_padrao || ordem.senha_acesso) && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="p-2 bg-indigo-100 rounded-lg">
@@ -595,6 +596,26 @@ const VisualizarOrdemServicoPage = () => {
                   </div>
                   
                   <div className="space-y-4">
+                    {ordem.senha_acesso && (
+                      <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <div className="p-1.5 bg-blue-100 rounded">
+                          <FiExternalLink className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div className="flex-1">
+                          <span className="text-sm font-medium text-gray-700">Senha para Acompanhamento Público:</span>
+                          <p className="font-mono text-blue-800 bg-white px-3 py-2 rounded text-lg font-bold mt-1 border border-blue-200 text-center">
+                            {ordem.senha_acesso}
+                          </p>
+                          <p className="text-xs text-blue-600 mt-1">
+                            O cliente pode usar esta senha para acompanhar a OS em: <br/>
+                            <span className="font-mono bg-blue-100 px-2 py-1 rounded text-xs">
+                              {typeof window !== 'undefined' ? window.location.origin : ''}/os/{ordem.id}/login
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     {ordem.senha_aparelho && (
                       <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                         <div className="p-1.5 bg-gray-100 rounded">
@@ -660,6 +681,17 @@ const VisualizarOrdemServicoPage = () => {
                   <p className="text-gray-700 whitespace-pre-line">
                     {ordem.relato || 'Nenhum relato registrado.'}
                   </p>
+                  
+                  {/* Debug temporário */}
+                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs">
+                    <div className="font-bold text-yellow-800 mb-2">🐛 Debug - Relato do Cliente:</div>
+                    <div className="text-yellow-700">
+                      <div><strong>OS ID:</strong> {ordem?.id}</div>
+                      <div><strong>Relato (problema_relatado):</strong> {ordem?.problema_relatado || 'null/undefined'}</div>
+                      <div><strong>Relato mapeado:</strong> {ordem?.relato || 'null/undefined'}</div>
+                      <div><strong>Tem relato:</strong> {ordem?.relato ? 'Sim' : 'Não'}</div>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
