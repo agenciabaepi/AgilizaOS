@@ -136,7 +136,8 @@ export default function DetalheBancadaPage() {
           senha_aparelho, 
           senha_padrao, 
           checklist_entrada,
-          equipamento
+          equipamento,
+          problema_relatado
         `)
         .eq('id', id)
         .single();
@@ -154,14 +155,21 @@ export default function DetalheBancadaPage() {
       }
       
       if (data) {
+        // Mapear problema_relatado para relato
+        const osData = {
+          ...data,
+          relato: data.problema_relatado || data.relato
+        };
+        
         console.log('🔍 DEBUG BANCADA: Dados da OS carregados:', {
-          id: data.id,
-          numero_os: data.numero_os,
-          relato: data.relato,
-          tem_relato: !!data.relato,
-          relato_length: data.relato?.length || 0
+          id: osData.id,
+          numero_os: osData.numero_os,
+          problema_relatado: data.problema_relatado,
+          relato: osData.relato,
+          tem_relato: !!osData.relato,
+          relato_length: osData.relato?.length || 0
         });
-        setOs(data);
+        setOs(osData);
         setEmpresaId(data.empresa_id);
         
         // Carregar imagens existentes
