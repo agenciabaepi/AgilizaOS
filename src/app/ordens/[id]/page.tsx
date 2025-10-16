@@ -22,6 +22,11 @@ const VisualizarOrdemServicoPage = () => {
   const [ordem, setOrdem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [custosOS, setCustosOS] = useState<number>(0);
+  
+  // Estados para edição do relato
+  const [editandoRelato, setEditandoRelato] = useState(false);
+  const [relatoEditavel, setRelatoEditavel] = useState('');
+  const [salvandoRelato, setSalvandoRelato] = useState(false);
 
   // Estados para sistema de entrega
   const [modalEntrega, setModalEntrega] = useState(false);
@@ -108,6 +113,7 @@ const VisualizarOrdemServicoPage = () => {
           };
           
           setOrdem(ordemMapeada);
+          setRelatoEditavel(data.problema_relatado || '');
           // Buscar custos vinculados à OS (contas_pagar por os_id)
           try {
             const { data: contas } = await supabase
@@ -168,6 +174,38 @@ const VisualizarOrdemServicoPage = () => {
   const isRetorno = (ordem: any) => {
     const tipo = ordem?.tipo?.toLowerCase();
     return tipo === 'retorno' || tipo === 'Retorno';
+  };
+
+  // Função para salvar o relato do cliente
+  const salvarRelato = async () => {
+    if (!ordem?.id) return;
+    
+    setSalvandoRelato(true);
+    try {
+      const { error } = await supabase
+        .from('ordens_servico')
+        .update({ problema_relatado: relatoEditavel })
+        .eq('id', ordem.id);
+
+      if (error) {
+        throw error;
+      }
+
+      // Atualizar o estado local
+      setOrdem((prev: any) => ({
+        ...prev,
+        problema_relatado: relatoEditavel,
+        relato: relatoEditavel
+      }));
+
+      setEditandoRelato(false);
+      addToast('Relato do cliente atualizado com sucesso!', 'success');
+    } catch (error) {
+      console.error('Erro ao salvar relato:', error);
+      addToast('Erro ao salvar relato do cliente', 'error');
+    } finally {
+      setSalvandoRelato(false);
+    }
   };
 
 
@@ -672,15 +710,53 @@ const VisualizarOrdemServicoPage = () => {
               {/* Relato e Observações */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-purple-100 rounded-lg">
-                      <FiMessageCircle className="w-5 h-5 text-purple-600" />
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-purple-100 rounded-lg">
+                        <FiMessageCircle className="w-5 h-5 text-purple-600" />
+                      </div>
+                      <h2 className="text-xl font-semibold text-gray-900">Relato do Cliente</h2>
                     </div>
-                    <h2 className="text-xl font-semibold text-gray-900">Relato do Cliente</h2>
+                    <button
+                      onClick={() => setEditandoRelato(!editandoRelato)}
+                      className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                    >
+                      {editandoRelato ? 'Cancelar' : 'Editar'}
+                    </button>
                   </div>
-                  <p className="text-gray-700 whitespace-pre-line">
-                    {ordem.relato || 'Nenhum relato registrado.'}
-                  </p>
+                  
+                  {editandoRelato ? (
+                    <div className="space-y-3">
+                      <textarea
+                        value={relatoEditavel}
+                        onChange={(e) => setRelatoEditavel(e.target.value)}
+                        placeholder="Descreva o problema relatado pelo cliente..."
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 h-24 resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={salvarRelato}
+                          disabled={salvandoRelato}
+                          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {salvandoRelato ? 'Salvando...' : 'Salvar'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditandoRelato(false);
+                            setRelatoEditavel(ordem?.problema_relatado || '');
+                          }}
+                          className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 text-sm"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-gray-700 whitespace-pre-line">
+                      {ordem.relato || 'Nenhum relato registrado.'}
+                    </p>
+                  )}
                   
                   {/* Debug temporário */}
                   <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs">
