@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/useToast';
 import { useConfirm } from '@/hooks/useConfirm';
 import { useFluxoCaixa, FluxoCaixaFormData } from '@/hooks/useFluxoCaixa';
+import MenuLayout from '@/components/MenuLayout';
 
 export default function FluxoCaixaPage() {
   const { usuarioData } = useAuth();
@@ -174,17 +175,20 @@ export default function FluxoCaixaPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Carregando movimentações...</p>
+      <MenuLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Carregando movimentações...</p>
+          </div>
         </div>
-      </div>
+      </MenuLayout>
     );
   }
 
   return (
-    <div className="p-6">
+    <MenuLayout>
+      <div className="p-6">
       {/* Cabeçalho */}
       <div className="flex justify-between items-center mb-6">
         <div>
@@ -554,6 +558,7 @@ export default function FluxoCaixaPage() {
 
       {/* Modal de confirmação */}
       <ConfirmDialog />
-    </div>
+      </div>
+    </MenuLayout>
   );
 }
