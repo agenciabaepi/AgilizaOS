@@ -103,3 +103,7 @@ ADD COLUMN IF NOT EXISTS senha_acesso VARCHAR(4);
 -- ✅ Acesso à tabela testado
 -- =====================================================
 
+
+
+
+

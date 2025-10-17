@@ -70,3 +70,4 @@ $$ language 'plpgsql';
 CREATE TRIGGER update_fluxo_caixa_updated_at 
   BEFORE UPDATE ON fluxo_caixa 
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+

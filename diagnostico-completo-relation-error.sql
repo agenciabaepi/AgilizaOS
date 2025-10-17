@@ -65,3 +65,7 @@ SELECT
 ROLLBACK TO SAVEPOINT test_diagnostico;
 COMMIT;
 
+
+
+
+

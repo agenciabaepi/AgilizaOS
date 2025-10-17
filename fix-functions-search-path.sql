@@ -150,3 +150,7 @@ ALTER FUNCTION public.update_classificacoes_contabeis_updated_at() SET search_pa
 -- ALTER FUNCTION public.limpar_codigos_expirados() RESET search_path;
 -- ... (repetir para todas as funções)
 
+
+
+
+

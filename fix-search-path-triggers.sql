@@ -91,3 +91,7 @@ SELECT public.generate_random_4_digit_string() AS senha_teste;
 -- ✅ Permissões concedidas
 -- =====================================================
 
+
+
+
+

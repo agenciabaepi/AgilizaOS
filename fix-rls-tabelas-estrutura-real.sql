@@ -240,3 +240,7 @@ CREATE POLICY "whatsapp_sessions_delete_policy" ON public.whatsapp_sessions
 -- ALTER TABLE public.whatsapp_messages DISABLE ROW LEVEL SECURITY;
 -- ALTER TABLE public.whatsapp_sessions DISABLE ROW LEVEL SECURITY;
 
+
+
+
+

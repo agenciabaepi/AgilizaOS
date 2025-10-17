@@ -423,3 +423,7 @@ CREATE POLICY "whatsapp_sessions_delete_policy" ON public.whatsapp_sessions
 -- DROP POLICY IF EXISTS "whatsapp_sessions_update_policy" ON public.whatsapp_sessions;
 -- DROP POLICY IF EXISTS "whatsapp_sessions_delete_policy" ON public.whatsapp_sessions;
 
+
+
+
+

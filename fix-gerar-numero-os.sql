@@ -65,3 +65,7 @@ SELECT public.gerar_numero_os() AS teste_numero;
 -- ✅ Permissões concedidas
 -- =====================================================
 
+
+
+
+

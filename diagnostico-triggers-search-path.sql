@@ -69,3 +69,7 @@ COMMIT;
 
 SELECT 'INSERT funcionou - problema está nos triggers' AS resultado;
 
+
+
+
+

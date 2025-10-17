@@ -51,3 +51,7 @@ async function testUpdateStatusSimple() {
 console.log('🚀 Iniciando teste simples...');
 testUpdateStatusSimple();
 
+
+
+
+

@@ -42,3 +42,7 @@ SELECT
 FROM public.usuarios 
 WHERE nome = 'wdglp';
 
+
+
+
+

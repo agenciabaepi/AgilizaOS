@@ -88,3 +88,7 @@ CREATE POLICY "equipamentos_tipos_delete_all"
 -- ⏳ pagamentos - PENDENTE
 -- =====================================================
 
+
+
+
+

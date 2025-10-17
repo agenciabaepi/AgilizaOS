@@ -111,3 +111,7 @@ ALTER FUNCTION public.registrar_mudanca_status(
 -- ✅ TODAS AS FUNÇÕES TÊM SEARCH_PATH SEGURO (32 funções)
 -- =====================================================
 
+
+
+
+

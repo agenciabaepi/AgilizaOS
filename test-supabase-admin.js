@@ -57,3 +57,7 @@ const testSupabaseAdmin = async () => {
 // Executar teste
 testSupabaseAdmin();
 
+
+
+
+

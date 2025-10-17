@@ -103,3 +103,7 @@ CREATE POLICY "grupos_produtos_delete_policy" ON public.grupos_produtos
 -- ⏳ pagamentos - PENDENTE
 -- =====================================================
 
+
+
+
+

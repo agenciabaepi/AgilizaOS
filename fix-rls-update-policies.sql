@@ -102,3 +102,7 @@ END $$;
 -- ✅ Segurança parcial mantida (SELECT/INSERT/DELETE ainda restritos)
 -- =====================================================
 
+
+
+
+

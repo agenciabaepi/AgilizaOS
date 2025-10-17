@@ -271,3 +271,7 @@ CREATE POLICY "vendas_all_policy" ON public.vendas
 -- 🔄 multiple_permissive_policies - EM ANDAMENTO
 -- ⏳ duplicate_index - PENDENTE
 
+
+
+
+

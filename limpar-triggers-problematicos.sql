@@ -78,3 +78,7 @@ SELECT public.generate_random_4_digit_string() as senha_teste;
 -- ✅ Função geradora testada
 -- =====================================================
 
+
+
+
+

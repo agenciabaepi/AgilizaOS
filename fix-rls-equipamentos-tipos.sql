@@ -103,3 +103,7 @@ CREATE POLICY "equipamentos_tipos_delete_policy" ON public.equipamentos_tipos
 -- ⏳ pagamentos - PENDENTE
 -- =====================================================
 
+
+
+
+

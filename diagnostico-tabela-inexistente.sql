@@ -50,3 +50,7 @@ SELECT
 -- ✅ 7. VERIFICAR SE ESTAMOS NO SCHEMA CORRETO
 SELECT current_schema();
 
+
+
+
+

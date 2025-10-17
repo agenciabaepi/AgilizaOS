@@ -40,7 +40,11 @@ import {
   Truck,
   Grid,
   Star,
-  TrendingUp
+  TrendingUp,
+  Building,
+  CheckSquare,
+  Flag,
+  MessageCircle
 } from 'lucide-react';
 
 // Sistema de permissões em cascata
@@ -53,6 +57,7 @@ const PERMISSOES_CASCATA = {
     { key: 'bancada', label: 'Bancada', icon: Wrench, description: 'Controle de bancada técnica' },
     { key: 'caixa', label: 'Caixa/PDV', icon: CreditCard, description: 'Sistema de caixa e vendas' },
     { key: 'termos', label: 'Termos', icon: FileText, description: 'Termos de garantia' },
+    { key: 'comissoes', label: 'Comissões', icon: Star, description: 'Controle de comissões' },
   ],
   
   // Módulo Financeiro (com sub-permissões)
@@ -92,11 +97,28 @@ const PERMISSOES_CASCATA = {
     ]
   },
   
+  // Módulo Configurações (com sub-permissões)
+  configuracoes: {
+    key: 'configuracoes',
+    label: 'Configurações',
+    icon: Settings,
+    description: 'Configurações do sistema',
+    subPermissoes: [
+      { key: 'empresa', label: 'Empresa', icon: Building, description: 'Dados da empresa' },
+      { key: 'usuarios', label: 'Usuários', icon: Users, description: 'Gestão de usuários' },
+      { key: 'comissoes', label: 'Comissões', icon: Star, description: 'Configurações de comissões' },
+      { key: 'equipamentos', label: 'Equipamentos', icon: Database, description: 'Configurações de equipamentos' },
+      { key: 'checklist', label: 'Checklist', icon: CheckSquare, description: 'Configurações de checklist' },
+      { key: 'termos', label: 'Termos de Garantia', icon: FileText, description: 'Configurações de termos' },
+      { key: 'status', label: 'Status', icon: Flag, description: 'Configurações de status' },
+      { key: 'catalogo', label: 'Catálogo', icon: Star, description: 'Configurações de catálogo' },
+      { key: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, description: 'Configurações do WhatsApp' },
+    ]
+  },
+  
   // Módulos avançados (independentes)
   avancadas: [
-    { key: 'configuracoes', label: 'Configurações', icon: Settings, description: 'Configurações do sistema' },
     { key: 'relatorios', label: 'Relatórios', icon: BarChart3, description: 'Relatórios e análises' },
-    { key: 'usuarios', label: 'Usuários', icon: Users, description: 'Gestão de usuários' },
     { key: 'backup', label: 'Backup', icon: Database, description: 'Backup e restauração' },
     { key: 'logs', label: 'Logs do Sistema', icon: FileText, description: 'Registros de atividades' },
     { key: 'api', label: 'API', icon: Settings, description: 'Configurações de API' }
@@ -112,6 +134,8 @@ const PERMISSOES_SISTEMA = [
   ...PERMISSOES_CASCATA.contatos.subPermissoes,
   PERMISSOES_CASCATA.produtos,
   ...PERMISSOES_CASCATA.produtos.subPermissoes,
+  PERMISSOES_CASCATA.configuracoes,
+  ...PERMISSOES_CASCATA.configuracoes.subPermissoes,
   ...PERMISSOES_CASCATA.avancadas
 ];
 
@@ -1092,6 +1116,79 @@ function EditarUsuarioPageInner() {
                                     </span>
                                   </div>
                                   <p className="text-xs text-gray-500">
+                                    {subPermissao.description}
+                                  </p>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Módulo Configurações */}
+                  <div className="mb-6">
+                    <h4 className="text-md font-semibold text-gray-800 mb-3">Módulo Configurações</h4>
+                    <div className="space-y-4">
+                      {/* Permissão principal */}
+                      <label 
+                        className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
+                          form.permissoes.includes('configuracoes') 
+                            ? 'border-green-400 bg-green-25' 
+                            : 'border-gray-200 bg-gray-50'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={form.permissoes.includes('configuracoes')}
+                          onChange={() => handlePermissaoChange('configuracoes')}
+                          className="mt-1 w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Settings className="w-4 h-4 text-green-600" />
+                            <span className="font-medium text-gray-900">
+                              {PERMISSOES_CASCATA.configuracoes.label}
+                            </span>
+                            <span className="text-xs text-green-600 font-medium">(Principal)</span>
+                          </div>
+                          <p className="text-xs text-gray-600">
+                            {PERMISSOES_CASCATA.configuracoes.description}
+                          </p>
+                        </div>
+                      </label>
+                      
+                      {/* Sub-permissões */}
+                      {form.permissoes.includes('configuracoes') && (
+                        <div className="ml-8 space-y-2">
+                          {PERMISSOES_CASCATA.configuracoes.subPermissoes.map((subPermissao) => {
+                            const IconComponent = subPermissao.icon;
+                            const isChecked = form.permissoes.includes(subPermissao.key);
+                            
+                            return (
+                              <label 
+                                key={subPermissao.key} 
+                                className={`flex items-start gap-3 p-3 rounded-lg border border-gray-200 cursor-pointer transition-all duration-200 ${
+                                  isChecked 
+                                    ? 'border-green-400 bg-green-25' 
+                                    : 'border-gray-200 bg-gray-50'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => handlePermissaoChange(subPermissao.key)}
+                                  className="mt-1 w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                                />
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <IconComponent className="w-4 h-4 text-gray-600" />
+                                    <span className="font-medium text-gray-900">
+                                      {subPermissao.label}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-gray-600">
                                     {subPermissao.description}
                                   </p>
                                 </div>

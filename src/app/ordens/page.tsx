@@ -29,6 +29,7 @@ interface OrdemTransformada {
   foiFaturada: boolean;
   formaPagamento: string;
   observacao?: string | null;
+  problema_relatado?: string | null;
   // Previsões
   valorPrevisto?: number;
   custoPrevisto?: number;
@@ -482,6 +483,7 @@ export default function ListaOrdensPage() {
             foiFaturada: valorFaturado > 0 && (item.status === 'ENTREGUE' || item.status_tecnico === 'FINALIZADA'),
             formaPagamento: getFormaPagamento(item, vendaOS),
             observacao: item.observacao || null,
+            problema_relatado: item.problema_relatado || null,
             valorPrevisto,
             custoPrevisto,
             lucroPrevisto,

@@ -626,3 +626,7 @@ CREATE POLICY "whatsapp_sessions_delete_policy" ON public.whatsapp_sessions
 -- ⏳ multiple_permissive_policies - PENDENTE
 -- ⏳ duplicate_index - PENDENTE
 
+
+
+
+

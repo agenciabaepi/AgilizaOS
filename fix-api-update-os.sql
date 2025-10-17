@@ -65,3 +65,7 @@ WHERE schemaname = 'public'
 AND tablename IN ('ordens_servico', 'usuarios', 'clientes', 'empresas', 'status_historico', 'equipamentos_tipos')
 ORDER BY tablename;
 
+
+
+
+

@@ -176,7 +176,7 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
       .single();
 
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Query timeout')), 10000)
+      setTimeout(() => reject(new Error('Query timeout - Supabase demorou mais de 15 segundos')), 15000)
     );
 
     let { data, error } = await Promise.race([
@@ -247,7 +247,7 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
       .single();
 
     const empresaTimeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Empresa query timeout')), 10000)
+      setTimeout(() => reject(new Error('Empresa query timeout - Supabase demorou mais de 15 segundos')), 15000)
     );
 
     const { data: empresaData, error: empresaError } = await Promise.race([
@@ -311,11 +311,37 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
     
     console.error('❌ Erro ao buscar dados otimizados:', errorDetails);
     
-    // Retry automático em caso de timeout
-    if (retryCount < maxRetries && error instanceof Error && error.message.includes('timeout')) {
-      console.log(`🔄 Tentando novamente em 1 segundo... (${retryCount + 1}/${maxRetries})`);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+    // Retry automático em caso de timeout ou erro de conexão
+    if (retryCount < maxRetries && error instanceof Error && 
+        (error.message.includes('timeout') || error.message.includes('fetch'))) {
+      console.log(`🔄 Tentando novamente em 2 segundos... (${retryCount + 1}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, 2000));
       return fetchUserDataOptimized(userId, retryCount + 1);
+    }
+    
+    // Em caso de erro definitivo, retornar dados padrão para evitar quebrar a aplicação
+    if (error instanceof Error && error.message.includes('timeout')) {
+      console.warn('⚠️ Timeout definitivo - retornando dados padrão para manter funcionalidade');
+      return {
+        userData: {
+          empresa_id: null,
+          nome: 'Usuário',
+          email: '',
+          nivel: 'atendente',
+          permissoes: [],
+          foto_url: null
+        },
+        empresaData: {
+          id: null,
+          nome: 'Empresa',
+          cnpj: '',
+          endereco: '',
+          telefone: '',
+          email: '',
+          logo_url: '',
+          plano: 'trial'
+        }
+      };
     }
     
     throw error;

@@ -104,3 +104,7 @@ CREATE POLICY "ordens_servico_delete_policy" ON public.ordens_servico
 -- ⏳ pagamentos - PENDENTE
 -- =====================================================
 
+
+
+
+

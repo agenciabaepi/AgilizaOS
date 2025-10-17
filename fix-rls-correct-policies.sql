@@ -181,3 +181,7 @@ ORDER BY tablename;
 -- ✅ Funcionalidade restaurada
 -- =====================================================
 
+
+
+
+

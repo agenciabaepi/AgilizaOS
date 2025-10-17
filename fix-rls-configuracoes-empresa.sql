@@ -99,3 +99,7 @@ CREATE POLICY "configuracoes_empresa_delete_policy" ON public.configuracoes_empr
 -- ⏳ pagamentos - PENDENTE
 -- =====================================================
 
+
+
+
+

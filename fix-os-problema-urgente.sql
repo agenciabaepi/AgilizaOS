@@ -28,3 +28,7 @@ DROP POLICY IF EXISTS "Permitir select de ordens_servico para usuários autentic
 SELECT 'Função criada com sucesso!' as status;
 SELECT 'RLS desabilitado na tabela ordens_servico' as status;
 
+
+
+
+

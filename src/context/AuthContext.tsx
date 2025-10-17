@@ -80,11 +80,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         try {
           const { data: basicUserData } = await supabase
             .from('usuarios')
-            .select('empresa_id, nome, email, nivel')
+            .select('id, empresa_id, nome, email, nivel')
             .eq('auth_user_id', userId)
             .single();
           if (basicUserData) {
             setUsuarioData({
+              id: basicUserData.id,
               empresa_id: basicUserData.empresa_id,
               nome: basicUserData.nome,
               email: basicUserData.email,
@@ -107,6 +108,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } catch {}
         const tempEmpresaId = `temp-${userId.slice(0, 8)}`;
         setUsuarioData({
+          id: `temp-${userId}`,
           empresa_id: tempEmpresaId,
           nome: 'Usuário',
           email: sessionData.user.email || '',
@@ -155,6 +157,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           
           // ✅ DADOS TEMPORÁRIOS SEGUROS: Não interferir com dados reais
           setUsuarioData({
+            id: session.user.id,
             empresa_id: '',
             nome: session.user.email?.split('@')[0] || 'Usuário',
             email: session.user.email || '',
@@ -194,6 +197,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           
           // ✅ DADOS TEMPORÁRIOS SEGUROS
           setUsuarioData({
+            id: session.user.id,
             empresa_id: '',
             nome: session.user.email?.split('@')[0] || 'Usuário',
             email: session.user.email || '',

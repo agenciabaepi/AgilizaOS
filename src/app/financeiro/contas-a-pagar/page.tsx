@@ -125,55 +125,9 @@ export default function ContasAPagarPage() {
     return `${meses[parseInt(mesNumero) - 1]} de ${ano}`;
   };
 
-  // Gerar contas fixas virtuais para todos os meses relevantes
+  // Como agora todas as parcelas são contas reais, não precisamos mais gerar contas virtuais
   const gerarContasFixasVirtuais = (contasOriginais: ContaPagar[], mesSelecionado: string): ContaPagar[] => {
-    const contasNaoFixas = contasOriginais.filter(conta => !conta.conta_fixa);
-    const contasFixas = contasOriginais.filter(conta => conta.conta_fixa);
-    const contasVirtuais: ContaPagar[] = [];
-    
-    contasFixas.forEach(conta => {
-      if (!conta.data_fixa_mes || !conta.parcelas_totais) return;
-      
-      // Para contas fixas, gerar parcelas virtuais APENAS para as parcelas futuras (2, 3, 4, etc.)
-      const parcelasTotais = conta.parcelas_totais;
-      
-      // Gerar parcelas virtuais da 2 até a total (pular a parcela 1 que é a original)
-      for (let parcela = 2; parcela <= parcelasTotais; parcela++) {
-        // Calcular quantos meses adicionar baseado na parcela (parcela 2 = 1 mês, parcela 3 = 2 meses, etc.)
-        const mesesAdicionais = parcela - 1;
-        
-        // Usar a data de vencimento original como base
-        const dataBase = new Date(conta.data_vencimento);
-        const novaData = new Date(dataBase);
-        
-        // Adicionar os meses necessários
-        novaData.setMonth(novaData.getMonth() + mesesAdicionais);
-        
-        // Ajustar para o dia fixo do mês
-        const diaFixo = Math.min(conta.data_fixa_mes, new Date(novaData.getFullYear(), novaData.getMonth() + 1, 0).getDate());
-        novaData.setDate(diaFixo);
-        
-        const mesConta = novaData.toISOString().slice(0, 7);
-        
-        // Gerar conta virtual para esta parcela
-        const contaVirtual: ContaPagar = {
-          ...conta,
-          id: `${conta.id}_virtual_${parcela}`,
-          data_vencimento: novaData.toISOString().split('T')[0],
-          parcela_atual: parcela,
-          status: 'pendente' as const,
-          // Marcar como virtual para identificação
-          observacoes: `${conta.observacoes || ''}`.trim()
-        };
-        
-        contasVirtuais.push(contaVirtual);
-      }
-    });
-    
-    // Combinar contas não-fixas + contas fixas originais + contas virtuais
-    const contasCombinadas = [...contasNaoFixas, ...contasFixas, ...contasVirtuais];
-    
-    return contasCombinadas;
+    return contasOriginais;
   };
   
   // Formulário
@@ -347,12 +301,53 @@ export default function ContasAPagarPage() {
         if (error) throw error;
         addToast('success', 'Conta atualizada com sucesso!');
       } else {
-        const { data, error } = await supabase
+        // Se é conta fixa com parcelas, criar todas as parcelas como contas reais
+        if (formData.conta_fixa && formData.parcelas_totais && formData.parcelas_totais > 1) {
+          const contasParaCriar = [];
+          
+          // Criar todas as parcelas
+          for (let parcela = 1; parcela <= formData.parcelas_totais; parcela++) {
+            const dataBase = new Date(formData.data_vencimento);
+            
+            // Calcular data de vencimento para cada parcela
+            if (parcela > 1) {
+              dataBase.setMonth(dataBase.getMonth() + (parcela - 1));
+              
+              // Ajustar para o dia fixo do mês se especificado
+              if (formData.data_fixa_mes) {
+                const diaFixo = Math.min(formData.data_fixa_mes, new Date(dataBase.getFullYear(), dataBase.getMonth() + 1, 0).getDate());
+                dataBase.setDate(diaFixo);
+              }
+            }
+            
+            const contaParcela = {
+              ...contaData,
+              data_vencimento: dataBase.toISOString().split('T')[0],
+              parcela_atual: parcela,
+              descricao: `${formData.descricao} (${parcela}/${formData.parcelas_totais})`,
+              proxima_geracao: null // Não precisamos mais deste campo
+            };
+            
+            contasParaCriar.push(contaParcela);
+          }
+          
+          
+          const { data, error } = await supabase
+            .from('contas_pagar')
+            .insert(contasParaCriar);
+          
+          if (error) throw error;
+          addToast('success', `${formData.parcelas_totais} parcelas da conta fixa cadastradas com sucesso!`);
+          
+        } else {
+          // Conta normal (não fixa ou fixa sem parcelas)
+          const { data, error } = await supabase
           .from('contas_pagar')
           .insert(contaData);
         
         if (error) throw error;
         addToast('success', 'Conta cadastrada com sucesso!');
+        }
       }
       
       setShowModal(false);
@@ -374,53 +369,32 @@ export default function ContasAPagarPage() {
   };
 
   const handleEdit = (conta: ContaPagar) => {
-    // Se é uma conta virtual, encontrar a conta original
-    let contaParaEditar = conta;
+    // Agora todas as contas são reais, pode editar qualquer uma
     
-    if (conta.id.includes('_virtual_')) {
-      // Encontrar a conta original (sem _virtual_)
-      const contaOriginal = contas.find(c => 
-        c.id === conta.id.replace(/_virtual_\d+$/, '') && 
-        c.conta_fixa
-      );
-      
-      if (contaOriginal) {
-        contaParaEditar = contaOriginal;
-        addToast('info', 'Editando conta fixa original. As alterações se aplicarão a todas as parcelas.');
-      } else {
-        addToast('error', 'Não é possível editar contas virtuais. Edite a conta original.');
-        return;
-      }
-    }
-    
-    setEditingConta(contaParaEditar);
+    setEditingConta(conta);
 
     setFormData({
-      descricao: contaParaEditar.descricao,
-      categoria_id: contaParaEditar.categoria_id,
-      tipo: contaParaEditar.tipo,
-      valor: contaParaEditar.valor.toString(),
-      data_vencimento: contaParaEditar.data_vencimento,
-      fornecedor: contaParaEditar.fornecedor || '',
-      observacoes: contaParaEditar.observacoes || '',
-      os_id: contaParaEditar.os_id || '',
-      peca_nome: contaParaEditar.peca_nome || '',
-      peca_quantidade: contaParaEditar.peca_quantidade || 1,
+      descricao: conta.descricao,
+      categoria_id: conta.categoria_id,
+      tipo: conta.tipo,
+      valor: conta.valor.toString(),
+      data_vencimento: conta.data_vencimento,
+      fornecedor: conta.fornecedor || '',
+      observacoes: conta.observacoes || '',
+      os_id: conta.os_id || '',
+      peca_nome: conta.peca_nome || '',
+      peca_quantidade: conta.peca_quantidade || 1,
       // Novos campos
-      conta_fixa: contaParaEditar.conta_fixa || false,
-      parcelas_totais: contaParaEditar.parcelas_totais || 1,
-      parcela_atual: contaParaEditar.parcela_atual || 1,
-      data_fixa_mes: contaParaEditar.data_fixa_mes || 1
+      conta_fixa: conta.conta_fixa || false,
+      parcelas_totais: conta.parcelas_totais || 1,
+      parcela_atual: conta.parcela_atual || 1,
+      data_fixa_mes: conta.data_fixa_mes || 1
     });
     setShowModal(true);
   };
 
   const handleDelete = async (id: string) => {
-    // Se é uma conta virtual, não permitir exclusão
-    if (id.includes('_virtual_')) {
-      addToast('error', 'Não é possível excluir contas virtuais. Exclua a conta fixa original.');
-      return;
-    }
+    // Agora todas as contas são reais, pode excluir qualquer uma
     
     if (!confirm('Tem certeza que deseja excluir esta conta?')) return;
     
@@ -442,10 +416,21 @@ export default function ContasAPagarPage() {
   };
 
   const handleStatusChange = async (id: string, status: 'pendente' | 'pago') => {
-    // Se é uma conta virtual, não permitir alteração de status
-    if (id.includes('_virtual_')) {
-      addToast('error', 'Não é possível alterar status de contas virtuais. Altere o status da conta fixa original.');
-      return;
+    // Encontrar a conta
+    const conta = contas.find(c => c.id === id);
+    
+    // Verificação básica para contas fixas já pagas no mesmo mês
+    if (conta?.conta_fixa) {
+      const hoje = new Date();
+      const mesAtual = hoje.toISOString().slice(0, 7);
+      const dataVencimento = new Date(conta.data_vencimento);
+      const mesVencimento = dataVencimento.toISOString().slice(0, 7);
+      
+      // Se a conta fixa já foi paga e estamos tentando marcar como pago novamente no mesmo mês
+      if (conta.status === 'pago' && status === 'pago' && mesVencimento === mesAtual) {
+        addToast('info', 'Esta conta fixa já foi paga neste mês.');
+        return;
+      }
     }
     
     try {
@@ -502,6 +487,14 @@ export default function ContasAPagarPage() {
   
   const contasComFixasVirtuais = gerarContasFixasVirtuais(contas, filtroMes);
   
+  // Debug: verificar IDs das contas
+  console.log('🔍 Contas processadas:', contasComFixasVirtuais.map(c => ({
+    id: c.id,
+    descricao: c.descricao,
+    conta_fixa: c.conta_fixa,
+    isVirtual: c.id.includes('_virtual_')
+  })));
+  
 
   // Filtrar contas
   const filteredContas = contasComFixasVirtuais.filter(conta => {
@@ -534,13 +527,13 @@ export default function ContasAPagarPage() {
     { [filtroMes]: filteredContas } :
     // Se não há filtro, agrupar por mês normalmente
     filteredContas.reduce((acc, conta) => {
-      const mes = new Date(conta.data_vencimento).toISOString().slice(0, 7); // YYYY-MM
-      if (!acc[mes]) {
-        acc[mes] = [];
-      }
-      acc[mes].push(conta);
-      return acc;
-    }, {} as Record<string, ContaPagar[]>);
+    const mes = new Date(conta.data_vencimento).toISOString().slice(0, 7); // YYYY-MM
+    if (!acc[mes]) {
+      acc[mes] = [];
+    }
+    acc[mes].push(conta);
+    return acc;
+  }, {} as Record<string, ContaPagar[]>);
 
   // Ordenar meses
   const mesesOrdenados = Object.keys(contasPorMes).sort();
@@ -872,14 +865,14 @@ export default function ContasAPagarPage() {
                                 }`}
                               >
                                 {conta.tipo === 'fixa' ? 'Fixa'
-                                 : conta.tipo === 'variavel' ? 'Variável' : 'Peças'}
-                              </span>
+                                   : conta.tipo === 'variavel' ? 'Variável' : 'Peças'}
+                                </span>
                                 {conta.conta_fixa && (
                                   <div className="text-xs text-gray-500">
                                     {conta.parcela_atual}/{conta.parcelas_totais} • Dia {conta.data_fixa_mes}
                                   </div>
-                                )}
-                              </div>
+                                    )}
+                                  </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                               <div className="flex items-center gap-1">

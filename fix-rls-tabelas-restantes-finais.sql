@@ -307,3 +307,7 @@ CREATE POLICY "vendas_delete_policy" ON public.vendas
 -- ALTER TABLE public.usuarios DISABLE ROW LEVEL SECURITY;
 -- ALTER TABLE public.vendas DISABLE ROW LEVEL SECURITY;
 
+
+
+
+

@@ -91,3 +91,7 @@ CREATE POLICY "vw_ultimas_mudancas_status_select_policy" ON public.vw_ultimas_mu
 -- ALTER VIEW public.vw_ultimas_mudancas_status DISABLE ROW LEVEL SECURITY;
 -- DROP POLICY IF EXISTS "vw_ultimas_mudancas_status_select_policy" ON public.vw_ultimas_mudancas_status;
 
+
+
+
+

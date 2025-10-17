@@ -67,3 +67,7 @@ AND event_object_schema = 'public';
 -- ✅ SELECT funcionando
 -- =====================================================
 
+
+
+
+

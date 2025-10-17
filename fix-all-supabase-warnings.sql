@@ -375,3 +375,7 @@ DROP FUNCTION IF EXISTS find_duplicate_indexes();
 -- 4. Teste a aplicação para garantir que tudo funciona corretamente
 -- 5. Execute uma nova verificação de avisos no Supabase Dashboard
 
+
+
+
+

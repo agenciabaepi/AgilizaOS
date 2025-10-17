@@ -60,3 +60,7 @@ ORDER BY viewname;
 -- 3. Os avisos "Unrestricted" do Supabase devem desaparecer
 -- 4. A segurança do banco está garantida
 
+
+
+
+

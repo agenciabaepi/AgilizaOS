@@ -27,3 +27,7 @@ WHERE proname = 'generate_random_4_digit_string';
 -- ✅ TESTAR A FUNÇÃO
 SELECT public.generate_random_4_digit_string() as senha_gerada;
 
+
+
+
+

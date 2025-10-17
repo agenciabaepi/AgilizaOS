@@ -83,3 +83,7 @@ CREATE POLICY "Allow authenticated delete to equipamentos_tipos"
 -- ⏳ pagamentos - PENDENTE
 -- =====================================================
 
+
+
+
+

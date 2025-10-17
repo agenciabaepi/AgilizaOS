@@ -125,3 +125,7 @@ ORDER BY tablename;
 -- 
 -- -- ... (repetir para todas as tabelas)
 
+
+
+
+

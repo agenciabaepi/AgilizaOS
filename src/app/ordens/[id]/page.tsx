@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { FiArrowLeft, FiEdit, FiPrinter, FiDollarSign, FiMessageCircle, FiUser, FiSmartphone, FiFileText, FiCalendar, FiShield, FiTool, FiPackage, FiCheckCircle, FiClock, FiRefreshCw, FiExternalLink } from 'react-icons/fi';
 import ImagensOS from '@/components/ImagensOS';
 import ChecklistViewer from '@/components/ChecklistViewer';
-import { useToast } from '@/components/Toast';
+import { useToast } from '@/hooks/useToast';
 import { useAuth } from '@/context/AuthContext';
 import { useStatusHistorico } from '@/hooks/useStatusHistorico';
 import StatusHistoricoTimeline from '@/components/StatusHistoricoTimeline';
@@ -230,12 +230,12 @@ const VisualizarOrdemServicoPage = () => {
   // Função para processar entrega da O.S.
   const processarEntrega = async () => {
     if (!termoGarantiaSelecionado) {
-      addToast('error', 'Selecione um termo de garantia');
+      addToast('Selecione um termo de garantia', 'error');
       return;
     }
 
     if (!formaPagamento) {
-      addToast('error', 'Selecione a forma de pagamento');
+      addToast('Selecione a forma de pagamento', 'error');
       return;
     }
 
@@ -243,7 +243,7 @@ const VisualizarOrdemServicoPage = () => {
     const valorRecebidoNum = parseFloat(valorRecebido.replace(',', '.'));
 
     if (isNaN(valorRecebidoNum) || valorRecebidoNum < valorOS) {
-      addToast('error', `Valor recebido deve ser pelo menos R$ ${valorOS.toFixed(2)}`);
+      addToast(`Valor recebido deve ser pelo menos R$ ${valorOS.toFixed(2)}`, 'error');
       return;
     }
 
@@ -265,7 +265,7 @@ const VisualizarOrdemServicoPage = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        addToast('error', 'Erro ao atualizar O.S.: ' + (errorData.error || 'Erro desconhecido'));
+        addToast('Erro ao atualizar O.S.: ' + (errorData.error || 'Erro desconhecido'), 'error');
         return;
       }
 
@@ -282,7 +282,7 @@ const VisualizarOrdemServicoPage = () => {
         .eq('id', id);
 
       if (updateError) {
-        addToast('error', 'Erro ao atualizar dados de entrega: ' + updateError.message);
+        addToast('Erro ao atualizar dados de entrega: ' + updateError.message, 'error');
         return;
       }
 
@@ -290,19 +290,19 @@ const VisualizarOrdemServicoPage = () => {
       if (valorOS > 0) {
         const numeroVenda = await criarVenda();
         if (!numeroVenda) {
-          addToast('error', 'Erro ao criar venda');
+          addToast('Erro ao criar venda', 'error');
           return;
         }
-        addToast('success', `✅ Venda #${numeroVenda} criada com sucesso!`);
+        addToast(`✅ Venda #${numeroVenda} criada com sucesso!`, 'success');
       }
 
-      addToast('success', '✅ O.S. entregue com sucesso!');
+      addToast('✅ O.S. entregue com sucesso!', 'success');
       setModalEntrega(false);
       router.push('/ordens');
 
     } catch (error) {
       console.error('Erro ao processar entrega:', error);
-      addToast('error', 'Erro inesperado ao processar entrega');
+      addToast('Erro inesperado ao processar entrega', 'error');
     } finally {
       setProcessandoEntrega(false);
     }

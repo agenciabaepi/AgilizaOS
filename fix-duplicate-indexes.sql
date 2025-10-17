@@ -171,3 +171,7 @@ $$ LANGUAGE plpgsql;
 -- ✅ multiple_permissive_policies - CORRIGIDO
 -- 🔄 duplicate_index - EM ANDAMENTO
 
+
+
+
+

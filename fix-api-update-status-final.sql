@@ -124,3 +124,7 @@ AND cmd = 'UPDATE';
 -- ✅ Políticas UPDATE configuradas
 -- =====================================================
 
+
+
+
+

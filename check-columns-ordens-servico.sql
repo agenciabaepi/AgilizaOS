@@ -26,3 +26,7 @@ WHERE table_schema = 'public'
 AND table_name = 'ordens_servico'
 AND column_name IN ('updated_at', 'created_at', 'status_tecnico', 'status');
 
+
+
+
+

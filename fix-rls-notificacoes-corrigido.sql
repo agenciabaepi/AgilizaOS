@@ -79,3 +79,7 @@ CREATE POLICY "notificacoes_delete_policy" ON public.notificacoes
 -- ⏳ pagamentos - PENDENTE
 -- =====================================================
 
+
+
+
+

@@ -5,3 +5,7 @@ WHERE table_name = 'notificacoes'
 AND table_schema = 'public'
 ORDER BY ordinal_position;
 
+
+
+
+
