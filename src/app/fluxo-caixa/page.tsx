@@ -46,6 +46,11 @@ export default function FluxoCaixaPage() {
   });
   const [showFiltros, setShowFiltros] = useState(false);
 
+  // Carregar dados quando a página carrega
+  useEffect(() => {
+    carregarMovimentacoes();
+  }, [usuarioData?.empresa_id]);
+
   // Carregar dados quando filtros mudarem
   useEffect(() => {
     carregarMovimentacoes(
