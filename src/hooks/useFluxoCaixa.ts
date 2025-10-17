@@ -46,12 +46,20 @@ export const useFluxoCaixa = () => {
     tipo?: 'entrada' | 'saida',
     categoria?: string
   ) => {
-    if (!usuarioData?.empresa_id) return;
+    console.log('🔍 useFluxoCaixa - carregarMovimentacoes chamada');
+    console.log('🔍 useFluxoCaixa - usuarioData:', usuarioData);
+    console.log('🔍 useFluxoCaixa - empresa_id:', usuarioData?.empresa_id);
+    
+    if (!usuarioData?.empresa_id) {
+      console.log('❌ useFluxoCaixa - Sem empresa_id, retornando');
+      return;
+    }
 
     setLoading(true);
     setError(null);
 
     try {
+      console.log('🔍 useFluxoCaixa - Fazendo query no banco...');
       let query = supabase
         .from('fluxo_caixa')
         .select(`
@@ -77,10 +85,15 @@ export const useFluxoCaixa = () => {
 
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        console.log('❌ useFluxoCaixa - Erro na query:', error);
+        throw error;
+      }
+      
+      console.log('✅ useFluxoCaixa - Dados carregados:', data);
       setMovimentacoes(data || []);
     } catch (err) {
-      console.error('Erro ao carregar movimentações:', err);
+      console.error('❌ useFluxoCaixa - Erro ao carregar movimentações:', err);
       setError('Erro ao carregar movimentações');
     } finally {
       setLoading(false);
