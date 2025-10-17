@@ -89,7 +89,15 @@ export const useFluxoCaixa = () => {
 
   // Adicionar nova movimentação
   const adicionarMovimentacao = async (formData: FluxoCaixaFormData) => {
+    console.log('🔍 Debug adicionarMovimentacao - usuarioData:', usuarioData);
+    console.log('🔍 Debug adicionarMovimentacao - empresa_id:', usuarioData?.empresa_id);
+    console.log('🔍 Debug adicionarMovimentacao - id:', usuarioData?.id);
+    
     if (!usuarioData?.empresa_id || !usuarioData?.id) {
+      console.log('❌ Debug adicionarMovimentacao - Dados incompletos:', {
+        empresa_id: usuarioData?.empresa_id,
+        id: usuarioData?.id
+      });
       throw new Error('Dados do usuário não encontrados');
     }
 
