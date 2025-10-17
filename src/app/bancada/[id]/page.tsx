@@ -731,8 +731,8 @@ export default function DetalheBancadaPage() {
 
   return (
     <MenuLayout>
-      {/* Mobile-First Layout - Full Screen */}
-      <div className="fixed inset-0 bg-gray-50 overflow-y-auto">
+      {/* Mobile-First Layout */}
+      <div className="min-h-screen bg-gray-50">
         {/* Header Mobile App-like - Fixed */}
         <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
           <div className="px-4 py-3">
@@ -772,7 +772,7 @@ export default function DetalheBancadaPage() {
         </div>
 
         {/* Content Container - Mobile Optimized */}
-        <div className="px-4 py-4 pb-24 space-y-4">
+        <div className="px-4 py-4 pb-24 space-y-4 max-w-full overflow-x-hidden">
 
         {/* Barra de progresso da OS (mock, pode ser melhorada com status reais) */}
         {/* ... manter steps ou adaptar conforme status reais ... */}
@@ -1030,28 +1030,30 @@ export default function DetalheBancadaPage() {
                 <div className="space-y-2">
                   {produtosSelecionados.map((produto) => (
                     <div key={produto.id} className="p-3 bg-gray-50 rounded-lg space-y-2">
-                      <div className="flex items-center gap-2">
-                        <label className="text-xs font-medium text-gray-700 w-16">Nome:</label>
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs font-medium text-gray-700">Nome:</label>
                         <input
                           type="text"
                           value={produto.nome}
                           onChange={(e) => handleEditarProduto(produto.id, e.target.value, produto.preco, produto.quantidade)}
-                          className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                           placeholder="Nome do produto"
                         />
                       </div>
-                      <div className="flex items-center gap-2">
-                        <label className="text-xs font-medium text-gray-700 w-16">Preço:</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={produto.preco}
-                          onChange={(e) => handleEditarProduto(produto.id, produto.nome, parseFloat(e.target.value) || 0, produto.quantidade)}
-                          className="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
-                          placeholder="0,00"
-                        />
-                        <span className="text-sm text-gray-600">{formatPrice(produto.preco)}</span>
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs font-medium text-gray-700">Preço:</label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={produto.preco}
+                            onChange={(e) => handleEditarProduto(produto.id, produto.nome, parseFloat(e.target.value) || 0, produto.quantidade)}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                            placeholder="0,00"
+                          />
+                          <span className="text-sm text-gray-600 whitespace-nowrap">{formatPrice(produto.preco)}</span>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <input
@@ -1180,28 +1182,30 @@ export default function DetalheBancadaPage() {
                 <div className="space-y-2">
                   {servicosSelecionados.map((servico) => (
                     <div key={servico.id} className="p-3 bg-gray-50 rounded-lg space-y-2">
-                      <div className="flex items-center gap-2">
-                        <label className="text-xs font-medium text-gray-700 w-16">Nome:</label>
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs font-medium text-gray-700">Nome:</label>
                         <input
                           type="text"
                           value={servico.nome}
                           onChange={(e) => handleEditarServico(servico.id, e.target.value, servico.preco)}
-                          className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                           placeholder="Nome do serviço"
                         />
                       </div>
-                      <div className="flex items-center gap-2">
-                        <label className="text-xs font-medium text-gray-700 w-16">Preço:</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={servico.preco}
-                          onChange={(e) => handleEditarServico(servico.id, servico.nome, parseFloat(e.target.value) || 0)}
-                          className="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
-                          placeholder="0,00"
-                        />
-                        <span className="text-sm text-gray-600">{formatPrice(servico.preco)}</span>
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs font-medium text-gray-700">Preço:</label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={servico.preco}
+                            onChange={(e) => handleEditarServico(servico.id, servico.nome, parseFloat(e.target.value) || 0)}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                            placeholder="0,00"
+                          />
+                          <span className="text-sm text-gray-600 whitespace-nowrap">{formatPrice(servico.preco)}</span>
+                        </div>
                       </div>
                       <div className="flex justify-end">
                         <button
@@ -1298,7 +1302,7 @@ export default function DetalheBancadaPage() {
                       Limpar todas
                     </button>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
+                  <div className="grid grid-cols-2 gap-3">
                     {previewImagens.map((preview, index) => (
                       <div key={index} className="relative group">
                         <img
@@ -1332,7 +1336,7 @@ export default function DetalheBancadaPage() {
                       Remover todas
                     </button>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
+                  <div className="grid grid-cols-2 gap-3">
                     {imagensExistentes.map((url, index) => (
                       <div key={index} className="relative group">
                         <img
