@@ -6,6 +6,7 @@ import { podeUsarFuncionalidade as podeUsarFuncionalidadeUtil, isUsuarioTeste as
 import { handleAuthError } from '@/utils/clearAuth';
 
 interface UsuarioData {
+  id: string;
   empresa_id: string;
   nome: string;
   email: string;
