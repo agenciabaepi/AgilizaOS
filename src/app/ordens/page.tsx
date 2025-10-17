@@ -1017,12 +1017,13 @@ export default function ListaOrdensPage() {
 
           {/* Abas */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
-            <div className="flex flex-col md:flex-row border-b md:border-b-0 border-gray-200">
+            <div className="flex overflow-x-auto border-b border-gray-200">
+              <div className="flex min-w-max">
               <button
                 onClick={() => handleTabChange('todas')}
                 aria-label="Mostrar todas as ordens de serviço"
                 aria-pressed={activeTab === 'todas'}
-                className={`px-4 md:px-6 py-3 md:py-4 font-medium text-sm border-b-2 md:border-b-2 border-r-0 md:border-r-0 transition-colors ${
+                className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === 'todas'
                     ? 'border-blue-500 text-blue-600 bg-blue-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
@@ -1037,7 +1038,7 @@ export default function ListaOrdensPage() {
               </button>
               <button
                 onClick={() => handleTabChange('reparo_concluido')}
-                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
+                className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === 'reparo_concluido'
                     ? 'border-blue-500 text-blue-600 bg-blue-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
@@ -1052,7 +1053,7 @@ export default function ListaOrdensPage() {
               </button>
               <button
                 onClick={() => handleTabChange('orcamentos')}
-                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
+                className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === 'orcamentos'
                     ? 'border-blue-500 text-blue-600 bg-blue-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
@@ -1067,7 +1068,7 @@ export default function ListaOrdensPage() {
               </button>
               <button
                 onClick={() => handleTabChange('aprovadas')}
-                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
+                className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === 'aprovadas'
                     ? 'border-blue-500 text-blue-600 bg-blue-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
@@ -1082,7 +1083,7 @@ export default function ListaOrdensPage() {
               </button>
               <button
                 onClick={() => handleTabChange('laudo_pronto')}
-                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
+                className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === 'laudo_pronto'
                     ? 'border-blue-500 text-blue-600 bg-blue-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
@@ -1097,7 +1098,7 @@ export default function ListaOrdensPage() {
               </button>
               <button
                 onClick={() => handleTabChange('aguardando_retirada')}
-                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
+                className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === 'aguardando_retirada'
                     ? 'border-blue-500 text-blue-600 bg-blue-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
@@ -1112,7 +1113,7 @@ export default function ListaOrdensPage() {
               </button>
               <button
                 onClick={() => handleTabChange('concluidas')}
-                className={`px-6 py-4 font-medium text-sm border-b-2 transition-colors ${
+                className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === 'concluidas'
                     ? 'border-blue-500 text-blue-600 bg-blue-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
@@ -1125,8 +1126,9 @@ export default function ListaOrdensPage() {
                   {contadores.concluidas}
                 </span>
               </button>
+              </div>
+            </div>
           </div>
-        </div>
 
           {/* Filtros e busca */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
