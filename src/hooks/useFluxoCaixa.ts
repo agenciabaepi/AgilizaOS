@@ -46,20 +46,12 @@ export const useFluxoCaixa = () => {
     tipo?: 'entrada' | 'saida',
     categoria?: string
   ) => {
-    console.log('🔍 useFluxoCaixa - carregarMovimentacoes chamada');
-    console.log('🔍 useFluxoCaixa - usuarioData:', usuarioData);
-    console.log('🔍 useFluxoCaixa - empresa_id:', usuarioData?.empresa_id);
-    
-    if (!usuarioData?.empresa_id) {
-      console.log('❌ useFluxoCaixa - Sem empresa_id, retornando');
-      return;
-    }
+    if (!usuarioData?.empresa_id) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      console.log('🔍 useFluxoCaixa - Fazendo query no banco...');
       let query = supabase
         .from('fluxo_caixa')
         .select(`
@@ -85,15 +77,10 @@ export const useFluxoCaixa = () => {
 
       const { data, error } = await query;
 
-      if (error) {
-        console.log('❌ useFluxoCaixa - Erro na query:', error);
-        throw error;
-      }
-      
-      console.log('✅ useFluxoCaixa - Dados carregados:', data);
+      if (error) throw error;
       setMovimentacoes(data || []);
     } catch (err) {
-      console.error('❌ useFluxoCaixa - Erro ao carregar movimentações:', err);
+      console.error('Erro ao carregar movimentações:', err);
       setError('Erro ao carregar movimentações');
     } finally {
       setLoading(false);
@@ -102,27 +89,16 @@ export const useFluxoCaixa = () => {
 
   // Adicionar nova movimentação
   const adicionarMovimentacao = async (formData: FluxoCaixaFormData) => {
-    if (!usuarioData?.empresa_id) {
+    if (!usuarioData?.empresa_id || !usuarioData?.id) {
       throw new Error('Dados do usuário não encontrados');
     }
 
     try {
-      // Buscar o ID do usuário na tabela usuarios
-      const { data: userData, error: userError } = await supabase
-        .from('usuarios')
-        .select('id')
-        .eq('auth_user_id', usuarioData.auth_user_id)
-        .single();
-
-      if (userError || !userData) {
-        throw new Error('Usuário não encontrado na base de dados');
-      }
-
       const { data, error } = await supabase
         .from('fluxo_caixa')
         .insert({
           empresa_id: usuarioData.empresa_id,
-          usuario_id: userData.id,
+          usuario_id: usuarioData.id,
           tipo: formData.tipo,
           categoria: formData.categoria,
           descricao: formData.descricao,

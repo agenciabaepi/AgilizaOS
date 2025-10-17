@@ -49,13 +49,8 @@ export default function FluxoCaixaPage() {
 
   // Carregar dados quando a página carrega
   useEffect(() => {
-    console.log('🔍 Debug Fluxo Caixa - usuarioData:', usuarioData);
-    console.log('🔍 Debug Fluxo Caixa - empresa_id:', usuarioData?.empresa_id);
     if (usuarioData?.empresa_id) {
-      console.log('🔍 Debug Fluxo Caixa - Carregando movimentações...');
       carregarMovimentacoes();
-    } else {
-      console.log('❌ Debug Fluxo Caixa - Sem empresa_id, não carregando dados');
     }
   }, [usuarioData?.empresa_id]);
 
