@@ -1636,6 +1636,22 @@ export default function CaixaPage() {
                     total={calcularTotal()}
                     onFinalizar={finalizarVenda}
                     turnoAtual={turnoAtual}
+                    onAbrirCaixa={() => setModalAbrirCaixa(true)}
+                    clienteSelecionado={clienteSelecionado}
+                    onClienteChange={setClienteSelecionado}
+                    onSearchCliente={setSearchCliente}
+                    searchCliente={searchCliente}
+                    showClienteDropdown={showClienteDropdown}
+                    onSelecionarCliente={(cliente) => {
+                      setClienteSelecionado(cliente);
+                      setShowClienteDropdown(false);
+                    }}
+                    onCadastrarCliente={() => setModalNovoCliente(true)}
+                    clientes={clientes}
+                    loadingClientes={loadingClientes}
+                    orderType={orderType}
+                    onOrderTypeChange={setOrderType}
+                    onFecharCaixa={() => setModalFecharCaixa(true)}
                   />
                 </div>
               </>
