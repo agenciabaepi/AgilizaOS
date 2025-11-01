@@ -5,7 +5,6 @@ import { supabase } from '@/lib/supabaseClient';
 const NONEXISTENT_TABLES = [
   'produtos',
   'servicos', 
-  'produtos_servicos',
   'assinaturas',
   'planos'
 ];

@@ -106,7 +106,7 @@ export default function BancadaPage() {
           new Promise((_, reject) => 
             setTimeout(() => reject(new Error('Bancada timeout')), 10000) // 10 segundos
           )
-        ]);
+        ]) as any;
 
         if (!isMounted) return;
 

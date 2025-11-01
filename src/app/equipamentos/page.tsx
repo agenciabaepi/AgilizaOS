@@ -36,7 +36,6 @@ interface ProdutoServico {
   id: string;
   codigo?: string;
   nome: string;
-  descricao: string;
   tipo: Tipo;
   preco: number;
   custo: number | null;
@@ -75,7 +74,6 @@ export default function ProdutosServicosPage() {
   const [lista, setLista] = useState<ProdutoServico[]>([]);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [nome, setNome] = useState('');
-  const [descricao, setDescricao] = useState('');
   const [tipo, setTipo] = useState<Tipo>('produto');
   const [preco, setPreco] = useState('');
   const [custo, setCusto] = useState('');
@@ -254,7 +252,6 @@ export default function ProdutosServicosPage() {
     const novoRegistro = {
       codigo: novoCodigo,
       nome,
-      descricao,
       preco: parseFloat(preco),
       custo: tipo === 'produto' ? parseFloat(custo || '0') : null,
       estoque_atual: tipo === 'produto' ? parseInt(estoque || '0') : null,
@@ -265,11 +262,10 @@ export default function ProdutosServicosPage() {
       codigo_barras: tipo === 'produto' ? codigoBarras || null : null,
     };
     // Extrai os campos corretamente, incluindo ativo
-    const { descricao: _descricao, preco: _preco, custo: _custo, tipo: _tipo, unidade: _unidade, ativo: _ativo } = { ...novoRegistro, tipo, ativo };
+    const { preco: _preco, custo: _custo, tipo: _tipo, unidade: _unidade, ativo: _ativo } = { ...novoRegistro, tipo, ativo };
     // Salva com tipo e ativo garantidos
     await supabase.from('produtos_servicos').insert([{ ...novoRegistro, tipo, ativo }]);
     setNome('');
-    setDescricao('');
     setPreco('');
     setCusto('');
     setEstoque('');
@@ -285,15 +281,29 @@ export default function ProdutosServicosPage() {
   const excluir = async (id: string) => {
     const ok = await confirm({ message: 'Tem certeza que deseja excluir este item?' });
     if (!ok) return;
-    await supabase.from('produtos_servicos').delete().eq('id', id);
-    buscar();
-    addToast('success', 'Item excluído com sucesso!');
+    
+    try {
+      const { error } = await supabase
+        .from('produtos_servicos')
+        .delete()
+        .eq('id', id);
+      
+      if (error) {
+        addToast('error', 'Erro ao excluir item: ' + error.message);
+        return;
+      }
+      
+      buscar();
+      addToast('success', 'Item excluído com sucesso!');
+    } catch (err) {
+      console.error('Erro ao excluir item:', err);
+      addToast('error', 'Erro inesperado ao excluir item');
+    }
   };
 
   const iniciarEdicao = (item: ProdutoServico) => {
     setEditandoId(item.id);
     setNome(item.nome);
-    setDescricao(item.descricao);
     setTipo(item.tipo);
     setPreco(item.preco.toString());
     setCusto(item.custo?.toString() ?? '');
@@ -308,7 +318,6 @@ export default function ProdutosServicosPage() {
 
     const payload = {
       nome,
-      descricao,
       tipo,
       preco: parseFloat(preco),
       custo: tipo === 'produto' ? parseFloat(custo || '0') : null,
@@ -327,7 +336,6 @@ export default function ProdutosServicosPage() {
     if (!error) {
       setEditandoId(null);
       setNome('');
-      setDescricao('');
       setPreco('');
       setCusto('');
       setEstoque('');
@@ -387,7 +395,7 @@ export default function ProdutosServicosPage() {
       render: row => (
         <div>
           <div className="font-semibold">{row.nome}</div>
-          {row.descricao && <div className="text-xs text-gray-500">{row.descricao}</div>}
+          {row.obs && <div className="text-xs text-gray-500">{row.obs}</div>}
         </div>
       )
     },

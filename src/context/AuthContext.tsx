@@ -275,7 +275,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw error;
       }
 
-      return data;
+      // Não retornar data, apenas completar a operação
     } catch (error) {
       console.error('Erro no registro:', error);
       throw error;

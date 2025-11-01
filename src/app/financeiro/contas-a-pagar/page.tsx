@@ -203,7 +203,10 @@ export default function ContasAPagarPage() {
         .eq('empresa_id', empresaData.id)
         .order('numero_os', { ascending: false });
       
-      setOrdensServico(ordensData || []);
+      setOrdensServico((ordensData || []).map((ordem: any) => ({
+        ...ordem,
+        cliente: Array.isArray(ordem.cliente) ? ordem.cliente[0] : ordem.cliente
+      })));
       
       // Carregar contas
       console.log('💰 Carregando contas...');

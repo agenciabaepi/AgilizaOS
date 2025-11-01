@@ -21,6 +21,7 @@ const CatalogoPage = lazy(() => import('./catalogo/page'))
 const WhatsAppPage = lazy(() => import('./whatsapp/page'))
 const EquipamentosPage = lazy(() => import('./equipamentos/page'))
 const ChecklistNovoPage = lazy(() => import('./checklist-novo/page'))
+const AvisosPage = lazy(() => import('./avisos/page'))
 
 // Componente de loading para as páginas filhas
 const PageLoader = () => (
@@ -98,6 +99,7 @@ function ConfiguracoesInner() {
     { name: 'Status', component: <StatusPage />, permissao: 'status' },
     { name: 'Catálogo', component: <CatalogoPage />, permissao: 'catalogo' },
     { name: 'WhatsApp', component: <WhatsAppPage />, permissao: 'whatsapp' },
+    { name: 'Avisos', component: <AvisosPage />, permissao: 'configuracoes' },
   ];
   
   // Filtrar abas baseado nas permissões do usuário

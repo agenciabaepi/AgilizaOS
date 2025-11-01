@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { notificarN8nOSAprovada, notificarN8nStatusOS, gerarLinkOS } from '@/lib/n8n-integration';
+import { sendOSApprovedNotification, sendOSStatusNotification } from '@/lib/whatsapp-notifications';
 
 export async function POST(request: NextRequest) {
   try {
@@ -182,67 +182,30 @@ export async function POST(request: NextRequest) {
       // Não falha a atualização da OS se o contador falhar
     }
 
-    // ✅ ENVIAR NOTIFICAÇÃO N8N PARA APROVAÇÃO OU MUDANÇA DE STATUS
+    // ✅ ENVIAR NOTIFICAÇÃO WHATSAPP DIRETA PARA APROVAÇÃO OU MUDANÇA DE STATUS
     if (newStatus || newStatusTecnico) {
-      console.log('📱 Enviando notificação N8N para mudança de status...');
+      console.log('📱 Enviando notificação WhatsApp para mudança de status...');
       try {
-        // Buscar dados completos da OS para notificação
-        const { data: osCompleta, error: osCompletaError } = await supabase
-          .from('ordens_servico')
-          .select(`
-            id,
-            numero_os,
-            empresa_id,
-            tecnico_id,
-            status,
-            status_tecnico,
-            servico,
-            equipamento,
-            valor_faturado
-          `)
-          .eq('id', osId)
-          .single();
-
-        if (!osCompletaError && osCompleta) {
-          const normalize = (s: string) => (s || '').toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
-          const statusNormalizado = normalize(newStatus || osCompleta.status);
-          
-          // Preparar payload base
-          const n8nPayload = {
-            os_id: osCompleta.id,
-            empresa_id: osCompleta.empresa_id,
-            tecnico_nome: '',
-            tecnico_whatsapp: '',
-            cliente_nome: '',
-            cliente_telefone: '',
-            equipamento: osCompleta.equipamento || 'Equipamento não especificado',
-            servico: osCompleta.servico || 'Serviço não especificado',
-            numero_os: osCompleta.numero_os,
-            status: newStatus || osCompleta.status,
-            valor: osCompleta.valor_faturado || 0,
-            link_os: gerarLinkOS(osCompleta.id)
-          };
-
-          // Decidir qual webhook usar baseado no status
-          let n8nSuccess = false;
-          if (statusNormalizado === 'APROVADO') {
-            console.log('🎉 Status APROVADO detectado - enviando para webhook de aprovação');
-            n8nSuccess = await notificarN8nOSAprovada(n8nPayload);
-          } else {
-            console.log('🔄 Mudança de status geral - enviando para webhook de status');
-            n8nSuccess = await notificarN8nStatusOS(n8nPayload);
-          }
-          
-          if (n8nSuccess) {
-            console.log('✅ Notificação N8N enviada com sucesso');
-          } else {
-            console.warn('⚠️ Falha ao enviar notificação N8N');
-          }
+        const normalize = (s: string) => (s || '').toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+        const statusNormalizado = normalize(newStatus || '');
+        
+        // Enviar notificação direta via WhatsApp
+        let notificationSuccess = false;
+        if (statusNormalizado === 'APROVADO') {
+          console.log('🎉 Status APROVADO detectado - enviando notificação de aprovação');
+          notificationSuccess = await sendOSApprovedNotification(osId);
+        } else if (newStatus) {
+          console.log('🔄 Mudança de status geral - enviando notificação de status');
+          notificationSuccess = await sendOSStatusNotification(osId, newStatus);
+        }
+        
+        if (notificationSuccess) {
+          console.log('✅ Notificação WhatsApp enviada com sucesso');
         } else {
-          console.warn('⚠️ Erro ao buscar dados completos da OS para notificação:', osCompletaError);
+          console.warn('⚠️ Falha ao enviar notificação WhatsApp');
         }
       } catch (notificationError) {
-        console.error('❌ Erro ao enviar notificação N8N:', notificationError);
+        console.error('❌ Erro ao enviar notificação WhatsApp:', notificationError);
         // Não falha a atualização por causa da notificação
       }
     }

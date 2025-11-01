@@ -32,6 +32,7 @@ import { SubscriptionStatus } from '@/components/SubscriptionStatus';
 import LogoutScreen from '@/components/LogoutScreen';
 import { useWhatsAppNotification } from '@/hooks/useWhatsAppNotification';
 import { useLogout } from '@/hooks/useLogout';
+import AvisosBanner from '@/components/AvisosBanner';
 
 // Funções locais como fallback
 const isUsuarioTesteLocal = (usuario: any) => {
@@ -249,7 +250,6 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               
               {caixaExpanded && !menuRecolhido && (
                 <div className="ml-6 flex flex-col gap-1 mt-1">
-                  <SidebarButton path="/caixa" icon={<FiDollarSign size={18} />} label="Caixa PDV" isActive={pathname === '/caixa'} menuRecolhido={menuRecolhido || false} />
                   <SidebarButton path="/fluxo-caixa" icon={<FiTrendingUp size={18} />} label="Fluxo de Caixa" isActive={pathname === '/fluxo-caixa'} menuRecolhido={menuRecolhido || false} />
                 </div>
               )}
@@ -459,7 +459,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                 <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} menuRecolhido={menuRecolhido || false} />
               )}
               {podeVer('caixa') && (
-                <SidebarButton path="/caixa" icon={<FiDollarSign size={20} />} label="Caixa" isActive={pathname === '/caixa'} menuRecolhido={menuRecolhido || false} />
+                <></>
               )}
               {podeVer('clientes') && (
                 <>
@@ -657,6 +657,10 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             </div>
           </div>
         </header>
+        {/* Banner de Avisos */}
+        <div className="w-full sticky top-16 z-20 no-print">
+          <AvisosBanner />
+        </div>
         {/* Conteúdo principal */}
         <main className="flex-1 p-4 md:p-8 w-full max-w-full">
           {children}
@@ -729,15 +733,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               )}
               
               {/* Caixa */}
-              {podeVer('caixa') && (
-                <MobileMenuItem
-                  path="/caixa"
-                  icon={<FiDollarSign size={20} />}
-                  label="Caixa"
-                  isActive={pathname === '/caixa'}
-                  onNavigate={() => setMobileMenuOpen(false)}
-                />
-              )}
+              {podeVer('caixa') && <></>}
               
               {/* Contatos */}
               {podeVer('clientes') && (

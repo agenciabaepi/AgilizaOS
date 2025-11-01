@@ -96,7 +96,7 @@ export default function OnboardingModal({ isOpen, onClose, onComplete }: Onboard
           new Promise((_, reject) => 
             setTimeout(() => reject(new Error('Timeout')), 5000)
           )
-        ]);
+        ]) as any;
 
         tecnicosStatus = tecnicos && tecnicos.length > 0 ? 'completed' : 'pending';
       } catch (error) {

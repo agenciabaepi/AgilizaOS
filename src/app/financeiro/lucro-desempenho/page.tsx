@@ -323,7 +323,7 @@ export default function LucroDesempenhoPage() {
         if (todasVendas && todasVendas.length > 0) {
           console.log('🔍 PRIMEIRAS VENDAS:');
           todasVendas.slice(0, 3).forEach((venda, i) => {
-            console.log(`  ${i+1}. Total: R$ ${venda.valor_total}, Pago: R$ ${venda.total} - "${venda.observacoes}"`);
+            console.log(`  ${i+1}. Total: R$ ${venda.total}, Pago: R$ ${venda.total} - "${venda.observacoes}"`);
           });
         }
 
@@ -419,7 +419,7 @@ export default function LucroDesempenhoPage() {
         // Receita Prevista: OS sem venda no período e não entregues/finalizadas
         const ordensSemVendaNoPeriodo = (ordensCompletas || []).filter(o => {
           const createdMes = (o.created_at || '').toString().slice(0, 7);
-          const entregue = (o.status || '').toUpperCase() === 'ENTREGUE' || (o.status_tecnico || '').toUpperCase() === 'FINALIZADA';
+          const entregue = (o.status || '').toUpperCase() === 'ENTREGUE' || ((o as any).status_tecnico || '').toUpperCase() === 'FINALIZADA';
           const temVendaNoPeriodo = (o.vendas || []).some(v => vendasDoPeriodo.some(vp => vp.id === v.id));
           return createdMes === mesAtual && !entregue && !temVendaNoPeriodo;
         });

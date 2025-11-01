@@ -1,12 +1,4 @@
 import { createAdminClient } from './supabaseClient';
-import { 
-  notificarN8nOSAprovada, 
-  notificarN8nNovaOS, 
-  notificarN8nStatusOS,
-  formatarValor,
-  gerarLinkOS,
-  formatarWhatsApp
-} from './n8n-integration';
 
 interface TecnicoData {
   id: string;
@@ -30,6 +22,43 @@ interface OSData {
     nome: string;
     telefone: string;
   } | null;
+}
+
+/**
+ * Envia mensagem diretamente pela API do WhatsApp (sem N8N)
+ */
+async function sendWhatsAppMessage(phoneNumber: string, message: string): Promise<boolean> {
+  try {
+    console.log('📱 Enviando mensagem WhatsApp direta:', {
+      to: phoneNumber,
+      messageLength: message.length
+    });
+
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/whatsapp/send-message`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        to: phoneNumber,
+        message: message
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('❌ Erro ao enviar mensagem WhatsApp:', errorData);
+      return false;
+    }
+
+    const result = await response.json();
+    console.log('✅ Mensagem WhatsApp enviada com sucesso:', result);
+    return true;
+
+  } catch (error) {
+    console.error('❌ Erro ao enviar mensagem WhatsApp:', error);
+    return false;
+  }
 }
 
 /**
@@ -139,36 +168,22 @@ A OS foi aprovada pelo cliente e está pronta para execução!
 
 _Consert - Sistema de Gestão_`;
 
-    // Enviar notificação via N8N
-    console.log('📡 N8N: Enviando notificação de OS aprovada via N8N:', {
+    // Enviar mensagem diretamente pelo WhatsApp (sem N8N)
+    console.log('📱 Enviando notificação de OS aprovada diretamente:', {
       os_id: osData.id,
       numero_os: osData.numero_os,
-      tecnico: tecnicoData.nome
+      tecnico: tecnicoData.nome,
+      whatsapp: tecnicoData.whatsapp
     });
 
-    const n8nPayload = {
-      os_id: osData.id,
-      status: 'APROVADO',
-      empresa_id: osData.empresa_id || '', // Assumindo que empresa_id está disponível
-      tecnico_nome: tecnicoData.nome,
-      tecnico_whatsapp: formatarWhatsApp(tecnicoData.whatsapp),
-      equipamento: osData.equipamento || 'Não especificado',
-      valor: formatarValor(osData.valor || 0),
-      link_os: gerarLinkOS(osData.id),
-      cliente_nome: clienteNome,
-      cliente_telefone: osData.clientes?.telefone || 'Não informado',
-      servico: servico,
-      numero_os: osData.numero_os
-    };
+    const success = await sendWhatsAppMessage(tecnicoData.whatsapp, message);
 
-    const n8nSuccess = await notificarN8nOSAprovada(n8nPayload);
-
-    if (!n8nSuccess) {
-      console.error('❌ N8N: Falha ao enviar notificação de OS aprovada via N8N');
+    if (!success) {
+      console.error('❌ Falha ao enviar notificação de OS aprovada');
       return false;
     }
 
-    console.log('✅ Notificação de OS aprovada enviada com sucesso via N8N:', {
+    console.log('✅ Notificação de OS aprovada enviada com sucesso:', {
       tecnico: tecnicoData.nome,
       telefone: tecnicoData.whatsapp,
       os: osData.numero_os
@@ -241,36 +256,23 @@ Uma nova ordem de serviço foi criada e está aguardando sua análise!
 
 _Consert - Sistema de Gestão_`;
 
-    // Enviar notificação via N8N
-    console.log('📡 N8N: Enviando notificação de nova OS via N8N:', {
+    // Enviar mensagem diretamente pelo WhatsApp (sem N8N)
+    console.log('📱 Enviando notificação de nova OS diretamente:', {
       os_id: osData.id,
       numero_os: osData.numero_os,
       tecnico: tecnicoData.nome,
+      whatsapp: tecnicoData.whatsapp,
       cliente: clienteNome
     });
 
-    const n8nPayload = {
-      os_id: osData.id,
-      empresa_id: osData.empresa_id || '', // Assumindo que empresa_id está disponível
-      tecnico_nome: tecnicoData.nome,
-      tecnico_whatsapp: formatarWhatsApp(tecnicoData.whatsapp),
-      cliente_nome: clienteNome,
-      cliente_telefone: (osData.clientes as any)?.telefone || 'Não informado',
-      equipamento: osData.equipamento || 'Não especificado',
-      servico: servico,
-      numero_os: osData.numero_os,
-      status: osData.status,
-      link_os: gerarLinkOS(osData.id)
-    };
+    const success = await sendWhatsAppMessage(tecnicoData.whatsapp, message);
 
-    const n8nSuccess = await notificarN8nNovaOS(n8nPayload);
-
-    if (!n8nSuccess) {
-      console.error('❌ N8N: Falha ao enviar notificação de nova OS via N8N');
+    if (!success) {
+      console.error('❌ Falha ao enviar notificação de nova OS');
       return false;
     }
 
-    console.log('✅ Notificação de nova OS enviada com sucesso via N8N:', {
+    console.log('✅ Notificação de nova OS enviada com sucesso:', {
       tecnico: tecnicoData.nome,
       whatsapp: tecnicoData.whatsapp,
       os: osData.numero_os,
@@ -400,42 +402,22 @@ _Consert - Sistema de Gestão_`;
         break;
     }
 
-    // Enviar notificação via N8N
-    console.log('📡 N8N: Enviando notificação de mudança de status via N8N:', {
+    // Enviar mensagem diretamente pelo WhatsApp (sem N8N)
+    console.log('📱 Enviando notificação de mudança de status diretamente:', {
       os_id: osData.id,
       status: newStatus,
-      tecnico: tecnicoData.nome
+      tecnico: tecnicoData.nome,
+      whatsapp: tecnicoData.whatsapp
     });
 
-    const n8nPayload = {
-      os_id: osData.id,
-      status: newStatus,
-      empresa_id: osData.empresa_id || '', // Assumindo que empresa_id está disponível
-      tecnico_nome: tecnicoData.nome,
-      tecnico_whatsapp: formatarWhatsApp(tecnicoData.whatsapp),
-      equipamento: osData.equipamento || 'Não especificado',
-      valor: formatarValor(osData.valor || 0),
-      link_os: gerarLinkOS(osData.id),
-      cliente_nome: clienteNome,
-      cliente_telefone: osData.clientes?.telefone || 'Não informado',
-      servico: servico,
-      numero_os: osData.numero_os
-    };
+    const success = await sendWhatsAppMessage(tecnicoData.whatsapp, message);
 
-    // Usar função específica para OS aprovada
-    let n8nSuccess = false;
-    if (newStatus.toLowerCase() === 'aprovado') {
-      n8nSuccess = await notificarN8nOSAprovada(n8nPayload);
-    } else {
-      n8nSuccess = await notificarN8nStatusOS(n8nPayload);
-    }
-
-    if (!n8nSuccess) {
-      console.error('❌ N8N: Falha ao enviar notificação de status via N8N');
+    if (!success) {
+      console.error('❌ Falha ao enviar notificação de status');
       return false;
     }
 
-    console.log('✅ Notificação de status enviada com sucesso via N8N:', {
+    console.log('✅ Notificação de status enviada com sucesso:', {
       tecnico: tecnicoData.nome,
       telefone: tecnicoData.whatsapp,
       os: osData.numero_os,

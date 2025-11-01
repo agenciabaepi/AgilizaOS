@@ -1,22 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-interface WhatsAppMessage {
-  messaging_product: string;
-  to: string;
-  type: string;
-  text: {
-    body: string;
-  };
-}
-
 export async function POST(request: NextRequest) {
   try {
-    const { phoneNumber, to, message } = await request.json();
+    const { phoneNumber, message } = await request.json();
 
-    // Usar 'to' se disponível, senão usar 'phoneNumber'
-    const phone = to || phoneNumber;
-
-    if (!phone || !message) {
+    if (!phoneNumber || !message) {
       return NextResponse.json(
         { error: 'Número de telefone e mensagem são obrigatórios' },
         { status: 400 }
@@ -24,12 +12,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Formatar número de telefone (remover caracteres especiais e adicionar código do país)
-    const formattedPhone = phone.replace(/\D/g, '');
+    const formattedPhone = phoneNumber.replace(/\D/g, '');
     const phoneWithCountryCode = formattedPhone.startsWith('55') 
       ? formattedPhone 
       : `55${formattedPhone}`;
 
-    const whatsappMessage: WhatsAppMessage = {
+    const whatsappMessage = {
       messaging_product: 'whatsapp',
       to: phoneWithCountryCode,
       type: 'text',
@@ -38,17 +26,9 @@ export async function POST(request: NextRequest) {
       }
     };
 
-    console.log('📱 Enviando mensagem WhatsApp:', {
+    console.log('🧪 Teste - Enviando mensagem WhatsApp:', {
       to: phoneWithCountryCode,
       message: message.substring(0, 100) + '...'
-    });
-
-    // 🔍 DEBUG: Verificar se o token está sendo lido do .env
-    console.log('🔑 DEBUG Token:', {
-      tokenExiste: !!process.env.WHATSAPP_ACCESS_TOKEN,
-      tokenLength: process.env.WHATSAPP_ACCESS_TOKEN?.length,
-      tokenPrimeiros10: process.env.WHATSAPP_ACCESS_TOKEN?.substring(0, 10),
-      tokenUltimos10: process.env.WHATSAPP_ACCESS_TOKEN?.substring(process.env.WHATSAPP_ACCESS_TOKEN.length - 10)
     });
 
     const response = await fetch(
@@ -81,7 +61,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       messageId: responseData.messages?.[0]?.id,
-      data: responseData
+      data: responseData,
+      sentTo: phoneWithCountryCode,
+      message: 'Mensagem de teste enviada com sucesso!'
     });
 
   } catch (error) {

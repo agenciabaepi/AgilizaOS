@@ -127,7 +127,7 @@ export default function ComissoesPage() {
             return {
               ...comissao,
               numero_os: osInfo?.numero_os || 'N/A',
-              cliente_nome: osInfo?.clientes?.nome || 'Cliente não encontrado',
+              cliente_nome: (osInfo?.clientes as any)?.nome || 'Cliente não encontrado',
               servico_nome: osInfo?.servico || 'Serviço não especificado'
             };
           });

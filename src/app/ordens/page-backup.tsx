@@ -310,7 +310,7 @@ export default function ListaOrdensPage() {
         new Promise((_, reject) => 
           setTimeout(() => reject(new Error('Query timeout - dados demorando muito para carregar')), 30000) // 30 segundos - mais tolerante
         )
-      ]);
+      ]) as any;
 
       if (error) {
         console.error('Erro ao carregar OS:', error);
@@ -356,7 +356,7 @@ export default function ListaOrdensPage() {
           const { data: todasVendas, error: errorVendas } = await Promise.race([
             vendasQueryPromise,
             vendasTimeoutPromise
-          ]);
+          ]) as any;
           
           if (errorVendas) {
             console.warn('⚠️ Erro ao buscar vendas:', errorVendas);
@@ -577,7 +577,7 @@ export default function ListaOrdensPage() {
         new Promise((_, reject) => 
           setTimeout(() => reject(new Error('Técnicos timeout')), 30000) // 30 segundos - mais tolerante
         )
-      ]);
+      ]) as any;
 
       if (error) {
         console.warn('⚠️ Falha ao buscar técnicos (modo silencioso):', error);

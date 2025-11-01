@@ -70,7 +70,7 @@ export default function ImprimirCatalogoPage() {
             
             if (userData?.empresa_id) {
               empresaId = userData.empresa_id;
-              empresaInfo = userData.empresas;
+              empresaInfo = Array.isArray(userData.empresas) ? userData.empresas[0] : userData.empresas;
               }
           }
         } catch (e) {

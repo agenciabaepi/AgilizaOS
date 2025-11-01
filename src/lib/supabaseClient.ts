@@ -6,7 +6,7 @@ import { supabaseConfig } from './supabase-config';
  * Evita erro "supabaseUrl is required" durante o build/prerender no servidor.
  * Usa supabaseConfig com fallbacks para evitar "Invalid API key"
  */
-export const supabase: SupabaseClient | any =
+export const supabase: SupabaseClient =
   typeof window !== 'undefined'
     ? createClient(
         supabaseConfig.url,
@@ -33,7 +33,7 @@ export const supabase: SupabaseClient | any =
           }
         }
       )
-    : ({} as any);
+    : ({} as SupabaseClient);
 
 export function createAdminClient(): SupabaseClient {
   // Usa supabaseConfig com fallbacks para evitar erros de configuração
