@@ -62,9 +62,22 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error('GET /api/avisos - Erro do Supabase:', error);
       if (error.message?.includes('does not exist') || error.code === '42P01') {
-        return NextResponse.json({ avisos: [] });
+        return NextResponse.json({ avisos: [] }, {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        });
       }
-      return NextResponse.json({ error: 'Erro ao buscar avisos' }, { status: 500 });
+      return NextResponse.json({ error: 'Erro ao buscar avisos' }, { 
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
     }
 
     // Filtrar por datas apenas se não for "todos" (para o banner, não para a página de admin)
