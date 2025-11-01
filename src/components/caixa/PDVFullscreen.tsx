@@ -299,9 +299,6 @@ export function PDVFullscreen({
             onCadastrarCliente={onCadastrarCliente}
             orderType={orderType}
             onOrderTypeChange={onOrderTypeChange}
-            onSangria={onSangria}
-            onSuprimento={onSuprimento}
-            onMovimentacoes={onMovimentacoes}
             onFecharCaixa={onFecharCaixa}
           />
         </div>

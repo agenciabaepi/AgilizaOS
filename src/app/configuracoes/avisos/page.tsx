@@ -269,7 +269,7 @@ export default function AvisosPage() {
           return
         }
         
-        const updatePayload = {
+        const updatePayload: any = {
           id: editingAviso.id,
           empresa_id: empresaId,
           titulo: formData.titulo.trim(),
@@ -279,11 +279,9 @@ export default function AvisosPage() {
           cor_texto: formData.cor_texto,
           prioridade: formData.prioridade || 0,
           ativo: formData.ativo,
+          data_inicio: dataInicioISO,
+          data_fim: dataFimISO,
         }
-        
-        // Sempre incluir datas (pode ser null para limpar)
-        updatePayload.data_inicio = dataInicioISO
-        updatePayload.data_fim = dataFimISO
         
         
         const response = await fetch('/api/avisos', {

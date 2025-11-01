@@ -1869,11 +1869,11 @@ export default function CaixaPage() {
         <PagamentoModal
           isOpen={modalFinalizarVenda}
           onClose={() => setModalFinalizarVenda(false)}
-          onConfirm={handleFinalizarVenda}
-          produtos={cart}
-          clienteSelecionado={clienteSelecionado}
-          clientes={clientes}
-          onSelecionarCliente={setClienteSelecionado}
+          onConfirm={(formaPagamento, valorPago) => {
+            handleFinalizarVenda({ formaPagamento, valorPago } as any);
+          }}
+          onParcelar={() => setModalVendaParcelada(true)}
+          total={calcularTotal()}
         />
 
         {/* Modal de Cupom */}
