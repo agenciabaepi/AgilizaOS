@@ -13,6 +13,9 @@ import { CupomVenda } from '@/components/caixa/CupomVenda';
 import { OrcamentoModal } from '@/components/caixa/OrcamentoModal';
 import { DevolucaoModal } from '@/components/caixa/DevolucaoModal';
 import { SangriaSuprimentoModal } from '@/components/caixa/SangriaSuprimentoModal';
+import { DescontoModal } from '@/components/caixa/DescontoModal';
+import { AcrescimoModal } from '@/components/caixa/AcrescimoModal';
+import { VendaParceladaModal } from '@/components/caixa/VendaParceladaModal';
 import { useToast } from '@/components/Toast';
 import { interceptSupabaseQuery } from '@/utils/supabaseInterceptor';
 import { FiLock, FiUnlock, FiX, FiMinimize, FiMaximize } from 'react-icons/fi';
@@ -108,7 +111,6 @@ export default function CaixaPage() {
   const [modalMovimentacoes, setModalMovimentacoes] = useState(false);
   const [modalNovoCliente, setModalNovoCliente] = useState(false);
   const [modalPagamento, setModalPagamento] = useState(false);
-  const [modalFinalizarVenda, setModalFinalizarVenda] = useState(false);
   const [modalCupom, setModalCupom] = useState(false);
   const [vendaFinalizada, setVendaFinalizada] = useState<any>(null);
   const [modalDesconto, setModalDesconto] = useState(false);
@@ -1423,20 +1425,45 @@ export default function CaixaPage() {
           </div>
           
           <PainelControles
-            turnoAtual={turnoAtual}
-            onAbrirCaixa={() => setModalAbrirCaixa(true)}
-            onFecharCaixa={() => setModalFecharCaixa(true)}
-            onSangria={() => {
+            onApplyDiscount={(tipo, valor, itemId) => {
+              if (itemId) {
+                setDescontoItemId(itemId);
+              } else {
+                setDescontoItemId(null);
+              }
+              setModalDesconto(true);
+            }}
+            onApplyAddition={(tipo, valor, itemId) => {
+              if (itemId) {
+                setAcrescimoItemId(itemId);
+              } else {
+                setAcrescimoItemId(null);
+              }
+              setModalAcrescimo(true);
+            }}
+            onParcelar={(parcelas, formaPagamento) => {
+              setModalVendaParcelada(true);
+            }}
+            onGerarOrcamento={(tipo, validade, observacoes) => {
+              // Implementar lógica de orçamento
+            }}
+            onDevolucao={(vendaId, produtos, observacoes) => {
+              setModalDevolucao(true);
+            }}
+            onSangria={(valor, observacoes) => {
               setTipoSangriaSuprimento('sangria');
               setModalSangriaSuprimento(true);
             }}
-            onSuprimento={() => {
+            onSuprimento={(valor, observacoes) => {
               setTipoSangriaSuprimento('suprimento');
               setModalSangriaSuprimento(true);
             }}
-            onRelatorios={() => {
-              addToast('info', 'Funcionalidade de relatórios em desenvolvimento');
-            }}
+            vendedores={vendedores}
+            vendedorSelecionado={vendedorSelecionado}
+            onVendedorChange={setVendedorSelecionado}
+            total={calcularTotal()}
+            saldoCaixa={turnoAtual?.valor_inicial || 0}
+            itemSelecionado={itemSelecionado}
           />
               
               <Button
@@ -1610,14 +1637,10 @@ export default function CaixaPage() {
                     onFinalizar={finalizarVenda}
                     turnoAtual={turnoAtual}
                   />
-                              </div>
-
-                  />
                 </div>
               </>
             )}
           </div>
-                    </div>
 
         {/* Modal Abrir Caixa */}
         {modalAbrirCaixa && (
