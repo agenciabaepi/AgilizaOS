@@ -16,6 +16,15 @@ const nextConfig = {
   async headers() {
     return [
       {
+        source: '/api/avisos',
+        headers: [
+          { key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate, proxy-revalidate' },
+          { key: 'Pragma', value: 'no-cache' },
+          { key: 'Expires', value: '0' },
+          { key: 'Surrogate-Control', value: 'no-store' },
+        ],
+      },
+      {
         source: '/api/:path*',
         headers: [
           { key: 'Cache-Control', value: 'public, max-age=300, s-maxage=600' },
