@@ -9,7 +9,13 @@ export async function GET(request: NextRequest) {
     const todos = searchParams.get('todos'); // Parâmetro para retornar todos os avisos (admin)
 
     if (!empresaId) {
-      return NextResponse.json({ avisos: [] });
+      return NextResponse.json({ avisos: [] }, {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
     }
 
     const supabase = createAdminClient();
@@ -95,7 +101,15 @@ export async function GET(request: NextRequest) {
       })) || []
     })
 
-    return NextResponse.json({ avisos: avisosFiltrados });
+    // Desabilitar cache completamente para esta rota
+    return NextResponse.json({ avisos: avisosFiltrados }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'Surrogate-Control': 'no-store'
+      }
+    });
   } catch (error: any) {
     return NextResponse.json({ avisos: [] });
   }

@@ -52,8 +52,15 @@ export default function AvisosBanner() {
       if (!empresaId) {
         return
       }
-      const response = await fetch(`/api/avisos?empresa_id=${empresaId}`, {
-        cache: 'no-store'
+      const timestamp = Date.now()
+      const randomId = Math.random().toString(36).substring(7)
+      const response = await fetch(`/api/avisos?empresa_id=${empresaId}&_t=${timestamp}&_r=${randomId}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
       })
       
       // Se for erro 401 (não autenticado), pode ser que a sessão ainda esteja carregando
