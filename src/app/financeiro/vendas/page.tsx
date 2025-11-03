@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import MenuLayout from '@/components/MenuLayout';
 import { CupomVenda } from '@/components/CupomVenda';
@@ -7,7 +7,8 @@ import { Dialog } from '@/components/Dialog';
 import { Button } from '@/components/Button';
 import DashboardCard from '@/components/ui/DashboardCard';
 import { useAuth } from '@/context/AuthContext';
-import { FiPrinter, FiDollarSign, FiShoppingCart, FiTrendingUp, FiUsers } from 'react-icons/fi';
+import { FiPrinter, FiDollarSign, FiShoppingCart, FiTrendingUp, FiUsers, FiCalendar } from 'react-icons/fi';
+import { useSnapshotFinanceiro } from '@/hooks/useSnapshotFinanceiro';
 
 interface VendaItem {
   id: string;
@@ -70,6 +71,39 @@ export default function ListaVendasPage() {
     crescimento: 0
   });
   const { empresaData } = useAuth();
+
+  // Calcular datas para lucro do dia e da semana usando useMemo
+  const { dataInicioDia, dataFimDia, dataInicioSemana, dataFimSemana } = useMemo(() => {
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const hojeFim = new Date();
+    hojeFim.setHours(23, 59, 59, 999);
+    
+    const inicioSemana = new Date();
+    inicioSemana.setDate(inicioSemana.getDate() - inicioSemana.getDay());
+    inicioSemana.setHours(0, 0, 0, 0);
+    const fimSemana = new Date();
+    fimSemana.setHours(23, 59, 59, 999);
+
+    return {
+      dataInicioDia: hoje.toISOString().split('T')[0],
+      dataFimDia: hojeFim.toISOString().split('T')[0],
+      dataInicioSemana: inicioSemana.toISOString().split('T')[0],
+      dataFimSemana: fimSemana.toISOString().split('T')[0]
+    };
+  }, []);
+
+  // Buscar snapshot financeiro do dia
+  const { snapshot: snapshotDia, loading: loadingDia } = useSnapshotFinanceiro(
+    dataInicioDia,
+    dataFimDia
+  );
+
+  // Buscar snapshot financeiro da semana
+  const { snapshot: snapshotSemana, loading: loadingSemana } = useSnapshotFinanceiro(
+    dataInicioSemana,
+    dataFimSemana
+  );
 
   useEffect(() => {
     async function fetchVendas() {
@@ -252,6 +286,35 @@ export default function ListaVendasPage() {
               />
             </div>
           )}
+        </div>
+
+        {/* Cards de Lucro - Destaque */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
+          <DashboardCard
+            title="Lucro do Dia"
+            value={loadingDia ? 'Carregando...' : formatCurrency(snapshotDia?.lucro || 0)}
+            description="Hoje"
+            descriptionColorClass={snapshotDia && snapshotDia.lucro >= 0 ? "text-green-600" : "text-red-600"}
+            icon={<FiCalendar className="w-5 h-5" />}
+            svgPolyline={{ 
+              color: snapshotDia && snapshotDia.lucro >= 0 ? '#22c55e' : '#ef4444', 
+              points: '0,20 10,18 20,16 30,14 40,12 50,10 60,8 70,6' 
+            }}
+            className={snapshotDia && snapshotDia.lucro >= 0 ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}
+          />
+
+          <DashboardCard
+            title="Lucro da Semana"
+            value={loadingSemana ? 'Carregando...' : formatCurrency(snapshotSemana?.lucro || 0)}
+            description="Esta semana"
+            descriptionColorClass={snapshotSemana && snapshotSemana.lucro >= 0 ? "text-green-600" : "text-red-600"}
+            icon={<FiTrendingUp className="w-5 h-5" />}
+            svgPolyline={{ 
+              color: snapshotSemana && snapshotSemana.lucro >= 0 ? '#22c55e' : '#ef4444', 
+              points: '0,15 10,17 20,15 30,13 40,15 50,17 60,15 70,17' 
+            }}
+            className={snapshotSemana && snapshotSemana.lucro >= 0 ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}
+          />
         </div>
 
         {/* Dashboard Cards */}

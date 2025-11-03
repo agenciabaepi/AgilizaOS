@@ -10,7 +10,11 @@ import { useAppleParallax } from '@/hooks/useParallax';
 import { useGSAPTextAnimation } from '@/hooks/useGSAPTextAnimation';
 import GSAPWordRotator from '@/components/GSAPWordRotator';
 import GSAPHeadlineRotator from '@/components/GSAPHeadlineRotator';
-import macbookImage from '@/assets/imagens/macbook.png';
+import dashboardImage from '@/assets/imagens/dashboard.png';
+import caixaImage from '@/assets/imagens/caixa.png';
+import financeiroImage from '@/assets/imagens/financeiro.png';
+import produtosImage from '@/assets/imagens/produtos.png';
+import contasPagarImage from '@/assets/imagens/contas a pagar.png';
 
 export default function Home() {
   const router = useRouter();
@@ -43,30 +47,9 @@ export default function Home() {
     localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
 
-  // Auto-rotate do carrossel
-  useEffect(() => {
-    const carouselImages = 3; // número de cards
-    const interval = setInterval(() => {
-      setCurrentCardIndex((prev) => (prev + 1) % carouselImages);
-    }, 4000);
-    return () => clearInterval(interval);
-  }, []);
-
   // Inicializa a posição do mouse com valores negativos para que o efeito não apareça inicialmente
   const [mousePosition, setMousePosition] = useState({ x: -100, y: -100 });
   const [scrollY, setScrollY] = useState(0);
-  // --- Analytics Animation State ---
-  const [showAnalyticsAnimation, setShowAnalyticsAnimation] = useState(false);
-  const [hasAnimated, setHasAnimated] = useState(false);
-  const analyticsRef = useRef<HTMLDivElement | null>(null);
-  // Animated numbers
-  const [revenue, setRevenue] = useState(127);
-  const [reduction, setReduction] = useState(45);
-  const [satisfaction, setSatisfaction] = useState(89);
-  const [numbersAnimated, setNumbersAnimated] = useState(false);
-  
-  // Carrossel state
-  const [currentCardIndex, setCurrentCardIndex] = useState(0);
   
   // Sistema de abas state
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -118,75 +101,6 @@ export default function Home() {
       document.removeEventListener('click', handleClickOutside);
     };
   }, []);
-
-  // --- Analytics Section Observer (separado) ---
-  useEffect(() => {
-    if (!analyticsRef.current) return;
-    
-    const analyticsObs = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          // Reset e inicia animação
-          setRevenue(0);
-          setReduction(0);
-          setSatisfaction(0);
-          setHasAnimated(false);
-          setNumbersAnimated(false);
-          setShowAnalyticsAnimation(true);
-        } else {
-          // Reset quando sair da tela
-          setShowAnalyticsAnimation(false);
-        }
-      });
-    }, { 
-      threshold: 0.2, // Trigger quando 20% da seção estiver visível
-      rootMargin: '0px 0px -100px 0px' // Trigger mais cedo
-    });
-    
-    analyticsObs.observe(analyticsRef.current);
-    return () => analyticsObs.disconnect();
-  }, []);
-
-  // --- Animated Numbers Effect ---
-  useEffect(() => {
-    if (showAnalyticsAnimation && !hasAnimated) {
-      const endRevenue = 127;
-      const endReduction = 45;
-      const endSatisfaction = 89;
-      let frame = 0;
-      const totalFrames = 60; // Mais frames para animação mais suave
-      const duration = 1500; // Duração fixa
-      const interval = duration / totalFrames;
-      
-      const animate = () => {
-        frame++;
-        // Função de easing para animação mais natural
-        const progress = frame / totalFrames;
-        const easeOutQuart = 1 - Math.pow(1 - progress, 4);
-        
-        const newRevenue = Math.round(endRevenue * easeOutQuart);
-        const newReduction = Math.round(endReduction * easeOutQuart);
-        const newSatisfaction = Math.round(endSatisfaction * easeOutQuart);
-        
-        setRevenue(newRevenue);
-        setReduction(newReduction);
-        setSatisfaction(newSatisfaction);
-        
-        if (frame < totalFrames) {
-          setTimeout(animate, interval);
-        } else {
-          setRevenue(endRevenue);
-          setReduction(endReduction);
-          setSatisfaction(endSatisfaction);
-          setNumbersAnimated(true);
-          setHasAnimated(true);
-        }
-      };
-      
-      // Pequeno delay para garantir que a seção está visível
-      setTimeout(animate, 200);
-    }
-  }, [showAnalyticsAnimation, hasAnimated]);
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
@@ -274,16 +188,6 @@ export default function Home() {
               }`}
             >
               Soluções
-            </button>
-            <button 
-              onClick={() => scrollToSection('analytics')}
-              className={`transition-all duration-300 font-light text-lg tracking-wide ${
-                isDarkMode 
-                  ? 'text-white/80 hover:text-white' 
-                  : 'text-gray-700 hover:text-gray-900'
-              }`}
-            >
-              Analytics
             </button>
             <button 
               onClick={() => scrollToSection('precos')}
@@ -444,16 +348,6 @@ export default function Home() {
                 }`}
               >
                 Soluções
-              </button>
-              <button 
-                onClick={() => scrollToSection('analytics')}
-                className={`transition-colors duration-300 font-medium text-left hover:text-[#D1FE6E] ${
-                  isDarkMode 
-                    ? 'text-white' 
-                    : 'text-gray-700'
-                }`}
-              >
-                Analytics
               </button>
               <button 
                 onClick={() => scrollToSection('precos')}
@@ -646,7 +540,7 @@ export default function Home() {
       </div>
 
       {/* Sistema de Abas - Visualizações do Sistema */}
-      <div className="relative z-10 px-4 sm:px-6 md:px-8 py-12 md:py-20 lg:px-12">
+      <section id="solucoes" className="relative z-10 px-4 sm:px-6 md:px-8 py-12 md:py-20 lg:px-12">
         <div 
           className="mx-auto max-w-7xl"
           ref={(el) => {
@@ -681,18 +575,18 @@ export default function Home() {
             <div className="flex flex-wrap justify-center gap-2 mb-12">
               {[
                 { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-                { id: 'pdv', label: 'PDV', icon: '💳' },
-                { id: 'notas', label: 'Notas Fiscais', icon: '📄' },
-                { id: 'financeiro', label: 'Financeiro', icon: '💰' },
-                { id: 'estoque', label: 'Estoque', icon: '📦' },
+                { id: 'caixa', label: 'Caixa', icon: '💰' },
+                { id: 'contas', label: 'Contas a Pagar', icon: '📄' },
+                { id: 'financeiro', label: 'Financeiro', icon: '💹' },
+                { id: 'produtos', label: 'Produtos', icon: '📦' },
                 { id: 'mais', label: 'Muito mais', icon: '⚡' }
               ].map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center px-6 py-3 rounded-full font-medium transition-all duration-300 ${
+                  className={`flex items-center px-5 py-2.5 md:px-6 md:py-3 rounded-full font-medium transition-all duration-300 text-sm md:text-base ${
                     activeTab === tab.id
-                      ? 'bg-[#D1FE6E] text-black shadow-lg transform scale-105'
+                      ? 'bg-[#D1FE6E] text-black shadow-lg shadow-[#D1FE6E]/30 transform scale-105'
                       : isDarkMode 
                         ? 'bg-white/5 text-white/80 hover:bg-white/10 hover:text-white border border-white/10'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 border border-gray-300'
@@ -737,117 +631,75 @@ export default function Home() {
                     </div>
                   </div>
                   
-                  {/* Placeholder do Dashboard */}
-                  <div className="relative bg-white rounded-2xl p-8 shadow-2xl border border-gray-200">
-                    {/* Header do Dashboard */}
-                    <div className="flex items-center justify-between mb-8 pb-4 border-b border-gray-200">
-                      <div className="flex items-center">
-                        <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold mr-3">
-                          C
-                        </div>
-                        <span className="text-gray-800 font-semibold text-xl">Consert</span>
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        <div className="w-8 h-8 bg-gray-200 rounded-full"></div>
-                        <span className="text-gray-600">Joana</span>
-                      </div>
-                    </div>
-
-                    {/* KPIs */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                      <div className="text-center">
-                        <div className="w-32 h-32 mx-auto mb-4 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center">
-                          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center">
-                            <span className="text-2xl">📈</span>
-                          </div>
-                        </div>
-                        <h4 className="font-medium text-gray-800 mb-2">Entradas / Receitas</h4>
-                        <p className="text-green-600 font-semibold text-lg">R$ 1.402,89</p>
-                      </div>
-                      
-                      <div className="text-center">
-                        <div className="w-32 h-32 mx-auto mb-4 bg-gradient-to-br from-red-400 to-red-600 rounded-full flex items-center justify-center">
-                          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center">
-                            <span className="text-2xl">📉</span>
-                          </div>
-                        </div>
-                        <h4 className="font-medium text-gray-800 mb-2">Saídas / Despesas</h4>
-                        <p className="text-red-600 font-semibold text-lg">R$ 1.085,31</p>
-                      </div>
-                      
-                      <div className="text-center">
-                        <div className="w-32 h-32 mx-auto mb-4 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center">
-                          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center">
-                            <span className="text-2xl">💰</span>
-                          </div>
-                        </div>
-                        <h4 className="font-medium text-gray-800 mb-2">Saldo</h4>
-                        <p className="text-blue-600 font-semibold text-lg">R$ 317,58</p>
-                      </div>
-                    </div>
-
-                    {/* Gráfico Placeholder */}
-                    <div className="bg-gray-50 rounded-xl p-6">
-                      <h4 className="text-gray-800 font-medium mb-4">Fluxo de Caixa (mensal)</h4>
-                      <div className="h-48 bg-gradient-to-r from-gray-100 to-gray-200 rounded-lg flex items-center justify-center">
-                        <span className="text-gray-500 text-lg">📊 Gráfico Interativo</span>
-                      </div>
+                  {/* Imagem do Dashboard */}
+                  <div className="relative bg-gradient-to-br from-gray-50 to-white rounded-2xl p-3 md:p-6 shadow-2xl shadow-black/20 border border-gray-200/50 overflow-hidden group hover:shadow-3xl transition-shadow duration-300">
+                    <div className="relative w-full h-auto rounded-xl overflow-hidden">
+                      <Image 
+                        src={dashboardImage}
+                        alt="Dashboard do sistema Consert"
+                        className="w-full h-auto rounded-xl transition-transform duration-500 group-hover:scale-[1.01]"
+                        quality={95}
+                        priority={activeTab === 'dashboard'}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/5 via-transparent to-transparent pointer-events-none"></div>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* PDV Tab */}
-              {activeTab === 'pdv' && (
+              {/* Caixa Tab */}
+              {activeTab === 'caixa' && (
                 <div className="space-y-8">
                   <div className="text-center">
                     <h3 className={`text-2xl md:text-3xl font-light mb-4 ${
                       isDarkMode ? 'text-white' : 'text-gray-800'
                     }`}>
-                      Sistema PDV Integrado
+                      Gestão de Caixa Completa
                     </h3>
                     <p className="text-white/70 text-lg max-w-2xl mx-auto">
-                      Vendas rápidas e organizadas com integração completa ao sistema
+                      Controle total do fluxo de caixa, vendas e movimentações financeiras
                     </p>
                   </div>
                   
-                  <div className="relative bg-white rounded-2xl p-8 shadow-2xl border border-gray-200">
-                    <div className="h-96 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl flex items-center justify-center border border-gray-200">
-                      <div className="text-center">
-                        <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <span className="text-4xl">💳</span>
-                        </div>
-                        <h4 className="text-gray-700 text-xl font-medium mb-2">PDV Consert</h4>
-                        <p className="text-gray-500">Interface de vendas em desenvolvimento</p>
-                      </div>
+                  <div className="relative bg-gradient-to-br from-gray-50 to-white rounded-2xl p-3 md:p-6 shadow-2xl shadow-black/20 border border-gray-200/50 overflow-hidden group hover:shadow-3xl transition-shadow duration-300">
+                    <div className="relative w-full h-auto rounded-xl overflow-hidden">
+                      <Image 
+                        src={caixaImage}
+                        alt="Sistema de Caixa"
+                        className="w-full h-auto rounded-xl transition-transform duration-500 group-hover:scale-[1.01]"
+                        quality={95}
+                        priority={activeTab === 'caixa'}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/5 via-transparent to-transparent pointer-events-none"></div>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Notas Fiscais Tab */}
-              {activeTab === 'notas' && (
+              {/* Contas a Pagar Tab */}
+              {activeTab === 'contas' && (
                 <div className="space-y-8">
                   <div className="text-center">
                     <h3 className={`text-2xl md:text-3xl font-light mb-4 ${
                       isDarkMode ? 'text-white' : 'text-gray-800'
                     }`}>
-                      Emissão de Notas Fiscais
+                      Contas a Pagar
                     </h3>
                     <p className="text-white/70 text-lg max-w-2xl mx-auto">
-                      Sistema completo para emissão e gestão de documentos fiscais
+                      Gerencie todas as contas da empresa com controle total de pagamentos e vencimentos
                     </p>
                   </div>
                   
-                  <div className="relative bg-white rounded-2xl p-8 shadow-2xl border border-gray-200">
-                    <div className="h-96 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl flex items-center justify-center border border-gray-200">
-                      <div className="text-center">
-                        <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <span className="text-4xl">📄</span>
-                        </div>
-                        <h4 className="text-gray-700 text-xl font-medium mb-2">Notas Fiscais</h4>
-                        <p className="text-gray-500">Emissão e gestão fiscal em desenvolvimento</p>
-                      </div>
+                  <div className="relative bg-gradient-to-br from-gray-50 to-white rounded-2xl p-3 md:p-6 shadow-2xl shadow-black/20 border border-gray-200/50 overflow-hidden group hover:shadow-3xl transition-shadow duration-300">
+                    <div className="relative w-full h-auto rounded-xl overflow-hidden">
+                      <Image 
+                        src={contasPagarImage}
+                        alt="Contas a Pagar"
+                        className="w-full h-auto rounded-xl transition-transform duration-500 group-hover:scale-[1.01]"
+                        quality={95}
+                        priority={activeTab === 'contas'}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/5 via-transparent to-transparent pointer-events-none"></div>
                     </div>
                   </div>
                 </div>
@@ -860,50 +712,52 @@ export default function Home() {
                     <h3 className={`text-2xl md:text-3xl font-light mb-4 ${
                       isDarkMode ? 'text-white' : 'text-gray-800'
                     }`}>
-                      Controle Financeiro Completo
+                      Análise Financeira e Lucro
                     </h3>
                     <p className="text-white/70 text-lg max-w-2xl mx-auto">
-                      Gestão financeira avançada com relatórios detalhados
+                      Visualize lucros, despesas e desempenho financeiro com gráficos e métricas em tempo real
                     </p>
                   </div>
                   
-                  <div className="relative bg-white rounded-2xl p-8 shadow-2xl border border-gray-200">
-                    <div className="h-96 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl flex items-center justify-center border border-gray-200">
-                      <div className="text-center">
-                        <div className="w-24 h-24 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <span className="text-4xl">💰</span>
-                        </div>
-                        <h4 className="text-gray-700 text-xl font-medium mb-2">Financeiro</h4>
-                        <p className="text-gray-500">Módulo financeiro em desenvolvimento</p>
-                      </div>
+                  <div className="relative bg-gradient-to-br from-gray-50 to-white rounded-2xl p-3 md:p-6 shadow-2xl shadow-black/20 border border-gray-200/50 overflow-hidden group hover:shadow-3xl transition-shadow duration-300">
+                    <div className="relative w-full h-auto rounded-xl overflow-hidden">
+                      <Image 
+                        src={financeiroImage}
+                        alt="Módulo Financeiro"
+                        className="w-full h-auto rounded-xl transition-transform duration-500 group-hover:scale-[1.01]"
+                        quality={95}
+                        priority={activeTab === 'financeiro'}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/5 via-transparent to-transparent pointer-events-none"></div>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Estoque Tab */}
-              {activeTab === 'estoque' && (
+              {/* Produtos Tab */}
+              {activeTab === 'produtos' && (
                 <div className="space-y-8">
                   <div className="text-center">
                     <h3 className={`text-2xl md:text-3xl font-light mb-4 ${
                       isDarkMode ? 'text-white' : 'text-gray-800'
                     }`}>
-                      Gestão de Estoque Inteligente
+                      Gestão de Produtos
                     </h3>
                     <p className="text-white/70 text-lg max-w-2xl mx-auto">
-                      Controle completo de produtos e materiais
+                      Cadastre e gerencie produtos, serviços e estoque de forma organizada
                     </p>
                   </div>
                   
-                  <div className="relative bg-white rounded-2xl p-8 shadow-2xl border border-gray-200">
-                    <div className="h-96 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl flex items-center justify-center border border-gray-200">
-                      <div className="text-center">
-                        <div className="w-24 h-24 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <span className="text-4xl">📦</span>
-                        </div>
-                        <h4 className="text-gray-700 text-xl font-medium mb-2">Estoque</h4>
-                        <p className="text-gray-500">Controle de estoque em desenvolvimento</p>
-                      </div>
+                  <div className="relative bg-gradient-to-br from-gray-50 to-white rounded-2xl p-3 md:p-6 shadow-2xl shadow-black/20 border border-gray-200/50 overflow-hidden group hover:shadow-3xl transition-shadow duration-300">
+                    <div className="relative w-full h-auto rounded-xl overflow-hidden">
+                      <Image 
+                        src={produtosImage}
+                        alt="Gestão de Produtos"
+                        className="w-full h-auto rounded-xl transition-transform duration-500 group-hover:scale-[1.01]"
+                        quality={95}
+                        priority={activeTab === 'produtos'}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/5 via-transparent to-transparent pointer-events-none"></div>
                     </div>
                   </div>
                 </div>
@@ -939,270 +793,10 @@ export default function Home() {
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Product Demo Section */}
-      <div id="solucoes" className="relative z-10 px-4 sm:px-6 md:px-8 pb-20 md:pb-32 lg:px-12">
-        <div className="mx-auto max-w-6xl">
-          <div className="flex flex-col items-center justify-center">
-            {/* MacBook Image com Parallax Avançado - Só no modo escuro */}
-            {isDarkMode && (
-              <div 
-                data-reveal="macbook"
-                className={`relative mb-20 flex justify-center scroll-reveal-scale scroll-reveal-delay-300 ${
-                  isAnimated('macbook') ? 'revealed' : ''
-                }`}
-              >
-              <Image 
-                src={macbookImage}
-                alt="MacBook Pro with Consert" 
-                width={1000} 
-                height={750}
-                className="w-full max-w-4xl transition-all duration-700 ease-out"
-                priority
-                style={{
-                  transform: `scale(${1 + (scrollY * 0.0003)}) translateY(${scrollY * 0.1}px)`,
-                  filter: 'drop-shadow(0 20px 40px rgba(0,0,0,0.3))',
-                  transition: 'transform 0.1s ease-out',
-                  willChange: 'transform'
-                }}
-              />
-              </div>
-            )}
-
-                        {/* Seção Carrossel + Texto */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center mb-16">
-              
-              {/* Lado Esquerdo - Carrossel de Cards */}
-              <div className="relative flex justify-center lg:justify-end">
-                <div className="relative w-full max-w-md h-[600px] flex items-center justify-center">
-                  {/* Cards do Carrossel */}
-                  {[
-                    {
-                      title: 'Ordens de Serviço',
-                      subtitle: 'Gestão Completa',
-                      description: 'Controle total de ordens, status e acompanhamento em tempo real',
-                      icon: '📋',
-                      gradient: 'from-blue-500/20 via-purple-500/20 to-indigo-500/20'
-                    },
-                    {
-                      title: 'Dashboard Analytics',
-                      subtitle: 'Métricas em Tempo Real',
-                      description: 'Relatórios detalhados e insights para tomada de decisões',
-                      icon: '📊',
-                      gradient: 'from-green-500/20 via-emerald-500/20 to-teal-500/20'
-                    },
-                    {
-                      title: 'Gestão de Clientes',
-                      subtitle: 'Relacionamento Inteligente',
-                      description: 'CRM completo com histórico e comunicação integrada',
-                      icon: '👥',
-                      gradient: 'from-orange-500/20 via-red-500/20 to-pink-500/20'
-                    }
-                  ].map((card, index) => {
-                    const isActive = index === currentCardIndex;
-                    const isPrev = index === (currentCardIndex - 1 + 3) % 3;
-                    const isNext = index === (currentCardIndex + 1) % 3;
-                    
-                    let cardStyle = 'opacity-0 scale-75 translate-x-0 z-0';
-                    
-                    if (isActive) {
-                      cardStyle = 'opacity-100 scale-100 translate-x-0 z-30';
-                    } else if (isPrev) {
-                      cardStyle = 'opacity-40 scale-90 -translate-x-8 z-20';
-                    } else if (isNext) {
-                      cardStyle = 'opacity-40 scale-90 translate-x-8 z-20';
-                    }
-                    
-                    return (
-                    <div
-                      key={index}
-                      className={`absolute transition-all duration-700 ease-in-out transform ${cardStyle}`}
-                    >
-                      <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-3xl p-8 shadow-2xl border border-gray-700/50 backdrop-blur-sm w-80 h-[500px] flex flex-col justify-center items-center text-center">
-                        {/* Ícone */}
-                        <div className="text-6xl mb-6">
-                          {card.icon}
-                        </div>
-                        
-                        {/* Título */}
-                        <h3 className={`text-2xl font-bold mb-3 tracking-tight ${
-                          isDarkMode ? 'text-white' : 'text-gray-800'
-                        }`}>
-                          <span className={isDarkMode 
-                            ? "bg-gradient-to-r from-[#D1FE6E] to-[#B8E55A] bg-clip-text text-transparent" 
-                            : "text-gray-800"
-                          }>
-                            {card.title}
-                          </span>
-                        </h3>
-                        
-                        {/* Subtítulo */}
-                        <h4 className={`text-lg mb-4 font-light ${
-                          isDarkMode ? 'text-gray-300' : 'text-gray-600'
-                        }`}>
-                          {card.subtitle}
-                        </h4>
-                        
-                        {/* Descrição */}
-                        <p className={`leading-relaxed text-sm ${
-                          isDarkMode ? 'text-gray-400' : 'text-gray-700'
-                        }`}>
-                          {card.description}
-                        </p>
-                        
-                        {/* Decoração */}
-                        <div className="absolute top-6 right-6 w-3 h-3 bg-[#D1FE6E] rounded-full opacity-60"></div>
-                        <div className="absolute bottom-6 left-6 w-2 h-2 bg-[#B8E55A] rounded-full opacity-40"></div>
-                      </div>
-                    </div>
-                    );
-                  })}
-
-                  {/* Indicadores do Carrossel */}
-                  <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-3 z-40">
-                    {[0, 1, 2].map((index) => (
-                      <button
-                        key={index}
-                        onClick={() => setCurrentCardIndex(index)}
-                        className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                          index === currentCardIndex 
-                            ? 'bg-[#D1FE6E] scale-125 shadow-lg' 
-                            : 'bg-gray-600 hover:bg-gray-500'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Lado Direito - Conteúdo Textual */}
-              <div className="space-y-8">
-                <div>
-                  <h2 className={`text-4xl md:text-5xl font-light mb-6 leading-tight tracking-tight ${
-                    isDarkMode ? 'text-white' : 'text-gray-800'
-                  }`}>
-                    Funcionalidades que 
-                    <span className={`font-medium ${isDarkMode 
-                      ? "bg-gradient-to-r from-[#D1FE6E] to-[#B8E55A] bg-clip-text text-transparent" 
-                      : "text-gray-800"
-                    }`}>
-                      {' '}transformam{' '}
-                    </span>
-                    seu negócio
-                  </h2>
-                  <p className={`text-lg md:text-xl leading-relaxed font-light ${
-                    isDarkMode ? 'text-white/70' : 'text-gray-600'
-                  }`}>
-                    Uma plataforma completa que integra todas as operações da sua assistência técnica em um só lugar.
-                  </p>
-                </div>
-
-                <div className="space-y-6">
-                  <div className="flex items-start space-x-4">
-                    <div className="w-12 h-12 bg-[#D1FE6E]/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                      <svg className="w-6 h-6 text-[#D1FE6E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className={`font-medium text-lg mb-2 ${
-                        isDarkMode ? 'text-white' : 'text-gray-800'
-                      }`}>Gestão Inteligente</h3>
-                      <p className={`leading-relaxed ${
-                        isDarkMode ? 'text-white/60' : 'text-gray-600'
-                      }`}>
-                        Automação de processos que reduz erros e aumenta a produtividade da sua equipe.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-4">
-                    <div className="w-12 h-12 bg-[#D1FE6E]/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                      <svg className="w-6 h-6 text-[#D1FE6E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className={`font-medium text-lg mb-2 ${
-                        isDarkMode ? 'text-white' : 'text-gray-800'
-                      }`}>Performance Otimizada</h3>
-                      <p className={`leading-relaxed ${
-                        isDarkMode ? 'text-white/60' : 'text-gray-600'
-                      }`}>
-                        Interface responsiva e rápida, desenvolvida para máxima eficiência no dia a dia.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-4">
-                    <div className="w-12 h-12 bg-[#D1FE6E]/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                      <svg className="w-6 h-6 text-[#D1FE6E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className={`font-medium text-lg mb-2 ${
-                        isDarkMode ? 'text-white' : 'text-gray-800'
-                      }`}>Segurança Garantida</h3>
-                      <p className={`leading-relaxed ${
-                        isDarkMode ? 'text-white/60' : 'text-gray-600'
-                      }`}>
-                        Seus dados protegidos com criptografia de ponta e backups automáticos.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-6">
-                  <button 
-                    onClick={() => router.push('/cadastro?plano=unico')}
-                    className="inline-flex items-center px-8 py-4 bg-[#D1FE6E] text-black rounded-full font-medium hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105"
-                    style={{
-                      boxShadow: '0 4px 20px rgba(209, 254, 110, 0.3)'
-                    }}
-                  >
-                    <span>Começar Agora</span>
-                    <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Call to Action */}
-            <div 
-              data-reveal="demo-cta"
-              className={`text-center max-w-lg scroll-reveal-slide-up scroll-reveal-delay-500 ${
-                isAnimated('demo-cta') ? 'revealed' : ''
-              }`}
-            >
-              <div className="flex items-center justify-center mb-8">
-                <svg className="w-6 h-6 text-white/60 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
-                </svg>
-                <span className="text-white/80 font-light text-lg tracking-wide">Veja em ação</span>
-              </div>
-              <p className="text-white/70 text-lg mb-10 leading-relaxed font-light">
-                Interface intuitiva e completa para gerenciar sua assistência de forma eficiente.
-              </p>
-              <button 
-                onClick={() => router.push('/cadastro?plano=unico')}
-                className="px-10 py-4 bg-[#D1FE6E] text-black rounded-full font-medium hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105"
-                style={{
-                  boxShadow: '0 4px 20px rgba(209, 254, 110, 0.3)'
-                }}
-              >
-                Testar Agora
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      </section>
 
       {/* Features Section */}
-      <div id="recursos" className="relative z-10 px-4 sm:px-6 md:px-8 py-20 md:py-32 lg:px-12">
+      <div id="recursos" className="relative z-10 px-4 sm:px-6 md:px-8 py-12 md:py-20 lg:px-12">
         <div 
           className="mx-auto max-w-6xl"
           ref={(el) => {
@@ -1214,7 +808,7 @@ export default function Home() {
         >
           <div 
             data-reveal="features-header"
-            className={`text-center mb-32 hero-reveal ${
+            className={`text-center mb-12 md:mb-16 hero-reveal ${
               isAnimated('features-header') ? 'revealed' : ''
             }`}
           >
@@ -1439,305 +1033,8 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Analytics Section */}
-      <section id="analytics" ref={analyticsRef} className="relative z-10 px-4 sm:px-6 md:px-8 py-20 md:py-32 lg:px-12">
-        <div 
-          className="mx-auto max-w-6xl"
-          ref={(el) => {
-            if (el) {
-              const style = getSectionTransform(el);
-              Object.assign(el.style, style);
-            }
-          }}
-        >
-          {/* Section Header */}
-          <div className="text-center mb-24">
-            <h2 
-              data-reveal="analytics-headline"
-              className={`text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-light mb-6 md:mb-8 leading-tight tracking-tight hero-reveal ${
-                isDarkMode ? 'text-gradient-accent' : 'text-gray-800'
-              } ${
-                isAnimated('analytics-headline') ? 'revealed' : ''
-              }`}
-            >
-              Dados que impulsionam resultados
-            </h2>
-            <p 
-              data-reveal="analytics-subheadline"
-              className={`text-xl text-white/70 max-w-3xl mx-auto leading-relaxed font-light scroll-reveal-slide-up scroll-reveal-delay-300 ${
-                isAnimated('analytics-subheadline') ? 'revealed' : ''
-              }`}
-            >
-              Dashboards inteligentes que transformam números em insights acionáveis
-            </p>
-          </div>
-
-          {/* Analytics Grid - Centralized Layout */}
-          <div className="max-w-5xl mx-auto">
-            {/* Charts Container */}
-            <div 
-              data-reveal="charts-container"
-              className={`chart-reveal scroll-reveal-delay-200 ${
-                isAnimated('charts-container') ? 'revealed' : ''
-              }`}
-            >
-              <div className="relative">
-                {/* Main Chart */}
-                <div 
-                  className="relative p-8 rounded-3xl mb-8"
-                  style={{
-                    background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%)',
-                    backdropFilter: 'blur(20px)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-                  }}
-                >
-                  {/* Chart Header */}
-                  <div className="flex items-center justify-between mb-8">
-                    <div>
-                      <h3 className="text-2xl font-medium text-white mb-2">Receita Mensal</h3>
-                      <p className="text-white/60 text-sm">Últimos 6 meses</p>
-                      <p className="text-white/40 text-xs mt-1">Crescimento médio de 15% ao mês</p>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-3 h-3 bg-[#D1FE6E] rounded-full"></div>
-                      <span className="text-white/80 text-sm">Crescimento</span>
-                      <div className="ml-4 text-right">
-                        <div className="text-white/60 text-xs">Total: R$ 247.5k</div>
-                        <div className="text-[#D1FE6E] text-xs">+23.4% vs período anterior</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Animated Bar Chart */}
-                  <div className="relative h-80 flex items-end justify-between space-x-2 pl-12">
-                    {/* Grid Lines */}
-                    <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                      {[0, 25, 50, 75, 100].map((line) => (
-                        <div key={line} className="border-t border-white/10 h-px"></div>
-                      ))}
-                    </div>
-                    
-                    {/* Y-axis Labels */}
-                    <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-white/40 text-xs pointer-events-none w-12">
-                      <span>R$ 50k</span>
-                      <span>R$ 37.5k</span>
-                      <span>R$ 25k</span>
-                      <span>R$ 12.5k</span>
-                      <span>R$ 0</span>
-                    </div>
-                    
-                    {[65, 78, 82, 91, 88, 95].map((value, index) => (
-                      <div key={index} className="flex-1 relative flex flex-col justify-end">
-                        <div 
-                          className="bg-gradient-to-t from-[#D1FE6E] to-[#B8E55A] rounded-t-lg"
-                          style={{
-                            height: `${Math.max(value, 10)}px`,
-                            opacity: (showAnalyticsAnimation || hasAnimated) ? 1 : 0,
-                            transform: (showAnalyticsAnimation || hasAnimated) ? 'scaleY(1)' : 'scaleY(0.3)',
-                            transformOrigin: 'bottom',
-                            transitionDelay: `${index * 100}ms`,
-                            transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
-                            willChange: 'transform, opacity'
-                          }}
-                        ></div>
-                        {/* Value on top of bar */}
-                        <div 
-                          className="absolute -top-8 left-1/2 transform -translate-x-1/2 text-white/80 text-xs font-medium"
-                          style={{
-                            opacity: (showAnalyticsAnimation || hasAnimated) ? 1 : 0,
-                            transitionDelay: `${index * 100 + 300}ms`,
-                            transition: 'opacity 0.4s ease-out',
-                            willChange: 'opacity'
-                          }}
-                        >
-                          R$ {Math.round((value / 100) * 50)}k
-                        </div>
-                        <div className="text-white/60 text-xs text-center mt-2">
-                          {['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'][index]}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Mini Charts Row */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-                  {/* Pie Chart */}
-                  <div 
-                    className="p-6 rounded-2xl"
-                    style={{
-                      background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)',
-                      backdropFilter: 'blur(20px)',
-                      border: '1px solid rgba(255,255,255,0.08)'
-                    }}
-                  >
-                    <h4 className="text-white/80 text-sm mb-4">Distribuição de Serviços</h4>
-                    <div className="relative w-24 h-24 mx-auto">
-                      <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 100 100">
-                        <circle
-                          cx="50"
-                          cy="50"
-                          r="40"
-                          fill="none"
-                          stroke="rgba(255,255,255,0.1)"
-                          strokeWidth="8"
-                        />
-                        <circle
-                          cx="50"
-                          cy="50"
-                          r="40"
-                          fill="none"
-                          stroke="#D1FE6E"
-                          strokeWidth="8"
-                          strokeDasharray="251.2"
-                          strokeDashoffset="75.36"
-                          className="transition-all duration-1000 ease-out"
-                          style={{
-                            transform: (showAnalyticsAnimation || hasAnimated) ? 'rotate(0deg)' : 'rotate(-90deg)',
-                            transformOrigin: 'center'
-                          }}
-                        />
-                      </svg>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-white font-medium text-lg">{(showAnalyticsAnimation || hasAnimated) ? '70%' : '0%'}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Line Chart */}
-                  <div 
-                    className="p-6 rounded-2xl"
-                    style={{
-                      background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)',
-                      backdropFilter: 'blur(20px)',
-                      border: '1px solid rgba(255,255,255,0.08)'
-                    }}
-                  >
-                    <h4 className="text-white/80 text-sm mb-4">Clientes Ativos</h4>
-                    <div className="relative h-24">
-                      <svg className="w-full h-full" viewBox="0 0 100 40">
-                        <path
-                          d="M0,30 L20,25 L40,20 L60,15 L80,10 L100,5"
-                          fill="none"
-                          stroke="#D1FE6E"
-                          strokeWidth="2"
-                          className="transition-all duration-1000 ease-out"
-                          style={{
-                            strokeDasharray: (showAnalyticsAnimation || hasAnimated) ? '200' : '0',
-                            strokeDashoffset: (showAnalyticsAnimation || hasAnimated) ? '0' : '200'
-                          }}
-                        />
-                        {[0, 20, 40, 60, 80, 100].map((x, i) => (
-                          <circle
-                            key={i}
-                            cx={x}
-                            cy={[30, 25, 20, 15, 10, 5][i]}
-                            r="2"
-                            fill="#D1FE6E"
-                            className="transition-all duration-1000 ease-out"
-                            style={{
-                              opacity: (showAnalyticsAnimation || hasAnimated) ? '1' : '0',
-                              animationDelay: `${i * 100}ms`
-                            }}
-                          />
-                        ))}
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Metrics Row */}
-                <div 
-                  data-reveal="analytics-content"
-                  className={`grid grid-cols-1 md:grid-cols-3 gap-8 scroll-reveal-slide-up scroll-reveal-delay-400 ${
-                    isAnimated('analytics-content') ? 'revealed' : ''
-                  }`}
-                >
-                  {/* Metric 1 */}
-                  <div className="flex flex-col items-center text-center p-6 rounded-2xl"
-                    style={{
-                      background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)',
-                      backdropFilter: 'blur(20px)',
-                      border: '1px solid rgba(255,255,255,0.08)'
-                    }}
-                  >
-                    <div className="w-16 h-16 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-xl flex items-center justify-center mb-4">
-                      <svg className="w-8 h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                      </svg>
-                    </div>
-                    <h3 className="text-3xl font-medium text-white mb-2 transition-all duration-500">
-                      <span className={`transition-all duration-300 ${numbersAnimated ? 'animate-pulse' : ''}`}>
-                        +{showAnalyticsAnimation ? revenue : 127}%
-                      </span>
-                    </h3>
-                    <p className="text-white/70 text-sm">Crescimento na receita média mensal</p>
-                  </div>
-
-                  {/* Metric 2 */}
-                  <div className="flex flex-col items-center text-center p-6 rounded-2xl"
-                    style={{
-                      background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)',
-                      backdropFilter: 'blur(20px)',
-                      border: '1px solid rgba(255,255,255,0.08)'
-                    }}
-                  >
-                    <div className="w-16 h-16 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-xl flex items-center justify-center mb-4">
-                      <svg className="w-8 h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-3xl font-medium text-white mb-2 transition-all duration-500">
-                      <span className={`transition-all duration-300 ${numbersAnimated ? 'animate-pulse' : ''}`}>
-                        -{showAnalyticsAnimation ? reduction : 45}%
-                      </span>
-                    </h3>
-                    <p className="text-white/70 text-sm">Redução no tempo de atendimento</p>
-                  </div>
-
-                  {/* Metric 3 */}
-                  <div className="flex flex-col items-center text-center p-6 rounded-2xl"
-                    style={{
-                      background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)',
-                      backdropFilter: 'blur(20px)',
-                      border: '1px solid rgba(255,255,255,0.08)'
-                    }}
-                  >
-                    <div className="w-16 h-16 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-xl flex items-center justify-center mb-4">
-                      <svg className="w-8 h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-3xl font-medium text-white mb-2 transition-all duration-500">
-                      <span className={`transition-all duration-300 ${numbersAnimated ? 'animate-pulse' : ''}`}>
-                        +{showAnalyticsAnimation ? satisfaction : 89}%
-                      </span>
-                    </h3>
-                    <p className="text-white/70 text-sm">Aumento na satisfação dos clientes</p>
-                  </div>
-                </div>
-
-                {/* CTA */}
-                <div className="text-center pt-12">
-                  <button 
-                    onClick={() => router.push('/cadastro')}
-                    className="px-8 py-4 bg-gradient-to-r from-[#D1FE6E] to-[#B8E55A] text-black rounded-full font-medium hover:from-[#B8E55A] hover:to-[#A5D44A] transition-all duration-500 transform hover:scale-105"
-                    style={{
-                      boxShadow: '0 4px 20px rgba(209, 254, 110, 0.3)'
-                    }}
-                  >
-                    Ver Dashboard Completo
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Pricing Section */}
-      <div id="precos" className="relative z-10 px-4 sm:px-6 md:px-8 py-20 md:py-32 lg:px-12">
+      <div id="precos" className="relative z-10 px-4 sm:px-6 md:px-8 py-12 md:py-20 lg:px-12">
         <div 
           className="mx-auto max-w-7xl"
           ref={(el) => {
