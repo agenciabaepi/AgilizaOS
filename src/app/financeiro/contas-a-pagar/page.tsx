@@ -125,10 +125,7 @@ export default function ContasAPagarPage() {
     return `${meses[parseInt(mesNumero) - 1]} de ${ano}`;
   };
 
-  // Como agora todas as parcelas são contas reais, não precisamos mais gerar contas virtuais
-  const gerarContasFixasVirtuais = (contasOriginais: ContaPagar[], mesSelecionado: string): ContaPagar[] => {
-    return contasOriginais;
-  };
+  // Não precisa gerar contas virtuais - todas as parcelas já são criadas como contas reais no banco
   
   // Formulário
   const [formData, setFormData] = useState({
@@ -486,21 +483,9 @@ export default function ContasAPagarPage() {
     setShowModal(true);
   };
 
-  // Gerar contas com fixas virtuais
-  
-  const contasComFixasVirtuais = gerarContasFixasVirtuais(contas, filtroMes);
-  
-  // Debug: verificar IDs das contas
-  console.log('🔍 Contas processadas:', contasComFixasVirtuais.map(c => ({
-    id: c.id,
-    descricao: c.descricao,
-    conta_fixa: c.conta_fixa,
-    isVirtual: c.id.includes('_virtual_')
-  })));
-  
-
+  // Usar apenas contas reais do banco (todas as parcelas já são criadas como contas reais)
   // Filtrar contas
-  const filteredContas = contasComFixasVirtuais.filter(conta => {
+  const filteredContas = contas.filter(conta => {
     let matchesTab = activeTab === 'todas';
     if (activeTab === 'fixas') matchesTab = conta.tipo === 'fixa';
     if (activeTab === 'variaveis') matchesTab = conta.tipo === 'variavel';
@@ -509,12 +494,35 @@ export default function ContasAPagarPage() {
     const matchesCategoria = !filtroCategoria || conta.categoria_id === filtroCategoria;
     const matchesStatus = !filtroStatus || conta.status === filtroStatus;
     
-    // Filtro por mês
+    // Filtro por mês - usar validação dupla como no DRE
     let matchesMes = true;
     if (filtroMes) {
-      const contaMes = new Date(conta.data_vencimento).toISOString().slice(0, 7); // YYYY-MM
-      matchesMes = contaMes === filtroMes;
+      // Critério 1: Comparação por substring (mais confiável)
+      const contaMes = conta.data_vencimento.substring(0, 7); // YYYY-MM
+      const venceNoMesISO = contaMes === filtroMes;
       
+      // Critério 2: Comparação por data completa
+      const dataVencimento = new Date(conta.data_vencimento + 'T00:00:00');
+      const inicioMes = new Date(filtroMes + '-01T00:00:00');
+      const fimMes = new Date(inicioMes);
+      fimMes.setMonth(fimMes.getMonth() + 1);
+      fimMes.setDate(0); // Último dia do mês
+      fimMes.setHours(23, 59, 59, 999);
+      const venceNoMesData = dataVencimento >= inicioMes && dataVencimento <= fimMes;
+      
+      // Se a conta foi paga, verificar também se foi paga no mês
+      if (conta.status === 'pago' && conta.data_pagamento) {
+        const pagMes = conta.data_pagamento.substring(0, 7);
+        const foiPagaNoMesISO = pagMes === filtroMes;
+        const dataPagamento = new Date(conta.data_pagamento + 'T00:00:00');
+        const foiPagaNoMesData = dataPagamento >= inicioMes && dataPagamento <= fimMes;
+        
+        // Incluir se vence no mês OU foi paga no mês
+        matchesMes = (venceNoMesISO && venceNoMesData) || (foiPagaNoMesISO && foiPagaNoMesData);
+      } else {
+        // Para contas não pagas, considerar apenas se vence no mês
+        matchesMes = venceNoMesISO && venceNoMesData;
+      }
     }
     
     const matches = matchesTab && matchesCategoria && matchesStatus && matchesMes;
@@ -1013,7 +1021,7 @@ export default function ContasAPagarPage() {
                     <Input
                       type="number"
                       step="0.01"
-                      value={formData.valor}
+                      value={formData.valor || ''}
                       onChange={(e) => setFormData({...formData, valor: e.target.value})}
                       required
                       placeholder="0,00"
@@ -1072,8 +1080,11 @@ export default function ContasAPagarPage() {
                             type="number"
                             min="1"
                             max="31"
-                            value={formData.data_fixa_mes}
-                            onChange={(e) => setFormData({...formData, data_fixa_mes: parseInt(e.target.value)})}
+                            value={formData.data_fixa_mes || ''}
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value);
+                              setFormData({...formData, data_fixa_mes: isNaN(value) ? 1 : value});
+                            }}
                             placeholder="Ex: 15"
                           />
                           <p className="text-xs text-gray-500 mt-1">Dia do mês para vencimento</p>
@@ -1086,8 +1097,11 @@ export default function ContasAPagarPage() {
                           <Input
                             type="number"
                             min="1"
-                            value={formData.parcela_atual}
-                            onChange={(e) => setFormData({...formData, parcela_atual: parseInt(e.target.value)})}
+                            value={formData.parcela_atual || ''}
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value);
+                              setFormData({...formData, parcela_atual: isNaN(value) ? 1 : value});
+                            }}
                           />
                         </div>
                         
@@ -1098,8 +1112,11 @@ export default function ContasAPagarPage() {
                           <Input
                             type="number"
                             min="1"
-                            value={formData.parcelas_totais}
-                            onChange={(e) => setFormData({...formData, parcelas_totais: parseInt(e.target.value)})}
+                            value={formData.parcelas_totais || ''}
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value);
+                              setFormData({...formData, parcelas_totais: isNaN(value) ? 1 : value});
+                            }}
                           />
                         </div>
                       </div>
@@ -1127,8 +1144,11 @@ export default function ContasAPagarPage() {
                         </label>
                         <Input
                           type="number"
-                          value={formData.peca_quantidade}
-                          onChange={(e) => setFormData({...formData, peca_quantidade: parseInt(e.target.value)})}
+                          value={formData.peca_quantidade || ''}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value);
+                            setFormData({...formData, peca_quantidade: isNaN(value) ? 1 : value});
+                          }}
                           min="1"
                         />
                       </div>

@@ -6,12 +6,12 @@
 -- View para snapshot financeiro por empresa e período
 CREATE OR REPLACE VIEW view_snapshot_financeiro AS
 WITH receita_periodo AS (
-    -- Calcular receita das vendas (valor_pago) do período
+    -- Calcular receita das vendas (total) do período
     SELECT 
         empresa_id,
-        SUM(valor_pago) as receita_total,
+        SUM(total) as receita_total,
         COUNT(*) as total_vendas,
-        SUM(valor_total) as receita_bruta,
+        SUM(total) as receita_bruta,
         SUM(desconto) as total_descontos,
         SUM(acrescimo) as total_acrescimos
     FROM vendas 
@@ -82,46 +82,82 @@ BEGIN
     RETURN QUERY
     WITH receita_periodo AS (
         SELECT 
-            SUM(valor_pago) as receita_total,
-            COUNT(*) as total_vendas,
-            SUM(valor_total) as receita_bruta,
-            SUM(desconto) as total_descontos,
-            SUM(acrescimo) as total_acrescimos
+            COALESCE(SUM(total), 0) as receita_total,
+            COALESCE(COUNT(*), 0) as total_vendas,
+            COALESCE(SUM(total), 0) as receita_bruta,
+            COALESCE(SUM(desconto), 0) as total_descontos,
+            COALESCE(SUM(acrescimo), 0) as total_acrescimos
         FROM vendas 
         WHERE empresa_id = empresa_uuid
         AND status = 'finalizada'
         AND DATE(data_venda) BETWEEN data_inicio AND data_fim
     ),
+    receita_final AS (
+        SELECT 
+            COALESCE(MAX(rp.receita_total), 0) as receita_total,
+            COALESCE(MAX(rp.total_vendas), 0) as total_vendas,
+            COALESCE(MAX(rp.receita_bruta), 0) as receita_bruta,
+            COALESCE(MAX(rp.total_descontos), 0) as total_descontos,
+            COALESCE(MAX(rp.total_acrescimos), 0) as total_acrescimos
+        FROM receita_periodo rp
+    ),
     despesas_periodo AS (
         SELECT 
-            SUM(valor) as despesas_total,
-            COUNT(*) as total_contas,
-            SUM(valor) FILTER (WHERE status = 'pago') as despesas_pagas,
-            SUM(valor) FILTER (WHERE status = 'pendente') as despesas_pendentes,
-            SUM(valor) FILTER (WHERE status = 'vencido') as despesas_vencidas
+            -- Despesas pagas no período (usando data_pagamento para lucro real)
+            -- IMPORTANTE: Para lucro real, só consideramos contas pagas no período
+            COALESCE(SUM(valor) FILTER (
+                WHERE status = 'pago' 
+                AND data_pagamento IS NOT NULL 
+                AND DATE(data_pagamento) BETWEEN data_inicio AND data_fim
+            ), 0) as despesas_pagas,
+            -- Despesas que vencem no período (para referência geral)
+            COALESCE(SUM(valor) FILTER (WHERE data_vencimento BETWEEN data_inicio AND data_fim), 0) as despesas_total,
+            COALESCE(COUNT(*) FILTER (WHERE data_vencimento BETWEEN data_inicio AND data_fim), 0) as total_contas,
+            COALESCE(SUM(valor) FILTER (
+                WHERE status = 'pendente' 
+                AND data_vencimento BETWEEN data_inicio AND data_fim
+            ), 0) as despesas_pendentes,
+            COALESCE(SUM(valor) FILTER (
+                WHERE status = 'vencido' 
+                AND data_vencimento BETWEEN data_inicio AND data_fim
+            ), 0) as despesas_vencidas
         FROM contas_pagar
         WHERE empresa_id = empresa_uuid
-        AND data_vencimento BETWEEN data_inicio AND data_fim
+        AND (
+            -- Incluir contas que foram pagas no período (para lucro real)
+            (status = 'pago' AND data_pagamento IS NOT NULL AND DATE(data_pagamento) BETWEEN data_inicio AND data_fim)
+            -- OU que vencem no período (para referência)
+            OR (data_vencimento BETWEEN data_inicio AND data_fim)
+        )
+    ),
+    despesas_final AS (
+        SELECT 
+            COALESCE(MAX(dp.despesas_pagas), 0) as despesas_pagas,
+            COALESCE(MAX(dp.despesas_total), 0) as despesas_total,
+            COALESCE(MAX(dp.total_contas), 0) as total_contas,
+            COALESCE(MAX(dp.despesas_pendentes), 0) as despesas_pendentes,
+            COALESCE(MAX(dp.despesas_vencidas), 0) as despesas_vencidas
+        FROM despesas_periodo dp
     )
     SELECT 
-        COALESCE(r.receita_total, 0),
-        COALESCE(r.receita_bruta, 0),
-        COALESCE(r.total_descontos, 0),
-        COALESCE(r.total_acrescimos, 0),
-        COALESCE(r.total_vendas, 0),
-        COALESCE(d.despesas_total, 0),
-        COALESCE(d.despesas_pagas, 0),
-        COALESCE(d.despesas_pendentes, 0),
-        COALESCE(d.despesas_vencidas, 0),
-        COALESCE(d.total_contas, 0),
-        COALESCE(r.receita_total, 0) - COALESCE(d.despesas_pagas, 0),
+        r.receita_total::DECIMAL,
+        r.receita_bruta::DECIMAL,
+        r.total_descontos::DECIMAL,
+        r.total_acrescimos::DECIMAL,
+        r.total_vendas::INTEGER,
+        d.despesas_total::DECIMAL,
+        d.despesas_pagas::DECIMAL,
+        d.despesas_pendentes::DECIMAL,
+        d.despesas_vencidas::DECIMAL,
+        d.total_contas::INTEGER,
+        (r.receita_total - d.despesas_pagas)::DECIMAL,
         CASE 
-            WHEN COALESCE(r.receita_total, 0) > 0 
-            THEN ((COALESCE(r.receita_total, 0) - COALESCE(d.despesas_pagas, 0)) / COALESCE(r.receita_total, 0)) * 100
+            WHEN r.receita_total > 0 
+            THEN ((r.receita_total - d.despesas_pagas) / r.receita_total) * 100
             ELSE 0 
-        END
-    FROM receita_periodo r
-    CROSS JOIN despesas_periodo d;
+        END::DECIMAL
+    FROM receita_final r
+    CROSS JOIN despesas_final d;
 END;
 $$ language 'plpgsql';
 

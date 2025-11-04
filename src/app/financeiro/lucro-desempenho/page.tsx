@@ -172,6 +172,7 @@ export default function LucroDesempenhoPage() {
     totalContas: 0,
     despesasOperacionais: 0,
     custosPecas: 0,
+    custosGerais: 0,
     categoriasDetalhadas: []
   });
 
@@ -205,24 +206,67 @@ export default function LucroDesempenhoPage() {
   // Calcular período do mês selecionado
   const calcularPeriodo = () => {
     const inicioMes = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+    inicioMes.setHours(0, 0, 0, 0);
     const fimMes = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+    fimMes.setHours(23, 59, 59, 999);
     
     const dataInicio = inicioMes.toISOString().split('T')[0];
     const dataFim = fimMes.toISOString().split('T')[0];
     
-    return { dataInicio, dataFim };
+    return { dataInicio, dataFim, inicioMes, fimMes };
   };
 
   // Filtrar vendas por período (igual à página de vendas!)
   const filtrarVendas = () => {
-    const { dataInicio, dataFim } = calcularPeriodo();
-    const inicio = new Date(dataInicio);
-    const fim = new Date(dataFim);
+    const { dataInicio, dataFim, inicioMes, fimMes } = calcularPeriodo();
+    
+    // Garantir que as datas estão corretas
+    const inicio = new Date(inicioMes);
+    inicio.setHours(0, 0, 0, 0);
+    const fim = new Date(fimMes);
     fim.setHours(23, 59, 59, 999);
+    
+    // Mês atual para comparação por substring
+    const mesAtualISO = currentMonth.toISOString().slice(0, 7); // YYYY-MM
 
     const filtradas = vendas.filter(venda => {
       const dataVenda = new Date(venda.data_venda);
-      return dataVenda >= inicio && dataVenda <= fim;
+      
+      // Critério 1: Comparação por substring (mais confiável)
+      const vendaMes = venda.data_venda.substring(0, 7); // YYYY-MM
+      const vendaNoMesISO = vendaMes === mesAtualISO;
+      
+      // Critério 2: Comparação por data
+      const vendaNoMesData = dataVenda >= inicio && dataVenda <= fim;
+      
+      // Só incluir se AMBOS os critérios indicarem o mesmo mês
+      if (vendaNoMesISO && vendaNoMesData) {
+        return true;
+      }
+      
+      // Log para debug se houver inconsistência
+      if (vendaNoMesISO && !vendaNoMesData) {
+        console.warn('⚠️ Venda com inconsistência de mês:', {
+          dataVenda: venda.data_venda,
+          vendaMes,
+          mesAtualISO,
+          inicio: inicio.toISOString(),
+          fim: fim.toISOString()
+        });
+      }
+      
+      return false;
+    });
+
+    console.log('📊 Vendas filtradas:', {
+      periodo: `${dataInicio} a ${dataFim}`,
+      mesAtualISO,
+      totalVendas: vendas.length,
+      vendasFiltradas: filtradas.length,
+      amostra: filtradas.slice(0, 3).map(v => ({
+        data: v.data_venda,
+        total: v.total
+      }))
     });
 
     setVendasFiltradas(filtradas);
@@ -582,63 +626,14 @@ export default function LucroDesempenhoPage() {
     }
   };
 
-  // Função para gerar contas fixas virtuais (mesma lógica da página Contas a Pagar)
-  const gerarContasFixasVirtuais = (contasOriginais: any[], mesSelecionado: string): any[] => {
-    const contasNaoFixas = contasOriginais.filter(conta => !conta.conta_fixa);
-    const contasFixas = contasOriginais.filter(conta => conta.conta_fixa);
-    const contasVirtuais: any[] = [];
-    
-    contasFixas.forEach(conta => {
-      if (!conta.data_fixa_mes || !conta.parcelas_totais) return;
-      
-      // Para contas fixas, gerar parcelas virtuais APENAS para as parcelas futuras (2, 3, 4, etc.)
-      const parcelasTotais = conta.parcelas_totais;
-      
-      for (let parcela = 2; parcela <= parcelasTotais; parcela++) {
-        // Calcular data da parcela
-        const dataOriginal = new Date(conta.data_vencimento);
-        const novaData = new Date(dataOriginal);
-        novaData.setMonth(dataOriginal.getMonth() + (parcela - 1));
-        
-        // Ajustar dia se necessário (ex: 31/01 -> 28/02)
-        const diaFixo = Math.min(conta.data_fixa_mes, new Date(novaData.getFullYear(), novaData.getMonth() + 1, 0).getDate());
-        novaData.setDate(diaFixo);
-        
-        const mesConta = novaData.toISOString().slice(0, 7);
-        
-        // Gerar conta virtual para esta parcela
-        const contaVirtual = {
-          ...conta,
-          id: `${conta.id}_virtual_${parcela}`,
-          data_vencimento: novaData.toISOString().split('T')[0],
-          parcela_atual: parcela,
-          status: 'pendente' as const,
-          // Marcar como virtual para identificação
-          observacoes: `${conta.observacoes || ''}`.trim()
-        };
-        
-        contasVirtuais.push(contaVirtual);
-      }
-    });
-    
-    // Combinar contas não-fixas + contas fixas originais + contas virtuais
-    const contasCombinadas = [...contasNaoFixas, ...contasFixas, ...contasVirtuais];
-    
-    return contasCombinadas;
-  };
+  // Não precisa gerar contas virtuais - todas as parcelas já são criadas como contas reais no banco
+  // Quando uma conta fixa é criada, todas as parcelas são salvas no banco de dados
 
   // Função para buscar custos da empresa para DRE
   const fetchCustosEmpresa = async () => {
     if (!empresaData?.id) return;
 
     try {
-      const { dataInicio, dataFim } = calcularPeriodo();
-      
-      console.log('💰 Buscando custos da empresa para DRE...', {
-        empresaId: empresaData.id,
-        periodo: `${dataInicio} a ${dataFim}`
-      });
-
       // Buscar TODAS as contas da empresa (como a página Contas a Pagar faz)
       console.log('🔍 Buscando TODAS as contas da empresa...');
       const { data: todasContas, error: contasError } = await supabase
@@ -654,18 +649,53 @@ export default function LucroDesempenhoPage() {
 
       console.log('📊 Contas originais encontradas:', todasContas?.length || 0);
       
-      // Gerar contas virtuais (mesma lógica da página Contas a Pagar)
+      // Não gerar contas virtuais - todas as parcelas já são criadas como contas reais no banco
+      // Usar apenas as contas reais do banco
       const mesAtual = currentMonth.toISOString().slice(0, 7); // YYYY-MM
-      console.log('📅 Gerando contas virtuais para o mês:', mesAtual);
+      console.log('📅 Filtrando contas do mês:', mesAtual);
       
-      const contasComVirtuais = gerarContasFixasVirtuais(todasContas || [], mesAtual);
-      console.log('📊 Contas com virtuais geradas:', contasComVirtuais.length);
+      // Filtrar contas pelo mês selecionado (apenas contas reais do banco)
+      // Para DRE: considerar contas com vencimento no mês OU contas pagas no mês
+      const { dataInicio, dataFim, inicioMes, fimMes } = calcularPeriodo();
       
-      // Filtrar contas pelo mês selecionado (incluindo as virtuais)
-      const contasDoMes = contasComVirtuais.filter(conta => {
-        // Usar substring para evitar problemas de timezone
-        const contaMes = conta.data_vencimento.substring(0, 7); // YYYY-MM
-        return contaMes === mesAtual;
+      // Garantir que estamos usando o mês correto
+      const mesAtualFormatado = formatarMesAno(currentMonth);
+      const mesAtualISO = currentMonth.toISOString().slice(0, 7); // YYYY-MM
+      
+      console.log('💰 Buscando custos da empresa para DRE...', {
+        empresaId: empresaData.id,
+        periodo: `${dataInicio} a ${dataFim}`,
+        mesSelecionado: mesAtualFormatado,
+        mesAtualISO: mesAtualISO,
+        currentMonth: currentMonth.toISOString(),
+        inicioMes: inicioMes.toISOString(),
+        fimMes: fimMes.toISOString()
+      });
+      
+      const inicioPeriodoFiltro = new Date(inicioMes);
+      inicioPeriodoFiltro.setHours(0, 0, 0, 0);
+      const fimPeriodoFiltro = new Date(fimMes);
+      fimPeriodoFiltro.setHours(23, 59, 59, 999);
+      
+      console.log('📅 Período de filtro:', {
+        inicioPeriodoFiltro: inicioPeriodoFiltro.toISOString(),
+        fimPeriodoFiltro: fimPeriodoFiltro.toISOString(),
+        mesEsperado: mesAtualISO
+      });
+      
+      // Filtrar contas do mês: apenas contas que VENCEM no mês selecionado
+      // IMPORTANTE: Para DRE, consideramos contas que VENCEM no mês, independente de quando foram pagas
+      const contasDoMes = (todasContas || []).filter(conta => {
+        // Verificar pelo mês usando substring (mais confiável para evitar problemas de timezone)
+        const vencMes = conta.data_vencimento.substring(0, 7); // YYYY-MM
+        const venceNoMesISO = vencMes === mesAtualISO;
+        
+        // Verificar também com comparação de datas para garantir
+        const dataVencimento = new Date(conta.data_vencimento + 'T00:00:00');
+        const venceNoMesData = dataVencimento >= inicioPeriodoFiltro && dataVencimento <= fimPeriodoFiltro;
+        
+        // Só incluir se AMBOS os critérios indicarem que vence no mês
+        return venceNoMesISO && venceNoMesData;
       });
       
       console.log('📊 Contas do mês selecionado:', contasDoMes.length);
@@ -678,11 +708,20 @@ export default function LucroDesempenhoPage() {
         });
         
         const totalGeral = contasDoMes.reduce((acc, conta) => acc + (conta.valor || 0), 0);
-        const contasPagasLog = contasDoMes.filter(c => 
-          c.status === 'paga' || c.status === 'paid' || c.status === 'Pago'
-        );
+        // Usar mesma lógica de filtro das contas pagas (verificar data_pagamento)
+        const contasPagasLog = contasDoMes.filter(c => {
+          const statusPago = c.status === 'pago';
+          if (!statusPago) return false;
+          if (c.data_pagamento) {
+            const dataPagamento = new Date(c.data_pagamento);
+            return dataPagamento >= inicioPeriodoFiltro && dataPagamento <= fimPeriodoFiltro;
+          }
+          // Conta paga sem data de pagamento - considerar como paga se vence no mês
+          const dataVencimento = new Date(c.data_vencimento);
+          return dataVencimento >= inicioPeriodoFiltro && dataVencimento <= fimPeriodoFiltro;
+        });
         const contasPendentesLog = contasDoMes.filter(c => 
-          c.status === 'pendente' || c.status === 'pending' || c.status === 'Pendente'
+          c.status === 'pendente' || c.status === 'vencido'
         );
         const totalPagas = contasPagasLog.reduce((acc, conta) => acc + (conta.valor || 0), 0);
         const totalPendentes = contasPendentesLog.reduce((acc, conta) => acc + (conta.valor || 0), 0);
@@ -696,32 +735,144 @@ export default function LucroDesempenhoPage() {
       // Calcular custos por categoria usando as contas do mês
       console.log('📊 Status únicos encontrados:', [...new Set(contasDoMes?.map(c => c.status) || [])]);
       
-      const contasPagas = contasDoMes?.filter(conta => 
-        conta.status === 'paga' || conta.status === 'paid' || conta.status === 'Pago'
-      ) || [];
+      // Filtrar contas pagas: verificar se foram pagas no mês selecionado (data_pagamento)
+      // IMPORTANTE: Usar as mesmas datas do filtro de contasDoMes
+      const inicioPeriodo = new Date(inicioPeriodoFiltro);
+      const fimPeriodo = new Date(fimPeriodoFiltro);
+      
+      console.log('📊 Filtrando contas pagas no período:', {
+        inicioPeriodo: inicioPeriodo.toISOString(),
+        fimPeriodo: fimPeriodo.toISOString(),
+        totalContasDoMes: contasDoMes?.length || 0
+      });
+      
+      // Filtrar contas PAGAS no mês: apenas contas que foram EFETIVAMENTE PAGAS no mês selecionado
+      // IMPORTANTE: Para DRE, despesas operacionais = contas fixas/variáveis PAGAS no mês
+      // Isso significa que só conta se foi efetivamente paga (saiu dinheiro do caixa) no mês
+      const contasPagas = contasDoMes?.filter(conta => {
+        // Verificar status
+        if (conta.status !== 'pago') return false;
+        
+        // Se tem data_pagamento, verificar se foi paga no mês selecionado
+        if (conta.data_pagamento) {
+          // Critério 1: Comparação por substring (mais confiável)
+          const pagMes = conta.data_pagamento.substring(0, 7); // YYYY-MM
+          const foiPagaNoMesISO = pagMes === mesAtualISO;
+          
+          // Critério 2: Comparação por data
+          const dataPagamento = new Date(conta.data_pagamento + 'T00:00:00');
+          const foiPagaNoMesData = dataPagamento >= inicioPeriodo && dataPagamento <= fimPeriodo;
+          
+          // Só considerar como paga se AMBOS os critérios indicarem que foi paga no mês
+          return foiPagaNoMesISO && foiPagaNoMesData;
+        }
+        
+        // Se não tem data_pagamento mas status é pago, não considerar como paga no mês
+        // (porque não sabemos quando foi paga)
+        return false;
+      }) || [];
+      
       const contasPendentes = contasDoMes?.filter(conta => 
-        conta.status === 'pendente' || conta.status === 'pending' || conta.status === 'Pendente'
+        conta.status === 'pendente' || conta.status === 'vencido'
       ) || [];
       
       console.log('📊 Contas pagas encontradas:', contasPagas.length);
       console.log('📊 Contas pendentes encontradas:', contasPendentes.length);
       
       // Separar custos por tipo usando as contas do mês
+      // Custos de peças: todas as contas de peças do mês (vencimento no mês)
       const custosPecas = contasDoMes?.filter(conta => conta.tipo === 'pecas') || [];
-      const despesasOperacionais = contasDoMes?.filter(conta => 
-        conta.tipo !== 'pecas' && conta.tipo !== 'servicos'
-      ) || [];
+      
+      // Despesas operacionais: contas fixas e variáveis PAGAS no mês
+      // IMPORTANTE: Despesas operacionais = contas operacionais (fixa + variavel) que foram PAGAS no mês
+      // Isso significa que só conta se foi efetivamente paga (saiu dinheiro do caixa)
+      const despesasOperacionais = contasPagas.filter(conta => {
+        const tipo = (conta.tipo || '').toLowerCase();
+        // Incluir apenas: fixa e variavel (despesas operacionais)
+        // Excluir: pecas (que são custos diretos)
+        return tipo === 'fixa' || tipo === 'variavel';
+      }) || [];
+      
+      // Custos gerais: todas as contas fixas e variáveis do mês (independente de status - pagas + pendentes)
+      // Este é o total de contas fixas e variáveis que vencem no mês
+      const custosGerais = contasDoMes?.filter(conta => {
+        const tipo = (conta.tipo || '').toLowerCase();
+        return tipo === 'fixa' || tipo === 'variavel';
+      }) || [];
+      
+      console.log('📊 Filtro de Despesas Operacionais:', {
+        totalContasPagas: contasPagas.length,
+        contasPagasDetalhes: contasPagas.map(c => ({
+          descricao: c.descricao,
+          tipo: c.tipo,
+          valor: c.valor,
+          status: c.status,
+          data_pagamento: c.data_pagamento
+        })),
+        despesasOperacionaisFiltradas: despesasOperacionais.map(c => ({
+          descricao: c.descricao,
+          tipo: c.tipo,
+          valor: c.valor
+        }))
+      });
+
+      console.log('💰 Cálculo de Despesas Operacionais:', {
+        totalContasDoMes: contasDoMes?.length || 0,
+        totalContasPagas: contasPagas.length,
+        despesasOperacionaisCount: despesasOperacionais.length,
+        despesasOperacionaisDetalhes: despesasOperacionais.map(c => ({
+          descricao: c.descricao,
+          tipo: c.tipo,
+          valor: c.valor,
+          status: c.status,
+          data_pagamento: c.data_pagamento,
+          data_vencimento: c.data_vencimento
+        })),
+        tiposEncontrados: [...new Set(contasPagas.map(c => c.tipo))]
+      });
 
       const totalContasPagas = contasPagas.reduce((acc, conta) => acc + (conta.valor || 0), 0);
       const totalContasPendentes = contasPendentes.reduce((acc, conta) => acc + (conta.valor || 0), 0);
       const totalDespesasOperacionais = despesasOperacionais.reduce((acc, conta) => acc + (conta.valor || 0), 0);
+      // Custos de peças: todas as contas de peças do mês (independente de status)
       const totalCustosPecas = custosPecas.reduce((acc, conta) => acc + (conta.valor || 0), 0);
+      // Custos gerais: todas as contas fixas e variáveis do mês (independente de status)
+      const totalCustosGerais = custosGerais.reduce((acc, conta) => acc + (conta.valor || 0), 0);
+      
+      console.log('💰 Totais calculados:', {
+        totalContasPagas,
+        totalContasPendentes,
+        totalDespesasOperacionais,
+        totalCustosPecas
+      });
 
       // Calcular categorias detalhadas usando as contas do mês
       const categoriasMap = new Map<string, CategoriaDetalhada>();
       
+      // Log para debug - verificar contas fixas
+      const contasFixasDoMes = contasDoMes?.filter(c => c.conta_fixa || c.tipo === 'fixa') || [];
+      console.log('📊 Contas fixas do mês:', {
+        total: contasFixasDoMes.length,
+        detalhes: contasFixasDoMes.map(c => ({
+          id: c.id,
+          descricao: c.descricao,
+          valor: c.valor,
+          data_vencimento: c.data_vencimento,
+          status: c.status,
+          conta_fixa: c.conta_fixa,
+          parcela_atual: c.parcela_atual,
+          parcelas_totais: c.parcelas_totais,
+          isVirtual: c.id?.includes('_virtual_')
+        }))
+      });
+      
       contasDoMes?.forEach(conta => {
+        // Usar tipo da conta para categorizar
         const categoria = conta.tipo || 'Outros';
+        
+        // Verificar se é uma conta virtual duplicada
+        const isVirtual = conta.id?.includes('_virtual_');
+        const contaOriginalId = isVirtual ? conta.id.split('_virtual_')[0] : conta.id;
         
         if (!categoriasMap.has(categoria)) {
           categoriasMap.set(categoria, {
@@ -737,20 +888,53 @@ export default function LucroDesempenhoPage() {
         const categoriaData = categoriasMap.get(categoria)!;
         categoriaData.total += conta.valor || 0;
         categoriaData.quantidade += 1;
-        categoriaData.contas.push({
-          descricao: conta.descricao || '',
-          valor: conta.valor || 0,
-          status: conta.status || '',
-          data_vencimento: conta.data_vencimento || ''
-        });
         
-        // Usar mesma lógica da página Contas a Pagar
-        if (conta.status === 'pago') {
-          categoriaData.contasPagas += conta.valor || 0;
+        // Adicionar à lista de contas (evitar duplicatas)
+        const contaJaExiste = categoriaData.contas.some(c => c.descricao === conta.descricao && 
+          c.data_vencimento === conta.data_vencimento && 
+          c.valor === conta.valor);
+        
+        if (!contaJaExiste) {
+          categoriaData.contas.push({
+            descricao: conta.descricao || '',
+            valor: conta.valor || 0,
+            status: conta.status || '',
+            data_vencimento: conta.data_vencimento || ''
+          });
+        }
+        
+        // Classificar contas pagas vs pendentes
+        const isPaga = conta.status === 'pago';
+        if (isPaga && conta.data_pagamento) {
+          const dataPagamento = new Date(conta.data_pagamento);
+          // Só conta como paga se foi paga no período do mês selecionado
+          if (dataPagamento >= inicioPeriodo && dataPagamento <= fimPeriodo) {
+            categoriaData.contasPagas += conta.valor || 0;
+          } else {
+            // Conta paga mas em outro mês - não contar como paga neste mês
+            categoriaData.contasPendentes += conta.valor || 0;
+          }
+        } else if (isPaga && !conta.data_pagamento) {
+          // Conta paga mas sem data de pagamento - considerar como paga no mês se vence no mês
+          const dataVencimento = new Date(conta.data_vencimento);
+          if (dataVencimento >= inicioPeriodo && dataVencimento <= fimPeriodo) {
+            categoriaData.contasPagas += conta.valor || 0;
+          } else {
+            categoriaData.contasPendentes += conta.valor || 0;
+          }
         } else {
           categoriaData.contasPendentes += conta.valor || 0;
         }
       });
+      
+      // Log final das categorias
+      console.log('📊 Categorias calculadas:', Array.from(categoriasMap.entries()).map(([cat, data]) => ({
+        categoria: cat,
+        total: data.total,
+        quantidade: data.quantidade,
+        contasPagas: data.contasPagas,
+        contasPendentes: data.contasPendentes
+      })));
       
       const categoriasDetalhadas = Array.from(categoriasMap.values())
         .sort((a, b) => b.total - a.total);
@@ -761,6 +945,7 @@ export default function LucroDesempenhoPage() {
         totalContas: totalContasPagas + totalContasPendentes,
         despesasOperacionais: totalDespesasOperacionais,
         custosPecas: totalCustosPecas,
+        custosGerais: totalCustosGerais,
         categoriasDetalhadas
       });
 
@@ -973,7 +1158,7 @@ export default function LucroDesempenhoPage() {
       
       <div className="p-6">
         {/* Resumo Executivo */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6 mb-6 md:mb-8">
           <DashboardCard
             title="Receita Líquida"
             value={<span className="text-green-600">{formatarMoeda(metricas.totalReceita)}</span>}
@@ -1002,9 +1187,20 @@ export default function LucroDesempenhoPage() {
             icon={<FiAlertCircle className="w-5 h-5" />}
             colorClass="text-black"
             bgClass="bg-white"
-            description="Contas a pagar e operacionais"
+            description="Contas pagas (fixas + variáveis)"
             descriptionColorClass="text-orange-600"
             svgPolyline={{ color: '#f97316', points: '0,18 10,16 20,18 30,20 40,18 50,16 60,18 70,20' }}
+          />
+          
+          <DashboardCard
+            title="Custos Gerais"
+            value={<span className="text-purple-600">{formatarMoeda(custosEmpresa.custosGerais)}</span>}
+            icon={<FiDollarSign className="w-5 h-5" />}
+            colorClass="text-black"
+            bgClass="bg-white"
+            description="Fixas + variáveis (total)"
+            descriptionColorClass="text-purple-600"
+            svgPolyline={{ color: '#a855f7', points: '0,15 10,17 20,15 30,13 40,15 50,17 60,15 70,17' }}
           />
           
           <DashboardCard
