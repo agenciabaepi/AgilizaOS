@@ -405,12 +405,12 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
             <Text style={styles.sectionTitle}>Laudo Técnico</Text>
             <Text style={styles.paragraph}>{ordem.laudo}</Text>
             {/* Imagens do Técnico coladas ao laudo */}
-            {renderImagens(ordem.imagens_tecnico, 'Imagens do Técnico (Laudo)')}
+            {(ordem as any).imagens_tecnico && renderImagens((ordem as any).imagens_tecnico, 'Imagens do Técnico (Laudo)')}
           </View>
         )}
 
         {/* Imagens de Entrada (Atendente) */}
-        {renderImagens(ordem.imagens, 'Imagens de Entrada (Atendente)')}
+        {ordem.imagens && renderImagens(ordem.imagens, 'Imagens de Entrada (Atendente)')}
 
         {/* Serviços e Peças (por último) */}
         <View style={styles.block}>
