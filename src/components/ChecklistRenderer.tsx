@@ -66,7 +66,7 @@ function renderAparelhoNaoLiga(styles: any, mode: string) {
   const fontSize = mode === 'simple' ? 8 : 9;
   
   return (
-    <View style={styles.block} break={false}>
+    <View style={styles.block}>
       <Text style={[styles.sectionTitle, { marginBottom: 4 }]}>Checklist de Entrada</Text>
       
       <View style={{
@@ -141,7 +141,7 @@ function renderChecklistItems(itensAprovados: ChecklistItem[], itensReprovados: 
   const titleFontSize = mode === 'simple' ? 9 : 10;
   
   return (
-    <View style={styles.block} break={false} minPresenceAhead={80}>
+    <View style={styles.block}>
       <Text style={[styles.sectionTitle, { marginBottom: 4 }]}>Checklist de Entrada</Text>
 
       <View style={{
@@ -154,7 +154,7 @@ function renderChecklistItems(itensAprovados: ChecklistItem[], itensReprovados: 
         
         {/* Itens Aprovados */}
         {itensAprovados.length > 0 && (
-          <View style={{ marginBottom: itensReprovados.length > 0 ? 6 : 0 }} break={false}>
+          <View style={{ marginBottom: itensReprovados.length > 0 ? 6 : 0 }}>
             <Text style={[styles.paragraph, { 
               fontSize: titleFontSize, 
               fontWeight: 'bold', 
@@ -179,7 +179,7 @@ function renderChecklistItems(itensAprovados: ChecklistItem[], itensReprovados: 
 
         {/* Itens Reprovados */}
         {itensReprovados.length > 0 && (
-          <View break={false}>
+          <View>
             {itensAprovados.length > 0 && (
               <View style={{
                 borderTopWidth: 1,
