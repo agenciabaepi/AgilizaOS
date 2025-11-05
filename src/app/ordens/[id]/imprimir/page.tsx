@@ -144,8 +144,8 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
     return `R$ ${Number(val).toFixed(2)}`;
   }
 
-  function renderImagens(imagens: string, titulo: string) {
-    if (!imagens) return null;
+  function renderImagens(imagens: string | null | undefined, titulo: string) {
+    if (!imagens || typeof imagens !== 'string') return null;
     
     const imageUrls = imagens.split(',').filter((url: string) => url.trim() !== '');
     
@@ -405,7 +405,7 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
             <Text style={styles.sectionTitle}>Laudo Técnico</Text>
             <Text style={styles.paragraph}>{ordem.laudo}</Text>
             {/* Imagens do Técnico coladas ao laudo */}
-            {(ordem as any).imagens_tecnico && renderImagens((ordem as any).imagens_tecnico, 'Imagens do Técnico (Laudo)')}
+            {renderImagens((ordem as any).imagens_tecnico, 'Imagens do Técnico (Laudo)')}
           </View>
         )}
 
