@@ -410,7 +410,7 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
         )}
 
         {/* Imagens de Entrada (Atendente) */}
-        {ordem.imagens && renderImagens(ordem.imagens, 'Imagens de Entrada (Atendente)')}
+        {renderImagens(ordem.imagens, 'Imagens de Entrada (Atendente)')}
 
         {/* Serviços e Peças (por último) */}
         <View style={styles.block}>
