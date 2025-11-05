@@ -144,7 +144,7 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
     return `R$ ${Number(val).toFixed(2)}`;
   }
 
-  function renderImagens(imagens: string) {
+  function renderImagens(imagens: string, titulo: string) {
     if (!imagens) return null;
     
     const imageUrls = imagens.split(',').filter((url: string) => url.trim() !== '');
@@ -152,8 +152,8 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
     if (imageUrls.length === 0) return null;
     
     return (
-      <View style={{ marginBottom: 8 }}>
-        <Text style={[styles.sectionTitle, { marginBottom: 4 }]}>Imagens do Equipamento</Text>
+      <View style={{ marginBottom: 8 }} break={false} minPresenceAhead={120}>
+        <Text style={[styles.sectionTitle, { marginBottom: 4 }]}>{titulo}</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {imageUrls.slice(0, 4).map((imageUrl, index) => (
             <Image 
@@ -320,7 +320,7 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
         </View>
 
         {/* Aparelho */}
-        <View style={styles.block}>
+        <View style={styles.block} break={false}>
           <Text style={styles.sectionTitle}>Aparelho</Text>
           <Text style={styles.paragraph}><Text style={styles.bold}>Equipamento:</Text> {ordem.equipamento}   <Text style={styles.bold}>Marca:</Text> {ordem.marca}   <Text style={styles.bold}>Modelo:</Text> {ordem.modelo}</Text>
           <Text style={styles.paragraph}><Text style={styles.bold}>Cor:</Text> {ordem.cor}   <Text style={styles.bold}>Nº Série:</Text> {ordem.numero_serie}</Text>
@@ -333,7 +333,7 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
 
         {/* Informações de Acesso */}
         {(ordem.senha_aparelho || ordem.senha_padrao) && (
-          <View style={styles.block}>
+          <View style={styles.block} break={false}>
             <Text style={styles.sectionTitle}>Informações de Acesso</Text>
             {ordem.senha_aparelho && (
               <Text style={styles.paragraph}><Text style={styles.bold}>Senha do Aparelho:</Text> {ordem.senha_aparelho}</Text>
@@ -388,30 +388,32 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
         )}
 
         {/* Relato do Cliente */}
-        <View style={styles.block}>
+        <View style={styles.block} break={false}>
           <Text style={styles.sectionTitle}>Relato do Cliente</Text>
           <Text style={styles.paragraph}>{ordem.relato}</Text>
         </View>
 
         {/* Técnicos / Responsáveis */}
-        <View style={styles.block}>
+        <View style={styles.block} break={false}>
           <Text style={styles.sectionTitle}>Equipe</Text>
           <Text style={styles.paragraph}><Text style={styles.bold}>Técnico:</Text> {ordem.usuarios?.nome || ordem.tecnico?.nome}</Text>
         </View>
 
         {/* Laudo Técnico */}
         {ordem.laudo && (
-          <View style={styles.block}>
+          <View style={styles.block} break={false} minPresenceAhead={100}>
             <Text style={styles.sectionTitle}>Laudo Técnico</Text>
             <Text style={styles.paragraph}>{ordem.laudo}</Text>
+            {/* Imagens do Técnico coladas ao laudo */}
+            {renderImagens(ordem.imagens_tecnico, 'Imagens do Técnico (Laudo)')}
           </View>
         )}
 
-        {/* Imagens do Equipamento */}
-        {renderImagens(ordem.imagens)}
+        {/* Imagens de Entrada (Atendente) */}
+        {renderImagens(ordem.imagens, 'Imagens de Entrada (Atendente)')}
 
         {/* Serviços e Peças (por último) */}
-        <View style={styles.block}>
+        <View style={styles.block} break={false} minPresenceAhead={150}>
           <Text style={styles.sectionTitle}>Serviços e Peças</Text>
           <View style={styles.table}>
             <View style={[styles.tableRow, styles.tableRowHeader]}>
@@ -421,7 +423,7 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
               <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 2 }]}>Subtotal</Text>
             </View>
             {ordem.servico && (
-              <View style={styles.tableRow}>
+              <View style={styles.tableRow} break={false}>
                 <Text style={[styles.tableCell, styles.tableCellLeftAlign, { flex: 3 }]}>{ordem.servico}</Text>
                 <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 1 }]}>{ordem.qtd_servico || 1}</Text>
                 <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 2 }]}>{formatMoney(ordem.valor_servico)}</Text>
@@ -429,27 +431,27 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
               </View>
             )}
             {ordem.peca && (
-              <View style={styles.tableRow}>
+              <View style={styles.tableRow} break={false}>
                 <Text style={[styles.tableCell, styles.tableCellLeftAlign, { flex: 3 }]}>{ordem.peca}</Text>
                 <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 1 }]}>{ordem.qtd_peca || 1}</Text>
                 <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 2 }]}>{formatMoney(ordem.valor_peca)}</Text>
                 <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 2 }]}>{formatMoney((ordem.qtd_peca || 1) * (ordem.valor_peca || 0))}</Text>
               </View>
             )}
-            <View style={styles.tableRow}>
+            <View style={styles.tableRow} break={false}>
               <Text style={[styles.tableCell, { flex: 8, borderRightWidth: 0, textAlign: 'right', fontWeight: 'bold' }]}>Subtotal:</Text>
               <Text style={[styles.tableCell, { flex: 2, textAlign: 'right', fontWeight: 'bold' }]}>{formatMoney(((ordem.qtd_servico || 1) * (ordem.valor_servico || 0)) + ((ordem.qtd_peca || 1) * (ordem.valor_peca || 0)))}</Text>
             </View>
-            <View style={styles.tableRow}>
+            <View style={styles.tableRow} break={false}>
               <Text style={[styles.tableCell, { flex: 8, borderRightWidth: 0, textAlign: 'right', fontWeight: 'bold' }]}>Desconto:</Text>
               <Text style={[styles.tableCell, { flex: 2, textAlign: 'right', fontWeight: 'bold' }]}>{formatMoney(ordem.desconto)}</Text>
             </View>
-            <View style={styles.tableRow}>
+            <View style={styles.tableRow} break={false}>
               <Text style={[styles.tableCell, { flex: 8, borderRightWidth: 0, textAlign: 'right', fontWeight: 'bold' }]}>Total:</Text>
               <Text style={[styles.tableCell, { flex: 2, textAlign: 'right', fontWeight: 'bold' }]}> {formatMoney((((ordem.qtd_servico || 1) * (ordem.valor_servico || 0)) + ((ordem.qtd_peca || 1) * (ordem.valor_peca || 0))) - (ordem.desconto || 0))}</Text>
             </View>
             {ordem.valor_faturado && ordem.valor_faturado > 0 && (
-              <View style={styles.tableRow}>
+              <View style={styles.tableRow} break={false}>
                 <Text style={[styles.tableCell, { flex: 8, borderRightWidth: 0, textAlign: 'right', fontWeight: 'bold' }]}>Valor Faturado:</Text>
                 <Text style={[styles.tableCell, { flex: 2, textAlign: 'right', fontWeight: 'bold' }]}>{formatMoney(ordem.valor_faturado)}</Text>
               </View>
@@ -458,7 +460,7 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
         </View>
 
         {/* Termo de Garantia */}
-        <View style={[styles.block, { padding: 8, backgroundColor: '#fafafa' }]}>
+        <View style={[styles.block, { padding: 8, backgroundColor: '#fafafa' }]} break={false} minPresenceAhead={200}>
           <Text style={[styles.sectionTitle, { marginBottom: 4, textAlign: 'center', fontSize: 12 }]}>
             {ordem.termo_garantia?.nome || 'Termo de Garantia'}
           </Text>
@@ -470,7 +472,7 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
         </View>
 
         {/* Assinaturas e QR code no rodapé */}
-        <View style={styles.signatureRow}>
+        <View style={styles.signatureRow} break={false} minPresenceAhead={60}>
           <View style={styles.signatureBox}>
             <View style={styles.signatureLine}></View>
             <Text style={styles.signatureText}>Assinatura do Cliente</Text>
@@ -538,6 +540,7 @@ export default function ImprimirOrdemPage() {
             senha_padrao,
             laudo,
             imagens,
+            imagens_tecnico,
             checklist_entrada,
             qtd_peca,
             peca,
@@ -581,6 +584,7 @@ export default function ImprimirOrdemPage() {
           console.log('✅ Empresa encontrada:', data.empresas);
           console.log('✅ Laudo encontrado:', data.laudo);
           console.log('✅ Imagens encontradas:', data.imagens);
+          console.log('✅ Imagens técnico encontradas:', data.imagens_tecnico);
           console.log('✅ Valores encontrados:', {
             valor_servico: data.valor_servico,
             qtd_servico: data.qtd_servico,

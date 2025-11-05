@@ -64,98 +64,26 @@ export function ChecklistRenderer({
 
 function renderAparelhoNaoLiga(styles: any, mode: string) {
   const fontSize = mode === 'simple' ? 8 : 9;
-  const titleFontSize = mode === 'simple' ? 9 : 10;
   
   return (
-    <View style={styles.block}>
-      <Text style={[styles.sectionTitle, { marginBottom: 6 }]}>Checklist de Entrada</Text>
+    <View style={styles.block} break={false}>
+      <Text style={[styles.sectionTitle, { marginBottom: 4 }]}>Checklist de Entrada</Text>
       
       <View style={{
         borderWidth: 1,
-        borderColor: '#e5e7eb',
-        borderRadius: 4,
-        padding: 8,
-        backgroundColor: '#fafafa'
+        borderColor: '#d1d5db',
+        borderRadius: 2,
+        padding: 6,
+        backgroundColor: '#f9fafb'
       }}>
-        
-        <View style={{
-          backgroundColor: '#fef2f2',
-          borderWidth: 1,
-          borderColor: '#fecaca',
-          borderRadius: 3,
-          padding: 6,
-          marginBottom: 6
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-            <View style={{
-              width: 14,
-              height: 14,
-              borderRadius: 7,
-              backgroundColor: '#dc2626',
-              justifyContent: 'center',
-              alignItems: 'center',
-              marginRight: 6
-            }}>
-              <Text style={{ fontSize: 8, color: '#ffffff', fontWeight: 'bold' }}>!</Text>
-            </View>
-            <Text style={[styles.paragraph, { 
-              fontSize: titleFontSize, 
-              fontWeight: 'bold', 
-              color: '#dc2626', 
-              marginBottom: 0
-            }]}>
-              ⚠️ Aparelho não liga
-            </Text>
-          </View>
-        </View>
-
-        <View style={{
-          backgroundColor: '#ffffff',
-          borderWidth: 1,
-          borderColor: '#fed7d7',
-          borderRadius: 3,
-          padding: 8
-        }}>
-          <Text style={[styles.paragraph, { 
-            fontSize: fontSize, 
-            color: '#991b1b', 
-            marginBottom: 6,
-            textAlign: 'center',
-            fontWeight: 'bold'
-          }]}>
-            Checklist não realizado
-          </Text>
-          
-          <Text style={[styles.paragraph, { 
-            fontSize: fontSize - 1, 
-            color: '#7f1d1d', 
-            marginBottom: 0,
-            lineHeight: fontSize + 1
-          }]}>
-            Como o aparelho não liga, não é possível realizar o checklist para verificar quais funcionalidades estão operacionais. 
-            Após o técnico conseguir fazer o aparelho ligar (caso tenha conserto), será realizado o checklist completo para 
-            identificar quais componentes estão ou não funcionando.
-          </Text>
-        </View>
-
-        <View style={{
-          backgroundColor: '#f1f5f9',
-          borderWidth: 1,
-          borderColor: '#cbd5e1',
-          borderRadius: 3,
-          padding: 6,
-          marginTop: 6,
-          alignItems: 'center'
-        }}>
-          <Text style={[styles.paragraph, { 
-            fontSize: fontSize, 
-            color: '#475569', 
-            marginBottom: 0, 
-            fontWeight: 'bold'
-          }]}>
-            🔧 Status: Aguardando reparo para teste completo
-          </Text>
-        </View>
+        <Text style={[styles.paragraph, { 
+          fontSize: fontSize, 
+          color: '#6b7280', 
+          marginBottom: 0,
+          fontStyle: 'italic'
+        }]}>
+          O aparelho não liga, portanto o checklist não pôde ser realizado. Após o reparo, será realizado o teste completo das funcionalidades.
+        </Text>
       </View>
     </View>
   );
@@ -209,102 +137,80 @@ function processChecklistItems(checklist: any, checklistItens: ChecklistItem[]) 
 }
 
 function renderChecklistItems(itensAprovados: ChecklistItem[], itensReprovados: ChecklistItem[], styles: any, mode: string) {
-  const fontSize = mode === 'simple' ? 7 : 8;
-  const iconSize = mode === 'simple' ? 5 : 6;
-  const titleFontSize = mode === 'simple' ? 8 : 9;
+  const fontSize = mode === 'simple' ? 8 : 9;
+  const titleFontSize = mode === 'simple' ? 9 : 10;
   
   return (
-    <View style={styles.block}>
-      <Text style={[styles.sectionTitle, { marginBottom: 2 }]}>Checklist de Entrada</Text>
+    <View style={styles.block} break={false} minPresenceAhead={80}>
+      <Text style={[styles.sectionTitle, { marginBottom: 4 }]}>Checklist de Entrada</Text>
 
       <View style={{
         borderWidth: 1,
-        borderColor: '#e5e7eb',
+        borderColor: '#d1d5db',
         borderRadius: 2,
-        padding: 4,
-        backgroundColor: '#fafafa'
+        padding: 6,
+        backgroundColor: '#ffffff'
       }}>
         
+        {/* Itens Aprovados */}
         {itensAprovados.length > 0 && (
-          <View style={{ marginBottom: 4 }}>
+          <View style={{ marginBottom: itensReprovados.length > 0 ? 6 : 0 }} break={false}>
             <Text style={[styles.paragraph, { 
               fontSize: titleFontSize, 
               fontWeight: 'bold', 
-              color: '#166534',
-              marginBottom: 2,
-              textAlign: 'left'
+              color: '#059669',
+              marginBottom: 3
             }]}>
-              Funcionalidades Operacionais ({itensAprovados.length})
+              ✓ Funcionalidades Operacionais ({itensAprovados.length})
             </Text>
             
             {itensAprovados.map((item, index) => (
-              <View key={index} style={{ 
-                flexDirection: 'row', 
-                alignItems: 'center', 
-                marginBottom: 1,
-                paddingLeft: 4
-              }}>
-                <View style={{
-                  width: iconSize,
-                  height: iconSize,
-                  borderRadius: iconSize / 2,
-                  backgroundColor: '#22c55e',
-                  marginRight: 4,
-                  marginTop: 0.5
-                }} />
-                <Text style={[styles.paragraph, { 
-                  fontSize, 
-                  color: '#374151', 
-                  marginBottom: 0,
-                  flex: 1
-                }]}>
-                  {item.nome}
-                </Text>
-              </View>
+              <Text key={index} style={[styles.paragraph, { 
+                fontSize, 
+                color: '#374151', 
+                marginBottom: index < itensAprovados.length - 1 ? 1 : 0,
+                paddingLeft: 8
+              }]}>
+                • {item.nome}
+              </Text>
             ))}
           </View>
         )}
 
+        {/* Itens Reprovados */}
         {itensReprovados.length > 0 && (
-          <View style={{ marginBottom: 4 }}>
+          <View break={false}>
+            {itensAprovados.length > 0 && (
+              <View style={{
+                borderTopWidth: 1,
+                borderTopColor: '#e5e7eb',
+                marginTop: 4,
+                marginBottom: 4,
+                paddingTop: 4
+              }} />
+            )}
+            
             <Text style={[styles.paragraph, { 
               fontSize: titleFontSize, 
               fontWeight: 'bold', 
               color: '#dc2626',
-              marginBottom: 2,
-              textAlign: 'left'
+              marginBottom: 3
             }]}>
-              Funcionalidades com Problemas ({itensReprovados.length})
+              ✗ Funcionalidades com Problemas ({itensReprovados.length})
             </Text>
             
             {itensReprovados.map((item, index) => (
-              <View key={index} style={{ 
-                flexDirection: 'row', 
-                alignItems: 'center', 
-                marginBottom: 1,
-                paddingLeft: 4
-              }}>
-                <View style={{
-                  width: iconSize,
-                  height: iconSize,
-                  borderRadius: iconSize / 2,
-                  backgroundColor: '#ef4444',
-                  marginRight: 4,
-                  marginTop: 0.5
-                }} />
-                <Text style={[styles.paragraph, { 
-                  fontSize, 
-                  color: '#374151', 
-                  marginBottom: 0,
-                  flex: 1
-                }]}>
-                  {item.nome}
-                </Text>
-              </View>
+              <Text key={index} style={[styles.paragraph, { 
+                fontSize, 
+                color: '#374151', 
+                marginBottom: index < itensReprovados.length - 1 ? 1 : 0,
+                paddingLeft: 8
+              }]}>
+                • {item.nome}
+              </Text>
             ))}
           </View>
         )}
-
 
       </View>
     </View>

@@ -116,9 +116,12 @@ export default function DetalheBancadaPage() {
   const [empresaId, setEmpresaId] = useState<string>('');
   
   // Estados para upload de imagens
-  const [imagens, setImagens] = useState<File[]>([]);
-  const [previewImagens, setPreviewImagens] = useState<string[]>([]);
-  const [imagensExistentes, setImagensExistentes] = useState<string[]>([]);
+  // Entrada (anexadas pelo atendente na criação/edição da OS)
+  const [imagensEntradaExistentes, setImagensEntradaExistentes] = useState<string[]>([]);
+  // Técnico (anexadas pelo técnico na bancada)
+  const [imagensTecnicoNovas, setImagensTecnicoNovas] = useState<File[]>([]);
+  const [previewImagensTecnico, setPreviewImagensTecnico] = useState<string[]>([]);
+  const [imagensTecnicoExistentes, setImagensTecnicoExistentes] = useState<string[]>([]);
   const [uploadingImagens, setUploadingImagens] = useState(false);
   
   // Estados para checklist e senha
@@ -172,10 +175,17 @@ export default function DetalheBancadaPage() {
         setOs(osData);
         setEmpresaId(data.empresa_id);
         
-        // Carregar imagens existentes
+        // Carregar imagens existentes (entrada / atendente)
         if (data.imagens) {
-          const urls = data.imagens.split(',').filter((url: string) => url.trim() !== '');
-          setImagensExistentes(urls);
+          const urlsEntrada = data.imagens.split(',').filter((url: string) => url.trim() !== '');
+          setImagensEntradaExistentes(urlsEntrada);
+        }
+        // Carregar imagens do técnico (se a coluna existir)
+        if ((data as any).imagens_tecnico) {
+          const urlsTecnico = String((data as any).imagens_tecnico)
+            .split(',')
+            .filter((url: string) => url.trim() !== '');
+          setImagensTecnicoExistentes(urlsTecnico);
         }
         
         // Carregar dados do checklist
@@ -330,9 +340,9 @@ export default function DetalheBancadaPage() {
       
       const totalProdutos = calcularTotalProdutos();
       const totalServicos = calcularTotalServicos();
-      // Combinar imagens existentes com novas
-      const todasImagens = [...imagensExistentes, ...novasImagens];
-      const imagensString = todasImagens.join(',');
+      // Combinar imagens do técnico existentes com novas
+      const todasImagensTecnico = [...imagensTecnicoExistentes, ...novasImagens];
+      const imagensTecnicoString = todasImagensTecnico.join(',');
 
       // Preparar dados para salvar (sem campos JSON por enquanto)
       
@@ -351,8 +361,8 @@ export default function DetalheBancadaPage() {
         ...((produtosSelecionados.length > 0 || servicosSelecionados.length > 0) && { 
           valor_faturado: (calcularTotalProdutos() + calcularTotalServicos()).toString() 
         }),
-        // ✅ PRESERVAR imagens - só atualizar se há imagens
-        ...(imagensString && { imagens: imagensString }),
+        // ✅ Imagens do técnico em coluna separada
+        ...(imagensTecnicoString && { imagens_tecnico: imagensTecnicoString }),
         // ✅ SALVAR checklist se foi modificado
         ...(checklistData && { checklist_entrada: JSON.stringify(checklistData) })
       };
@@ -409,14 +419,13 @@ export default function DetalheBancadaPage() {
           valor_peca: calcularTotalProdutos().toString(),
           valor_servico: calcularTotalServicos().toString(),
           valor_faturado: (calcularTotalProdutos() + calcularTotalServicos()).toString(),
-          imagens: imagensString
         });
       }
 
-      // Limpar imagens temporárias
-      setImagens([]);
-      setPreviewImagens([]);
-      setImagensExistentes(todasImagens);
+      // Limpar imagens temporárias do técnico e atualizar listas
+      setImagensTecnicoNovas([]);
+      setPreviewImagensTecnico([]);
+      setImagensTecnicoExistentes(todasImagensTecnico);
 
       // Atualizar botão iniciar
       setMostrarBotaoIniciar(statusTecnico === 'AGUARDANDO INÍCIO');
@@ -638,7 +647,7 @@ export default function DetalheBancadaPage() {
     }).format(price);
   };
 
-  // Funções para manipular imagens
+  // Funções para manipular imagens (técnico)
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     const validFiles = files.filter(file => file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024);
@@ -647,22 +656,22 @@ export default function DetalheBancadaPage() {
       addToast('warning', 'Algumas imagens foram ignoradas. Apenas imagens até 5MB são permitidas.');
     }
     
-    setImagens(prev => [...prev, ...validFiles]);
+    setImagensTecnicoNovas(prev => [...prev, ...validFiles]);
     const previews = validFiles.map(file => URL.createObjectURL(file));
-    setPreviewImagens(prev => [...prev, ...previews]);
+    setPreviewImagensTecnico(prev => [...prev, ...previews]);
   };
 
   const handleRemoveImage = (index: number) => {
-    setImagens(prev => prev.filter((_, i) => i !== index));
-    setPreviewImagens(prev => prev.filter((_, i) => i !== index));
+    setImagensTecnicoNovas(prev => prev.filter((_, i) => i !== index));
+    setPreviewImagensTecnico(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleRemoveExistingImage = (index: number) => {
-    setImagensExistentes(prev => prev.filter((_, i) => i !== index));
+    setImagensTecnicoExistentes(prev => prev.filter((_, i) => i !== index));
   };
 
   const uploadImagens = async () => {
-    if (imagens.length === 0) return [];
+    if (imagensTecnicoNovas.length === 0) return [];
     
     setUploadingImagens(true);
     const uploadedUrls: string[] = [];
@@ -671,7 +680,7 @@ export default function DetalheBancadaPage() {
       const formData = new FormData();
       formData.append('osId', id);
       
-      imagens.forEach((file) => {
+      imagensTecnicoNovas.forEach((file) => {
         formData.append('files', file);
       });
 
@@ -1246,19 +1255,19 @@ export default function DetalheBancadaPage() {
             />
           </div>
 
-          {/* Imagens do Equipamento Card */}
+          {/* Imagens - separar entrada e técnico */}
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
                 <FiCamera className="w-6 h-6 text-indigo-600" />
               </div>
               <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 text-lg">Imagens do Equipamento</h3>
-                <p className="text-sm text-gray-500">Fotos do aparelho</p>
+                <h3 className="font-semibold text-gray-900 text-lg">Imagens</h3>
+                <p className="text-sm text-gray-500">Entrada (atendente) e Laudo (técnico)</p>
               </div>
             </div>
-            
-            {/* Upload de novas imagens */}
+
+            {/* Upload de novas imagens do técnico */}
             <div className="space-y-4">
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 sm:p-6 text-center hover:border-gray-400 transition-colors">
                 <input
@@ -1272,30 +1281,26 @@ export default function DetalheBancadaPage() {
                 <label htmlFor="image-upload-edit" className="cursor-pointer">
                   <div className="space-y-2">
                     <div className="text-4xl">📷</div>
-                    <p className="text-sm text-gray-600">
-                      Clique para selecionar imagens ou arraste aqui
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      PNG, JPG até 5MB cada • Máximo 10 imagens
-                    </p>
-                    {imagens.length > 0 && (
+                    <p className="text-sm text-gray-600">Imagens do técnico (laudo)</p>
+                    <p className="text-xs text-gray-500">PNG, JPG até 5MB cada • Máximo 10 imagens</p>
+                    {imagensTecnicoNovas.length > 0 && (
                       <p className="text-xs text-green-600 font-medium">
-                        {imagens.length} imagem{imagens.length !== 1 ? 'ns' : ''} selecionada{imagens.length !== 1 ? 's' : ''}
+                        {imagensTecnicoNovas.length} imagem{imagensTecnicoNovas.length !== 1 ? 'ns' : ''} selecionada{imagensTecnicoNovas.length !== 1 ? 's' : ''}
                       </p>
                     )}
                   </div>
                 </label>
               </div>
 
-              {/* Preview das novas imagens */}
-              {previewImagens.length > 0 && (
+              {/* Preview das novas imagens do técnico */}
+              {previewImagensTecnico.length > 0 && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-medium text-gray-700">Novas Imagens</h4>
+                    <h4 className="text-sm font-medium text-gray-700">Novas Imagens do Técnico</h4>
                     <button
                       onClick={() => {
-                        setImagens([]);
-                        setPreviewImagens([]);
+                        setImagensTecnicoNovas([]);
+                        setPreviewImagensTecnico([]);
                       }}
                       className="text-xs text-red-600 hover:text-red-800 font-medium"
                     >
@@ -1303,7 +1308,7 @@ export default function DetalheBancadaPage() {
                     </button>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    {previewImagens.map((preview, index) => (
+                    {previewImagensTecnico.map((preview, index) => (
                       <div key={index} className="relative group">
                         <img
                           src={preview}
@@ -1324,24 +1329,44 @@ export default function DetalheBancadaPage() {
                 </div>
               )}
 
-              {/* Imagens existentes */}
-              {imagensExistentes.length > 0 && (
+              {/* Imagens de Entrada (Atendente) */}
+              {imagensEntradaExistentes.length > 0 && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-medium text-gray-700">Imagens Existentes</h4>
+                    <h4 className="text-sm font-medium text-gray-700">Imagens de Entrada (Atendente)</h4>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {imagensEntradaExistentes.map((url, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={url}
+                          alt={`Imagem entrada ${index + 1}`}
+                          className="w-full h-20 sm:h-24 object-cover rounded-lg border border-gray-200 shadow-sm"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Imagens do Técnico (Laudo) */}
+              {imagensTecnicoExistentes.length > 0 && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium text-gray-700">Imagens do Técnico (Laudo)</h4>
                     <button
-                      onClick={() => setImagensExistentes([])}
+                      onClick={() => setImagensTecnicoExistentes([])}
                       className="text-xs text-red-600 hover:text-red-800 font-medium"
                     >
                       Remover todas
                     </button>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    {imagensExistentes.map((url, index) => (
+                    {imagensTecnicoExistentes.map((url, index) => (
                       <div key={index} className="relative group">
                         <img
                           src={url}
-                          alt={`Imagem ${index + 1}`}
+                          alt={`Imagem técnico ${index + 1}`}
                           className="w-full h-20 sm:h-24 object-cover rounded-lg border border-gray-200 shadow-sm"
                         />
                         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg flex items-center justify-center">

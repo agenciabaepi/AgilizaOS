@@ -175,6 +175,7 @@ export default function OSPublicPage() {
             senha_aparelho,
             senha_padrao,
             imagens,
+            imagens_tecnico,
             checklist_entrada,
             laudo,
             cor,
@@ -207,6 +208,7 @@ export default function OSPublicPage() {
           console.log('🔍 Debug - Servico:', data.servico);
           console.log('🔍 Debug - Tecnico:', data.tecnico);
           console.log('🔍 Debug - Imagens:', data.imagens);
+          console.log('🔍 Debug - Imagens técnico:', data.imagens_tecnico);
           console.log('🔍 Debug - IDs das foreign keys:', {
             cliente_id: data.cliente_id,
             tecnico_id: data.tecnico_id,
@@ -604,7 +606,7 @@ export default function OSPublicPage() {
           </div>
         )}
 
-        {/* Laudo Técnico */}
+        {/* Laudo Técnico (+ Imagens do Técnico) */}
         {osData.laudo && osData.laudo.trim() !== '' && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
             <div className="flex items-center mb-4">
@@ -614,10 +616,19 @@ export default function OSPublicPage() {
               <h3 className="text-lg font-semibold text-gray-900">Laudo Técnico</h3>
             </div>
             <div className="prose max-w-none">
-              <div className="whitespace-pre-wrap text-gray-700 bg-gray-50 p-4 rounded-lg border">
+              <div className="whitespace-pre-wrap text-gray-700 bg-gray-50 p-4 rounded-lg border mb-4">
                 {osData.laudo}
               </div>
             </div>
+            {osData.imagens_tecnico && (
+              <div className="mt-2">
+                <h4 className="text-base font-semibold text-gray-900 mb-3">Imagens do Técnico (Laudo)</h4>
+                <ImagensOS 
+                  imagens={osData.imagens_tecnico || ''} 
+                  ordemId={osData.numero_os || osData.id} 
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -648,16 +659,18 @@ export default function OSPublicPage() {
           </div>
         )}
 
-        {/* Imagens do Equipamento */}
+        {/* Imagens de Entrada (Atendente) */}
         {osData.imagens && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Imagens do Equipamento</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Imagens de Entrada (Atendente)</h3>
             <ImagensOS 
               imagens={osData.imagens || ''} 
               ordemId={osData.numero_os || osData.id} 
             />
           </div>
         )}
+
+        {/* (Removido) Imagens do Técnico separadas - agora ficam junto do Laudo */}
 
         {/* Histórico de Status */}
         {osData.historico && osData.historico.length > 0 && (

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@supabase/ssr';
 
 /**
  * Middleware de autenticação - Primeira linha de defesa
@@ -8,8 +8,10 @@ import { createClient } from '@supabase/supabase-js';
  * Responsabilidades:
  * 1. Proteger rotas privadas de acesso não autenticado
  * 2. Redirecionar usuários não logados para /login
- * 3. Evitar acesso a /login por usuários já autenticados
- * 4. Preservar URL de destino para redirecionamento pós-login
+ * 3. Preservar URL de destino para redirecionamento pós-login
+ * 
+ * ⚠️ IMPORTANTE: Apenas as rotas listadas em publicPaths são acessíveis sem autenticação.
+ * Todas as outras rotas requerem autenticação válida.
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -19,7 +21,8 @@ export async function middleware(request: NextRequest) {
     console.log(`🔍 Middleware: ${pathname}`);
   }
   
-  // Lista de rotas públicas (não exigem autenticação)
+  // ✅ LISTA COMPLETA DE ROTAS PÚBLICAS (sem autenticação)
+  // ATENÇÃO: Todas as rotas que não estão nesta lista REQUEREM autenticação
   const publicPaths = [
     '/login',
     '/cadastro', 
@@ -34,37 +37,72 @@ export async function middleware(request: NextRequest) {
     '/instrucoes-verificacao',
     '/clear-auth',
     '/clear-cache',
-    '/os', // Rotas públicas de OS
+    // Rotas públicas de OS (clientes podem acessar com senha)
+    '/os',
+    '/os/buscar',
+    '/os/[id]/status', // Permite acesso público com senha na query string
   ];
 
-  // Verificar se é uma rota pública ou de API
-  const isPublicPath = publicPaths.some(path => 
-    pathname === path || pathname.startsWith(path + '/')
-  );
+  // Verificar se é uma rota pública usando match exato ou prefixo
+  const isPublicPath = publicPaths.some(path => {
+    // Match exato
+    if (pathname === path) return true;
+    // Match com prefixo (ex: /os, /os/buscar, /os/123/status)
+    if (path.startsWith('/os') && pathname.startsWith('/os')) {
+      // Permitir rotas públicas de OS
+      if (pathname.startsWith('/os/buscar')) return true;
+      if (pathname.match(/^\/os\/[^\/]+\/status$/)) return true;
+      if (pathname === '/os') return true;
+      // Bloquear outras rotas de OS que não são públicas
+      return false;
+    }
+    // Para outras rotas, usar match exato ou prefixo simples
+    return pathname.startsWith(path + '/') || pathname === path;
+  });
   
   // Rotas de API não devem ser bloqueadas pelo middleware de autenticação
+  // (elas têm sua própria validação interna)
   const isApiRoute = pathname.startsWith('/api');
   const isStaticAsset = pathname.startsWith('/_next') || 
-                       pathname.includes('.') || 
-                       pathname.startsWith('/assets');
+                       pathname.startsWith('/_static') ||
+                       pathname.match(/\.(ico|png|jpg|jpeg|gif|svg|css|js|woff|woff2|ttf|eot)$/i);
   
   // Se é rota pública, API ou asset estático, deixar passar
   if (isPublicPath || isApiRoute || isStaticAsset) {
     return NextResponse.next();
   }
 
-  // ✅ MELHORADO: Verificar sessão usando Supabase adequadamente
+  // ✅ VERIFICAÇÃO DE AUTENTICAÇÃO PARA ROTAS PRIVADAS
+  // Se chegou aqui, a rota NÃO é pública e REQUER autenticação
   try {
-    // Procurar por cookies de autenticação do Supabase
-    const authCookies = request.cookies.getAll().filter(cookie => 
-      cookie.name.startsWith('sb-') && 
-      cookie.name.includes('auth-token')
+    // Criar cliente Supabase para verificar sessão no middleware
+    // No middleware do Next.js, usamos a API do request/response diretamente
+    const response = NextResponse.next();
+    
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              response.cookies.set(name, value, options);
+            });
+          },
+        },
+      }
     );
 
-    // Se não há cookies de autenticação, redirecionar para login
-    if (authCookies.length === 0) {
+    // Verificar sessão real do Supabase
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+    // Se não há sessão válida, redirecionar para login
+    if (!session || sessionError) {
       if (process.env.NODE_ENV === 'development') {
-        console.log(`🚫 Middleware: Sem cookies de auth, redirecionando para login`);
+        console.log(`🚫 Middleware: Sem sessão válida para ${pathname}, redirecionando para login`);
       }
       
       const loginUrl = new URL('/login', request.url);
@@ -72,28 +110,13 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    // Verificar se há pelo menos um cookie com conteúdo válido
-    const hasValidAuthCookie = authCookies.some(cookie => 
-      cookie.value && cookie.value.length > 50 // JWT tokens são longos
-    );
-
-    if (!hasValidAuthCookie) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`🚫 Middleware: Cookies inválidos, redirecionando para login`);
-      }
-      
-      const loginUrl = new URL('/login', request.url);
-      loginUrl.searchParams.set('redirect', pathname);
-      return NextResponse.redirect(loginUrl);
-    }
-
-    // ✅ Passou pela verificação de cookies, permitir acesso
-    // A verificação completa de sessão será feita no client-side pelo AuthGuard
-    return NextResponse.next();
+    // ✅ Passou pela verificação de sessão, permitir acesso
+    // A verificação completa de permissões será feita no client-side pelo AuthGuard
+    return response;
 
   } catch (error) {
     // Em caso de erro, por segurança, redirecionar para login
-    console.error('❌ Middleware: Erro na verificação:', error);
+    console.error('❌ Middleware: Erro na verificação de autenticação:', error);
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);
