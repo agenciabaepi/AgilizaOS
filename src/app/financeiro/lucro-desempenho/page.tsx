@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/Toast';
 import MenuLayout from '@/components/MenuLayout';
 import DashboardCard from '@/components/ui/DashboardCard';
+import { InvestimentoModal } from '@/components/InvestimentoModal';
+import { Button } from '@/components/Button';
 import { 
   FiTrendingUp, 
   FiTrendingDown, 
@@ -26,7 +28,8 @@ import {
   FiPercent,
   FiActivity,
   FiAward,
-  FiAlertCircle
+  FiAlertCircle,
+  FiPlus
 } from 'react-icons/fi';
 
 interface OrdemServico {
@@ -94,6 +97,9 @@ interface ContaCusto {
 interface Metricas {
   totalReceita: number;
   totalCustos: number;
+  despesasOperacionais: number;
+  custosFixos: number;
+  saldoNaConta: number;
   lucroTotal: number;
   margemMedia: number;
   totalOS: number;
@@ -118,6 +124,7 @@ export default function LucroDesempenhoPage() {
   // Estados principais
   const [ordens, setOrdens] = useState<OrdemServico[]>([]);
   const [loading, setLoading] = useState(true);
+  const [modalInvestimentoAberto, setModalInvestimentoAberto] = useState(false);
 
   // Debug: Log inicial
   console.log('🔍 LucroDesempenhoPage inicializado:', {
@@ -129,6 +136,9 @@ export default function LucroDesempenhoPage() {
   const [metricas, setMetricas] = useState<Metricas>({
     totalReceita: 0,
     totalCustos: 0,
+    despesasOperacionais: 0,
+    custosFixos: 0,
+    saldoNaConta: 0,
     lucroTotal: 0,
     margemMedia: 0,
     totalOS: 0,
@@ -139,8 +149,12 @@ export default function LucroDesempenhoPage() {
   const [metricasPrevistas, setMetricasPrevistas] = useState({
     receitaPrevista: 0,
     custosPrevistos: 0,
+    contasAPagarPrevistas: 0,
+    despesasOperacionaisPrevistas: 0,
+    custosFixosPrevistos: 0,
     lucroPrevisto: 0,
-    margemPrevista: 0
+    margemPrevista: 0,
+    saldoNaContaPrevisto: 0
   });
   
   // Estados de navegação por mês
@@ -171,10 +185,15 @@ export default function LucroDesempenhoPage() {
     contasPendentes: 0,
     totalContas: 0,
     despesasOperacionais: 0,
+    custosFixos: 0,
+    custosTotais: 0,
     custosPecas: 0,
     custosGerais: 0,
     categoriasDetalhadas: []
   });
+  
+  // Estado para investimentos do mês
+  const [investimentosMes, setInvestimentosMes] = useState(0);
 
   // Estado para vendas (igual à página de vendas!)
   const [vendas, setVendas] = useState<Venda[]>([]);
@@ -482,23 +501,86 @@ export default function LucroDesempenhoPage() {
         const ordensPrevistasComValor = ordensSemVendaNoPeriodo.filter(o => calcularValorFinalOS(o) > 0);
         const receitaPrevista = ordensPrevistasComValor.reduce((acc, o) => acc + calcularValorFinalOS(o), 0);
 
-        // Custos previstos: contas de peças vinculadas ao mês selecionado e pendentes
-        const contasMes = (todosCustos || []).filter(conta => {
-          const vencMes = (conta.data_vencimento || '').toString().slice(0, 7);
-          return vencMes === mesAtual;
+        // Buscar TODAS as contas da empresa para calcular previstos (não apenas peças)
+        const { data: todasContasParaPrevistos } = await supabase
+          .from('contas_pagar')
+          .select('id, descricao, valor, tipo, data_vencimento, os_id, status, data_pagamento')
+          .eq('empresa_id', empresaData.id);
+
+        // Custos previstos: contas vinculadas ao mês selecionado e pendentes
+        // IMPORTANTE: Usar TODAS as contas (pecas, fixa, variavel) que estão cadastradas mas não foram pagas
+        // Usar a mesma lógica de filtro de data da função fetchCustosEmpresa
+        const { dataInicio: dataInicioPrevisto, dataFim: dataFimPrevisto, inicioMes: inicioMesPrevisto, fimMes: fimMesPrevisto } = calcularPeriodo();
+        const mesAtualISO = currentMonth.toISOString().slice(0, 7); // YYYY-MM
+        
+        const inicioPeriodoFiltroPrevisto = new Date(inicioMesPrevisto);
+        inicioPeriodoFiltroPrevisto.setHours(0, 0, 0, 0);
+        const fimPeriodoFiltroPrevisto = new Date(fimMesPrevisto);
+        fimPeriodoFiltroPrevisto.setHours(23, 59, 59, 999);
+        
+        const contasMes = (todasContasParaPrevistos || []).filter(conta => {
+          // Verificar pelo mês usando substring (mais confiável para evitar problemas de timezone)
+          const vencMes = (conta.data_vencimento || '').toString().slice(0, 7); // YYYY-MM
+          const venceNoMesISO = vencMes === mesAtualISO;
+          
+          // Verificar também com comparação de datas para garantir
+          const dataVencimento = new Date(conta.data_vencimento + 'T00:00:00');
+          const venceNoMesData = dataVencimento >= inicioPeriodoFiltroPrevisto && dataVencimento <= fimPeriodoFiltroPrevisto;
+          
+          // Só incluir se AMBOS os critérios indicarem que vence no mês
+          return venceNoMesISO && venceNoMesData;
         });
+        
+        // Filtrar apenas contas que estão cadastradas mas NÃO foram pagas ainda
         const contasPendentes = contasMes.filter(c => 
-          c.status === 'pendente' || c.status === 'pending' || c.status === 'Pendente'
+          c.status === 'pendente' || c.status === 'pending' || c.status === 'Pendente' || c.status === 'vencido'
         );
-        const custosPrevistos = contasPendentes.reduce((acc, c: any) => acc + Number(c.valor || 0), 0);
+        
+        console.log('📊 Contas previstas calculadas:', {
+          totalContasMes: contasMes.length,
+          totalContasPendentes: contasPendentes.length,
+          contasPorTipo: {
+            pecas: contasPendentes.filter(c => (c.tipo || '').toLowerCase() === 'pecas').length,
+            variavel: contasPendentes.filter(c => (c.tipo || '').toLowerCase() === 'variavel').length,
+            fixa: contasPendentes.filter(c => (c.tipo || '').toLowerCase() === 'fixa').length
+          }
+        });
+        
+        // Separar contas pendentes por tipo
+        const contasPendentesPecas = contasPendentes.filter(c => {
+          const tipo = (c.tipo || '').toLowerCase();
+          return tipo === 'pecas';
+        });
+        const contasPendentesVariaveis = contasPendentes.filter(c => {
+          const tipo = (c.tipo || '').toLowerCase();
+          return tipo === 'variavel';
+        });
+        const contasPendentesFixas = contasPendentes.filter(c => {
+          const tipo = (c.tipo || '').toLowerCase();
+          return tipo === 'fixa';
+        });
+        
+        const custosPrevistos = contasPendentesPecas.reduce((acc, c: any) => acc + Number(c.valor || 0), 0);
+        const contasAPagarPrevistas = contasPendentes.reduce((acc, c: any) => acc + Number(c.valor || 0), 0);
+        const despesasOperacionaisPrevistas = contasPendentesVariaveis.reduce((acc, c: any) => acc + Number(c.valor || 0), 0);
+        const custosFixosPrevistos = contasPendentesFixas.reduce((acc, c: any) => acc + Number(c.valor || 0), 0);
 
         const lucroPrevisto = receitaPrevista - custosPrevistos;
         const margemPrevista = receitaPrevista > 0 ? (lucroPrevisto / receitaPrevista) * 100 : 0;
+        
+        // Previsão de Saldo na Conta será calculada depois que as métricas atuais forem calculadas
+        // Por enquanto, deixar como 0 (será atualizado no useEffect)
+        const saldoNaContaPrevisto = 0;
+        
         setMetricasPrevistas({
           receitaPrevista,
           custosPrevistos,
+          contasAPagarPrevistas,
+          despesasOperacionaisPrevistas,
+          custosFixosPrevistos,
           lucroPrevisto,
-          margemPrevista
+          margemPrevista,
+          saldoNaContaPrevisto
         });
 
         // Incluir também as OS sem venda (pendentes) na listagem Por OS
@@ -628,6 +710,41 @@ export default function LucroDesempenhoPage() {
 
   // Não precisa gerar contas virtuais - todas as parcelas já são criadas como contas reais no banco
   // Quando uma conta fixa é criada, todas as parcelas são salvas no banco de dados
+
+  // Função para buscar investimentos do mês
+  const fetchInvestimentosMes = async () => {
+    if (!empresaData?.id) return;
+
+    try {
+      const { dataInicio, dataFim } = calcularPeriodo();
+      
+      // Buscar investimentos do mês selecionado
+      const { data: investimentos, error } = await supabase
+        .from('movimentacoes_caixa')
+        .select('valor, data_movimentacao')
+        .eq('empresa_id', empresaData.id)
+        .eq('tipo', 'investimento')
+        .gte('data_movimentacao', `${dataInicio}T00:00:00`)
+        .lte('data_movimentacao', `${dataFim}T23:59:59`);
+
+      if (error) {
+        console.error('Erro ao buscar investimentos:', error);
+        return;
+      }
+
+      const totalInvestimentos = investimentos?.reduce((acc, inv) => acc + (inv.valor || 0), 0) || 0;
+      setInvestimentosMes(totalInvestimentos);
+
+      console.log('💰 Investimentos do mês:', {
+        mes: formatarMesAno(currentMonth),
+        totalInvestimentos,
+        quantidade: investimentos?.length || 0
+      });
+
+    } catch (error) {
+      console.error('Erro ao buscar investimentos:', error);
+    }
+  };
 
   // Função para buscar custos da empresa para DRE
   const fetchCustosEmpresa = async () => {
@@ -783,14 +900,22 @@ export default function LucroDesempenhoPage() {
       // Custos de peças: todas as contas de peças do mês (vencimento no mês)
       const custosPecas = contasDoMes?.filter(conta => conta.tipo === 'pecas') || [];
       
-      // Despesas operacionais: contas fixas e variáveis PAGAS no mês
-      // IMPORTANTE: Despesas operacionais = contas operacionais (fixa + variavel) que foram PAGAS no mês
-      // Isso significa que só conta se foi efetivamente paga (saiu dinheiro do caixa)
+      // Custos Totais: peças e serviços PAGAS no mês
+      const custosTotaisPagas = contasPagas.filter(conta => {
+        const tipo = (conta.tipo || '').toLowerCase();
+        return tipo === 'pecas';
+      }) || [];
+      
+      // Despesas Operacionais: variáveis PAGAS no mês
       const despesasOperacionais = contasPagas.filter(conta => {
         const tipo = (conta.tipo || '').toLowerCase();
-        // Incluir apenas: fixa e variavel (despesas operacionais)
-        // Excluir: pecas (que são custos diretos)
-        return tipo === 'fixa' || tipo === 'variavel';
+        return tipo === 'variavel';
+      }) || [];
+      
+      // Custos Fixos: contas fixas PAGAS no mês
+      const custosFixosPagas = contasPagas.filter(conta => {
+        const tipo = (conta.tipo || '').toLowerCase();
+        return tipo === 'fixa';
       }) || [];
       
       // Custos gerais: todas as contas fixas e variáveis do mês (independente de status - pagas + pendentes)
@@ -833,8 +958,13 @@ export default function LucroDesempenhoPage() {
 
       const totalContasPagas = contasPagas.reduce((acc, conta) => acc + (conta.valor || 0), 0);
       const totalContasPendentes = contasPendentes.reduce((acc, conta) => acc + (conta.valor || 0), 0);
+      
+      // Calcular totais separados para os cards
+      const totalCustosTotais = custosTotaisPagas.reduce((acc, conta) => acc + (conta.valor || 0), 0);
       const totalDespesasOperacionais = despesasOperacionais.reduce((acc, conta) => acc + (conta.valor || 0), 0);
-      // Custos de peças: todas as contas de peças do mês (independente de status)
+      const totalCustosFixos = custosFixosPagas.reduce((acc, conta) => acc + (conta.valor || 0), 0);
+      
+      // Custos de peças: todas as contas de peças do mês (independente de status) - mantido para compatibilidade
       const totalCustosPecas = custosPecas.reduce((acc, conta) => acc + (conta.valor || 0), 0);
       // Custos gerais: todas as contas fixas e variáveis do mês (independente de status)
       const totalCustosGerais = custosGerais.reduce((acc, conta) => acc + (conta.valor || 0), 0);
@@ -842,7 +972,9 @@ export default function LucroDesempenhoPage() {
       console.log('💰 Totais calculados:', {
         totalContasPagas,
         totalContasPendentes,
+        totalCustosTotais,
         totalDespesasOperacionais,
+        totalCustosFixos,
         totalCustosPecas
       });
 
@@ -895,12 +1027,12 @@ export default function LucroDesempenhoPage() {
           c.valor === conta.valor);
         
         if (!contaJaExiste) {
-          categoriaData.contas.push({
-            descricao: conta.descricao || '',
-            valor: conta.valor || 0,
-            status: conta.status || '',
-            data_vencimento: conta.data_vencimento || ''
-          });
+        categoriaData.contas.push({
+          descricao: conta.descricao || '',
+          valor: conta.valor || 0,
+          status: conta.status || '',
+          data_vencimento: conta.data_vencimento || ''
+        });
         }
         
         // Classificar contas pagas vs pendentes
@@ -909,7 +1041,7 @@ export default function LucroDesempenhoPage() {
           const dataPagamento = new Date(conta.data_pagamento);
           // Só conta como paga se foi paga no período do mês selecionado
           if (dataPagamento >= inicioPeriodo && dataPagamento <= fimPeriodo) {
-            categoriaData.contasPagas += conta.valor || 0;
+          categoriaData.contasPagas += conta.valor || 0;
           } else {
             // Conta paga mas em outro mês - não contar como paga neste mês
             categoriaData.contasPendentes += conta.valor || 0;
@@ -944,6 +1076,8 @@ export default function LucroDesempenhoPage() {
         contasPendentes: totalContasPendentes,
         totalContas: totalContasPagas + totalContasPendentes,
         despesasOperacionais: totalDespesasOperacionais,
+        custosFixos: totalCustosFixos,
+        custosTotais: totalCustosTotais,
         custosPecas: totalCustosPecas,
         custosGerais: totalCustosGerais,
         categoriasDetalhadas
@@ -953,7 +1087,9 @@ export default function LucroDesempenhoPage() {
         contasPagas: totalContasPagas,
         contasPendentes: totalContasPendentes,
         totalContas: totalContasPagas + totalContasPendentes,
+        custosTotais: totalCustosTotais,
         despesasOperacionais: totalDespesasOperacionais,
+        custosFixos: totalCustosFixos,
         custosPecas: custosPecas.length,
         custosPecasTotal: totalCustosPecas,
         despesasOperacionaisCount: despesasOperacionais.length
@@ -972,9 +1108,15 @@ export default function LucroDesempenhoPage() {
     // Calcular custos igual à página de contas a pagar
     const mesAtual = currentMonth.toISOString().slice(0, 7); // YYYY-MM
     
-    // Usar custosEmpresa que já foi calculado com contas virtuais
-    const totalCustos = custosEmpresa.custosPecas;
-
+    // Usar custosEmpresa que já foi calculado
+    const totalCustos = custosEmpresa.custosTotais; // Peças e serviços pagas
+    const despesasOperacionais = custosEmpresa.despesasOperacionais; // Variáveis pagas
+    const custosFixos = custosEmpresa.custosFixos; // Fixas pagas
+    
+    // Saldo na Conta = Receita + Investimentos - (Custos Totais + Despesas Operacionais + Custos Fixos)
+    const saldoNaConta = totalReceita + investimentosMes - (totalCustos + despesasOperacionais + custosFixos);
+    
+    // Lucro Total = Receita - Custos Totais (mantido para compatibilidade)
     const lucroTotal = totalReceita - totalCustos;
     const margemMedia = totalReceita > 0 ? (lucroTotal / totalReceita) * 100 : 0;
 
@@ -1000,6 +1142,9 @@ export default function LucroDesempenhoPage() {
     setMetricas({
       totalReceita,
       totalCustos,
+      despesasOperacionais,
+      custosFixos,
+      saldoNaConta,
       lucroTotal,
       margemMedia,
       totalOS: ordens.length,
@@ -1549,10 +1694,18 @@ export default function LucroDesempenhoPage() {
       loadData();
       fetchFluxoCaixaMensal();
       fetchCustosEmpresa();
+      fetchInvestimentosMes();
     } else {
       console.log('❌ empresaData.id não disponível, não chamando loadData');
     }
   }, [empresaData?.id, currentMonth, anoSelecionado]);
+
+  // Recalcular quando o mês mudar ou quando investimentos forem registrados
+  useEffect(() => {
+    if (empresaData?.id) {
+      fetchInvestimentosMes();
+    }
+  }, [empresaData?.id, currentMonth]);
 
   useEffect(() => {
     if (vendas.length > 0) {
@@ -1568,6 +1721,39 @@ export default function LucroDesempenhoPage() {
     }
   }, [ordens, vendasFiltradas]);
 
+  // Recalcular métricas quando custosEmpresa ou investimentosMes mudar (pois o saldo depende dos custos e investimentos)
+  useEffect(() => {
+    if (vendasFiltradas.length >= 0 && custosEmpresa.custosTotais !== undefined) {
+      calcularMetricas();
+    }
+  }, [custosEmpresa.custosTotais, custosEmpresa.despesasOperacionais, custosEmpresa.custosFixos, investimentosMes]);
+
+  // Recalcular previsão de saldo na conta quando as métricas atuais mudarem
+  useEffect(() => {
+    // Previsão de Saldo na Conta = Saldo Atual (Real) + Valores Previstos a Receber - Contas a Pagar Previstas
+    const receitaPrevista = metricasPrevistas.receitaPrevista;
+    const contasAPagarPrevistas = metricasPrevistas.contasAPagarPrevistas;
+    const saldoNaContaPrevisto = metricas.saldoNaConta + receitaPrevista - contasAPagarPrevistas;
+    
+    console.log('💰 Cálculo de Previsão de Saldo na Conta:', {
+      saldoAtual: metricas.saldoNaConta,
+      receitaPrevista,
+      contasAPagarPrevistas,
+      saldoNaContaPrevisto
+    });
+    
+    setMetricasPrevistas(prev => {
+      // Só atualizar se o valor mudou para evitar loops infinitos
+      if (prev.saldoNaContaPrevisto === saldoNaContaPrevisto) {
+        return prev;
+      }
+      return {
+        ...prev,
+        saldoNaContaPrevisto
+      };
+    });
+  }, [metricas.saldoNaConta, metricasPrevistas.receitaPrevista, metricasPrevistas.contasAPagarPrevistas]);
+
   // Formatação de valores
   const formatarMoeda = (valor: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -1580,18 +1766,114 @@ export default function LucroDesempenhoPage() {
     return `${valor.toFixed(1)}%`;
   };
 
+  // Função para registrar investimento
+  const registrarInvestimento = async (valor: number, observacoes: string) => {
+    if (!empresaData?.id || !user?.id) {
+      addToast('error', 'Erro: Dados do usuário ou empresa não encontrados');
+      return;
+    }
+
+    try {
+      // Primeiro, buscar o usuario_id da tabela usuarios usando o auth_user_id
+      const { data: usuarioData, error: usuarioError } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+
+      if (usuarioError) {
+        console.error('Erro ao buscar usuário:', usuarioError);
+        addToast('error', 'Erro ao buscar dados do usuário');
+        return;
+      }
+
+      if (!usuarioData) {
+        addToast('error', 'Usuário não encontrado no sistema');
+        return;
+      }
+
+      // Verificar se há um turno aberto
+      const { data: turnoAberto, error: turnoError } = await supabase
+        .from('turnos_caixa')
+        .select('id')
+        .eq('empresa_id', empresaData.id)
+        .eq('status', 'aberto')
+        .maybeSingle();
+
+      if (turnoError) {
+        console.error('Erro ao verificar turno:', turnoError);
+        addToast('error', 'Erro ao verificar turno de caixa');
+        return;
+      }
+
+      if (!turnoAberto) {
+        addToast('error', 'Não há turno de caixa aberto. Abra um turno antes de registrar investimentos.');
+        return;
+      }
+
+      // Registrar investimento como movimentação de caixa
+      const { data: movimentacao, error: movimentacaoError } = await supabase
+        .from('movimentacoes_caixa')
+        .insert({
+          turno_id: turnoAberto.id,
+          usuario_id: usuarioData.id,
+          empresa_id: empresaData.id,
+          tipo: 'investimento',
+          valor: valor,
+          descricao: observacoes || 'Investimento no caixa',
+          data_movimentacao: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (movimentacaoError) {
+        console.error('Erro detalhado ao registrar investimento:', {
+          error: movimentacaoError,
+          message: movimentacaoError.message,
+          details: movimentacaoError.details,
+          hint: movimentacaoError.hint,
+          code: movimentacaoError.code
+        });
+        addToast('error', `Erro ao registrar investimento: ${movimentacaoError.message || 'Erro desconhecido'}`);
+        return;
+      }
+
+      addToast('success', `Investimento de ${formatarMoeda(valor)} registrado com sucesso!`);
+      setModalInvestimentoAberto(false);
+      
+      // Recarregar investimentos para atualizar o saldo
+      await fetchInvestimentosMes();
+      // Recalcular métricas para atualizar o saldo na conta
+      calcularMetricas();
+    } catch (error: any) {
+      console.error('Erro inesperado ao registrar investimento:', error);
+      addToast('error', `Erro inesperado: ${error?.message || 'Erro desconhecido'}`);
+    }
+  };
+
   // Renderizar dashboard
   const renderDashboard = () => (
     <div className="space-y-6">
-      {/* Cards de Métricas Principais (somente realizados) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Botão de Ação Rápida - Registrar Investimento */}
+      <div className="flex justify-end">
+        <Button
+          onClick={() => setModalInvestimentoAberto(true)}
+          className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
+        >
+          <FiPlus className="w-4 h-4" />
+          Registrar Investimento
+        </Button>
+      </div>
+
+      {/* Cards de Métricas Principais - 5 cards igual na DRE */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <DashboardCard
           title="Receita Total"
           value={<span className="text-green-600">{formatarMoeda(metricas.totalReceita)}</span>}
           icon={<FiDollarSign className="text-green-600" />}
           colorClass="text-black"
           bgClass="bg-white"
-          description={`${metricas.totalOS} OS processadas`}
+          description="Todo valor bruto do mês"
           descriptionColorClass="text-green-600"
           svgPolyline={{ color: '#22c55e', points: '0,20 10,18 20,16 30,14 40,12 50,10 60,8 70,6' }}
         />
@@ -1602,53 +1884,56 @@ export default function LucroDesempenhoPage() {
           icon={<FiTarget className="text-red-600" />}
           colorClass="text-black"
           bgClass="bg-white"
-          description="Peças e serviços"
+          description="Peças e serviços pagas"
           descriptionColorClass="text-red-500"
           svgPolyline={{ color: '#ef4444', points: '0,6 10,8 20,10 30,12 40,14 50,16 60,18 70,20' }}
         />
         
         <DashboardCard
-          title="Lucro Total"
-          value={
-            <span className={metricas.lucroTotal >= 0 ? 'text-green-600' : 'text-red-600'}>
-              {formatarMoeda(metricas.lucroTotal)}
-            </span>
-          }
-          icon={metricas.lucroTotal >= 0 ? <FiTrendingUp className="text-green-600" /> : <FiTrendingDown className="text-red-600" />}
+          title="Despesas Operacionais"
+          value={<span className="text-orange-600">{formatarMoeda(metricas.despesasOperacionais)}</span>}
+          icon={<FiTrendingDown className="text-orange-600" />}
           colorClass="text-black"
           bgClass="bg-white"
-          description={metricas.lucroTotal >= 0 ? 'Resultado positivo' : 'Resultado negativo'}
-          descriptionColorClass={metricas.lucroTotal >= 0 ? 'text-green-600' : 'text-red-500'}
-          svgPolyline={{ 
-            color: metricas.lucroTotal >= 0 ? '#22c55e' : '#ef4444', 
-            points: '0,20 10,18 20,16 30,14 40,12 50,10 60,8 70,6' 
-          }}
+          description="Variáveis pagas"
+          descriptionColorClass="text-orange-600"
+          svgPolyline={{ color: '#f97316', points: '0,6 10,8 20,10 30,12 40,14 50,16 60,18 70,20' }}
         />
-
         
         <DashboardCard
-          title="Margem Média"
-          value={
-            <span className={metricas.margemMedia >= 0 ? 'text-green-600' : 'text-red-600'}>
-              {formatarPercentual(metricas.margemMedia)}
-            </span>
-          }
-          icon={<FiPercent className={metricas.margemMedia >= 0 ? 'text-green-600' : 'text-red-600'} />}
+          title="Custos Fixos"
+          value={<span className="text-purple-600">{formatarMoeda(metricas.custosFixos)}</span>}
+          icon={<FiActivity className="text-purple-600" />}
           colorClass="text-black"
           bgClass="bg-white"
-          description={`${metricas.osLucrativas} OS lucrativas`}
-          descriptionColorClass={metricas.margemMedia >= 0 ? 'text-green-600' : 'text-red-500'}
+          description="Contas fixas pagas"
+          descriptionColorClass="text-purple-600"
+          svgPolyline={{ color: '#9333ea', points: '0,15 10,17 20,15 30,13 40,15 50,17 60,15 70,17' }}
+        />
+        
+        <DashboardCard
+          title="Saldo na Conta"
+          value={
+            <span className={metricas.saldoNaConta >= 0 ? 'text-green-600' : 'text-red-600'}>
+              {formatarMoeda(metricas.saldoNaConta)}
+            </span>
+          }
+          icon={metricas.saldoNaConta >= 0 ? <FiTrendingUp className="text-green-600" /> : <FiTrendingDown className="text-red-600" />}
+          colorClass="text-black"
+          bgClass="bg-white"
+          description={metricas.saldoNaConta >= 0 ? 'Resultado positivo' : 'Resultado negativo'}
+          descriptionColorClass={metricas.saldoNaConta >= 0 ? 'text-green-600' : 'text-red-500'}
           svgPolyline={{ 
-            color: metricas.margemMedia >= 0 ? '#22c55e' : '#ef4444', 
-            points: '0,12 10,14 20,12 30,10 40,12 50,14 60,12 70,14' 
+            color: metricas.saldoNaConta >= 0 ? '#22c55e' : '#ef4444', 
+            points: '0,20 10,18 20,16 30,14 40,12 50,10 60,8 70,6' 
           }}
         />
       </div>
 
-      {/* Linha separada para previsão */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Cards de Previsão - 5 cards igual aos principais */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <DashboardCard
-          title="Receita Prevista"
+          title="Valores a Receber Previstos"
           value={<span className="text-yellow-600">{formatarMoeda(metricasPrevistas.receitaPrevista)}</span>}
           icon={<FiDollarSign className="text-yellow-600" />}
           colorClass="text-black"
@@ -1659,47 +1944,52 @@ export default function LucroDesempenhoPage() {
         />
 
         <DashboardCard
-          title="Custos Previstos (Peças)"
-          value={<span className="text-yellow-700">{formatarMoeda(metricasPrevistas.custosPrevistos)}</span>}
+          title="Contas a Pagar Previstas"
+          value={<span className="text-yellow-700">{formatarMoeda(metricasPrevistas.contasAPagarPrevistas)}</span>}
           icon={<FiTarget className="text-yellow-700" />}
           colorClass="text-black"
           bgClass="bg-white"
-          description="Contas de peças pendentes"
+          description="Contas pendentes do mês"
           descriptionColorClass="text-yellow-700"
           svgPolyline={{ color: '#f59e0b', points: '0,8 10,10 20,12 30,14 40,16 50,18 60,16 70,14' }}
         />
+        
         <DashboardCard
-          title="Lucro Previsto"
-          value={
-            <span className="text-yellow-600">
-              {formatarMoeda(metricasPrevistas.lucroPrevisto)}
-            </span>
-          }
-          icon={<FiTrendingUp className="text-yellow-600" />}
+          title="Despesas Operacionais Previstas"
+          value={<span className="text-orange-500">{formatarMoeda(metricasPrevistas.despesasOperacionaisPrevistas)}</span>}
+          icon={<FiTrendingDown className="text-orange-500" />}
           colorClass="text-black"
           bgClass="bg-white"
-          description={`Margem prevista: ${metricasPrevistas.margemPrevista.toFixed(1)}%`}
-          descriptionColorClass={'text-yellow-600'}
-          svgPolyline={{ 
-            color: '#f59e0b', 
-            points: '0,20 10,18 20,16 30,14 40,12 50,10 60,8 70,6' 
-          }}
+          description="Variáveis pendentes"
+          descriptionColorClass="text-orange-500"
+          svgPolyline={{ color: '#f97316', points: '0,6 10,8 20,10 30,12 40,14 50,16 60,18 70,20' }}
         />
 
         <DashboardCard
-          title="Lucro Total (Real + Previsto)"
-          value={
-            <span className="text-yellow-700">
-              {formatarMoeda(metricas.lucroTotal + metricasPrevistas.lucroPrevisto)}
-            </span>
-          }
-          icon={<FiTrendingUp className="text-yellow-700" />}
+          title="Custos Fixos Previstos"
+          value={<span className="text-purple-500">{formatarMoeda(metricasPrevistas.custosFixosPrevistos)}</span>}
+          icon={<FiActivity className="text-purple-500" />}
           colorClass="text-black"
           bgClass="bg-white"
-          description="Real + Previsto"
-          descriptionColorClass={'text-yellow-700'}
+          description="Fixas pendentes"
+          descriptionColorClass="text-purple-500"
+          svgPolyline={{ color: '#9333ea', points: '0,15 10,17 20,15 30,13 40,15 50,17 60,15 70,17' }}
+        />
+        
+        <DashboardCard
+          title="Previsão de Saldo na Conta"
+          value={
+            <span className={metricasPrevistas.saldoNaContaPrevisto >= 0 ? 'text-green-600' : 'text-red-600'}>
+              {formatarMoeda(metricasPrevistas.saldoNaContaPrevisto)}
+            </span>
+          }
+          icon={metricasPrevistas.saldoNaContaPrevisto >= 0 ? <FiTrendingUp className="text-green-600" /> : <FiTrendingDown className="text-red-600" />}
+          colorClass="text-black"
+          bgClass="bg-white"
+          description={metricasPrevistas.saldoNaContaPrevisto >= 0 ? 'Previsão positiva' : 'Previsão negativa'}
+          descriptionColorClass={metricasPrevistas.saldoNaContaPrevisto >= 0 ? 'text-green-600' : 'text-red-500'}
           svgPolyline={{ 
-            color: '#f59e0b', 
+            color: metricasPrevistas.saldoNaContaPrevisto >= 0 ? '#22c55e' : '#ef4444', 
             points: '0,20 10,18 20,16 30,14 40,12 50,10 60,8 70,6' 
           }}
         />
@@ -2479,6 +2769,13 @@ export default function LucroDesempenhoPage() {
           </div>
         </div>
       )}
+      
+      {/* Modal de Investimento */}
+      <InvestimentoModal
+        isOpen={modalInvestimentoAberto}
+        onClose={() => setModalInvestimentoAberto(false)}
+        onConfirm={registrarInvestimento}
+      />
     </MenuLayout>
   );
 }
