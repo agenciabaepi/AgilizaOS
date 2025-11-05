@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useToast } from '@/components/Toast'
 import { FiPlus, FiEdit2, FiTrash2, FiX, FiSave } from 'react-icons/fi'
+import { supabase } from '@/lib/supabaseClient'
 
 interface Aviso {
   id: string
@@ -16,7 +17,15 @@ interface Aviso {
   ativo: boolean
   data_inicio: string | null
   data_fim: string | null
+  exibir_para_todos: boolean
+  usuarios_ids: string[]
   created_at: string
+}
+
+interface Usuario {
+  id: string
+  nome: string
+  email: string
 }
 
 export default function AvisosPage() {
@@ -38,10 +47,44 @@ export default function AvisosPage() {
     ativo: true,
     data_inicio: '',
     data_fim: '',
+    exibir_para_todos: true,
+    usuarios_ids: [] as string[],
   })
+  const [usuarios, setUsuarios] = useState<Usuario[]>([])
+  const [loadingUsuarios, setLoadingUsuarios] = useState(false)
 
   // Verificar se é admin
   const isAdmin = usuarioData?.nivel === 'admin' || usuarioData?.nivel === 'usuarioteste'
+
+  // Carregar usuários da empresa
+  useEffect(() => {
+    const carregarUsuarios = async () => {
+      const empresaId = empresaData?.id || usuarioData?.empresa_id
+      if (!empresaId || !isAdmin) {
+        setUsuarios([])
+        return
+      }
+
+      setLoadingUsuarios(true)
+      try {
+        const { data, error } = await supabase
+          .from('usuarios')
+          .select('id, nome, email')
+          .eq('empresa_id', empresaId)
+          .order('nome', { ascending: true })
+
+        if (error) throw error
+        setUsuarios(data || [])
+      } catch (error) {
+        console.error('Erro ao carregar usuários:', error)
+        setUsuarios([])
+      } finally {
+        setLoadingUsuarios(false)
+      }
+    }
+
+    carregarUsuarios()
+  }, [empresaData?.id, usuarioData?.empresa_id, isAdmin])
 
   // Carregar avisos quando tiver empresaId e for admin
   useEffect(() => {
@@ -129,6 +172,8 @@ export default function AvisosPage() {
         ativo: Boolean(a.ativo),
         data_inicio: a.data_inicio,
         data_fim: a.data_fim,
+        exibir_para_todos: a.exibir_para_todos !== undefined ? a.exibir_para_todos : true,
+        usuarios_ids: Array.isArray(a.usuarios_ids) ? a.usuarios_ids : [],
         created_at: a.created_at
       }))
       
@@ -156,6 +201,8 @@ export default function AvisosPage() {
         ativo: aviso.ativo !== undefined ? aviso.ativo : true,
         data_inicio: aviso.data_inicio ? aviso.data_inicio.split('T')[0] : '',
         data_fim: aviso.data_fim ? aviso.data_fim.split('T')[0] : '',
+        exibir_para_todos: aviso.exibir_para_todos !== undefined ? aviso.exibir_para_todos : true,
+        usuarios_ids: Array.isArray(aviso.usuarios_ids) ? aviso.usuarios_ids : [],
       })
     } else {
       setEditingAviso(null)
@@ -169,6 +216,8 @@ export default function AvisosPage() {
         ativo: true,
         data_inicio: '',
         data_fim: '',
+        exibir_para_todos: true,
+        usuarios_ids: [],
       })
     }
     setShowModal(true)
@@ -281,6 +330,8 @@ export default function AvisosPage() {
           ativo: formData.ativo,
           data_inicio: dataInicioISO,
           data_fim: dataFimISO,
+          exibir_para_todos: formData.exibir_para_todos,
+          usuarios_ids: formData.exibir_para_todos ? [] : formData.usuarios_ids,
         }
         
         
@@ -362,6 +413,8 @@ export default function AvisosPage() {
             ativo: formData.ativo,
             data_inicio: dataInicioISO,
             data_fim: dataFimISO,
+            exibir_para_todos: formData.exibir_para_todos,
+            usuarios_ids: formData.exibir_para_todos ? [] : formData.usuarios_ids,
             empresa_id: empresaId, // Usar empresaId validado acima
           }
           
@@ -567,6 +620,9 @@ export default function AvisosPage() {
                     <span className="px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
                       Prioridade: {aviso.prioridade}
                     </span>
+                    <span className="px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                      {aviso.exibir_para_todos ? 'Para todos' : `${aviso.usuarios_ids?.length || 0} usuário(s)`}
+                    </span>
                   </div>
                   <p className="text-gray-700 mb-3">{aviso.mensagem}</p>
                   <div
@@ -768,6 +824,74 @@ export default function AvisosPage() {
                 </label>
               </div>
 
+              {/* Seleção de usuários */}
+              <div className="border-t pt-4 mt-4">
+                <h4 className="text-sm font-semibold text-gray-900 mb-3">Público-alvo</h4>
+                <label className="flex items-center gap-2 mb-3">
+                  <input
+                    type="checkbox"
+                    checked={formData.exibir_para_todos}
+                    onChange={(e) => {
+                      setFormData({ 
+                        ...formData, 
+                        exibir_para_todos: e.target.checked,
+                        usuarios_ids: e.target.checked ? [] : formData.usuarios_ids
+                      })
+                    }}
+                    className="rounded"
+                  />
+                  <span className="text-sm font-medium">Exibir para todos os usuários</span>
+                </label>
+
+                {!formData.exibir_para_todos && (
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium mb-2">
+                      Selecionar usuários específicos ({formData.usuarios_ids.length} selecionado{formData.usuarios_ids.length !== 1 ? 's' : ''})
+                    </label>
+                    <div className="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto bg-gray-50">
+                      {loadingUsuarios ? (
+                        <div className="flex justify-center py-4">
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-black"></div>
+                        </div>
+                      ) : usuarios.length === 0 ? (
+                        <p className="text-sm text-gray-500 text-center py-4">Nenhum usuário encontrado</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {usuarios.map((usuario) => (
+                            <label key={usuario.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-2 rounded">
+                              <input
+                                type="checkbox"
+                                checked={formData.usuarios_ids.includes(usuario.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setFormData({
+                                      ...formData,
+                                      usuarios_ids: [...formData.usuarios_ids, usuario.id]
+                                    })
+                                  } else {
+                                    setFormData({
+                                      ...formData,
+                                      usuarios_ids: formData.usuarios_ids.filter(id => id !== usuario.id)
+                                    })
+                                  }
+                                }}
+                                className="rounded"
+                              />
+                              <span className="text-sm text-gray-700">
+                                {usuario.nome} <span className="text-gray-500">({usuario.email})</span>
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {!formData.exibir_para_todos && formData.usuarios_ids.length === 0 && (
+                      <p className="text-xs text-red-500 mt-2">Selecione pelo menos um usuário ou marque "Exibir para todos"</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* Preview */}
               <div>
                 <label className="block text-sm font-medium mb-2">Preview</label>
@@ -793,13 +917,13 @@ export default function AvisosPage() {
               </button>
               <button
                 onClick={salvarAviso}
-                disabled={!empresaData?.id && !usuarioData?.empresa_id}
+                disabled={(!empresaData?.id && !usuarioData?.empresa_id) || (!formData.exibir_para_todos && formData.usuarios_ids.length === 0)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg transition ${
-                  empresaData?.id || usuarioData?.empresa_id
+                  (empresaData?.id || usuarioData?.empresa_id) && (formData.exibir_para_todos || formData.usuarios_ids.length > 0)
                     ? 'bg-black text-white hover:bg-gray-800'
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
-                title={!empresaData?.id && !usuarioData?.empresa_id ? 'Aguarde o carregamento dos dados' : ''}
+                title={!empresaData?.id && !usuarioData?.empresa_id ? 'Aguarde o carregamento dos dados' : (!formData.exibir_para_todos && formData.usuarios_ids.length === 0 ? 'Selecione pelo menos um usuário' : '')}
               >
                 <FiSave size={18} />
                 Salvar

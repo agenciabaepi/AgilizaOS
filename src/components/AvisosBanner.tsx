@@ -20,13 +20,19 @@ export default function AvisosBanner() {
 
   useEffect(() => {
     const empresaId = empresaData?.id || usuarioData?.empresa_id
+    const usuarioId = usuarioData?.id
+    
+    // Carregar avisos se tiver empresaId (usuarioId é opcional - para avisos "para todos")
     if (empresaId) {
       carregarAvisos()
     }
 
     // Escutar evento de atualização de avisos
     const handleAvisosAtualizados = () => {
-      carregarAvisos()
+      const empresaId = empresaData?.id || usuarioData?.empresa_id
+      if (empresaId) {
+        carregarAvisos()
+      }
     }
     
     window.addEventListener('avisosAtualizados', handleAvisosAtualizados)
@@ -44,17 +50,33 @@ export default function AvisosBanner() {
       window.removeEventListener('avisosAtualizados', handleAvisosAtualizados)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [empresaData?.id, usuarioData?.empresa_id])
+  }, [empresaData?.id, usuarioData?.empresa_id, usuarioData?.id])
 
   const carregarAvisos = async () => {
     try {
       const empresaId = empresaData?.id || usuarioData?.empresa_id
+      const usuarioId = usuarioData?.id
+      
+      console.log('[AvisosBanner] Carregando avisos:', {
+        empresaId,
+        usuarioId,
+        usuarioData_completo: usuarioData
+      })
+      
+      // Validar que temos empresaId (usuarioId é opcional - para avisos "para todos")
       if (!empresaId) {
+        console.warn('[AvisosBanner] empresaId não disponível, aguardando...')
         return
       }
+      
       const timestamp = Date.now()
       const randomId = Math.random().toString(36).substring(7)
-      const response = await fetch(`/api/avisos?empresa_id=${empresaId}&_t=${timestamp}&_r=${randomId}`, {
+      // Incluir usuarioId na URL se disponível, senão apenas empresaId (para buscar avisos "para todos")
+      const url = `/api/avisos?empresa_id=${empresaId}${usuarioId ? `&usuario_id=${usuarioId}` : ''}&_t=${timestamp}&_r=${randomId}`
+      
+      console.log('[AvisosBanner] URL da requisição:', url)
+      
+      const response = await fetch(url, {
         cache: 'no-store',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -75,37 +97,35 @@ export default function AvisosBanner() {
       
       // Se a tabela não existe ou outro erro, não mostrar erro (retorna vazio)
       if (!response.ok) {
+        console.warn('[AvisosBanner] Erro na resposta:', response.status)
         // Silenciosamente falha - não é um erro crítico
         return
       }
       
       const data = await response.json()
+      
+      console.log('[AvisosBanner] Avisos recebidos:', {
+        quantidade: data.avisos?.length || 0,
+        usuarioId: usuarioId || 'não fornecido',
+        avisos: data.avisos?.map((a: any) => ({
+          id: a.id,
+          titulo: a.titulo,
+          exibir_para_todos: a.exibir_para_todos,
+          usuarios_ids: a.usuarios_ids
+        })) || []
+      })
 
       if (data.avisos) {
-        // Filtrar avisos por data se necessário
-        const agora = new Date()
+        // A API já filtra por usuário e datas, então apenas filtrar por ativo se necessário
         const avisosValidos = data.avisos.filter((aviso: any) => {
-          // Se tem data_inicio e ainda não chegou
-          if (aviso.data_inicio) {
-            const inicio = new Date(aviso.data_inicio)
-            if (inicio > agora) {
-              return false
-            }
-          }
-          // Se tem data_fim e já passou
-          if (aviso.data_fim) {
-            const fim = new Date(aviso.data_fim)
-            if (fim < agora) {
-              return false
-            }
-          }
-          // Só mostrar avisos ativos
+          // Só mostrar avisos ativos (a API já filtra por datas e usuário)
           if (!aviso.ativo) {
             return false
           }
           return true
         })
 
+        console.log('[AvisosBanner] Avisos válidos após filtro de ativo:', avisosValidos.length)
         setAvisos(avisosValidos)
       } else {
         setAvisos([])

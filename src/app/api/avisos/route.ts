@@ -7,6 +7,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const empresaId = searchParams.get('empresa_id');
     const todos = searchParams.get('todos'); // Parâmetro para retornar todos os avisos (admin)
+    const usuarioId = searchParams.get('usuario_id'); // ID do usuário logado (para filtrar avisos)
 
     if (!empresaId) {
       return NextResponse.json({ avisos: [] }, {
@@ -83,9 +84,10 @@ export async function GET(request: NextRequest) {
     // Filtrar por datas apenas se não for "todos" (para o banner, não para a página de admin)
     let avisosFiltrados = avisos || [];
     if (todos !== 'true') {
-      console.log('[API] Filtrando por datas (banner)')
+      console.log('[API] Filtrando por datas e usuário (banner)')
       const agora = new Date();
       avisosFiltrados = (avisos || []).filter((aviso: any) => {
+        // Filtrar por data
         if (aviso.data_inicio) {
           const inicio = new Date(aviso.data_inicio);
           if (inicio > agora) {
@@ -98,6 +100,75 @@ export async function GET(request: NextRequest) {
             return false;
           }
         }
+        
+        // Filtrar por usuário
+        // Se o aviso é "para todos", mostrar independente de ter usuarioId ou não
+        if (aviso.exibir_para_todos === true) {
+          return true;
+        }
+        
+        // Se o aviso NÃO é "para todos", só mostrar se:
+        // 1. Há um usuarioId (usuário logado)
+        // 2. E o usuarioId está na lista de usuarios_ids
+        if (aviso.exibir_para_todos === false) {
+          if (!usuarioId) {
+            // Se não há usuarioId, não mostrar avisos específicos
+            console.log('[API] Aviso específico para usuários mas não há usuarioId - não mostrar')
+            return false;
+          }
+          
+          // Obter a lista de IDs do aviso
+          let usuariosIds: any[] = [];
+          if (Array.isArray(aviso.usuarios_ids)) {
+            usuariosIds = aviso.usuarios_ids;
+          } else if (aviso.usuarios_ids) {
+            // Se vier como string do PostgreSQL array, fazer parse
+            try {
+              usuariosIds = typeof aviso.usuarios_ids === 'string' 
+                ? JSON.parse(aviso.usuarios_ids.replace(/{/g, '[').replace(/}/g, ']'))
+                : [aviso.usuarios_ids];
+            } catch {
+              usuariosIds = [];
+            }
+          }
+          
+          // Normalizar IDs para comparação (remover espaços, converter para string e lowercase)
+          // UUIDs devem estar no formato padrão: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+          const normalizarUUID = (id: any): string => {
+            if (!id) return '';
+            let str = String(id).trim().toLowerCase();
+            // Remover espaços extras
+            str = str.replace(/\s+/g, '');
+            // Se não tem hífens mas tem 32 caracteres, adicionar hífens no formato UUID padrão
+            if (str.length === 32 && !str.includes('-')) {
+              str = `${str.substring(0, 8)}-${str.substring(8, 12)}-${str.substring(12, 16)}-${str.substring(16, 20)}-${str.substring(20, 32)}`;
+            }
+            return str;
+          };
+          
+          const usuarioIdNormalizado = normalizarUUID(usuarioId);
+          const usuariosIdsNormalizados = usuariosIds.map((id: any) => normalizarUUID(id)).filter((id: string) => id.length > 0);
+          
+          const usuarioEstaNaLista = usuariosIdsNormalizados.includes(usuarioIdNormalizado);
+          
+          console.log('[API] Verificando se usuário está na lista:', {
+            aviso_id: aviso.id,
+            aviso_titulo: aviso.titulo,
+            usuarioId_original: usuarioId,
+            usuarioId_normalizado: usuarioIdNormalizado,
+            usuarios_ids_original: aviso.usuarios_ids,
+            usuarios_ids_processado: usuariosIds,
+            usuarios_ids_normalizados: usuariosIdsNormalizados,
+            usuarioEstaNaLista,
+            tipo_usuarioId: typeof usuarioId,
+            tipo_usuarios_ids: typeof aviso.usuarios_ids,
+            is_array: Array.isArray(aviso.usuarios_ids)
+          })
+          
+          return usuarioEstaNaLista;
+        }
+        
+        // Fallback: se exibir_para_todos for null/undefined, tratar como "para todos" (compatibilidade)
         return true;
       });
     } else {
@@ -106,11 +177,14 @@ export async function GET(request: NextRequest) {
 
     console.log('[API] GET /avisos - Resultado FINAL:', {
       quantidade: avisosFiltrados?.length || 0,
+      usuarioId: usuarioId || 'não fornecido',
       avisos: avisosFiltrados?.map((a: any) => ({ 
         id: a.id, 
         titulo: a.titulo, 
         ativo: a.ativo,
-        empresa_id: a.empresa_id
+        empresa_id: a.empresa_id,
+        exibir_para_todos: a.exibir_para_todos,
+        usuarios_ids: a.usuarios_ids
       })) || []
     })
 
@@ -188,6 +262,8 @@ export async function POST(request: NextRequest) {
       data_inicio: body.data_inicio || null,
       data_fim: body.data_fim || null,
       ativo: body.ativo !== undefined ? body.ativo : true,
+      exibir_para_todos: body.exibir_para_todos !== undefined ? body.exibir_para_todos : true,
+      usuarios_ids: Array.isArray(body.usuarios_ids) ? body.usuarios_ids : [],
     }
     
     console.log('[API] POST /avisos - Dados que serão inseridos:', {
@@ -257,6 +333,14 @@ export async function PUT(request: NextRequest) {
     }
     if ('data_fim' in body) {
       updates.data_fim = body.data_fim === null || body.data_fim === '' ? null : body.data_fim;
+    }
+    
+    // Campos de seleção de usuários
+    if ('exibir_para_todos' in body) {
+      updates.exibir_para_todos = Boolean(body.exibir_para_todos);
+    }
+    if ('usuarios_ids' in body) {
+      updates.usuarios_ids = Array.isArray(body.usuarios_ids) ? body.usuarios_ids : [];
     }
 
     const { data: aviso, error } = await supabase

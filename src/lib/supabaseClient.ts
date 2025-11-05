@@ -224,6 +224,7 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
 
       return {
         userData: {
+          id: data.id,
           empresa_id: null,
           nome: data.nome,
           email: data.email,
@@ -260,6 +261,7 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
       // Fallback para dados básicos
       return {
         userData: {
+          id: data.id,
           empresa_id: data.empresa_id,
           nome: data.nome,
           email: data.email,
@@ -277,6 +279,7 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
 
     const result = {
       userData: {
+        id: data.id,
         empresa_id: data.empresa_id,
         nome: data.nome,
         email: data.email,
