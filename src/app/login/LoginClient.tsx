@@ -267,33 +267,85 @@ function LoginClientInner() {
       return;
     }
     
-    // Se o usuário NÃO é admin, verificar se o ADMIN da empresa foi verificado
+    // Se o usuário NÃO é admin, verificar se há pelo menos um ADMIN da empresa verificado
+    // OU se a empresa já está funcionando (tem usuários, ordens, etc - indicando que já foi verificada no passado)
     if (usuarioVerificacao?.nivel !== 'admin' && usuarioVerificacao?.empresa_id) {
-      // Buscar o admin da empresa para verificar se ele foi verificado
-      const { data: adminEmpresa, error: adminError } = await supabase
+      // Buscar TODOS os admins da empresa para verificar se pelo menos um foi verificado
+      const { data: adminsEmpresa, error: adminError } = await supabase
         .from('usuarios')
-        .select('email_verificado')
+        .select('email_verificado, nome, email')
         .eq('empresa_id', usuarioVerificacao.empresa_id)
-        .eq('nivel', 'admin')
-        .single();
+        .eq('nivel', 'admin');
+      
+      console.log('🔍 Debug - Verificação de admins da empresa:', {
+        empresa_id: usuarioVerificacao.empresa_id,
+        adminsEncontrados: adminsEmpresa?.length || 0,
+        adminsDetalhes: adminsEmpresa?.map(a => ({
+          nome: a.nome,
+          email: a.email,
+          verificado: a.email_verificado
+        })),
+        adminError,
+        temAdminVerificado: adminsEmpresa?.some(a => a.email_verificado) || false
+      });
       
       if (adminError) {
-        console.error('🔍 Debug - Erro ao buscar admin da empresa:', adminError);
+        console.error('🔍 Debug - Erro ao buscar admins da empresa:', adminError);
         setIsSubmitting(false);
-      loginInProgress.current = false;
+        loginInProgress.current = false;
         addToast('error', 'Erro ao verificar empresa. Tente novamente.');
         return;
       }
       
-      // Se o admin da empresa não foi verificado, o usuário não pode fazer login
-      if (!adminEmpresa?.email_verificado) {
-        setIsSubmitting(false);
-      loginInProgress.current = false;
-        addToast('error', 'Empresa não verificada. Entre em contato com o administrador.');
-        return;
-      }
+      // Verificar se há pelo menos um admin verificado
+      const temAdminVerificado = adminsEmpresa && adminsEmpresa.length > 0 && 
+        adminsEmpresa.some(admin => admin.email_verificado === true);
       
+      // Se não tem admin verificado, verificar se a empresa já está ativa (tem ordens, usuários, etc)
+      // Isso indica que a empresa já foi verificada no passado
+      if (!temAdminVerificado) {
+        // Verificar se a empresa já tem atividade (indica que já foi verificada antes)
+        const { data: empresaAtiva, error: empresaError } = await supabase
+          .from('empresas')
+          .select('id')
+          .eq('id', usuarioVerificacao.empresa_id)
+          .single();
+        
+        // Verificar se a empresa tem ordens de serviço (indica atividade)
+        const { count: ordensCount } = await supabase
+          .from('ordens_servico')
+          .select('*', { count: 'exact', head: true })
+          .eq('empresa_id', usuarioVerificacao.empresa_id);
+        
+        const empresaTemAtividade = ordensCount && ordensCount > 0;
+        
+        console.log('🔍 Debug - Verificação adicional de empresa:', {
+          empresa_id: usuarioVerificacao.empresa_id,
+          empresaEncontrada: !!empresaAtiva,
+          temOrdens: empresaTemAtividade,
+          permitirLoginPorAtividade: empresaTemAtividade
+        });
+        
+        // Se a empresa não tem admin verificado E não tem atividade, bloquear login
+        if (!empresaTemAtividade) {
+          console.warn('⚠️ Nenhum admin da empresa verificado e empresa sem atividade:', {
+            empresa_id: usuarioVerificacao.empresa_id,
+            totalAdmins: adminsEmpresa?.length || 0,
+            adminsNaoVerificados: adminsEmpresa?.filter(a => !a.email_verificado).map(a => ({
+              nome: a.nome,
+              email: a.email
+            })) || []
+          });
+          setIsSubmitting(false);
+          loginInProgress.current = false;
+          addToast('error', 'Empresa não verificada. Entre em contato com o administrador.');
+          return;
+        }
+        
+        // Se tem atividade mas não tem admin verificado, apenas logar (empresa já estava funcionando)
+        console.log('✅ Empresa já tem atividade, permitindo login mesmo sem admin verificado');
       }
+    }
     
     // Tentar fazer login (apenas se email foi verificado)
     const {

@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/useToast';
 import { useConfirm } from '@/hooks/useConfirm';
 import { useFluxoCaixa, FluxoCaixaFormData } from '@/hooks/useFluxoCaixa';
 import MenuLayout from '@/components/MenuLayout';
+import { FiChevronLeft, FiChevronRight, FiCalendar } from 'react-icons/fi';
 
 export default function FluxoCaixaPage() {
   const { usuarioData } = useAuth();
@@ -38,31 +39,102 @@ export default function FluxoCaixaPage() {
     referencia_id: ''
   });
 
-  // Estados dos filtros
+  // Calcular datas do mês atual
+  const calcularDatasMesAtual = () => {
+    const hoje = new Date();
+    const ano = hoje.getFullYear();
+    const mes = hoje.getMonth();
+    const dataInicio = new Date(ano, mes, 1);
+    const dataFim = new Date(ano, mes + 1, 0); // Último dia do mês
+    return {
+      mesString: hoje.toISOString().slice(0, 7),
+      dataInicio: dataInicio.toISOString().split('T')[0],
+      dataFim: dataFim.toISOString().split('T')[0]
+    };
+  };
+
+  // Estados dos filtros - inicializar com mês atual
+  const datasMesAtual = calcularDatasMesAtual();
+  const [filtroMes, setFiltroMes] = useState(datasMesAtual.mesString);
   const [filtros, setFiltros] = useState({
-    dataInicio: '',
-    dataFim: '',
+    dataInicio: datasMesAtual.dataInicio,
+    dataFim: datasMesAtual.dataFim,
     tipo: '' as 'entrada' | 'saida' | '',
     categoria: ''
   });
   const [showFiltros, setShowFiltros] = useState(false);
 
-  // Carregar dados quando a página carrega
-  useEffect(() => {
-    if (usuarioData?.empresa_id) {
-      carregarMovimentacoes();
+  // Funções para navegação entre meses
+  const navegarMes = (direcao: 'anterior' | 'proximo') => {
+    if (!filtroMes) {
+      const hoje = new Date();
+      const mesAtual = hoje.toISOString().slice(0, 7);
+      setFiltroMes(mesAtual);
+      return;
     }
-  }, [usuarioData?.empresa_id]);
+    
+    const [ano, mes] = filtroMes.split('-');
+    const dataAtual = new Date(parseInt(ano), parseInt(mes) - 1, 1);
+    
+    if (direcao === 'anterior') {
+      dataAtual.setMonth(dataAtual.getMonth() - 1);
+    } else {
+      dataAtual.setMonth(dataAtual.getMonth() + 1);
+    }
+    
+    const novoMesString = dataAtual.toISOString().slice(0, 7);
+    setFiltroMes(novoMesString);
+  };
 
-  // Carregar dados quando filtros mudarem
+  const irParaMesAtual = () => {
+    const hoje = new Date();
+    const mesAtual = hoje.toISOString().slice(0, 7);
+    setFiltroMes(mesAtual);
+  };
+
+  const limparFiltroMes = () => {
+    setFiltroMes('');
+    setFiltros(prev => ({ 
+      ...prev, 
+      dataInicio: '', 
+      dataFim: '' 
+    }));
+  };
+
+  const formatarMes = (mesString: string) => {
+    if (!mesString) return 'Todos os meses';
+    const [ano, mes] = mesString.split('-');
+    const date = new Date(parseInt(ano), parseInt(mes) - 1, 1);
+    return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  };
+
+  // Quando o filtroMes mudar, calcular dataInicio e dataFim
   useEffect(() => {
+    if (filtroMes) {
+      const [ano, mes] = filtroMes.split('-');
+      const dataInicio = new Date(parseInt(ano), parseInt(mes) - 1, 1);
+      const dataFim = new Date(parseInt(ano), parseInt(mes), 0); // Último dia do mês
+      
+      setFiltros(prev => ({
+        ...prev,
+        dataInicio: dataInicio.toISOString().split('T')[0],
+        dataFim: dataFim.toISOString().split('T')[0]
+      }));
+    }
+  }, [filtroMes]);
+
+  // Carregar dados quando a página carrega OU quando filtros mudarem
+  useEffect(() => {
+    if (!usuarioData?.empresa_id) return;
+    
+    // Sempre usar os filtros (que já incluem o mês atual por padrão)
     carregarMovimentacoes(
       filtros.dataInicio || undefined,
       filtros.dataFim || undefined,
       filtros.tipo || undefined,
       filtros.categoria || undefined
     );
-  }, [filtros]);
+  }, [usuarioData?.empresa_id, filtros.dataInicio, filtros.dataFim, filtros.tipo, filtros.categoria]);
 
   // Resetar formulário
   const resetForm = () => {
@@ -250,6 +322,50 @@ export default function FluxoCaixaPage() {
           </button>
         </div>
 
+        {/* Seleção de Mês */}
+        <div className="mb-4 flex items-center gap-3">
+          <div className="flex items-center bg-white border border-gray-300 rounded-lg px-3 py-2">
+            <button
+              onClick={() => navegarMes('anterior')}
+              className="p-1 hover:bg-gray-100 rounded transition-colors"
+              title="Mês anterior"
+            >
+              <FiChevronLeft className="w-4 h-4 text-gray-600" />
+            </button>
+            
+            <div className="flex items-center space-x-2 px-3">
+              <FiCalendar className="w-4 h-4 text-gray-500" />
+              <span className="text-sm font-medium text-gray-700 min-w-[140px] text-center">
+                {formatarMes(filtroMes)}
+              </span>
+            </div>
+            
+            <button
+              onClick={() => navegarMes('proximo')}
+              className="p-1 hover:bg-gray-100 rounded transition-colors"
+              title="Próximo mês"
+            >
+              <FiChevronRight className="w-4 h-4 text-gray-600" />
+            </button>
+          </div>
+          
+          <button
+            onClick={irParaMesAtual}
+            className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
+            Hoje
+          </button>
+          
+          {filtroMes && (
+            <button
+              onClick={limparFiltroMes}
+              className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Todos
+            </button>
+          )}
+        </div>
+
         {showFiltros && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
@@ -259,7 +375,10 @@ export default function FluxoCaixaPage() {
               <input
                 type="date"
                 value={filtros.dataInicio}
-                onChange={(e) => setFiltros(prev => ({ ...prev, dataInicio: e.target.value }))}
+                onChange={(e) => {
+                  setFiltroMes(''); // Limpar filtro de mês ao alterar data manualmente
+                  setFiltros(prev => ({ ...prev, dataInicio: e.target.value }));
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
@@ -271,7 +390,10 @@ export default function FluxoCaixaPage() {
               <input
                 type="date"
                 value={filtros.dataFim}
-                onChange={(e) => setFiltros(prev => ({ ...prev, dataFim: e.target.value }))}
+                onChange={(e) => {
+                  setFiltroMes(''); // Limpar filtro de mês ao alterar data manualmente
+                  setFiltros(prev => ({ ...prev, dataFim: e.target.value }));
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
@@ -377,18 +499,25 @@ export default function FluxoCaixaPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleEdit(mov)}
-                        className="text-blue-600 hover:text-blue-900 px-2 py-1"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        onClick={() => handleDelete(mov.id, mov.descricao)}
-                        className="text-red-600 hover:text-red-900 px-2 py-1"
-                      >
-                        Excluir
-                      </button>
+                      {!mov.id.startsWith('venda_') && !mov.id.startsWith('conta_') && !mov.id.startsWith('investimento_') && (
+                        <>
+                          <button
+                            onClick={() => handleEdit(mov)}
+                            className="text-blue-600 hover:text-blue-900 px-2 py-1"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => handleDelete(mov.id, mov.descricao)}
+                            className="text-red-600 hover:text-red-900 px-2 py-1"
+                          >
+                            Excluir
+                          </button>
+                        </>
+                      )}
+                      {(mov.id.startsWith('venda_') || mov.id.startsWith('conta_') || mov.id.startsWith('investimento_')) && (
+                        <span className="text-gray-400 text-xs">Sistema</span>
+                      )}
                     </div>
                   </td>
                 </tr>

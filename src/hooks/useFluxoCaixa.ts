@@ -52,33 +52,254 @@ export const useFluxoCaixa = () => {
     setError(null);
 
     try {
-      let query = supabase
+      // Buscar movimentações manuais da tabela fluxo_caixa
+      let queryFluxoCaixa = supabase
         .from('fluxo_caixa')
         .select(`
           *,
           usuario:usuario_id(nome)
         `)
-        .eq('empresa_id', usuarioData.empresa_id)
-        .order('data_movimentacao', { ascending: false });
+        .eq('empresa_id', usuarioData.empresa_id);
 
-      // Filtros opcionais
+      // Filtros opcionais para fluxo_caixa
       if (dataInicio) {
-        query = query.gte('data_movimentacao', dataInicio);
+        queryFluxoCaixa = queryFluxoCaixa.gte('data_movimentacao', dataInicio);
       }
       if (dataFim) {
-        query = query.lte('data_movimentacao', dataFim);
+        queryFluxoCaixa = queryFluxoCaixa.lte('data_movimentacao', dataFim);
       }
       if (tipo) {
-        query = query.eq('tipo', tipo);
+        queryFluxoCaixa = queryFluxoCaixa.eq('tipo', tipo);
       }
       if (categoria) {
-        query = query.eq('categoria', categoria);
+        queryFluxoCaixa = queryFluxoCaixa.eq('categoria', categoria);
       }
 
-      const { data, error } = await query;
+      const { data: movimentacoesManuais, error: errorFluxo } = await queryFluxoCaixa;
 
-      if (error) throw error;
-      setMovimentacoes(data || []);
+      if (errorFluxo) {
+        console.error('Erro ao buscar movimentações manuais:', errorFluxo);
+      }
+
+      // Buscar vendas (entradas) - apenas se não filtrar por tipo='saida'
+      const vendas = tipo === 'saida' ? [] : await (async () => {
+        try {
+          let queryVendas = supabase
+            .from('vendas')
+            .select('id, total, data_venda, observacoes, empresa_id')
+            .eq('empresa_id', usuarioData.empresa_id)
+            .eq('status', 'finalizada');
+
+          if (dataInicio) {
+            queryVendas = queryVendas.gte('data_venda', `${dataInicio}T00:00:00`);
+          }
+          if (dataFim) {
+            queryVendas = queryVendas.lte('data_venda', `${dataFim}T23:59:59`);
+          }
+
+          const { data: vendasData, error: vendasError } = await queryVendas;
+
+          if (vendasError) {
+            // Log detalhado do erro mesmo que o objeto esteja vazio
+            const errorDetails = {
+              message: vendasError?.message || 'Erro desconhecido',
+              details: vendasError?.details || 'Sem detalhes',
+              hint: vendasError?.hint || 'Sem dica',
+              code: vendasError?.code || 'Sem código',
+              empresa_id: usuarioData.empresa_id,
+              dataInicio,
+              dataFim,
+              errorString: JSON.stringify(vendasError, null, 2)
+            };
+            
+            console.error('❌ Erro ao buscar vendas:', errorDetails);
+            
+            // Log adicional para garantir que aparece
+            if (vendasError.message) {
+              console.error('Mensagem do erro:', vendasError.message);
+            }
+            if (vendasError.details) {
+              console.error('Detalhes:', vendasError.details);
+            }
+            if (vendasError.code) {
+              console.error('Código:', vendasError.code);
+            }
+            
+            return [];
+          }
+
+          if (!vendasData || vendasData.length === 0) {
+            console.log('ℹ️ Nenhuma venda encontrada para o período');
+            return [];
+          }
+
+          // Converter vendas para formato de movimentação
+          const vendasConvertidas = vendasData.map(venda => {
+            const valor = venda.total || 0;
+            
+            return {
+              id: `venda_${venda.id}`,
+              empresa_id: venda.empresa_id,
+              usuario_id: '',
+              tipo: 'entrada' as const,
+              categoria: 'venda',
+              descricao: venda.observacoes || `Venda #${venda.id}`,
+              valor: valor,
+              data_movimentacao: venda.data_venda ? venda.data_venda.split('T')[0] : new Date().toISOString().split('T')[0],
+              data_cadastro: venda.data_venda || new Date().toISOString(),
+              created_at: venda.data_venda || new Date().toISOString(),
+              updated_at: venda.data_venda || new Date().toISOString(),
+              observacoes: null,
+              comprovante_url: null,
+              referencia_id: venda.id,
+              usuario: undefined
+            };
+          });
+
+          // Filtrar por categoria se necessário
+          const vendasFiltradas = categoria 
+            ? vendasConvertidas.filter(v => v.categoria === categoria)
+            : vendasConvertidas;
+
+          console.log(`✅ ${vendasFiltradas.length} venda(s) carregada(s)`);
+          return vendasFiltradas;
+        } catch (err) {
+          console.error('❌ Erro inesperado ao buscar vendas:', err);
+          return [];
+        }
+      })();
+
+      // Buscar contas pagas (saídas) - apenas se não filtrar por tipo='entrada'
+      const contasPagas = tipo === 'entrada' ? [] : await (async () => {
+        let queryContas = supabase
+          .from('contas_pagar')
+          .select('id, valor, data_pagamento, descricao, tipo, empresa_id')
+          .eq('empresa_id', usuarioData.empresa_id)
+          .eq('status', 'pago')
+          .not('data_pagamento', 'is', null);
+
+        if (dataInicio) {
+          queryContas = queryContas.gte('data_pagamento', `${dataInicio}T00:00:00`);
+        }
+        if (dataFim) {
+          queryContas = queryContas.lte('data_pagamento', `${dataFim}T23:59:59`);
+        }
+
+        const { data: contasData, error: contasError } = await queryContas;
+
+        if (contasError) {
+          console.error('Erro ao buscar contas pagas:', contasError);
+          return [];
+        }
+
+        // Converter contas para formato de movimentação
+        return contasData?.map(conta => {
+          let categoriaMov = '';
+          if (conta.tipo === 'pecas') categoriaMov = 'compra';
+          else if (conta.tipo === 'variavel') categoriaMov = 'despesa';
+          else if (conta.tipo === 'fixa') categoriaMov = 'pagamento';
+          else categoriaMov = 'outros';
+
+          return {
+            id: `conta_${conta.id}`,
+            empresa_id: conta.empresa_id,
+            usuario_id: '',
+            tipo: 'saida' as const,
+            categoria: categoriaMov,
+            descricao: conta.descricao || `Conta #${conta.id}`,
+            valor: conta.valor,
+            data_movimentacao: conta.data_pagamento.split('T')[0],
+            data_cadastro: conta.data_pagamento,
+            created_at: conta.data_pagamento,
+            updated_at: conta.data_pagamento,
+            observacoes: null,
+            comprovante_url: null,
+            referencia_id: conta.id,
+            usuario: undefined
+          };
+        }).filter(c => !categoria || c.categoria === categoria) || [];
+      })();
+
+      // Buscar investimentos (entradas) da tabela movimentacoes_caixa
+      const investimentos = tipo === 'saida' ? [] : await (async () => {
+        let queryInvestimentos = supabase
+          .from('movimentacoes_caixa')
+          .select(`
+            id,
+            valor,
+            data_movimentacao,
+            descricao,
+            empresa_id,
+            tipo,
+            usuario:usuario_id(nome)
+          `)
+          .eq('empresa_id', usuarioData.empresa_id)
+          .eq('tipo', 'investimento');
+
+        if (dataInicio) {
+          queryInvestimentos = queryInvestimentos.gte('data_movimentacao', `${dataInicio}T00:00:00`);
+        }
+        if (dataFim) {
+          queryInvestimentos = queryInvestimentos.lte('data_movimentacao', `${dataFim}T23:59:59`);
+        }
+
+        const { data: investimentosData, error: investimentosError } = await queryInvestimentos;
+
+        if (investimentosError) {
+          console.error('Erro ao buscar investimentos:', investimentosError);
+          return [];
+        }
+
+        // Converter investimentos para formato de movimentação
+        return investimentosData?.map(inv => ({
+          id: `investimento_${inv.id}`,
+          empresa_id: inv.empresa_id,
+          usuario_id: '',
+          tipo: 'entrada' as const,
+          categoria: 'investimento',
+          descricao: inv.descricao || 'Investimento no caixa',
+          valor: inv.valor,
+          data_movimentacao: inv.data_movimentacao.split('T')[0],
+          data_cadastro: inv.data_movimentacao,
+          created_at: inv.data_movimentacao,
+          updated_at: inv.data_movimentacao,
+          observacoes: null,
+          comprovante_url: null,
+          referencia_id: inv.id,
+          usuario: inv.usuario
+        })).filter(i => !categoria || i.categoria === categoria) || [];
+      })();
+
+      // Combinar todas as movimentações
+      const todasMovimentacoes = [
+        ...(movimentacoesManuais || []),
+        ...vendas,
+        ...contasPagas,
+        ...investimentos
+      ];
+
+      // Filtrar por categoria se necessário (após combinar)
+      let movimentacoesFiltradas = todasMovimentacoes;
+      if (categoria) {
+        movimentacoesFiltradas = todasMovimentacoes.filter(mov => mov.categoria === categoria);
+      }
+
+      // Ordenar por data (mais recente primeiro)
+      movimentacoesFiltradas.sort((a, b) => {
+        const dataA = new Date(a.data_movimentacao).getTime();
+        const dataB = new Date(b.data_movimentacao).getTime();
+        return dataB - dataA;
+      });
+
+      console.log('💰 Movimentações carregadas:', {
+        manuais: movimentacoesManuais?.length || 0,
+        vendas: vendas.length,
+        contasPagas: contasPagas.length,
+        investimentos: investimentos.length,
+        total: movimentacoesFiltradas.length
+      });
+
+      setMovimentacoes(movimentacoesFiltradas as FluxoCaixa[]);
     } catch (err) {
       console.error('Erro ao carregar movimentações:', err);
       setError('Erro ao carregar movimentações');
@@ -139,6 +360,11 @@ export const useFluxoCaixa = () => {
   // Atualizar movimentação
   const atualizarMovimentacao = async (id: string, formData: Partial<FluxoCaixaFormData>) => {
     try {
+      // Não permitir editar movimentações que vêm de outras tabelas (vendas, contas, investimentos)
+      if (id.startsWith('venda_') || id.startsWith('conta_') || id.startsWith('investimento_')) {
+        throw new Error('Esta movimentação não pode ser editada diretamente. Edite a venda, conta ou investimento correspondente.');
+      }
+
       const updateData: any = {};
       
       if (formData.tipo) updateData.tipo = formData.tipo;
@@ -176,6 +402,11 @@ export const useFluxoCaixa = () => {
   // Excluir movimentação
   const excluirMovimentacao = async (id: string) => {
     try {
+      // Não permitir excluir movimentações que vêm de outras tabelas (vendas, contas, investimentos)
+      if (id.startsWith('venda_') || id.startsWith('conta_') || id.startsWith('investimento_')) {
+        throw new Error('Esta movimentação não pode ser excluída diretamente. Exclua a venda, conta ou investimento correspondente.');
+      }
+
       const { error } = await supabase
         .from('fluxo_caixa')
         .delete()

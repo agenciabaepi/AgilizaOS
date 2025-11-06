@@ -1,0 +1,16 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:3000",
+  "executionArgs": {
+    "projectName": "gestaoconsert",
+    "projectPath": "/Users/lucasoliveira/Desktop/gestao consert/gestaoconsert",
+    "testIds": [],
+    "additionalInstruction": "Test only public routes (no login required): /, /login, /cadastro, /sobre, /termos, /politicas-privacidade, /planos, /os, /os/buscar, /pagamentos/sucesso, /pagamentos/falha, /pagamentos/pendente, /instrucoes-verificacao. Do not test authenticated routes.",
+    "envs": {
+      "API_KEY": "sk-user-jcmcM3oSwr27cGyB_DALBmLbfwwvAxcYEfQ8j58GhIP065WX1t6wwRtQVVr7ljspL3y3Fzk9bIEOkJ47u38JSvdpchEeahv2fn9UKWLa8qdpco6a0IvyyFz0phSgULTiu9E"
+    }
+  },
+  "proxy": "http://1908b672-eca1-407e-9076-16b463a5b8d0:J4X5zqAZpSytJksjLkhwwEKl4lHu7au0@tun.testsprite.com:8080"
+}

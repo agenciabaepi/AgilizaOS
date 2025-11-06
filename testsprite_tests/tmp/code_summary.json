@@ -1,0 +1,130 @@
+{
+  "project_name": "Gestao Consert",
+  "project_type": "frontend",
+  "framework": "Next.js 15",
+  "language": "TypeScript",
+  "public_routes": [
+    {
+      "path": "/",
+      "name": "Landing Page",
+      "description": "Página inicial pública com informações sobre o sistema, recursos, preços e links para cadastro/login",
+      "components": ["PublicHeader", "Home"],
+      "features": ["Scroll reveal animations", "Parallax effects", "GSAP animations", "Theme toggle (dark/light)", "Navigation menu", "CTA buttons"]
+    },
+    {
+      "path": "/login",
+      "name": "Login Page",
+      "description": "Página de login para usuários autenticarem no sistema",
+      "components": ["LoginClient"],
+      "features": ["Email/password login", "Form validation", "Error handling", "Redirect after login"]
+    },
+    {
+      "path": "/cadastro",
+      "name": "Registration Page",
+      "description": "Página de cadastro para novos usuários criarem conta",
+      "components": ["CadastroWrapper", "CadastroComponent"],
+      "features": ["Registration form", "Email verification", "Company setup"]
+    },
+    {
+      "path": "/sobre",
+      "name": "About Page",
+      "description": "Página com informações sobre a empresa",
+      "components": [],
+      "features": ["Company information", "Team details"]
+    },
+    {
+      "path": "/termos",
+      "name": "Terms Page",
+      "description": "Página com termos de uso do sistema",
+      "components": [],
+      "features": ["Terms and conditions"]
+    },
+    {
+      "path": "/politicas-privacidade",
+      "name": "Privacy Policy Page",
+      "description": "Página com políticas de privacidade",
+      "components": [],
+      "features": ["Privacy policy information"]
+    },
+    {
+      "path": "/planos",
+      "name": "Plans Page",
+      "description": "Página exibindo os planos de assinatura disponíveis",
+      "components": ["PlanosPage"],
+      "features": ["Pricing plans", "Plan comparison", "Subscribe buttons", "Mouse tracking effects"]
+    },
+    {
+      "path": "/os",
+      "name": "OS Public Page",
+      "description": "Página pública para clientes acompanharem suas ordens de serviço",
+      "components": ["OSPublicPage"],
+      "features": ["OS search by number", "QR code scanning", "Status tracking"]
+    },
+    {
+      "path": "/os/buscar",
+      "name": "OS Search Page",
+      "description": "Página para buscar ordem de serviço por número",
+      "components": [],
+      "features": ["OS number search", "OS details display"]
+    },
+    {
+      "path": "/pagamentos/sucesso",
+      "name": "Payment Success Page",
+      "description": "Página de confirmação de pagamento bem-sucedido",
+      "components": [],
+      "features": ["Payment confirmation", "Success message"]
+    },
+    {
+      "path": "/pagamentos/falha",
+      "name": "Payment Failure Page",
+      "description": "Página exibida quando pagamento falha",
+      "components": [],
+      "features": ["Error message", "Retry option"]
+    },
+    {
+      "path": "/pagamentos/pendente",
+      "name": "Payment Pending Page",
+      "description": "Página para pagamentos pendentes",
+      "components": [],
+      "features": ["Pending status", "Payment instructions"]
+    },
+    {
+      "path": "/instrucoes-verificacao",
+      "name": "Verification Instructions Page",
+      "description": "Página com instruções para verificação de email",
+      "components": [],
+      "features": ["Email verification instructions"]
+    }
+  ],
+  "authentication": {
+    "required": false,
+    "type": "Supabase Auth",
+    "public_access": true,
+    "middleware": "middleware.ts defines public routes that bypass authentication"
+  },
+  "key_technologies": [
+    "Next.js 15",
+    "React 19",
+    "TypeScript",
+    "Supabase",
+    "Tailwind CSS",
+    "GSAP",
+    "Framer Motion"
+  ],
+  "testing_focus": "Public routes accessible without authentication/login",
+  "public_route_patterns": [
+    "/",
+    "/login",
+    "/cadastro",
+    "/sobre",
+    "/termos",
+    "/politicas-privacidade",
+    "/planos",
+    "/os/*",
+    "/pagamentos/*",
+    "/instrucoes-verificacao"
+  ]
+}
+
+
+

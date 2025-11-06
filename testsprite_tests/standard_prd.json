@@ -1,0 +1,115 @@
+{
+  "product_name": "Sistema Consert",
+  "product_vision": "Plataforma de gestão de ordens de serviço (OS) para assistências técnicas",
+  "target_audience": [
+    "Administradores de assistências técnicas",
+    "Técnicos de reparo",
+    "Atendentes",
+    "Clientes (via portal público)"
+  ],
+  "scope": {
+    "public_routes": {
+      "description": "Rotas acessíveis sem autenticação",
+      "routes": [
+        {
+          "path": "/",
+          "purpose": "Landing page com informações do sistema",
+          "features": ["Navigation", "CTAs", "Animations", "Theme toggle"]
+        },
+        {
+          "path": "/login",
+          "purpose": "Página de login",
+          "features": ["Login form", "Validation", "Error handling"]
+        },
+        {
+          "path": "/cadastro",
+          "purpose": "Página de cadastro",
+          "features": ["Registration form", "Email verification"]
+        },
+        {
+          "path": "/sobre",
+          "purpose": "Sobre a empresa",
+          "features": ["Company information"]
+        },
+        {
+          "path": "/termos",
+          "purpose": "Termos de uso",
+          "features": ["Legal content"]
+        },
+        {
+          "path": "/politicas-privacidade",
+          "purpose": "Políticas de privacidade",
+          "features": ["Legal content"]
+        },
+        {
+          "path": "/planos",
+          "purpose": "Planos de assinatura",
+          "features": ["Pricing display", "Plan comparison", "Subscribe buttons"]
+        },
+        {
+          "path": "/os",
+          "purpose": "Portal público de OS",
+          "features": ["OS search", "QR code scanning", "Status tracking"]
+        },
+        {
+          "path": "/os/buscar",
+          "purpose": "Buscar OS por número",
+          "features": ["Search form", "OS details"]
+        },
+        {
+          "path": "/pagamentos/sucesso",
+          "purpose": "Confirmação de pagamento",
+          "features": ["Success message"]
+        },
+        {
+          "path": "/pagamentos/falha",
+          "purpose": "Falha no pagamento",
+          "features": ["Error message", "Retry option"]
+        },
+        {
+          "path": "/pagamentos/pendente",
+          "purpose": "Pagamento pendente",
+          "features": ["Pending status", "Instructions"]
+        },
+        {
+          "path": "/instrucoes-verificacao",
+          "purpose": "Instruções de verificação de email",
+          "features": ["Verification instructions"]
+        }
+      ]
+    }
+  },
+  "functional_requirements": {
+    "public_access": {
+      "description": "Todas as rotas públicas devem ser acessíveis sem autenticação",
+      "priority": "high"
+    },
+    "navigation": {
+      "description": "Navegação entre páginas públicas deve funcionar corretamente",
+      "priority": "high"
+    },
+    "forms": {
+      "description": "Formulários (login, cadastro, busca) devem validar corretamente",
+      "priority": "high"
+    },
+    "ui_ux": {
+      "description": "Páginas devem ser responsivas e elementos interativos devem funcionar",
+      "priority": "medium"
+    }
+  },
+  "non_functional_requirements": {
+    "performance": {
+      "description": "Páginas devem carregar em menos de 2 segundos",
+      "target": "< 2s"
+    },
+    "accessibility": {
+      "description": "Páginas devem ser acessíveis e responsivas",
+      "target": "Mobile and desktop compatible"
+    }
+  },
+  "testing_focus": "Only public routes (no authentication required) should be tested",
+  "excluded_routes": "All authenticated routes are excluded from this test cycle"
+}
+
+
+

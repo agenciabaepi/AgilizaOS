@@ -22,7 +22,7 @@ export default function MovimentacoesCaixaPage() {
   const [turnosFiltrados, setTurnosFiltrados] = useState<TurnoCaixa[]>([]);
   const [movimentacoes, setMovimentacoes] = useState<MovimentacaoCaixa[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filtroAtivo, setFiltroAtivo] = useState<FiltroTipo>('hoje');
+  const [filtroAtivo, setFiltroAtivo] = useState<FiltroTipo>('mes'); // Mudado de 'hoje' para 'mes'
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
   const [turnoSelecionado, setTurnoSelecionado] = useState<string | null>(null);
