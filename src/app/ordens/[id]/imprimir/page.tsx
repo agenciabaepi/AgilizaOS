@@ -396,7 +396,7 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
         {/* Técnicos / Responsáveis */}
         <View style={styles.block}>
           <Text style={styles.sectionTitle}>Equipe</Text>
-          <Text style={styles.paragraph}><Text style={styles.bold}>Técnico:</Text> {ordem.usuarios?.nome || ordem.tecnico?.nome}</Text>
+          <Text style={styles.paragraph}><Text style={styles.bold}>Técnico:</Text> {ordem.tecnico?.nome || 'N/A'}</Text>
         </View>
 
         {/* Laudo Técnico */}
@@ -552,7 +552,8 @@ export default function ImprimirOrdemPage() {
             termo_garantia_id,
             empresa_id,
             clientes(nome, telefone, email, cpf, endereco),
-            tecnico:usuarios(nome),
+            tecnico_id,
+            atendente_id,
             empresas(nome, cnpj, endereco, telefone, email, logo_url),
             termo_garantia:termo_garantia_id(
               id,
@@ -580,7 +581,6 @@ export default function ImprimirOrdemPage() {
         if (data) {
           console.log('✅ Dados reais encontrados:', data);
           console.log('✅ Cliente encontrado:', data.clientes);
-          console.log('✅ Técnico encontrado:', data.tecnico);
           console.log('✅ Empresa encontrada:', data.empresas);
           console.log('✅ Laudo encontrado:', data.laudo);
           console.log('✅ Imagens encontradas:', data.imagens);
@@ -594,10 +594,32 @@ export default function ImprimirOrdemPage() {
             valor_faturado: data.valor_faturado
           });
           
+          // Buscar dados do técnico separadamente
+          let tecnicoNome = data.tecnico || '';
+          if (data.tecnico_id) {
+            try {
+              const { data: tecnicoData } = await supabase
+                .from('usuarios')
+                .select('nome')
+                .eq('id', data.tecnico_id)
+                .single();
+              
+              if (tecnicoData) {
+                tecnicoNome = tecnicoData.nome;
+                console.log('✅ Técnico encontrado:', tecnicoNome);
+              }
+            } catch (error) {
+              console.warn('⚠️ Erro ao buscar técnico:', error);
+            }
+          }
+          
           // Mapear campos para compatibilidade
           const ordemMapeada = {
             ...data,
             relato: data.problema_relatado, // Mapear problema_relatado para relato
+            tecnico: {
+              nome: tecnicoNome
+            }
           };
           
           // Buscar itens de checklist se houver empresa_id e equipamento
