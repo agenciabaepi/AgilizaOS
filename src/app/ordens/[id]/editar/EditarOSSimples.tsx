@@ -435,6 +435,21 @@ export default function EditarOSSimples() {
         updateData.vencimento_garantia = garantiaStr;
       }
 
+      // Verificar se temos numero_os ou id
+      const osIdParaEnviar = ordem?.numero_os || ordem?.id;
+      console.log('🔍 DEBUG handleSalvar - Dados sendo enviados:', {
+        ordemId: ordem?.id,
+        numeroOS: ordem?.numero_os,
+        osIdParaEnviar: osIdParaEnviar,
+        temNumeroOS: !!ordem?.numero_os,
+        temId: !!ordem?.id
+      });
+      
+      if (!osIdParaEnviar) {
+        addToast('error', 'Erro: ID da OS não encontrado. Recarregue a página.');
+        return;
+      }
+      
       // Usar nosso endpoint que envia notificações WhatsApp
       const response = await fetch('/api/ordens/update-status', {
         method: 'POST',
@@ -442,7 +457,7 @@ export default function EditarOSSimples() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          osId: ordem?.numero_os, // ✅ Usar numero_os em vez do UUID
+          osId: osIdParaEnviar, // Usar numero_os se disponível, senão usar UUID
           newStatus: statusSelecionado?.nome,
           newStatusTecnico: novoStatusTecnico,
           ...updateData // Incluir todos os dados de atualização

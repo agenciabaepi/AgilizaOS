@@ -24,17 +24,61 @@ export async function POST(request: NextRequest) {
 
     // Se não for UUID, tratar como numero_os e resolver para o UUID
     if (!uuidRegex.test(String(osId))) {
-      const { data: osPorNumero, error: numeroError } = await supabase
+      console.log('🔍 Buscando OS pelo numero_os:', osId, 'Tipo:', typeof osId);
+      
+      // Tentar buscar como número primeiro
+      const numeroOS = typeof osId === 'string' ? parseInt(osId, 10) : osId;
+      console.log('🔍 numero_os convertido para número:', numeroOS, 'É NaN?', isNaN(numeroOS));
+      
+      // Tentar buscar como número
+      let { data: osPorNumero, error: numeroError } = await supabase
         .from('ordens_servico')
-        .select('id')
-        .eq('numero_os', osId)
+        .select('id, numero_os')
+        .eq('numero_os', numeroOS)
         .single();
+      
+      // Se não encontrou como número, tentar como string
       if (numeroError || !osPorNumero?.id) {
+        console.log('⚠️ Não encontrou como número, tentando como string...');
+        const { data: osPorString, error: stringError } = await supabase
+          .from('ordens_servico')
+          .select('id, numero_os')
+          .eq('numero_os', String(osId))
+          .single();
+        
+        if (osPorString?.id) {
+          osPorNumero = osPorString;
+          numeroError = null;
+          console.log('✅ Encontrado como string:', osPorString);
+        } else {
+          console.error('❌ Erro ao buscar por número:', numeroError);
+          console.error('❌ Erro ao buscar por string:', stringError);
+          return NextResponse.json(
+            { 
+              error: 'OS não encontrada pelo numero_os', 
+              numeroOS: osId,
+              tipo: typeof osId,
+              supabaseError: numeroError || stringError,
+              debug: {
+                tentouNumero: numeroOS,
+                tentouString: String(osId),
+                erroNumero: numeroError,
+                erroString: stringError
+              }
+            },
+            { status: 400 }
+          );
+        }
+      }
+      
+      if (!osPorNumero?.id) {
         return NextResponse.json(
-          { error: 'OS não encontrada pelo numero_os', supabaseError: numeroError },
+          { error: 'OS não encontrada pelo numero_os', numeroOS: osId },
           { status: 400 }
         );
       }
+      
+      console.log('✅ OS encontrada pelo numero_os:', osPorNumero.numero_os, 'ID:', osPorNumero.id);
       osId = osPorNumero.id as string;
     }
 
