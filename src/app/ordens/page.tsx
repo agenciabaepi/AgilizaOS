@@ -679,7 +679,7 @@ export default function ListaOrdensPage() {
             statusOS: item.status || '',
             statusTecnico: item.status_tecnico || '',
             entrada: item.created_at || '',
-            tecnico: tecnicosDict[item.tecnico_id] || item.tecnico_id || 'Sem técnico',
+            tecnico: (item.tecnico_id && tecnicosDict[item.tecnico_id]) ? tecnicosDict[item.tecnico_id] : (item.tecnico_id ? 'Técnico não encontrado' : 'Sem técnico'),
             atendente: item.atendente || '',
             entrega: entregaCalc,
             prazoEntrega: item.prazo_entrega || '',

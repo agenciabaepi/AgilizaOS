@@ -595,7 +595,7 @@ export default function ImprimirOrdemPage() {
           });
           
           // Buscar dados do técnico separadamente
-          let tecnicoNome = data.tecnico || '';
+          let tecnicoNome = data.tecnico || 'Sem técnico';
           console.log('🔍 Buscando técnico para tecnico_id:', data.tecnico_id);
           if (data.tecnico_id) {
             try {
@@ -607,17 +607,21 @@ export default function ImprimirOrdemPage() {
               
               if (tecnicoError) {
                 console.warn('⚠️ Erro ao buscar técnico:', tecnicoError);
-              } else if (tecnicoData) {
+                tecnicoNome = 'Técnico não encontrado';
+              } else if (tecnicoData && tecnicoData.nome) {
                 tecnicoNome = tecnicoData.nome;
                 console.log('✅ Técnico encontrado:', tecnicoNome);
               } else {
                 console.warn('⚠️ Técnico não encontrado para ID:', data.tecnico_id);
+                tecnicoNome = 'Técnico não encontrado';
               }
             } catch (error) {
               console.warn('⚠️ Erro ao buscar técnico:', error);
+              tecnicoNome = 'Técnico não encontrado';
             }
           } else {
             console.warn('⚠️ tecnico_id não está presente na OS');
+            tecnicoNome = 'Sem técnico';
           }
           
           // Mapear campos para compatibilidade
