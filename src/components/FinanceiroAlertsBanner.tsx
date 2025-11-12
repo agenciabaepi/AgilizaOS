@@ -311,7 +311,7 @@ export default function FinanceiroAlertsBanner() {
                 style={{ color: card.corTexto }}
               >
                 {isValidElement(card.icon)
-                  ? cloneElement(card.icon as ReactElement, { className: 'h-5 w-5' })
+                  ? cloneElement(card.icon as ReactElement<any>, { className: 'h-5 w-5' } as any)
                   : card.icon}
               </div>
               <div className="min-w-0 space-y-0.5">
