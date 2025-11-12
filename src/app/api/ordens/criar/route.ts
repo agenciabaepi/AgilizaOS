@@ -26,6 +26,29 @@ export async function POST(request: NextRequest) {
     );
     
     const dadosOS = await request.json();
+
+    // Garantir que salvamos o atendente responsável (usuário que criou a OS)
+    if (!dadosOS.atendente_id) {
+      if (dadosOS.usuario_id) {
+        dadosOS.atendente_id = dadosOS.usuario_id;
+      } else if (dadosOS.atendente && typeof dadosOS.atendente === 'string') {
+        try {
+          const { data: atendenteUsuario, error: atendenteFetchError } = await supabase
+            .from('usuarios')
+            .select('id')
+            .eq('nome', dadosOS.atendente)
+            .eq('empresa_id', dadosOS.empresa_id)
+            .limit(1)
+            .maybeSingle();
+
+          if (!atendenteFetchError && atendenteUsuario?.id) {
+            dadosOS.atendente_id = atendenteUsuario.id;
+          }
+        } catch (error) {
+          console.warn('⚠️ Não foi possível resolver atendente_id automaticamente:', error);
+        }
+      }
+    }
     
     // Log do payload recebido ANTES de processar (warn para aparecer no Vercel)
     console.warn('[Webhook OS][PROD] payload recebido:', JSON.stringify(dadosOS, null, 2));

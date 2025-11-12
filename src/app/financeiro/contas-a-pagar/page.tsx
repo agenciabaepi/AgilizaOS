@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/Toast';
@@ -10,8 +10,15 @@ import { Input } from '@/components/Input';
 import { Select } from '@/components/Select';
 import { FiPlus, FiEdit, FiTrash2, FiCheck, FiX, FiFilter, FiDownload, FiEye, FiChevronLeft, FiChevronRight, FiCalendar, FiPaperclip, FiDollarSign } from 'react-icons/fi';
 import DashboardCard from '@/components/ui/DashboardCard';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import AnexosManager from '@/components/AnexosManager';
+
+const debugLog = (...args: unknown[]) => {
+  if (process.env.NODE_ENV !== 'production') {
+    // eslint-disable-next-line no-console
+    debugLog(...args);
+  }
+};
 
 interface Categoria {
   id: string;
@@ -58,6 +65,7 @@ export default function ContasAPagarPage() {
   const { empresaData } = useAuth();
   const { addToast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
   
   // Estados
   const [contas, setContas] = useState<ContaPagar[]>([]);
@@ -67,7 +75,8 @@ export default function ContasAPagarPage() {
   const [activeTab, setActiveTab] = useState<'todas' | 'fixas' | 'variaveis' | 'pecas'>('todas');
   const [showModal, setShowModal] = useState(false);
   const [editingConta, setEditingConta] = useState<ContaPagar | null>(null);
-  
+  const [contaFocus, setContaFocus] = useState<string | null>(null);
+  const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
   // Filtros
   const [filtroCategoria, setFiltroCategoria] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('');
@@ -111,6 +120,51 @@ export default function ContasAPagarPage() {
   const limparFiltroMes = () => {
     setFiltroMes('');
   };
+
+  useEffect(() => {
+    const focusId = searchParams.get('focus');
+    const mesParam = searchParams.get('mes');
+
+    if (focusId) {
+      setContaFocus(focusId);
+    }
+
+    if (mesParam) {
+      setFiltroMes(prev => (prev === mesParam ? prev : mesParam));
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!contaFocus || contas.length === 0) {
+      return;
+    }
+
+    const contaSelecionada = contas.find(c => c.id === contaFocus);
+    if (contaSelecionada?.data_vencimento) {
+      const mesConta = contaSelecionada.data_vencimento.substring(0, 7);
+      setFiltroMes(prev => (prev === mesConta ? prev : mesConta));
+    }
+
+    const row = rowRefs.current[contaFocus];
+    if (row) {
+      window.setTimeout(() => {
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 200);
+    }
+  }, [contaFocus, contas]);
+
+  useEffect(() => {
+    if (!contaFocus) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setContaFocus(null);
+      router.replace('/financeiro/contas-a-pagar', { scroll: false });
+    }, 5000);
+
+    return () => window.clearTimeout(timer);
+  }, [contaFocus, router]);
   
   // Formatar mês para exibição
   const formatarMes = (mes: string) => {
@@ -148,30 +202,30 @@ export default function ContasAPagarPage() {
 
   // Carregar dados
   useEffect(() => {
-    console.log('🔄 useEffect executado - empresaData:', empresaData);
-    console.log('🔄 empresaData?.id:', empresaData?.id);
+    debugLog('🔄 useEffect executado - empresaData:', empresaData);
+    debugLog('🔄 empresaData?.id:', empresaData?.id);
     
     if (empresaData?.id) {
-      console.log('🏢 Carregando dados para empresa:', empresaData.id);
+      debugLog('🏢 Carregando dados para empresa:', empresaData.id);
       loadData();
     } else {
-      console.log('⚠️ empresaData.id não disponível, não carregando dados');
-      console.log('📊 Estado atual:', { empresaData, loading });
+      debugLog('⚠️ empresaData.id não disponível, não carregando dados');
+      debugLog('📊 Estado atual:', { empresaData, loading });
     }
   }, [empresaData?.id]);
 
   const loadData = async () => {
     if (!empresaData?.id) {
-      console.log('⚠️ EmpresaData não disponível:', empresaData);
+      debugLog('⚠️ EmpresaData não disponível:', empresaData);
       return;
     }
     
-    console.log('🔄 Iniciando carregamento de dados para empresa:', empresaData.id);
+    debugLog('🔄 Iniciando carregamento de dados para empresa:', empresaData.id);
     try {
       setLoading(true);
       
       // Carregar categorias
-      console.log('📂 Carregando categorias...');
+      debugLog('📂 Carregando categorias...');
       const { data: categoriasData, error: categoriasError } = await supabase
         .from('categorias_contas')
         .select('*')
@@ -182,7 +236,7 @@ export default function ContasAPagarPage() {
       if (categoriasError) {
         console.error('❌ Erro ao carregar categorias:', categoriasError);
       } else {
-        console.log('✅ Categorias carregadas:', categoriasData?.length || 0);
+        debugLog('✅ Categorias carregadas:', categoriasData?.length || 0);
       }
       
       setCategorias(categoriasData || []);
@@ -206,7 +260,7 @@ export default function ContasAPagarPage() {
       })));
       
       // Carregar contas
-      console.log('💰 Carregando contas...');
+      debugLog('💰 Carregando contas...');
       const { data: contasData, error: contasError } = await supabase
         .from('contas_pagar')
         .select(`
@@ -222,9 +276,9 @@ export default function ContasAPagarPage() {
         setContas([]);
         return;
       } else {
-        console.log('✅ Contas carregadas com sucesso:', contasData?.length || 0);
+        debugLog('✅ Contas carregadas com sucesso:', contasData?.length || 0);
         if (contasData && contasData.length > 0) {
-          console.log('📋 Primeiras 3 contas:', contasData.slice(0, 3).map(c => ({
+          debugLog('📋 Primeiras 3 contas:', contasData.slice(0, 3).map(c => ({
             id: c.id,
             descricao: c.descricao,
             tipo: c.tipo,
@@ -233,7 +287,7 @@ export default function ContasAPagarPage() {
         }
       }
       
-      console.log('📊 Dados carregados:', {
+      debugLog('📊 Dados carregados:', {
         categorias: categoriasData?.length || 0,
         ordens: ordensData?.length || 0,
         contas: contasData?.length || 0,
@@ -241,7 +295,7 @@ export default function ContasAPagarPage() {
       });
       
       if (contasData && contasData.length > 0) {
-        console.log('📋 Contas carregadas:', contasData.map(c => ({
+        debugLog('📋 Contas carregadas:', contasData.map(c => ({
           id: c.id,
           descricao: c.descricao,
           tipo: c.tipo,
@@ -558,6 +612,7 @@ export default function ContasAPagarPage() {
     .filter(c => c.status === 'pago')
     .reduce((sum, c) => sum + c.valor, 0);
 
+
   if (loading) {
     return (
       <MenuLayout>
@@ -610,6 +665,7 @@ export default function ContasAPagarPage() {
             </Button>
           </div>
         </div>
+
 
 
         {/* Resumo */}
@@ -815,8 +871,22 @@ export default function ContasAPagarPage() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {contasDoMes.map((conta) => (
-                          <tr key={conta.id} className="hover:bg-gray-50">
+                        {contasDoMes.map((conta) => {
+                          const isFocused = conta.id === contaFocus;
+                          return (
+                          <tr
+                            key={conta.id}
+                            ref={(el) => {
+                              if (el) {
+                                rowRefs.current[conta.id] = el;
+                              } else {
+                                delete rowRefs.current[conta.id];
+                              }
+                            }}
+                            className={`transition-colors ${
+                              isFocused ? 'bg-rose-50/70 shadow-inner shadow-rose-200/40' : 'hover:bg-gray-50'
+                            }`}
+                          >
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div>
                                 <div className="text-sm font-medium text-gray-900">
@@ -935,7 +1005,8 @@ export default function ContasAPagarPage() {
                               </div>
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

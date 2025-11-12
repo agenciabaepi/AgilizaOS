@@ -33,6 +33,7 @@ import LogoutScreen from '@/components/LogoutScreen';
 import { useWhatsAppNotification } from '@/hooks/useWhatsAppNotification';
 import { useLogout } from '@/hooks/useLogout';
 import AvisosBanner from '@/components/AvisosBanner';
+import FinanceiroAlertsBanner from '@/components/FinanceiroAlertsBanner';
 
 // Funções locais como fallback
 const isUsuarioTesteLocal = (usuario: any) => {
@@ -658,8 +659,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           </div>
         </header>
         {/* Banner de Avisos */}
-        <div className="w-full sticky top-16 z-20 no-print">
+        <div className="w-full sticky top-16 z-20 space-y-2 no-print">
           <AvisosBanner />
+          <FinanceiroAlertsBanner />
         </div>
         {/* Conteúdo principal */}
         <main className="flex-1 p-4 md:p-8 w-full max-w-full">

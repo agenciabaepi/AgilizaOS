@@ -32,6 +32,13 @@ import {
   FiPlus
 } from 'react-icons/fi';
 
+const debugLog = (...args: unknown[]) => {
+  if (process.env.NODE_ENV !== 'production') {
+    // eslint-disable-next-line no-console
+    debugLog(...args);
+  }
+};
+
 interface OrdemServico {
   id: string;
   numero_os: string;
@@ -127,7 +134,7 @@ export default function LucroDesempenhoPage() {
   const [modalInvestimentoAberto, setModalInvestimentoAberto] = useState(false);
 
   // Debug: Log inicial
-  console.log('🔍 LucroDesempenhoPage inicializado:', {
+  debugLog('🔍 LucroDesempenhoPage inicializado:', {
     user: user?.id,
     empresaData: empresaData?.id,
     authLoading,
@@ -277,7 +284,7 @@ export default function LucroDesempenhoPage() {
       return false;
     });
 
-    console.log('📊 Vendas filtradas:', {
+    debugLog('📊 Vendas filtradas:', {
       periodo: `${dataInicio} a ${dataFim}`,
       mesAtualISO,
       totalVendas: vendas.length,
@@ -294,7 +301,7 @@ export default function LucroDesempenhoPage() {
   // Carregar dados
   const loadData = async () => {
     if (!empresaData?.id) {
-      console.log('❌ empresaData.id não está disponível:', empresaData);
+      debugLog('❌ empresaData.id não está disponível:', empresaData);
       return;
     }
     
@@ -303,7 +310,7 @@ export default function LucroDesempenhoPage() {
     try {
       const { dataInicio, dataFim } = calcularPeriodo();
       
-      console.log('📊 Carregando dados de lucro e desempenho...', {
+      debugLog('📊 Carregando dados de lucro e desempenho...', {
         empresaId: empresaData.id,
         mes: formatarMesAno(currentMonth),
         periodo: `${dataInicio} a ${dataFim}`
@@ -331,7 +338,7 @@ export default function LucroDesempenhoPage() {
           .order('created_at', { ascending: false })
           .limit(200);
 
-      console.log('📊 Resultado query completa:', {
+      debugLog('📊 Resultado query completa:', {
         empresaId: empresaData.id,
         periodo: `${dataInicio} a ${dataFim}`,
         ordensCount: ordensData?.length || 0,
@@ -347,7 +354,7 @@ export default function LucroDesempenhoPage() {
       }
 
       if (!ordensData || ordensData.length === 0) {
-        console.log('⚠️ Nenhuma ordem encontrada para este período');
+        debugLog('⚠️ Nenhuma ordem encontrada para este período');
         setOrdens([]);
         setLoading(false);
         return;
@@ -358,7 +365,7 @@ export default function LucroDesempenhoPage() {
       const ordensNumeros = ordensData?.map(o => o.numero_os) || [];
       const clienteIds = [...new Set(ordensData?.map(o => o.cliente_id) || [])];
 
-      console.log('🔍 Buscando dados relacionados:', {
+      debugLog('🔍 Buscando dados relacionados:', {
         ordensIds: ordensIds.slice(0, 3),
         ordensNumeros: ordensNumeros.slice(0, 3),
         clienteIds: clienteIds.slice(0, 3)
@@ -378,32 +385,32 @@ export default function LucroDesempenhoPage() {
           .eq('status', 'finalizada')
           .order('data_venda', { ascending: false });
 
-        console.log('🔍 EMPRESA ATUAL:', empresaData.id);
-        console.log('🔍 TOTAL VENDAS ENCONTRADAS:', todasVendas?.length || 0);
-        console.log('🔍 ERRO VENDAS:', errorVendas);
-        console.log('🔍 NUMEROS DAS OS:', ordensNumeros.slice(0, 5));
+        debugLog('🔍 EMPRESA ATUAL:', empresaData.id);
+        debugLog('🔍 TOTAL VENDAS ENCONTRADAS:', todasVendas?.length || 0);
+        debugLog('🔍 ERRO VENDAS:', errorVendas);
+        debugLog('🔍 NUMEROS DAS OS:', ordensNumeros.slice(0, 5));
         
         if (todasVendas && todasVendas.length > 0) {
-          console.log('🔍 PRIMEIRAS VENDAS:');
+          debugLog('🔍 PRIMEIRAS VENDAS:');
           todasVendas.slice(0, 3).forEach((venda, i) => {
-            console.log(`  ${i+1}. Total: R$ ${venda.total}, Pago: R$ ${venda.total} - "${venda.observacoes}"`);
+            debugLog(`  ${i+1}. Total: R$ ${venda.total}, Pago: R$ ${venda.total} - "${venda.observacoes}"`);
           });
         }
 
         // Se não encontrou vendas para esta empresa, buscar em todas as empresas para debug
         if (!todasVendas || todasVendas.length === 0) {
-          console.log('⚠️ NENHUMA VENDA ENCONTRADA PARA ESTA EMPRESA');
+          debugLog('⚠️ NENHUMA VENDA ENCONTRADA PARA ESTA EMPRESA');
           const { data: todasVendasGeral } = await supabase
             .from('vendas')
             .select('id, valor_total, total, data_venda, observacoes, empresa_id')
             .eq('status', 'finalizada')
             .limit(10);
           
-          console.log('🔍 TOTAL VENDAS GERAL (todas empresas):', todasVendasGeral?.length || 0);
+          debugLog('🔍 TOTAL VENDAS GERAL (todas empresas):', todasVendasGeral?.length || 0);
           if (todasVendasGeral && todasVendasGeral.length > 0) {
-            console.log('🔍 PRIMEIRAS VENDAS GERAL:');
+            debugLog('🔍 PRIMEIRAS VENDAS GERAL:');
             todasVendasGeral.slice(0, 3).forEach((venda, i) => {
-              console.log(`  ${i+1}. Empresa: ${venda.empresa_id} - Total: R$ ${venda.valor_total}, Pago: R$ ${venda.total} - "${venda.observacoes}"`);
+              debugLog(`  ${i+1}. Empresa: ${venda.empresa_id} - Total: R$ ${venda.valor_total}, Pago: R$ ${venda.total} - "${venda.observacoes}"`);
             });
           }
         }
@@ -415,7 +422,7 @@ export default function LucroDesempenhoPage() {
           .eq('empresa_id', empresaData.id)
           .eq('tipo', 'pecas');
 
-        console.log('💰 Dados encontrados:', {
+        debugLog('💰 Dados encontrados:', {
           vendasCount: todasVendas?.length || 0,
           custosCount: todosCustos?.length || 0,
           sampleVenda: todasVendas?.[0],
@@ -424,7 +431,7 @@ export default function LucroDesempenhoPage() {
         });
 
       // Log dos dados das OS para debug
-      console.log('📋 Dados das OS:', {
+      debugLog('📋 Dados das OS:', {
         primeiraOS: ordensData?.[0],
         todasOS: ordensData?.map(os => ({
           id: os.id,
@@ -536,7 +543,7 @@ export default function LucroDesempenhoPage() {
           c.status === 'pendente' || c.status === 'pending' || c.status === 'Pendente' || c.status === 'vencido'
         );
         
-        console.log('📊 Contas previstas calculadas:', {
+        debugLog('📊 Contas previstas calculadas:', {
           totalContasMes: contasMes.length,
           totalContasPendentes: contasPendentes.length,
           contasPorTipo: {
@@ -592,7 +599,7 @@ export default function LucroDesempenhoPage() {
         // Definir vendas no estado (igual à página de vendas!)
         setVendas(todasVendas || []);
 
-        console.log('✅ Dados carregados:', {
+        debugLog('✅ Dados carregados:', {
           totalOrdensEncontradas: ordensCompletas.length,
           totalVendasEncontradas: todasVendas?.length || 0,
           vendasDoPeriodo: vendasDoPeriodo.length,
@@ -615,7 +622,7 @@ export default function LucroDesempenhoPage() {
     try {
       setLoadingFluxoCaixa(true);
       
-      console.log('🚀 Carregando fluxo de caixa mensal...');
+      debugLog('🚀 Carregando fluxo de caixa mensal...');
       
       // Calcular datas do ano selecionado
       const inicioAno = new Date(parseInt(anoSelecionado), 0, 1);
@@ -643,7 +650,7 @@ export default function LucroDesempenhoPage() {
       const vendasData = vendasResult.data;
       const contasData = contasResult.data;
 
-      console.log('📊 Dados carregados:', {
+      debugLog('📊 Dados carregados:', {
         vendas: vendasData?.length || 0,
         contas: contasData?.length || 0
       });
@@ -697,7 +704,7 @@ export default function LucroDesempenhoPage() {
         });
       }
       
-      console.log('✅ Fluxo de caixa processado:', fluxoCaixa.length, 'meses');
+      debugLog('✅ Fluxo de caixa processado:', fluxoCaixa.length, 'meses');
       setFluxoCaixaMensal(fluxoCaixa);
       
     } catch (error) {
@@ -735,7 +742,7 @@ export default function LucroDesempenhoPage() {
       const totalInvestimentos = investimentos?.reduce((acc, inv) => acc + (inv.valor || 0), 0) || 0;
       setInvestimentosMes(totalInvestimentos);
 
-      console.log('💰 Investimentos do mês:', {
+      debugLog('💰 Investimentos do mês:', {
         mes: formatarMesAno(currentMonth),
         totalInvestimentos,
         quantidade: investimentos?.length || 0
@@ -752,7 +759,7 @@ export default function LucroDesempenhoPage() {
 
     try {
       // Buscar TODAS as contas da empresa (como a página Contas a Pagar faz)
-      console.log('🔍 Buscando TODAS as contas da empresa...');
+      debugLog('🔍 Buscando TODAS as contas da empresa...');
       const { data: todasContas, error: contasError } = await supabase
         .from('contas_pagar')
         .select('*') // Buscar todos os campos para incluir conta_fixa, parcelas_totais, etc.
@@ -764,12 +771,12 @@ export default function LucroDesempenhoPage() {
         return;
       }
 
-      console.log('📊 Contas originais encontradas:', todasContas?.length || 0);
+      debugLog('📊 Contas originais encontradas:', todasContas?.length || 0);
       
       // Não gerar contas virtuais - todas as parcelas já são criadas como contas reais no banco
       // Usar apenas as contas reais do banco
       const mesAtual = currentMonth.toISOString().slice(0, 7); // YYYY-MM
-      console.log('📅 Filtrando contas do mês:', mesAtual);
+      debugLog('📅 Filtrando contas do mês:', mesAtual);
       
       // Filtrar contas pelo mês selecionado (apenas contas reais do banco)
       // Para DRE: considerar contas com vencimento no mês OU contas pagas no mês
@@ -779,7 +786,7 @@ export default function LucroDesempenhoPage() {
       const mesAtualFormatado = formatarMesAno(currentMonth);
       const mesAtualISO = currentMonth.toISOString().slice(0, 7); // YYYY-MM
       
-      console.log('💰 Buscando custos da empresa para DRE...', {
+      debugLog('💰 Buscando custos da empresa para DRE...', {
         empresaId: empresaData.id,
         periodo: `${dataInicio} a ${dataFim}`,
         mesSelecionado: mesAtualFormatado,
@@ -794,7 +801,7 @@ export default function LucroDesempenhoPage() {
       const fimPeriodoFiltro = new Date(fimMes);
       fimPeriodoFiltro.setHours(23, 59, 59, 999);
       
-      console.log('📅 Período de filtro:', {
+      debugLog('📅 Período de filtro:', {
         inicioPeriodoFiltro: inicioPeriodoFiltro.toISOString(),
         fimPeriodoFiltro: fimPeriodoFiltro.toISOString(),
         mesEsperado: mesAtualISO
@@ -815,13 +822,13 @@ export default function LucroDesempenhoPage() {
         return venceNoMesISO && venceNoMesData;
       });
       
-      console.log('📊 Contas do mês selecionado:', contasDoMes.length);
+      debugLog('📊 Contas do mês selecionado:', contasDoMes.length);
       
       // Log detalhado das contas do mês
       if (contasDoMes && contasDoMes.length > 0) {
-        console.log('📋 DETALHAMENTO DAS CONTAS DO MÊS:');
+        debugLog('📋 DETALHAMENTO DAS CONTAS DO MÊS:');
         contasDoMes.forEach((conta, i) => {
-          console.log(`  ${i+1}. R$ ${conta.valor} - ${conta.status} - ${conta.tipo} - "${conta.descricao}" - ${conta.data_vencimento}`);
+          debugLog(`  ${i+1}. R$ ${conta.valor} - ${conta.status} - ${conta.tipo} - "${conta.descricao}" - ${conta.data_vencimento}`);
         });
         
         const totalGeral = contasDoMes.reduce((acc, conta) => acc + (conta.valor || 0), 0);
@@ -843,21 +850,21 @@ export default function LucroDesempenhoPage() {
         const totalPagas = contasPagasLog.reduce((acc, conta) => acc + (conta.valor || 0), 0);
         const totalPendentes = contasPendentesLog.reduce((acc, conta) => acc + (conta.valor || 0), 0);
         
-        console.log('💰 RESUMO DO MÊS:');
-        console.log(`  Total Geral: R$ ${totalGeral.toFixed(2)}`);
-        console.log(`  Contas Pagas: R$ ${totalPagas.toFixed(2)} (${contasPagasLog.length} contas)`);
-        console.log(`  Contas Pendentes: R$ ${totalPendentes.toFixed(2)} (${contasPendentesLog.length} contas)`);
+        debugLog('💰 RESUMO DO MÊS:');
+        debugLog(`  Total Geral: R$ ${totalGeral.toFixed(2)}`);
+        debugLog(`  Contas Pagas: R$ ${totalPagas.toFixed(2)} (${contasPagasLog.length} contas)`);
+        debugLog(`  Contas Pendentes: R$ ${totalPendentes.toFixed(2)} (${contasPendentesLog.length} contas)`);
       }
 
       // Calcular custos por categoria usando as contas do mês
-      console.log('📊 Status únicos encontrados:', [...new Set(contasDoMes?.map(c => c.status) || [])]);
+      debugLog('📊 Status únicos encontrados:', [...new Set(contasDoMes?.map(c => c.status) || [])]);
       
       // Filtrar contas pagas: verificar se foram pagas no mês selecionado (data_pagamento)
       // IMPORTANTE: Usar as mesmas datas do filtro de contasDoMes
       const inicioPeriodo = new Date(inicioPeriodoFiltro);
       const fimPeriodo = new Date(fimPeriodoFiltro);
       
-      console.log('📊 Filtrando contas pagas no período:', {
+      debugLog('📊 Filtrando contas pagas no período:', {
         inicioPeriodo: inicioPeriodo.toISOString(),
         fimPeriodo: fimPeriodo.toISOString(),
         totalContasDoMes: contasDoMes?.length || 0
@@ -893,8 +900,8 @@ export default function LucroDesempenhoPage() {
         conta.status === 'pendente' || conta.status === 'vencido'
       ) || [];
       
-      console.log('📊 Contas pagas encontradas:', contasPagas.length);
-      console.log('📊 Contas pendentes encontradas:', contasPendentes.length);
+      debugLog('📊 Contas pagas encontradas:', contasPagas.length);
+      debugLog('📊 Contas pendentes encontradas:', contasPendentes.length);
       
       // Separar custos por tipo usando as contas do mês
       // Custos de peças: todas as contas de peças do mês (vencimento no mês)
@@ -925,7 +932,7 @@ export default function LucroDesempenhoPage() {
         return tipo === 'fixa' || tipo === 'variavel';
       }) || [];
       
-      console.log('📊 Filtro de Despesas Operacionais:', {
+      debugLog('📊 Filtro de Despesas Operacionais:', {
         totalContasPagas: contasPagas.length,
         contasPagasDetalhes: contasPagas.map(c => ({
           descricao: c.descricao,
@@ -941,7 +948,7 @@ export default function LucroDesempenhoPage() {
         }))
       });
 
-      console.log('💰 Cálculo de Despesas Operacionais:', {
+      debugLog('💰 Cálculo de Despesas Operacionais:', {
         totalContasDoMes: contasDoMes?.length || 0,
         totalContasPagas: contasPagas.length,
         despesasOperacionaisCount: despesasOperacionais.length,
@@ -969,7 +976,7 @@ export default function LucroDesempenhoPage() {
       // Custos gerais: todas as contas fixas e variáveis do mês (independente de status)
       const totalCustosGerais = custosGerais.reduce((acc, conta) => acc + (conta.valor || 0), 0);
       
-      console.log('💰 Totais calculados:', {
+      debugLog('💰 Totais calculados:', {
         totalContasPagas,
         totalContasPendentes,
         totalCustosTotais,
@@ -983,7 +990,7 @@ export default function LucroDesempenhoPage() {
       
       // Log para debug - verificar contas fixas
       const contasFixasDoMes = contasDoMes?.filter(c => c.conta_fixa || c.tipo === 'fixa') || [];
-      console.log('📊 Contas fixas do mês:', {
+      debugLog('📊 Contas fixas do mês:', {
         total: contasFixasDoMes.length,
         detalhes: contasFixasDoMes.map(c => ({
           id: c.id,
@@ -1060,7 +1067,7 @@ export default function LucroDesempenhoPage() {
       });
       
       // Log final das categorias
-      console.log('📊 Categorias calculadas:', Array.from(categoriasMap.entries()).map(([cat, data]) => ({
+      debugLog('📊 Categorias calculadas:', Array.from(categoriasMap.entries()).map(([cat, data]) => ({
         categoria: cat,
         total: data.total,
         quantidade: data.quantidade,
@@ -1083,7 +1090,7 @@ export default function LucroDesempenhoPage() {
         categoriasDetalhadas
       });
 
-      console.log('✅ Custos da empresa calculados:', {
+      debugLog('✅ Custos da empresa calculados:', {
         contasPagas: totalContasPagas,
         contasPendentes: totalContasPendentes,
         totalContas: totalContasPagas + totalContasPendentes,
@@ -1223,7 +1230,7 @@ export default function LucroDesempenhoPage() {
       .filter(d => d.receita > 0 || d.custos > 0)
       .sort((a, b) => a.dia - b.dia);
     
-    console.log('📊 Dados diários corrigidos:', {
+    debugLog('📊 Dados diários corrigidos:', {
       mes: formatarMesAno(currentMonth),
       totalOS: ordens.length,
       diasComDados: dadosDiariosArray.length,
@@ -1683,20 +1690,20 @@ export default function LucroDesempenhoPage() {
 
   // Efeitos
   useEffect(() => {
-    console.log('🔄 useEffect empresaData mudou:', {
+    debugLog('🔄 useEffect empresaData mudou:', {
       empresaId: empresaData?.id,
       currentMonth: formatarMesAno(currentMonth),
       willCallLoadData: !!empresaData?.id
     });
     
     if (empresaData?.id) {
-      console.log('✅ Chamando loadData...');
+      debugLog('✅ Chamando loadData...');
       loadData();
       fetchFluxoCaixaMensal();
       fetchCustosEmpresa();
       fetchInvestimentosMes();
     } else {
-      console.log('❌ empresaData.id não disponível, não chamando loadData');
+      debugLog('❌ empresaData.id não disponível, não chamando loadData');
     }
   }, [empresaData?.id, currentMonth, anoSelecionado]);
 
@@ -1735,7 +1742,7 @@ export default function LucroDesempenhoPage() {
     const contasAPagarPrevistas = metricasPrevistas.contasAPagarPrevistas;
     const saldoNaContaPrevisto = metricas.saldoNaConta + receitaPrevista - contasAPagarPrevistas;
     
-    console.log('💰 Cálculo de Previsão de Saldo na Conta:', {
+    debugLog('💰 Cálculo de Previsão de Saldo na Conta:', {
       saldoAtual: metricas.saldoNaConta,
       receitaPrevista,
       contasAPagarPrevistas,

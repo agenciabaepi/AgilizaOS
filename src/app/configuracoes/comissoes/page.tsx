@@ -1,6 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+// Desabilitar cache para esta página
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/Button';
@@ -15,6 +19,8 @@ interface Tecnico {
   comissao_percentual: number;
   comissao_ativa: boolean;
   comissao_observacoes: string;
+  tipo_comissao?: 'porcentagem' | 'fixo' | null;
+  comissao_fixa?: number | null;
 }
 
 interface ConfiguracaoComissao {
@@ -24,6 +30,8 @@ interface ConfiguracaoComissao {
   comissao_apenas_servico: boolean;
   comissao_retorno_ativo: boolean;
   observacoes: string;
+  tipo_comissao?: 'porcentagem' | 'fixo' | null;
+  comissao_fixa_padrao?: number | null;
 }
 
 export default function ComissoesPage() {
@@ -48,6 +56,14 @@ export default function ComissoesPage() {
     }
   }, [usuarioData]);
 
+  // Debug: Log quando editandoConfig muda
+  useEffect(() => {
+    if (editandoConfig) {
+      console.log('🟢 Modo edição ativado - editandoConfig:', editandoConfig);
+      console.log('🟢 tempConfig:', tempConfig);
+    }
+  }, [editandoConfig, tempConfig]);
+
   const fetchData = async () => {
     if (!usuarioData?.empresa_id) return;
     
@@ -56,7 +72,7 @@ export default function ComissoesPage() {
       // Buscar técnicos da empresa
       const { data: tecnicosData, error: tecnicosError } = await supabase
         .from('usuarios')
-        .select('id, nome, email, comissao_percentual, comissao_ativa, comissao_observacoes')
+        .select('id, nome, email, comissao_percentual, comissao_ativa, comissao_observacoes, tipo_comissao, comissao_fixa')
         .eq('empresa_id', usuarioData.empresa_id)
         .eq('nivel', 'tecnico')
         .order('nome');
@@ -84,7 +100,14 @@ export default function ComissoesPage() {
           addToast('error', 'Erro ao carregar configurações');
         }
       } else {
-        setConfiguracao(configData);
+        // Garantir que os novos campos existam (para compatibilidade com registros antigos)
+        const configCompleto = {
+          ...configData,
+          tipo_comissao: configData.tipo_comissao || 'porcentagem',
+          comissao_fixa_padrao: configData.comissao_fixa_padrao ?? 0.00
+        };
+        console.log('📊 Configuração carregada:', configCompleto);
+        setConfiguracao(configCompleto);
       }
 
     } catch (error) {
@@ -103,7 +126,9 @@ export default function ComissoesPage() {
       comissao_padrao: 10.00,
       comissao_apenas_servico: true,
       comissao_retorno_ativo: false,
-      observacoes: ''
+      observacoes: '',
+      tipo_comissao: 'porcentagem',
+      comissao_fixa_padrao: 0.00
     };
 
     const { data, error } = await supabase
@@ -124,7 +149,9 @@ export default function ComissoesPage() {
     setTempTecnico({
       comissao_percentual: tecnico.comissao_percentual,
       comissao_ativa: tecnico.comissao_ativa,
-      comissao_observacoes: tecnico.comissao_observacoes
+      comissao_observacoes: tecnico.comissao_observacoes,
+      tipo_comissao: tecnico.tipo_comissao || configuracao?.tipo_comissao || 'porcentagem',
+      comissao_fixa: tecnico.comissao_fixa || null
     });
   };
 
@@ -136,7 +163,9 @@ export default function ComissoesPage() {
         .update({
           comissao_percentual: tempTecnico.comissao_percentual,
           comissao_ativa: tempTecnico.comissao_ativa,
-          comissao_observacoes: tempTecnico.comissao_observacoes
+          comissao_observacoes: tempTecnico.comissao_observacoes,
+          tipo_comissao: tempTecnico.tipo_comissao,
+          comissao_fixa: tempTecnico.comissao_fixa
         })
         .eq('id', tecnicoId);
 
@@ -159,34 +188,70 @@ export default function ComissoesPage() {
     setTempTecnico({});
   };
 
-  const iniciarEdicaoConfig = () => {
-    setEditandoConfig(true);
-    setTempConfig({
-      comissao_padrao: configuracao?.comissao_padrao,
-      comissao_apenas_servico: configuracao?.comissao_apenas_servico,
-      comissao_retorno_ativo: configuracao?.comissao_retorno_ativo,
-      observacoes: configuracao?.observacoes
-    });
-  };
+  const iniciarEdicaoConfig = useCallback(() => {
+    console.log('🔵 Iniciando edição de configuração...');
+    console.log('🔵 Configuração atual:', configuracao);
+    
+    const tipoComissao = configuracao?.tipo_comissao || 'porcentagem';
+    const configInicial = {
+      comissao_padrao: configuracao?.comissao_padrao || 10.00,
+      comissao_apenas_servico: configuracao?.comissao_apenas_servico ?? true,
+      comissao_retorno_ativo: configuracao?.comissao_retorno_ativo ?? false,
+      observacoes: configuracao?.observacoes || '',
+      tipo_comissao: tipoComissao,
+      comissao_fixa_padrao: configuracao?.comissao_fixa_padrao ?? 0.00
+    };
+    
+    console.log('🔵 TempConfig inicial:', configInicial);
+    
+    // Usar função de atualização para garantir que o estado seja atualizado
+    setTempConfig(() => configInicial);
+    setEditandoConfig(() => true);
+    
+    console.log('🔵 editandoConfig setado para: true');
+    console.log('🔵 tempConfig setado para:', configInicial);
+  }, [configuracao]);
 
   const salvarConfiguracao = async () => {
     if (!configuracao?.id) return;
     
+    // Validar campos obrigatórios
+    if (!tempConfig.tipo_comissao) {
+      addToast('error', 'Selecione o tipo de comissão');
+      return;
+    }
+    
+    if (tempConfig.tipo_comissao === 'fixo' && (!tempConfig.comissao_fixa_padrao || tempConfig.comissao_fixa_padrao <= 0)) {
+      addToast('error', 'Informe o valor fixo da comissão');
+      return;
+    }
+    
+    if (tempConfig.tipo_comissao === 'porcentagem' && (!tempConfig.comissao_padrao || tempConfig.comissao_padrao <= 0)) {
+      addToast('error', 'Informe o percentual da comissão');
+      return;
+    }
+    
     setSalvando(true);
     try {
+      console.log('💾 Salvando configuração:', tempConfig);
       const { error } = await supabase
         .from('configuracoes_comissao')
         .update(tempConfig)
         .eq('id', configuracao.id);
 
       if (error) {
-        addToast('error', 'Erro ao salvar configurações');
+        console.error('❌ Erro ao salvar:', error);
+        addToast('error', 'Erro ao salvar configurações: ' + error.message);
       } else {
         addToast('success', 'Configurações atualizadas com sucesso!');
         setEditandoConfig(false);
-        fetchData();
+        // Aguardar um pouco antes de recarregar para garantir que o update foi processado
+        setTimeout(() => {
+          fetchData();
+        }, 500);
       }
     } catch (error) {
+      console.error('❌ Erro ao salvar dados:', error);
       addToast('error', 'Erro ao salvar dados');
     } finally {
       setSalvando(false);
@@ -199,9 +264,14 @@ export default function ComissoesPage() {
   };
 
   const aplicarComissaoPadrao = async (tecnicoId: string) => {
+    const tipoComissao = configuracao?.tipo_comissao || 'porcentagem';
+    const mensagem = tipoComissao === 'fixo' 
+      ? `Deseja aplicar a comissão fixa padrão de R$ ${configuracao?.comissao_fixa_padrao?.toFixed(2)} por aparelho para este técnico?`
+      : `Deseja aplicar a comissão padrão de ${configuracao?.comissao_padrao}% para este técnico?`;
+    
     const confirmed = await confirm({
       title: 'Aplicar Comissão Padrão',
-      message: `Deseja aplicar a comissão padrão de ${configuracao?.comissao_padrao}% para este técnico?`,
+      message: mensagem,
       confirmText: 'Aplicar',
       cancelText: 'Cancelar'
     });
@@ -209,12 +279,20 @@ export default function ComissoesPage() {
     if (confirmed && configuracao) {
       setSalvando(true);
       try {
+        const updateData: any = {
+          comissao_ativa: true,
+          tipo_comissao: tipoComissao
+        };
+        
+        if (tipoComissao === 'fixo') {
+          updateData.comissao_fixa = configuracao.comissao_fixa_padrao;
+        } else {
+          updateData.comissao_percentual = configuracao.comissao_padrao;
+        }
+        
         const { error } = await supabase
           .from('usuarios')
-          .update({
-            comissao_percentual: configuracao.comissao_padrao,
-            comissao_ativa: true
-          })
+          .update(updateData)
           .eq('id', tecnicoId);
 
         if (error) {
@@ -271,22 +349,87 @@ export default function ComissoesPage() {
         </div>
 
         {editandoConfig ? (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Comissão Padrão (%)
+          <div className="space-y-4" key={`edit-mode-${Date.now()}`}>
+            {/* Tipo de Comissão - SEMPRE VISÍVEL EM MODO EDIÇÃO */}
+            <div className="bg-blue-50 p-4 rounded-lg border-2 border-blue-400 shadow-md">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-blue-600 font-bold text-lg">⚙️</span>
+                <label className="block text-sm font-bold text-gray-900">
+                  Tipo de Comissão *
                 </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  value={tempConfig.comissao_padrao || ''}
-                  onChange={(e) => setTempConfig(prev => ({ ...prev, comissao_padrao: parseFloat(e.target.value) }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
               </div>
+              <select
+                value={tempConfig.tipo_comissao || 'porcentagem'}
+                key={`tipo-comissao-select-${tempConfig.tipo_comissao || 'porcentagem'}`}
+                onChange={(e) => {
+                  const novoTipo = e.target.value as 'porcentagem' | 'fixo';
+                  console.log('🔄 Mudando tipo de comissão para:', novoTipo);
+                  setTempConfig(prev => ({ 
+                    ...prev, 
+                    tipo_comissao: novoTipo,
+                    // Limpar valores quando mudar de tipo
+                    comissao_fixa_padrao: novoTipo === 'fixo' ? (prev.comissao_fixa_padrao || 0) : undefined,
+                    comissao_padrao: novoTipo === 'porcentagem' ? (prev.comissao_padrao || 10) : undefined
+                  }));
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              >
+                <option value="porcentagem">Porcentagem (%)</option>
+                <option value="fixo">Valor Fixo por Aparelho (R$)</option>
+              </select>
+              <p className="text-xs text-gray-600 mt-2 font-medium">
+                💡 Escolha como a comissão será calculada: por porcentagem sobre o valor ou valor fixo por aparelho
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Tipo atual: <strong>{tempConfig.tipo_comissao || 'porcentagem'}</strong>
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {tempConfig.tipo_comissao === 'fixo' ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Valor Fixo Padrão (R$) *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={tempConfig.comissao_fixa_padrao ?? ''}
+                    onChange={(e) => {
+                      const valor = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                      setTempConfig(prev => ({ ...prev, comissao_fixa_padrao: isNaN(valor) ? 0 : valor }));
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="0.00"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Valor fixo que será pago por cada aparelho entregue pelo técnico
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Comissão Padrão (%) *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={tempConfig.comissao_padrao ?? ''}
+                    onChange={(e) => {
+                      const valor = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                      setTempConfig(prev => ({ ...prev, comissao_padrao: isNaN(valor) ? 0 : valor }));
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="10.00"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Percentual de comissão sobre o valor do serviço (ou serviço + peças)
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="space-y-3">
@@ -339,8 +482,17 @@ export default function ComissoesPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-blue-50 p-4 rounded-lg">
-                <p className="text-sm text-blue-600 font-medium">Comissão Padrão</p>
-                <p className="text-2xl font-bold text-blue-900">{configuracao?.comissao_padrao}%</p>
+                <p className="text-sm text-blue-600 font-medium">
+                  {configuracao?.tipo_comissao === 'fixo' ? 'Comissão Fixa Padrão' : 'Comissão Padrão'}
+                </p>
+                <p className="text-2xl font-bold text-blue-900">
+                  {configuracao?.tipo_comissao === 'fixo' 
+                    ? `R$ ${configuracao?.comissao_fixa_padrao?.toFixed(2) || '0.00'}` 
+                    : `${configuracao?.comissao_padrao}%`}
+                </p>
+                <p className="text-xs text-blue-600 mt-1">
+                  {configuracao?.tipo_comissao === 'fixo' ? 'Por aparelho' : 'Percentual'}
+                </p>
               </div>
               <div className="bg-green-50 p-4 rounded-lg">
                 <p className="text-sm text-green-600 font-medium">Base de Cálculo</p>
@@ -377,19 +529,19 @@ export default function ComissoesPage() {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[200px]">
                   Técnico
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Comissão (%)
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-[180px]">
+                  Tipo / Valor
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-[100px]">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Observações
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-[120px]">
                   Ações
                 </th>
               </tr>
@@ -397,57 +549,91 @@ export default function ComissoesPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {tecnicos.map((tecnico) => (
                 <tr key={tecnico.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-4 py-4 align-top">
                     <div>
                       <div className="text-sm font-medium text-gray-900">{tecnico.nome}</div>
                       <div className="text-sm text-gray-500">{tecnico.email}</div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
-                    {editandoTecnico === tecnico.id ? (
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.01"
-                        value={tempTecnico.comissao_percentual || ''}
-                        onChange={(e) => setTempTecnico(prev => ({ ...prev, comissao_percentual: parseFloat(e.target.value) }))}
-                        className="w-20 px-2 py-1 text-sm border border-gray-300 rounded text-center"
-                      />
-                    ) : (
-                      <span className={`text-sm font-semibold ${tecnico.comissao_ativa ? 'text-green-600' : 'text-gray-400'}`}>
-                        {tecnico.comissao_percentual}%
-                      </span>
-                    )}
+                  <td className="px-4 py-4 align-top">
+                    <div className="max-w-[180px] mx-auto">
+                      {editandoTecnico === tecnico.id ? (
+                        <div className="flex flex-col gap-2">
+                          <select
+                            value={tempTecnico.tipo_comissao || 'porcentagem'}
+                            onChange={(e) => setTempTecnico(prev => ({ ...prev, tipo_comissao: e.target.value as 'porcentagem' | 'fixo' }))}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                          >
+                            <option value="porcentagem">Porcentagem</option>
+                            <option value="fixo">Valor Fixo</option>
+                          </select>
+                          {tempTecnico.tipo_comissao === 'fixo' ? (
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={tempTecnico.comissao_fixa || ''}
+                              onChange={(e) => setTempTecnico(prev => ({ ...prev, comissao_fixa: parseFloat(e.target.value) }))}
+                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                              placeholder="0.00"
+                            />
+                          ) : (
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              value={tempTecnico.comissao_percentual || ''}
+                              onChange={(e) => setTempTecnico(prev => ({ ...prev, comissao_percentual: parseFloat(e.target.value) }))}
+                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                              placeholder="10.00"
+                            />
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-center">
+                          <div className={`font-semibold ${tecnico.comissao_ativa ? 'text-green-600' : 'text-gray-400'}`}>
+                            {tecnico.tipo_comissao === 'fixo' 
+                              ? `R$ ${tecnico.comissao_fixa?.toFixed(2) || '0.00'}` 
+                              : `${tecnico.comissao_percentual || 0}%`}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {tecnico.tipo_comissao === 'fixo' ? 'Fixo' : 'Porcentagem'}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
-                    {editandoTecnico === tecnico.id ? (
-                      <label className="flex items-center justify-center gap-1">
-                        <input
-                          type="checkbox"
-                          checked={tempTecnico.comissao_ativa || false}
-                          onChange={(e) => setTempTecnico(prev => ({ ...prev, comissao_ativa: e.target.checked }))}
-                          className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-                        />
-                        <span className="text-xs text-gray-600">Ativo</span>
-                      </label>
-                    ) : (
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        tecnico.comissao_ativa 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {tecnico.comissao_ativa ? 'Ativo' : 'Inativo'}
-                      </span>
-                    )}
+                  <td className="px-4 py-4 align-top">
+                    <div className="flex items-center justify-center">
+                      {editandoTecnico === tecnico.id ? (
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={tempTecnico.comissao_ativa || false}
+                            onChange={(e) => setTempTecnico(prev => ({ ...prev, comissao_ativa: e.target.checked }))}
+                            className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                          />
+                          <span className="text-sm text-gray-700 whitespace-nowrap">Ativo</span>
+                        </label>
+                      ) : (
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${
+                          tecnico.comissao_ativa 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {tecnico.comissao_ativa ? 'Ativo' : 'Inativo'}
+                        </span>
+                      )}
+                    </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-4 align-top">
                     {editandoTecnico === tecnico.id ? (
                       <input
                         type="text"
                         value={tempTecnico.comissao_observacoes || ''}
                         onChange={(e) => setTempTecnico(prev => ({ ...prev, comissao_observacoes: e.target.value }))}
-                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                         placeholder="Observações..."
                       />
                     ) : (
@@ -456,7 +642,7 @@ export default function ComissoesPage() {
                       </span>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
+                  <td className="px-4 py-4 text-right">
                     {editandoTecnico === tecnico.id ? (
                       <div className="flex items-center justify-end gap-1">
                         <Button onClick={() => salvarTecnico(tecnico.id)} size="sm" disabled={salvando}>

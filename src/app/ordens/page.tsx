@@ -30,6 +30,9 @@ interface OrdemTransformada {
   formaPagamento: string;
   observacao?: string | null;
   problema_relatado?: string | null;
+  responsavelId?: string | null;
+  responsavelNome?: string;
+  responsavelAvatar?: string | null;
   // Previsões
   valorPrevisto?: number;
   custoPrevisto?: number;
@@ -38,6 +41,7 @@ interface OrdemTransformada {
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { FiRefreshCw, FiPlus, FiSearch, FiFilter, FiUser, FiSmartphone, FiDollarSign, FiClock, FiAlertCircle, FiFileText, FiCheckCircle } from 'react-icons/fi';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
@@ -53,6 +57,36 @@ import { Select } from '@/components/Select';
 import LaudoProntoAlert from '@/components/LaudoProntoAlert';
 import { useSupabaseRetry } from '@/hooks/useRetry';
 import { OSFullPageSkeleton } from '@/components/OSTableSkeleton';
+
+const getInitials = (nome: string) => {
+  if (!nome) return 'US';
+  const parts = nome.trim().split(/\s+/);
+  const initials = parts.slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join('');
+  return initials || 'US';
+};
+
+const renderUserAvatar = (nome: string, fotoUrl?: string | null, size = 40) => {
+  const initials = getInitials(nome);
+  if (fotoUrl) {
+    return (
+      <Image
+        src={fotoUrl}
+        alt={nome}
+        width={size}
+        height={size}
+        className="rounded-full object-cover border border-white shadow-sm"
+      />
+    );
+  }
+  return (
+    <div
+      className="flex items-center justify-center rounded-full bg-rose-100 text-rose-600 font-semibold border border-white shadow-sm"
+      style={{ width: size, height: size }}
+    >
+      {initials}
+    </div>
+  );
+};
 
 export default function ListaOrdensPage() {
   const router = useRouter();
@@ -249,10 +283,16 @@ export default function ListaOrdensPage() {
   };
 
   const fetchOrdens = async (forceRefresh = false) => {
+    console.log('🚀 fetchOrdens chamado com:', { empresaId, forceRefresh });
+    
     if (!empresaId || !empresaId.trim()) {
+      console.warn('⚠️ empresaId não disponível:', empresaId);
       setLoading(false);
+      setLoadingOrdens(false);
       return;
     }
+    
+    console.log('✅ empresaId válido:', empresaId);
 
     // ✅ REFRESH AUTOMÁTICO: Refrescar sessão se houver problemas de conexão
     try {
@@ -283,67 +323,218 @@ export default function ListaOrdensPage() {
     
     try {
       await executeWithRetry(async () => {
-      // ✅ SUPER OTIMIZADA: Query com timeout e limite reduzido
-      const { data, error } = await Promise.race([
-        supabase
-          .from('ordens_servico')
-          .select(`
-            id,
-            numero_os,
-            cliente_id,
-            categoria,
-            marca,
-            modelo,
-            status,
-            status_tecnico,
-            created_at,
-            tecnico_id,
-            data_entrega,
-            prazo_entrega,
-            valor_faturado,
-            valor_peca,
-            valor_servico,
-            qtd_peca,
-            qtd_servico,
-            desconto,
-            servico,
-            tipo,
-            observacao,
-            problema_relatado,
-            clientes!left(nome, telefone, email),
-            tecnico:usuarios!left(nome)
-          `)
-          .eq("empresa_id", empresaId)
-          .order('created_at', { ascending: false })
-          .limit(1000), // ✅ CORRIGIDO: Aumentar limite para mostrar todas as OSs
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Query timeout - dados demorando muito para carregar')), 30000) // 30 segundos - mais tolerante
-        )
-      ]) as any;
+      // ✅ QUERY SIMPLIFICADA: Primeiro buscar apenas dados básicos sem relacionamentos
+      // Se funcionar, adicionamos os relacionamentos depois
+      console.log('🔄 Iniciando busca de ordens para empresa:', empresaId);
+      
+      let query = supabase
+        .from('ordens_servico')
+        .select(`
+          id,
+          numero_os,
+          cliente_id,
+          categoria,
+          marca,
+          modelo,
+          status,
+          status_tecnico,
+          created_at,
+          tecnico_id,
+          data_entrega,
+          prazo_entrega,
+          valor_faturado,
+          valor_peca,
+          valor_servico,
+          qtd_peca,
+          qtd_servico,
+          desconto,
+          servico,
+          tipo,
+          observacao,
+          problema_relatado,
+          atendente,
+          atendente_id
+        `)
+        .eq("empresa_id", empresaId)
+        .order('created_at', { ascending: false })
+        .limit(1000);
+      
+      console.log('📝 Query criada, executando...');
 
+      // Executar query e tratar erros
+      let queryResult: any;
+      try {
+        queryResult = await Promise.race([
+          query,
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Query timeout - dados demorando muito para carregar')), 30000)
+          )
+        ]);
+      } catch (timeoutError) {
+        // Timeout - tratar como erro real
+        throw timeoutError;
+      }
+      
+      let { data, error } = queryResult || { data: null, error: null };
+      
+      // Log detalhado para debug
       if (error) {
-        console.error('Erro ao carregar OS:', error);
-        addToast('error', 'Erro ao carregar ordens de serviço. Tente novamente.');
-        setLoadingOrdens(false);
-        return;
-      } else if (data) {
+        console.error('❌ Erro na query de ordens:', error);
+        console.error('❌ Detalhes do erro:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
+        console.error('❌ Query completa que falhou:', {
+          empresaId: empresaId,
+          table: 'ordens_servico',
+          filters: { empresa_id: empresaId }
+        });
+      } else {
+        console.log('✅ Query executada com sucesso!');
+      }
+      
+      // Tratar erros: NUNCA ignorar erros reais
+      if (error) {
+        // Verificar se o erro tem informações úteis
+        const errorStr = JSON.stringify(error);
+        const hasUsefulInfo = (
+          error.message || 
+          error.code || 
+          error.details ||
+          error.hint ||
+          (errorStr && errorStr !== '{}' && errorStr !== 'null' && errorStr.length > 2)
+        );
+        
+        // Se for um erro real com informações úteis, sempre tratar como erro
+        if (hasUsefulInfo && (error.code || error.message)) {
+          console.error('❌ ERRO REAL na query:', error);
+          // Se não houver dados, parar aqui
+          if (!data || (Array.isArray(data) && data.length === 0)) {
+            addToast('error', `Erro ao carregar ordens: ${error.message || 'Erro desconhecido'}`);
+            setLoadingOrdens(false);
+            setError(error);
+            return;
+          }
+          // Se houver dados mas também erro, logar mas continuar
+          console.warn('⚠️ Erro na query mas temos dados, continuando...');
+        }
+        
+        // Se for erro vazio ou sem informações, ignorar apenas se tiver dados
+        if (!hasUsefulInfo && data && Array.isArray(data) && data.length > 0) {
+          console.log('⚠️ Erro vazio ignorado porque temos dados');
+          error = null;
+        }
+      }
+      
+      // Garantir que data seja um array válido
+      if (!Array.isArray(data)) {
+        data = data ? [data] : [];
+      }
+      
+      console.log('📊 Dados recebidos da query:', {
+        quantidade: data?.length || 0,
+        temDados: !!data && Array.isArray(data) && data.length > 0,
+        tipoData: Array.isArray(data) ? 'array' : typeof data,
+        primeiroItem: data && Array.isArray(data) && data.length > 0 ? {
+          id: data[0].id,
+          numero_os: data[0].numero_os,
+          atendente: data[0].atendente,
+          atendente_id: data[0].atendente_id,
+          cliente_id: data[0].cliente_id,
+          empresa_id: data[0].empresa_id
+        } : null,
+        empresaId: empresaId,
+        temErro: !!error,
+        erroDetalhes: error ? {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        } : null
+      });
+      
+      // Se não houver dados E não houver erro, pode ser que não existam ordens
+      if ((!data || (Array.isArray(data) && data.length === 0)) && !error) {
+        console.log('ℹ️ Nenhuma ordem encontrada para esta empresa (sem erro)');
+      }
+      
+      // Processar dados mesmo se estiver vazio (para limpar estado anterior)
+      if (data && data.length > 0) {
+        console.log('✅ Dados recebidos, processando...', data.length, 'ordens');
 
         data.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        
+        // Buscar dados dos clientes separadamente
+        const clienteIds = [...new Set(data.filter((item: any) => item.cliente_id).map((item: any) => item.cliente_id))];
+        let clientesDict: Record<string, { nome: string; telefone: string; email: string }> = {};
+        
+        if (clienteIds.length > 0) {
+          console.log('🔍 Buscando dados de', clienteIds.length, 'clientes...');
+          const { data: clientesData, error: clientesError } = await supabase
+            .from('clientes')
+            .select('id, nome, telefone, email')
+            .in('id', clienteIds);
+          
+          if (clientesError) {
+            console.warn('⚠️ Erro ao buscar clientes:', clientesError);
+          } else if (clientesData) {
+            clientesDict = clientesData.reduce((acc: Record<string, { nome: string; telefone: string; email: string }>, cliente: any) => {
+              acc[cliente.id] = { 
+                nome: cliente.nome || '', 
+                telefone: cliente.telefone || '', 
+                email: cliente.email || '' 
+              };
+              return acc;
+            }, {} as Record<string, { nome: string; telefone: string; email: string }>);
+            console.log('✅ Dados de clientes carregados:', Object.keys(clientesDict).length);
+          }
+        }
+        
         // Buscar nomes dos técnicos se necessário
         const tecnicoIds = [...new Set(data.filter((item: any) => item.tecnico_id).map((item: any) => item.tecnico_id))];
         let tecnicosDict: Record<string, string> = {};
         
         if (tecnicoIds.length > 0) {
-          const { data: tecnicosData } = await supabase
+          console.log('🔍 Buscando dados de', tecnicoIds.length, 'técnicos...');
+          const { data: tecnicosData, error: tecnicosError } = await supabase
             .from('usuarios')
             .select('id, nome')
             .in('id', tecnicoIds);
           
-          if (tecnicosData) {
+          if (tecnicosError) {
+            console.warn('⚠️ Erro ao buscar técnicos:', tecnicosError);
+          } else if (tecnicosData) {
             tecnicosDict = tecnicosData.reduce((acc: Record<string, string>, tecnico: any) => {
               acc[tecnico.id] = tecnico.nome;
               return acc;
             }, {} as Record<string, string>);
+            console.log('✅ Dados de técnicos carregados:', Object.keys(tecnicosDict).length);
+          }
+        }
+        
+        // Buscar IDs dos responsáveis (atendentes) se atendente_id existir
+        const responsavelIds = [...new Set(data
+          .filter((item: any) => item.atendente_id && item.atendente_id !== null && item.atendente_id !== undefined)
+          .map((item: any) => item.atendente_id))];
+        let responsaveisDict: Record<string, { nome: string; foto_url: string | null }> = {};
+        
+        if (responsavelIds.length > 0) {
+          console.log('🔍 Buscando dados de', responsavelIds.length, 'atendentes...');
+          const { data: responsaveisData, error: responsaveisError } = await supabase
+            .from('usuarios')
+            .select('id, nome, foto_url')
+            .in('id', responsavelIds);
+
+          if (responsaveisError) {
+            console.warn('⚠️ Erro ao buscar atendentes:', responsaveisError);
+          } else if (responsaveisData) {
+            responsaveisDict = responsaveisData.reduce((acc: Record<string, { nome: string; foto_url: string | null }>, usuario: any) => {
+              acc[usuario.id] = { nome: usuario.nome, foto_url: usuario.foto_url || null };
+              return acc;
+            }, {} as Record<string, { nome: string; foto_url: string | null }>);
+            console.log('✅ Dados de atendentes carregados:', Object.keys(responsaveisDict).length);
           }
         }
 
@@ -448,6 +639,12 @@ export default function ListaOrdensPage() {
           
           const valorFaturado = item.valor_faturado || 0;
           const vendaOS = vendasDict[item.id];
+          // Buscar atendente_id separadamente se necessário
+          const atendenteId = item.atendente_id || null;
+          const responsavelInfo = atendenteId ? responsaveisDict[atendenteId] : null;
+          const responsavelNome = responsavelInfo?.nome || item.atendente || '';
+          const responsavelAvatar = responsavelInfo?.foto_url || null;
+          const responsavelId = atendenteId;
           
           // Previsão de valores (para qualquer OS, especialmente as não finalizadas)
           const subtotal = ((item.valor_peca || 0) * (item.qtd_peca || 1)) + ((item.valor_servico || 0) * (item.qtd_servico || 1));
@@ -455,12 +652,14 @@ export default function ListaOrdensPage() {
           const custoPrevisto = Number(custosPorOS[item.id] || 0);
           const lucroPrevisto = valorPrevisto - custoPrevisto;
 
+          const clienteInfo = item.cliente_id ? clientesDict[item.cliente_id] : null;
+          
           return {
           id: item.id,
             numero: item.numero_os,
-            cliente: item.clientes?.nome || 'Sem nome',
-            clienteTelefone: item.clientes?.telefone ? formatPhoneNumber(item.clientes.telefone) : '',
-            clienteEmail: item.clientes?.email || '',
+            cliente: clienteInfo?.nome || 'Sem nome',
+            clienteTelefone: clienteInfo?.telefone ? formatPhoneNumber(clienteInfo.telefone) : '',
+            clienteEmail: clienteInfo?.email || '',
             aparelho: item.modelo || item.marca || item.categoria || '',
             aparelhoCategoria: item.categoria || '',
             aparelhoMarca: item.marca || '',
@@ -487,6 +686,9 @@ export default function ListaOrdensPage() {
             valorPrevisto,
             custoPrevisto,
             lucroPrevisto,
+            responsavelId,
+            responsavelNome,
+            responsavelAvatar,
           };
         });
 
@@ -524,6 +726,12 @@ export default function ListaOrdensPage() {
 
         setTotalOS(totalOS);
         setPercentualRetornos(percentualRetornos);
+      } else {
+        // Se não houver dados, limpar ordens e métricas
+        console.log('⚠️ Nenhuma ordem encontrada');
+        setOrdens([]);
+        setTotalOS(0);
+        setPercentualRetornos(0);
       }
       
       // Atualizar cache
@@ -696,7 +904,8 @@ export default function ListaOrdensPage() {
         os.numero.toString().includes(searchTerm) ||
         os.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
         os.aparelho.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        os.servico.toLowerCase().includes(searchTerm.toLowerCase());
+        os.servico.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (os.responsavelNome && os.responsavelNome.toLowerCase().includes(searchTerm.toLowerCase()));
 
       const matchesStatus = statusFilter === '' || os.statusOS.toLowerCase() === statusFilter.toLowerCase();
       const matchesAparelho = aparelhoFilter === '' || os.aparelho.toLowerCase().includes(aparelhoFilter.toLowerCase());
@@ -1302,15 +1511,29 @@ export default function ListaOrdensPage() {
                     onClick={() => router.push(`/ordens/${os.id}`)}
                   >
                     <td className="px-1 py-2 relative">
-                      <div className="flex items-center gap-1">
-                        <span className="font-bold text-gray-900 text-xs group-hover:text-blue-600 transition-colors">#{os.numero}</span>
-                        {os.tipo === 'Retorno' && (
-                          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0"></div>
-                        )}
+                      <div className="flex items-start gap-2">
+                        <div className="flex-shrink-0">
+                          {renderUserAvatar(os.responsavelNome || os.atendente || 'Usuário', os.responsavelAvatar, 38)}
+                        </div>
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          <div className="flex items-center gap-1">
+                            <span className="font-bold text-gray-900 text-xs group-hover:text-blue-600 transition-colors">
+                              #{os.numero}
+                            </span>
+                            {os.tipo === 'Retorno' && (
+                              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0"></div>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-gray-500 font-medium truncate">
+                            Criada por {os.responsavelNome || os.atendente || 'Usuário'}
+                          </div>
+                          <div className="text-xs text-gray-600 font-medium truncate min-w-0 group-hover:text-gray-900 transition-colors">
+                            {os.cliente || 'N/A'}
+                          </div>
+                          <div className="text-xs text-gray-500 truncate">{os.clienteTelefone || 'N/A'}</div>
+                          <div className="text-xs text-gray-400 truncate">{formatDate(os.entrada) || 'N/A'}</div>
+                        </div>
                       </div>
-                      <div className="text-xs text-gray-600 font-medium truncate min-w-0 group-hover:text-gray-900 transition-colors">{os.cliente || 'N/A'}</div>
-                      <div className="text-xs text-gray-500 truncate">{os.clienteTelefone || 'N/A'}</div>
-                      <div className="text-xs text-gray-400 truncate">{formatDate(os.entrada) || 'N/A'}</div>
                       {/* Indicador de recusa - ponto vermelho no canto superior direito da célula */}
                       {os.observacao?.includes('🚫 CLIENTE RECUSOU ORÇAMENTO') && (
                         <div className="absolute top-1 right-1 w-2 h-2 bg-red-600 rounded-full shadow-sm border border-white" title="Cliente recusou orçamento"></div>
@@ -1435,7 +1658,9 @@ export default function ListaOrdensPage() {
 
           {/* Cards Mobile - Layout responsivo para mobile */}
           <div className="md:hidden space-y-4">
-            {paginated.map((os) => (
+            {paginated.map((os) => {
+              const responsavelNome = os.responsavelNome || os.atendente || 'Usuário';
+              return (
               <div 
                 key={os.id} 
                 className={`relative bg-white rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer ${
@@ -1449,11 +1674,17 @@ export default function ListaOrdensPage() {
                 )}
                 {/* Header do card */}
                 <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-gray-900">#{os.numero}</span>
-                    {os.tipo === 'Retorno' && (
-                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                    )}
+                  <div className="flex items-center gap-3">
+                    {renderUserAvatar(responsavelNome, os.responsavelAvatar, 42)}
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-gray-900">#{os.numero}</span>
+                        {os.tipo === 'Retorno' && (
+                          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-gray-500">Criada por {responsavelNome}</div>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {os.tipo === 'Retorno' && (
@@ -1514,7 +1745,8 @@ export default function ListaOrdensPage() {
                   </div>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
 
           {/* Estado vazio */}

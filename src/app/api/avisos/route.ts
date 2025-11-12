@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabaseClient';
 
+const debugLog = (...args: unknown[]) => {
+  if (process.env.NODE_ENV !== 'production') {
+    // eslint-disable-next-line no-console
+    debugLog(...args);
+  }
+};
+
 // GET - Listar avisos ativos
 export async function GET(request: NextRequest) {
   try {
@@ -21,8 +28,8 @@ export async function GET(request: NextRequest) {
 
     const supabase = createAdminClient();
     
-    console.log('[API] Query - empresaId recebido:', empresaId, 'tipo:', typeof empresaId)
-    console.log('[API] Query - todos:', todos, 'todos === "true":', todos === 'true')
+    debugLog('[API] Query - empresaId recebido:', empresaId, 'tipo:', typeof empresaId)
+    debugLog('[API] Query - todos:', todos, 'todos === "true":', todos === 'true')
     
     // Buscar avisos - construir query baseado no parâmetro 'todos'
     let queryBuilder = supabase
@@ -33,9 +40,9 @@ export async function GET(request: NextRequest) {
     // Se não for "todos", filtrar apenas os ativos (para o banner)
     if (todos !== 'true') {
       queryBuilder = queryBuilder.eq('ativo', true);
-      console.log('[API] Filtrando apenas avisos ativos (banner)')
+      debugLog('[API] Filtrando apenas avisos ativos (banner)')
     } else {
-      console.log('[API] Retornando TODOS os avisos (admin page) - SEM filtrar por ativo')
+      debugLog('[API] Retornando TODOS os avisos (admin page) - SEM filtrar por ativo')
     }
     
     // Aplicar ordenação
@@ -46,8 +53,8 @@ export async function GET(request: NextRequest) {
     // Buscar avisos
     const { data: avisos, error } = await queryBuilder;
 
-    console.log('[API] GET /avisos - empresaId:', empresaId, 'todos:', todos)
-    console.log('[API] GET /avisos - Resultado ANTES do filtro de datas:', {
+    debugLog('[API] GET /avisos - empresaId:', empresaId, 'todos:', todos)
+    debugLog('[API] GET /avisos - Resultado ANTES do filtro de datas:', {
       quantidade: avisos?.length || 0,
       avisos: avisos?.map((a: any) => ({ 
         id: a.id, 
@@ -84,7 +91,7 @@ export async function GET(request: NextRequest) {
     // Filtrar por datas apenas se não for "todos" (para o banner, não para a página de admin)
     let avisosFiltrados = avisos || [];
     if (todos !== 'true') {
-      console.log('[API] Filtrando por datas e usuário (banner)')
+      debugLog('[API] Filtrando por datas e usuário (banner)')
       const agora = new Date();
       avisosFiltrados = (avisos || []).filter((aviso: any) => {
         // Filtrar por data
@@ -113,7 +120,7 @@ export async function GET(request: NextRequest) {
         if (aviso.exibir_para_todos === false) {
           if (!usuarioId) {
             // Se não há usuarioId, não mostrar avisos específicos
-            console.log('[API] Aviso específico para usuários mas não há usuarioId - não mostrar')
+            debugLog('[API] Aviso específico para usuários mas não há usuarioId - não mostrar')
             return false;
           }
           
@@ -151,7 +158,7 @@ export async function GET(request: NextRequest) {
           
           const usuarioEstaNaLista = usuariosIdsNormalizados.includes(usuarioIdNormalizado);
           
-          console.log('[API] Verificando se usuário está na lista:', {
+          debugLog('[API] Verificando se usuário está na lista:', {
             aviso_id: aviso.id,
             aviso_titulo: aviso.titulo,
             usuarioId_original: usuarioId,
@@ -172,10 +179,10 @@ export async function GET(request: NextRequest) {
         return true;
       });
     } else {
-      console.log('[API] NÃO filtrando por datas (admin page) - retornando TODOS')
+      debugLog('[API] NÃO filtrando por datas (admin page) - retornando TODOS')
     }
 
-    console.log('[API] GET /avisos - Resultado FINAL:', {
+    debugLog('[API] GET /avisos - Resultado FINAL:', {
       quantidade: avisosFiltrados?.length || 0,
       usuarioId: usuarioId || 'não fornecido',
       avisos: avisosFiltrados?.map((a: any) => ({ 
@@ -220,7 +227,7 @@ export async function POST(request: NextRequest) {
     
     const { titulo, mensagem, empresa_id } = body;
 
-    console.log('[API] POST /avisos - Body recebido:', {
+    debugLog('[API] POST /avisos - Body recebido:', {
       titulo,
       empresa_id,
       empresa_id_tipo: typeof empresa_id,
@@ -247,7 +254,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'empresa_id inválido' }, { status: 400 });
     }
     
-    console.log('[API] POST /avisos - empresaIdFinal que será usado:', empresaIdFinal)
+    debugLog('[API] POST /avisos - empresaIdFinal que será usado:', empresaIdFinal)
 
     const supabase = createAdminClient();
 
@@ -266,7 +273,7 @@ export async function POST(request: NextRequest) {
       usuarios_ids: Array.isArray(body.usuarios_ids) ? body.usuarios_ids : [],
     }
     
-    console.log('[API] POST /avisos - Dados que serão inseridos:', {
+    debugLog('[API] POST /avisos - Dados que serão inseridos:', {
       ...dadosParaInserir,
       empresa_id: dadosParaInserir.empresa_id
     })
@@ -277,7 +284,7 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
     
-    console.log('[API] POST /avisos - Resultado da inserção:', {
+    debugLog('[API] POST /avisos - Resultado da inserção:', {
       sucesso: !error,
       aviso_id: aviso?.id,
       aviso_empresa_id: aviso?.empresa_id,
