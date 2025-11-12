@@ -493,25 +493,37 @@ export default function ListaOrdensPage() {
         }
         
         // Buscar nomes dos técnicos se necessário
-        const tecnicoIds = [...new Set(data.filter((item: any) => item.tecnico_id).map((item: any) => item.tecnico_id))];
+        const tecnicoIds = [...new Set(
+          data
+            .filter((item: any) => item.tecnico_id && item.tecnico_id !== null && item.tecnico_id !== undefined)
+            .map((item: any) => item.tecnico_id)
+        )];
         let tecnicosDict: Record<string, string> = {};
         
+        console.log('📊 Total de ordens:', data.length);
+        console.log('📊 Ordens com tecnico_id:', data.filter((item: any) => item.tecnico_id).length);
+        console.log('📊 IDs únicos de técnicos encontrados:', tecnicoIds.length, tecnicoIds);
+        
         if (tecnicoIds.length > 0) {
-          console.log('🔍 Buscando dados de', tecnicoIds.length, 'técnicos...');
+          console.log('🔍 Buscando dados de', tecnicoIds.length, 'técnicos...', tecnicoIds);
           const { data: tecnicosData, error: tecnicosError } = await supabase
             .from('usuarios')
             .select('id, nome')
             .in('id', tecnicoIds);
           
           if (tecnicosError) {
-            console.warn('⚠️ Erro ao buscar técnicos:', tecnicosError);
-          } else if (tecnicosData) {
+            console.error('❌ Erro ao buscar técnicos:', tecnicosError);
+          } else if (tecnicosData && tecnicosData.length > 0) {
             tecnicosDict = tecnicosData.reduce((acc: Record<string, string>, tecnico: any) => {
               acc[tecnico.id] = tecnico.nome;
               return acc;
             }, {} as Record<string, string>);
-            console.log('✅ Dados de técnicos carregados:', Object.keys(tecnicosDict).length);
+            console.log('✅ Dados de técnicos carregados:', Object.keys(tecnicosDict).length, tecnicosDict);
+          } else {
+            console.warn('⚠️ Nenhum técnico encontrado para os IDs:', tecnicoIds);
           }
+        } else {
+          console.warn('⚠️ Nenhum tecnico_id válido encontrado nas ordens');
         }
         
         // Buscar IDs dos responsáveis (atendentes) se atendente_id existir
@@ -667,7 +679,7 @@ export default function ListaOrdensPage() {
             statusOS: item.status || '',
             statusTecnico: item.status_tecnico || '',
             entrada: item.created_at || '',
-            tecnico: item.tecnico?.nome || tecnicosDict[item.tecnico_id] || item.tecnico_id || '',
+            tecnico: tecnicosDict[item.tecnico_id] || item.tecnico_id || 'Sem técnico',
             atendente: item.atendente || '',
             entrega: entregaCalc,
             prazoEntrega: item.prazo_entrega || '',

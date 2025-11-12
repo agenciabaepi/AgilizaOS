@@ -596,21 +596,28 @@ export default function ImprimirOrdemPage() {
           
           // Buscar dados do técnico separadamente
           let tecnicoNome = data.tecnico || '';
+          console.log('🔍 Buscando técnico para tecnico_id:', data.tecnico_id);
           if (data.tecnico_id) {
             try {
-              const { data: tecnicoData } = await supabase
+              const { data: tecnicoData, error: tecnicoError } = await supabase
                 .from('usuarios')
                 .select('nome')
                 .eq('id', data.tecnico_id)
                 .single();
               
-              if (tecnicoData) {
+              if (tecnicoError) {
+                console.warn('⚠️ Erro ao buscar técnico:', tecnicoError);
+              } else if (tecnicoData) {
                 tecnicoNome = tecnicoData.nome;
                 console.log('✅ Técnico encontrado:', tecnicoNome);
+              } else {
+                console.warn('⚠️ Técnico não encontrado para ID:', data.tecnico_id);
               }
             } catch (error) {
               console.warn('⚠️ Erro ao buscar técnico:', error);
             }
+          } else {
+            console.warn('⚠️ tecnico_id não está presente na OS');
           }
           
           // Mapear campos para compatibilidade
