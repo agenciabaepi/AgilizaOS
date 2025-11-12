@@ -4,7 +4,7 @@ import { sendOSApprovedNotification, sendOSStatusNotification } from '@/lib/what
 
 export async function POST(request: NextRequest) {
   try {
-    const { osId: osIdRaw, newStatus, newStatusTecnico, ...updateData } = await request.json();
+    const { osId: osIdRaw, newStatus, newStatusTecnico, empresa_id, ...updateData } = await request.json();
 
     // Normalizar osId: aceitar UUID (id) ou numero_os (numérico)
     let osId = osIdRaw as string;
@@ -26,54 +26,111 @@ export async function POST(request: NextRequest) {
     if (!uuidRegex.test(String(osId))) {
       console.log('🔍 Buscando OS pelo numero_os:', osId, 'Tipo:', typeof osId);
       
-      // Tentar buscar como número primeiro
-      const numeroOS = typeof osId === 'string' ? parseInt(osId, 10) : osId;
-      console.log('🔍 numero_os convertido para número:', numeroOS, 'É NaN?', isNaN(numeroOS));
+      let osPorNumero: any = null;
+      let ultimoErro: any = null;
       
-      // Tentar buscar como número
-      let { data: osPorNumero, error: numeroError } = await supabase
+      // Como numero_os é VARCHAR(50), tentar como string primeiro (mais provável)
+      // IMPORTANTE: Filtrar por empresa_id se fornecido para evitar múltiplos resultados
+      console.log('🔍 Tentativa 1: Buscando como string:', String(osId), 'empresa_id:', empresa_id);
+      
+      let queryString = supabase
         .from('ordens_servico')
-        .select('id, numero_os')
-        .eq('numero_os', numeroOS)
-        .single();
+        .select('id, numero_os, empresa_id')
+        .eq('numero_os', String(osId));
       
-      // Se não encontrou como número, tentar como string
-      if (numeroError || !osPorNumero?.id) {
-        console.log('⚠️ Não encontrou como número, tentando como string...');
-        const { data: osPorString, error: stringError } = await supabase
-          .from('ordens_servico')
-          .select('id, numero_os')
-          .eq('numero_os', String(osId))
-          .single();
+      // Se empresa_id foi fornecido, filtrar por ele também
+      if (empresa_id) {
+        queryString = queryString.eq('empresa_id', empresa_id);
+      }
+      
+      const { data: osPorString, error: stringError } = await queryString.maybeSingle();
+      
+      if (!stringError && osPorString?.id) {
+        osPorNumero = osPorString;
+        console.log('✅ Encontrado como string:', osPorString);
+      } else {
+        ultimoErro = stringError;
+        console.log('⚠️ Não encontrado como string, erro:', stringError);
         
-        if (osPorString?.id) {
-          osPorNumero = osPorString;
-          numeroError = null;
-          console.log('✅ Encontrado como string:', osPorString);
-        } else {
-          console.error('❌ Erro ao buscar por número:', numeroError);
-          console.error('❌ Erro ao buscar por string:', stringError);
-          return NextResponse.json(
-            { 
-              error: 'OS não encontrada pelo numero_os', 
-              numeroOS: osId,
-              tipo: typeof osId,
-              supabaseError: numeroError || stringError,
-              debug: {
-                tentouNumero: numeroOS,
-                tentouString: String(osId),
-                erroNumero: numeroError,
-                erroString: stringError
+        // Tentar como número (caso o banco aceite conversão)
+        const numeroOS = typeof osId === 'string' ? parseInt(osId, 10) : Number(osId);
+        if (!isNaN(numeroOS)) {
+          console.log('🔍 Tentativa 2: Buscando como número:', numeroOS, 'empresa_id:', empresa_id);
+          
+          let queryNum = supabase
+            .from('ordens_servico')
+            .select('id, numero_os, empresa_id')
+            .eq('numero_os', numeroOS);
+          
+          // Se empresa_id foi fornecido, filtrar por ele também
+          if (empresa_id) {
+            queryNum = queryNum.eq('empresa_id', empresa_id);
+          }
+          
+          const { data: osPorNum, error: numError } = await queryNum.maybeSingle();
+          
+          if (!numError && osPorNum?.id) {
+            osPorNumero = osPorNum;
+            console.log('✅ Encontrado como número:', osPorNum);
+          } else {
+            ultimoErro = numError || stringError;
+            console.log('⚠️ Não encontrado como número, erro:', numError);
+            
+            // Se deu erro de múltiplas linhas, buscar todas e pegar a primeira
+            if (numError?.code === 'PGRST116' || stringError?.code === 'PGRST116') {
+              console.log('⚠️ Múltiplas OSs encontradas, buscando todas...');
+              let queryMulti = supabase
+                .from('ordens_servico')
+                .select('id, numero_os, empresa_id')
+                .eq('numero_os', String(osId));
+              
+              if (empresa_id) {
+                queryMulti = queryMulti.eq('empresa_id', empresa_id);
               }
-            },
-            { status: 400 }
-          );
+              
+              const { data: todasOS, error: multiError } = await queryMulti.limit(10);
+              
+              if (!multiError && todasOS && todasOS.length > 0) {
+                console.log('📊 Múltiplas OSs encontradas:', todasOS.length, todasOS);
+                // Pegar a primeira (ou a que corresponde à empresa se fornecido)
+                osPorNumero = empresa_id 
+                  ? todasOS.find(os => os.empresa_id === empresa_id) || todasOS[0]
+                  : todasOS[0];
+                console.log('✅ Usando primeira OS encontrada:', osPorNumero);
+              }
+            }
+          }
         }
       }
       
+      // Se ainda não encontrou, buscar algumas OSs para debug
       if (!osPorNumero?.id) {
+        console.log('🔍 Tentativa 3: Buscando algumas OSs para debug...');
+        const { data: algumasOS, error: debugError } = await supabase
+          .from('ordens_servico')
+          .select('id, numero_os')
+          .limit(5);
+        
+        console.log('📊 Primeiras 5 OSs no banco:', algumasOS);
+        console.log('📊 Tipos de numero_os:', algumasOS?.map(os => ({ 
+          numero: os.numero_os, 
+          tipo: typeof os.numero_os,
+          valor: JSON.stringify(os.numero_os)
+        })));
+        
         return NextResponse.json(
-          { error: 'OS não encontrada pelo numero_os', numeroOS: osId },
+          { 
+            error: 'OS não encontrada pelo numero_os', 
+            numeroOS: osId,
+            tipo: typeof osId,
+            supabaseError: ultimoErro,
+            debug: {
+              tentouString: String(osId),
+              tentouNumero: typeof osId === 'string' ? parseInt(osId, 10) : Number(osId),
+              erro: ultimoErro,
+              exemplosNoBanco: algumasOS?.slice(0, 3)
+            }
+          },
           { status: 400 }
         );
       }

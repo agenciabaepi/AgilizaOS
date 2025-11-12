@@ -458,6 +458,7 @@ export default function EditarOSSimples() {
         },
         body: JSON.stringify({
           osId: osIdParaEnviar, // Usar numero_os se disponível, senão usar UUID
+          empresa_id: usuarioData?.empresa_id, // Incluir empresa_id para filtrar corretamente
           newStatus: statusSelecionado?.nome,
           newStatusTecnico: novoStatusTecnico,
           ...updateData // Incluir todos os dados de atualização
