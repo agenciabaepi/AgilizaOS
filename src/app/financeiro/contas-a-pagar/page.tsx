@@ -16,7 +16,7 @@ import AnexosManager from '@/components/AnexosManager';
 const debugLog = (...args: unknown[]) => {
   if (process.env.NODE_ENV !== 'production') {
     // eslint-disable-next-line no-console
-    debugLog(...args);
+    console.log(...args);
   }
 };
 

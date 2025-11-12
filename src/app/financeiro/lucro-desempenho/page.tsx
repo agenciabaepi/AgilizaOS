@@ -34,8 +34,7 @@ import {
 
 const debugLog = (...args: unknown[]) => {
   if (process.env.NODE_ENV !== 'production') {
-    // eslint-disable-next-line no-console
-    debugLog(...args);
+    console.log(...args);
   }
 };
 
@@ -575,9 +574,17 @@ export default function LucroDesempenhoPage() {
         const lucroPrevisto = receitaPrevista - custosPrevistos;
         const margemPrevista = receitaPrevista > 0 ? (lucroPrevisto / receitaPrevista) * 100 : 0;
         
-        // Previsão de Saldo na Conta será calculada depois que as métricas atuais forem calculadas
-        // Por enquanto, deixar como 0 (será atualizado no useEffect)
-        const saldoNaContaPrevisto = 0;
+        // Calcular Previsão de Saldo na Conta
+        // Calcular aqui também para ter um valor inicial, mas será recalculado pelo useEffect quando metricas.saldoNaConta estiver pronto
+        const saldoAtualInicial = Number(metricas.saldoNaConta) || 0;
+        const saldoNaContaPrevistoInicial = saldoAtualInicial + receitaPrevista - contasAPagarPrevistas;
+        
+        debugLog('💰 Calculando previsão inicial ao carregar dados:', {
+          saldoAtualInicial,
+          receitaPrevista,
+          contasAPagarPrevistas,
+          saldoNaContaPrevistoInicial
+        });
         
         setMetricasPrevistas({
           receitaPrevista,
@@ -587,7 +594,7 @@ export default function LucroDesempenhoPage() {
           custosFixosPrevistos,
           lucroPrevisto,
           margemPrevista,
-          saldoNaContaPrevisto
+          saldoNaContaPrevisto: isNaN(saldoNaContaPrevistoInicial) || !isFinite(saldoNaContaPrevistoInicial) ? 0 : saldoNaContaPrevistoInicial
         });
 
         // Incluir também as OS sem venda (pendentes) na listagem Por OS
@@ -1116,12 +1123,13 @@ export default function LucroDesempenhoPage() {
     const mesAtual = currentMonth.toISOString().slice(0, 7); // YYYY-MM
     
     // Usar custosEmpresa que já foi calculado
-    const totalCustos = custosEmpresa.custosTotais; // Peças e serviços pagas
-    const despesasOperacionais = custosEmpresa.despesasOperacionais; // Variáveis pagas
-    const custosFixos = custosEmpresa.custosFixos; // Fixas pagas
+    const totalCustos = Number(custosEmpresa.custosTotais) || 0; // Peças e serviços pagas
+    const despesasOperacionais = Number(custosEmpresa.despesasOperacionais) || 0; // Variáveis pagas
+    const custosFixos = Number(custosEmpresa.custosFixos) || 0; // Fixas pagas
+    const investimentos = Number(investimentosMes) || 0;
     
     // Saldo na Conta = Receita + Investimentos - (Custos Totais + Despesas Operacionais + Custos Fixos)
-    const saldoNaConta = totalReceita + investimentosMes - (totalCustos + despesasOperacionais + custosFixos);
+    const saldoNaConta = totalReceita + investimentos - (totalCustos + despesasOperacionais + custosFixos);
     
     // Lucro Total = Receita - Custos Totais (mantido para compatibilidade)
     const lucroTotal = totalReceita - totalCustos;
@@ -1158,6 +1166,37 @@ export default function LucroDesempenhoPage() {
       osLucrativas,
       osPrejuizo
     });
+    
+    // Recalcular previsão de saldo imediatamente após atualizar metricas
+    // Usar setTimeout para garantir que o estado foi atualizado
+    setTimeout(() => {
+      setMetricasPrevistas(prev => {
+        const saldoAtual = saldoNaConta;
+        const receitaPrevista = Number(prev.receitaPrevista) || 0;
+        const contasAPagarPrevistas = Number(prev.contasAPagarPrevistas) || 0;
+        const saldoNaContaPrevisto = saldoAtual + receitaPrevista - contasAPagarPrevistas;
+        
+        debugLog('💰 Recalculando previsão após calcularMetricas:', {
+          saldoAtual,
+          receitaPrevista,
+          contasAPagarPrevistas,
+          saldoNaContaPrevisto
+        });
+        
+        if (isNaN(saldoNaContaPrevisto) || !isFinite(saldoNaContaPrevisto)) {
+          return prev;
+        }
+        
+        if (Math.abs(prev.saldoNaContaPrevisto - saldoNaContaPrevisto) < 0.01) {
+          return prev;
+        }
+        
+        return {
+          ...prev,
+          saldoNaContaPrevisto
+        };
+      });
+    }, 0);
   };
 
   // Calcular dados diários do mês
@@ -1735,31 +1774,61 @@ export default function LucroDesempenhoPage() {
     }
   }, [custosEmpresa.custosTotais, custosEmpresa.despesasOperacionais, custosEmpresa.custosFixos, investimentosMes]);
 
-  // Recalcular previsão de saldo na conta quando as métricas atuais mudarem
+  // Recalcular previsão de saldo quando as métricas atuais ou previstas mudarem
   useEffect(() => {
-    // Previsão de Saldo na Conta = Saldo Atual (Real) + Valores Previstos a Receber - Contas a Pagar Previstas
-    const receitaPrevista = metricasPrevistas.receitaPrevista;
-    const contasAPagarPrevistas = metricasPrevistas.contasAPagarPrevistas;
-    const saldoNaContaPrevisto = metricas.saldoNaConta + receitaPrevista - contasAPagarPrevistas;
+    // Só recalcular se não estiver carregando
+    if (loading) {
+      return;
+    }
     
-    debugLog('💰 Cálculo de Previsão de Saldo na Conta:', {
-      saldoAtual: metricas.saldoNaConta,
+    // Verificar se os dados foram realmente carregados
+    const dadosCarregados = ordens.length >= 0 && // ordens pode ser array vazio, mas foi processado
+                            custosEmpresa.custosTotais !== undefined && // custos foram calculados
+                            (metricasPrevistas.receitaPrevista !== undefined || metricasPrevistas.contasAPagarPrevistas !== undefined); // previstos foram calculados
+    
+    if (!dadosCarregados) {
+      debugLog('⏳ Aguardando carregamento completo dos dados', {
+        ordensLength: ordens.length,
+        custosTotais: custosEmpresa.custosTotais,
+        receitaPrevista: metricasPrevistas.receitaPrevista,
+        contasAPagarPrevistas: metricasPrevistas.contasAPagarPrevistas
+      });
+      return;
+    }
+    
+    // Calcular diretamente aqui para sempre usar os valores mais recentes
+    // Previsão de Saldo na Conta = Saldo Atual (Real) + Valores Previstos a Receber - Contas a Pagar Previstas
+    const saldoAtual = Number(metricas.saldoNaConta) || 0;
+    const receitaPrevista = Number(metricasPrevistas.receitaPrevista) || 0;
+    const contasAPagarPrevistas = Number(metricasPrevistas.contasAPagarPrevistas) || 0;
+    
+    const saldoNaContaPrevisto = saldoAtual + receitaPrevista - contasAPagarPrevistas;
+    
+    debugLog('💰 Recalculando Previsão de Saldo na Conta (useEffect):', {
+      saldoAtual,
       receitaPrevista,
       contasAPagarPrevistas,
-      saldoNaContaPrevisto
+      saldoNaContaPrevisto,
+      atualSaldoPrevisto: metricasPrevistas.saldoNaContaPrevisto,
+      timestamp: new Date().toISOString()
     });
     
-    setMetricasPrevistas(prev => {
-      // Só atualizar se o valor mudou para evitar loops infinitos
-      if (prev.saldoNaContaPrevisto === saldoNaContaPrevisto) {
-        return prev;
-      }
-      return {
-        ...prev,
-        saldoNaContaPrevisto
-      };
-    });
-  }, [metricas.saldoNaConta, metricasPrevistas.receitaPrevista, metricasPrevistas.contasAPagarPrevistas]);
+    // Só atualizar se o valor for válido (não NaN ou Infinity)
+    if (isNaN(saldoNaContaPrevisto) || !isFinite(saldoNaContaPrevisto)) {
+      console.warn('⚠️ Previsão de saldo inválida, mantendo valor anterior');
+      return;
+    }
+    
+    // Só atualizar se o valor mudou significativamente (mais de 0.01 para evitar flutuações de ponto flutuante)
+    if (Math.abs(metricasPrevistas.saldoNaContaPrevisto - saldoNaContaPrevisto) < 0.01) {
+      return;
+    }
+    
+    setMetricasPrevistas(prev => ({
+      ...prev,
+      saldoNaContaPrevisto
+    }));
+  }, [metricas.saldoNaConta, ordens.length, custosEmpresa.custosTotais, metricasPrevistas.receitaPrevista, metricasPrevistas.contasAPagarPrevistas, loading]);
 
   // Formatação de valores
   const formatarMoeda = (valor: number) => {
