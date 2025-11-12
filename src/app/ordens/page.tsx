@@ -680,6 +680,20 @@ export default function ListaOrdensPage() {
 
           const clienteInfo = item.cliente_id ? clientesDict[item.cliente_id] : null;
           
+          // Buscar nome do técnico
+          let tecnicoNome = 'Sem técnico';
+          if (item.tecnico_id) {
+            if (tecnicosDict[item.tecnico_id]) {
+              tecnicoNome = tecnicosDict[item.tecnico_id];
+            } else {
+              // Log apenas para os primeiros casos para não poluir o console
+              if (data.indexOf(item) < 3) {
+                console.log('⚠️ Técnico não encontrado no dict para ID:', item.tecnico_id, 'Dict keys:', Object.keys(tecnicosDict));
+              }
+              tecnicoNome = 'Técnico não encontrado';
+            }
+          }
+          
           return {
           id: item.id,
             numero: item.numero_os,
@@ -693,7 +707,7 @@ export default function ListaOrdensPage() {
             statusOS: item.status || '',
             statusTecnico: item.status_tecnico || '',
             entrada: item.created_at || '',
-            tecnico: (item.tecnico_id && tecnicosDict[item.tecnico_id]) ? tecnicosDict[item.tecnico_id] : (item.tecnico_id ? 'Técnico não encontrado' : 'Sem técnico'),
+            tecnico: tecnicoNome,
             atendente: item.atendente || '',
             entrega: entregaCalc,
             prazoEntrega: item.prazo_entrega || '',
