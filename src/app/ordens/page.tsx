@@ -506,6 +506,7 @@ export default function ListaOrdensPage() {
         
         if (tecnicoIds.length > 0) {
           console.log('🔍 Buscando dados de', tecnicoIds.length, 'técnicos...', tecnicoIds);
+          // Buscar técnicos por IDs (sem filtrar por empresa para evitar problemas de RLS)
           const { data: tecnicosData, error: tecnicosError } = await supabase
             .from('usuarios')
             .select('id, nome')
@@ -513,14 +514,27 @@ export default function ListaOrdensPage() {
           
           if (tecnicosError) {
             console.error('❌ Erro ao buscar técnicos:', tecnicosError);
+            console.error('❌ Detalhes do erro:', {
+              message: tecnicosError.message,
+              code: tecnicosError.code,
+              details: tecnicosError.details,
+              hint: tecnicosError.hint
+            });
           } else if (tecnicosData && tecnicosData.length > 0) {
             tecnicosDict = tecnicosData.reduce((acc: Record<string, string>, tecnico: any) => {
-              acc[tecnico.id] = tecnico.nome;
+              acc[tecnico.id] = tecnico.nome || 'Sem nome';
               return acc;
             }, {} as Record<string, string>);
             console.log('✅ Dados de técnicos carregados:', Object.keys(tecnicosDict).length, tecnicosDict);
+            
+            // Verificar se algum técnico não foi encontrado
+            const tecnicosNaoEncontrados = tecnicoIds.filter(id => !tecnicosDict[id]);
+            if (tecnicosNaoEncontrados.length > 0) {
+              console.warn('⚠️ Técnicos não encontrados (pode ser problema de RLS ou IDs inválidos):', tecnicosNaoEncontrados);
+            }
           } else {
             console.warn('⚠️ Nenhum técnico encontrado para os IDs:', tecnicoIds);
+            console.warn('⚠️ Isso pode indicar problema de RLS ou que os técnicos não existem na empresa:', empresaId);
           }
         } else {
           console.warn('⚠️ Nenhum tecnico_id válido encontrado nas ordens');
