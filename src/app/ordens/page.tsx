@@ -340,6 +340,9 @@ export default function ListaOrdensPage() {
           status_tecnico,
           created_at,
           tecnico_id,
+          tecnico:tecnico_id (
+            nome
+          ),
           data_entrega,
           prazo_entrega,
           valor_faturado,
@@ -680,18 +683,16 @@ export default function ListaOrdensPage() {
 
           const clienteInfo = item.cliente_id ? clientesDict[item.cliente_id] : null;
           
-          // Buscar nome do técnico
+          // Buscar nome do técnico - usar o relacionamento direto se disponível, senão usar o dict
           let tecnicoNome = 'Sem técnico';
-          if (item.tecnico_id) {
-            if (tecnicosDict[item.tecnico_id]) {
-              tecnicoNome = tecnicosDict[item.tecnico_id];
-            } else {
-              // Log apenas para os primeiros casos para não poluir o console
-              if (data.indexOf(item) < 3) {
-                console.log('⚠️ Técnico não encontrado no dict para ID:', item.tecnico_id, 'Dict keys:', Object.keys(tecnicosDict));
-              }
-              tecnicoNome = 'Técnico não encontrado';
-            }
+          if (item.tecnico && item.tecnico.nome) {
+            // Se o relacionamento direto funcionou (como na página de visualização)
+            tecnicoNome = item.tecnico.nome;
+          } else if (item.tecnico_id && tecnicosDict[item.tecnico_id]) {
+            // Fallback para o dict (busca separada)
+            tecnicoNome = tecnicosDict[item.tecnico_id];
+          } else if (item.tecnico_id) {
+            tecnicoNome = 'Técnico não encontrado';
           }
           
           return {
