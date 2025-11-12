@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/Toast';
@@ -61,7 +61,7 @@ interface OrdemServico {
   };
 }
 
-export default function ContasAPagarPage() {
+function ContasAPagarPageContent() {
   const { empresaData } = useAuth();
   const { addToast } = useToast();
   const router = useRouter();
@@ -1292,5 +1292,21 @@ export default function ContasAPagarPage() {
         )}
       </div>
     </MenuLayout>
+  );
+}
+
+export default function ContasAPagarPage() {
+  return (
+    <Suspense fallback={
+      <MenuLayout>
+        <div className="p-6">
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+          </div>
+        </div>
+      </MenuLayout>
+    }>
+      <ContasAPagarPageContent />
+    </Suspense>
   );
 }
