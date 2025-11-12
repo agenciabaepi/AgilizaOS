@@ -496,10 +496,10 @@ export default function ListaOrdensPage() {
         }
         
         // Buscar nomes dos técnicos se necessário
-        const tecnicoIds = [...new Set(
+        const tecnicoIds: string[] = [...new Set(
           data
             .filter((item: any) => item.tecnico_id && item.tecnico_id !== null && item.tecnico_id !== undefined)
-            .map((item: any) => item.tecnico_id)
+            .map((item: any) => item.tecnico_id as string)
         )];
         let tecnicosDict: Record<string, string> = {};
         
@@ -531,7 +531,7 @@ export default function ListaOrdensPage() {
             console.log('✅ Dados de técnicos carregados:', Object.keys(tecnicosDict).length, tecnicosDict);
             
             // Verificar se algum técnico não foi encontrado
-            const tecnicosNaoEncontrados = tecnicoIds.filter(id => !tecnicosDict[id]);
+            const tecnicosNaoEncontrados = tecnicoIds.filter((id: string) => !tecnicosDict[id]);
             if (tecnicosNaoEncontrados.length > 0) {
               console.warn('⚠️ Técnicos não encontrados (pode ser problema de RLS ou IDs inválidos):', tecnicosNaoEncontrados);
             }
