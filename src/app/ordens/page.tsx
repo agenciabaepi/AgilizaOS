@@ -496,11 +496,11 @@ export default function ListaOrdensPage() {
         }
         
         // Buscar nomes dos técnicos se necessário
-        const tecnicoIds: string[] = [...new Set(
+        const tecnicoIds = [...new Set(
           data
             .filter((item: any) => item.tecnico_id && item.tecnico_id !== null && item.tecnico_id !== undefined)
-            .map((item: any) => item.tecnico_id as string)
-        )];
+            .map((item: any) => String(item.tecnico_id))
+        )] as string[];
         let tecnicosDict: Record<string, string> = {};
         
         console.log('📊 Total de ordens:', data.length);
