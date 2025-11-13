@@ -58,6 +58,7 @@ export const PAGE_PERMISSIONS = {
   '/financeiro/contas-a-pagar': 'contas-a-pagar',
   '/financeiro/contas-a-pagar/categorias': 'contas-a-pagar',
   '/financeiro/lucro-desempenho': 'lucro-desempenho',
+  '/financeiro/comissoes-tecnicos': 'lucro-desempenho',
   
   // Movimentações Caixa
   '/movimentacao-caixa': 'movimentacao-caixa',

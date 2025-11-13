@@ -1,7 +1,7 @@
 
 import MenuLayout from '@/components/MenuLayout';
 import Link from 'next/link';
-import { FiDollarSign, FiFileText, FiTrendingUp } from 'react-icons/fi';
+import { FiDollarSign, FiFileText, FiTrendingUp, FiUsers } from 'react-icons/fi';
 
 export default function FinanceiroPage() {
   const menuItems = [
@@ -32,6 +32,13 @@ export default function FinanceiroPage() {
       icon: FiTrendingUp,
       href: '/financeiro/movimentacoes-caixa',
       color: 'bg-purple-500'
+    },
+    {
+      title: 'Comissões dos Técnicos',
+      description: 'Resumo de comissões de todos os técnicos',
+      icon: FiUsers,
+      href: '/financeiro/comissoes-tecnicos',
+      color: 'bg-blue-500'
     }
   ];
 
@@ -40,7 +47,7 @@ export default function FinanceiroPage() {
       <div className="p-6">
         <h1 className="text-2xl font-bold text-gray-800 mb-6">Financeiro</h1>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
           {menuItems.map((item, index) => {
             const IconComponent = item.icon;
             return (
