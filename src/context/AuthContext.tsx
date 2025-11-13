@@ -60,16 +60,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(false); // Sempre false para evitar travamentos
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  
+
   // ✅ OTIMIZADO: Função para buscar dados do usuário com timeout e retry
   const fetchUserData = useCallback(async (userId: string, sessionData: Session) => {
     let retryCount = 0;
     const maxRetries = 3;
-    
+
     const attemptFetch = async (): Promise<void> => {
       try {
         const { userData, empresaData: companyData } = await fetchUserDataOptimized(userId);
-        setUsuarioData(userData);
+        setUsuarioData(userData as UsuarioData);
         setEmpresaData(companyData);
       } catch (error) {
         if (retryCount < maxRetries - 1) {
@@ -128,7 +128,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         });
       }
     };
-    
+
     await attemptFetch();
   }, []);
 
@@ -143,7 +143,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // ✅ ULTRA SIMPLIFICADO: useEffect principal sem travamentos
   useEffect(() => {
     let isMounted = true;
-    
+
     const initializeAuth = async () => {
       try {
         // ✅ SEM TIMEOUT: Deixar o Supabase responder naturalmente
@@ -154,7 +154,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (session) {
           setSession(session);
           setUser(session.user);
-          
+
           // ✅ DADOS TEMPORÁRIOS SEGUROS: Não interferir com dados reais
           setUsuarioData({
             id: session.user.id,
@@ -165,13 +165,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             permissoes: [],
             foto_url: null
           });
-          
+
           setEmpresaData({
             id: '',
             nome: '',
             plano: ''
           });
-          
+
           // ✅ CARREGAMENTO EM BACKGROUND: Sem bloquear interface
           fetchUserData(session.user.id, session).catch(() => {
             // Silencioso - dados temporários já estão disponíveis
@@ -181,7 +181,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     initializeAuth();
-    
+
     return () => {
       isMounted = false;
     };
@@ -194,7 +194,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (event === 'SIGNED_IN' && session) {
           setSession(session);
           setUser(session.user);
-          
+
           // ✅ DADOS TEMPORÁRIOS SEGUROS
           setUsuarioData({
             id: session.user.id,
@@ -205,13 +205,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             permissoes: [],
             foto_url: null
           });
-          
+
           setEmpresaData({
             id: '',
             nome: '',
             plano: ''
           });
-          
+
           // ✅ CARREGAMENTO EM BACKGROUND
           fetchUserData(session.user.id, session).catch(() => {
             // Silencioso
@@ -223,7 +223,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
 
     return () => subscription.unsubscribe();
-  }, [clearSession]);
+  }, [clearSession, fetchUserData]);
 
   // ✅ REMOVIDO: useEffect que causava loops infinitos
   // Os dados são carregados apenas uma vez no useEffect principal
@@ -288,11 +288,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       setIsLoggingOut(true);
       const { error } = await supabase.auth.signOut();
-      
+
       if (error) {
         throw error;
       }
-      
+
       clearSession();
     } catch (error) {
       console.error('Erro no logout:', error);
@@ -322,22 +322,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const refreshEmpresaData = useCallback(async () => {
-    if (!user?.id) return;
-    
-    try {
-
-      const { userData, empresaData } = await fetchUserDataOptimized(user.id);
-      setUsuarioData(userData);
+     if (!user?.id) return;
+     
+     try {
+ 
+       const { userData, empresaData } = await fetchUserDataOptimized(user.id);
+      setUsuarioData(userData as UsuarioData);
       setEmpresaData(empresaData);
       setLastUpdate(performance.now());
-
-      // Forçar re-render de componentes que dependem dos dados da empresa
-      setTimeout(() => {
-        setLastUpdate(performance.now());
-      }, 100);
-    } catch (error) {
-
-    }
+ 
+       // Forçar re-render de componentes que dependem dos dados da empresa
+       setTimeout(() => {
+         setLastUpdate(performance.now());
+       }, 100);
+     } catch (error) {
+ 
+     }
   }, [user?.id]);
 
   // ✅ MEMOIZAR VALUE para evitar re-renders

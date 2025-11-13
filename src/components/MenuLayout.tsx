@@ -1,7 +1,7 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { usePathname } from 'next/navigation';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 
 import Image from 'next/image';
 import {
@@ -50,7 +50,7 @@ const podeUsarFuncionalidadeLocal = (usuario: any, nomeFuncionalidade: string) =
 // ✅ REMOVER logs desnecessários
 export default function MenuLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { signOut, usuarioData, empresaData } = useAuth();
+  const { signOut, usuarioData, empresaData, lastUpdate } = useAuth();
   const { addToast } = useToast();
   const { logout, isLoggingOut } = useLogout();
 
@@ -70,6 +70,12 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const [menuRecolhido, setMenuRecolhido] = useState<boolean>(false);
   const [catalogoHabilitado, setCatalogoHabilitado] = useState<boolean>(false);
 
+  const avatarUrl = useMemo(() => {
+    if (!usuarioData?.foto_url) return null;
+    const base = usuarioData.foto_url.split('?')[0];
+    const cacheKey = Math.floor(lastUpdate || 0);
+    return `${base}?t=${cacheKey}`;
+  }, [usuarioData?.foto_url, lastUpdate]);
 
 
   // ✅ DESABILITADO TEMPORARIAMENTE: Hook muito pesado, causando lentidão
@@ -636,9 +642,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             
             {/* Avatar e nome do usuário */}
             <div className="flex items-center gap-2">
-              {usuarioData?.foto_url ? (
+              {avatarUrl ? (
                 <img
-                  src={usuarioData.foto_url}
+                  src={avatarUrl}
                   alt="Foto de perfil"
                   className="rounded-full border-2 border-lime-400 object-contain w-8 h-8"
                 />

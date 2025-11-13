@@ -40,16 +40,31 @@ export default function PerfilPage() {
   const [uploading, setUploading] = useState(false);
   const [senhaVisivel, setSenhaVisivel] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+ 
+  const getAvatarBaseUrl = (url?: string | null) => {
+    if (!url) return null;
+    return url.split('?')[0];
+  };
+
+  const buildAvatarPreview = (url?: string | null) => {
+    const base = getAvatarBaseUrl(url);
+    if (!base) return null;
+    return `${base}?t=${Date.now()}`;
+  };
+ 
   // Estados de validação
   const [emailValido, setEmailValido] = useState(true);
   const [usuarioValido, setUsuarioValido] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchPerfil = async () => {
       if (authLoading) return;
       if (!user) {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
         return;
       }
       // Busca dados do usuário
@@ -63,17 +78,27 @@ export default function PerfilPage() {
           // Suprimir erros 406 específicos do perfil
           if (error.code === '406' || error.message?.includes('406') || error.message?.includes('Not Acceptable')) {
             console.warn('⚠️ Erro 406 suprimido na página de perfil:', error);
-            setLoading(false);
+            if (isMounted) {
+              setLoading(false);
+            }
             return;
           }
-          addToast('error', 'Erro ao carregar dados do perfil');
-          setLoading(false);
+          if (isMounted) {
+            addToast('error', 'Erro ao carregar dados do perfil');
+          }
+          if (isMounted) {
+            setLoading(false);
+          }
           return;
         }
         if (!data) {
-          setLoading(false);
+          if (isMounted) {
+            setLoading(false);
+          }
           return;
         }
+        if (!isMounted) return;
+
         setPerfil({
           id: data.id || user.id,
           nome: data.nome || '',
@@ -92,15 +117,45 @@ export default function PerfilPage() {
           whatsapp: data.whatsapp || '',
           senha: '',
         });
-        if (data?.foto_url) setFotoUrl(data.foto_url);
+        if (isMounted) {
+          if (data?.foto_url) {
+            setFotoUrl(buildAvatarPreview(data.foto_url));
+          } else {
+            setFotoUrl(null);
+          }
+        }
       } catch (err) {
-        addToast('error', 'Erro inesperado ao carregar perfil');
+        if (isMounted) {
+          addToast('error', 'Erro inesperado ao carregar perfil');
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
     fetchPerfil();
-  }, [user, authLoading, usuarioData, addToast]);
+    return () => {
+      isMounted = false;
+    };
+  }, [user, authLoading, addToast]); // Removido usuarioData das dependências para evitar loops
+
+  // Sincronizar fotoUrl quando usuarioData.foto_url mudar (após upload)
+  useEffect(() => {
+    if (!usuarioData?.foto_url) {
+      if (fotoUrl) {
+        setFotoUrl(null);
+      }
+      return;
+    }
+
+    const newBase = getAvatarBaseUrl(usuarioData.foto_url);
+    const currentBase = getAvatarBaseUrl(fotoUrl);
+
+    if (newBase && newBase !== currentBase) {
+      setFotoUrl(buildAvatarPreview(newBase));
+    }
+  }, [usuarioData?.foto_url, fotoUrl]); // Apenas observar mudanças na foto_url
 
   // Validação em tempo real
   useEffect(() => {
@@ -258,6 +313,14 @@ export default function PerfilPage() {
       return;
     }
 
+    if (!isEditing) {
+      addToast('warning', 'Clique em "Editar Perfil" para trocar a foto.');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+
     // Validar tipo de arquivo
     if (!file.type.startsWith('image/')) {
       addToast('error', 'Por favor, selecione apenas arquivos de imagem');
@@ -285,17 +348,6 @@ export default function PerfilPage() {
     setUploading(true);
     
     try {
-      // Verificar se o usuário está autenticado
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session) {
-        console.error('❌ Usuário não autenticado:', sessionError);
-        addToast('error', 'Usuário não autenticado. Faça login novamente.');
-        setUploading(false);
-        return;
-      }
-
-      // Pular verificação de bucket (problema de permissões)
-      // Validar extensões permitidas
       const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
       const fileExtension = file.name.split('.').pop()?.toLowerCase();
       
@@ -305,112 +357,38 @@ export default function PerfilPage() {
         return;
       }
 
-      let filePath = `user-${perfil.id}/${Date.now()}-${file.name}`;
-      
-      // Tentar upload com diferentes configurações
-      let uploadResult;
-      let uploadError;
+      const formDataUpload = new FormData();
+      formDataUpload.append('file', file);
+      formDataUpload.append('userId', perfil.id);
+      if (user?.id) {
+        formDataUpload.append('authUserId', user.id);
+      }
 
-      // Primeira tentativa: upload normal
-      uploadResult = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file, { 
-          upsert: true,
-          cacheControl: '3600'
-        });
-      
-      // Verificar se é erro 406 e suprimir
-      if (uploadResult.error && (
-        uploadResult.error.message?.includes('406') || 
-        uploadResult.error.message?.includes('Not Acceptable')
-      )) {
-        console.warn('⚠️ Erro 406 suprimido no upload de avatar:', uploadResult.error);
-        addToast('warning', 'Upload de foto temporariamente indisponível');
+      const response = await fetch('/api/usuarios/upload-avatar', {
+        method: 'POST',
+        body: formDataUpload,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result?.publicUrl) {
+        const message = result?.error || 'Erro ao enviar avatar';
+        addToast('error', message);
         setUploading(false);
         return;
       }
 
-      if (uploadResult.error) {
-        // Segunda tentativa: sem upsert
-        uploadResult = await supabase.storage
-          .from('avatars')
-          .upload(filePath, file, { 
-            upsert: false,
-            cacheControl: '3600'
-          });
+      const publicUrl: string = result.publicUrl;
+      const previewUrl = buildAvatarPreview(publicUrl);
+
+      setFotoUrl(previewUrl);
+      updateUsuarioFoto(publicUrl);
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
       }
 
-      if (uploadResult.error) {
-        // Terceira tentativa: com nome único
-        const uniqueFilePath = `user-${perfil.id}/${Date.now()}-${Math.random().toString(36).substring(7)}-${file.name}`;
-        uploadResult = await supabase.storage
-          .from('avatars')
-          .upload(uniqueFilePath, file, { 
-            upsert: false,
-            cacheControl: '3600'
-          });
-        
-        if (!uploadResult.error) {
-          // Atualizar filePath se a terceira tentativa funcionou
-          filePath = uniqueFilePath;
-        }
-      }
-
-      const { data, error } = uploadResult;
-
-      if (error) {
-        console.error('Erro no upload:', error);
-        console.error('Detalhes do erro:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-        
-        let errorMessage = 'Erro ao fazer upload da foto';
-        if (error.message) {
-          errorMessage += `: ${error.message}`;
-        } else if (error.details) {
-          errorMessage += `: ${error.details}`;
-        } else if (error.hint) {
-          errorMessage += `: ${error.hint}`;
-        }
-        
-        addToast('error', errorMessage);
-        setUploading(false);
-        return;
-      }
-
-      if (!data) {
-        console.error('Upload falhou - sem dados retornados');
-        addToast('error', 'Upload falhou - tente novamente');
-        setUploading(false);
-        return;
-      }
-
-      // Obter URL pública
-      const { data: publicData } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
-      const url = publicData.publicUrl;
-      // Atualizar no banco de dados
-      const { error: updateError } = await supabase
-        .from('usuarios')
-        .update({ foto_url: url })
-        .eq('id', perfil.id);
-
-      if (updateError) {
-        console.error('Erro ao atualizar foto_url no banco:', updateError);
-        addToast('error', 'Erro ao salvar URL da foto no banco de dados');
-        setUploading(false);
-        return;
-      }
-
-      setFotoUrl(url);
-      updateUsuarioFoto(url);
       addToast('success', 'Foto atualizada com sucesso!');
-      
     } catch (error) {
       console.error('Erro inesperado no upload:', error);
       addToast('error', 'Erro inesperado ao fazer upload da foto');
@@ -459,6 +437,10 @@ export default function PerfilPage() {
 
       setFotoUrl(null);
       updateUsuarioFoto('');
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
       addToast('success', 'Foto removida com sucesso!');
       
     } catch (error) {
@@ -538,6 +520,18 @@ export default function PerfilPage() {
                       src={fotoUrl}
                       alt="Foto de perfil"
                       className="w-32 h-32 rounded-full border-4 border-gray-900 object-cover shadow-lg"
+                      onError={(e) => {
+                        // Se a imagem falhar ao carregar, tentar sem cache buster
+                        const target = e.target as HTMLImageElement;
+                        const urlSemCache = target.src.split('?')[0];
+                        if (target.src !== urlSemCache) {
+                          target.src = `${urlSemCache}?t=${Date.now()}`;
+                        } else {
+                          // Se ainda falhar, mostrar placeholder
+                          setFotoUrl(null);
+                        }
+                      }}
+                      key={fotoUrl} // Forçar re-render quando URL mudar
                     />
                   ) : (
                     <div className="w-32 h-32 rounded-full border-4 border-gray-900 bg-gray-200 flex items-center justify-center shadow-lg">
@@ -546,11 +540,18 @@ export default function PerfilPage() {
                       </span>
                     </div>
                   )}
+                  {uploading && (
+                    <div className="absolute inset-0 rounded-full bg-white/70 backdrop-blur-sm flex items-center justify-center pointer-events-none">
+                      <div className="w-10 h-10 border-4 border-gray-900/30 border-t-gray-900 rounded-full animate-spin"></div>
+                    </div>
+                  )}
                   <button
-                    className="absolute bottom-0 right-0 bg-gray-900 text-white rounded-full p-3 shadow-lg hover:bg-gray-800 transition-all duration-200"
-                    onClick={() => fileInputRef.current?.click()}
-                    title="Trocar foto"
-                    disabled={uploading}
+                    className={`absolute bottom-0 right-0 bg-gray-900 text-white rounded-full p-3 shadow-lg transition-all duration-200 ${
+                      (!isEditing || uploading) ? 'opacity-60 cursor-not-allowed hover:bg-gray-900' : 'hover:bg-gray-800'
+                    }`}
+                    onClick={() => isEditing && !uploading && fileInputRef.current?.click()}
+                    title={isEditing ? (uploading ? 'Enviando...' : 'Trocar foto') : 'Clique em Editar Perfil para trocar a foto'}
+                    disabled={!isEditing || uploading}
                   >
                     {uploading ? (
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
@@ -571,7 +572,7 @@ export default function PerfilPage() {
                   <button
                     className="mt-3 text-sm text-red-600 hover:text-red-700 hover:underline disabled:opacity-50 flex items-center gap-1"
                     onClick={handleRemoverFoto}
-                    disabled={uploading}
+                    disabled={!isEditing || uploading}
                   >
                     <FiTrash2 className="w-4 h-4" />
                     Remover foto
