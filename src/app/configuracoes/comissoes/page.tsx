@@ -243,7 +243,7 @@ export default function ComissoesPage() {
         setEditandoConfig(false);
         // Aguardar um pouco antes de recarregar para garantir que o update foi processado
         setTimeout(() => {
-          fetchData();
+        fetchData();
         }, 500);
       }
     } catch (error) {
@@ -404,27 +404,27 @@ export default function ComissoesPage() {
                   </p>
                 </div>
               ) : (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                     Comissão Padrão (%) *
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.01"
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
                     value={tempConfig.comissao_padrao ?? ''}
                     onChange={(e) => {
                       const valor = e.target.value === '' ? 0 : parseFloat(e.target.value);
                       setTempConfig(prev => ({ ...prev, comissao_padrao: isNaN(valor) ? 0 : valor }));
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="10.00"
-                  />
+                />
                   <p className="text-xs text-gray-500 mt-1">
                     Percentual de comissão sobre o valor do serviço (ou serviço + peças)
                   </p>
-                </div>
+              </div>
               )}
             </div>
 
@@ -553,7 +553,7 @@ export default function ComissoesPage() {
                   </td>
                   <td className="px-4 py-4 align-top">
                     <div className="max-w-[180px] mx-auto">
-                      {editandoTecnico === tecnico.id ? (
+                    {editandoTecnico === tecnico.id ? (
                         <div className="flex flex-col gap-2">
                           <select
                             value={tempTecnico.tipo_comissao || 'porcentagem'}
@@ -574,19 +574,19 @@ export default function ComissoesPage() {
                               placeholder="0.00"
                             />
                           ) : (
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="0.01"
-                              value={tempTecnico.comissao_percentual || ''}
-                              onChange={(e) => setTempTecnico(prev => ({ ...prev, comissao_percentual: parseFloat(e.target.value) }))}
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={tempTecnico.comissao_percentual || ''}
+                        onChange={(e) => setTempTecnico(prev => ({ ...prev, comissao_percentual: parseFloat(e.target.value) }))}
                               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                               placeholder="10.00"
-                            />
+                      />
                           )}
                         </div>
-                      ) : (
+                    ) : (
                         <div className="text-sm text-center">
                           <div className={`font-semibold ${tecnico.comissao_ativa ? 'text-green-600' : 'text-gray-400'}`}>
                             {tecnico.tipo_comissao === 'fixo' 
@@ -597,30 +597,30 @@ export default function ComissoesPage() {
                             {tecnico.tipo_comissao === 'fixo' ? 'Fixo' : 'Porcentagem'}
                           </div>
                         </div>
-                      )}
+                    )}
                     </div>
                   </td>
                   <td className="px-4 py-4 align-top">
                     <div className="flex items-center justify-center">
-                      {editandoTecnico === tecnico.id ? (
+                    {editandoTecnico === tecnico.id ? (
                         <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={tempTecnico.comissao_ativa || false}
-                            onChange={(e) => setTempTecnico(prev => ({ ...prev, comissao_ativa: e.target.checked }))}
+                        <input
+                          type="checkbox"
+                          checked={tempTecnico.comissao_ativa || false}
+                          onChange={(e) => setTempTecnico(prev => ({ ...prev, comissao_ativa: e.target.checked }))}
                             className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                          />
+                        />
                           <span className="text-sm text-gray-700 whitespace-nowrap">Ativo</span>
-                        </label>
-                      ) : (
+                      </label>
+                    ) : (
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${
-                          tecnico.comissao_ativa 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {tecnico.comissao_ativa ? 'Ativo' : 'Inativo'}
-                        </span>
-                      )}
+                        tecnico.comissao_ativa 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {tecnico.comissao_ativa ? 'Ativo' : 'Inativo'}
+                      </span>
+                    )}
                     </div>
                   </td>
                   <td className="px-4 py-4 align-top">

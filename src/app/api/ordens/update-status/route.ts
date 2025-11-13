@@ -156,6 +156,19 @@ export async function POST(request: NextRequest) {
     if (newStatus) finalUpdateData.status = newStatus;
     if (newStatusTecnico) finalUpdateData.status_tecnico = newStatusTecnico;
     
+    // ✅ DEFINIR data_entrega AUTOMATICAMENTE se OS foi finalizada
+    const normalizeStatus = (s: string) => (s || '').toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+    const statusNormalizado = normalizeStatus(newStatus || '');
+    const statusTecnicoNormalizado = normalizeStatus(newStatusTecnico || '');
+    const seraFinalizada = statusNormalizado === 'ENTREGUE' || statusTecnicoNormalizado === 'FINALIZADA';
+    
+    if (seraFinalizada && !updateData.data_entrega) {
+      const hoje = new Date();
+      const dataStr = new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())).toISOString().slice(0, 10);
+      finalUpdateData.data_entrega = dataStr;
+      console.log('📅 Data de entrega definida automaticamente:', dataStr);
+    }
+    
     // ✅ FILTRAR campos vazios - MAS SEMPRE incluir checklist_entrada
     Object.keys(updateData).forEach(key => {
       const value = updateData[key];
@@ -175,11 +188,11 @@ export async function POST(request: NextRequest) {
     
     console.log('📝 Dados filtrados para atualização (sem campos vazios):', finalUpdateData);
 
-    // ✅ BUSCAR EQUIPAMENTO ANTERIOR ANTES DE ATUALIZAR
-    console.log('🔍 Buscando equipamento anterior ANTES de atualizar...');
+    // ✅ BUSCAR DADOS ANTERIORES DA OS ANTES DE ATUALIZAR
+    console.log('🔍 Buscando dados anteriores da OS ANTES de atualizar...');
     const { data: osAnterior, error: osAnteriorError } = await supabase
       .from('ordens_servico')
-      .select('equipamento, empresa_id, id')
+      .select('equipamento, empresa_id, id, tecnico_id, cliente_id, valor_faturado, valor_servico, valor_peca, tipo, data_entrega, status, status_tecnico, numero_os')
       .eq('id', osId)
       .single();
 
@@ -215,6 +228,231 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('✅ Status da OS atualizado com sucesso');
+
+    // ✅ REGISTRAR COMISSÃO SE A OS FOI FINALIZADA
+    // Buscar OS atualizada para verificar status final
+    const { data: osAtualizada } = await supabase
+      .from('ordens_servico')
+      .select('status, status_tecnico, data_entrega, tecnico_id, valor_faturado, valor_servico, valor_peca, tipo, empresa_id, cliente_id')
+      .eq('id', osAnterior.id)
+      .single();
+    
+    // Usar a mesma função normalizeStatus já definida acima
+    const statusAtual = normalizeStatus(osAtualizada?.status || '');
+    const statusTecnicoAtual = normalizeStatus(osAtualizada?.status_tecnico || '');
+    const foiFinalizada = statusAtual === 'ENTREGUE' || statusTecnicoAtual === 'FINALIZADA';
+    const temDataEntrega = osAtualizada?.data_entrega;
+    const temTecnico = osAtualizada?.tecnico_id || osAnterior.tecnico_id;
+    
+    console.log('🔍 VERIFICAÇÃO DE COMISSÃO:', {
+      foiFinalizada,
+      temDataEntrega: !!temDataEntrega,
+      temTecnico: !!temTecnico,
+      statusAtual,
+      statusTecnicoAtual,
+      dataEntrega: temDataEntrega,
+      tecnicoId: temTecnico,
+      osId: osAnterior.id
+    });
+    
+    if (foiFinalizada && temDataEntrega && temTecnico) {
+      console.log('💰 REGISTRANDO COMISSÃO - Técnico:', temTecnico, 'OS:', osAnterior.id);
+      
+      try {
+        // Verificar se já existe comissão
+        const { data: comissaoExistente } = await supabase
+          .from('comissoes_historico')
+          .select('id')
+          .eq('ordem_servico_id', osAnterior.id)
+          .maybeSingle();
+        
+        if (comissaoExistente) {
+          console.log('⚠️ Comissão já existe para esta OS');
+        } else {
+          // Buscar dados do técnico
+          // IMPORTANTE: tecnico_id na OS pode ser o auth_user_id, não o id da tabela usuarios
+          const tecnicoIdParaBuscar = osAtualizada.tecnico_id || osAnterior.tecnico_id;
+          console.log('🔍 Buscando técnico - ID da OS:', tecnicoIdParaBuscar);
+          
+          // Primeiro tentar buscar pelo id (caso seja o id real)
+          let { data: tecnicoData, error: tecnicoError } = await supabase
+            .from('usuarios')
+            .select('id, tipo_comissao, comissao_fixa, comissao_percentual, empresa_id, nivel, nome, auth_user_id')
+            .eq('id', tecnicoIdParaBuscar)
+            .maybeSingle();
+          
+          // Se não encontrou pelo id, tentar buscar pelo auth_user_id
+          if (!tecnicoData && !tecnicoError) {
+            console.log('⚠️ Não encontrado pelo id, tentando buscar pelo auth_user_id...');
+            const { data: tecnicoPorAuth, error: erroAuth } = await supabase
+              .from('usuarios')
+              .select('id, tipo_comissao, comissao_fixa, comissao_percentual, empresa_id, nivel, nome, auth_user_id')
+              .eq('auth_user_id', tecnicoIdParaBuscar)
+              .maybeSingle();
+            
+            if (tecnicoPorAuth && !erroAuth) {
+              tecnicoData = tecnicoPorAuth;
+              tecnicoError = null;
+              console.log('✅ Técnico encontrado pelo auth_user_id! ID real:', tecnicoData.id);
+            } else {
+              tecnicoError = erroAuth;
+            }
+          }
+          
+          if (tecnicoError) {
+            console.error('❌ Erro ao buscar técnico:', {
+              error: tecnicoError,
+              code: tecnicoError.code,
+              message: tecnicoError.message,
+              details: tecnicoError.details,
+              hint: tecnicoError.hint
+            });
+          } else if (tecnicoData) {
+            console.log('✅ Técnico encontrado:', { 
+              id: tecnicoData.id, 
+              nome: tecnicoData.nome,
+              nivel: tecnicoData.nivel, 
+              empresa_id: tecnicoData.empresa_id 
+            });
+          } else {
+            // Se não encontrou, assumir que existe (já que é obrigatório) e usar valores padrão
+            console.warn('⚠️ Técnico não retornado pela query, mas assumindo que existe (é obrigatório na OS)');
+            console.log('📊 Usando configuração padrão da empresa para calcular comissão');
+          }
+          
+          // Se não encontrou técnico, buscar configuração padrão da empresa diretamente
+          let empresaIdParaConfig = tecnicoData?.empresa_id || osAtualizada.empresa_id || osAnterior.empresa_id;
+          
+          if (!tecnicoData && empresaIdParaConfig) {
+            console.log('⚠️ Técnico não encontrado, usando configuração padrão da empresa:', empresaIdParaConfig);
+          }
+          
+          // Buscar configuração padrão
+          const { data: configData } = await supabase
+            .from('configuracoes_comissao')
+            .select('tipo_comissao, comissao_fixa_padrao, comissao_padrao')
+            .eq('empresa_id', empresaIdParaConfig)
+            .maybeSingle();
+          
+          // Determinar tipo e valor
+          let tipoComissao: 'porcentagem' | 'fixo' = 'porcentagem';
+          let valorComissao = 0;
+          
+          if (tecnicoData?.tipo_comissao) {
+            tipoComissao = tecnicoData.tipo_comissao as 'porcentagem' | 'fixo';
+            if (tipoComissao === 'fixo') {
+              valorComissao = tecnicoData.comissao_fixa || 0;
+            } else {
+              valorComissao = tecnicoData.comissao_percentual || 0;
+            }
+            console.log('📊 Usando configuração individual do técnico:', { tipoComissao, valorComissao });
+          } else if (configData?.tipo_comissao) {
+            tipoComissao = configData.tipo_comissao as 'porcentagem' | 'fixo';
+            if (tipoComissao === 'fixo') {
+              valorComissao = configData.comissao_fixa_padrao || 0;
+            } else {
+              valorComissao = configData.comissao_padrao || 0;
+            }
+            console.log('📊 Usando configuração padrão da empresa:', { tipoComissao, valorComissao });
+          } else {
+            valorComissao = 10; // Fallback
+            console.log('📊 Usando valor padrão (fallback):', { tipoComissao, valorComissao });
+          }
+          
+          // Usar o id real do técnico (não o auth_user_id) para inserir na comissão
+          const tecnicoIdReal = tecnicoData?.id || tecnicoIdParaBuscar;
+          
+          if (!tecnicoData) {
+            console.error('❌ NÃO É POSSÍVEL REGISTRAR COMISSÃO: Técnico não encontrado no banco de dados', {
+              tecnicoIdNaOS: tecnicoIdParaBuscar,
+              osId: osAnterior.id,
+              numeroOS: osAnterior.numero_os,
+              motivo: 'Técnico não encontrado nem pelo id nem pelo auth_user_id',
+              acaoRecomendada: 'Verificar se o técnico existe na tabela usuarios'
+            });
+          } else {
+            // Calcular valor da comissão
+            let valorComissaoCalculado = 0;
+            const valorFaturado = osAtualizada.valor_faturado || 0;
+            if (tipoComissao === 'fixo') {
+              valorComissaoCalculado = valorComissao;
+            } else {
+              valorComissaoCalculado = valorFaturado * valorComissao / 100;
+            }
+            
+            console.log('💰 CÁLCULO DA COMISSÃO:', {
+              tipoComissao,
+              valorComissao,
+              valorFaturado,
+              valorComissaoCalculado
+            });
+            
+            // Preparar dados para inserção (usar o id real do técnico, não o auth_user_id)
+            // IMPORTANTE: Se a tabela não permite NULL em percentual_comissao, usar 0 quando for fixo
+            const dadosComissao: any = {
+              tecnico_id: tecnicoIdReal,
+              ordem_servico_id: osAnterior.id,
+              empresa_id: osAtualizada.empresa_id || osAnterior.empresa_id,
+              cliente_id: osAtualizada.cliente_id || osAnterior.cliente_id,
+              valor_servico: osAtualizada.valor_servico || 0,
+              valor_peca: osAtualizada.valor_peca || 0,
+              valor_total: valorFaturado,
+              tipo_comissao: tipoComissao,
+              valor_comissao: valorComissaoCalculado,
+              data_entrega: osAtualizada.data_entrega,
+              data_calculo: new Date().toISOString(),
+              status: 'CALCULADA',
+              tipo_ordem: (osAtualizada.tipo || 'normal').toLowerCase(),
+              observacoes: null
+            };
+            
+            // Adicionar campos condicionais (só incluir se não forem null para evitar constraint errors)
+            if (tipoComissao === 'porcentagem') {
+              dadosComissao.percentual_comissao = valorComissao;
+              // Não incluir valor_comissao_fixa quando for porcentagem
+            } else {
+              dadosComissao.valor_comissao_fixa = valorComissao;
+              // Se a tabela não permite NULL em percentual_comissao, usar 0
+              dadosComissao.percentual_comissao = 0;
+            }
+            
+            console.log('📋 DADOS DA COMISSÃO A SEREM INSERIDOS:', dadosComissao);
+            
+            // Registrar comissão
+            const { data: comissaoInserida, error: comissaoError } = await supabase
+              .from('comissoes_historico')
+              .insert(dadosComissao)
+              .select();
+            
+            if (comissaoError) {
+              console.error('❌ ERRO AO REGISTRAR COMISSÃO:', {
+                error: comissaoError,
+                message: comissaoError.message,
+                code: comissaoError.code,
+                details: comissaoError.details,
+                hint: comissaoError.hint
+              });
+            } else {
+              console.log('✅✅✅ COMISSÃO REGISTRADA COM SUCESSO!', {
+                id: comissaoInserida?.[0]?.id,
+                valor: valorComissaoCalculado,
+                tipo: tipoComissao
+              });
+            }
+          }
+        }
+      } catch (comissaoError) {
+        console.error('❌ ERRO GERAL AO PROCESSAR COMISSÃO:', comissaoError);
+        // Não falha a atualização da OS por causa da comissão
+      }
+    } else {
+      console.log('⏭️ COMISSÃO NÃO SERÁ REGISTRADA:', {
+        motivo: !foiFinalizada ? 'OS não finalizada' : !temDataEntrega ? 'Sem data de entrega' : !temTecnico ? 'Sem técnico' : 'Desconhecido',
+        foiFinalizada,
+        temDataEntrega: !!temDataEntrega,
+        temTecnico: !!temTecnico
+      });
+    }
 
     // ✅ ATUALIZAR CONTADOR DE EQUIPAMENTOS (se equipamento foi alterado)
     console.log('🔢 Verificando atualização do contador de equipamentos...');

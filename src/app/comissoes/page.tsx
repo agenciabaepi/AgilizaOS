@@ -13,7 +13,9 @@ interface ComissaoDetalhada {
   valor_servico: number;
   valor_peca: number;
   valor_total: number;
-  percentual_comissao: number;
+  tipo_comissao?: 'porcentagem' | 'fixo';
+  percentual_comissao?: number | null;
+  valor_comissao_fixa?: number | null;
   valor_comissao: number;
   data_entrega: string;
   status: string;
@@ -83,66 +85,76 @@ export default function ComissoesPage() {
   }, [usuarioData]);
 
   const fetchComissoes = async () => {
-    if (!usuarioData?.auth_user_id) {
+    if (!usuarioData?.id) {
+      console.log('⚠️ Comissões - id do técnico não disponível:', usuarioData);
       setLoading(false);
       return;
     }
     
     setLoading(true);
     try {
-      // Buscar comissões usando a função RPC
-      const { data: comissoesJSON, error } = await supabase
-        .rpc('buscar_comissoes_tecnico', { 
-          tecnico_id_param: usuarioData.auth_user_id 
-        });
+      // Buscar comissões diretamente da tabela comissoes_historico usando o id do técnico
+      const { data: comissoesData, error } = await supabase
+        .from('comissoes_historico')
+        .select(`
+          id,
+          ordem_servico_id,
+          valor_servico,
+          valor_peca,
+          valor_total,
+          tipo_comissao,
+          percentual_comissao,
+          valor_comissao_fixa,
+          valor_comissao,
+          data_entrega,
+          status,
+          tipo_ordem,
+          created_at,
+          ordens_servico:ordem_servico_id (
+            numero_os,
+            servico
+          ),
+          clientes:cliente_id (
+            nome
+          )
+        `)
+        .eq('tecnico_id', usuarioData.id)
+        .order('data_entrega', { ascending: false })
+        .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Erro ao buscar comissões:', error);
+        console.error('❌ Erro ao buscar comissões:', error);
         addToast('error', 'Erro ao carregar comissões: ' + error.message);
-        setLoading(false);
+        setComissoes([]);
         return;
       }
 
-      // Converter JSON para array
-      const comissoesArray = Array.isArray(comissoesJSON) ? comissoesJSON : (comissoesJSON || []);
-      
-      // Buscar detalhes adicionais das OSs
-      if (comissoesArray.length > 0) {
-        const osIds = comissoesArray.map((c: any) => c.ordem_servico_id);
-        
-        const { data: osData, error: osError } = await supabase
-          .from('ordens_servico')
-          .select(`
-            id,
-            numero_os,
-            servico,
-            clientes:cliente_id(nome)
-          `)
-          .in('id', osIds);
+      // Formatar os dados para o formato esperado
+      const comissoesFormatadas = (comissoesData || []).map((comissao: any) => ({
+        id: comissao.id,
+        ordem_servico_id: comissao.ordem_servico_id,
+        numero_os: comissao.ordens_servico?.numero_os || 'N/A',
+        valor_servico: comissao.valor_servico || 0,
+        valor_peca: comissao.valor_peca || 0,
+        valor_total: comissao.valor_total || 0,
+        tipo_comissao: comissao.tipo_comissao,
+        percentual_comissao: comissao.percentual_comissao,
+        valor_comissao_fixa: comissao.valor_comissao_fixa,
+        valor_comissao: comissao.valor_comissao || 0,
+        data_entrega: comissao.data_entrega,
+        status: comissao.status || 'CALCULADA',
+        tipo_ordem: comissao.tipo_ordem || 'normal',
+        created_at: comissao.created_at,
+        cliente_nome: comissao.clientes?.nome || 'Cliente não encontrado',
+        servico_nome: comissao.ordens_servico?.servico || 'Serviço não especificado'
+      }));
 
-        if (!osError && osData) {
-          // Combinar dados
-          const comissoesDetalhadas = comissoesArray.map((comissao: any) => {
-            const osInfo = osData.find((os: any) => os.id === comissao.ordem_servico_id);
-            return {
-              ...comissao,
-              numero_os: osInfo?.numero_os || 'N/A',
-              cliente_nome: (osInfo?.clientes as any)?.nome || 'Cliente não encontrado',
-              servico_nome: osInfo?.servico || 'Serviço não especificado'
-            };
-          });
-          
-          setComissoes(comissoesDetalhadas);
-        } else {
-          setComissoes(comissoesArray);
-        }
-      } else {
-        setComissoes([]);
-      }
+      setComissoes(comissoesFormatadas);
 
     } catch (error) {
       console.error('💥 Comissões - Erro geral:', error);
       addToast('error', 'Erro ao carregar dados: ' + (error as Error).message);
+      setComissoes([]);
     } finally {
       setLoading(false);
     }
@@ -173,7 +185,7 @@ export default function ComissoesPage() {
   };
 
   const exportarCSV = () => {
-    const headers = ['OS', 'Cliente', 'Serviço', 'Data Entrega', 'Valor Serviço', 'Percentual', 'Comissão', 'Status'];
+    const headers = ['OS', 'Cliente', 'Serviço', 'Data Entrega', 'Valor Serviço', 'Tipo', 'Percentual/Fixo', 'Comissão', 'Status'];
     const csvContent = [
       headers.join(','),
       ...comissoesFiltradas.map(c => [
@@ -182,7 +194,10 @@ export default function ComissoesPage() {
         c.servico_nome || 'N/A',
         formatDate(c.data_entrega),
         c.valor_servico.toFixed(2),
-        `${c.percentual_comissao}%`,
+        c.tipo_comissao === 'fixo' ? 'Fixo' : 'Porcentagem',
+        c.tipo_comissao === 'fixo' 
+          ? `R$ ${c.valor_comissao_fixa?.toFixed(2) || '0,00'}` 
+          : `${c.percentual_comissao || 0}%`,
         c.valor_comissao.toFixed(2),
         c.status
       ].join(','))
@@ -386,7 +401,7 @@ export default function ComissoesPage() {
                       Valor Serviço
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      %
+                      Tipo / Valor
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Comissão
@@ -422,7 +437,15 @@ export default function ComissoesPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         <div className="text-sm font-medium text-gray-900">
-                          {comissao.percentual_comissao}%
+                          {comissao.tipo_comissao === 'fixo' ? (
+                            <span className="text-blue-600">
+                              R$ {comissao.valor_comissao_fixa?.toFixed(2) || '0,00'} (fixo)
+                            </span>
+                          ) : (
+                            <span>
+                              {comissao.percentual_comissao || 0}%
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">

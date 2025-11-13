@@ -74,7 +74,7 @@ export default function EditarOSSimples() {
   const { addToast } = useToast();
   const confirm = useConfirm();
   const { usuarioData, empresaData } = useAuth();
-  const { registrarMudancaStatus } = useStatusHistorico();
+  const { registrarMudancaStatus, historico, buscarHistorico } = useStatusHistorico(id);
 
   const [ordem, setOrdem] = useState<Ordem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -178,6 +178,11 @@ export default function EditarOSSimples() {
       }
 
       setOrdem(data);
+      
+      // Buscar histórico de status para verificar se cliente recusou
+      if (id && buscarHistorico) {
+        await buscarHistorico(id);
+      }
       
       // 🔍 DEBUG: Log dos dados carregados
       console.log('🔍 DEBUG fetchOrdem - Dados carregados:');
@@ -449,7 +454,7 @@ export default function EditarOSSimples() {
         addToast('error', 'Erro: ID da OS não encontrado. Recarregue a página.');
         return;
       }
-      
+
       // Usar nosso endpoint que envia notificações WhatsApp
       const response = await fetch('/api/ordens/update-status', {
         method: 'POST',
@@ -854,7 +859,68 @@ export default function EditarOSSimples() {
               >
                 <option value="">Selecione...</option>
                 {status.length === 0 && <option disabled>Carregando status...</option>}
-                {status.map((s) => (
+                {status
+                  .filter((s) => {
+                    // Se não for ENTREGUE, sempre mostrar
+                    if (s.nome !== 'ENTREGUE') {
+                      return true;
+                    }
+                    
+                    // Se for ENTREGUE, verificar condições para permitir
+                    const totais = calcularTotais();
+                    const ordemAny = ordem as any; // Usar any para acessar campos dinâmicos
+                    const temValorLancado = totais.totalGeral > 0 || 
+                                          (ordemAny?.valor_faturado && Number(ordemAny.valor_faturado) > 0) ||
+                                          (ordemAny?.valor_servico && Number(ordemAny.valor_servico) > 0) ||
+                                          (ordemAny?.valor_peca && Number(ordemAny.valor_peca) > 0);
+                    
+                    // Verificar se cliente recusou ou não aprovou
+                    // Verificar no status atual E no histórico de status
+                    const statusAtual = ordem?.status || '';
+                    const statusAtualRecusou = statusAtual.toUpperCase().includes('RECUS') || 
+                                               statusAtual.toUpperCase().includes('NEGOU') || 
+                                               statusAtual.toUpperCase().includes('NÃO APROVOU') ||
+                                               statusAtual.toUpperCase().includes('NAO APROVOU') ||
+                                               statusAtual.toUpperCase() === 'CLIENTE RECUSOU' ||
+                                               statusAtual.toUpperCase().includes('CLIENTE RECUSOU');
+                    
+                    // Verificar no histórico de status
+                    const historicoRecusou = historico && historico.length > 0 && historico.some((h: any) => {
+                      const statusNovo = (h.status_novo || '').toUpperCase();
+                      return statusNovo.includes('RECUS') || 
+                             statusNovo.includes('NEGOU') || 
+                             statusNovo.includes('NÃO APROVOU') ||
+                             statusNovo.includes('NAO APROVOU') ||
+                             statusNovo === 'CLIENTE RECUSOU' ||
+                             statusNovo.includes('CLIENTE RECUSOU');
+                    });
+                    
+                    const clienteRecusou = statusAtualRecusou || historicoRecusou;
+                    
+                    // Verificar se aparelho não tem conserto (verificar no laudo ou observação)
+                    const laudoTexto = (laudo || '').toLowerCase();
+                    const observacaoTexto = (observacao || observacoesInternas || '').toLowerCase();
+                    const aparelhoSemConserto = laudoTexto.includes('sem conserto') ||
+                                               laudoTexto.includes('não tem conserto') ||
+                                               laudoTexto.includes('nao tem conserto') ||
+                                               laudoTexto.includes('irreparável') ||
+                                               laudoTexto.includes('irreparavel') ||
+                                               observacaoTexto.includes('sem conserto') ||
+                                               observacaoTexto.includes('não tem conserto') ||
+                                               observacaoTexto.includes('nao tem conserto');
+                    
+                    // Mostrar ENTREGUE apenas se:
+                    // 1. Tem valor lançado, OU
+                    // 2. Cliente recusou/não aprovou (PRIORIDADE: libera entrega mesmo sem valor), OU
+                    // 3. Aparelho não tem conserto
+                    // Se cliente recusou, sempre permitir ENTREGUE (mesmo sem valor)
+                    if (clienteRecusou) {
+                      return true;
+                    }
+                    
+                    return temValorLancado || aparelhoSemConserto;
+                  })
+                  .map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.nome}
                   </option>

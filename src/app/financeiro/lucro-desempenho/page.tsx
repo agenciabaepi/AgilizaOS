@@ -1822,11 +1822,11 @@ export default function LucroDesempenhoPage() {
     // Só atualizar se o valor mudou significativamente (mais de 0.01 para evitar flutuações de ponto flutuante)
     if (Math.abs(metricasPrevistas.saldoNaContaPrevisto - saldoNaContaPrevisto) < 0.01) {
       return;
-    }
+      }
     
     setMetricasPrevistas(prev => ({
-      ...prev,
-      saldoNaContaPrevisto
+        ...prev,
+        saldoNaContaPrevisto
     }));
   }, [metricas.saldoNaConta, ordens.length, custosEmpresa.custosTotais, metricasPrevistas.receitaPrevista, metricasPrevistas.contasAPagarPrevistas, loading]);
 

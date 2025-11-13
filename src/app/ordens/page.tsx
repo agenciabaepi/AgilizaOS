@@ -416,9 +416,9 @@ export default function ListaOrdensPage() {
           // Se não houver dados, parar aqui
           if (!data || (Array.isArray(data) && data.length === 0)) {
             addToast('error', `Erro ao carregar ordens: ${error.message || 'Erro desconhecido'}`);
-            setLoadingOrdens(false);
+          setLoadingOrdens(false);
             setError(error);
-            return;
+          return;
           }
           // Se houver dados mas também erro, logar mas continuar
           console.warn('⚠️ Erro na query mas temos dados, continuando...');
@@ -534,7 +534,7 @@ export default function ListaOrdensPage() {
             const tecnicosNaoEncontrados = tecnicoIds.filter((id: string) => !tecnicosDict[id]);
             if (tecnicosNaoEncontrados.length > 0) {
               console.warn('⚠️ Técnicos não encontrados (pode ser problema de RLS ou IDs inválidos):', tecnicosNaoEncontrados);
-            }
+          }
           } else {
             console.warn('⚠️ Nenhum técnico encontrado para os IDs:', tecnicoIds);
             console.warn('⚠️ Isso pode indicar problema de RLS ou que os técnicos não existem na empresa:', empresaId);
@@ -548,7 +548,7 @@ export default function ListaOrdensPage() {
           .filter((item: any) => item.atendente_id && item.atendente_id !== null && item.atendente_id !== undefined)
           .map((item: any) => item.atendente_id))];
         let responsaveisDict: Record<string, { nome: string; foto_url: string | null }> = {};
-        
+
         if (responsavelIds.length > 0) {
           console.log('🔍 Buscando dados de', responsavelIds.length, 'atendentes...');
           const { data: responsaveisData, error: responsaveisError } = await supabase
@@ -694,7 +694,7 @@ export default function ListaOrdensPage() {
           } else if (item.tecnico_id) {
             tecnicoNome = 'Técnico não encontrado';
           }
-          
+
           return {
           id: item.id,
             numero: item.numero_os,
