@@ -24,10 +24,10 @@ import { ToastProvider, useToast } from '@/components/Toast';
 import { ConfirmProvider, useConfirm } from '@/components/ConfirmDialog';
 
 function UsuariosPageInner() {
-  const { session } = useAuth()
+  const { session, usuarioData } = useAuth()
   const router = useRouter();
   const { carregarLimites, limites, podeCriar, assinatura, isTrialExpired } = useSubscription();
-  const { addToast } = useToast();
+  const { addToast, showModal } = useToast();
   const confirm = useConfirm();
   const { podeAcessar } = useConfigPermission('usuarios');
   
@@ -247,7 +247,8 @@ function UsuariosPageInner() {
       const token = session?.access_token;
       
       if (!token) {
-        throw new Error('Usuário não autenticado');
+        addToast('error', 'Usuário não autenticado');
+        return;
       }
       
       const response = await fetch('/api/usuarios/excluir', {
@@ -260,16 +261,43 @@ function UsuariosPageInner() {
       })
 
       const data = await response.json()
+      
+      // Verificar se é erro de foreign key constraint ANTES de verificar response.ok
+      if (!response.ok && (data.code === 'FOREIGN_KEY_CONSTRAINT' || response.status === 409)) {
+        // Erro esperado: dados vinculados - mostrar APENAS modal no centro da tela (sem toast)
+        showModal({
+          title: 'Não é possível excluir este usuário',
+          message: data.error || 'Este usuário possui dados vinculados e não pode ser excluído.',
+          confirmLabel: 'Entendi',
+          type: 'warning',
+          onClose: () => {}
+        })
+        return // Retornar aqui para não executar código abaixo nem entrar no catch
+      }
+      
       if (!response.ok) {
-        throw new Error(data.error || 'Erro ao excluir usuário')
+        // Outros erros: mostrar toast de erro
+        const errorMessage = data.error || `Erro ao excluir usuário (${response.status})`
+        addToast('error', errorMessage)
+        return
       }
 
+      // Sucesso
       addToast('success', 'Usuário excluído com sucesso!');
       fetchUsuarios()
       carregarLimites()
     } catch (error: unknown) {
-      console.error('Erro ao excluir usuário:', error instanceof Error ? error.message : 'Erro desconhecido')
-      addToast('error', 'Erro ao excluir usuário: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
+      // Apenas para erros de rede ou exceções inesperadas (não para foreign key constraint)
+      // Verificar se o erro NÃO é de foreign key constraint antes de mostrar toast
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido'
+      
+      // Não mostrar toast se for erro de foreign key (já deve ter sido tratado acima)
+      if (errorMessage.includes('foreign key') || errorMessage.includes('dados vinculados')) {
+        return
+      }
+      
+      console.error('Erro ao excluir usuário:', errorMessage)
+      addToast('error', 'Erro ao excluir usuário: ' + errorMessage);
     }
   }
 

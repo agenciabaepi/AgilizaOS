@@ -12,7 +12,7 @@ interface ToastMessage {
 
 interface ToastContextProps {
   addToast: (type: ToastType, content: string) => void;
-  showModal: (opts: { title: string; message?: string; messageNode?: ReactNode; confirmLabel?: string; onConfirm?: () => void; onClose?: () => void }) => void;
+  showModal: (opts: { title: string; message?: string; messageNode?: ReactNode; confirmLabel?: string; onConfirm?: () => void; onClose?: () => void; type?: 'warning' | 'error' | 'info' | 'success' }) => void;
 }
 
 const ToastContext = createContext<ToastContextProps | undefined>(undefined);
@@ -21,7 +21,7 @@ let toastCount = 0;
 
 export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const [modal, setModal] = useState<{ title: string; message?: string; messageNode?: ReactNode; confirmLabel?: string; onConfirm?: () => void; onClose?: () => void } | null>(null);
+  const [modal, setModal] = useState<{ title: string; message?: string; messageNode?: ReactNode; confirmLabel?: string; onConfirm?: () => void; onClose?: () => void; type?: 'warning' | 'error' | 'info' | 'success' } | null>(null);
   const { usuarioData } = useAuth();
 
   // Reproduzir som quando modal de orçamento for exibida - APENAS para atendentes
@@ -77,13 +77,31 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const addToast = useCallback((type: ToastType, content: string) => {
     const id = ++toastCount;
     setToasts(prev => [...prev, { id, type, content }]);
+    
+    // Calcular tempo baseado no tipo e comprimento da mensagem
+    let duration = 5000; // Base de 5 segundos
+    
+    // Warnings e errors ficam mais tempo (são mensagens mais importantes)
+    if (type === 'warning') {
+      duration = 10000; // 10 segundos para warnings
+    } else if (type === 'error') {
+      duration = 8000; // 8 segundos para errors
+    }
+    
+    // Adicionar tempo extra para mensagens longas (aproximadamente 100ms por caractere adicional após 50)
+    const baseLength = 50;
+    if (content.length > baseLength) {
+      const extraChars = content.length - baseLength;
+      duration += Math.min(extraChars * 100, 5000); // Máximo de 5 segundos extras
+    }
+    
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
-    }, 5000);
+    }, duration);
   }, []);
 
-  const showModal = useCallback((opts: { title: string; message?: string; messageNode?: ReactNode; confirmLabel?: string; onConfirm?: () => void; onClose?: () => void }) => {
-    setModal({ title: opts.title, message: opts.message, messageNode: opts.messageNode, confirmLabel: opts.confirmLabel, onConfirm: opts.onConfirm, onClose: opts.onClose });
+  const showModal = useCallback((opts: { title: string; message?: string; messageNode?: ReactNode; confirmLabel?: string; onConfirm?: () => void; onClose?: () => void; type?: 'warning' | 'error' | 'info' | 'success' }) => {
+    setModal({ title: opts.title, message: opts.message, messageNode: opts.messageNode, confirmLabel: opts.confirmLabel, onConfirm: opts.onConfirm, onClose: opts.onClose, type: opts.type || 'info' });
   }, []);
 
   return (
@@ -110,7 +128,12 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 border border-gray-200">
+          <div className={`relative bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 border-2 ${
+            modal.type === 'warning' ? 'border-yellow-400' :
+            modal.type === 'error' ? 'border-red-400' :
+            modal.type === 'success' ? 'border-green-400' :
+            'border-gray-200'
+          }`}>
             <button
               aria-label="Fechar"
               className="absolute right-3 top-3 p-1 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100"
@@ -122,13 +145,35 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 11-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z" clipRule="evenodd"/></svg>
             </button>
-            <div className="text-lg font-semibold mb-2">{modal.title}</div>
-            <div className="text-sm text-gray-700 mb-4 whitespace-pre-wrap">
+            
+            {/* Ícone de alerta para warnings */}
+            {modal.type === 'warning' && (
+              <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-yellow-100">
+                <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+            )}
+            
+            <div className={`text-lg font-semibold mb-2 text-center ${
+              modal.type === 'warning' ? 'text-yellow-800' :
+              modal.type === 'error' ? 'text-red-800' :
+              modal.type === 'success' ? 'text-green-800' :
+              'text-gray-800'
+            }`}>
+              {modal.title}
+            </div>
+            <div className="text-sm text-gray-700 mb-6 whitespace-pre-wrap text-center leading-relaxed">
               {modal.messageNode ? modal.messageNode : modal.message}
             </div>
-            <div className="flex justify-end">
+            <div className="flex justify-center">
               <button
-                className="px-4 py-2 rounded-md bg-black text-white hover:bg-gray-900"
+                className={`px-6 py-2 rounded-md text-white hover:opacity-90 transition-opacity ${
+                  modal.type === 'warning' ? 'bg-yellow-500 hover:bg-yellow-600' :
+                  modal.type === 'error' ? 'bg-red-500 hover:bg-red-600' :
+                  modal.type === 'success' ? 'bg-green-500 hover:bg-green-600' :
+                  'bg-black hover:bg-gray-900'
+                }`}
                 onClick={() => {
                   const cb = modal.onConfirm;
                   setModal(null);
