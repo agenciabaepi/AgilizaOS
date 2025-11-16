@@ -17,32 +17,106 @@ interface OSData {
   servico: string;
   empresa_id?: string;
   equipamento?: string;
+  marca?: string;
+  modelo?: string;
+  problema_relatado?: string;
   valor?: number;
   clientes?: {
     nome: string;
     telefone: string;
   } | null;
+  empresas?: {
+    logo_url?: string;
+  } | null;
 }
 
 /**
  * Envia mensagem diretamente pela API do WhatsApp (sem N8N)
+ * Suporta tanto mensagens de texto quanto templates
  */
-async function sendWhatsAppMessage(phoneNumber: string, message: string): Promise<boolean> {
+async function sendWhatsAppMessage(
+  phoneNumber: string, 
+  message: string, 
+  templateParams?: { 
+    tecnicoNome?: string; 
+    numeroOS?: number; 
+    status?: string; 
+    clienteNome?: string; 
+    clienteTelefone?: string; 
+    aparelho?: string; 
+    modelo?: string; 
+    defeito?: string;
+    logoUrl?: string;
+  }
+): Promise<boolean> {
   try {
     console.log('📱 Enviando mensagem WhatsApp direta:', {
       to: phoneNumber,
-      messageLength: message.length
+      messageLength: message.length,
+      hasTemplateParams: !!templateParams
     });
+
+    // Se tiver parâmetros do template, montar o payload do template
+    let body: any = {
+      to: phoneNumber,
+      message: message,
+      useTemplate: true,
+      templateName: 'os_nova_v5'
+    };
+
+    if (templateParams) {
+      // Montar parâmetros do template os_nova_v5
+      // Header: Imagem do logo (OBRIGATÓRIO para o template os_nova_v5)
+      // Se não tiver logo da empresa, usar uma imagem padrão ou deixar vazio (pode dar erro)
+      const headerParams = templateParams.logoUrl ? [
+        {
+          type: 'image',
+          image: {
+            link: templateParams.logoUrl
+          }
+        }
+      ] : [
+        // Se não tiver logo, tentar usar uma imagem padrão
+        // Ou deixar vazio se o template permitir
+        {
+          type: 'image',
+          image: {
+            link: 'https://via.placeholder.com/200x200?text=Logo' // Placeholder temporário
+          }
+        }
+      ];
+
+      // Body: Parâmetros do template
+      // Ordem dos parâmetros baseada no template:
+      // 1. Nome do técnico
+      // 2. Número da OS
+      // 3. Status
+      // 4. Cliente
+      // 5. Contato
+      // 6. Aparelho
+      // 7. Modelo
+      // 8. Defeito
+      body.templateParams = {
+        header: headerParams,
+        body: [
+          { type: 'text', text: templateParams.tecnicoNome || 'Técnico' },
+          { type: 'text', text: String(templateParams.numeroOS || '') },
+          { type: 'text', text: templateParams.status || '' },
+          { type: 'text', text: templateParams.clienteNome || 'Cliente' },
+          { type: 'text', text: templateParams.clienteTelefone || '' },
+          { type: 'text', text: templateParams.aparelho || '' },
+          { type: 'text', text: templateParams.modelo || '' },
+          { type: 'text', text: templateParams.defeito || '' }
+        ]
+      };
+    }
 
     const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/whatsapp/send-message`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        to: phoneNumber,
-        message: message
-      })
+      body: JSON.stringify(body)
     });
 
     if (!response.ok) {
@@ -102,7 +176,13 @@ export async function getOSData(osId: string): Promise<OSData | null> {
         status,
         status_tecnico,
         servico,
-        clientes!inner(nome, telefone)
+        equipamento,
+        marca,
+        modelo,
+        problema_relatado,
+        empresa_id,
+        clientes!inner(nome, telefone),
+        empresas(logo_url)
       `)
       .eq('id', osId)
       .single();
@@ -240,32 +320,50 @@ export async function sendNewOSNotification(osId: string): Promise<boolean> {
       return false;
     }
 
-    // Criar mensagem para nova OS
+    // Preparar dados para o template os_nova_v5
     const clienteNome = (osData.clientes as any)?.nome || 'Cliente não informado';
-    const servico = osData.servico || 'Serviço não especificado';
-    
+    const clienteTelefone = (osData.clientes as any)?.telefone || '';
+    const aparelho = osData.equipamento || '';
+    const modelo = osData.modelo || '';
+    const defeito = osData.problema_relatado || '';
+    const status = osData.status || 'ORÇAMENTO';
+    const logoUrl = (osData.empresas as any)?.logo_url || null;
+
+    // Mensagem de fallback (caso o template não funcione)
     const message = `🆕 *NOVA ORDEM DE SERVIÇO!*
 
 📋 *OS #${osData.numero_os}*
 👤 *Cliente:* ${clienteNome}
-📞 *Telefone:* ${(osData.clientes as any)?.telefone || 'Não informado'}
-🔧 *Serviço:* ${servico}
-📅 *Status:* ${osData.status}
+📞 *Telefone:* ${clienteTelefone || 'Não informado'}
+🔧 *Serviço:* ${osData.servico || 'Serviço não especificado'}
+📅 *Status:* ${status}
 
 Uma nova ordem de serviço foi criada e está aguardando sua análise!
 
 _Consert - Sistema de Gestão_`;
 
-    // Enviar mensagem diretamente pelo WhatsApp (sem N8N)
-    console.log('📱 Enviando notificação de nova OS diretamente:', {
+    // Enviar mensagem usando template os_nova_v5
+    console.log('📱 Enviando notificação de nova OS usando template os_nova_v5:', {
       os_id: osData.id,
       numero_os: osData.numero_os,
       tecnico: tecnicoData.nome,
       whatsapp: tecnicoData.whatsapp,
-      cliente: clienteNome
+      cliente: clienteNome,
+      template: 'os_nova_v5',
+      hasLogo: !!logoUrl
     });
 
-    const success = await sendWhatsAppMessage(tecnicoData.whatsapp, message);
+    const success = await sendWhatsAppMessage(tecnicoData.whatsapp, message, {
+      tecnicoNome: tecnicoData.nome,
+      numeroOS: osData.numero_os,
+      status: status,
+      clienteNome: clienteNome,
+      clienteTelefone: clienteTelefone.replace(/\D/g, ''), // Remove caracteres não numéricos
+      aparelho: aparelho,
+      modelo: modelo,
+      defeito: defeito,
+      logoUrl: logoUrl
+    });
 
     if (!success) {
       console.error('❌ Falha ao enviar notificação de nova OS');

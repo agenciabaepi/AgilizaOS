@@ -4,14 +4,32 @@ interface WhatsAppMessage {
   messaging_product: string;
   to: string;
   type: string;
-  text: {
+  text?: {
     body: string;
+  };
+  template?: {
+    name: string;
+    language: {
+      code: string;
+    };
+    components?: Array<{
+      type: string;
+      parameters?: Array<{
+        type: string;
+        text?: string;
+        image?: {
+          link?: string;
+          id?: string;
+        };
+      }>;
+    }>;
   };
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { phoneNumber, to, message } = await request.json();
+    const body = await request.json();
+    const { phoneNumber, to, message, useTemplate, templateName, templateParams } = body;
 
     // Usar 'to' se disponível, senão usar 'phoneNumber'
     const phone = to || phoneNumber;
@@ -29,14 +47,72 @@ export async function POST(request: NextRequest) {
       ? formattedPhone 
       : `55${formattedPhone}`;
 
-    const whatsappMessage: WhatsAppMessage = {
-      messaging_product: 'whatsapp',
-      to: phoneWithCountryCode,
-      type: 'text',
-      text: {
-        body: message
+    // Verificar se deve usar template (para números fora da janela de 24h)
+    // Por padrão, vamos SEMPRE usar template para garantir que funcione
+    const shouldUseTemplate = useTemplate !== false; // Default: true
+    const template = templateName || process.env.WHATSAPP_TEMPLATE_NAME || 'os_nova_v5';
+
+    let whatsappMessage: WhatsAppMessage;
+
+    if (shouldUseTemplate && template) {
+      // Usar template message (funciona fora da janela de 24h)
+      const components: any[] = [];
+
+      // Adicionar header se o template tiver (geralmente é uma imagem)
+      // O template os_nova_v5 tem header OBRIGATÓRIO com imagem do logo
+      if (templateParams?.header && templateParams.header.length > 0) {
+        components.push({
+          type: 'header',
+          parameters: templateParams.header
+        });
+        console.log('📷 Adicionando header com imagem ao template');
+      } else {
+        // O template os_nova_v5 requer header com imagem
+        // Se não tiver logo, usar uma imagem padrão ou deixar vazio (pode dar erro)
+        // Por enquanto, vamos tentar sem header e ver o erro específico
+        console.log('⚠️ Template requer header mas nenhum foi fornecido - tentando sem header');
       }
-    };
+
+      // Adicionar body com parâmetros
+      const bodyParams = templateParams?.body || [
+        {
+          type: 'text',
+          text: message
+        }
+      ];
+
+      if (bodyParams.length > 0) {
+        components.push({
+          type: 'body',
+          parameters: bodyParams
+        });
+      }
+
+      whatsappMessage = {
+        messaging_product: 'whatsapp',
+        to: phoneWithCountryCode,
+        type: 'template',
+        template: {
+          name: template,
+          language: {
+            code: 'pt_BR'
+          },
+          components: components
+        }
+      };
+      console.log('📱 Usando template message:', template, 'com', components.length, 'componentes (header:', !!templateParams?.header, ', body:', bodyParams.length, 'parâmetros)');
+    } else {
+      // Usar mensagem de texto normal (só funciona dentro da janela de 24h)
+      whatsappMessage = {
+        messaging_product: 'whatsapp',
+        to: phoneWithCountryCode,
+        type: 'text',
+        text: {
+          body: message
+        }
+      };
+      console.log('📱 Usando mensagem de texto (requer janela de 24h)');
+    }
 
     console.log('📱 Enviando mensagem WhatsApp:', {
       to: phoneWithCountryCode,
@@ -114,10 +190,29 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Mensagem WhatsApp enviada com sucesso:', responseData);
 
+    // Verificar se há informações de contato
+    const contact = responseData.contacts?.[0];
+    const messageId = responseData.messages?.[0]?.id;
+    
+    // Log detalhado
+    console.log('📊 Detalhes da entrega:', {
+      messageId,
+      to: phoneWithCountryCode,
+      contact: contact ? {
+        input: contact.input,
+        wa_id: contact.wa_id,
+        status: contact.wa_id ? 'Número encontrado no WhatsApp' : 'Número não encontrado'
+      } : 'Sem informações de contato',
+      warning: !contact?.wa_id ? '⚠️ O número pode não estar cadastrado no WhatsApp ou não estar na janela de 24h' : undefined
+    });
+
     return NextResponse.json({
       success: true,
-      messageId: responseData.messages?.[0]?.id,
-      data: responseData
+      messageId,
+      data: responseData,
+      contact: contact,
+      warning: !contact?.wa_id ? 'O número pode não estar cadastrado no WhatsApp ou não estar na janela de 24 horas. Verifique se o número iniciou uma conversa nas últimas 24h.' : undefined,
+      formattedPhone: phoneWithCountryCode
     });
 
   } catch (error) {
