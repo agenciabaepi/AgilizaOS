@@ -51,8 +51,26 @@ export async function POST(request: NextRequest) {
       tokenUltimos10: process.env.WHATSAPP_ACCESS_TOKEN?.substring(process.env.WHATSAPP_ACCESS_TOKEN.length - 10)
     });
 
+    // 🔍 DEBUG: Verificar Phone Number ID
+    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+    if (!phoneNumberId) {
+      console.error('❌ WHATSAPP_PHONE_NUMBER_ID não está configurado!');
+      return NextResponse.json(
+        { error: 'WHATSAPP_PHONE_NUMBER_ID não está configurado nas variáveis de ambiente' },
+        { status: 500 }
+      );
+    }
+
+    console.log('📱 DEBUG Phone Number ID:', {
+      phoneNumberId,
+      phoneNumberIdLength: phoneNumberId.length
+    });
+
+    const apiUrl = `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`;
+    console.log('🌐 URL da API:', apiUrl);
+
     const response = await fetch(
-      `https://graph.facebook.com/v18.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
+      apiUrl,
       {
         method: 'POST',
         headers: {
@@ -67,10 +85,28 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       console.error('❌ Erro ao enviar mensagem WhatsApp:', responseData);
+      
+      // Mensagem de erro mais detalhada
+      const errorMessage = responseData?.error?.message || 'Erro desconhecido';
+      const errorCode = responseData?.error?.code;
+      const errorSubcode = responseData?.error?.error_subcode;
+      
+      // Verificar se é erro de Phone Number ID inválido
+      if (errorCode === 100 && errorSubcode === 33) {
+        console.error('❌ ERRO CRÍTICO: Phone Number ID inválido ou sem permissões!');
+        console.error('📱 Phone Number ID usado:', phoneNumberId);
+        console.error('💡 Verifique se o WHATSAPP_PHONE_NUMBER_ID está correto no .env');
+        console.error('💡 Verifique se o token tem permissões para este Phone Number ID');
+      }
+      
       return NextResponse.json(
         { 
           error: 'Erro ao enviar mensagem WhatsApp',
-          details: responseData 
+          details: responseData,
+          phoneNumberId: phoneNumberId,
+          suggestion: errorCode === 100 && errorSubcode === 33 
+            ? 'Verifique se o WHATSAPP_PHONE_NUMBER_ID está correto e se o token tem permissões'
+            : undefined
         },
         { status: response.status }
       );
