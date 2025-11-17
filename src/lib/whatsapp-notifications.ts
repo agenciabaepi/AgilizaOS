@@ -111,7 +111,16 @@ async function sendWhatsAppMessage(
       };
     }
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/whatsapp/send-message`, {
+    // Determinar URL base automaticamente (funciona em dev, preview e prod)
+    // Em produção no Vercel, usar a URL do domínio ou VERCEL_URL
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL 
+      || process.env.NEXT_PUBLIC_SITE_URL
+      || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')
+      || 'http://localhost:3000';
+
+    console.log('🌐 Base URL usada para chamada interna:', baseUrl);
+
+    const response = await fetch(`${baseUrl}/api/whatsapp/send-message`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
