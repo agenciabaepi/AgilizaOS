@@ -87,7 +87,14 @@ export async function processWhatsAppMessage(from: string, messageBody: string) 
     }
 
     // Se não for comando, tentar usar ChatGPT
-    if (isChatGPTAvailable()) {
+    const chatGPTDisponivel = isChatGPTAvailable();
+    console.log('🔍 Verificando ChatGPT:', {
+      disponivel: chatGPTDisponivel,
+      temApiKey: !!process.env.OPENAI_API_KEY,
+      mensagem: trimmedMessage
+    });
+    
+    if (chatGPTDisponivel) {
       console.log('🤖 ChatGPT disponível - processando mensagem com IA');
       console.log('📝 Mensagem para ChatGPT:', trimmedMessage);
       
@@ -102,41 +109,52 @@ export async function processWhatsAppMessage(from: string, messageBody: string) 
       // Se for técnico, buscar dados reais para contexto dinâmico
       let tecnicoData = null;
       if (tecnico) {
-        console.log('📊 Buscando dados do técnico para contexto dinâmico...');
-        tecnicoData = await getTecnicoDataForContext(tecnico.id);
-        console.log('✅ Dados do técnico obtidos:', {
-          temComissoes: !!tecnicoData?.comissoes,
-          temOSPendentes: !!tecnicoData?.osPendentes,
-          totalOSPendentes: tecnicoData?.totalOSPendentes
-        });
+        try {
+          console.log('📊 Buscando dados do técnico para contexto dinâmico...');
+          tecnicoData = await getTecnicoDataForContext(tecnico.id);
+          console.log('✅ Dados do técnico obtidos:', {
+            temComissoes: !!tecnicoData?.comissoes,
+            temOSPendentes: !!tecnicoData?.osPendentes,
+            totalOSPendentes: tecnicoData?.totalOSPendentes
+          });
+        } catch (error: any) {
+          console.error('⚠️ Erro ao buscar dados do técnico (continuando sem dados):', error.message);
+          // Continuar mesmo sem dados do técnico
+        }
       }
       
       try {
+        console.log('🚀 Chamando ChatGPT API...');
         const chatGPTResponse = await getChatGPTResponse(trimmedMessage, {
           userName: tecnico?.nome,
           isTecnico: !!tecnico,
           tecnicoData: tecnicoData || undefined,
         });
 
-        if (chatGPTResponse) {
+        if (chatGPTResponse && chatGPTResponse.trim().length > 0) {
           console.log('✅ ChatGPT retornou resposta:', {
             length: chatGPTResponse.length,
             preview: chatGPTResponse.substring(0, 100)
           });
           return { message: chatGPTResponse };
         } else {
-          console.warn('⚠️ ChatGPT não retornou resposta');
+          console.warn('⚠️ ChatGPT retornou resposta vazia ou null');
         }
       } catch (error: any) {
         console.error('❌ Erro ao chamar ChatGPT:', error);
         console.error('❌ Detalhes do erro:', {
           message: error.message,
           code: error.code,
-          status: error.status
+          status: error.status,
+          stack: error.stack?.substring(0, 200)
         });
+        // Continuar para fallback
       }
     } else {
-      console.warn('⚠️ ChatGPT não disponível - OPENAI_API_KEY não configurada');
+      console.warn('⚠️ ChatGPT não disponível:', {
+        temApiKey: !!process.env.OPENAI_API_KEY,
+        apiKeyLength: process.env.OPENAI_API_KEY?.length || 0
+      });
     }
 
     // Fallback: Comando não reconhecido e ChatGPT não disponível

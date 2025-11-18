@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isChatGPTAvailable } from '@/lib/chatgpt';
+import { isChatGPTAvailable, getChatGPTResponse } from '@/lib/chatgpt';
 
 /**
  * Rota de debug para verificar configuração do webhook
@@ -12,6 +12,26 @@ export async function GET(request: NextRequest) {
     );
 
     const chatgptConfigured = isChatGPTAvailable();
+    const apiKeyLength = process.env.OPENAI_API_KEY?.length || 0;
+    const apiKeyPrefix = process.env.OPENAI_API_KEY?.substring(0, 7) || 'N/A';
+
+    // Testar ChatGPT se estiver configurado
+    let chatGPTTest = null;
+    if (chatgptConfigured) {
+      try {
+        const testResponse = await getChatGPTResponse('Olá', { userName: 'Teste' });
+        chatGPTTest = {
+          success: !!testResponse,
+          responseLength: testResponse?.length || 0,
+          responsePreview: testResponse?.substring(0, 50) || 'N/A'
+        };
+      } catch (error: any) {
+        chatGPTTest = {
+          success: false,
+          error: error.message
+        };
+      }
+    }
 
     return NextResponse.json({
       status: 'ok',
@@ -24,7 +44,8 @@ export async function GET(request: NextRequest) {
         },
         chatgpt: {
           configured: chatgptConfigured,
-          apiKey: process.env.OPENAI_API_KEY ? '✅ Configurado' : '❌ Não configurado',
+          apiKey: process.env.OPENAI_API_KEY ? `✅ Configurado (${apiKeyLength} chars, prefix: ${apiKeyPrefix}...)` : '❌ Não configurado',
+          test: chatGPTTest
         }
       },
       webhookUrl: process.env.NEXT_PUBLIC_BASE_URL 
