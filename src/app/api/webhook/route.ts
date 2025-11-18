@@ -233,78 +233,106 @@ export async function POST(request: NextRequest) {
     // Receber o body da requisição
     const body = await request.json();
     
-    console.log('📨 Webhook POST - Mensagem recebida:', JSON.stringify(body, null, 2));
-    
     // Processar webhook do WhatsApp
     // Estrutura: body.entry[0].changes[0].value.messages[0]
     const entry = body.entry?.[0];
     const changes = entry?.changes?.[0];
     const value = changes?.value;
     const messages = value?.messages;
+    const statuses = value?.statuses; // Status de mensagens (delivered, read, etc)
+    const contacts = value?.contacts; // Informações de contato
 
-    console.log('🔍 Debug estrutura webhook:', {
-      hasEntry: !!entry,
-      hasChanges: !!changes,
-      hasValue: !!value,
-      hasMessages: !!messages,
-      messagesLength: messages?.length || 0,
-      valueKeys: value ? Object.keys(value) : [],
-      changesType: changes?.field
+    // IGNORAR eventos que não são mensagens recebidas
+    // Se tiver statuses, é um update de status (delivered, read, etc) - IGNORAR
+    if (statuses && statuses.length > 0) {
+      console.log('ℹ️ Webhook de status ignorado (delivered/read/etc):', {
+        statuses: statuses.length,
+        status: statuses[0]?.status
+      });
+      return NextResponse.json({ status: 'ignored', type: 'status_update' }, { status: 200 });
+    }
+
+    // Se tiver contacts mas não messages, é update de contato - IGNORAR
+    if (contacts && (!messages || messages.length === 0)) {
+      console.log('ℹ️ Webhook de contato ignorado:', {
+        contacts: contacts.length
+      });
+      return NextResponse.json({ status: 'ignored', type: 'contact_update' }, { status: 200 });
+    }
+
+    // Se não tiver messages, ignorar
+    if (!messages || messages.length === 0) {
+      console.log('ℹ️ Webhook recebido sem mensagens - ignorando:', {
+        hasStatuses: !!statuses,
+        hasContacts: !!contacts,
+        valueKeys: value ? Object.keys(value) : []
+      });
+      return NextResponse.json({ status: 'ignored', type: 'no_messages' }, { status: 200 });
+    }
+
+    // Processar apenas mensagens recebidas (não enviadas por nós)
+    const message = messages[0];
+    const from = message.from;
+    const messageType = message.type;
+    const messageId = message.id;
+
+    // Verificar se a mensagem foi enviada por nós (tem context)
+    // Se tiver context, é uma mensagem que enviamos - IGNORAR
+    if (message.context) {
+      console.log('ℹ️ Mensagem enviada por nós ignorada (tem context):', {
+        messageId,
+        from,
+        context: message.context
+      });
+      return NextResponse.json({ status: 'ignored', type: 'outgoing_message' }, { status: 200 });
+    }
+
+    console.log('📨 Mensagem recebida detectada:', { 
+      from, 
+      type: messageType, 
+      messageId,
+      timestamp: message.timestamp 
     });
 
-    if (messages && messages.length > 0) {
-      const message = messages[0];
-      const from = message.from;
-      const messageType = message.type;
-      const messageId = message.id;
+    // Processar APENAS mensagens de texto recebidas
+    if (messageType === 'text' && message.text?.body) {
+      const messageBody = message.text.body.trim();
+      
+      // Ignorar mensagens vazias
+      if (!messageBody || messageBody.length === 0) {
+        console.log('ℹ️ Mensagem vazia ignorada');
+        return NextResponse.json({ status: 'ignored', type: 'empty_message' }, { status: 200 });
+      }
 
-      console.log('📨 Mensagem detectada:', { 
-        from, 
-        type: messageType, 
-        messageId,
-        timestamp: message.timestamp 
-      });
+      console.log('💬 Texto recebido:', messageBody);
 
-      // Processar apenas mensagens de texto
-      if (messageType === 'text' && message.text?.body) {
-        const messageBody = message.text.body;
-        console.log('💬 Texto recebido:', messageBody);
+      // Processar mensagem (comando ou ChatGPT)
+      const result = await processWhatsAppMessage(from, messageBody);
 
-        // Processar mensagem (comando ou ChatGPT)
-        const result = await processWhatsAppMessage(from, messageBody);
+      // Enviar resposta apenas se houver resultado
+      if (result.message) {
+        console.log('📤 Preparando para enviar resposta:', {
+          to: from,
+          messageLength: result.message.length,
+          messagePreview: result.message.substring(0, 100)
+        });
 
-        // Enviar resposta
-        if (result.message) {
-          console.log('📤 Preparando para enviar resposta:', {
-            to: from,
-            messageLength: result.message.length,
-            messagePreview: result.message.substring(0, 100)
-          });
-
-          const sent = await sendWhatsAppTextMessage(from, result.message);
-          
-          if (sent) {
-            console.log('✅ Resposta enviada com sucesso para:', from);
-          } else {
-            console.error('❌ Falha ao enviar resposta para:', from);
-          }
+        const sent = await sendWhatsAppTextMessage(from, result.message);
+        
+        if (sent) {
+          console.log('✅ Resposta enviada com sucesso para:', from);
         } else {
-          console.warn('⚠️ Processamento não retornou mensagem para enviar');
+          console.error('❌ Falha ao enviar resposta para:', from);
         }
       } else {
-        console.log('⚠️ Tipo de mensagem não suportado:', messageType, {
-          message: message
-        });
+        console.warn('⚠️ Processamento não retornou mensagem para enviar');
       }
     } else {
-      console.log('ℹ️ Webhook recebido mas sem mensagens (pode ser status update, etc)');
-      console.log('📋 Estrutura completa do webhook:', {
-        entry: entry ? Object.keys(entry) : null,
-        changes: changes ? Object.keys(changes) : null,
-        value: value ? Object.keys(value) : null,
-        statuses: value?.statuses,
-        contacts: value?.contacts
+      console.log('ℹ️ Tipo de mensagem não suportado (ignorando):', {
+        type: messageType,
+        hasText: !!message.text?.body
       });
+      return NextResponse.json({ status: 'ignored', type: 'unsupported_message_type' }, { status: 200 });
     }
     
     // Sempre retornar 200 OK para o WhatsApp
