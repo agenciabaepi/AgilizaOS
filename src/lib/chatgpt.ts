@@ -31,6 +31,36 @@ export async function getChatGPTResponse(
   context?: {
     userName?: string;
     isTecnico?: boolean;
+    tecnicoData?: {
+      comissoes?: {
+        total: number;
+        totalPago: number;
+        totalPendente: number;
+        ultimas: Array<{
+          numero_os: number;
+          cliente: string;
+          valor: number;
+          status: string;
+          data: string;
+        }>;
+      };
+      osPendentes?: Array<{
+        numero_os: number;
+        cliente: string;
+        servico: string;
+        status: string;
+        status_tecnico: string;
+      }>;
+      osRecentes?: Array<{
+        numero_os: number;
+        cliente: string;
+        status: string;
+        status_tecnico: string;
+      }>;
+      contagemStatus?: Record<string, number>;
+      totalOSPendentes?: number;
+      totalOS?: number;
+    };
   }
 ): Promise<string | null> {
   try {
@@ -40,22 +70,63 @@ export async function getChatGPTResponse(
       return null;
     }
 
-    // Construir mensagem do sistema com contexto
-    const systemMessage = `Você é um assistente virtual do sistema Consert, um sistema de gestão de ordens de serviço.
+    // Construir mensagem do sistema com contexto dinâmico
+    let systemMessage = `Você é um assistente virtual inteligente do sistema Consert, um sistema de gestão de ordens de serviço.
 
-Sua função é ajudar usuários (principalmente técnicos) com perguntas sobre:
-- Ordens de serviço
-- Comissões
-- Status de serviços
-- Dúvidas gerais sobre o sistema
+Sua função é ajudar técnicos com perguntas sobre suas ordens de serviço, comissões e status de trabalhos.
 
-Seja sempre educado, objetivo e útil. Se não souber a resposta, oriente o usuário a entrar em contato com o administrador.
-
-IMPORTANTE: 
+IMPORTANTE:
 - Use emojis moderadamente para tornar a comunicação mais amigável
-- Mantenha respostas concisas (máximo 500 caracteres)
-- Se o usuário perguntar sobre comandos, mencione que pode usar /comissoes para ver suas comissões
-- Responda sempre em português brasileiro`;
+- Mantenha respostas concisas e objetivas (máximo 400 caracteres)
+- Responda sempre em português brasileiro
+- Seja educado e profissional`;
+
+    // Adicionar dados do técnico se disponíveis
+    if (context?.tecnicoData) {
+      const dados = context.tecnicoData;
+      
+      systemMessage += `\n\nDADOS ATUAIS DO TÉCNICO ${context.userName || 'TÉCNICO'}:`;
+      
+      if (dados.comissoes) {
+        systemMessage += `\n\n💰 COMISSÕES:
+- Total: R$ ${dados.comissoes.total.toFixed(2).replace('.', ',')}
+- Pagas: R$ ${dados.comissoes.totalPago.toFixed(2).replace('.', ',')}
+- Pendentes: R$ ${dados.comissoes.totalPendente.toFixed(2).replace('.', ',')}`;
+        
+        if (dados.comissoes.ultimas && dados.comissoes.ultimas.length > 0) {
+          systemMessage += `\n\nÚltimas comissões:`;
+          dados.comissoes.ultimas.forEach((c, i) => {
+            systemMessage += `\n${i + 1}. OS #${c.numero_os} - ${c.cliente} - R$ ${c.valor.toFixed(2).replace('.', ',')} - ${c.status}`;
+          });
+        }
+      }
+      
+      if (dados.osPendentes && dados.osPendentes.length > 0) {
+        systemMessage += `\n\n📋 ORDENS DE SERVIÇO PENDENTES (${dados.totalOSPendentes || dados.osPendentes.length}):`;
+        dados.osPendentes.slice(0, 5).forEach((os, i) => {
+          systemMessage += `\n${i + 1}. OS #${os.numero_os} - ${os.cliente} - ${os.servico} - Status: ${os.status}`;
+        });
+      }
+      
+      if (dados.contagemStatus) {
+        systemMessage += `\n\n📊 RESUMO DE OS:
+- Total de OS: ${dados.totalOS || 0}
+- Pendentes: ${dados.totalOSPendentes || 0}`;
+        
+        const statusMaisComuns = Object.entries(dados.contagemStatus)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3);
+        
+        if (statusMaisComuns.length > 0) {
+          systemMessage += `\nStatus mais comuns:`;
+          statusMaisComuns.forEach(([status, count]) => {
+            systemMessage += `\n- ${status}: ${count}`;
+          });
+        }
+      }
+      
+      systemMessage += `\n\nUse essas informações para responder perguntas específicas do técnico sobre suas comissões, OS pendentes, status de trabalhos, etc.`;
+    }
 
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       {

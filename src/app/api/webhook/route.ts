@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTecnicoByWhatsApp, getComissoesTecnico, formatComissoesMessage } from '@/lib/whatsapp-commands';
 import { getChatGPTResponse, isChatGPTAvailable } from '@/lib/chatgpt';
+import { getTecnicoDataForContext } from '@/lib/tecnico-data';
 
 export async function GET(request: NextRequest) {
   try {
@@ -90,7 +91,7 @@ export async function processWhatsAppMessage(from: string, messageBody: string) 
       console.log('🤖 ChatGPT disponível - processando mensagem com IA');
       console.log('📝 Mensagem para ChatGPT:', trimmedMessage);
       
-      // Buscar informações do técnico para contexto (opcional)
+      // Buscar informações do técnico para contexto
       const tecnico = await getTecnicoByWhatsApp(normalizedFrom);
       console.log('👤 Contexto do técnico:', {
         encontrado: !!tecnico,
@@ -98,10 +99,23 @@ export async function processWhatsAppMessage(from: string, messageBody: string) 
         isTecnico: !!tecnico
       });
       
+      // Se for técnico, buscar dados reais para contexto dinâmico
+      let tecnicoData = null;
+      if (tecnico) {
+        console.log('📊 Buscando dados do técnico para contexto dinâmico...');
+        tecnicoData = await getTecnicoDataForContext(tecnico.id);
+        console.log('✅ Dados do técnico obtidos:', {
+          temComissoes: !!tecnicoData?.comissoes,
+          temOSPendentes: !!tecnicoData?.osPendentes,
+          totalOSPendentes: tecnicoData?.totalOSPendentes
+        });
+      }
+      
       try {
         const chatGPTResponse = await getChatGPTResponse(trimmedMessage, {
           userName: tecnico?.nome,
           isTecnico: !!tecnico,
+          tecnicoData: tecnicoData || undefined,
         });
 
         if (chatGPTResponse) {
