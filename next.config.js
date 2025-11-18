@@ -4,7 +4,7 @@ const nextConfig = {
   experimental: {
     optimizeCss: false,
     optimizePackageImports: ['@supabase/supabase-js', 'react-icons/fi'],
-    esmExternals: true
+    esmExternals: true,
     // ⚠️ 'experimental.turbo' foi removido no Next 15.
     // Se quiser usar Turbopack, não precisa declarar aqui.
   },

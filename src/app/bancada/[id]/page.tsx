@@ -3,7 +3,7 @@
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { FiClipboard, FiSave, FiBox, FiTool, FiPlayCircle, FiX, FiCamera, FiTrash2, FiEdit, FiCheck, FiAlertCircle, FiLock, FiArrowLeft, FiUser, FiDollarSign, FiMessageCircle, FiPackage, FiAlertTriangle } from 'react-icons/fi';
+import { FiClipboard, FiSave, FiBox, FiTool, FiPlayCircle, FiX, FiCamera, FiTrash2, FiEdit, FiCheck, FiAlertCircle, FiLock, FiArrowLeft, FiUser, FiDollarSign, FiMessageCircle, FiPackage, FiAlertTriangle, FiEdit3 } from 'react-icons/fi';
 import MenuLayout from '@/components/MenuLayout';
 // Removido ProtectedArea - agora é responsabilidade do MenuLayout
 import ProdutoServicoSearch from '@/components/ProdutoServicoSearch';
@@ -11,6 +11,7 @@ import { Button } from '@/components/Button';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
 import DynamicChecklist from '@/components/DynamicChecklist';
+import ImageEditor from '@/components/ImageEditor';
 
 // Componente simples para exibir o padrão Android
 const PatternDisplay = ({ pattern }: { pattern: string | number[] }) => {
@@ -123,6 +124,13 @@ export default function DetalheBancadaPage() {
   const [previewImagensTecnico, setPreviewImagensTecnico] = useState<string[]>([]);
   const [imagensTecnicoExistentes, setImagensTecnicoExistentes] = useState<string[]>([]);
   const [uploadingImagens, setUploadingImagens] = useState(false);
+  
+  // Estado do editor de imagem
+  const [editingImageUrl, setEditingImageUrl] = useState<string | null>(null);
+  const [editingImageIndex, setEditingImageIndex] = useState<number | null>(null);
+  const [editingNewImage, setEditingNewImage] = useState<boolean>(false);
+  const [editingExistingImage, setEditingExistingImage] = useState<boolean>(false);
+  const [previewImagemUrl, setPreviewImagemUrl] = useState<string | null>(null);
   
   // Estados para checklist e senha
   const [checklistData, setChecklistData] = useState<any>(null);
@@ -668,6 +676,61 @@ export default function DetalheBancadaPage() {
 
   const handleRemoveExistingImage = (index: number) => {
     setImagensTecnicoExistentes(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Função para abrir editor de imagem
+  const abrirEditorImagem = (imageUrl: string, index: number, isNew: boolean = false, isExisting: boolean = false) => {
+    setEditingImageUrl(imageUrl);
+    setEditingImageIndex(index);
+    setEditingNewImage(isNew);
+    setEditingExistingImage(isExisting);
+  };
+
+  // Função para salvar imagem editada
+  const salvarImagemEditada = async (editedImageUrl: string) => {
+    if (editingImageIndex === null) return;
+
+    try {
+      if (editingNewImage) {
+        // Se for uma imagem nova, converter URL editada para File
+        const response = await fetch(editedImageUrl);
+        const blob = await response.blob();
+        const file = new File([blob], `imagem-editada-${Date.now()}.png`, { type: 'image/png' });
+        
+        // Substituir na lista de novas imagens
+        const novasImagensList = [...imagensTecnicoNovas];
+        novasImagensList[editingImageIndex] = file;
+        setImagensTecnicoNovas(novasImagensList);
+        
+        // Atualizar preview
+        const novasPreviews = [...previewImagensTecnico];
+        novasPreviews[editingImageIndex] = editedImageUrl;
+        setPreviewImagensTecnico(novasPreviews);
+      } else if (editingExistingImage) {
+        // Substituir a imagem na lista existente
+        const novasImagensList = [...imagensTecnicoExistentes];
+        novasImagensList[editingImageIndex] = editedImageUrl;
+        setImagensTecnicoExistentes(novasImagensList);
+
+        // Atualizar no banco de dados
+        const imagensString = novasImagensList.join(',');
+        const { error: updateError } = await supabase
+          .from('ordens_servico')
+          .update({ imagens_tecnico: imagensString })
+          .eq('id', id);
+
+        if (updateError) {
+          console.error('Erro ao atualizar imagem editada no banco:', updateError);
+          addToast('error', 'Erro ao atualizar imagem editada');
+          return;
+        }
+      }
+
+      addToast('success', 'Imagem editada salva com sucesso!');
+    } catch (error) {
+      console.error('Erro ao salvar imagem editada:', error);
+      addToast('error', 'Erro ao salvar imagem editada');
+    }
   };
 
   const uploadImagens = async () => {
@@ -1309,19 +1372,35 @@ export default function DetalheBancadaPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     {previewImagensTecnico.map((preview, index) => (
-                      <div key={index} className="relative group">
+                      <div key={index} className="relative group cursor-pointer">
                         <img
                           src={preview}
                           alt={`Preview ${index + 1}`}
                           className="w-full h-20 sm:h-24 object-cover rounded-lg border border-gray-200 shadow-sm"
                         />
-                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg flex items-center justify-center">
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/60 transition-all duration-200 rounded-lg flex items-center justify-center">
+                          <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                           <button
-                            onClick={() => handleRemoveImage(index)}
-                            className="bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                          >
-                            <FiTrash2 size={12} />
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                abrirEditorImagem(preview, index, true, false);
+                              }}
+                              className="bg-purple-600 text-white rounded px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 hover:bg-purple-700 transition-colors shadow-lg"
+                            >
+                              <FiEdit3 size={14} />
+                              Editar
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveImage(index);
+                              }}
+                              className="bg-red-500 text-white rounded px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 hover:bg-red-600 transition-colors shadow-lg"
+                            >
+                              <FiTrash2 size={14} />
+                              Remover
                           </button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -1331,19 +1410,24 @@ export default function DetalheBancadaPage() {
 
               {/* Imagens de Entrada (Atendente) */}
               {imagensEntradaExistentes.length > 0 && (
-                <div className="space-y-4">
+                <div id="anexos" className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h4 className="text-sm font-medium text-gray-700">Imagens de Entrada (Atendente)</h4>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     {imagensEntradaExistentes.map((url, index) => (
-                      <div key={index} className="relative group">
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => setPreviewImagemUrl(url)}
+                        className="relative group cursor-zoom-in"
+                      >
                         <img
                           src={url}
                           alt={`Imagem entrada ${index + 1}`}
                           className="w-full h-20 sm:h-24 object-cover rounded-lg border border-gray-200 shadow-sm"
                         />
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -1363,19 +1447,39 @@ export default function DetalheBancadaPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     {imagensTecnicoExistentes.map((url, index) => (
-                      <div key={index} className="relative group">
+                      <div
+                        key={index}
+                        className="relative group cursor-zoom-in"
+                        onClick={() => setPreviewImagemUrl(url)}
+                      >
                         <img
                           src={url}
                           alt={`Imagem técnico ${index + 1}`}
                           className="w-full h-20 sm:h-24 object-cover rounded-lg border border-gray-200 shadow-sm"
                         />
-                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg flex items-center justify-center">
-                          <button
-                            onClick={() => handleRemoveExistingImage(index)}
-                            className="bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                          >
-                            <FiTrash2 size={12} />
-                          </button>
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/60 transition-all duration-200 rounded-lg flex items-center justify-center">
+                          <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                abrirEditorImagem(url, index, false, true);
+                              }}
+                              className="bg-purple-600 text-white rounded px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 hover:bg-purple-700 transition-colors shadow-lg"
+                            >
+                              <FiEdit3 size={14} />
+                              Editar
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveExistingImage(index);
+                              }}
+                              className="bg-red-500 text-white rounded px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 hover:bg-red-600 transition-colors shadow-lg"
+                            >
+                              <FiTrash2 size={14} />
+                              Remover
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -1452,6 +1556,34 @@ export default function DetalheBancadaPage() {
             )}
           </div>
 
+          {/* Modal de visualização de imagem (anexos) */}
+          {previewImagemUrl && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+              onClick={() => setPreviewImagemUrl(null)}
+            >
+              <div
+                className="relative max-w-4xl w-full px-4"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  onClick={() => setPreviewImagemUrl(null)}
+                  className="absolute -top-3 -right-3 bg-black/80 text-white rounded-full p-1.5 shadow-lg hover:bg-black transition-colors"
+                >
+                  <FiX size={18} />
+                </button>
+                <div className="bg-black rounded-xl overflow-hidden shadow-2xl max-h-[80vh] flex items-center justify-center">
+                  <img
+                    src={previewImagemUrl}
+                    alt="Visualização do anexo"
+                    className="w-full h-full max-h-[80vh] object-contain"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Observações Técnicas Card */}
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <div className="flex items-center gap-3 mb-4">
@@ -1497,6 +1629,22 @@ export default function DetalheBancadaPage() {
           </div>
         </div>
       </div>
+
+      {/* Editor de Imagem */}
+      {editingImageUrl && (
+        <ImageEditor
+          isOpen={!!editingImageUrl}
+          onClose={() => {
+            setEditingImageUrl(null);
+            setEditingImageIndex(null);
+            setEditingNewImage(false);
+            setEditingExistingImage(false);
+          }}
+          imageUrl={editingImageUrl}
+          onSave={salvarImagemEditada}
+          osId={id}
+        />
+      )}
       </MenuLayout>
     
   );

@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
+import bglogin from '@/assets/imagens/bglogin.jpg';
 import logo from '@/assets/imagens/logopreto.png';
 import { ToastProvider, useToast } from '@/components/Toast';
 import { ConfirmProvider, useConfirm } from '@/components/ConfirmDialog';
@@ -257,6 +258,9 @@ function LoginClientInner() {
       return;
     }
     
+    // Verificação de email desabilitada - permitir login sem verificação obrigatória
+    // (Comentado para permitir que usuários existentes façam login normalmente)
+    /*
     // Se o usuário é ADMIN (criador da empresa), verificar se o email foi confirmado
     if (usuarioVerificacao?.nivel === 'admin' && !usuarioVerificacao?.email_verificado) {
       setIsSubmitting(false);
@@ -346,8 +350,9 @@ function LoginClientInner() {
         console.log('✅ Empresa já tem atividade, permitindo login mesmo sem admin verificado');
       }
     }
+    */
     
-    // Tentar fazer login (apenas se email foi verificado)
+    // Tentar fazer login
     const {
       data: { session },
       error
@@ -545,11 +550,20 @@ function LoginClientInner() {
     setCurrentImageIndex((prev) => (prev - 1 + carouselImages.length) % carouselImages.length);
   };
 
+  // Ocultar cards do carrossel temporariamente
+  const showCards = false;
+
   return (
     <div className="min-h-screen flex">
       {/* Lado Esquerdo - Carrossel de Cards */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-black">
+      <div
+        className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-center bg-cover"
+        style={{ backgroundImage: `url(${(bglogin as any).src || bglogin})` }}
+      >
+        {/* Overlay sutil para contraste */}
+        <div className="absolute inset-0 bg-black/50 pointer-events-none" />
         {/* Cards Sobrepostos */}
+        {showCards && (
         <div className="relative w-full h-full flex items-center justify-center p-8">
           {carouselImages.map((image, index) => {
             const isActive = index === currentImageIndex;
@@ -655,8 +669,10 @@ function LoginClientInner() {
             );
           })}
         </div>
+        )}
 
         {/* Controles do Carrossel */}
+        {showCards && (
         <div className="absolute bottom-12 left-1/2 transform -translate-x-1/2 flex space-x-6 z-40">
           <button
             onClick={prevImage}
@@ -672,8 +688,10 @@ function LoginClientInner() {
             <FaArrowRight className="text-lg" />
           </button>
         </div>
+        )}
 
         {/* Indicadores de página */}
+        {showCards && (
         <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 flex space-x-4 z-40">
           {carouselImages.map((_, index) => (
             <button
@@ -687,6 +705,7 @@ function LoginClientInner() {
             />
           ))}
         </div>
+        )}
       </div>
       
       {/* Lado Direito - Formulário de Login */}

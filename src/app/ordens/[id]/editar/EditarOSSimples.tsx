@@ -8,11 +8,12 @@ import MenuLayout from '@/components/MenuLayout';
 import ProdutoServicoManager from '@/components/ProdutoServicoManager';
 import EquipamentoSelector from '@/components/EquipamentoSelector';
 import DynamicChecklist from '@/components/DynamicChecklist';
+import ImageEditor from '@/components/ImageEditor';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { useAuth } from '@/context/AuthContext';
 import { useStatusHistorico } from '@/hooks/useStatusHistorico';
-import { FiArrowLeft, FiSave, FiUser, FiCheckCircle, FiTool, FiFileText } from 'react-icons/fi';
+import { FiArrowLeft, FiSave, FiUser, FiCheckCircle, FiTool, FiFileText, FiEdit3 } from 'react-icons/fi';
 
 interface Item {
   id?: string;
@@ -109,6 +110,11 @@ export default function EditarOSSimples() {
   const [imagens, setImagens] = useState<string[]>([]);
   const [novasImagens, setNovasImagens] = useState<File[]>([]);
   const [uploadingImagens, setUploadingImagens] = useState(false);
+  
+  // Estado do editor de imagem
+  const [editingImageUrl, setEditingImageUrl] = useState<string | null>(null);
+  const [editingImageIndex, setEditingImageIndex] = useState<number | null>(null);
+  const [editingNewImage, setEditingNewImage] = useState<boolean>(false);
 
   // Checklist de entrada (opcional na criação, recomendado antes do técnico)
   const [checklistEntrada, setChecklistEntrada] = useState<Record<string, boolean>>({});
@@ -602,6 +608,58 @@ export default function EditarOSSimples() {
     return uploadedUrls;
   };
 
+  // Função para abrir editor de imagem
+  const abrirEditorImagem = (imageUrl: string, index: number, isNew: boolean = false) => {
+    setEditingImageUrl(imageUrl);
+    setEditingImageIndex(index);
+    setEditingNewImage(isNew);
+  };
+
+  // Função para salvar imagem editada
+  const salvarImagemEditada = async (editedImageUrl: string) => {
+    if (editingImageIndex === null) return;
+
+    try {
+      if (editingNewImage) {
+        // Se for uma imagem nova, converter URL editada para File
+        const response = await fetch(editedImageUrl);
+        const blob = await response.blob();
+        const file = new File([blob], `imagem-editada-${Date.now()}.png`, { type: 'image/png' });
+        
+        // Substituir na lista de novas imagens
+        const novasImagensList = [...novasImagens];
+        novasImagensList[editingImageIndex] = file;
+        setNovasImagens(novasImagensList);
+        
+        // Atualizar preview se houver URL temporária
+        // (a URL será recriada automaticamente no próximo render)
+      } else {
+        // Substituir a imagem na lista existente
+        const novasImagensList = [...imagens];
+        novasImagensList[editingImageIndex] = editedImageUrl;
+        setImagens(novasImagensList);
+
+        // Atualizar no banco de dados
+        const imagensString = novasImagensList.join(',');
+        const { error: updateError } = await supabase
+          .from('ordens_servico')
+          .update({ imagens: imagensString })
+          .eq('id', id);
+
+        if (updateError) {
+          console.error('Erro ao atualizar imagem editada no banco:', updateError);
+          addToast('error', 'Erro ao atualizar imagem editada');
+          return;
+        }
+      }
+
+      addToast('success', 'Imagem editada salva com sucesso!');
+    } catch (error) {
+      console.error('Erro ao salvar imagem editada:', error);
+      addToast('error', 'Erro ao salvar imagem editada');
+    }
+  };
+
   // Função para remover anexo
   const removerAnexo = async (index: number) => {
     const confirmed = await confirm({
@@ -861,70 +919,16 @@ export default function EditarOSSimples() {
                 {status.length === 0 && <option disabled>Carregando status...</option>}
                 {status
                   .filter((s) => {
-                    // Se não for ENTREGUE, sempre mostrar
-                    if (s.nome !== 'ENTREGUE') {
-                      return true;
-                    }
-                    
-                    // Se for ENTREGUE, verificar condições para permitir
-                    const totais = calcularTotais();
-                    const ordemAny = ordem as any; // Usar any para acessar campos dinâmicos
-                    const temValorLancado = totais.totalGeral > 0 || 
-                                          (ordemAny?.valor_faturado && Number(ordemAny.valor_faturado) > 0) ||
-                                          (ordemAny?.valor_servico && Number(ordemAny.valor_servico) > 0) ||
-                                          (ordemAny?.valor_peca && Number(ordemAny.valor_peca) > 0);
-                    
-                    // Verificar se cliente recusou ou não aprovou
-                    // Verificar no status atual E no histórico de status
-                    const statusAtual = ordem?.status || '';
-                    const statusAtualRecusou = statusAtual.toUpperCase().includes('RECUS') || 
-                                               statusAtual.toUpperCase().includes('NEGOU') || 
-                                               statusAtual.toUpperCase().includes('NÃO APROVOU') ||
-                                               statusAtual.toUpperCase().includes('NAO APROVOU') ||
-                                               statusAtual.toUpperCase() === 'CLIENTE RECUSOU' ||
-                                               statusAtual.toUpperCase().includes('CLIENTE RECUSOU');
-                    
-                    // Verificar no histórico de status
-                    const historicoRecusou = historico && historico.length > 0 && historico.some((h: any) => {
-                      const statusNovo = (h.status_novo || '').toUpperCase();
-                      return statusNovo.includes('RECUS') || 
-                             statusNovo.includes('NEGOU') || 
-                             statusNovo.includes('NÃO APROVOU') ||
-                             statusNovo.includes('NAO APROVOU') ||
-                             statusNovo === 'CLIENTE RECUSOU' ||
-                             statusNovo.includes('CLIENTE RECUSOU');
-                    });
-                    
-                    const clienteRecusou = statusAtualRecusou || historicoRecusou;
-                    
-                    // Verificar se aparelho não tem conserto (verificar no laudo ou observação)
-                    const laudoTexto = (laudo || '').toLowerCase();
-                    const observacaoTexto = (observacao || observacoesInternas || '').toLowerCase();
-                    const aparelhoSemConserto = laudoTexto.includes('sem conserto') ||
-                                               laudoTexto.includes('não tem conserto') ||
-                                               laudoTexto.includes('nao tem conserto') ||
-                                               laudoTexto.includes('irreparável') ||
-                                               laudoTexto.includes('irreparavel') ||
-                                               observacaoTexto.includes('sem conserto') ||
-                                               observacaoTexto.includes('não tem conserto') ||
-                                               observacaoTexto.includes('nao tem conserto');
-                    
-                    // Mostrar ENTREGUE apenas se:
-                    // 1. Tem valor lançado, OU
-                    // 2. Cliente recusou/não aprovou (PRIORIDADE: libera entrega mesmo sem valor), OU
-                    // 3. Aparelho não tem conserto
-                    // Se cliente recusou, sempre permitir ENTREGUE (mesmo sem valor)
-                    if (clienteRecusou) {
-                      return true;
-                    }
-                    
-                    return temValorLancado || aparelhoSemConserto;
+                    // ✅ FILTRAR: Remover status "ENTREGUE" da lista (deve ser feito apenas pelo modal de entrega)
+                    // Agora a entrega deve ser feita apenas pelo modal de entrega na página de visualização
+                    const nomeNormalizado = (s.nome || '').toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+                    return nomeNormalizado !== 'ENTREGUE';
                   })
                   .map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.nome}
-                  </option>
-                ))}
+                    <option key={s.id} value={s.id}>
+                      {s.nome}
+                    </option>
+                  ))}
               </select>
               <div className="text-xs text-gray-500 mt-1">
                 {status.length === 0 ? 'Nenhum status carregado' : `${status.length} status disponíveis`}
@@ -1258,28 +1262,66 @@ export default function EditarOSSimples() {
                     Novos Anexos Selecionados ({novasImagens.length})
                   </h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {novasImagens.map((file, index) => (
-                      <div key={`new-${index}`} className="relative group">
-                        <div className="w-full h-32 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
-                          <div className="text-center">
-                            <FiFileText className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                            <p className="text-xs text-gray-600 truncate px-2">
-                              {file.name}
-                            </p>
-                          </div>
+                    {novasImagens.map((file, index) => {
+                      const isImage = file.type.startsWith('image/');
+                      const imageUrl = isImage ? URL.createObjectURL(file) : null;
+                      
+                      return (
+                        <div key={`new-${index}`} className="relative group">
+                          {isImage && imageUrl ? (
+                            <>
+                              <img
+                                src={imageUrl}
+                                alt={file.name}
+                                className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                              />
+                              <div className="absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="flex flex-col gap-2">
+                                  <button
+                                    onClick={() => abrirEditorImagem(imageUrl, index, true)}
+                                    className="text-white text-sm font-medium px-3 py-1 bg-purple-600 rounded hover:bg-purple-700 flex items-center gap-1"
+                                  >
+                                    <FiEdit3 size={14} />
+                                    Editar
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setNovasImagens(prev => prev.filter((_, i) => i !== index));
+                                      URL.revokeObjectURL(imageUrl);
+                                      addToast('success', 'Arquivo removido da seleção');
+                                    }}
+                                    className="text-white text-sm font-medium px-3 py-1 bg-red-600 rounded hover:bg-red-700"
+                                  >
+                                    Remover
+                                  </button>
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="w-full h-32 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
+                                <div className="text-center">
+                                  <FiFileText className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                                  <p className="text-xs text-gray-600 truncate px-2">
+                                    {file.name}
+                                  </p>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setNovasImagens(prev => prev.filter((_, i) => i !== index));
+                                  addToast('success', 'Arquivo removido da seleção');
+                                }}
+                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
+                                title="Remover arquivo"
+                              >
+                                ×
+                              </button>
+                            </>
+                          )}
                         </div>
-                        <button
-                          onClick={() => {
-                            setNovasImagens(prev => prev.filter((_, i) => i !== index));
-                            addToast('success', 'Arquivo removido da seleção');
-                          }}
-                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
-                          title="Remover arquivo"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -1299,13 +1341,22 @@ export default function EditarOSSimples() {
                           className="w-full h-32 object-cover rounded-lg border border-gray-200"
                         />
                         <div className="absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => window.open(img, '_blank')}
-                              className="text-white text-sm font-medium px-3 py-1 bg-blue-600 rounded hover:bg-blue-700"
-                            >
-                              Ver
-                            </button>
+                          <div className="flex flex-col gap-2">
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => window.open(img, '_blank')}
+                                className="text-white text-sm font-medium px-3 py-1 bg-blue-600 rounded hover:bg-blue-700"
+                              >
+                                Ver
+                              </button>
+                              <button
+                                onClick={() => abrirEditorImagem(img, index)}
+                                className="text-white text-sm font-medium px-3 py-1 bg-purple-600 rounded hover:bg-purple-700 flex items-center gap-1"
+                              >
+                                <FiEdit3 size={14} />
+                                Editar
+                              </button>
+                            </div>
                             <button
                               onClick={() => removerAnexo(index)}
                               className="text-white text-sm font-medium px-3 py-1 bg-red-600 rounded hover:bg-red-700"
@@ -1323,6 +1374,21 @@ export default function EditarOSSimples() {
           </div>
 
         </div>
+
+        {/* Editor de Imagem */}
+        {editingImageUrl && (
+          <ImageEditor
+            isOpen={!!editingImageUrl}
+            onClose={() => {
+              setEditingImageUrl(null);
+              setEditingImageIndex(null);
+              setEditingNewImage(false);
+            }}
+            imageUrl={editingImageUrl}
+            onSave={salvarImagemEditada}
+            osId={id}
+          />
+        )}
       </MenuLayout>
     
   );

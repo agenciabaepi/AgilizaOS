@@ -35,6 +35,7 @@ const VisualizarOrdemServicoPage = () => {
   const [valorRecebido, setValorRecebido] = useState('');
   const [processandoEntrega, setProcessandoEntrega] = useState(false);
   const [termosGarantia, setTermosGarantia] = useState<any[]>([]);
+  const [clienteRecusou, setClienteRecusou] = useState(false); // Nova opção
 
   useEffect(() => {
     const fetchOrdem = async () => {
@@ -234,23 +235,27 @@ const VisualizarOrdemServicoPage = () => {
       return;
     }
 
-    if (!formaPagamento) {
-      addToast('Selecione a forma de pagamento', 'error');
-      return;
-    }
+    // Se cliente não recusou, validar forma de pagamento e valor
+    if (!clienteRecusou) {
+      if (!formaPagamento) {
+        addToast('Selecione a forma de pagamento', 'error');
+        return;
+      }
 
-    const valorOS = calcularValores().valorFinal;
-    const valorRecebidoNum = parseFloat(valorRecebido.replace(',', '.'));
+      const valorOS = calcularValores().valorFinal;
+      const valorRecebidoNum = parseFloat(valorRecebido.replace(',', '.'));
 
-    if (isNaN(valorRecebidoNum) || valorRecebidoNum < valorOS) {
-      addToast(`Valor recebido deve ser pelo menos R$ ${valorOS.toFixed(2)}`, 'error');
-      return;
+      if (isNaN(valorRecebidoNum) || valorRecebidoNum < valorOS) {
+        addToast(`Valor recebido deve ser pelo menos R$ ${valorOS.toFixed(2)}`, 'error');
+        return;
+      }
     }
 
     setProcessandoEntrega(true);
 
     try {
       // 1. Atualizar O.S. para ENTREGUE usando nosso endpoint
+      // Passar flag clienteRecusou para a API não registrar comissão
       const response = await fetch('/api/ordens/update-status', {
         method: 'POST',
         headers: {
@@ -259,7 +264,8 @@ const VisualizarOrdemServicoPage = () => {
         body: JSON.stringify({
           osId: id,
           newStatus: 'ENTREGUE',
-          newStatusTecnico: 'FINALIZADA'
+          newStatusTecnico: 'FINALIZADA',
+          cliente_recusou: clienteRecusou // Flag para não registrar comissão
         }),
       });
 
@@ -272,12 +278,14 @@ const VisualizarOrdemServicoPage = () => {
       const result = await response.json();
       
       // Atualizar campos específicos da entrega diretamente no Supabase
+      // INCLUINDO cliente_recusou para marcar que o cliente recusou (sem zerar valores)
       const { error: updateError } = await supabase
         .from('ordens_servico')
         .update({
           termo_garantia_id: termoGarantiaSelecionado.id,
           data_entrega: new Date().toISOString().split('T')[0],
-          vencimento_garantia: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+          vencimento_garantia: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          cliente_recusou: clienteRecusou // Marcar flag sem zerar valores (mantém histórico)
         })
         .eq('id', id);
 
@@ -286,14 +294,19 @@ const VisualizarOrdemServicoPage = () => {
         return;
       }
 
-      // 2. Se houver valor, criar venda
-      if (valorOS > 0) {
-        const numeroVenda = await criarVenda();
-        if (!numeroVenda) {
-          addToast('Erro ao criar venda', 'error');
-          return;
+      // 2. Se houver valor E cliente não recusou, criar venda
+      if (!clienteRecusou) {
+        const valorOS = calcularValores().valorFinal;
+        if (valorOS > 0) {
+          const numeroVenda = await criarVenda();
+          if (!numeroVenda) {
+            addToast('Erro ao criar venda', 'error');
+            return;
+          }
+          addToast(`✅ Venda #${numeroVenda} criada com sucesso!`, 'success');
         }
-        addToast(`✅ Venda #${numeroVenda} criada com sucesso!`, 'success');
+      } else {
+        addToast('✅ O.S. finalizada (cliente recusou - valores mantidos para histórico)', 'success');
       }
 
       addToast('✅ O.S. entregue com sucesso!', 'success');
@@ -1101,44 +1114,75 @@ const VisualizarOrdemServicoPage = () => {
                     </select>
                   </div>
 
-                  {/* Forma de Pagamento */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Forma de Pagamento *
+                  {/* Opção: Cliente Recusou */}
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={clienteRecusou}
+                        onChange={(e) => {
+                          setClienteRecusou(e.target.checked);
+                          if (e.target.checked) {
+                            // Quando marcar, limpar campos de pagamento
+                            setFormaPagamento('');
+                            setValorRecebido('');
+                          }
+                        }}
+                        className="w-5 h-5 text-red-600 border-red-300 rounded focus:ring-red-500"
+                      />
+                      <div className="flex-1">
+                        <span className="text-sm font-medium text-red-900">
+                          Cliente recusou o serviço
+                        </span>
+                        <p className="text-xs text-red-700 mt-1">
+                          Ao marcar esta opção, os valores da OS serão zerados e nenhuma venda/comissão será registrada.
+                        </p>
+                      </div>
                     </label>
-                    <select
-                      value={formaPagamento}
-                      onChange={(e) => setFormaPagamento(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Selecione...</option>
-                      <option value="dinheiro">Dinheiro</option>
-                      <option value="pix">PIX</option>
-                      <option value="cartao_debito">Cartão de Débito</option>
-                      <option value="cartao_credito">Cartão de Crédito</option>
-                      <option value="transferencia">Transferência</option>
-                    </select>
                   </div>
 
-                  {/* Valor Recebido */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Valor Recebido *
-                    </label>
-                    <input
-                      type="text"
-                      value={valorRecebido}
-                      onChange={(e) => setValorRecebido(e.target.value)}
-                      placeholder={`Mínimo: R$ ${calcularValores().valorFinal.toFixed(2)}`}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Valor da O.S.: R$ {calcularValores().valorFinal.toFixed(2)}
-                    </p>
-                  </div>
+                  {/* Forma de Pagamento - Só mostrar se cliente não recusou */}
+                  {!clienteRecusou && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Forma de Pagamento *
+                      </label>
+                      <select
+                        value={formaPagamento}
+                        onChange={(e) => setFormaPagamento(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">Selecione...</option>
+                        <option value="dinheiro">Dinheiro</option>
+                        <option value="pix">PIX</option>
+                        <option value="cartao_debito">Cartão de Débito</option>
+                        <option value="cartao_credito">Cartão de Crédito</option>
+                        <option value="transferencia">Transferência</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Valor Recebido - Só mostrar se cliente não recusou */}
+                  {!clienteRecusou && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Valor Recebido *
+                      </label>
+                      <input
+                        type="text"
+                        value={valorRecebido}
+                        onChange={(e) => setValorRecebido(e.target.value)}
+                        placeholder={`Mínimo: R$ ${calcularValores().valorFinal.toFixed(2)}`}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Valor da O.S.: R$ {calcularValores().valorFinal.toFixed(2)}
+                      </p>
+                    </div>
+                  )}
 
                   {/* Resumo */}
-                  <div className="bg-gray-50 rounded-lg p-4">
+                  <div className={`rounded-lg p-4 ${clienteRecusou ? 'bg-red-50 border border-red-200' : 'bg-gray-50'}`}>
                     <h4 className="font-medium text-gray-900 mb-2">Resumo da Entrega</h4>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
@@ -1149,12 +1193,21 @@ const VisualizarOrdemServicoPage = () => {
                         <span>O.S.:</span>
                         <span className="font-medium">#{ordem?.numero_os}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span>Total:</span>
-                        <span className="font-medium text-green-600">
-                          R$ {calcularValores().valorFinal.toFixed(2)}
-                        </span>
-                      </div>
+                      {clienteRecusou ? (
+                        <div className="flex justify-between">
+                          <span>Status:</span>
+                          <span className="font-medium text-red-600">
+                            Cliente recusou - Valores serão zerados
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between">
+                          <span>Total:</span>
+                          <span className="font-medium text-green-600">
+                            R$ {calcularValores().valorFinal.toFixed(2)}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1162,17 +1215,30 @@ const VisualizarOrdemServicoPage = () => {
                 {/* Botões */}
                 <div className="flex gap-3 mt-6">
                   <button
-                    onClick={() => setModalEntrega(false)}
+                    onClick={() => {
+                      setModalEntrega(false);
+                      setClienteRecusou(false); // Resetar ao fechar
+                      setFormaPagamento('');
+                      setValorRecebido('');
+                    }}
                     className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                   >
                     Cancelar
                   </button>
                   <button
                     onClick={processarEntrega}
-                    disabled={processandoEntrega || !termoGarantiaSelecionado || !formaPagamento || !valorRecebido}
-                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={processandoEntrega || !termoGarantiaSelecionado || (!clienteRecusou && (!formaPagamento || !valorRecebido))}
+                    className={`flex-1 px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      clienteRecusou 
+                        ? 'bg-orange-600 text-white hover:bg-orange-700' 
+                        : 'bg-green-600 text-white hover:bg-green-700'
+                    }`}
                   >
-                    {processandoEntrega ? 'Processando...' : 'Confirmar Entrega'}
+                    {processandoEntrega 
+                      ? 'Processando...' 
+                      : clienteRecusou 
+                        ? 'Finalizar (Cliente Recusou)' 
+                        : 'Confirmar Entrega'}
                   </button>
                 </div>
               </div>

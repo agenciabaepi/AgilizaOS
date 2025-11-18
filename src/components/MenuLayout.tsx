@@ -477,12 +477,36 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               {(podeVer('dashboard') || usuarioData?.nivel === 'tecnico' || usuarioData?.nivel === 'atendente') && (
                 <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard'} menuRecolhido={menuRecolhido || false} />
               )}
-                      {/* Lembretes removidos - agora integrados na dashboard */}
+              {/* Lembretes */}
+              {userLevel === 'admin' && (
+                <SidebarButton path="/lembretes" icon={<FiBell size={20} />} label="Lembretes" isActive={pathname === '/lembretes'} menuRecolhido={menuRecolhido || false} />
+              )}
               {podeVer('ordens') && (
                 <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} menuRecolhido={menuRecolhido || false} />
               )}
               {podeVer('caixa') && (
-                <></>
+                <>
+                  <div 
+                    className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
+                    onClick={() => setCaixaExpanded(!caixaExpanded)}
+                    style={{ minHeight: 48 }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <FiDollarSign size={20} />
+                      <span>Caixa</span>
+                    </div>
+                    <FiChevronDown 
+                      size={16} 
+                      className={`transition-transform ${caixaExpanded ? 'rotate-180' : ''}`} 
+                    />
+                  </div>
+                  
+                  {caixaExpanded && (
+                    <div className="ml-6 flex flex-col gap-1 mt-1">
+                      <SidebarButton path="/fluxo-caixa" icon={<FiTrendingUp size={18} />} label="Fluxo de Caixa" isActive={pathname === '/fluxo-caixa'} menuRecolhido={menuRecolhido || false} />
+                    </div>
+                  )}
+                </>
               )}
               {podeVer('clientes') && (
                 <>
@@ -556,6 +580,80 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                     />
                   </div>
                   
+                  {financeiroExpanded && (
+                    <div className="ml-6 flex flex-col gap-1 mt-1">
+                      {podeVer('lucro-desempenho') && (
+                        <SidebarButton 
+                          path="/financeiro/lucro-desempenho" 
+                          icon={
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                              <polyline points="17 6 23 6 23 12"></polyline>
+                            </svg>
+                          } 
+                          label="Lucro & Desempenho" 
+                          isActive={pathname === '/financeiro/lucro-desempenho'} 
+                          menuRecolhido={menuRecolhido || false} 
+                        />
+                      )}
+                      <SidebarButton 
+                        path="/financeiro/vendas" 
+                        icon={
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14,2 14,8 20,8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <polyline points="10,9 9,9 8,9"></polyline>
+                          </svg>
+                        } 
+                        label="Vendas" 
+                        isActive={pathname === '/financeiro/vendas'} 
+                        menuRecolhido={menuRecolhido || false} 
+                      />
+                      <SidebarButton 
+                        path="/financeiro/movimentacoes-caixa" 
+                        icon={
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="12" y1="1" x2="12" y2="23"></line>
+                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                          </svg>
+                        } 
+                        label="Movimentações Caixa" 
+                        isActive={pathname === '/financeiro/movimentacoes-caixa'} 
+                        menuRecolhido={menuRecolhido || false} 
+                      />
+                      <SidebarButton 
+                        path="/financeiro/contas-a-pagar" 
+                        icon={
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                            <line x1="8" y1="21" x2="16" y2="21"></line>
+                            <line x1="12" y1="17" x2="12" y2="21"></line>
+                          </svg>
+                        } 
+                        label="Contas a Pagar" 
+                        isActive={pathname === '/financeiro/contas-a-pagar'} 
+                        menuRecolhido={menuRecolhido || false} 
+                      />
+                      {podeVer('lucro-desempenho') && (
+                        <SidebarButton 
+                          path="/financeiro/comissoes-tecnicos" 
+                          icon={
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                              <circle cx="9" cy="7" r="4"></circle>
+                              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                            </svg>
+                          } 
+                          label="Comissões dos Técnicos" 
+                          isActive={pathname === '/financeiro/comissoes-tecnicos'} 
+                          menuRecolhido={menuRecolhido || false} 
+                        />
+                      )}
+                    </div>
+                  )}
                 </>
               )}
               {podeVer('bancada') && (
@@ -743,7 +841,16 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                 />
               )}
               
-              {/* Lembretes removidos - agora integrados na dashboard */}
+              {/* Lembretes */}
+              {userLevel === 'admin' && (
+                <MobileMenuItem
+                  path="/lembretes"
+                  icon={<FiBell size={20} />}
+                  label="Lembretes"
+                  isActive={pathname === '/lembretes'}
+                  onNavigate={() => setMobileMenuOpen(false)}
+                />
+              )}
               
               {/* Ordens de Serviço */}
               {podeVer('ordens') && (
@@ -757,7 +864,15 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               )}
               
               {/* Caixa */}
-              {podeVer('caixa') && <></>}
+              {podeVer('caixa') && (
+                <MobileMenuItem
+                  path="/fluxo-caixa"
+                  icon={<FiTrendingUp size={20} />}
+                  label="Fluxo de Caixa"
+                  isActive={pathname === '/fluxo-caixa'}
+                  onNavigate={() => setMobileMenuOpen(false)}
+                />
+              )}
               
               {/* Contatos */}
               {podeVer('clientes') && (
@@ -865,6 +980,22 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                     isActive={pathname === '/financeiro/contas-a-pagar'}
                     onNavigate={() => setMobileMenuOpen(false)}
                   />
+                  {podeVer('lucro-desempenho') && (
+                    <MobileMenuItem
+                      path="/financeiro/comissoes-tecnicos"
+                      icon={
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                          <circle cx="9" cy="7" r="4"></circle>
+                          <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                      }
+                      label="Comissões dos Técnicos"
+                      isActive={pathname === '/financeiro/comissoes-tecnicos'}
+                      onNavigate={() => setMobileMenuOpen(false)}
+                    />
+                  )}
                 </>
               )}
               

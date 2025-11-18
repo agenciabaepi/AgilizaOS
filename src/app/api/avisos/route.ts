@@ -269,7 +269,7 @@ export async function POST(request: NextRequest) {
       data_inicio: body.data_inicio || null,
       data_fim: body.data_fim || null,
       ativo: body.ativo !== undefined ? body.ativo : true,
-      exibir_para_todos: body.exibir_para_todos !== undefined ? body.exibir_para_todos : true,
+      exibir_para_todos: body.exibir_para_todos !== undefined ? body.exibir_para_todos : false, // Padrão: false (não exibir para todos)
       usuarios_ids: Array.isArray(body.usuarios_ids) ? body.usuarios_ids : [],
     }
     

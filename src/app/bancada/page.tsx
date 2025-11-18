@@ -3,7 +3,7 @@
 import MenuLayout from '@/components/MenuLayout';
 // Removido ProtectedArea - agora é responsabilidade do MenuLayout
 import { useRouter } from 'next/navigation';
-import { FiCpu, FiEye, FiBell, FiCheckCircle, FiClock, FiTool, FiPackage } from 'react-icons/fi';
+import { FiCpu, FiEye, FiBell, FiCheckCircle, FiClock, FiTool, FiPackage, FiPaperclip } from 'react-icons/fi';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
@@ -57,6 +57,8 @@ export default function BancadaPage() {
     status_tecnico: string;
     acessorios: string;
     condicoes_equipamento: string;
+    imagens?: string | null;
+    imagens_tecnico?: string | null;
     cliente?: {
       nome: string;
       telefone?: string;
@@ -148,10 +150,16 @@ export default function BancadaPage() {
   
   // Filtros e contadores por aba
   const filteredOrdens = useMemo(() => {
+    const search = searchTerm.toLowerCase();
+    
     return ordens.filter((os: OrdemServico) => {
-      const matchesSearch = searchTerm === '' || 
-        (os.cliente?.nome?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-        (os.numero_os || os.id).toLowerCase().includes(searchTerm.toLowerCase());
+      const clienteNome = (os.cliente?.nome || '').toString().toLowerCase();
+      const numeroOsStr = (os.numero_os ?? os.id ?? '').toString().toLowerCase();
+
+      const matchesSearch =
+        search === '' ||
+        clienteNome.includes(search) ||
+        numeroOsStr.includes(search);
         
       const matchesStatus = filtroStatus === 'Todos' || os.status === filtroStatus;
       
@@ -612,30 +620,41 @@ export default function BancadaPage() {
                         </div>
 
                         <div className="sm:ml-6 flex flex-col items-stretch sm:items-end gap-2 w-full sm:w-auto">
-                                      {os.status === 'ABERTA' ? (
-                                        <button
-                                          onClick={() => abrirModal(os)}
+                          {os.status === 'ABERTA' ? (
+                            <button
+                              onClick={() => abrirModal(os)}
                               className="inline-flex justify-center items-center gap-2 bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors shadow-sm w-full sm:w-auto"
-                                        >
-                                          <FiEye size={16} /> 
-                                          Visualizar
-                                        </button>
-                                      ) : (
-                                        <button
-                                          onClick={() => router.push(`/bancada/${os.id}`)}
+                            >
+                              <FiEye size={16} /> 
+                              Visualizar
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => router.push(`/bancada/${os.id}`)}
                               className="inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm w-full sm:w-auto"
-                                        >
-                                          <FiCpu size={16} /> 
-                                          Continuar
-                                        </button>
-                                      )}
-                                      
+                            >
+                              <FiCpu size={16} /> 
+                              Continuar
+                            </button>
+                          )}
+
+                          {/* Botão para visualizar anexos (imagens de entrada/técnico) */}
+                          {((os.imagens && os.imagens.trim() !== '') || (os.imagens_tecnico && os.imagens_tecnico.trim() !== '')) && (
+                            <button
+                              onClick={() => router.push(`/bancada/${os.id}#anexos`)}
+                              className="inline-flex justify-center items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors w-full sm:w-auto"
+                            >
+                              <FiPaperclip size={14} />
+                              Ver anexos
+                            </button>
+                          )}
+                          
                           {os.status !== 'ABERTA' && (
                             <p className="text-xs text-gray-500 sm:mt-2 text-center sm:text-right">
                               Entrada: {entrada}
                             </p>
                           )}
-                                    </div>
+                        </div>
                       </div>
                     </div>
                   );

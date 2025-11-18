@@ -42,8 +42,20 @@ interface AlertCard {
   restante: string | null;
 }
 
+interface ConfigAvisoContasPagar {
+  id: string;
+  tipo_alerta: 'vencidas' | 'proximas';
+  titulo: string;
+  descricao: string;
+  cor_fundo: string;
+  cor_texto: string;
+  dias_antecedencia: number | null;
+  ativo: boolean;
+  exibir_para_todos: boolean;
+  usuarios_ids: string[];
+}
+
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
-const ALERTA_DIAS_PROX_VENCIMENTO = 3;
 
 const hexToRgba = (hex: string | undefined, alpha: number) => {
   if (!hex) {
@@ -101,16 +113,36 @@ const calcularDiasEmAtraso = (data: string | null) => {
   return Math.floor(diffMs / MS_PER_DAY);
 };
 
-function montarCards(contas: ContaPagar[]): AlertCard[] {
+function montarCards(contas: ContaPagar[], configs: ConfigAvisoContasPagar[], configsCarregadas: boolean): AlertCard[] {
   if (!contas || contas.length === 0) {
     return [];
+  }
+
+  // IMPORTANTE: Não mostrar nada até que as configurações sejam carregadas
+  // Isso evita mostrar o banner para usuários sem permissão durante o carregamento
+  if (!configsCarregadas) {
+    return []; // Retornar vazio enquanto carrega
   }
 
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
 
+  // Buscar configurações ativas (já filtradas por usuário no carregarConfigs)
+  // IMPORTANTE: Se não houver configurações no banco, usar valores padrão
+  // Mas se há configurações e nenhuma se aplica ao usuário, não mostrar nada
+  const configVencidas = configs.find(c => c.tipo_alerta === 'vencidas');
+  const configProximas = configs.find(c => c.tipo_alerta === 'proximas');
+  
+  // ❌ REMOVIDO: Não usar valores padrão automaticamente
+  // Se não há configurações no banco OU se há configurações mas nenhuma se aplica ao usuário, não mostrar nada
+  // Isso garante que avisos só aparecem quando explicitamente configurados pelo admin
+  const usarValoresPadrao = false; // Nunca usar valores padrão - só mostrar se configurado explicitamente
+  
+  // Usar configurações ou valores padrão para dias de antecedência
+  const diasAntecedencia = configProximas?.dias_antecedencia || 3;
+  
   const limiteProximoVencimento = new Date(hoje);
-  limiteProximoVencimento.setDate(limiteProximoVencimento.getDate() + ALERTA_DIAS_PROX_VENCIMENTO);
+  limiteProximoVencimento.setDate(limiteProximoVencimento.getDate() + diasAntecedencia);
 
   const vencidas = contas.filter((conta) => {
     if (!conta.data_vencimento) return false;
@@ -150,13 +182,32 @@ function montarCards(contas: ContaPagar[]): AlertCard[] {
 
   const cards: AlertCard[] = [];
 
-  if (vencidas.length > 0) {
+  // Exibir avisos apenas se:
+  // 1. Há contas vencidas E
+  // 2. (Há configuração ativa para o usuário OU não há configurações no banco - usar padrão)
+  if (vencidas.length > 0 && (configVencidas || usarValoresPadrao)) {
+    const titulo = configVencidas 
+      ? configVencidas.titulo.replace('{quantidade}', String(vencidas.length))
+      : `${vencidas.length} conta(s) vencidas`;
+    
+    const descricao = configVencidas 
+      ? configVencidas.descricao
+      : 'Regularize os pagamentos para evitar juros ou bloqueios de serviços.';
+    
+    const corFundo = configVencidas 
+      ? configVencidas.cor_fundo
+      : '#FEE2E2';
+    
+    const corTexto = configVencidas 
+      ? configVencidas.cor_texto
+      : '#991B1B';
+
     cards.push({
       id: 'contas-vencidas',
-      titulo: `${vencidas.length} conta(s) vencidas`,
-      descricao: 'Regularize os pagamentos para evitar juros ou bloqueios de serviços.',
-      corFundo: '#FEE2E2',
-      corTexto: '#991B1B',
+      titulo,
+      descricao,
+      corFundo,
+      corTexto,
       icon: <FiAlertTriangle className="w-5 h-5" />,
       itens: vencidas.slice(0, 3).map((conta) => {
         const dias = calcularDiasEmAtraso(conta.data_vencimento);
@@ -179,13 +230,34 @@ function montarCards(contas: ContaPagar[]): AlertCard[] {
     });
   }
 
-  if (proximas.length > 0) {
+  // Exibir avisos apenas se:
+  // 1. Há contas próximas E
+  // 2. (Há configuração ativa para o usuário OU não há configurações no banco - usar padrão)
+  if (proximas.length > 0 && (configProximas || usarValoresPadrao)) {
+    const titulo = configProximas
+      ? configProximas.titulo
+          .replace('{quantidade}', String(proximas.length))
+          .replace('{dias}', String(diasAntecedencia))
+      : `${proximas.length} conta(s) vencem em até ${diasAntecedencia} dia(s)`;
+    
+    const descricao = configProximas
+      ? configProximas.descricao
+      : 'Antecipe os pagamentos para manter o caixa saudável.';
+    
+    const corFundo = configProximas
+      ? configProximas.cor_fundo
+      : '#FEF3C7';
+    
+    const corTexto = configProximas
+      ? configProximas.cor_texto
+      : '#92400E';
+
     cards.push({
       id: 'contas-proximas',
-      titulo: `${proximas.length} conta(s) vencem em até ${ALERTA_DIAS_PROX_VENCIMENTO} dia(s)`,
-      descricao: 'Antecipe os pagamentos para manter o caixa saudável.',
-      corFundo: '#FEF3C7',
-      corTexto: '#92400E',
+      titulo,
+      descricao,
+      corFundo,
+      corTexto,
       icon: <FiClock className="w-5 h-5" />,
       itens: proximas.slice(0, 3).map((conta) => {
         const dias = calcularDiasRestantes(conta.data_vencimento);
@@ -218,9 +290,13 @@ function montarCards(contas: ContaPagar[]): AlertCard[] {
 }
 
 export default function FinanceiroAlertsBanner() {
-  const { empresaData } = useAuth();
+  const { empresaData, usuarioData } = useAuth();
   const [contas, setContas] = useState<ContaPagar[]>([]);
+  const [configs, setConfigs] = useState<ConfigAvisoContasPagar[]>([]);
+  const [loadingConfigs, setLoadingConfigs] = useState(true); // Estado de carregamento
+  const [configsCarregadas, setConfigsCarregadas] = useState(false); // Flag para saber se já carregou
   const empresaId = empresaData?.id;
+  const usuarioId = usuarioData?.id;
   const router = useRouter();
 
   const carregarContas = useCallback(async () => {
@@ -249,21 +325,149 @@ export default function FinanceiroAlertsBanner() {
     }
   }, [empresaId]);
 
+  const carregarConfigs = useCallback(async () => {
+    if (!empresaId) {
+      setConfigs([]);
+      setLoadingConfigs(false);
+      setConfigsCarregadas(false);
+      return;
+    }
+
+    setLoadingConfigs(true);
+    try {
+      // Forçar recarregamento sem cache usando timestamp
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(7);
+      const url = `/api/avisos-contas-pagar?empresa_id=${empresaId}&_t=${timestamp}&_r=${randomId}`;
+      
+      console.log('[FinanceiroAlertsBanner] Carregando configurações:', url, 'usuarioId:', usuarioId);
+      
+      const response = await fetch(url, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const todasConfigs = data.configs || [];
+        console.log('[FinanceiroAlertsBanner] Todas as configurações recebidas:', todasConfigs.length);
+        
+        // Filtrar configurações que se aplicam ao usuário atual
+        // IMPORTANTE: Só incluir configurações ativas E que o usuário tem permissão para ver
+        let configsFiltradas = todasConfigs.filter((config: ConfigAvisoContasPagar) => {
+          // Primeiro verificar se está ativa
+          if (!config.ativo) {
+            console.log('[FinanceiroAlertsBanner] Configuração desativada ignorada:', config.tipo_alerta);
+            return false;
+          }
+          
+          // Verificar se o usuário pode ver esta configuração
+          if (usuarioId) {
+            if (config.exibir_para_todos) {
+              console.log('[FinanceiroAlertsBanner] Configuração "para todos" incluída:', config.tipo_alerta);
+              return true;
+            }
+            const usuarioEstaNaLista = Array.isArray(config.usuarios_ids) && config.usuarios_ids.includes(usuarioId);
+            if (usuarioEstaNaLista) {
+              console.log('[FinanceiroAlertsBanner] Usuário está na lista, incluindo:', config.tipo_alerta);
+              return true;
+            }
+            console.log('[FinanceiroAlertsBanner] Usuário NÃO está na lista, excluindo:', config.tipo_alerta);
+            return false;
+          } else {
+            // Se não há usuarioId, mostrar apenas avisos "para todos"
+            const mostrar = config.exibir_para_todos;
+            if (!mostrar) {
+              console.log('[FinanceiroAlertsBanner] Sem usuarioId e não é "para todos", excluindo:', config.tipo_alerta);
+            }
+            return mostrar;
+          }
+        });
+        
+        console.log('[FinanceiroAlertsBanner] Configurações filtradas (ativas e aplicáveis ao usuário):', configsFiltradas.length);
+        console.log('[FinanceiroAlertsBanner] Atualizando estado das configurações:', configsFiltradas.map(c => ({ 
+          tipo: c.tipo_alerta, 
+          titulo: c.titulo, 
+          cor_fundo: c.cor_fundo,
+          ativo: c.ativo,
+          exibir_para_todos: c.exibir_para_todos,
+          usuarios_ids: c.usuarios_ids
+        })));
+        
+        // Forçar atualização do estado mesmo que os dados pareçam iguais
+        setConfigs([...configsFiltradas]);
+        setConfigsCarregadas(true); // Marcar que já carregou
+      } else {
+        // Se a API falhar, deixar vazio (não usar valores padrão se há configurações no banco)
+        console.warn('[FinanceiroAlertsBanner] Erro ao carregar configurações:', response.status);
+        setConfigs([]);
+        setConfigsCarregadas(true); // Marcar como carregado mesmo com erro
+      }
+    } catch (error) {
+      // Se houver erro, deixar vazio (não usar valores padrão se há configurações no banco)
+      console.error('[FinanceiroAlertsBanner] Erro ao carregar configurações:', error);
+      setConfigs([]);
+      setConfigsCarregadas(true); // Marcar como carregado mesmo com erro
+    } finally {
+      setLoadingConfigs(false); // Sempre desativar loading
+    }
+  }, [empresaId, usuarioId]);
+
   useEffect(() => {
     carregarContas();
+    carregarConfigs();
 
     if (!empresaId) {
       return;
     }
 
+    // Escutar evento de atualização de configurações
+    const handleConfigAtualizada = () => {
+      console.log('[FinanceiroAlertsBanner] Evento de atualização recebido, recarregando configurações...');
+      // Aguardar um pouco para garantir que o banco foi atualizado
+      setTimeout(() => {
+        carregarConfigs();
+      }, 500);
+    };
+    
+    window.addEventListener('configAvisosContasPagarAtualizada', handleConfigAtualizada);
+    
+    // Também escutar eventos de atualização de avisos do sistema (caso alguém edite de outra forma)
+    const handleAvisosAtualizados = () => {
+      console.log('[FinanceiroAlertsBanner] Avisos atualizados, recarregando configurações...');
+      setTimeout(() => {
+        carregarConfigs();
+      }, 500);
+    };
+    
+    window.addEventListener('avisosAtualizados', handleAvisosAtualizados);
+
     const interval = setInterval(() => {
       carregarContas();
+      carregarConfigs();
     }, 5 * 60 * 1000);
 
-    return () => clearInterval(interval);
-  }, [carregarContas, empresaId]);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('configAvisosContasPagarAtualizada', handleConfigAtualizada);
+      window.removeEventListener('avisosAtualizados', handleAvisosAtualizados);
+    };
+  }, [carregarContas, carregarConfigs, empresaId]);
 
-  const alertCards = useMemo(() => montarCards(contas), [contas]);
+  const alertCards = useMemo(() => {
+    console.log('[FinanceiroAlertsBanner] Recalculando cards:', { 
+      contasCount: contas.length, 
+      configsCount: configs.length,
+      configsCarregadas,
+      loadingConfigs,
+      configs: configs.map(c => ({ tipo: c.tipo_alerta, ativo: c.ativo, titulo: c.titulo }))
+    });
+    return montarCards(contas, configs, configsCarregadas);
+  }, [contas, configs, configsCarregadas]);
 
   if (alertCards.length === 0) {
     return null;

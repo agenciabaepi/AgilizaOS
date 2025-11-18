@@ -28,6 +28,7 @@ interface OrdemTransformada {
   tipo: string;
   foiFaturada: boolean;
   formaPagamento: string;
+  clienteRecusou: boolean;
   observacao?: string | null;
   problema_relatado?: string | null;
   responsavelId?: string | null;
@@ -252,34 +253,18 @@ export default function ListaOrdensPage() {
 
   // Função para determinar forma de pagamento com fallback inteligente
   const getFormaPagamento = (item: any, vendaOS: any): string => {
-    // 1. Se há venda específica registrada, usar ela
+    // 1. Se cliente recusou, não há forma de pagamento
+    if (item.cliente_recusou) {
+      return 'N/A';
+    }
+    
+    // 2. Se há venda específica registrada, usar ela
     if (vendaOS?.forma_pagamento) {
       return vendaOS.forma_pagamento;
     }
     
-    // 2. Se a O.S. não foi faturada, não há forma de pagamento
-    const valorFaturado = item.valor_faturado || 0;
-    const foiFaturada = valorFaturado > 0 && (item.status === 'ENTREGUE' || item.status_tecnico === 'FINALIZADA');
-    
-    if (!foiFaturada) {
-      return 'N/A';
-    }
-    
-    // 3. Fallback inteligente baseado no valor e data
-    const valorTotal = ((item.valor_peca || 0) * (item.qtd_peca || 1)) + ((item.valor_servico || 0) * (item.qtd_servico || 1));
-    
-    // Para valores pequenos (até R$ 50), geralmente é dinheiro
-    if (valorTotal <= 50) {
-      return 'dinheiro';
-    }
-    // Para valores médios (R$ 50-200), geralmente é PIX
-    else if (valorTotal <= 200) {
-      return 'pix';
-    }
-    // Para valores altos, geralmente é cartão
-    else {
-      return 'cartao_debito';
-    }
+    // 3. Se não há venda, não há forma de pagamento
+    return 'N/A';
   };
 
   const fetchOrdens = async (forceRefresh = false) => {
@@ -356,7 +341,8 @@ export default function ListaOrdensPage() {
           observacao,
           problema_relatado,
           atendente,
-          atendente_id
+          atendente_id,
+          cliente_recusou
         `)
         .eq("empresa_id", empresaId)
         .order('created_at', { ascending: false })
@@ -591,10 +577,15 @@ export default function ListaOrdensPage() {
             console.warn('⚠️ Erro ao buscar vendas:', errorVendas);
           } else if (todasVendas) {
             // ✅ OTIMIZADO: Processar apenas OSs que realmente precisam de venda
-            const osEntregues = data.filter((os: any) => 
-              os.valor_faturado > 0 && 
-              (os.status === 'ENTREGUE' || os.status_tecnico === 'FINALIZADA')
-            );
+            // Excluir OSs onde cliente recusou (campo cliente_recusou = true) mesmo que status seja ENTREGUE
+            const osEntregues = data.filter((os: any) => {
+              const valorFaturado = os.valor_faturado || 0;
+              
+              // Só buscar venda se: tem valor faturado > 0, cliente NÃO recusou E está entregue
+              return valorFaturado > 0 && 
+                     !os.cliente_recusou && // Cliente não recusou
+                     (os.status === 'ENTREGUE' || os.status_tecnico === 'FINALIZADA');
+            });
             
             osEntregues.forEach((os: any) => {
               // Buscar venda específica da O.S. através das observações
@@ -718,9 +709,14 @@ export default function ListaOrdensPage() {
           desconto: item.desconto || 0,
             valorTotal: ((item.valor_peca || 0) * (item.qtd_peca || 1)) + ((item.valor_servico || 0) * (item.qtd_servico || 1)),
             valorComDesconto: (((item.valor_peca || 0) * (item.qtd_peca || 1)) + ((item.valor_servico || 0) * (item.qtd_servico || 1))) - (item.desconto || 0),
-          valorFaturado: valorFaturado,
+            valorFaturado: valorFaturado,
             tipo: item.tipo || 'Nova',
-            foiFaturada: valorFaturado > 0 && (item.status === 'ENTREGUE' || item.status_tecnico === 'FINALIZADA'),
+            clienteRecusou: item.cliente_recusou || false, // Campo para marcar se cliente recusou
+            // Verificar se foi faturada: precisa ter valor > 0, status ENTREGUE/FINALIZADA, ter venda relacionada E cliente não recusou
+            foiFaturada: !item.cliente_recusou && // Cliente não recusou
+                        valorFaturado > 0 && 
+                        (item.status === 'ENTREGUE' || item.status_tecnico === 'FINALIZADA') &&
+                        !!vendaOS, // Precisa ter venda relacionada
             formaPagamento: getFormaPagamento(item, vendaOS),
             observacao: item.observacao || null,
             problema_relatado: item.problema_relatado || null,
@@ -1672,7 +1668,16 @@ export default function ListaOrdensPage() {
                     </td>
                     <td className="px-1 py-2">
                       <div className="text-xs min-w-0">
-                        {os.foiFaturada ? (
+                        {os.clienteRecusou ? (
+                          <>
+                            <div className="font-bold text-red-600">
+                              Recusado
+                            </div>
+                            <div className="text-xs text-red-500 font-medium mt-1">
+                              Cliente recusou
+                            </div>
+                          </>
+                        ) : os.foiFaturada ? (
                           <>
                             <div className="font-bold text-green-600">
                               Faturado

@@ -25,6 +25,8 @@ interface ComissaoDetalhada {
   cliente_nome?: string;
   servico_nome?: string;
   created_at: string;
+  ativa?: boolean;
+  observacoes?: string | null;
 }
 
 interface FiltrosPeriodo {
@@ -50,12 +52,13 @@ export default function ComissoesPage() {
     tipoOrdem: ''
   });
 
-  // Métricas calculadas
+  // Métricas calculadas (apenas comissões ativas)
   const metricas = useMemo(() => {
-    const total = comissoes.reduce((acc, c) => acc + c.valor_comissao, 0);
-    const totalServicos = comissoes.reduce((acc, c) => acc + c.valor_servico, 0);
-    const mediaComissao = comissoes.length > 0 ? total / comissoes.length : 0;
-    const totalOSs = comissoes.length;
+    const comissoesAtivas = comissoes.filter(c => c.ativa !== false);
+    const total = comissoesAtivas.reduce((acc, c) => acc + c.valor_comissao, 0);
+    const totalServicos = comissoesAtivas.reduce((acc, c) => acc + c.valor_servico, 0);
+    const mediaComissao = comissoesAtivas.length > 0 ? total / comissoesAtivas.length : 0;
+    const totalOSs = comissoesAtivas.length;
     
     return {
       totalComissao: total,
@@ -94,33 +97,79 @@ export default function ComissoesPage() {
     setLoading(true);
     try {
       // Buscar comissões diretamente da tabela comissoes_historico usando o id do técnico
-      const { data: comissoesData, error } = await supabase
-        .from('comissoes_historico')
-        .select(`
-          id,
-          ordem_servico_id,
-          valor_servico,
-          valor_peca,
-          valor_total,
-          tipo_comissao,
-          percentual_comissao,
-          valor_comissao_fixa,
-          valor_comissao,
-          data_entrega,
-          status,
-          tipo_ordem,
-          created_at,
-          ordens_servico:ordem_servico_id (
-            numero_os,
-            servico
-          ),
-          clientes:cliente_id (
-            nome
-          )
-        `)
-        .eq('tecnico_id', usuarioData.id)
-        .order('data_entrega', { ascending: false })
-        .order('created_at', { ascending: false });
+      // Tentar buscar com o campo 'ativa' primeiro, se não existir, buscar sem ele
+      let comissoesData, error;
+      
+      try {
+        const result = await supabase
+          .from('comissoes_historico')
+          .select(`
+            id,
+            ordem_servico_id,
+            valor_servico,
+            valor_peca,
+            valor_total,
+            tipo_comissao,
+            percentual_comissao,
+            valor_comissao_fixa,
+            valor_comissao,
+            data_entrega,
+            status,
+            tipo_ordem,
+            created_at,
+            ativa,
+            observacoes,
+            ordens_servico:ordem_servico_id (
+              numero_os,
+              servico
+            ),
+            clientes:cliente_id (
+              nome
+            )
+          `)
+          .eq('tecnico_id', usuarioData.id)
+          .order('data_entrega', { ascending: false })
+          .order('created_at', { ascending: false });
+        
+        comissoesData = result.data;
+        error = result.error;
+      } catch (err: any) {
+        // Se o campo 'ativa' não existir, buscar sem ele
+        if (err.message?.includes('column "ativa" does not exist')) {
+          const result = await supabase
+            .from('comissoes_historico')
+            .select(`
+              id,
+              ordem_servico_id,
+              valor_servico,
+              valor_peca,
+              valor_total,
+              tipo_comissao,
+              percentual_comissao,
+              valor_comissao_fixa,
+              valor_comissao,
+              data_entrega,
+              status,
+              tipo_ordem,
+              created_at,
+              ordens_servico:ordem_servico_id (
+                numero_os,
+                servico
+              ),
+              clientes:cliente_id (
+                nome
+              )
+            `)
+            .eq('tecnico_id', usuarioData.id)
+            .order('data_entrega', { ascending: false })
+            .order('created_at', { ascending: false });
+          
+          comissoesData = result.data;
+          error = result.error;
+        } else {
+          throw err;
+        }
+      }
 
       if (error) {
         console.error('❌ Erro ao buscar comissões:', error);
@@ -146,7 +195,9 @@ export default function ComissoesPage() {
         tipo_ordem: comissao.tipo_ordem || 'normal',
         created_at: comissao.created_at,
         cliente_nome: comissao.clientes?.nome || 'Cliente não encontrado',
-        servico_nome: comissao.ordens_servico?.servico || 'Serviço não especificado'
+        servico_nome: comissao.ordens_servico?.servico || 'Serviço não especificado',
+        ativa: comissao.ativa !== undefined ? comissao.ativa : true, // Default true se não existir o campo
+        observacoes: comissao.observacoes || null
       }));
 
       setComissoes(comissoesFormatadas);
@@ -416,10 +467,17 @@ export default function ComissoesPage() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {comissoesFiltradas.map((comissao) => (
-                    <tr key={comissao.id} className="hover:bg-gray-50">
+                    <tr key={comissao.id} className={`hover:bg-gray-50 ${comissao.ativa === false ? 'opacity-60' : ''}`}>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          #{comissao.numero_os || 'N/A'}
+                        <div className="flex items-center gap-2">
+                          <div className="text-sm font-medium text-gray-900">
+                            #{comissao.numero_os || 'N/A'}
+                          </div>
+                          {comissao.ativa === false && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800" title="Esta comissão foi desativada pelo administrador">
+                              Desativada
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -449,8 +507,15 @@ export default function ComissoesPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="text-sm font-bold text-green-600">
-                          {formatCurrency(comissao.valor_comissao)}
+                        <div className="flex flex-col items-end gap-1">
+                          <div className="text-sm font-bold text-green-600">
+                            {formatCurrency(comissao.valor_comissao)}
+                          </div>
+                          {comissao.observacoes && (
+                            <span className="text-xs text-gray-500 italic" title={comissao.observacoes}>
+                              {comissao.observacoes.length > 30 ? `${comissao.observacoes.substring(0, 30)}...` : comissao.observacoes}
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">

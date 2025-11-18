@@ -4,7 +4,7 @@ import { sendOSApprovedNotification, sendOSStatusNotification } from '@/lib/what
 
 export async function POST(request: NextRequest) {
   try {
-    const { osId: osIdRaw, newStatus, newStatusTecnico, empresa_id, ...updateData } = await request.json();
+    const { osId: osIdRaw, newStatus, newStatusTecnico, empresa_id, cliente_recusou, ...updateData } = await request.json();
 
     // Normalizar osId: aceitar UUID (id) ou numero_os (numérico)
     let osId = osIdRaw as string;
@@ -169,13 +169,19 @@ export async function POST(request: NextRequest) {
       console.log('📅 Data de entrega definida automaticamente:', dataStr);
     }
     
-    // ✅ FILTRAR campos vazios - MAS SEMPRE incluir checklist_entrada
+    // ✅ FILTRAR campos vazios - MAS SEMPRE incluir checklist_entrada e cliente_recusou
     Object.keys(updateData).forEach(key => {
       const value = updateData[key];
       
       // SEMPRE incluir checklist_entrada, mesmo se vazio (para limpar)
       if (key === 'checklist_entrada') {
         finalUpdateData[key] = value;
+        return;
+      }
+      
+      // SEMPRE incluir cliente_recusou (pode ser false ou true)
+      if (key === 'cliente_recusou') {
+        finalUpdateData[key] = value === true || value === 'true';
         return;
       }
       
@@ -229,7 +235,7 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Status da OS atualizado com sucesso');
 
-    // ✅ REGISTRAR COMISSÃO SE A OS FOI FINALIZADA
+    // ✅ REGISTRAR COMISSÃO SE A OS FOI FINALIZADA E CLIENTE NÃO RECUSOU
     // Buscar OS atualizada para verificar status final
     const { data: osAtualizada } = await supabase
       .from('ordens_servico')
@@ -248,6 +254,7 @@ export async function POST(request: NextRequest) {
       foiFinalizada,
       temDataEntrega: !!temDataEntrega,
       temTecnico: !!temTecnico,
+      clienteRecusou: !!cliente_recusou,
       statusAtual,
       statusTecnicoAtual,
       dataEntrega: temDataEntrega,
@@ -255,7 +262,8 @@ export async function POST(request: NextRequest) {
       osId: osAnterior.id
     });
     
-    if (foiFinalizada && temDataEntrega && temTecnico) {
+    // Não registrar comissão se cliente recusou o serviço
+    if (foiFinalizada && temDataEntrega && temTecnico && !cliente_recusou) {
       console.log('💰 REGISTRANDO COMISSÃO - Técnico:', temTecnico, 'OS:', osAnterior.id);
       
       try {
@@ -447,10 +455,11 @@ export async function POST(request: NextRequest) {
       }
     } else {
       console.log('⏭️ COMISSÃO NÃO SERÁ REGISTRADA:', {
-        motivo: !foiFinalizada ? 'OS não finalizada' : !temDataEntrega ? 'Sem data de entrega' : !temTecnico ? 'Sem técnico' : 'Desconhecido',
+        motivo: cliente_recusou ? 'Cliente recusou o serviço' : !foiFinalizada ? 'OS não finalizada' : !temDataEntrega ? 'Sem data de entrega' : !temTecnico ? 'Sem técnico' : 'Desconhecido',
         foiFinalizada,
         temDataEntrega: !!temDataEntrega,
-        temTecnico: !!temTecnico
+        temTecnico: !!temTecnico,
+        clienteRecusou: !!cliente_recusou
       });
     }
 

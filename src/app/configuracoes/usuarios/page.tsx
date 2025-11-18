@@ -226,8 +226,8 @@ function UsuariosPageInner() {
     }
   }
 
-  const handleDeleteUsuario = async (id: string) => {
-    if (id === session?.user?.id) {
+  const handleDeleteUsuario = async (id: string, authUserId?: string) => {
+    if (authUserId === session?.user?.id) {
       addToast('error', 'Você não pode excluir seu próprio usuário.');
       return;
     }
@@ -703,16 +703,16 @@ function UsuariosPageInner() {
                       <button
                         title="Editar"
                         className={`p-2 rounded-lg transition-all duration-200 ${
-                          usuario.id === session?.user?.id 
+                          usuario.auth_user_id === session?.user?.id 
                             ? 'opacity-40 cursor-not-allowed bg-gray-100' 
                             : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
                         }`}
                         onClick={() => {
-                          if (usuario.id !== session?.user?.id) {
+                          if (usuario.auth_user_id !== session?.user?.id) {
                             router.push(`/configuracoes/usuarios/${usuario.id}/editar`)
                           }
                         }}
-                        disabled={usuario.id === session?.user?.id}
+                        disabled={usuario.auth_user_id === session?.user?.id}
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
@@ -720,16 +720,16 @@ function UsuariosPageInner() {
                       <button
                         title="Excluir"
                         className={`p-2 rounded-lg transition-all duration-200 ${
-                          usuario.id === session?.user?.id 
+                          usuario.auth_user_id === session?.user?.id 
                             ? 'opacity-40 cursor-not-allowed bg-gray-100' 
                             : 'text-gray-600 hover:text-red-600 hover:bg-red-50'
                         }`}
                         onClick={() => {
-                          if (usuario.id !== session?.user?.id) {
-                            handleDeleteUsuario(usuario.id)
+                          if (usuario.auth_user_id !== session?.user?.id) {
+                            handleDeleteUsuario(usuario.id, usuario.auth_user_id)
                           }
                         }}
-                        disabled={usuario.id === session?.user?.id}
+                        disabled={usuario.auth_user_id === session?.user?.id}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>

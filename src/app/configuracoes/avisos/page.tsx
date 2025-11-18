@@ -28,6 +28,19 @@ interface Usuario {
   email: string
 }
 
+interface ConfigAvisoContasPagar {
+  id: string
+  tipo_alerta: 'vencidas' | 'proximas'
+  titulo: string
+  descricao: string
+  cor_fundo: string
+  cor_texto: string
+  dias_antecedencia: number | null
+  ativo: boolean
+  exibir_para_todos: boolean
+  usuarios_ids: string[]
+}
+
 export default function AvisosPage() {
   const { usuarioData, empresaData, loading: authLoading } = useAuth()
   const { addToast } = useToast()
@@ -52,6 +65,23 @@ export default function AvisosPage() {
   })
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [loadingUsuarios, setLoadingUsuarios] = useState(false)
+  
+  // Estados para configurações de avisos de contas a pagar
+  const [configsContasPagar, setConfigsContasPagar] = useState<ConfigAvisoContasPagar[]>([])
+  const [loadingConfigsContasPagar, setLoadingConfigsContasPagar] = useState(false)
+  const [showModalContasPagar, setShowModalContasPagar] = useState(false)
+  const [editingConfigContasPagar, setEditingConfigContasPagar] = useState<ConfigAvisoContasPagar | null>(null)
+  const [formDataContasPagar, setFormDataContasPagar] = useState({
+    tipo_alerta: 'vencidas' as 'vencidas' | 'proximas',
+    titulo: '',
+    descricao: '',
+    cor_fundo: '#FEE2E2',
+    cor_texto: '#991B1B',
+    dias_antecedencia: 3,
+    ativo: true,
+    exibir_para_todos: true,
+    usuarios_ids: [] as string[],
+  })
 
   // Verificar se é admin
   const isAdmin = usuarioData?.nivel === 'admin' || usuarioData?.nivel === 'usuarioteste'
@@ -85,6 +115,251 @@ export default function AvisosPage() {
 
     carregarUsuarios()
   }, [empresaData?.id, usuarioData?.empresa_id, isAdmin])
+
+  // Carregar configurações de avisos de contas a pagar
+  useEffect(() => {
+    const empresaId = empresaData?.id || usuarioData?.empresa_id
+    if (!empresaId || !isAdmin) {
+      setConfigsContasPagar([])
+      return
+    }
+
+    carregarConfigsContasPagar()
+  }, [empresaData?.id, usuarioData?.empresa_id, isAdmin])
+
+  const carregarConfigsContasPagar = async () => {
+    const empresaId = empresaData?.id || usuarioData?.empresa_id
+    if (!empresaId) return
+
+    setLoadingConfigsContasPagar(true)
+    try {
+      const response = await fetch(`/api/avisos-contas-pagar?empresa_id=${empresaId}`)
+      if (response.ok) {
+        const data = await response.json()
+        const configs = data.configs || []
+        
+        // Se não existem configurações, criar padrões e recarregar
+        if (configs.length === 0) {
+          await criarConfigsPadrao()
+          // Recarregar após criar
+          const responseNovo = await fetch(`/api/avisos-contas-pagar?empresa_id=${empresaId}`)
+          if (responseNovo.ok) {
+            const dataNovo = await responseNovo.json()
+            setConfigsContasPagar(dataNovo.configs || [])
+          }
+        } else {
+          setConfigsContasPagar(configs)
+        }
+      } else {
+        // Se a API falhar, tentar criar padrões mesmo assim
+        console.warn('Erro ao carregar configurações, tentando criar padrões...')
+        await criarConfigsPadrao()
+        const responseNovo = await fetch(`/api/avisos-contas-pagar?empresa_id=${empresaId}`)
+        if (responseNovo.ok) {
+          const dataNovo = await responseNovo.json()
+          setConfigsContasPagar(dataNovo.configs || [])
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao carregar configurações de avisos de contas a pagar:', error)
+      // Tentar criar padrões mesmo com erro
+      try {
+        await criarConfigsPadrao()
+        const empresaId = empresaData?.id || usuarioData?.empresa_id
+        if (empresaId) {
+          const response = await fetch(`/api/avisos-contas-pagar?empresa_id=${empresaId}`)
+          if (response.ok) {
+            const data = await response.json()
+            setConfigsContasPagar(data.configs || [])
+          }
+        }
+      } catch (createError) {
+        console.error('Erro ao criar configurações padrão:', createError)
+      }
+    } finally {
+      setLoadingConfigsContasPagar(false)
+    }
+  }
+
+  const criarConfigsPadrao = async () => {
+    const empresaId = empresaData?.id || usuarioData?.empresa_id
+    if (!empresaId) return
+
+    const configsPadrao = [
+      {
+        empresa_id: empresaId,
+        tipo_alerta: 'vencidas',
+        titulo: '{quantidade} conta(s) vencidas',
+        descricao: 'Regularize os pagamentos para evitar juros ou bloqueios de serviços.',
+        cor_fundo: '#FEE2E2',
+        cor_texto: '#991B1B',
+        dias_antecedencia: null,
+        ativo: true,
+        exibir_para_todos: false, // ✅ MUDANÇA: Não exibir para todos por padrão
+        usuarios_ids: [], // Vazio = não aparece para ninguém até ser configurado
+      },
+      {
+        empresa_id: empresaId,
+        tipo_alerta: 'proximas',
+        titulo: '{quantidade} conta(s) vencem em até {dias} dia(s)',
+        descricao: 'Antecipe os pagamentos para manter o caixa saudável.',
+        cor_fundo: '#FEF3C7',
+        cor_texto: '#92400E',
+        dias_antecedencia: 3,
+        ativo: true,
+        exibir_para_todos: false, // ✅ MUDANÇA: Não exibir para todos por padrão
+        usuarios_ids: [], // Vazio = não aparece para ninguém até ser configurado
+      },
+    ]
+
+    try {
+      console.log('Criando configurações padrão para empresa:', empresaId)
+      const promises = configsPadrao.map(async (config) => {
+        const response = await fetch('/api/avisos-contas-pagar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(config),
+        })
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }))
+          console.error('Erro ao criar configuração:', config.tipo_alerta, errorData)
+          throw new Error(`Erro ao criar configuração ${config.tipo_alerta}: ${errorData.error || 'Erro desconhecido'}`)
+        }
+        
+        return response.json()
+      })
+
+      await Promise.all(promises)
+      console.log('Configurações padrão criadas com sucesso')
+    } catch (error) {
+      console.error('Erro ao criar configurações padrão:', error)
+      throw error // Re-throw para que o chamador saiba que falhou
+    }
+  }
+
+  const abrirModalContasPagar = (config?: ConfigAvisoContasPagar) => {
+    if (config) {
+      setEditingConfigContasPagar(config)
+      setFormDataContasPagar({
+        tipo_alerta: config.tipo_alerta,
+        titulo: config.titulo,
+        descricao: config.descricao,
+        cor_fundo: config.cor_fundo,
+        cor_texto: config.cor_texto,
+        dias_antecedencia: config.dias_antecedencia || 3,
+        ativo: config.ativo,
+        exibir_para_todos: config.exibir_para_todos,
+        usuarios_ids: Array.isArray(config.usuarios_ids) ? config.usuarios_ids : [],
+      })
+    } else {
+      setEditingConfigContasPagar(null)
+      setFormDataContasPagar({
+        tipo_alerta: 'vencidas',
+        titulo: '',
+        descricao: '',
+        cor_fundo: '#FEE2E2',
+        cor_texto: '#991B1B',
+        dias_antecedencia: 3,
+        ativo: true,
+        exibir_para_todos: true,
+        usuarios_ids: [],
+      })
+    }
+    setShowModalContasPagar(true)
+  }
+
+  const fecharModalContasPagar = () => {
+    setShowModalContasPagar(false)
+    setEditingConfigContasPagar(null)
+  }
+
+  const salvarConfigContasPagar = async () => {
+    try {
+      const empresaId = empresaData?.id || usuarioData?.empresa_id
+      if (!empresaId) {
+        addToast('error', 'Dados da empresa não disponíveis.')
+        return
+      }
+
+      if (!formDataContasPagar.titulo?.trim() || !formDataContasPagar.descricao?.trim()) {
+        addToast('error', 'Preencha título e descrição')
+        return
+      }
+
+      const payload = {
+        ...formDataContasPagar,
+        empresa_id: empresaId,
+        dias_antecedencia: formDataContasPagar.tipo_alerta === 'proximas' ? formDataContasPagar.dias_antecedencia : null,
+        usuarios_ids: formDataContasPagar.exibir_para_todos ? [] : formDataContasPagar.usuarios_ids,
+      }
+
+      console.log('Salvando configuração:', { 
+        editando: !!editingConfigContasPagar, 
+        tipo_alerta: payload.tipo_alerta,
+        empresa_id: payload.empresa_id,
+        payload 
+      })
+
+      if (editingConfigContasPagar) {
+        const response = await fetch('/api/avisos-contas-pagar', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...payload,
+            id: editingConfigContasPagar.id,
+          }),
+        })
+
+        if (response.ok) {
+          addToast('success', 'Configuração atualizada com sucesso')
+          
+          // Disparar evento ANTES de fechar o modal para garantir que o banner atualize
+          window.dispatchEvent(new Event('configAvisosContasPagarAtualizada'))
+          
+          fecharModalContasPagar()
+          await carregarConfigsContasPagar()
+          
+          // Disparar evento novamente após recarregar para garantir
+          setTimeout(() => {
+            window.dispatchEvent(new Event('configAvisosContasPagarAtualizada'))
+          }, 200)
+        } else {
+          const data = await response.json()
+          addToast('error', data.error || 'Erro ao atualizar configuração')
+          console.error('Erro ao atualizar configuração:', data)
+        }
+      } else {
+        const response = await fetch('/api/avisos-contas-pagar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+
+        if (response.ok) {
+          addToast('success', 'Configuração criada com sucesso')
+          
+          // Disparar evento ANTES de fechar o modal para garantir que o banner atualize
+          window.dispatchEvent(new Event('configAvisosContasPagarAtualizada'))
+          
+          fecharModalContasPagar()
+          await carregarConfigsContasPagar()
+          
+          // Disparar evento novamente após recarregar para garantir
+          setTimeout(() => {
+            window.dispatchEvent(new Event('configAvisosContasPagarAtualizada'))
+          }, 200)
+        } else {
+          const data = await response.json()
+          addToast('error', data.error || 'Erro ao criar configuração')
+          console.error('Erro ao criar configuração:', data)
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao salvar configuração:', error)
+      addToast('error', 'Erro ao salvar configuração')
+    }
+  }
 
   // Carregar avisos quando tiver empresaId e for admin
   useEffect(() => {
@@ -696,6 +971,301 @@ export default function AvisosPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Seção de Avisos de Contas a Pagar */}
+      <div className="mt-8 pt-8 border-t border-gray-200">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-2xl font-bold">Avisos de Contas a Pagar</h2>
+            <p className="text-gray-600 mt-1">Configure os avisos automáticos de contas vencendo ou vencidas</p>
+          </div>
+        </div>
+
+        {loadingConfigsContasPagar ? (
+          <div className="flex justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+          </div>
+        ) : configsContasPagar.length === 0 ? (
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+            <p className="text-gray-600 mb-4">Nenhuma configuração encontrada. As configurações padrão serão criadas automaticamente...</p>
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-black mx-auto"></div>
+          </div>
+        ) : (
+          <div className="grid gap-4">
+            {configsContasPagar.map((config) => (
+              <div
+                key={config.id}
+                className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="font-semibold text-lg">
+                        {config.tipo_alerta === 'vencidas' ? 'Contas Vencidas' : 'Contas Próximas ao Vencimento'}
+                      </h3>
+                      <span
+                        className={`px-2 py-1 rounded text-xs font-medium ${
+                          config.ativo
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {config.ativo ? 'Ativo' : 'Inativo'}
+                      </span>
+                      {config.tipo_alerta === 'proximas' && config.dias_antecedencia && (
+                        <span className="px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                          {config.dias_antecedencia} dia(s) antes
+                        </span>
+                      )}
+                      <span className="px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                        {config.exibir_para_todos ? 'Para todos' : `${config.usuarios_ids?.length || 0} usuário(s)`}
+                      </span>
+                    </div>
+                    <p className="text-gray-700 mb-1">
+                      <strong>Título:</strong> {config.titulo}
+                    </p>
+                    <p className="text-gray-700 mb-3">
+                      <strong>Descrição:</strong> {config.descricao}
+                    </p>
+                    <div
+                      className="p-3 rounded-lg mb-3"
+                      style={{
+                        backgroundColor: config.cor_fundo,
+                        color: config.cor_texto,
+                      }}
+                    >
+                      <p className="font-medium">{config.titulo.replace('{quantidade}', 'X').replace('{dias}', config.dias_antecedencia?.toString() || '3')}</p>
+                      <p className="text-sm opacity-90">{config.descricao}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 ml-4">
+                    <button
+                      onClick={() => abrirModalContasPagar(config)}
+                      className="p-2 rounded hover:bg-gray-100 text-blue-600"
+                      title="Editar"
+                    >
+                      <FiEdit2 size={18} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Modal de criar/editar configuração de avisos de contas a pagar */}
+      {showModalContasPagar && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h3 className="text-xl font-bold">
+                {editingConfigContasPagar ? 'Editar Configuração' : 'Nova Configuração'}
+              </h3>
+              <button
+                onClick={fecharModalContasPagar}
+                className="p-2 hover:bg-gray-100 rounded"
+              >
+                <FiX size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Tipo de Alerta *</label>
+                <select
+                  value={formDataContasPagar.tipo_alerta}
+                  onChange={(e) => setFormDataContasPagar({ ...formDataContasPagar, tipo_alerta: e.target.value as 'vencidas' | 'proximas' })}
+                  disabled={!!editingConfigContasPagar}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black disabled:bg-gray-100"
+                >
+                  <option value="vencidas">Contas Vencidas</option>
+                  <option value="proximas">Contas Próximas ao Vencimento</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Título *</label>
+                <input
+                  type="text"
+                  value={formDataContasPagar.titulo}
+                  onChange={(e) => setFormDataContasPagar({ ...formDataContasPagar, titulo: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder="Ex: {quantidade} conta(s) vencidas"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Use {'{quantidade}'} para o número de contas e {'{dias}'} para os dias (apenas para "próximas")
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Descrição *</label>
+                <textarea
+                  value={formDataContasPagar.descricao}
+                  onChange={(e) => setFormDataContasPagar({ ...formDataContasPagar, descricao: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black"
+                  rows={3}
+                  placeholder="Ex: Regularize os pagamentos para evitar juros ou bloqueios de serviços."
+                />
+              </div>
+
+              {formDataContasPagar.tipo_alerta === 'proximas' && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Dias de Antecedência *</label>
+                  <input
+                    type="number"
+                    value={formDataContasPagar.dias_antecedencia}
+                    onChange={(e) => setFormDataContasPagar({ ...formDataContasPagar, dias_antecedencia: parseInt(e.target.value) || 3 })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black"
+                    min="1"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Quantos dias antes do vencimento mostrar o aviso</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Cor de Fundo</label>
+                  <input
+                    type="color"
+                    value={formDataContasPagar.cor_fundo}
+                    onChange={(e) => setFormDataContasPagar({ ...formDataContasPagar, cor_fundo: e.target.value })}
+                    className="w-full h-10 border border-gray-300 rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Cor do Texto</label>
+                  <input
+                    type="color"
+                    value={formDataContasPagar.cor_texto}
+                    onChange={(e) => setFormDataContasPagar({ ...formDataContasPagar, cor_texto: e.target.value })}
+                    className="w-full h-10 border border-gray-300 rounded-lg"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={formDataContasPagar.ativo}
+                    onChange={(e) => setFormDataContasPagar({ ...formDataContasPagar, ativo: e.target.checked })}
+                    className="rounded"
+                  />
+                  <span className="text-sm font-medium">Aviso ativo</span>
+                </label>
+              </div>
+
+              {/* Seleção de usuários */}
+              <div className="border-t pt-4 mt-4">
+                <h4 className="text-sm font-semibold text-gray-900 mb-3">Público-alvo</h4>
+                <label className="flex items-center gap-2 mb-3">
+                  <input
+                    type="checkbox"
+                    checked={formDataContasPagar.exibir_para_todos}
+                    onChange={(e) => {
+                      setFormDataContasPagar({ 
+                        ...formDataContasPagar, 
+                        exibir_para_todos: e.target.checked,
+                        usuarios_ids: e.target.checked ? [] : formDataContasPagar.usuarios_ids
+                      })
+                    }}
+                    className="rounded"
+                  />
+                  <span className="text-sm font-medium">Exibir para todos os usuários</span>
+                </label>
+
+                {!formDataContasPagar.exibir_para_todos && (
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium mb-2">
+                      Selecionar usuários específicos ({formDataContasPagar.usuarios_ids.length} selecionado{formDataContasPagar.usuarios_ids.length !== 1 ? 's' : ''})
+                    </label>
+                    <div className="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto bg-gray-50">
+                      {loadingUsuarios ? (
+                        <div className="flex justify-center py-4">
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-black"></div>
+                        </div>
+                      ) : usuarios.length === 0 ? (
+                        <p className="text-sm text-gray-500 text-center py-4">Nenhum usuário encontrado</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {usuarios.map((usuario) => (
+                            <label key={usuario.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-2 rounded">
+                              <input
+                                type="checkbox"
+                                checked={formDataContasPagar.usuarios_ids.includes(usuario.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setFormDataContasPagar({
+                                      ...formDataContasPagar,
+                                      usuarios_ids: [...formDataContasPagar.usuarios_ids, usuario.id]
+                                    })
+                                  } else {
+                                    setFormDataContasPagar({
+                                      ...formDataContasPagar,
+                                      usuarios_ids: formDataContasPagar.usuarios_ids.filter(id => id !== usuario.id)
+                                    })
+                                  }
+                                }}
+                                className="rounded"
+                              />
+                              <span className="text-sm text-gray-700">
+                                {usuario.nome} <span className="text-gray-500">({usuario.email})</span>
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {!formDataContasPagar.exibir_para_todos && formDataContasPagar.usuarios_ids.length === 0 && (
+                      <p className="text-xs text-red-500 mt-2">Selecione pelo menos um usuário ou marque "Exibir para todos"</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Preview */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Preview</label>
+                <div
+                  className="p-4 rounded-lg"
+                  style={{
+                    backgroundColor: formDataContasPagar.cor_fundo,
+                    color: formDataContasPagar.cor_texto,
+                  }}
+                >
+                  <p className="font-semibold text-lg mb-1">
+                    {formDataContasPagar.titulo.replace('{quantidade}', '5').replace('{dias}', formDataContasPagar.dias_antecedencia?.toString() || '3')}
+                  </p>
+                  <p className="text-sm opacity-90">{formDataContasPagar.descricao || 'Descrição do aviso aparecerá aqui'}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 p-6 border-t">
+              <button
+                onClick={fecharModalContasPagar}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={salvarConfigContasPagar}
+                disabled={(!empresaData?.id && !usuarioData?.empresa_id) || (!formDataContasPagar.exibir_para_todos && formDataContasPagar.usuarios_ids.length === 0)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition ${
+                  (empresaData?.id || usuarioData?.empresa_id) && (formDataContasPagar.exibir_para_todos || formDataContasPagar.usuarios_ids.length > 0)
+                    ? 'bg-black text-white hover:bg-gray-800'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                <FiSave size={18} />
+                Salvar
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

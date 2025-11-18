@@ -67,7 +67,13 @@ export default function StatusQuickChange({
         const todosStatusOS = [...(statusFixosOS || []), ...(statusEmpresaOS || [])];
         const todosStatusTec = [...(statusFixosTec || []), ...(statusEmpresaTec || [])];
 
-        setStatusOS(todosStatusOS);
+        // ✅ FILTRAR: Remover status "ENTREGUE" da lista (deve ser feito apenas pelo modal de entrega)
+        const statusOSFiltrados = todosStatusOS.filter((s: Status) => {
+          const nomeNormalizado = (s.nome || '').toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+          return nomeNormalizado !== 'ENTREGUE';
+        });
+
+        setStatusOS(statusOSFiltrados);
         setStatusTecnico(todosStatusTec);
       } catch (error) {
         console.error('Erro ao buscar status:', error);
@@ -93,28 +99,14 @@ export default function StatusQuickChange({
           updateData.status_tecnico = 'APROVADO';
           newStatusTecnico = 'APROVADO';
         }
-        // Lógica automática: quando status OS = ENTREGUE, status técnico = FINALIZADA
+        // ❌ REMOVIDO: Status ENTREGUE não pode ser selecionado diretamente
+        // A entrega deve ser feita apenas pelo modal de entrega (que tem a opção "Cliente recusou")
+        // Se alguém tentar selecionar ENTREGUE, ignorar a mudança
         if (ns === 'ENTREGUE') {
-          if (nst !== 'FINALIZADA') {
-            updateData.status_tecnico = 'FINALIZADA';
-            newStatusTecnico = 'FINALIZADA';
-          }
-          // Perguntar se possui garantia (em UI minimalista via confirm)
-          let possuiGarantia = true;
-          try {
-            possuiGarantia = window.confirm('Este aparelho terá garantia? (OK = Sim, Cancelar = Não)');
-          } catch {}
-          const hoje = new Date();
-          const dataStr = new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())).toISOString().slice(0,10);
-          updateData.data_entrega = dataStr; // sempre grava data da entrega
-          if (possuiGarantia) {
-            const garantia = new Date(hoje);
-            garantia.setDate(garantia.getDate() + 90);
-            const garantiaStr = new Date(Date.UTC(garantia.getFullYear(), garantia.getMonth(), garantia.getDate())).toISOString().slice(0,10);
-            updateData.vencimento_garantia = garantiaStr; // grava garantia somente se SIM
-          } else {
-            updateData.vencimento_garantia = null; // explícito para limpar se existir
-          }
+          alert('⚠️ Para entregar a O.S., use o botão "Entregar" na página de visualização da OS.\nIsso garante que o termo de garantia e forma de pagamento sejam configurados corretamente.');
+          setLoading(false);
+          setShowDropdown(false);
+          return; // Cancelar a mudança de status
         }
         // Lógica automática: quando status OS = AGUARDANDO APROVAÇÃO, status técnico = AGUARDANDO APROVAÇÃO
         else if (ns === 'AGUARDANDO APROVACAO' && nst !== 'AGUARDANDO APROVACAO') {
