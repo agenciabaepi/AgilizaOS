@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import type { DadosUsuario } from './user-data';
 
 /**
  * Cliente OpenAI (ChatGPT)
@@ -21,47 +22,146 @@ function getOpenAIClient(): OpenAI | null {
 }
 
 /**
+ * Constrói contexto do sistema para TÉCNICO
+ */
+function buildTecnicoContext(userName: string, dados: any): string {
+  let context = `\n\n👨‍🔧 DADOS DO TÉCNICO ${userName}:`;
+  
+  if (dados.comissoes) {
+    context += `\n\n💰 COMISSÕES:
+- Total: R$ ${dados.comissoes.total.toFixed(2).replace('.', ',')}
+- Pagas: R$ ${dados.comissoes.totalPago.toFixed(2).replace('.', ',')}
+- Pendentes: R$ ${dados.comissoes.totalPendente.toFixed(2).replace('.', ',')}`;
+    
+    if (dados.comissoes.ultimas?.length > 0) {
+      context += `\n\nÚltimas comissões:`;
+      dados.comissoes.ultimas.forEach((c: any, i: number) => {
+        context += `\n${i + 1}. OS #${c.numero_os} - ${c.cliente} - R$ ${c.valor.toFixed(2).replace('.', ',')} - ${c.status}`;
+      });
+    }
+  }
+  
+  if (dados.osPendentes?.length > 0) {
+    context += `\n\n📋 OS PENDENTES (${dados.totalOSPendentes || dados.osPendentes.length}):`;
+    dados.osPendentes.slice(0, 5).forEach((os: any, i: number) => {
+      context += `\n${i + 1}. OS #${os.numero_os} - ${os.cliente} - ${os.servico}`;
+    });
+  }
+  
+  return context;
+}
+
+/**
+ * Constrói contexto do sistema para FINANCEIRO
+ */
+function buildFinanceiroContext(userName: string, dados: any): string {
+  let context = `\n\n💼 DADOS DO FINANCEIRO - ${userName}:`;
+  
+  if (dados.contasAPagar) {
+    const c = dados.contasAPagar;
+    context += `\n\n💰 CONTAS A PAGAR:
+- Total de contas: ${c.total}
+- Pendentes: ${c.pendentes} (R$ ${c.valorPendente.toFixed(2).replace('.', ',')})
+- Pagas: ${c.pagas} (R$ ${c.valorPago.toFixed(2).replace('.', ',')})
+- Vencidas: ${c.vencidas} (R$ ${c.valorVencido.toFixed(2).replace('.', ',')})`;
+    
+    if (c.proximasVencer?.length > 0) {
+      context += `\n\n⚠️ PRÓXIMAS A VENCER (7 dias):`;
+      c.proximasVencer.forEach((conta: any, i: number) => {
+        context += `\n${i + 1}. ${conta.descricao} - R$ ${conta.valor.toFixed(2).replace('.', ',')} - ${conta.vencimento}`;
+      });
+    }
+  }
+  
+  if (dados.resumoMensal) {
+    const r = dados.resumoMensal;
+    context += `\n\n📊 RESUMO DO MÊS:
+- Receita: R$ ${r.receita.toFixed(2).replace('.', ',')}
+- Despesas: R$ ${r.despesas.toFixed(2).replace('.', ',')}
+- Lucro: R$ ${r.lucro.toFixed(2).replace('.', ',')}`;
+  }
+  
+  return context;
+}
+
+/**
+ * Constrói contexto do sistema para ATENDENTE
+ */
+function buildAtendenteContext(userName: string, dados: any): string {
+  let context = `\n\n👥 DADOS DO ATENDENTE - ${userName}:`;
+  
+  if (dados.osAbertas) {
+    const os = dados.osAbertas;
+    context += `\n\n📋 ORDENS DE SERVIÇO:
+- Total abertas: ${os.total}
+- Aguardando aprovação: ${os.aguardandoAprovacao}
+- Em andamento: ${os.emAndamento}`;
+    
+    if (os.ultimas?.length > 0) {
+      context += `\n\nÚltimas OS abertas:`;
+      os.ultimas.forEach((ordem: any, i: number) => {
+        context += `\n${i + 1}. OS #${ordem.numero_os} - ${ordem.cliente} - ${ordem.status}`;
+      });
+    }
+  }
+  
+  if (dados.clientesRecentes?.length > 0) {
+    context += `\n\n👤 CLIENTES RECENTES:`;
+    dados.clientesRecentes.slice(0, 3).forEach((cliente: any, i: number) => {
+      context += `\n${i + 1}. ${cliente.nome}${cliente.ultimaOS ? ` - OS #${cliente.ultimaOS}` : ''}`;
+    });
+  }
+  
+  return context;
+}
+
+/**
+ * Constrói contexto do sistema para ADMIN
+ */
+function buildAdminContext(userName: string, dados: any): string {
+  let context = `\n\n👨‍💼 DADOS DO ADMINISTRADOR - ${userName}:`;
+  
+  if (dados.resumoGeral) {
+    const r = dados.resumoGeral;
+    context += `\n\n📊 RESUMO GERAL:
+- Total de OS: ${r.totalOS} (${r.osAbertas} abertas, ${r.osFechadas} fechadas)
+- Técnicos: ${r.totalTecnicos}
+- Clientes: ${r.totalClientes}`;
+  }
+  
+  if (dados.financeiro) {
+    const f = dados.financeiro;
+    context += `\n\n💰 FINANCEIRO DO MÊS:
+- Receita: R$ ${f.receitaMes.toFixed(2).replace('.', ',')}
+- Despesas: R$ ${f.despesasMes.toFixed(2).replace('.', ',')}
+- Lucro: R$ ${f.lucroMes.toFixed(2).replace('.', ',')}`;
+    
+    if (f.contasVencidas > 0) {
+      context += `\n⚠️ Contas vencidas: ${f.contasVencidas} (R$ ${f.valorVencido.toFixed(2).replace('.', ',')})`;
+    }
+  }
+  
+  if (dados.osUrgentes?.length > 0) {
+    context += `\n\n🚨 OS URGENTES (15+ dias abertas):`;
+    dados.osUrgentes.forEach((os: any, i: number) => {
+      context += `\n${i + 1}. OS #${os.numero_os} - ${os.cliente} - ${os.diasAberta} dias`;
+    });
+  }
+  
+  return context;
+}
+
+/**
  * Gera resposta do ChatGPT para uma mensagem do WhatsApp
  * @param userMessage - Mensagem do usuário
- * @param context - Contexto adicional (opcional)
+ * @param userName - Nome do usuário
+ * @param userData - Dados específicos do usuário baseado no nível
  * @returns Resposta do ChatGPT ou null em caso de erro
  */
 export async function getChatGPTResponse(
   userMessage: string,
-  context?: {
-    userName?: string;
-    isTecnico?: boolean;
-    tecnicoData?: {
-      comissoes?: {
-        total: number;
-        totalPago: number;
-        totalPendente: number;
-        ultimas: Array<{
-          numero_os: number;
-          cliente: string;
-          valor: number;
-          status: string;
-          data: string;
-        }>;
-      };
-      osPendentes?: Array<{
-        numero_os: number;
-        cliente: string;
-        servico: string;
-        status: string;
-        status_tecnico: string;
-      }>;
-      osRecentes?: Array<{
-        numero_os: number;
-        cliente: string;
-        status: string;
-        status_tecnico: string;
-      }>;
-      contagemStatus?: Record<string, number>;
-      totalOSPendentes?: number;
-      totalOS?: number;
-    };
-  }
+  userName: string,
+  userData: DadosUsuario | null
 ): Promise<string | null> {
   try {
     const client = getOpenAIClient();
@@ -70,62 +170,39 @@ export async function getChatGPTResponse(
       return null;
     }
 
-    // Construir mensagem do sistema com contexto dinâmico
+    // Mensagem base do sistema
     let systemMessage = `Você é um assistente virtual inteligente do sistema Consert, um sistema de gestão de ordens de serviço.
-
-Sua função é ajudar técnicos com perguntas sobre suas ordens de serviço, comissões e status de trabalhos.
 
 IMPORTANTE:
 - Use emojis moderadamente para tornar a comunicação mais amigável
 - Mantenha respostas concisas e objetivas (máximo 400 caracteres)
 - Responda sempre em português brasileiro
-- Seja educado e profissional`;
+- Seja educado e profissional
+- Use as informações fornecidas para dar respostas precisas e úteis`;
 
-    // Adicionar dados do técnico se disponíveis
-    if (context?.tecnicoData) {
-      const dados = context.tecnicoData;
-      
-      systemMessage += `\n\nDADOS ATUAIS DO TÉCNICO ${context.userName || 'TÉCNICO'}:`;
-      
-      if (dados.comissoes) {
-        systemMessage += `\n\n💰 COMISSÕES:
-- Total: R$ ${dados.comissoes.total.toFixed(2).replace('.', ',')}
-- Pagas: R$ ${dados.comissoes.totalPago.toFixed(2).replace('.', ',')}
-- Pendentes: R$ ${dados.comissoes.totalPendente.toFixed(2).replace('.', ',')}`;
+    // Adicionar contexto específico baseado no nível do usuário
+    if (userData) {
+      switch (userData.nivel) {
+        case 'tecnico':
+          systemMessage += buildTecnicoContext(userName, userData.dados);
+          systemMessage += `\n\nResponda perguntas sobre comissões, OS pendentes e status de trabalhos.`;
+          break;
         
-        if (dados.comissoes.ultimas && dados.comissoes.ultimas.length > 0) {
-          systemMessage += `\n\nÚltimas comissões:`;
-          dados.comissoes.ultimas.forEach((c, i) => {
-            systemMessage += `\n${i + 1}. OS #${c.numero_os} - ${c.cliente} - R$ ${c.valor.toFixed(2).replace('.', ',')} - ${c.status}`;
-          });
-        }
-      }
-      
-      if (dados.osPendentes && dados.osPendentes.length > 0) {
-        systemMessage += `\n\n📋 ORDENS DE SERVIÇO PENDENTES (${dados.totalOSPendentes || dados.osPendentes.length}):`;
-        dados.osPendentes.slice(0, 5).forEach((os, i) => {
-          systemMessage += `\n${i + 1}. OS #${os.numero_os} - ${os.cliente} - ${os.servico} - Status: ${os.status}`;
-        });
-      }
-      
-      if (dados.contagemStatus) {
-        systemMessage += `\n\n📊 RESUMO DE OS:
-- Total de OS: ${dados.totalOS || 0}
-- Pendentes: ${dados.totalOSPendentes || 0}`;
+        case 'financeiro':
+          systemMessage += buildFinanceiroContext(userName, userData.dados);
+          systemMessage += `\n\nResponda perguntas sobre contas a pagar, receitas, despesas e saúde financeira.`;
+          break;
         
-        const statusMaisComuns = Object.entries(dados.contagemStatus)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 3);
+        case 'atendente':
+          systemMessage += buildAtendenteContext(userName, userData.dados);
+          systemMessage += `\n\nResponda perguntas sobre OS abertas, clientes e status de atendimentos.`;
+          break;
         
-        if (statusMaisComuns.length > 0) {
-          systemMessage += `\nStatus mais comuns:`;
-          statusMaisComuns.forEach(([status, count]) => {
-            systemMessage += `\n- ${status}: ${count}`;
-          });
-        }
+        case 'admin':
+          systemMessage += buildAdminContext(userName, userData.dados);
+          systemMessage += `\n\nResponda perguntas sobre dados gerais, performance, financeiro e gestão geral.`;
+          break;
       }
-      
-      systemMessage += `\n\nUse essas informações para responder perguntas específicas do técnico sobre suas comissões, OS pendentes, status de trabalhos, etc.`;
     }
 
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
@@ -140,15 +217,16 @@ IMPORTANTE:
     ];
 
     console.log('🤖 Chamando ChatGPT API:', {
+      nivel: userData?.nivel || 'desconhecido',
       messageLength: userMessage.length,
-      hasContext: !!context,
+      hasData: !!userData,
     });
 
     const completion = await client.chat.completions.create({
-      model: 'gpt-4o-mini', // Modelo mais econômico e rápido
+      model: 'gpt-4o-mini',
       messages,
-      max_tokens: 300, // Limitar tamanho da resposta
-      temperature: 0.7, // Criatividade moderada
+      max_tokens: 400,
+      temperature: 0.7,
     });
 
     const response = completion.choices[0]?.message?.content;
@@ -172,7 +250,6 @@ IMPORTANTE:
       status: error.status,
     });
     
-    // Retornar mensagem de erro amigável
     return 'Desculpe, não consegui processar sua mensagem no momento. Tente novamente mais tarde ou entre em contato com o administrador.';
   }
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTecnicoByWhatsApp, getComissoesTecnico, formatComissoesMessage } from '@/lib/whatsapp-commands';
 import { getChatGPTResponse, isChatGPTAvailable } from '@/lib/chatgpt';
-import { getTecnicoDataForContext } from '@/lib/tecnico-data';
+import { getUsuarioByWhatsApp, getUserDataByLevel } from '@/lib/user-data';
 
 export async function GET(request: NextRequest) {
   try {
@@ -61,21 +61,38 @@ export async function processWhatsAppMessage(from: string, messageBody: string) 
     const normalizedFrom = from.replace(/\D/g, '');
     const trimmedMessage = messageBody.trim();
 
-    // 🔒 VERIFICAÇÃO DE SEGURANÇA: Apenas técnicos cadastrados podem usar o bot
-    const tecnico = await getTecnicoByWhatsApp(normalizedFrom);
+    // 🔒 VERIFICAÇÃO DE SEGURANÇA: Apenas usuários cadastrados podem usar o bot
+    const usuario = await getUsuarioByWhatsApp(normalizedFrom);
     
-    if (!tecnico) {
+    if (!usuario) {
       console.log('🚫 Acesso negado - número não cadastrado:', normalizedFrom);
       return {
-        message: '🚫 *Acesso Restrito*\n\nEste serviço é exclusivo para técnicos cadastrados no sistema.\n\nSe você é técnico, entre em contato com o administrador para cadastrar seu WhatsApp.'
+        message: '🚫 *Acesso Restrito*\n\nEste serviço é exclusivo para usuários cadastrados no sistema.\n\nEntre em contato com o administrador para cadastrar seu WhatsApp.'
       };
     }
 
-    console.log('✅ Técnico autorizado:', tecnico.nome);
+    console.log('✅ Usuário autorizado:', {
+      nome: usuario.nome,
+      nivel: usuario.nivel
+    });
 
-    // Verificar se é um comando
+    // Verificar se é um comando /comissoes (apenas para técnicos)
     if (trimmedMessage.toLowerCase() === '/comissoes' || trimmedMessage.toLowerCase().startsWith('/comissoes')) {
       console.log('💰 Comando /comissoes detectado');
+
+      if (usuario.nivel !== 'tecnico') {
+        return {
+          message: '❌ Este comando é exclusivo para técnicos.\n\nVocê pode fazer perguntas gerais para o assistente virtual!'
+        };
+      }
+
+      // Buscar técnico específico (compatibilidade com função antiga)
+      const tecnico = await getTecnicoByWhatsApp(normalizedFrom);
+      if (!tecnico) {
+        return {
+          message: '❌ Erro ao buscar suas informações de técnico.'
+        };
+      }
 
       // Buscar comissões
       const { comissoes, total, totalPago, totalPendente } = await getComissoesTecnico(tecnico.id, 10);
@@ -91,6 +108,7 @@ export async function processWhatsAppMessage(from: string, messageBody: string) 
     console.log('🔍 Verificando ChatGPT:', {
       disponivel: chatGPTDisponivel,
       temApiKey: !!process.env.OPENAI_API_KEY,
+      nivel: usuario.nivel,
       mensagem: trimmedMessage
     });
     
@@ -98,28 +116,27 @@ export async function processWhatsAppMessage(from: string, messageBody: string) 
       console.log('🤖 ChatGPT disponível - processando mensagem com IA');
       console.log('📝 Mensagem para ChatGPT:', trimmedMessage);
       
-      // Buscar dados reais para contexto dinâmico
-      let tecnicoData = null;
+      // Buscar dados específicos baseado no nível do usuário
+      let userData = null;
       try {
-        console.log('📊 Buscando dados do técnico para contexto dinâmico...');
-        tecnicoData = await getTecnicoDataForContext(tecnico.id);
-        console.log('✅ Dados do técnico obtidos:', {
-          temComissoes: !!tecnicoData?.comissoes,
-          temOSPendentes: !!tecnicoData?.osPendentes,
-          totalOSPendentes: tecnicoData?.totalOSPendentes
+        console.log(`📊 Buscando dados para ${usuario.nivel}: ${usuario.nome}...`);
+        userData = await getUserDataByLevel(usuario);
+        console.log('✅ Dados do usuário obtidos:', {
+          nivel: userData?.nivel,
+          temDados: !!userData
         });
       } catch (error: any) {
-        console.error('⚠️ Erro ao buscar dados do técnico (continuando sem dados):', error.message);
-        // Continuar mesmo sem dados do técnico
+        console.error('⚠️ Erro ao buscar dados do usuário (continuando sem dados):', error.message);
+        // Continuar mesmo sem dados
       }
       
       try {
         console.log('🚀 Chamando ChatGPT API...');
-        const chatGPTResponse = await getChatGPTResponse(trimmedMessage, {
-          userName: tecnico.nome,
-          isTecnico: true,
-          tecnicoData: tecnicoData || undefined,
-        });
+        const chatGPTResponse = await getChatGPTResponse(
+          trimmedMessage,
+          usuario.nome,
+          userData
+        );
 
         if (chatGPTResponse && chatGPTResponse.trim().length > 0) {
           console.log('✅ ChatGPT retornou resposta:', {
@@ -148,8 +165,18 @@ export async function processWhatsAppMessage(from: string, messageBody: string) 
     }
 
     // Fallback: Comando não reconhecido e ChatGPT não disponível
+    const comandosDisponiveis = usuario.nivel === 'tecnico' 
+      ? '\n• /comissoes - Ver suas comissões'
+      : '';
+    
     return {
-      message: '❓ Comando não reconhecido.\n\nComandos disponíveis:\n• /comissoes - Ver suas comissões\n\n💡 Dica: Você pode fazer perguntas gerais e eu tentarei ajudar!'
+      message: `❓ Comando não reconhecido.\n\nComandos disponíveis:${comandosDisponiveis}\n\n💡 Dica: Você pode fazer perguntas sobre ${
+        usuario.nivel === 'tecnico' ? 'suas OS e comissões' :
+        usuario.nivel === 'financeiro' ? 'contas a pagar e despesas' :
+        usuario.nivel === 'atendente' ? 'OS abertas e clientes' :
+        usuario.nivel === 'admin' ? 'dados gerais e performance' :
+        'o sistema'
+      }!`
     };
 
   } catch (error) {
