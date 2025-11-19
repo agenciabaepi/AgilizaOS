@@ -73,17 +73,27 @@ function LoginClientInner() {
     return () => clearInterval(interval);
   }, [carouselImages.length]);
   
-  // Verificar se deve mostrar modo de verificação
+  // Verificar se deve mostrar modo de verificação e erros
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const email = searchParams.get('email');
     const verificacao = searchParams.get('verificacao');
+    const error = searchParams.get('error');
+    
+    // Verificar erro de empresa desativada
+    if (error === 'empresa_desativada') {
+      addToast('error', 'Sua empresa foi desativada. Entre em contato com o suporte para mais informações.');
+      // Limpar o parâmetro da URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete('error');
+      window.history.replaceState({}, '', url.toString());
+    }
     
     if (email && verificacao === 'pending') {
       setPendingEmail(email);
       setShowVerification(true);
     }
-  }, []);
+  }, [addToast]);
   
   // 🔒 CORREÇÃO DE HIDRATAÇÃO: Aguardar montagem no cliente
   useEffect(() => {
@@ -421,7 +431,7 @@ function LoginClientInner() {
     // Verificar status da empresa
     const { data: empresa, error: empresaError } = await supabase
       .from('empresas')
-      .select('status, motivobloqueio')
+      .select('status, motivobloqueio, ativo')
       .eq('id', usuario.empresa_id)
       .single();
     
@@ -430,6 +440,18 @@ function LoginClientInner() {
       setIsSubmitting(false);
       loginInProgress.current = false;
       addToast('error', 'Erro ao verificar status da empresa. Tente novamente.');
+      return;
+    }
+    
+    // ⚠️ BLOQUEAR ACESSO: Verificar se empresa está ativa
+    if (empresa?.ativo === false) {
+      setIsSubmitting(false);
+      loginInProgress.current = false;
+      await confirm({
+        title: 'Acesso bloqueado',
+        message: 'Sua empresa foi desativada. Entre em contato com o suporte para mais informações.',
+        confirmText: 'OK',
+      });
       return;
     }
     

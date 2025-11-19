@@ -38,6 +38,41 @@ export async function POST(request: Request) {
       }
     }
 
+    // Verifica se já existe outro usuário com esse WhatsApp (normalizado, sem caracteres não numéricos)
+    // O WhatsApp deve ser único globalmente, não apenas por empresa, para evitar conflitos no bot
+    if (whatsapp && whatsapp.trim()) {
+      const whatsappNormalizado = whatsapp.replace(/\D/g, ''); // Remove tudo que não é número
+      
+      // Buscar todos os usuários com WhatsApp (exceto o atual) e verificar se algum tem o mesmo número normalizado
+      const { data: usuariosComWhatsApp, error: whatsappError } = await supabaseAdmin
+        .from('usuarios')
+        .select('id, whatsapp')
+        .not('whatsapp', 'is', null)
+        .neq('whatsapp', '')
+        .neq('id', id); // Excluir o usuário atual da verificação
+
+      if (whatsappError) {
+        console.error('Erro ao verificar WhatsApp:', whatsappError);
+        return NextResponse.json({ error: 'Erro ao verificar WhatsApp.' }, { status: 500 });
+      }
+
+      // Verificar se algum usuário tem o mesmo número normalizado
+      const whatsappJaExiste = usuariosComWhatsApp?.some(u => {
+        if (!u.whatsapp) return false;
+        const dbWhatsappNormalizado = u.whatsapp.replace(/\D/g, '');
+        // Comparar números normalizados (com e sem código do país)
+        return dbWhatsappNormalizado === whatsappNormalizado ||
+               dbWhatsappNormalizado === whatsappNormalizado.replace(/^55/, '') ||
+               `55${dbWhatsappNormalizado}` === whatsappNormalizado ||
+               dbWhatsappNormalizado.replace(/^55/, '') === whatsappNormalizado.replace(/^55/, '');
+      });
+
+      if (whatsappJaExiste) {
+        console.error('WhatsApp já cadastrado:', whatsappNormalizado);
+        return NextResponse.json({ error: 'Este número de WhatsApp já está cadastrado em outra conta.' }, { status: 409 });
+      }
+    }
+
     // Atualiza dados na tabela usuarios
     const { error: dbError } = await supabaseAdmin.from('usuarios').update({
       nome,

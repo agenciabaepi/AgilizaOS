@@ -22,7 +22,7 @@ export default function AuthGuardFinal({
 }: AuthGuardFinalProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { usuarioData, loading: authContextLoading } = useAuth();
+  const { usuarioData, empresaData, loading: authContextLoading } = useAuth();
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
 
@@ -54,6 +54,26 @@ export default function AuthGuardFinal({
         if (authContextLoading) {
           console.log('⏳ AuthGuardFinal: AuthContext ainda carregando...');
           setTimeout(checkAuth, 50);
+          return;
+        }
+
+        // ⚠️ BLOQUEAR ACESSO: Verificar se empresa está ativa
+        // Precisamos aguardar empresaData estar disponível
+        if (authContextLoading || !empresaData) {
+          console.log('⏳ AuthGuardFinal: Aguardando empresaData...');
+          setTimeout(checkAuth, 50);
+          return;
+        }
+        
+        if (empresaData && empresaData.ativo === false) {
+          console.log('🚫 AuthGuardFinal: Empresa desativada, redirecionando para login');
+          setIsRedirecting(true);
+          supabase.auth.signOut().then(() => {
+            router.replace('/login?error=empresa_desativada');
+          }).catch((e) => {
+            console.error('Erro ao fazer logout:', e);
+            router.replace('/login?error=empresa_desativada');
+          });
           return;
         }
 
@@ -101,7 +121,7 @@ export default function AuthGuardFinal({
     }, 200);
     
     return () => clearTimeout(timeout);
-  }, [isAuthorized, isRedirecting, pathname, router, requiredPermission, fallbackPath, usuarioData, authContextLoading]);
+  }, [isAuthorized, isRedirecting, pathname, router, requiredPermission, fallbackPath, usuarioData, empresaData, authContextLoading]);
 
   // Helper para verificar permissões
   const checkPermission = (user: any, permission: string): boolean => {

@@ -1,27 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-
-function isDev() {
-  return process.env.NODE_ENV !== 'production' || process.env.ADMIN_SAAS_OPEN === '1';
-}
-
-async function isAuthorized(req: NextRequest) {
-  if (isDev()) return true;
-  const cookieStore = await cookies();
-  const hasGate = cookieStore.get('admin_saas_access')?.value === '1';
-  if (hasGate) return true;
-  const email = req.headers.get('x-user-email') || '';
-  const allowed = (process.env.PLATFORM_ADMIN_EMAILS || '')
-    .split(',')
-    .map(e => e.trim().toLowerCase())
-    .filter(Boolean);
-  return allowed.includes(email.toLowerCase());
-}
+import { isAdminAuthorized } from '@/lib/admin-auth';
 
 export async function POST(req: NextRequest) {
   try {
-    const ok = await isAuthorized(req);
+    const ok = await isAdminAuthorized(req);
     if (!ok) return NextResponse.json({ ok: false, reason: 'unauthorized' }, { status: 401 });
 
     const { nome, email, cnpj, telefone, endereco, plano_id } = await req.json();

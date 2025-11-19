@@ -257,7 +257,6 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
     ]) as any;
 
     if (empresaError) {
-
       // Fallback para dados básicos
       return {
         userData: {
@@ -272,9 +271,16 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
         empresaData: {
           id: data.empresa_id,
           nome: 'Empresa',
-          plano: 'trial'
+          plano: 'trial',
+          ativo: true // Assumir ativa se não conseguir buscar
         }
       };
+    }
+
+    // ⚠️ BLOQUEAR ACESSO: Verificar se empresa está ativa
+    // Se empresa não estiver ativa, lançar erro para forçar logout
+    if (empresaData && empresaData.ativo === false) {
+      throw new Error('EMPRESA_DESATIVADA');
     }
 
     const result = {
@@ -295,14 +301,20 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
         telefone: empresaData.telefone || '',
         email: empresaData.email || '',
         logo_url: empresaData.logo_url || '',
-        plano: 'trial'
+        plano: 'trial',
+        ativo: empresaData.ativo ?? true // Incluir campo ativo
       }
     };
     
     return result;
     
   } catch (error) {
-    // Log mais detalhado do erro
+    // ⚠️ IMPORTANTE: Se erro for de empresa desativada, relançar sem logar (será tratado no AuthContext)
+    if (error instanceof Error && error.message === 'EMPRESA_DESATIVADA') {
+      throw error; // Relançar o erro para ser tratado no AuthContext
+    }
+    
+    // Log mais detalhado do erro (apenas para erros não esperados)
     const errorDetails = {
       message: error instanceof Error ? error.message : 'Erro desconhecido',
       name: error instanceof Error ? error.name : 'UnknownError',

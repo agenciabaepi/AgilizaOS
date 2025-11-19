@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { isAdminAuthorized } from '@/lib/admin-auth';
 
 export async function GET(req: NextRequest) {
   try {
+    // ⚠️ SEGURANÇA: Proteger rota do admin
+    const ok = await isAdminAuthorized(req);
+    if (!ok) return NextResponse.json({ ok: false, reason: 'unauthorized' }, { status: 401 });
     const admin = getSupabaseAdmin();
     const supabase = await createServerSupabaseClient();
     const url = new URL(req.url);

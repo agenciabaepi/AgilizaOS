@@ -21,9 +21,41 @@ export async function middleware(request: NextRequest) {
     console.log(`🔍 Middleware: ${pathname}`);
   }
   
+  // ⚠️ SEGURANÇA CRÍTICA: Proteger rotas do admin-saas
+  // Rotas do admin-saas requerem cookie de verificação 2FA (admin_saas_access)
+  // A rota de login foi movida para /admin-login para evitar conflitos de layout
+  
+  // Redirecionar /admin-saas/login antigo para /admin-login novo
+  if (pathname === '/admin-saas/login') {
+    const loginUrl = new URL('/admin-login', request.url);
+    return NextResponse.redirect(loginUrl);
+  }
+  
+  if (pathname.startsWith('/admin-saas')) {
+    // Para TODAS as rotas do admin-saas, verificar cookie obrigatoriamente
+    const adminCookie = request.cookies.get('admin_saas_access')?.value === '1';
+    
+    if (!adminCookie) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🚫 Middleware: Acesso negado ao admin-saas sem cookie de autenticação: ${pathname}`);
+      }
+      const loginUrl = new URL('/admin-login', request.url);
+      return NextResponse.redirect(loginUrl);
+    }
+    
+    // Cookie válido, permitir acesso
+    return NextResponse.next();
+  }
+  
+  // Permitir /admin-login sem verificação de cookie
+  if (pathname === '/admin-login') {
+    return NextResponse.next();
+  }
+
   // ✅ LISTA COMPLETA DE ROTAS PÚBLICAS (sem autenticação)
   // ATENÇÃO: Todas as rotas que não estão nesta lista REQUEREM autenticação
   const publicPaths = [
+    '/admin-login', // Login do admin (movido de /admin-saas/login)
     '/login',
     '/cadastro', 
     '/',

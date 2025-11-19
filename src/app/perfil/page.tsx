@@ -8,6 +8,7 @@ import { useToast } from '@/components/Toast';
 import { ConfirmProvider, useConfirm } from '@/components/ConfirmDialog';
 import { Button } from '@/components/Button';
 import { FiUser, FiCamera, FiTrash2, FiEdit2, FiSave, FiX, FiEye, FiEyeOff } from 'react-icons/fi';
+import { mask as masker } from 'remask';
 
 interface UsuarioPerfil {
   id: string;
@@ -55,6 +56,7 @@ export default function PerfilPage() {
   // Estados de validação
   const [emailValido, setEmailValido] = useState(true);
   const [usuarioValido, setUsuarioValido] = useState(true);
+  const [whatsappValido, setWhatsappValido] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
@@ -187,6 +189,20 @@ export default function PerfilPage() {
     }
   }, [form.usuario, perfil]);
 
+  useEffect(() => {
+    if (form.whatsapp && perfil) {
+      // Se o WhatsApp não mudou, é válido
+      if (form.whatsapp === perfil.whatsapp) {
+        setWhatsappValido(true);
+      } else {
+        // Só valida unicidade se o WhatsApp mudou
+        validarWhatsAppUnico(form.whatsapp).then(setWhatsappValido);
+      }
+    } else if (!form.whatsapp) {
+      setWhatsappValido(false); // WhatsApp é obrigatório
+    }
+  }, [form.whatsapp, perfil]);
+
   // Função para validar email
   const validarEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -239,6 +255,45 @@ export default function PerfilPage() {
     }
   };
 
+  // Função para validar WhatsApp único
+  const validarWhatsAppUnico = async (whatsapp: string) => {
+    if (!whatsapp.trim() || !perfil?.id) return false;
+    
+    try {
+      const whatsappNormalizado = whatsapp.replace(/\D/g, ''); // Remove tudo que não é número
+      
+      // Buscar todos os usuários com WhatsApp (exceto o atual)
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('id, whatsapp')
+        .not('whatsapp', 'is', null)
+        .neq('whatsapp', '')
+        .neq('id', perfil.id);
+      
+      if (error) {
+        console.warn('⚠️ Erro na validação de WhatsApp:', error);
+        return true; // Assumir válido em caso de erro
+      }
+      
+      if (!data || data.length === 0) return true; // Se não há outros usuários, é válido
+      
+      // Verificar se algum usuário tem o mesmo número normalizado
+      const whatsappJaExiste = data.some(u => {
+        if (!u.whatsapp) return false;
+        const dbWhatsappNormalizado = u.whatsapp.replace(/\D/g, '');
+        // Comparar números normalizados (com e sem código do país)
+        return dbWhatsappNormalizado === whatsappNormalizado ||
+               dbWhatsappNormalizado === whatsappNormalizado.replace(/^55/, '') ||
+               `55${dbWhatsappNormalizado}` === whatsappNormalizado ||
+               dbWhatsappNormalizado.replace(/^55/, '') === whatsappNormalizado.replace(/^55/, '');
+      });
+      
+      return !whatsappJaExiste; // Retorna true se não existir (válido)
+    } catch {
+      return true; // Se não encontrar, é válido
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
@@ -254,6 +309,11 @@ export default function PerfilPage() {
     
     if (!usuarioValido) {
       addToast('error', 'Nome de usuário já existe');
+      return;
+    }
+
+    if (!whatsappValido) {
+      addToast('error', 'Este número de WhatsApp já está cadastrado em outra conta');
       return;
     }
 
@@ -715,16 +775,23 @@ export default function PerfilPage() {
                       type="text"
                       name="whatsapp"
                       value={form.whatsapp}
-                      onChange={handleChange}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/\D/g, '');
+                        setForm({ ...form, whatsapp: masker(raw, ['(99) 99999-9999']) });
+                      }}
                       disabled={!isEditing}
                       className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
                         isEditing 
-                          ? 'border-gray-300 focus:ring-gray-900' 
+                          ? whatsappValido ? 'border-gray-300 focus:ring-gray-900' : 'border-red-500 focus:ring-red-500'
                           : 'border-gray-200 bg-gray-50 cursor-not-allowed'
                       }`}
-                      placeholder="(00) 00000-0000"
+                      placeholder="(99) 99999-9999"
+                      maxLength={15}
                       required
                     />
+                    {isEditing && form.whatsapp && !whatsappValido && (
+                      <p className="text-red-500 text-xs">Este número de WhatsApp já está cadastrado em outra conta</p>
+                    )}
                   </div>
                 </div>
 
@@ -762,7 +829,7 @@ export default function PerfilPage() {
                     </Button>
                     <Button
                       type="submit"
-                      disabled={saving || !emailValido || !usuarioValido}
+                      disabled={saving || !emailValido || !usuarioValido || !whatsappValido}
                       className="bg-[#cffb6d] text-black hover:bg-[#b8e55a]"
                     >
                       {saving ? (

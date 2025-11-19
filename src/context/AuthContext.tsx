@@ -25,6 +25,7 @@ interface EmpresaData {
   endereco?: string;
   telefone?: string;
   email?: string;
+  ativo?: boolean; // Campo para verificar se empresa está ativa
 }
 
 interface AuthContextType {
@@ -69,9 +70,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const attemptFetch = async (): Promise<void> => {
       try {
         const { userData, empresaData: companyData } = await fetchUserDataOptimized(userId);
+        
+        // ⚠️ BLOQUEAR ACESSO: Verificar se empresa está ativa
+        if (companyData && companyData.ativo === false) {
+          // Empresa desativada, forçar logout
+          try {
+            await supabase.auth.signOut();
+          } catch (e) {
+            console.error('Erro ao fazer logout:', e);
+          }
+          window.location.href = '/login?error=empresa_desativada';
+          return;
+        }
+        
         setUsuarioData(userData as UsuarioData);
         setEmpresaData(companyData);
       } catch (error) {
+        // Se erro for de empresa desativada, forçar logout imediatamente (SEM logar como erro)
+        if (error instanceof Error && error.message === 'EMPRESA_DESATIVADA') {
+          // Empresa desativada é um comportamento esperado, não um erro
+          try {
+            await supabase.auth.signOut();
+          } catch (e) {
+            // Silenciar erros de logout durante desativação de empresa
+          }
+          window.location.href = '/login?error=empresa_desativada';
+          return;
+        }
+        
         if (retryCount < maxRetries - 1) {
           retryCount++;
           await new Promise(resolve => setTimeout(resolve, 2000));

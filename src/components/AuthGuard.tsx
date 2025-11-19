@@ -85,6 +85,18 @@ export default function AuthGuard({
           return;
         }
 
+        // ⚠️ BLOQUEAR ACESSO: Verificar se empresa está ativa
+        if (empresaData && empresaData.ativo === false) {
+          console.log('🚫 AuthGuard: Empresa desativada, redirecionando para login');
+          try {
+            await supabase.auth.signOut();
+          } catch (e) {
+            console.error('Erro ao fazer logout:', e);
+          }
+          router.replace('/login?error=empresa_desativada');
+          return;
+        }
+
         // Passo 4: Verificar permissão se necessário
         if (requiredPermission) {
           const hasPermission = checkPermission(usuarioData, requiredPermission);

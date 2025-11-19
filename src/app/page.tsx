@@ -10,11 +10,16 @@ import { useAppleParallax } from '@/hooks/useParallax';
 import { useGSAPTextAnimation } from '@/hooks/useGSAPTextAnimation';
 import GSAPWordRotator from '@/components/GSAPWordRotator';
 import GSAPHeadlineRotator from '@/components/GSAPHeadlineRotator';
+import { SplineScene } from '@/components/SplineScene';
 import dashboardImage from '@/assets/imagens/dashboard.png';
 import caixaImage from '@/assets/imagens/caixa.png';
 import financeiroImage from '@/assets/imagens/financeiro.png';
 import produtosImage from '@/assets/imagens/produtos.png';
 import contasPagarImage from '@/assets/imagens/contas a pagar.png';
+
+// URL da cena Spline - Cena do robô
+// Nova animação usando spline-viewer web component
+const SPLINE_SCENE_URL = process.env.NEXT_PUBLIC_SPLINE_SCENE_URL || 'https://prod.spline.design/ZyJDq3Mi7kFnvB5D/scene.splinecode';
 
 export default function Home() {
   const router = useRouter();
@@ -434,107 +439,195 @@ export default function Home() {
       </nav>
 
       {/* Hero Section com Parallax */}
-      <div className="relative z-10 px-4 sm:px-6 md:px-8 py-16 sm:py-20 md:py-24 lg:px-12 lg:py-32">
+      <div className="relative z-10 px-4 sm:px-6 md:px-8 py-16 sm:py-20 md:py-24 lg:px-12 lg:py-32" style={{ overflow: 'visible' }}>
         <div 
-          className="mx-auto max-w-5xl text-center"
-          style={getHeroTransform()}
+          className="mx-auto max-w-7xl"
+          style={{ ...getHeroTransform(), overflow: 'visible' }}
         >
-          {/* Social Proof Badge */}
-          <div 
-            data-reveal="badge"
-            className={`inline-flex items-center px-8 py-4 backdrop-blur-xl border rounded-full mb-12 scroll-reveal-slide-up ${
-              isDarkMode 
-                ? 'bg-white/5 border-white/20' 
-                : 'bg-white/95 border-gray-300 shadow-lg'
-            } ${
-              isAnimated('badge') ? 'animated' : ''
-            }`}
-            style={{
-              boxShadow: isDarkMode 
-                ? '0 8px 32px rgba(209, 254, 110, 0.1)' 
-                : '0 8px 32px rgba(0,0,0,0.15), 0 4px 16px rgba(0,0,0,0.1)',
-              background: isDarkMode 
-                ? 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
-                : 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.95) 100%)'
-            }}
-          >
-            <div className="w-3 h-3 bg-[#D1FE6E] rounded-full mr-4 animate-pulse"></div>
-            <span className={`text-sm font-light tracking-wide ${
-              isDarkMode ? 'text-white/90' : 'text-gray-700'
-            }`}>+500 assistências confiam no Consert</span>
-          </div>
+          {/* Layout horizontal: texto à esquerda, animação à direita */}
+          <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 items-center w-full min-h-[80vh]">
+            {/* Conteúdo do Hero - Esquerda */}
+            <div className="flex-1 relative z-10 flex flex-col justify-center w-full lg:w-auto">
+              {/* Social Proof Badge */}
+              <div 
+                data-reveal="badge"
+                className={`inline-flex items-center px-8 py-4 backdrop-blur-xl border rounded-full mb-8 scroll-reveal-slide-up ${
+                  isDarkMode 
+                    ? 'bg-white/5 border-white/20' 
+                    : 'bg-white/95 border-gray-300 shadow-lg'
+                } ${
+                  isAnimated('badge') ? 'animated' : ''
+                }`}
+                style={{
+                  boxShadow: isDarkMode 
+                    ? '0 8px 32px rgba(209, 254, 110, 0.1)' 
+                    : '0 8px 32px rgba(0,0,0,0.15), 0 4px 16px rgba(0,0,0,0.1)',
+                  background: isDarkMode 
+                    ? 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
+                    : 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.95) 100%)'
+                }}
+              >
+                <div className="w-3 h-3 bg-[#D1FE6E] rounded-full mr-4 animate-pulse"></div>
+                <span className={`text-sm font-light tracking-wide ${
+                  isDarkMode ? 'text-white/90' : 'text-gray-700'
+                }`}>+500 assistências confiam no Consert</span>
+              </div>
 
-          {/* Main Headline - rotaciona 3 frases completas */}
-          <div data-reveal="headline" className={`scroll-reveal-slide-up ${isAnimated('headline') ? 'animated' : ''}`}>
-            <GSAPHeadlineRotator
-              phrases={[
-                'Sua assistência digital começa aqui',
-                'Automação e controle em um só lugar',
-                'Resultados reais, todos os dias'
-              ]}
-              interval={4000}
-              isDarkMode={isDarkMode}
-              className={`text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-light mb-8 md:mb-12 leading-tight tracking-tight text-center ${
-                isDarkMode ? 'text-gradient-primary' : 'text-gray-800'
+              {/* Main Headline */}
+              <div data-reveal="headline" className={`scroll-reveal-slide-up delay-500 ${isAnimated('headline') ? 'animated' : ''}`}>
+                <GSAPHeadlineRotator
+                  phrases={[
+                    'Sua assistência digital começa aqui',
+                    'Automação e controle em um só lugar',
+                    'Resultados reais, todos os dias'
+                  ]}
+                  interval={4000}
+                  isDarkMode={isDarkMode}
+                  className={`text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-light mb-6 md:mb-8 leading-tight tracking-tight ${
+                    isDarkMode ? 'text-gradient-primary' : 'text-gray-800'
+                  }`}
+                />
+                <span className={`block font-medium mt-2 ${isDarkMode ? 'text-gradient-secondary' : 'text-gray-700'}`}>
+                  <GSAPWordRotator 
+                    words={['simples de usar', 'feito para crescer', 'foco em resultados', 'comece agora']}
+                    interval={3000}
+                    isDarkMode={isDarkMode}
+                    className={isDarkMode ? 'text-gradient-secondary' : 'text-gray-700'}
+                  />
+                </span>
+              </div>
+
+              {/* Sub-headline */}
+              <div 
+                data-reveal="subheadline"
+                className={`text-lg sm:text-xl md:text-2xl mb-8 md:mb-12 max-w-2xl leading-relaxed font-light scroll-reveal-slide-up delay-700 ${
+                  isDarkMode ? 'text-white/80' : 'text-gray-600'
+                } ${
+                  isAnimated('subheadline') ? 'animated' : ''
+                }`}
+              >
+                <p>
+                  Smart tools that do the heavy lifting - so you don't have to. 
+                  Transform your workflow with intelligent automation.
+                </p>
+              </div>
+
+              {/* CTA Buttons */}
+              <div 
+                data-reveal="cta"
+                className={`flex flex-col sm:flex-row gap-4 scroll-reveal-slide-up delay-900 ${
+                  isAnimated('cta') ? 'animated' : ''
+                }`}
+              >
+                <button
+                  onClick={() => router.push('/login')}
+                  className={`px-8 py-4 rounded-full font-medium text-base transition-all duration-300 ${
+                    isDarkMode
+                      ? 'bg-[#D1FE6E] text-black hover:bg-[#B8E55A] hover:shadow-lg hover:shadow-[#D1FE6E]/50'
+                      : 'bg-[#D1FE6E] text-black hover:bg-[#B8E55A] hover:shadow-lg'
+                  }`}
+                  style={{
+                    boxShadow: isDarkMode 
+                      ? '0 4px 20px rgba(209, 254, 110, 0.3)' 
+                      : '0 4px 20px rgba(209, 254, 110, 0.4)'
+                  }}
+                >
+                  Começar Agora
+                </button>
+                <button
+                  onClick={() => scrollToSection('funcionalidades')}
+                  className={`px-8 py-4 rounded-full font-medium text-base transition-all duration-300 border ${
+                    isDarkMode
+                      ? 'border-white/20 text-white hover:bg-white/10 hover:border-white/30'
+                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Ver Funcionalidades
+                </button>
+              </div>
+            </div>
+
+            {/* Animação Spline - Direita */}
+            <div 
+              data-reveal="spline"
+              className={`relative flex-1 w-full lg:w-1/2 scroll-reveal-slide-up delay-300 ${
+                isAnimated('spline') ? 'animated' : ''
               }`}
-            />
-            <span className={`block font-medium mt-2 ${isDarkMode ? 'text-gradient-secondary' : 'text-gray-700'}`}>
-              <GSAPWordRotator 
-                words={['simples de usar', 'feito para crescer', 'foco em resultados', 'comece agora']}
-                interval={3000}
-                isDarkMode={isDarkMode}
-                className={isDarkMode ? 'text-gradient-secondary' : 'text-gray-700'}
+              style={{
+                width: '100%',
+                height: '80vh',
+                minHeight: '600px',
+                maxHeight: '1000px',
+                margin: 0,
+                padding: 0,
+                overflow: 'visible', // Permite que elementos ultrapassem as bordas
+                position: 'relative'
+              }}
+            >
+              {/* Luz de fundo com blur - efeito glow suave integrado */}
+              <div 
+                className={`absolute inset-0 blur-3xl opacity-20 transition-opacity duration-500 pointer-events-none z-0 ${
+                  isDarkMode 
+                    ? 'bg-gradient-radial from-[#D1FE6E]/30 via-[#D1FE6E]/10 to-transparent' 
+                    : 'bg-gradient-radial from-[#D1FE6E]/20 via-[#B8E55A]/10 to-transparent'
+                }`}
+                style={{
+                  background: isDarkMode
+                    ? 'radial-gradient(circle at center, rgba(209, 254, 110, 0.3) 0%, rgba(209, 254, 110, 0.1) 40%, transparent 70%)'
+                    : 'radial-gradient(circle at center, rgba(209, 254, 110, 0.2) 0%, rgba(184, 229, 90, 0.1) 40%, transparent 70%)'
+                }}
               />
-            </span>
-          </div>
-
-          {/* Sub-headline */}
-          <div 
-            data-reveal="subheadline"
-            className={`text-lg sm:text-xl md:text-2xl mb-12 md:mb-16 max-w-4xl mx-auto leading-relaxed font-light scroll-reveal-slide-up delay-300 ${
-              isDarkMode ? 'text-white/80' : 'text-gray-600'
-            } ${
-              isAnimated('subheadline') ? 'animated' : ''
-            }`}
-          >
-            Consert transforma oficinas em negócios lucrativos. Cada ordem de serviço 
-            impulsiona eficiência, engajamento real e momentum da marca no piloto automático.
-          </div>
-
-          {/* CTA Buttons */}
-          <div 
-            data-reveal="cta"
-            className={`flex flex-col sm:flex-row gap-4 sm:gap-6 md:gap-8 justify-center items-center scroll-reveal-slide-up delay-500 ${
-              isAnimated('cta') ? 'animated' : ''
-            }`}
-          >
-            <button 
-              onClick={() => router.push('/login')}
-              className="px-8 sm:px-10 md:px-12 py-4 md:py-5 bg-gradient-to-r from-[#D1FE6E] to-[#B8E55A] text-black rounded-full font-medium text-base md:text-lg hover:from-[#B8E55A] hover:to-[#A5D44A] transition-all duration-500 transform hover:scale-105 hover:shadow-2xl"
-              style={{
-                boxShadow: '0 4px 20px rgba(209, 254, 110, 0.3)'
-              }}
-            >
-              Falar com Vendas
-            </button>
-            <button 
-              onClick={() => router.push('/cadastro?plano=unico')}
-              className={`px-12 py-5 border rounded-full font-medium text-lg transition-all duration-500 backdrop-blur-sm ${
-                isDarkMode 
-                  ? 'text-white border-white/30 hover:bg-white/10 hover:border-white/50' 
-                  : 'text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400 shadow-lg'
-              }`}
-              style={{
-                background: isDarkMode 
-                  ? 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
-                  : 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.95) 100%)',
-                boxShadow: isDarkMode 
-                  ? 'none' 
-                  : '0 8px 32px rgba(0,0,0,0.15), 0 4px 16px rgba(0,0,0,0.1)'
-              }}
-            >
-              Começar Grátis
-            </button>
+              
+              {/* Spline integrado - sem containers visíveis */}
+              {SPLINE_SCENE_URL ? (
+                <>
+                  <SplineScene
+                    scene={SPLINE_SCENE_URL}
+                    className="absolute inset-0 w-full h-full"
+                    shadows={true}
+                    showOverlay={true}
+                    overlayGradient={true}
+                  />
+                  
+                  {/* Área para textos e elementos customizados sobre o Spline */}
+                  <div 
+                    className="absolute inset-0 pointer-events-none"
+                    style={{
+                      zIndex: 10,
+                      overflow: 'visible',
+                      padding: '2rem'
+                    }}
+                  >
+                    {/* Exemplo de texto customizado - você pode adicionar mais aqui */}
+                    {/* 
+                    <div 
+                      className="absolute top-1/4 left-1/4 transform -translate-x-1/2 -translate-y-1/2"
+                      style={{
+                        color: '#D1FE6E',
+                        fontSize: '2rem',
+                        fontWeight: 'bold',
+                        textShadow: '0 0 20px rgba(209, 254, 110, 0.5)',
+                        mixBlendMode: 'screen'
+                      }}
+                    >
+                      Texto Customizado
+                    </div>
+                    */}
+                  </div>
+                </>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-transparent">
+                  <div className="text-center p-4">
+                    <div className="text-gray-400 text-sm mb-2">
+                      Configure a URL do Spline no arquivo page.tsx
+                    </div>
+                    <div className="text-gray-500 text-xs">
+                      Edite a constante SPLINE_SCENE_URL
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

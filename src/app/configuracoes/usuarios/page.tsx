@@ -22,6 +22,7 @@ import { useConfigPermission, AcessoNegadoComponent } from '@/hooks/useConfigPer
 import { FiAlertTriangle } from 'react-icons/fi';
 import { ToastProvider, useToast } from '@/components/Toast';
 import { ConfirmProvider, useConfirm } from '@/components/ConfirmDialog';
+import { mask as masker } from 'remask';
 
 function UsuariosPageInner() {
   const { session, usuarioData } = useAuth()
@@ -45,6 +46,7 @@ function UsuariosPageInner() {
   const [emailValido, setEmailValido] = useState(true)
   const [cpfValido, setCpfValido] = useState(true)
   const [usuarioValido, setUsuarioValido] = useState(true)
+  const [whatsappValido, setWhatsappValido] = useState(true)
   const [senhaVisivel, setSenhaVisivel] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -147,6 +149,44 @@ function UsuariosPageInner() {
     }
   };
 
+  // Função para validar WhatsApp único
+  const validarWhatsAppUnico = async (whatsapp: string) => {
+    if (!whatsapp.trim()) return true; // WhatsApp é opcional
+    
+    try {
+      const whatsappNormalizado = whatsapp.replace(/\D/g, ''); // Remove tudo que não é número
+      
+      // Buscar todos os usuários com WhatsApp e verificar se algum tem o mesmo número normalizado
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('id, whatsapp')
+        .not('whatsapp', 'is', null)
+        .neq('whatsapp', '');
+      
+      if (error) {
+        console.warn('⚠️ Erro na validação de WhatsApp:', error);
+        return true; // Assumir válido em caso de erro
+      }
+      
+      if (!data || data.length === 0) return true; // Se não há usuários, é válido
+      
+      // Verificar se algum usuário tem o mesmo número normalizado
+      const whatsappJaExiste = data.some(u => {
+        if (!u.whatsapp) return false;
+        const dbWhatsappNormalizado = u.whatsapp.replace(/\D/g, '');
+        // Comparar números normalizados (com e sem código do país)
+        return dbWhatsappNormalizado === whatsappNormalizado ||
+               dbWhatsappNormalizado === whatsappNormalizado.replace(/^55/, '') ||
+               `55${dbWhatsappNormalizado}` === whatsappNormalizado ||
+               dbWhatsappNormalizado.replace(/^55/, '') === whatsappNormalizado.replace(/^55/, '');
+      });
+      
+      return !whatsappJaExiste; // Retorna true se não existir (válido)
+    } catch {
+      return true; // Se não encontrar, é válido
+    }
+  };
+
   // Validação em tempo real
   useEffect(() => {
     if (email) {
@@ -192,6 +232,14 @@ function UsuariosPageInner() {
       setUsuarioValido(true);
     }
   }, [usuario, empresaId]);
+
+  useEffect(() => {
+    if (whatsapp) {
+      validarWhatsAppUnico(whatsapp).then(setWhatsappValido);
+    } else {
+      setWhatsappValido(true); // WhatsApp vazio é válido (opcional)
+    }
+  }, [whatsapp]);
 
   const fetchUsuarios = async () => {
     try {
@@ -328,6 +376,11 @@ function UsuariosPageInner() {
     
     if (!usuarioValido) {
       addToast('error', 'Nome de usuário já existe');
+      return;
+    }
+
+    if (!whatsappValido) {
+      addToast('error', 'Este número de WhatsApp já está cadastrado em outra conta');
       return;
     }
 
@@ -607,13 +660,35 @@ function UsuariosPageInner() {
                       <label className="text-sm font-medium text-gray-700">
                         WhatsApp
                       </label>
+                      <div className="relative">
                     <input
                       type="text"
                       value={whatsapp}
-                      onChange={(e) => setWhatsapp(e.target.value)}
-                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
-                        placeholder="(00) 00000-0000"
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/\D/g, '');
+                        setWhatsapp(masker(raw, ['(99) 99999-9999']));
+                      }}
+                        className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
+                          whatsappValido 
+                            ? 'border-gray-300 focus:ring-gray-900' 
+                            : 'border-red-500 focus:ring-red-500'
+                        }`}
+                        placeholder="(99) 99999-9999"
+                        maxLength={15}
                     />
+                        {whatsapp && (
+                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                            {whatsappValido ? (
+                              <CheckCircle className="w-5 h-5 text-green-500" />
+                            ) : (
+                              <XCircle className="w-5 h-5 text-red-500" />
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {whatsapp && !whatsappValido && (
+                        <p className="text-red-500 text-xs">Este número de WhatsApp já está cadastrado em outra conta</p>
+                      )}
                   </div>
 
                     {/* Nível */}
@@ -645,7 +720,7 @@ function UsuariosPageInner() {
                     </button>
                 <button
                   type="submit"
-                      disabled={isSubmitting || !emailValido || !cpfValido || !usuarioValido}
+                      disabled={isSubmitting || !emailValido || !cpfValido || !usuarioValido || !whatsappValido}
                       className="bg-gray-900 text-white px-8 py-3 rounded-lg font-medium hover:bg-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                       {isSubmitting ? (

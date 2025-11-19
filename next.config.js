@@ -4,13 +4,12 @@ const nextConfig = {
   experimental: {
     optimizeCss: false,
     optimizePackageImports: ['@supabase/supabase-js', 'react-icons/fi'],
-    esmExternals: true,
     // ⚠️ 'experimental.turbo' foi removido no Next 15.
     // Se quiser usar Turbopack, não precisa declarar aqui.
   },
 
   // Configuração para pacotes ESM
-  transpilePackages: ['@react-pdf/renderer'],
+  transpilePackages: ['@react-pdf/renderer', '@splinetool/react-spline', '@splinetool/runtime'],
 
   // Cache estratégico para melhor performance
   async headers() {
@@ -93,12 +92,34 @@ const nextConfig = {
   },
 
   // Suporte a SVG via SVGR (webpack)
-  webpack(config) {
+  webpack(config, { isServer }) {
     config.module.rules.push({
       test: /\.svg$/i,
       issuer: /\.[jt]sx?$/,
       use: ['@svgr/webpack'],
     })
+    
+    // Forçar resolução do @splinetool/react-spline usando alias direto
+    // Usar alias apenas para o Spline, sem afetar outros pacotes
+    if (!isServer) {
+      try {
+        const path = require('path')
+        const fs = require('fs')
+        const splinePath = path.resolve(process.cwd(), 'node_modules/@splinetool/react-spline/dist/react-spline.js')
+        
+        // Verificar se o arquivo existe antes de criar o alias
+        if (fs.existsSync(splinePath)) {
+          config.resolve.alias = {
+            ...(config.resolve.alias || {}),
+            '@splinetool/react-spline': splinePath,
+          }
+        }
+      } catch (e) {
+        // Se não conseguir, deixar o webpack resolver normalmente
+        console.warn('Não foi possível criar alias para Spline:', e)
+      }
+    }
+    
     return config
   },
 }

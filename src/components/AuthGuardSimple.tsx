@@ -61,6 +61,18 @@ export default function AuthGuardSimple({
             attempts++;
             
             if (usuarioData && empresaData) {
+              // ⚠️ BLOQUEAR ACESSO: Verificar se empresa está ativa
+              if (empresaData && empresaData.ativo === false) {
+                console.log('🚫 AuthGuardSimple: Empresa desativada, redirecionando para login');
+                supabase.auth.signOut().then(() => {
+                  router.replace('/login?error=empresa_desativada');
+                }).catch((e) => {
+                  console.error('Erro ao fazer logout:', e);
+                  router.replace('/login?error=empresa_desativada');
+                });
+                return;
+              }
+              
               // Dados carregaram, verificar permissão
               checkPermissionAndAuthorize();
             } else if (attempts >= maxAttempts) {
@@ -90,6 +102,15 @@ export default function AuthGuardSimple({
 
     const checkPermissionAndAuthorize = () => {
       if (!isMounted) return;
+
+      // ⚠️ BLOQUEAR ACESSO: Verificar se empresa está ativa
+      if (empresaData && empresaData.ativo === false) {
+        console.log('🚫 AuthGuardSimple: Empresa desativada, redirecionando para login');
+        supabase.auth.signOut().then(() => {
+          router.replace('/login?error=empresa_desativada');
+        });
+        return;
+      }
 
       // Verificar permissão se necessário
       if (requiredPermission) {

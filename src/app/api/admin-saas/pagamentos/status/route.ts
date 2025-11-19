@@ -1,40 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { configureMercadoPago } from '@/lib/mercadopago';
+import { isAdminAuthorized } from '@/lib/admin-auth';
 
-function isDev() {
-  return process.env.NODE_ENV !== 'production' || process.env.ADMIN_SAAS_OPEN === '1';
-}
-
-async function isAuthorized(req: NextRequest) {
-  if (isDev()) return true;
-  
-  // ✅ CORREÇÃO: Permitir polling de pagamento sem autenticação rigorosa
-  // Verificar se é uma requisição de polling de pagamento (tem payment_id ou pagamento_id)
-  const url = new URL(req.url);
-  const pagamento_id = url.searchParams.get('pagamento_id');
-  const payment_id = url.searchParams.get('payment_id');
-  
-  // Se tem ID de pagamento, permitir acesso (é polling de status)
-  if (pagamento_id || payment_id) {
-    return true;
-  }
-  
-  const cookieStore = await cookies();
-  const hasGate = cookieStore.get('admin_saas_access')?.value === '1';
-  if (hasGate) return true;
-  const email = req.headers.get('x-user-email') || '';
-  const allowed = (process.env.PLATFORM_ADMIN_EMAILS || '')
-    .split(',')
-    .map(e => e.trim().toLowerCase())
-    .filter(Boolean);
-  return allowed.includes(email.toLowerCase());
+async function isAuthorizedForStatus(req: NextRequest): Promise<boolean> {
+  // ⚠️ SEGURANÇA: Mesmo para polling de status, requer autenticação
+  // A verificação de admin é obrigatória para qualquer acesso
+  return await isAdminAuthorized(req);
 }
 
 export async function GET(req: NextRequest) {
   try {
-    const ok = await isAuthorized(req);
+    const ok = await isAuthorizedForStatus(req);
     if (!ok) return NextResponse.json({ ok: false, reason: 'unauthorized' }, { status: 401 });
 
     const url = new URL(req.url);
