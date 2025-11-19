@@ -15,14 +15,37 @@ export async function getUsuarioByWhatsApp(whatsapp: string): Promise<Usuario | 
   try {
     const supabase = createAdminClient();
     
-    const { data: usuario, error } = await supabase
-      .from('usuarios')
-      .select('id, nome, nivel, whatsapp, auth_user_id, empresa_id')
-      .eq('whatsapp', whatsapp)
-      .maybeSingle();
+    // Normalizar WhatsApp (remover tudo que não é número)
+    const normalizedWhatsApp = whatsapp.replace(/\D/g, '');
     
-    if (error || !usuario) {
-      console.log('❌ Usuário não encontrado para WhatsApp:', whatsapp);
+    console.log('🔍 Buscando usuário:', {
+      whatsappOriginal: whatsapp,
+      whatsappNormalizado: normalizedWhatsApp
+    });
+    
+    // Buscar todos os usuários e comparar os números normalizados
+    // porque o campo whatsapp pode estar formatado no banco
+    const { data: usuarios, error } = await supabase
+      .from('usuarios')
+      .select('id, nome, nivel, whatsapp, auth_user_id, empresa_id');
+    
+    if (error) {
+      console.error('❌ Erro ao buscar usuários:', error);
+      return null;
+    }
+    
+    // Encontrar o usuário comparando números normalizados
+    const usuario = usuarios?.find(u => {
+      if (!u.whatsapp) return false;
+      const dbWhatsAppNormalized = u.whatsapp.replace(/\D/g, '');
+      return dbWhatsAppNormalized === normalizedWhatsApp;
+    });
+    
+    if (!usuario) {
+      console.log('❌ Usuário não encontrado para WhatsApp:', {
+        buscado: normalizedWhatsApp,
+        totalUsuarios: usuarios?.length || 0
+      });
       return null;
     }
     
@@ -34,7 +57,8 @@ export async function getUsuarioByWhatsApp(whatsapp: string): Promise<Usuario | 
     console.log('✅ Usuário encontrado:', {
       nome: usuario.nome,
       nivel: usuario.nivel,
-      nivelOriginal: usuario.nivel,
+      whatsappBanco: usuario.whatsapp,
+      whatsappBuscado: normalizedWhatsApp,
       empresa_id: usuario.empresa_id
     });
     
