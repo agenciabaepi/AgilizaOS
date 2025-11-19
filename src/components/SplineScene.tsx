@@ -30,10 +30,19 @@ export function SplineScene({
   overlayGradient = true
 }: SplineSceneProps) {
   const [scriptLoaded, setScriptLoaded] = useState(false)
+  const [splineReady, setSplineReady] = useState(false)
   const [error, setError] = useState(false)
   const [isClient, setIsClient] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const scriptRef = useRef<HTMLScriptElement | null>(null)
+  
+  // Expor estado para o componente pai
+  useEffect(() => {
+    if (splineReady) {
+      // Dispatch custom event para notificar que o Spline está pronto
+      window.dispatchEvent(new CustomEvent('spline-ready'))
+    }
+  }, [splineReady])
 
   useEffect(() => {
     setIsClient(true)
@@ -170,7 +179,13 @@ export function SplineScene({
       viewer.style.margin = '0'
       viewer.style.padding = '0'
       viewer.style.background = 'transparent'
-      viewer.style.transform = 'scale(1.1)' // Aumentar um pouco para preencher melhor
+      // Centralizar perfeitamente usando transform
+      viewer.style.transform = 'translate(-50%, -50%) scale(1.3)' // Centralizar e ajustar tamanho
+      viewer.style.transformOrigin = 'center center'
+      viewer.style.position = 'absolute'
+      viewer.style.left = '50%'
+      viewer.style.top = '50%'
+      viewer.style.margin = '0'
       
       // Adicionar estilos CSS customizados para o web component
       const styleId = 'spline-viewer-styles'
@@ -196,8 +211,12 @@ export function SplineScene({
             background: transparent !important;
             border: none !important;
             box-shadow: none !important;
-            transform: scale(1.1) !important;
+            transform: translate(-50%, -50%) scale(1.3) !important;
             transform-origin: center center !important;
+            position: absolute !important;
+            left: 50% !important;
+            top: 50% !important;
+            margin: 0 !important;
           }
           spline-viewer canvas {
             width: 100% !important;
@@ -222,9 +241,16 @@ export function SplineScene({
         document.head.appendChild(style)
       }
       
-      // Adicionar event listeners para debug
+      // Adicionar event listeners para debug e controle
       viewer.addEventListener('load', () => {
         console.log('Spline viewer carregado com sucesso')
+        // Aguardar 3 segundos para garantir que a animação começou e está rodando
+        setTimeout(() => {
+          console.log('Spline pronto - texto pode aparecer agora')
+          setSplineReady(true)
+          // Disparar evento para garantir que o componente pai receba
+          window.dispatchEvent(new CustomEvent('spline-ready'))
+        }, 3000) // 3 segundos após o load para dar tempo da animação começar
       })
       
       viewer.addEventListener('error', (e) => {
@@ -312,11 +338,12 @@ export function SplineScene({
           top: 0,
           left: 0,
           right: 0,
-          bottom: 0,
+          bottom: '-5rem', // Estender para baixo para não cortar
           overflow: 'visible', // Permite que o robô ultrapasse as bordas
           borderRadius: 0,
           margin: 0,
           padding: 0,
+          paddingBottom: '5rem', // Padding extra embaixo
           background: 'transparent',
           border: 'none',
           boxShadow: 'none',

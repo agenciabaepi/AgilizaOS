@@ -7,9 +7,6 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
 import { useAppleParallax } from '@/hooks/useParallax';
-import { useGSAPTextAnimation } from '@/hooks/useGSAPTextAnimation';
-import GSAPWordRotator from '@/components/GSAPWordRotator';
-import GSAPHeadlineRotator from '@/components/GSAPHeadlineRotator';
 import { SplineScene } from '@/components/SplineScene';
 import dashboardImage from '@/assets/imagens/dashboard.png';
 import caixaImage from '@/assets/imagens/caixa.png';
@@ -26,15 +23,45 @@ export default function Home() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true); // Padrão: modo escuro
+  const [splineReady, setSplineReady] = useState(false);
   
   // Hook para animações de scroll reveal
   const { isAnimated } = useScrollReveal();
   
+  // Aguardar o Spline estar pronto antes de mostrar o texto
+  useEffect(() => {
+    console.log('useEffect do spline-ready inicializado')
+    
+    const handleSplineReady = () => {
+      console.log('✅ Evento spline-ready recebido - mostrando texto')
+      setSplineReady(true)
+    }
+    
+    // Escutar o evento
+    window.addEventListener('spline-ready', handleSplineReady)
+    console.log('👂 Ouvindo evento spline-ready...')
+    
+    // Fallback: mostrar texto após 4 segundos mesmo se o evento não disparar
+    const fallbackTimeout = setTimeout(() => {
+      console.log('⏰ Fallback timeout - mostrando texto após 4s (forçando)')
+      setSplineReady(true)
+      window.dispatchEvent(new CustomEvent('spline-ready'))
+    }, 4000)
+    
+    return () => {
+      window.removeEventListener('spline-ready', handleSplineReady)
+      clearTimeout(fallbackTimeout)
+    }
+  }, [])
+  
+  // Debug: logar quando splineReady mudar
+  useEffect(() => {
+    console.log('🔄 splineReady mudou para:', splineReady)
+  }, [splineReady])
+  
   // Hook para efeitos parallax estilo Apple
   const { getHeroTransform, getBackgroundTransform, getSectionTransform } = useAppleParallax();
   
-  // Hook para animação GSAP do texto
-  const heroTextRef = useGSAPTextAnimation({ isDarkMode });
   
   // ✅ ACESSO TOTALMENTE LIVRE: Sem verificações de autenticação
   // Usuário pode acessar qualquer página sem redirecionamentos
@@ -108,9 +135,9 @@ export default function Home() {
   }, []);
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-black' : 'bg-white'}`}>
+    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-black' : 'bg-white'}`} style={{ overflow: 'visible' }}>
       {/* Background Pattern com Parallax */}
-      <div className="absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0" style={{ overflow: 'visible' }}>
         <div 
           className="absolute inset-0" 
           style={{
@@ -439,129 +466,57 @@ export default function Home() {
       </nav>
 
       {/* Hero Section com Parallax */}
-      <div className="relative z-10 px-4 sm:px-6 md:px-8 py-16 sm:py-20 md:py-24 lg:px-12 lg:py-32" style={{ overflow: 'visible' }}>
+      <div 
+        className="relative z-10 py-16 sm:py-20 md:py-24 lg:py-32" 
+        style={{ 
+          overflow: 'visible',
+          paddingLeft: '0',
+          paddingRight: '0'
+        }}
+      >
         <div 
-          className="mx-auto max-w-7xl"
-          style={{ ...getHeroTransform(), overflow: 'visible' }}
+          className="mx-auto max-w-7xl px-4 sm:px-6 md:px-8 lg:px-12"
+          style={{ 
+            overflow: 'visible',
+            position: 'relative',
+            transform: 'translateZ(0)' // Remover parallax que causa bugs
+          }}
         >
-          {/* Layout horizontal: texto à esquerda, animação à direita */}
-          <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 items-center w-full min-h-[80vh]">
-            {/* Conteúdo do Hero - Esquerda */}
-            <div className="flex-1 relative z-10 flex flex-col justify-center w-full lg:w-auto">
-              {/* Social Proof Badge */}
-              <div 
-                data-reveal="badge"
-                className={`inline-flex items-center px-8 py-4 backdrop-blur-xl border rounded-full mb-8 scroll-reveal-slide-up ${
-                  isDarkMode 
-                    ? 'bg-white/5 border-white/20' 
-                    : 'bg-white/95 border-gray-300 shadow-lg'
-                } ${
-                  isAnimated('badge') ? 'animated' : ''
-                }`}
-                style={{
-                  boxShadow: isDarkMode 
-                    ? '0 8px 32px rgba(209, 254, 110, 0.1)' 
-                    : '0 8px 32px rgba(0,0,0,0.15), 0 4px 16px rgba(0,0,0,0.1)',
-                  background: isDarkMode 
-                    ? 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
-                    : 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.95) 100%)'
-                }}
-              >
-                <div className="w-3 h-3 bg-[#D1FE6E] rounded-full mr-4 animate-pulse"></div>
-                <span className={`text-sm font-light tracking-wide ${
-                  isDarkMode ? 'text-white/90' : 'text-gray-700'
-                }`}>+500 assistências confiam no Consert</span>
-              </div>
-
-              {/* Main Headline */}
-              <div data-reveal="headline" className={`scroll-reveal-slide-up delay-500 ${isAnimated('headline') ? 'animated' : ''}`}>
-                <GSAPHeadlineRotator
-                  phrases={[
-                    'Sua assistência digital começa aqui',
-                    'Automação e controle em um só lugar',
-                    'Resultados reais, todos os dias'
-                  ]}
-                  interval={4000}
-                  isDarkMode={isDarkMode}
-                  className={`text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-light mb-6 md:mb-8 leading-tight tracking-tight ${
-                    isDarkMode ? 'text-gradient-primary' : 'text-gray-800'
-                  }`}
-                />
-                <span className={`block font-medium mt-2 ${isDarkMode ? 'text-gradient-secondary' : 'text-gray-700'}`}>
-                  <GSAPWordRotator 
-                    words={['simples de usar', 'feito para crescer', 'foco em resultados', 'comece agora']}
-                    interval={3000}
-                    isDarkMode={isDarkMode}
-                    className={isDarkMode ? 'text-gradient-secondary' : 'text-gray-700'}
-                  />
-                </span>
-              </div>
-
-              {/* Sub-headline */}
-              <div 
-                data-reveal="subheadline"
-                className={`text-lg sm:text-xl md:text-2xl mb-8 md:mb-12 max-w-2xl leading-relaxed font-light scroll-reveal-slide-up delay-700 ${
-                  isDarkMode ? 'text-white/80' : 'text-gray-600'
-                } ${
-                  isAnimated('subheadline') ? 'animated' : ''
-                }`}
-              >
-                <p>
-                  Smart tools that do the heavy lifting - so you don't have to. 
-                  Transform your workflow with intelligent automation.
-                </p>
-              </div>
-
-              {/* CTA Buttons */}
-              <div 
-                data-reveal="cta"
-                className={`flex flex-col sm:flex-row gap-4 scroll-reveal-slide-up delay-900 ${
-                  isAnimated('cta') ? 'animated' : ''
-                }`}
-              >
-                <button
-                  onClick={() => router.push('/login')}
-                  className={`px-8 py-4 rounded-full font-medium text-base transition-all duration-300 ${
-                    isDarkMode
-                      ? 'bg-[#D1FE6E] text-black hover:bg-[#B8E55A] hover:shadow-lg hover:shadow-[#D1FE6E]/50'
-                      : 'bg-[#D1FE6E] text-black hover:bg-[#B8E55A] hover:shadow-lg'
-                  }`}
-                  style={{
-                    boxShadow: isDarkMode 
-                      ? '0 4px 20px rgba(209, 254, 110, 0.3)' 
-                      : '0 4px 20px rgba(209, 254, 110, 0.4)'
-                  }}
-                >
-                  Começar Agora
-                </button>
-                <button
-                  onClick={() => scrollToSection('funcionalidades')}
-                  className={`px-8 py-4 rounded-full font-medium text-base transition-all duration-300 border ${
-                    isDarkMode
-                      ? 'border-white/20 text-white hover:bg-white/10 hover:border-white/30'
-                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  Ver Funcionalidades
-                </button>
-              </div>
-            </div>
-
-            {/* Animação Spline - Direita */}
+          {/* Layout: robô centralizado com texto overlay na parte inferior */}
+          <div 
+            className="relative w-full min-h-[90vh] flex items-center justify-center" 
+            style={{ 
+              overflow: 'visible',
+              position: 'relative',
+              isolation: 'isolate' // Criar novo contexto de empilhamento para evitar bugs
+            }}
+          >
+            {/* Animação Spline - Centralizada */}
             <div 
               data-reveal="spline"
-              className={`relative flex-1 w-full lg:w-1/2 scroll-reveal-slide-up delay-300 ${
+              className={`relative w-full max-w-6xl mx-auto scroll-reveal-slide-up delay-300 ${
                 isAnimated('spline') ? 'animated' : ''
               }`}
               style={{
                 width: '100%',
-                height: '80vh',
-                minHeight: '600px',
-                maxHeight: '1000px',
-                margin: 0,
-                padding: 0,
-                overflow: 'visible', // Permite que elementos ultrapassem as bordas
-                position: 'relative'
+                maxWidth: '1200px',
+                height: '90vh',
+                minHeight: '700px',
+                maxHeight: '1200px',
+                margin: '0 auto',
+                marginBottom: '-5rem',
+                padding: '6rem',
+                paddingBottom: '8rem',
+                overflow: 'visible',
+                position: 'relative',
+                clipPath: 'none',
+                isolation: 'isolate',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transform: 'translateZ(0)', // Forçar aceleração de hardware
+                willChange: 'transform', // Otimizar animações
+                backfaceVisibility: 'hidden' // Evitar bugs visuais no scroll
               }}
             >
               {/* Luz de fundo com blur - efeito glow suave integrado */}
@@ -627,6 +582,140 @@ export default function Home() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Conteúdo do Hero - Overlay na parte inferior sobre o robô */}
+            <div 
+              className="absolute left-0 right-0 z-20 flex flex-col items-center justify-center px-4 sm:px-6 md:px-8 lg:px-12"
+              style={{
+                bottom: '10%', // Posicionar mais embaixo, na altura do quadril do robô
+                opacity: splineReady ? 1 : 0,
+                transition: splineReady ? 'opacity 0.7s ease-in-out 0.3s, visibility 0s' : 'opacity 0s, visibility 0s 0.3s',
+                visibility: splineReady ? 'visible' : 'hidden',
+                pointerEvents: splineReady ? 'auto' : 'none',
+                zIndex: 20,
+                position: 'absolute',
+                transform: 'translateZ(0)', // Forçar aceleração de hardware para evitar bugs no scroll
+                willChange: 'opacity', // Otimizar animações
+                backfaceVisibility: 'hidden', // Evitar bugs visuais no scroll
+                perspective: '1000px' // Melhorar performance
+              }}
+            >
+              <div className="w-full max-w-4xl flex flex-col items-center gap-4 md:gap-6 text-center">
+                {/* Social Proof Badge */}
+                <div 
+                  data-reveal="badge"
+                  className={`inline-flex items-center px-6 py-3 backdrop-blur-xl border rounded-full pointer-events-auto transition-all duration-700 ${
+                    isDarkMode 
+                      ? 'bg-black/40 border-white/20' 
+                      : 'bg-white/90 border-gray-300 shadow-lg'
+                  }`}
+                  style={{
+                    transitionDelay: splineReady ? '0.3s' : '0s',
+                    opacity: splineReady ? 1 : 0,
+                    transform: splineReady ? 'translateY(0)' : 'translateY(1rem)',
+                    backdropFilter: 'blur(10px)',
+                    visibility: splineReady ? 'visible' : 'hidden',
+                    boxShadow: isDarkMode 
+                      ? '0 8px 32px rgba(209, 254, 110, 0.1)' 
+                      : '0 8px 32px rgba(0,0,0,0.15), 0 4px 16px rgba(0,0,0,0.1)'
+                  }}
+                >
+                  <div className="w-2.5 h-2.5 bg-[#D1FE6E] rounded-full mr-3 animate-pulse"></div>
+                  <span className={`text-xs sm:text-sm font-light tracking-wide ${
+                    isDarkMode ? 'text-white/90' : 'text-gray-700'
+                  }`}>+500 assistências confiam no Consert</span>
+                </div>
+
+                {/* Main Headline */}
+                <div 
+                  data-reveal="headline" 
+                  className="transition-all duration-700"
+                  style={{
+                    transitionDelay: splineReady ? '0.5s' : '0s',
+                    opacity: splineReady ? 1 : 0,
+                    transform: splineReady ? 'translateY(0)' : 'translateY(1rem)',
+                    visibility: splineReady ? 'visible' : 'hidden'
+                  }}
+                >
+                  <h1 className={`text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-light mb-2 md:mb-3 leading-tight tracking-tight ${
+                    isDarkMode ? 'text-white' : 'text-gray-800'
+                  }`}
+                  style={{
+                    textShadow: isDarkMode ? '0 0 30px rgba(209, 254, 110, 0.6), 0 0 60px rgba(209, 254, 110, 0.3)' : 'none'
+                  }}>
+                    Sua assistência digital começa aqui
+                  </h1>
+                  <p className={`block font-medium mt-1 text-lg sm:text-xl md:text-2xl ${
+                    isDarkMode ? 'text-white/90' : 'text-gray-700'
+                  }`} style={{
+                    textShadow: isDarkMode ? '0 0 15px rgba(209, 254, 110, 0.4)' : 'none'
+                  }}>
+                    simples de usar
+                  </p>
+                </div>
+
+          {/* Sub-headline */}
+          <div 
+            data-reveal="subheadline"
+                  className={`text-sm sm:text-base md:text-lg max-w-2xl mx-auto leading-relaxed font-light transition-all duration-700 ${
+                    isDarkMode ? 'text-white/70' : 'text-gray-600'
+                  }`}
+                  style={{
+                    transitionDelay: splineReady ? '0.7s' : '0s',
+                    opacity: splineReady ? 1 : 0,
+                    transform: splineReady ? 'translateY(0)' : 'translateY(1rem)',
+                    textShadow: isDarkMode ? '0 2px 10px rgba(0, 0, 0, 0.5)' : 'none',
+                    visibility: splineReady ? 'visible' : 'hidden'
+                  }}
+                >
+                  <p>
+                    Ferramentas inteligentes que fazem o trabalho pesado - para que você não precise. 
+                    Transforme seu fluxo de trabalho com automação inteligente.
+                  </p>
+          </div>
+
+          {/* CTA Buttons */}
+          <div 
+            data-reveal="cta"
+                  className="flex flex-col sm:flex-row gap-3 pointer-events-auto transition-all duration-700"
+                  style={{
+                    transitionDelay: splineReady ? '0.9s' : '0s',
+                    opacity: splineReady ? 1 : 0,
+                    transform: splineReady ? 'translateY(0)' : 'translateY(1rem)',
+                    visibility: splineReady ? 'visible' : 'hidden'
+                  }}
+          >
+            <button 
+              onClick={() => router.push('/login')}
+                    className={`px-6 py-3 rounded-full font-medium text-sm sm:text-base transition-all duration-300 ${
+                      isDarkMode
+                        ? 'bg-[#D1FE6E] text-black hover:bg-[#B8E55A] hover:shadow-lg hover:shadow-[#D1FE6E]/50'
+                        : 'bg-[#D1FE6E] text-black hover:bg-[#B8E55A] hover:shadow-lg'
+                    }`}
+              style={{
+                      boxShadow: isDarkMode 
+                        ? '0 4px 20px rgba(209, 254, 110, 0.4)' 
+                        : '0 4px 20px rgba(209, 254, 110, 0.5)'
+              }}
+            >
+                    Começar Agora
+            </button>
+            <button 
+                    onClick={() => scrollToSection('funcionalidades')}
+                    className={`px-6 py-3 rounded-full font-medium text-sm sm:text-base transition-all duration-300 border backdrop-blur-sm ${
+                isDarkMode 
+                        ? 'border-white/30 text-white bg-black/40 hover:bg-black/60 hover:border-white/50'
+                        : 'border-gray-300 text-gray-700 bg-white/90 hover:bg-gray-50'
+              }`}
+              style={{
+                      backdropFilter: 'blur(10px)'
+                    }}
+                  >
+                    Ver Funcionalidades
+            </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
