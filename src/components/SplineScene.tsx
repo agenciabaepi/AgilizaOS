@@ -148,7 +148,6 @@ export function SplineScene({
       containerRef.current.innerHTML = ''
       
       // Criar novo elemento spline-viewer
-      console.log('🎨 Carregando Spline com URL:', scene)
       const viewer = document.createElement('spline-viewer')
       viewer.setAttribute('url', scene)
       viewer.setAttribute('loading', 'lazy')
