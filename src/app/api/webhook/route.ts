@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
  * Processa mensagens recebidas do WhatsApp
  * Suporta comandos como /comissoes e usa ChatGPT para outras mensagens
  */
-export async function processWhatsAppMessage(from: string, messageBody: string) {
+async function processWhatsAppMessage(from: string, messageBody: string) {
   try {
     console.log('📨 Processando mensagem WhatsApp:', { from, messageBody });
 
