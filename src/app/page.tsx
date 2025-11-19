@@ -18,6 +18,11 @@ import contasPagarImage from '@/assets/imagens/contas a pagar.png';
 // Nova animação usando spline-viewer web component
 const SPLINE_SCENE_URL = process.env.NEXT_PUBLIC_SPLINE_SCENE_URL || 'https://prod.spline.design/vXPQae32tyIY4szz/scene.splinecode';
 
+// Debug: verificar URL do Spline
+if (typeof window !== 'undefined') {
+  console.log('🔍 URL do Spline configurada:', SPLINE_SCENE_URL);
+}
+
 export default function Home() {
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
