@@ -338,45 +338,82 @@ export async function POST(request: NextRequest) {
       timestamp: message.timestamp 
     });
 
-    // Processar APENAS mensagens de texto recebidas
-    if (messageType === 'text' && message.text?.body) {
-      const messageBody = message.text.body.trim();
-      
-      // Ignorar mensagens vazias
-      if (!messageBody || messageBody.length === 0) {
-        console.log('ℹ️ Mensagem vazia ignorada');
-        return NextResponse.json({ status: 'ignored', type: 'empty_message' }, { status: 200 });
-      }
-
-      console.log('💬 Texto recebido:', messageBody);
-
-      // Processar mensagem (comando ou ChatGPT)
-      const result = await processWhatsAppMessage(from, messageBody);
-
-      // Enviar resposta apenas se houver resultado
-      if (result.message) {
-        console.log('📤 Preparando para enviar resposta:', {
-          to: from,
-          messageLength: result.message.length,
-          messagePreview: result.message.substring(0, 100)
+    // VERIFICAÇÕES RIGOROSAS antes de processar
+    // 1. Verificar se é realmente uma mensagem de texto
+    if (messageType !== 'text') {
+      console.log('ℹ️ Tipo de mensagem não é texto (ignorando):', messageType);
+      return NextResponse.json({ status: 'ignored', type: 'not_text' }, { status: 200 });
+    }
+    
+    // 2. Verificar se tem corpo de texto
+    if (!message.text?.body) {
+      console.log('ℹ️ Mensagem sem corpo de texto (ignorando)');
+      return NextResponse.json({ status: 'ignored', type: 'no_text_body' }, { status: 200 });
+    }
+    
+    // 3. Verificar se o campo "from" existe e é válido
+    if (!from || typeof from !== 'string' || from.length < 10) {
+      console.log('ℹ️ Campo "from" inválido (ignorando):', from);
+      return NextResponse.json({ status: 'ignored', type: 'invalid_from' }, { status: 200 });
+    }
+    
+    // 4. Verificar se não é uma mensagem muito antiga (mais de 5 minutos)
+    const messageTimestamp = message.timestamp ? parseInt(message.timestamp) : null;
+    if (messageTimestamp) {
+      const messageDate = new Date(messageTimestamp * 1000);
+      const now = new Date();
+      const diffMinutes = (now.getTime() - messageDate.getTime()) / (1000 * 60);
+      if (diffMinutes > 5) {
+        console.log('ℹ️ Mensagem muito antiga (ignorando):', {
+          timestamp: messageTimestamp,
+          ageMinutes: diffMinutes.toFixed(2)
         });
+        return NextResponse.json({ status: 'ignored', type: 'old_message' }, { status: 200 });
+      }
+    }
+    
+    // 5. Verificar se não é uma mensagem de template ou sistema
+    if (message.text.body.includes('template') || 
+        message.text.body.toLowerCase().includes('system') ||
+        message.text.body.toLowerCase().includes('automated')) {
+      console.log('ℹ️ Mensagem parece ser de sistema/template (ignorando)');
+      return NextResponse.json({ status: 'ignored', type: 'system_template' }, { status: 200 });
+    }
+    
+    const messageBody = message.text.body.trim();
+    
+    // 6. Ignorar mensagens vazias ou muito curtas (menos de 1 caractere)
+    if (!messageBody || messageBody.length < 1) {
+      console.log('ℹ️ Mensagem vazia ou muito curta (ignorando)');
+      return NextResponse.json({ status: 'ignored', type: 'empty_message' }, { status: 200 });
+    }
 
-        const sent = await sendWhatsAppTextMessage(from, result.message);
-        
-        if (sent) {
-          console.log('✅ Resposta enviada com sucesso para:', from);
-        } else {
-          console.error('❌ Falha ao enviar resposta para:', from);
-        }
+    console.log('💬 Texto recebido (aprovado em todas verificações):', {
+      from,
+      messageBody: messageBody.substring(0, 50),
+      length: messageBody.length
+    });
+
+    // Processar mensagem (comando ou ChatGPT)
+    const result = await processWhatsAppMessage(from, messageBody);
+
+    // Enviar resposta apenas se houver resultado
+    if (result.message) {
+      console.log('📤 Preparando para enviar resposta:', {
+        to: from,
+        messageLength: result.message.length,
+        messagePreview: result.message.substring(0, 100)
+      });
+
+      const sent = await sendWhatsAppTextMessage(from, result.message);
+      
+      if (sent) {
+        console.log('✅ Resposta enviada com sucesso para:', from);
       } else {
-        console.warn('⚠️ Processamento não retornou mensagem para enviar');
+        console.error('❌ Falha ao enviar resposta para:', from);
       }
     } else {
-      console.log('ℹ️ Tipo de mensagem não suportado (ignorando):', {
-        type: messageType,
-        hasText: !!message.text?.body
-      });
-      return NextResponse.json({ status: 'ignored', type: 'unsupported_message_type' }, { status: 200 });
+      console.warn('⚠️ Processamento não retornou mensagem para enviar');
     }
     
     // Sempre retornar 200 OK para o WhatsApp
