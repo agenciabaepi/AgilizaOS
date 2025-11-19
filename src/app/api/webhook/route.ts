@@ -61,6 +61,12 @@ async function processWhatsAppMessage(from: string, messageBody: string) {
     const normalizedFrom = from.replace(/\D/g, '');
     const trimmedMessage = messageBody.trim();
 
+    console.log('🔢 Número normalizado:', {
+      original: from,
+      normalizado: normalizedFrom,
+      length: normalizedFrom.length
+    });
+
     // 🔒 VERIFICAÇÃO DE SEGURANÇA: Apenas usuários cadastrados podem usar o bot
     const usuario = await getUsuarioByWhatsApp(normalizedFrom);
     
