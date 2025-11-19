@@ -16,7 +16,7 @@ import contasPagarImage from '@/assets/imagens/contas a pagar.png';
 
 // URL da cena Spline - Cena do robô
 // Nova animação usando spline-viewer web component
-const SPLINE_SCENE_URL = process.env.NEXT_PUBLIC_SPLINE_SCENE_URL || 'https://prod.spline.design/ZyJDq3Mi7kFnvB5D/scene.splinecode';
+const SPLINE_SCENE_URL = process.env.NEXT_PUBLIC_SPLINE_SCENE_URL || 'https://prod.spline.design/vXPQae32tyIY4szz/scene.splinecode';
 
 export default function Home() {
   const router = useRouter();
@@ -602,30 +602,30 @@ export default function Home() {
               }}
             >
               <div className="w-full max-w-4xl flex flex-col items-center gap-4 md:gap-6 text-center">
-                {/* Social Proof Badge */}
-                <div 
-                  data-reveal="badge"
+          {/* Social Proof Badge */}
+          <div 
+            data-reveal="badge"
                   className={`inline-flex items-center px-6 py-3 backdrop-blur-xl border rounded-full pointer-events-auto transition-all duration-700 ${
-                    isDarkMode 
+              isDarkMode 
                       ? 'bg-black/40 border-white/20' 
                       : 'bg-white/90 border-gray-300 shadow-lg'
-                  }`}
-                  style={{
+            }`}
+            style={{
                     transitionDelay: splineReady ? '0.3s' : '0s',
                     opacity: splineReady ? 1 : 0,
                     transform: splineReady ? 'translateY(0)' : 'translateY(1rem)',
                     backdropFilter: 'blur(10px)',
                     visibility: splineReady ? 'visible' : 'hidden',
-                    boxShadow: isDarkMode 
-                      ? '0 8px 32px rgba(209, 254, 110, 0.1)' 
+              boxShadow: isDarkMode 
+                ? '0 8px 32px rgba(209, 254, 110, 0.1)' 
                       : '0 8px 32px rgba(0,0,0,0.15), 0 4px 16px rgba(0,0,0,0.1)'
-                  }}
-                >
+            }}
+          >
                   <div className="w-2.5 h-2.5 bg-[#D1FE6E] rounded-full mr-3 animate-pulse"></div>
                   <span className={`text-xs sm:text-sm font-light tracking-wide ${
-                    isDarkMode ? 'text-white/90' : 'text-gray-700'
-                  }`}>+500 assistências confiam no Consert</span>
-                </div>
+              isDarkMode ? 'text-white/90' : 'text-gray-700'
+            }`}>+500 assistências confiam no Consert</span>
+          </div>
 
                 {/* Main Headline */}
                 <div 
@@ -653,7 +653,7 @@ export default function Home() {
                   }}>
                     simples de usar
                   </p>
-                </div>
+          </div>
 
           {/* Sub-headline */}
           <div 
