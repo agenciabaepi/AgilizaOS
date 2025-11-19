@@ -52,19 +52,21 @@ export async function getUsuarioByWhatsApp(whatsapp: string): Promise<Usuario | 
 export async function getUserDataByLevel(usuario: Usuario): Promise<DadosUsuario | null> {
   try {
     // Normalizar o nível (caso não tenha sido normalizado antes)
-    const nivel = usuario.nivel?.toLowerCase() as NivelUsuario;
+    const nivelStr = usuario.nivel?.toLowerCase() || '';
     
-    console.log(`📊 Buscando dados para nível "${nivel}":`, {
+    console.log(`📊 Buscando dados para nível "${nivelStr}":`, {
       nome: usuario.nome,
       nivelOriginal: usuario.nivel,
-      nivelNormalizado: nivel
+      nivelNormalizado: nivelStr
     });
     
     // Mapear variações de nome para o nível correto
-    let nivelFinal: NivelUsuario = nivel;
-    if (nivel === 'administrador' || nivel === 'administrator') {
+    let nivelFinal: NivelUsuario;
+    if (nivelStr === 'administrador' || nivelStr === 'administrator') {
       nivelFinal = 'admin';
       console.log('🔄 Convertendo "administrador" para "admin"');
+    } else {
+      nivelFinal = nivelStr as NivelUsuario;
     }
     
     switch (nivelFinal) {
@@ -119,7 +121,7 @@ export async function getUserDataByLevel(usuario: Usuario): Promise<DadosUsuario
       default:
         console.error('❌ Nível de usuário desconhecido:', {
           nivel: usuario.nivel,
-          nivelNormalizado: nivel,
+          nivelNormalizado: nivelStr,
           nivelFinal
         });
         return null;
