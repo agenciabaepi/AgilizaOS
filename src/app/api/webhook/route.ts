@@ -299,6 +299,20 @@ export async function POST(request: NextRequest) {
     const messageType = message.type;
     const messageId = message.id;
 
+    // LOG DETALHADO para debug
+    console.log('🔍 DEBUG Webhook completo:', {
+      hasMessages: !!messages,
+      messageCount: messages?.length,
+      messageType: messageType,
+      from: from,
+      messageId: messageId,
+      hasContext: !!message.context,
+      timestamp: message.timestamp,
+      bodyKeys: Object.keys(body),
+      valueKeys: Object.keys(value || {}),
+      messageKeys: Object.keys(message || {})
+    });
+
     // Verificar se a mensagem foi enviada por nós (tem context)
     // Se tiver context, é uma mensagem que enviamos - IGNORAR
     if (message.context) {
@@ -308,6 +322,13 @@ export async function POST(request: NextRequest) {
         context: message.context
       });
       return NextResponse.json({ status: 'ignored', type: 'outgoing_message' }, { status: 200 });
+    }
+    
+    // Verificar se é uma mensagem de sistema/automática
+    if (message.from === value.metadata?.phone_number_id || 
+        message.from === value.metadata?.display_phone_number) {
+      console.log('ℹ️ Mensagem do próprio sistema ignorada');
+      return NextResponse.json({ status: 'ignored', type: 'system_message' }, { status: 200 });
     }
 
     console.log('📨 Mensagem recebida detectada:', { 
