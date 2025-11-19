@@ -1,11 +1,12 @@
 import { createAdminClient } from './supabaseClient';
 import { getComissoesTecnico } from './whatsapp-commands';
+import type { DadosTecnico } from './user-data/types';
 
 /**
  * Busca dados completos do técnico para contexto do ChatGPT
  * @param tecnicoId - ID do técnico na tabela usuarios (não auth_user_id)
  */
-export async function getTecnicoDataForContext(tecnicoId: string) {
+export async function getTecnicoDataForContext(tecnicoId: string): Promise<DadosTecnico | null> {
   try {
     const supabase = createAdminClient();
     
