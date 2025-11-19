@@ -26,6 +26,18 @@ export async function getUsuarioByWhatsApp(whatsapp: string): Promise<Usuario | 
       return null;
     }
     
+    // Normalizar nivel para lowercase
+    if (usuario.nivel) {
+      usuario.nivel = usuario.nivel.toLowerCase() as NivelUsuario;
+    }
+    
+    console.log('✅ Usuário encontrado:', {
+      nome: usuario.nome,
+      nivel: usuario.nivel,
+      nivelOriginal: usuario.nivel,
+      empresa_id: usuario.empresa_id
+    });
+    
     return usuario as Usuario;
     
   } catch (error) {
@@ -39,10 +51,25 @@ export async function getUsuarioByWhatsApp(whatsapp: string): Promise<Usuario | 
  */
 export async function getUserDataByLevel(usuario: Usuario): Promise<DadosUsuario | null> {
   try {
-    console.log(`📊 Buscando dados para ${usuario.nivel}:`, usuario.nome);
+    // Normalizar o nível (caso não tenha sido normalizado antes)
+    const nivel = usuario.nivel?.toLowerCase() as NivelUsuario;
     
-    switch (usuario.nivel) {
+    console.log(`📊 Buscando dados para nível "${nivel}":`, {
+      nome: usuario.nome,
+      nivelOriginal: usuario.nivel,
+      nivelNormalizado: nivel
+    });
+    
+    // Mapear variações de nome para o nível correto
+    let nivelFinal: NivelUsuario = nivel;
+    if (nivel === 'administrador' || nivel === 'administrator') {
+      nivelFinal = 'admin';
+      console.log('🔄 Convertendo "administrador" para "admin"');
+    }
+    
+    switch (nivelFinal) {
       case 'tecnico':
+        console.log('👨‍🔧 Processando como TÉCNICO');
         const dadosTecnico = await getTecnicoDataForContext(usuario.id);
         if (!dadosTecnico) return null;
         return {
@@ -51,6 +78,7 @@ export async function getUserDataByLevel(usuario: Usuario): Promise<DadosUsuario
         };
       
       case 'financeiro':
+        console.log('💼 Processando como FINANCEIRO');
         if (!usuario.empresa_id) {
           console.error('❌ Usuário financeiro sem empresa_id');
           return null;
@@ -63,6 +91,7 @@ export async function getUserDataByLevel(usuario: Usuario): Promise<DadosUsuario
         };
       
       case 'atendente':
+        console.log('👥 Processando como ATENDENTE');
         if (!usuario.empresa_id) {
           console.error('❌ Atendente sem empresa_id');
           return null;
@@ -75,6 +104,7 @@ export async function getUserDataByLevel(usuario: Usuario): Promise<DadosUsuario
         };
       
       case 'admin':
+        console.log('👨‍💼 Processando como ADMIN');
         if (!usuario.empresa_id) {
           console.error('❌ Admin sem empresa_id');
           return null;
@@ -87,7 +117,11 @@ export async function getUserDataByLevel(usuario: Usuario): Promise<DadosUsuario
         };
       
       default:
-        console.error('❌ Nível de usuário desconhecido:', usuario.nivel);
+        console.error('❌ Nível de usuário desconhecido:', {
+          nivel: usuario.nivel,
+          nivelNormalizado: nivel,
+          nivelFinal
+        });
         return null;
     }
     
