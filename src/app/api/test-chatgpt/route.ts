@@ -25,10 +25,11 @@ export async function GET(request: NextRequest) {
     // Testar chamada
     console.log('🧪 Testando ChatGPT com mensagem:', testMessage);
     
-    const response = await getChatGPTResponse(testMessage, {
-      userName: 'Usuário de Teste',
-      isTecnico: true,
-    });
+    const response = await getChatGPTResponse(
+      testMessage,
+      'Usuário de Teste',
+      null // Teste simples sem dados específicos
+    );
 
     if (!response) {
       return NextResponse.json({
@@ -80,10 +81,11 @@ export async function POST(request: NextRequest) {
     // Testar chamada
     console.log('🧪 Testando ChatGPT com mensagem:', testMessage);
     
-    const response = await getChatGPTResponse(testMessage, {
-      userName: body.userName || 'Usuário de Teste',
-      isTecnico: body.isTecnico || false,
-    });
+    const response = await getChatGPTResponse(
+      testMessage,
+      body.userName || 'Usuário de Teste',
+      null // Teste simples sem dados específicos
+    );
 
     if (!response) {
       return NextResponse.json({
