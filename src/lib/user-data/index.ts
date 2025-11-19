@@ -35,10 +35,41 @@ export async function getUsuarioByWhatsApp(whatsapp: string): Promise<Usuario | 
     }
     
     // Encontrar o usuário comparando números normalizados
+    // Tenta várias variações porque o WhatsApp pode enviar com/sem código do país
     const usuario = usuarios?.find(u => {
       if (!u.whatsapp) return false;
+      
       const dbWhatsAppNormalized = u.whatsapp.replace(/\D/g, '');
-      return dbWhatsAppNormalized === normalizedWhatsApp;
+      const buscado = normalizedWhatsApp;
+      
+      // Remover código do país se existir (55 do Brasil)
+      const dbSem55 = dbWhatsAppNormalized.replace(/^55/, '');
+      const buscadoSem55 = buscado.replace(/^55/, '');
+      
+      // Comparar em várias combinações
+      const match = 
+        // Exatamente igual
+        dbWhatsAppNormalized === buscado ||
+        // Ambos sem 55
+        dbSem55 === buscadoSem55 ||
+        // DB sem 55, buscado com 55
+        dbWhatsAppNormalized === buscadoSem55 ||
+        // DB com 55, buscado sem 55
+        dbSem55 === buscado ||
+        // DB com 55, buscado com 55
+        `55${dbWhatsAppNormalized}` === buscado ||
+        // DB sem 55, buscado tem 55 no início
+        `55${dbSem55}` === buscado;
+      
+      if (match) {
+        console.log('✅ Match encontrado:', {
+          dbOriginal: u.whatsapp,
+          dbNormalizado: dbWhatsAppNormalized,
+          buscado: buscado
+        });
+      }
+      
+      return match;
     });
     
     if (!usuario) {
