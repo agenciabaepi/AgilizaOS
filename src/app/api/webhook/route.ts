@@ -61,21 +61,21 @@ export async function processWhatsAppMessage(from: string, messageBody: string) 
     const normalizedFrom = from.replace(/\D/g, '');
     const trimmedMessage = messageBody.trim();
 
+    // 🔒 VERIFICAÇÃO DE SEGURANÇA: Apenas técnicos cadastrados podem usar o bot
+    const tecnico = await getTecnicoByWhatsApp(normalizedFrom);
+    
+    if (!tecnico) {
+      console.log('🚫 Acesso negado - número não cadastrado:', normalizedFrom);
+      return {
+        message: '🚫 *Acesso Restrito*\n\nEste serviço é exclusivo para técnicos cadastrados no sistema.\n\nSe você é técnico, entre em contato com o administrador para cadastrar seu WhatsApp.'
+      };
+    }
+
+    console.log('✅ Técnico autorizado:', tecnico.nome);
+
     // Verificar se é um comando
     if (trimmedMessage.toLowerCase() === '/comissoes' || trimmedMessage.toLowerCase().startsWith('/comissoes')) {
       console.log('💰 Comando /comissoes detectado');
-
-      // Buscar técnico pelo WhatsApp
-      const tecnico = await getTecnicoByWhatsApp(normalizedFrom);
-      
-      if (!tecnico) {
-        console.log('❌ Técnico não encontrado para WhatsApp:', normalizedFrom);
-        return {
-          message: '❌ Você não está cadastrado como técnico no sistema.\n\nEntre em contato com o administrador para cadastrar seu WhatsApp.'
-        };
-      }
-
-      console.log('✅ Técnico encontrado:', tecnico.nome);
 
       // Buscar comissões
       const { comissoes, total, totalPago, totalPendente } = await getComissoesTecnico(tecnico.id, 10);
@@ -98,36 +98,26 @@ export async function processWhatsAppMessage(from: string, messageBody: string) 
       console.log('🤖 ChatGPT disponível - processando mensagem com IA');
       console.log('📝 Mensagem para ChatGPT:', trimmedMessage);
       
-      // Buscar informações do técnico para contexto
-      const tecnico = await getTecnicoByWhatsApp(normalizedFrom);
-      console.log('👤 Contexto do técnico:', {
-        encontrado: !!tecnico,
-        nome: tecnico?.nome,
-        isTecnico: !!tecnico
-      });
-      
-      // Se for técnico, buscar dados reais para contexto dinâmico
+      // Buscar dados reais para contexto dinâmico
       let tecnicoData = null;
-      if (tecnico) {
-        try {
-          console.log('📊 Buscando dados do técnico para contexto dinâmico...');
-          tecnicoData = await getTecnicoDataForContext(tecnico.id);
-          console.log('✅ Dados do técnico obtidos:', {
-            temComissoes: !!tecnicoData?.comissoes,
-            temOSPendentes: !!tecnicoData?.osPendentes,
-            totalOSPendentes: tecnicoData?.totalOSPendentes
-          });
-        } catch (error: any) {
-          console.error('⚠️ Erro ao buscar dados do técnico (continuando sem dados):', error.message);
-          // Continuar mesmo sem dados do técnico
-        }
+      try {
+        console.log('📊 Buscando dados do técnico para contexto dinâmico...');
+        tecnicoData = await getTecnicoDataForContext(tecnico.id);
+        console.log('✅ Dados do técnico obtidos:', {
+          temComissoes: !!tecnicoData?.comissoes,
+          temOSPendentes: !!tecnicoData?.osPendentes,
+          totalOSPendentes: tecnicoData?.totalOSPendentes
+        });
+      } catch (error: any) {
+        console.error('⚠️ Erro ao buscar dados do técnico (continuando sem dados):', error.message);
+        // Continuar mesmo sem dados do técnico
       }
       
       try {
         console.log('🚀 Chamando ChatGPT API...');
         const chatGPTResponse = await getChatGPTResponse(trimmedMessage, {
-          userName: tecnico?.nome,
-          isTecnico: !!tecnico,
+          userName: tecnico.nome,
+          isTecnico: true,
           tecnicoData: tecnicoData || undefined,
         });
 
