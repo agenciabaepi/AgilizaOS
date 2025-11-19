@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     let chatGPTTest = null;
     if (chatgptConfigured) {
       try {
-        const testResponse = await getChatGPTResponse('Olá', { userName: 'Teste' });
+        const testResponse = await getChatGPTResponse('Olá', 'Teste', null);
         chatGPTTest = {
           success: !!testResponse,
           responseLength: testResponse?.length || 0,
