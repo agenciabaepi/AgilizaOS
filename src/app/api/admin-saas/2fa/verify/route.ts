@@ -41,13 +41,24 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (codeError || !codeData) {
-      // Incrementar tentativas em códigos existentes para este email
-      await supabase
+      // Buscar código para obter tentativas atuais e incrementar
+      const { data: existingCode } = await supabase
         .from('admin_2fa_codes')
-        .update({ tentativas: supabase.raw('tentativas + 1') })
+        .select('tentativas')
         .eq('email', email.toLowerCase())
         .eq('codigo', codigo.trim())
-        .eq('usado', false);
+        .eq('usado', false)
+        .single();
+
+      if (existingCode) {
+        // Incrementar tentativas em códigos existentes para este email
+        await supabase
+          .from('admin_2fa_codes')
+          .update({ tentativas: (existingCode.tentativas || 0) + 1 })
+          .eq('email', email.toLowerCase())
+          .eq('codigo', codigo.trim())
+          .eq('usado', false);
+      }
 
       return NextResponse.json(
         { ok: false, error: 'Código inválido ou expirado' },
