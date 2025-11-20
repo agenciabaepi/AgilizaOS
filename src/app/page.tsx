@@ -489,7 +489,7 @@ export default function Home() {
 
       {/* Hero Section com Parallax */}
       <div 
-        className="relative z-10 py-16 sm:py-20 md:py-24 lg:py-32" 
+        className="relative z-10 py-8 sm:py-12 md:py-16 lg:py-20" 
         style={{ 
           overflow: 'visible',
           paddingLeft: '0',
@@ -506,7 +506,7 @@ export default function Home() {
         >
           {/* Layout: robô centralizado com texto overlay na parte inferior */}
           <div 
-            className="relative w-full min-h-[90vh] flex items-center justify-center" 
+            className="relative w-full min-h-[75vh] flex items-center justify-center" 
             style={{ 
               overflow: 'visible',
               position: 'relative',
@@ -522,9 +522,9 @@ export default function Home() {
               style={{
                 width: '100%',
                 maxWidth: '1200px',
-                height: '90vh',
-                minHeight: '700px',
-                maxHeight: '1200px',
+                height: '75vh',
+                minHeight: '600px',
+                maxHeight: '900px',
                 margin: '0 auto',
                 marginBottom: '-5rem',
                 padding: '6rem',
@@ -744,7 +744,7 @@ export default function Home() {
       </div>
 
       {/* Sistema de Abas - Visualizações do Sistema */}
-      <section id="solucoes" className="relative z-10 px-4 sm:px-6 md:px-8 py-12 md:py-20 lg:px-12">
+      <section id="solucoes" className="relative z-10 px-4 sm:px-6 md:px-8 py-8 md:py-12 lg:px-12">
         <div 
           className="mx-auto max-w-7xl"
           ref={(el) => {
