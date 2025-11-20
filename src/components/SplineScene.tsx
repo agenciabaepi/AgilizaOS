@@ -15,7 +15,7 @@ const LoadingSpinner = () => (
 
 // Importação dinâmica do Spline para evitar problemas de SSR
 const Spline = dynamic(
-  () => import('@splinetool/react-spline').then((mod) => mod.default),
+  () => import('@splinetool/react-spline/next').then((mod) => mod.default),
   {
     ssr: false,
     loading: () => <LoadingSpinner />,
