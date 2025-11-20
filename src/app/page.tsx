@@ -18,6 +18,9 @@ import contasPagarImage from '@/assets/imagens/contas a pagar.png';
 // Nova animação usando spline-viewer web component
 const SPLINE_SCENE_URL = process.env.NEXT_PUBLIC_SPLINE_SCENE_URL || 'https://prod.spline.design/vXPQae32tyIY4szz/scene.splinecode';
 
+// URL do Spline de fundo - Efeito adicional
+const SPLINE_BACKGROUND_URL = process.env.NEXT_PUBLIC_SPLINE_BACKGROUND_URL || 'https://prod.spline.design/nkttuaNnJkTYBvnm/scene.splinecode';
+
 export default function Home() {
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -154,6 +157,25 @@ export default function Home() {
             ...getBackgroundTransform(0.3)
           }}
         ></div>
+      </div>
+
+      {/* Spline de Fundo - Efeito adicional */}
+      <div 
+        className="absolute inset-0 pointer-events-none"
+        style={{ 
+          zIndex: 0,
+          opacity: isDarkMode ? 0.25 : 0.15,
+          mixBlendMode: isDarkMode ? 'screen' : 'multiply',
+          overflow: 'hidden',
+        }}
+      >
+        <SplineScene
+          scene={SPLINE_BACKGROUND_URL}
+          className="w-full h-full"
+          shadows={false}
+          showOverlay={false}
+          overlayGradient={false}
+        />
       </div>
       
       {/* Subtle Gradient Overlay com Parallax */}
