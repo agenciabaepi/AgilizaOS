@@ -566,6 +566,19 @@ export default function Home() {
                     overlayGradient={true}
                   />
                   
+                  {/* Degradê na parte inferior para suavizar o corte */}
+                  <div 
+                    className="absolute bottom-0 left-0 right-0 pointer-events-none"
+                    style={{
+                      zIndex: 9,
+                      height: '25%',
+                      background: isDarkMode
+                        ? 'linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.3) 40%, rgba(0, 0, 0, 0.7) 70%, rgba(0, 0, 0, 0.95) 100%)'
+                        : 'linear-gradient(to bottom, transparent 0%, rgba(255, 255, 255, 0.3) 40%, rgba(255, 255, 255, 0.7) 70%, rgba(255, 255, 255, 0.95) 100%)',
+                      pointerEvents: 'none',
+                    }}
+                  />
+
                   {/* Área para textos e elementos customizados sobre o Spline */}
                   <div 
                     className="absolute inset-0 pointer-events-none"
