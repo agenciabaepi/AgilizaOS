@@ -258,11 +258,7 @@ export function SplineScene({
           overflow: 'visible'
         }}
       >
-        {!scriptLoaded && !error && (
-          <div className="absolute inset-0 flex items-center justify-center" style={{ zIndex: 10 }}>
-            <LoadingSpinner />
-          </div>
-        )}
+        {/* Loading removido para não ficar feio */}
       </div>
     </div>
   )
