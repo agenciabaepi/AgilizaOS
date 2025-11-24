@@ -6,12 +6,15 @@ import { supabase } from '@/lib/supabaseClient';
 import { FiClipboard, FiSave, FiBox, FiTool, FiPlayCircle, FiX, FiCamera, FiTrash2, FiEdit, FiCheck, FiAlertCircle, FiLock, FiArrowLeft, FiUser, FiDollarSign, FiMessageCircle, FiPackage, FiAlertTriangle, FiEdit3 } from 'react-icons/fi';
 import MenuLayout from '@/components/MenuLayout';
 // Removido ProtectedArea - agora é responsabilidade do MenuLayout
-import ProdutoServicoSearch from '@/components/ProdutoServicoSearch';
+import ProdutoServicoManager from '@/components/ProdutoServicoManager';
 import { Button } from '@/components/Button';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
 import DynamicChecklist from '@/components/DynamicChecklist';
 import ImageEditor from '@/components/ImageEditor';
+import { useSubscription } from '@/hooks/useSubscription';
+import LaudoEditor from '@/components/LaudoEditor';
+import CollapsibleSection from '@/components/CollapsibleSection';
 
 // Componente simples para exibir o padrão Android
 const PatternDisplay = ({ pattern }: { pattern: string | number[] }) => {
@@ -54,6 +57,7 @@ export default function DetalheBancadaPage() {
   const id = params?.id as string;
   const { addToast, showModal } = useToast();
   const confirm = useConfirm();
+  const { temRecurso } = useSubscription();
   interface OrdemServico {
     id: string;
     empresa_id: string;
@@ -252,10 +256,34 @@ export default function DetalheBancadaPage() {
         setProdutos(data.peca || '');
         setServicos(data.servico || '');
         
-        // Inicializar produtos e serviços selecionados como arrays vazios
-        // (Os campos JSON não existem na tabela ainda)
-        setProdutosSelecionados([]);
-        setServicosSelecionados([]);
+        // Carregar produtos e serviços existentes para edição
+        if (data.peca) {
+          const produtosParsed = parseTextToItems(data.peca, 'produto');
+          // Filtrar itens inválidos (nome vazio, apenas números, etc)
+          const produtosValidos = produtosParsed.filter(p => 
+            p.nome && 
+            p.nome.trim() !== '' && 
+            !/^[\d\s]+$/.test(p.nome.trim()) && // Não apenas números
+            p.nome.trim().length > 1 // Nome com pelo menos 2 caracteres
+          );
+          setProdutosSelecionados(produtosValidos);
+        } else {
+          setProdutosSelecionados([]);
+        }
+
+        if (data.servico) {
+          const servicosParsed = parseTextToItems(data.servico, 'servico');
+          // Filtrar itens inválidos (nome vazio, apenas números, etc)
+          const servicosValidos = servicosParsed.filter(s => 
+            s.nome && 
+            s.nome.trim() !== '' && 
+            !/^[\d\s]+$/.test(s.nome.trim()) && // Não apenas números
+            s.nome.trim().length > 1 // Nome com pelo menos 2 caracteres
+          );
+          setServicosSelecionados(servicosValidos);
+        } else {
+          setServicosSelecionados([]);
+        }
         
         // Mostrar botão iniciar se estiver aguardando início
         setMostrarBotaoIniciar(statusInicial === 'AGUARDANDO INÍCIO');
@@ -338,13 +366,30 @@ export default function DetalheBancadaPage() {
       }
 
       // Preparar dados dos produtos e serviços
-      const produtosText = produtosSelecionados.map(p => 
-        `${p.nome} (${p.quantidade}x) - ${formatPrice(p.preco * p.quantidade)}`
-      ).join(', ');
+      // Filtrar apenas itens válidos antes de gerar o texto
+      const produtosValidos = produtosSelecionados.filter(p => 
+        p.nome && 
+        p.nome.trim() !== '' && 
+        !/^[\d\s]+$/.test(p.nome.trim()) && 
+        p.nome.trim().length > 1
+      );
+      const produtosText = produtosValidos.length > 0 
+        ? produtosValidos.map(p => 
+            `${p.nome} (${p.quantidade}x) - ${formatPrice(p.preco * p.quantidade)}`
+          ).join(', ')
+        : '';
       
-      const servicosText = servicosSelecionados.map(s => 
-        `${s.nome} - ${formatPrice(s.preco)}`
-      ).join(', ');
+      const servicosValidos = servicosSelecionados.filter(s => 
+        s.nome && 
+        s.nome.trim() !== '' && 
+        !/^[\d\s]+$/.test(s.nome.trim()) && 
+        s.nome.trim().length > 1
+      );
+      const servicosText = servicosValidos.length > 0
+        ? servicosValidos.map(s => 
+            `${s.nome} - ${formatPrice(s.preco)}`
+          ).join(', ')
+        : '';
       
       const totalProdutos = calcularTotalProdutos();
       const totalServicos = calcularTotalServicos();
@@ -354,21 +399,22 @@ export default function DetalheBancadaPage() {
 
       // Preparar dados para salvar (sem campos JSON por enquanto)
       
-      // ✅ CORREÇÃO CRÍTICA: Preservar dados existentes quando não há novos dados
+      // ✅ CORREÇÃO: Sempre atualizar produtos/serviços, mesmo que vazios (para permitir remoção)
       const updateData: any = {
         status: novoStatus,
         status_tecnico: statusTecnico,
-        // ✅ PRESERVAR dados existentes se não há novos dados
+        // ✅ Sempre atualizar produtos e serviços (permitir limpar quando removidos)
+        peca: produtosText,
+        servico: servicosText,
+        // ✅ Sempre atualizar valores monetários (permitir zerar quando removidos)
+        valor_peca: produtosValidos.length > 0 ? calcularTotalProdutos().toString() : '0',
+        valor_servico: servicosValidos.length > 0 ? calcularTotalServicos().toString() : '0',
+        valor_faturado: (produtosValidos.length > 0 || servicosValidos.length > 0) 
+          ? (calcularTotalProdutos() + calcularTotalServicos()).toString() 
+          : '0',
+        // ✅ PRESERVAR dados existentes se não há novos dados (apenas para laudo e observações)
         ...(laudo && { laudo }),
         ...(observacoes && { observacao: observacoes }),
-        ...(produtosText && { peca: produtosText }),
-        ...(servicosText && { servico: servicosText }),
-        // ✅ PRESERVAR valores monetários - só atualizar se há produtos/serviços selecionados
-        ...(produtosSelecionados.length > 0 && { valor_peca: calcularTotalProdutos().toString() }),
-        ...(servicosSelecionados.length > 0 && { valor_servico: calcularTotalServicos().toString() }),
-        ...((produtosSelecionados.length > 0 || servicosSelecionados.length > 0) && { 
-          valor_faturado: (calcularTotalProdutos() + calcularTotalServicos()).toString() 
-        }),
         // ✅ Imagens do técnico em coluna separada
         ...(imagensTecnicoString && { imagens_tecnico: imagensTecnicoString }),
         // ✅ SALVAR checklist se foi modificado
@@ -379,17 +425,30 @@ export default function DetalheBancadaPage() {
         id,
         novoStatus,
         statusTecnico,
-        updateData
+        produtosSelecionados: produtosSelecionados.length,
+        produtosValidos: produtosValidos.length,
+        produtosText: produtosText || '(vazio)',
+        servicosSelecionados: servicosSelecionados.length,
+        servicosValidos: servicosValidos.length,
+        servicosText: servicosText || '(vazio)',
+        updateData: {
+          ...updateData,
+          peca: updateData.peca || '(vazio)',
+          servico: updateData.servico || '(vazio)',
+        }
       });
       
       // Campos JSON não existem na tabela ainda - pular esta parte
+      
+      // Remover campos de debug antes de enviar
+      const { _debug, ...updateDataLimpo } = updateData;
       
       // Usar nossa API que envia notificações WhatsApp
       const requestBody = {
         osId: id,
         newStatus: novoStatus,
         newStatusTecnico: statusTecnico,
-        ...updateData
+        ...updateDataLimpo
       };
       
       console.log('🔍 DEBUG BANCADA: Enviando requisição...', {
@@ -483,8 +542,14 @@ export default function DetalheBancadaPage() {
       }
       
     } catch (error) {
-      console.error('Erro ao salvar:', error);
-      addToast('error', 'Erro ao salvar: ' + (error as Error).message);
+      console.error('❌ Erro ao salvar:', error);
+      console.error('❌ Detalhes do erro:', {
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+        name: (error as Error).name,
+      });
+      const errorMessage = (error as Error).message || 'Erro desconhecido ao salvar';
+      addToast('error', `Erro ao atualizar status da OS: ${errorMessage}`);
     } finally {
       setSalvando(false);
     }
@@ -623,29 +688,146 @@ export default function DetalheBancadaPage() {
   };
 
   const calcularTotalProdutos = () => {
-    let totalSelecionados = produtosSelecionados.reduce((total, produto) => {
+    // Filtrar apenas itens válidos antes de calcular
+    const produtosValidos = produtosSelecionados.filter(p => 
+      p.nome && 
+      p.nome.trim() !== '' && 
+      !/^[\d\s]+$/.test(p.nome.trim()) && 
+      p.nome.trim().length > 1
+    );
+    
+    // Calcular apenas com produtos válidos selecionados
+    // Se não há produtos válidos, retornar 0 (não usar valores antigos da OS)
+    return produtosValidos.reduce((total, produto) => {
       return total + (produto.preco * produto.quantidade);
     }, 0);
-    
-    // Se não há produtos selecionados, mas há valor existente na OS, usar o existente
-    if (totalSelecionados === 0 && os && os.valor_peca) {
-      totalSelecionados = parseFloat(os.valor_peca) || 0;
-    }
-    
-    return totalSelecionados;
   };
 
   const calcularTotalServicos = () => {
-    let totalSelecionados = servicosSelecionados.reduce((total, servico) => {
+    // Filtrar apenas itens válidos antes de calcular
+    const servicosValidos = servicosSelecionados.filter(s => 
+      s.nome && 
+      s.nome.trim() !== '' && 
+      !/^[\d\s]+$/.test(s.nome.trim()) && 
+      s.nome.trim().length > 1
+    );
+    
+    // Calcular apenas com serviços válidos selecionados
+    // Se não há serviços válidos, retornar 0 (não usar valores antigos da OS)
+    return servicosValidos.reduce((total, servico) => {
       return total + servico.preco;
     }, 0);
+  };
+
+  // Função para converter texto em itens estruturados (igual à página do atendente)
+  const parseTextToItems = (texto: string, tipo: 'produto' | 'servico') => {
+    if (!texto || texto.trim() === '') return [];
     
-    // Se não há serviços selecionados, mas há valor existente na OS, usar o existente
-    if (totalSelecionados === 0 && os && os.valor_servico) {
-      totalSelecionados = parseFloat(os.valor_servico) || 0;
+    // Tentar primeiro o formato com vírgulas (formato atual da bancada)
+    const itensComVirgula = texto.split(',').filter(item => item.trim());
+    if (itensComVirgula.length > 0) {
+      const itens = [];
+      for (const itemTexto of itensComVirgula) {
+        if (tipo === 'produto') {
+          // Formato: "Nome (2x) - R$ 100,00" ou "Nome (2x) - R$ 100.00"
+          // Regex mais flexível para capturar espaços opcionais
+          const match = itemTexto.match(/^(.+?)\s*\(\s*(\d+)\s*x\s*\)\s*-\s*R\$\s*([\d.,]+)\s*$/);
+          if (match) {
+            // Converter preço: remover pontos de milhar e substituir vírgula por ponto
+            const precoStr = match[3].replace(/\./g, '').replace(',', '.');
+            const precoTotal = parseFloat(precoStr);
+            const quantidade = parseInt(match[2]) || 1;
+            // Preço unitário = preço total / quantidade
+            const precoUnitario = quantidade > 0 ? precoTotal / quantidade : 0;
+            itens.push({
+              id: `temp-${Date.now()}-${Math.random()}`,
+              nome: match[1].trim(),
+              quantidade,
+              preco: isNaN(precoUnitario) ? 0 : precoUnitario,
+            });
+          } else {
+            // Formato simples: apenas nome
+            itens.push({
+              id: `temp-${Date.now()}-${Math.random()}`,
+              nome: itemTexto.trim(),
+              quantidade: 1,
+              preco: 0,
+            });
+          }
+        } else {
+          // Formato: "Nome - R$ 100,00" ou "Nome - R$ 100.00"
+          // Regex mais flexível para capturar espaços opcionais
+          const match = itemTexto.match(/^(.+?)\s*-\s*R\$\s*([\d.,]+)\s*$/);
+          if (match) {
+            // Converter preço: remover pontos de milhar e substituir vírgula por ponto
+            const precoStr = match[2].replace(/\./g, '').replace(',', '.');
+            const preco = parseFloat(precoStr);
+            itens.push({
+              id: `temp-${Date.now()}-${Math.random()}`,
+              nome: match[1].trim(),
+              preco: isNaN(preco) ? 0 : preco,
+            });
+          } else {
+            // Formato simples: apenas nome
+            itens.push({
+              id: `temp-${Date.now()}-${Math.random()}`,
+              nome: itemTexto.trim(),
+              preco: 0,
+            });
+          }
+        }
+      }
+      if (itens.length > 0) return itens;
     }
     
-    return totalSelecionados;
+    // Tentar formato com quebras de linha (formato do atendente)
+    const linhas = texto.split('\n').filter(linha => linha.trim());
+    const itens = [];
+    
+    for (const linha of linhas) {
+      if (tipo === 'produto') {
+        // Formato: "Nome - Qtd: X - Valor: R$ Y.YY"
+        const match = linha.match(/^(.+?)\s*-\s*Qtd:\s*(\d+)\s*-\s*Valor:\s*R\$\s*([\d,]+\.?\d*)$/);
+        if (match) {
+          const precoStr = match[3].replace(',', '.');
+          const preco = parseFloat(precoStr);
+          const quantidade = parseInt(match[2]) || 1;
+          const precoUnitario = preco / quantidade;
+          itens.push({
+            id: `temp-${Date.now()}-${Math.random()}`,
+            nome: match[1].trim(),
+            quantidade,
+            preco: isNaN(precoUnitario) ? 0 : precoUnitario,
+          });
+        }
+      } else {
+        // Formato: "Nome - Valor: R$ Y.YY"
+        let match = linha.match(/^(.+?)\s*-\s*Valor:\s*R\$\s*([\d,]+\.?\d*)$/);
+        if (match) {
+          const precoStr = match[2].replace(',', '.');
+          const preco = parseFloat(precoStr);
+          itens.push({
+            id: `temp-${Date.now()}-${Math.random()}`,
+            nome: match[1].trim(),
+            preco: isNaN(preco) ? 0 : preco,
+          });
+        } else {
+          // Tentar outros formatos possíveis
+          match = linha.match(/^(.+?)\s*-\s*([\d,]+\.?\d*)$/); // "Nome - 160.00"
+          if (match) {
+            const precoStr = match[2].replace(',', '.');
+            const preco = parseFloat(precoStr);
+            itens.push({
+              id: `temp-${Date.now()}-${Math.random()}`,
+              nome: match[1].trim(),
+              preco: isNaN(preco) ? 0 : preco,
+            });
+          }
+        }
+      }
+    }
+    
+    return itens;
   };
 
   const formatPrice = (price: number) => {
@@ -680,6 +862,12 @@ export default function DetalheBancadaPage() {
 
   // Função para abrir editor de imagem
   const abrirEditorImagem = (imageUrl: string, index: number, isNew: boolean = false, isExisting: boolean = false) => {
+    // Verificar se tem o recurso editor_foto
+    if (!temRecurso('editor_foto')) {
+      addToast('error', 'Editor de imagens disponível apenas no plano Ultra. Faça upgrade para acessar.');
+      return;
+    }
+    
     setEditingImageUrl(imageUrl);
     setEditingImageIndex(index);
     setEditingNewImage(isNew);
@@ -839,153 +1027,60 @@ export default function DetalheBancadaPage() {
                  os.status === 'AGUARDANDO_PECA' ? 'Aguardando Peça' :
                  os.status === 'CONCLUIDO' ? 'Concluído' : os.status}
               </span>
-            </div>
           </div>
         </div>
 
         {/* Content Container - Mobile Optimized */}
-        <div className="px-4 py-4 pb-24 space-y-4 max-w-full overflow-x-hidden">
-
-        {/* Barra de progresso da OS (mock, pode ser melhorada com status reais) */}
-        {/* ... manter steps ou adaptar conforme status reais ... */}
-
-          {/* Cliente Card - Mobile App Style */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mx-0">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                <FiUser className="w-6 h-6 text-blue-600" />
+        <div className="px-4 py-4 pb-24 max-w-full overflow-x-hidden">
+          
+          {/* PARTE SUPERIOR: Resumo em Colunas */}
+          <div className="mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              {/* Coluna 1: Cliente */}
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                    <FiUser className="w-5 h-5 text-blue-600" />
               </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 text-lg">Cliente</h3>
-                <p className="text-sm text-gray-500">Informações do cliente</p>
+                  <h3 className="font-semibold text-gray-900">Cliente</h3>
               </div>
+                <p className="text-lg font-bold text-gray-900 mb-1">{os.cliente?.nome || '---'}</p>
+                <div className="space-y-1 text-sm text-gray-600">
+                  <p>Data: {os.created_at ? new Date(os.created_at).toLocaleDateString('pt-BR') : '---'}</p>
+                  <p>Atendente: {os.atendente || '---'}</p>
             </div>
-            <p className="text-xl font-semibold text-gray-900">{os.cliente?.nome || '---'}</p>
           </div>
 
-          {/* Aparelho Card */}
+              {/* Coluna 2: Aparelho */}
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                <FiBox className="w-6 h-6 text-green-600" />
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+                    <FiBox className="w-5 h-5 text-green-600" />
               </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 text-lg">Aparelho</h3>
-                <p className="text-sm text-gray-500">Equipamento em reparo</p>
+                  <h3 className="font-semibold text-gray-900">Aparelho</h3>
               </div>
+                <p className="text-lg font-bold text-gray-900 mb-1">{aparelho || '---'}</p>
+                <div className="space-y-1 text-sm text-gray-600">
+                  {os.numero_serie && <p>Série: {os.numero_serie}</p>}
+                  {os.cor && <p>Cor: {os.cor}</p>}
             </div>
-            <p className="text-lg font-semibold text-gray-900 mb-2">{aparelho || '---'}</p>
-            {os.numero_serie && (
-              <p className="text-sm text-gray-600">Série: {os.numero_serie}</p>
-            )}
           </div>
 
-          {/* Valor Card */}
+              {/* Coluna 3: Valor e Status */}
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
-                <FiDollarSign className="w-6 h-6 text-yellow-600" />
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
+                    <FiDollarSign className="w-5 h-5 text-yellow-600" />
               </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 text-lg">Valor Total</h3>
-                <p className="text-sm text-gray-500">Orçamento da OS</p>
+                  <h3 className="font-semibold text-gray-900">Valor Total</h3>
               </div>
-            </div>
-            <p className="text-3xl font-bold text-blue-600">
+                <p className="text-2xl font-bold text-blue-600 mb-3">
               {((parseFloat(os.valor_servico || '0') + parseFloat(os.valor_peca || '0'))).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </p>
-          </div>
-
-          {/* Info Card */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-                <FiClipboard className="w-6 h-6 text-purple-600" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 text-lg">Informações</h3>
-                <p className="text-sm text-gray-500">Detalhes da OS</p>
-              </div>
-            </div>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Data de Entrada:</span>
-                <span className="text-sm font-semibold text-gray-900">
-                  {os.created_at ? new Date(os.created_at).toLocaleDateString('pt-BR') : '---'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Atendente:</span>
-                <span className="text-sm font-semibold text-gray-900">{os.atendente || '---'}</span>
-              </div>
-            </div>
-          </div>
-          
-          {/* Relato do Cliente Card */}
-          {os?.relato && (
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
-                  <FiMessageCircle className="w-6 h-6 text-orange-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900 text-lg">Relato do Cliente</h3>
-                  <p className="text-sm text-gray-500">Problema relatado</p>
-                </div>
-              </div>
-              <div className="bg-orange-50 rounded-xl p-4">
-                <p className="text-base text-gray-700 leading-relaxed">{os.relato}</p>
-              </div>
-            </div>
-          )}
-          {/* Acessórios Card */}
-          {os.acessorios && (
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <FiPackage className="w-6 h-6 text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900 text-lg">Acessórios</h3>
-                  <p className="text-sm text-gray-500">Itens acompanhantes</p>
-                </div>
-              </div>
-              <div className="bg-blue-50 rounded-xl p-4">
-                <p className="text-base text-gray-700 leading-relaxed">{os.acessorios}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Condições do Equipamento Card */}
-          {os.condicoes_equipamento && (
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-                  <FiAlertTriangle className="w-6 h-6 text-red-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900 text-lg">Condições do Equipamento</h3>
-                  <p className="text-sm text-gray-500">Estado do aparelho</p>
-                </div>
-              </div>
-              <div className="bg-red-50 rounded-xl p-4">
-                <p className="text-base text-gray-700 leading-relaxed">{os.condicoes_equipamento}</p>
-              </div>
-            </div>
-          )}
-          {/* Status Técnico Card */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                <FiClipboard className="w-6 h-6 text-blue-600" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 text-lg">Status Técnico</h3>
-                <p className="text-sm text-gray-500">Atualizar progresso</p>
-              </div>
-            </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-2">Status Técnico</label>
             <select
-              className="w-full border border-gray-300 px-4 py-4 rounded-xl text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white"
+                    className="w-full border border-gray-300 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white"
               value={statusTecnico}
               onChange={e => setStatusTecnico(e.target.value)}
             >
@@ -995,342 +1090,175 @@ export default function DetalheBancadaPage() {
               ))}
             </select>
           </div>
-
-          {/* Produtos Utilizados Card */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                <FiBox className="w-6 h-6 text-green-600" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 text-lg">Produtos Utilizados</h3>
-                <p className="text-sm text-gray-500">Adicionar peças e materiais</p>
               </div>
             </div>
             
-            {/* Busca de produtos */}
-            <ProdutoServicoSearch
-              onSelect={handleAdicionarProduto}
-              placeholder="Buscar produtos..."
-              tipo="produto"
-              empresaId={empresaId}
-            />
-
-            {/* Produtos salvos anteriormente - Editáveis */}
-            {os && (os.peca || (os.valor_peca && parseFloat(os.valor_peca) > 0)) && produtosSelecionados.length === 0 && (
-              <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-3 sm:p-4 mb-4 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-                  <h3 className="text-base font-semibold text-blue-900 flex items-center gap-2">
-                    <FiBox className="text-blue-600" size={18} />
-                    Produtos já lançados
-                  </h3>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => {
-                        // Carregar produto existente para edição
-                        const produtoExistente = {
-                          id: 'existing-prod-' + os.id,
-                          nome: os.peca || 'Produto existente',
-                          preco: parseFloat(os.valor_peca || '0'),
-                          quantidade: 1,
-                          tipo: 'produto'
-                        };
-                        setProdutosSelecionados([produtoExistente]);
-                      }}
-                      size="sm"
-                      className="bg-blue-600 text-white hover:bg-blue-700"
-                      title="Editar produtos"
-                    >
-                      <FiEdit size={14} className="mr-1" />
-                      Editar
-                    </Button>
-                    <Button
-                      onClick={async () => {
-                        const confirmed = await confirm({
-                          title: 'Remover Produtos',
-                          message: 'Tem certeza que deseja remover todos os produtos desta OS?',
-                          confirmText: 'Remover',
-                          cancelText: 'Cancelar'
-                        });
-                        
-                        if (confirmed) {
-                          // Limpar produtos existentes
-                          setProdutos('');
-                          // Forçar atualização dos totais
-                          if (os) {
-                            setOs({ ...os, peca: '', valor_peca: '0' });
-                          }
-                          addToast('success', 'Produtos removidos com sucesso!');
-                        }
-                      }}
-                      variant="destructive"
-                      size="sm"
-                      title="Remover produtos"
-                    >
-                      <FiTrash2 size={14} className="mr-1" />
-                      Remover
-                    </Button>
+            {/* Informações Adicionais do Cliente (se houver) */}
+            {(os?.relato || os.acessorios || os.condicoes_equipamento) && (
+              <CollapsibleSection
+                title="Informações Adicionais"
+                subtitle="Relato, acessórios e condições do equipamento"
+                icon={<FiMessageCircle className="w-5 h-5 text-orange-600" />}
+                defaultOpen={false}
+              >
+                <div className="space-y-4 pt-2">
+                  {os?.relato && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                        <FiMessageCircle className="w-4 h-4 text-orange-600" />
+                        Relato do Cliente
+                      </h4>
+                      <div className="bg-orange-50 rounded-lg p-3 border border-orange-100">
+                        <p className="text-sm text-gray-700 leading-relaxed">{os.relato}</p>
                   </div>
                 </div>
-                <div className="bg-white/50 rounded-lg p-3 border border-blue-200">
-                  <div className="space-y-2">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                      <FiClipboard className="text-blue-600" size={14} />
-                      <span className="text-sm font-medium text-blue-900">Descrição:</span>
-                      <span className="text-sm text-blue-700">{os.peca || 'Não especificado'}</span>
+                  )}
+                  {os.acessorios && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                        <FiPackage className="w-4 h-4 text-blue-600" />
+                        Acessórios
+                      </h4>
+                      <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
+                        <p className="text-sm text-gray-700 leading-relaxed">{os.acessorios}</p>
                     </div>
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                      <span className="text-lg">💰</span>
-                      <span className="text-sm font-medium text-blue-900">Valor Total:</span>
-                      <span className="text-sm font-bold text-blue-800 bg-blue-200 px-2 py-1 rounded w-fit">
-                        {formatPrice(parseFloat(os.valor_peca || '0'))}
-                      </span>
                     </div>
-                  </div>
-                  <div className="mt-3 flex items-center gap-1 text-xs text-blue-600">
-                    <FiAlertCircle size={12} />
-                    <span className="italic">Clique em "Editar" para modificar os produtos</span>
-                  </div>
+                  )}
+                  {os.condicoes_equipamento && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                        <FiAlertTriangle className="w-4 h-4 text-red-600" />
+                        Condições do Equipamento
+                      </h4>
+                      <div className="bg-red-50 rounded-lg p-3 border border-red-100">
+                        <p className="text-sm text-gray-700 leading-relaxed">{os.condicoes_equipamento}</p>
                 </div>
               </div>
             )}
-            
-            {/* Lista de produtos selecionados */}
-            {produtosSelecionados.length > 0 && (
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium text-gray-700">Produtos selecionados para edição:</h3>
-                <div className="space-y-2">
-                  {produtosSelecionados.map((produto) => (
-                    <div key={produto.id} className="p-3 bg-gray-50 rounded-lg space-y-2">
-                      <div className="flex flex-col gap-2">
-                        <label className="text-xs font-medium text-gray-700">Nome:</label>
-                        <input
-                          type="text"
-                          value={produto.nome}
-                          onChange={(e) => handleEditarProduto(produto.id, e.target.value, produto.preco, produto.quantidade)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                          placeholder="Nome do produto"
-                        />
                       </div>
-                      <div className="flex flex-col gap-2">
-                        <label className="text-xs font-medium text-gray-700">Preço:</label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={produto.preco}
-                            onChange={(e) => handleEditarProduto(produto.id, produto.nome, parseFloat(e.target.value) || 0, produto.quantidade)}
-                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                            placeholder="0,00"
-                          />
-                          <span className="text-sm text-gray-600 whitespace-nowrap">{formatPrice(produto.preco)}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          min="1"
-                          value={produto.quantidade}
-                          onChange={(e) => handleAlterarQuantidade(produto.id, parseInt(e.target.value) || 1)}
-                          className="w-16 px-2 py-1 border border-gray-300 rounded text-sm"
-                        />
-                        <button
-                          onClick={() => handleRemoverProduto(produto.id)}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          <FiX size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-medium text-gray-700">
-                    Total produtos: {formatPrice(calcularTotalProdutos())}
-                  </p>
-                </div>
-              </div>
+              </CollapsibleSection>
             )}
           </div>
 
-          {/* Serviços realizados */}
-          <div className="space-y-3">
-            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-              <FiTool className="text-blue-600" />
-              Serviços realizados
-            </h2>
-            
-            {/* Busca de serviços */}
-            <ProdutoServicoSearch
-              onSelect={handleAdicionarServico}
-              placeholder="Buscar serviços..."
-              tipo="servico"
-              empresaId={empresaId}
-            />
+          {/* PARTE INFERIOR: Área de Trabalho Completa */}
+          <div className="space-y-4">
 
-            {/* Serviços salvos anteriormente - Editáveis */}
-            {os && (os.servico || (os.valor_servico && parseFloat(os.valor_servico) > 0)) && servicosSelecionados.length === 0 && (
-              <div className="bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-xl p-3 sm:p-4 mb-4 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-                  <h3 className="text-base font-semibold text-green-900 flex items-center gap-2">
-                    <FiTool className="text-green-600" size={18} />
-                    Serviços já lançados
-                  </h3>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => {
-                        // Carregar serviço existente para edição
-                        const servicoExistente = {
-                          id: 'existing-serv-' + os.id,
-                          nome: os.servico || 'Serviço existente',
-                          preco: parseFloat(os.valor_servico || '0'),
-                          tipo: 'servico'
-                        };
-                        setServicosSelecionados([servicoExistente]);
-                      }}
-                      size="sm"
-                      className="bg-green-600 text-white hover:bg-green-700"
-                      title="Editar serviços"
-                    >
-                      <FiEdit size={14} className="mr-1" />
-                      Editar
-                    </Button>
-                    <Button
-                      onClick={async () => {
-                        const confirmed = await confirm({
-                          title: 'Remover Serviços',
-                          message: 'Tem certeza que deseja remover todos os serviços desta OS?',
-                          confirmText: 'Remover',
-                          cancelText: 'Cancelar'
-                        });
-                        
-                        if (confirmed) {
-                          // Limpar serviços existentes
-                          setServicos('');
-                          // Forçar atualização dos totais
-                          if (os) {
-                            setOs({ ...os, servico: '', valor_servico: '0' });
-                          }
-                          addToast('success', 'Serviços removidos com sucesso!');
-                        }
-                      }}
-                      variant="destructive"
-                      size="sm"
-                      title="Remover serviços"
-                    >
-                      <FiTrash2 size={14} className="mr-1" />
-                      Remover
-                    </Button>
-                  </div>
-                </div>
-                <div className="bg-white/50 rounded-lg p-3 border border-green-200">
-                  <div className="space-y-2">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                      <FiClipboard className="text-green-600" size={14} />
-                      <span className="text-sm font-medium text-green-900">Descrição:</span>
-                      <span className="text-sm text-green-700">{os.servico || 'Não especificado'}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                      <span className="text-lg">💰</span>
-                      <span className="text-sm font-medium text-green-900">Valor Total:</span>
-                      <span className="text-sm font-bold text-green-800 bg-green-200 px-2 py-1 rounded w-fit">
-                        {formatPrice(parseFloat(os.valor_servico || '0'))}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-3 flex items-center gap-1 text-xs text-green-600">
-                    <FiAlertCircle size={12} />
-                    <span className="italic">Clique em "Editar" para modificar os serviços</span>
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {/* Lista de serviços selecionados */}
-            {servicosSelecionados.length > 0 && (
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium text-gray-700">Serviços selecionados para edição:</h3>
-                <div className="space-y-2">
-                  {servicosSelecionados.map((servico) => (
-                    <div key={servico.id} className="p-3 bg-gray-50 rounded-lg space-y-2">
-                      <div className="flex flex-col gap-2">
-                        <label className="text-xs font-medium text-gray-700">Nome:</label>
-                        <input
-                          type="text"
-                          value={servico.nome}
-                          onChange={(e) => handleEditarServico(servico.id, e.target.value, servico.preco)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                          placeholder="Nome do serviço"
+
+          {/* Materiais e Serviços - Colapsável */}
+          <CollapsibleSection
+            title="Materiais e Serviços"
+            subtitle="Produtos utilizados e serviços realizados"
+            icon={<FiTool className="w-5 h-5 text-green-600" />}
+            defaultOpen={true}
+          >
+            <div className="space-y-6 pt-2">
+              {/* Produtos e Serviços usando ProdutoServicoManager */}
+              <ProdutoServicoManager
+                tipo="produto"
+                itens={produtosSelecionados.map(p => ({
+                  id: p.id,
+                  nome: p.nome,
+                  preco: p.preco,
+                  quantidade: p.quantidade,
+                  total: p.preco * p.quantidade
+                }))}
+                onItensChange={(itens) => {
+                  console.log('🔄 Atualizando produtos selecionados:', { 
+                    totalItens: itens.length, 
+                    itens: itens.map(i => ({ nome: i.nome, preco: i.preco, quantidade: i.quantidade }))
+                  });
+                  // Filtrar itens inválidos antes de atualizar
+                  const itensValidos = itens.filter(item => 
+                    item.nome && 
+                    item.nome.trim() !== '' && 
+                    !/^[\d\s]+$/.test(item.nome.trim()) && // Não apenas números
+                    item.nome.trim().length > 1 // Nome com pelo menos 2 caracteres
+                  );
+                  const novosProdutos = itensValidos.map(item => ({
+                    id: item.id || `temp-${Date.now()}-${Math.random()}`,
+                    nome: item.nome.trim(),
+                    preco: item.preco || 0,
+                    quantidade: item.quantidade || 1
+                  }));
+                  setProdutosSelecionados(novosProdutos);
+                  console.log('✅ Produtos atualizados:', novosProdutos.length, 'itens válidos de', itens.length);
+                }}
+              />
+              
+              <ProdutoServicoManager
+                tipo="servico"
+                itens={servicosSelecionados.map(s => ({
+                  id: s.id,
+                  nome: s.nome,
+                  preco: s.preco,
+                  quantidade: 1,
+                  total: s.preco
+                }))}
+                onItensChange={(itens) => {
+                  console.log('🔄 Atualizando serviços selecionados:', { 
+                    totalItens: itens.length, 
+                    itens: itens.map(i => ({ nome: i.nome, preco: i.preco }))
+                  });
+                  // Filtrar itens inválidos antes de atualizar
+                  const itensValidos = itens.filter(item => 
+                    item.nome && 
+                    item.nome.trim() !== '' && 
+                    !/^[\d\s]+$/.test(item.nome.trim()) && // Não apenas números
+                    item.nome.trim().length > 1 // Nome com pelo menos 2 caracteres
+                  );
+                  const novosServicos = itensValidos.map(item => ({
+                    id: item.id || `temp-${Date.now()}-${Math.random()}`,
+                    nome: item.nome.trim(),
+                    preco: item.preco || 0
+                  }));
+                  setServicosSelecionados(novosServicos);
+                  console.log('✅ Serviços atualizados:', novosServicos.length, 'itens válidos de', itens.length);
+                }}
                         />
                       </div>
-                      <div className="flex flex-col gap-2">
-                        <label className="text-xs font-medium text-gray-700">Preço:</label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={servico.preco}
-                            onChange={(e) => handleEditarServico(servico.id, servico.nome, parseFloat(e.target.value) || 0)}
-                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                            placeholder="0,00"
-                          />
-                          <span className="text-sm text-gray-600 whitespace-nowrap">{formatPrice(servico.preco)}</span>
-                        </div>
-                      </div>
-                      <div className="flex justify-end">
-                        <button
-                          onClick={() => handleRemoverServico(servico.id)}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          <FiX size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-medium text-gray-700">
-                    Total serviços: {formatPrice(calcularTotalServicos())}
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
+          </CollapsibleSection>
 
-          {/* Laudo Técnico Card */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-                <FiEdit className="w-6 h-6 text-purple-600" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 text-lg">Laudo Técnico</h3>
-                <p className="text-sm text-gray-500">Diagnóstico detalhado</p>
-              </div>
-            </div>
-            <textarea
-              className="w-full border border-gray-300 px-4 py-4 rounded-xl text-base min-h-[140px] focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors resize-none bg-white"
+          {/* Diagnóstico - Colapsável */}
+          <CollapsibleSection
+            title="Diagnóstico Técnico"
+            subtitle="Laudo e observações do técnico"
+            icon={<FiEdit className="w-5 h-5 text-purple-600" />}
+            defaultOpen={true}
+          >
+            <div className="space-y-4 pt-2">
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Laudo Técnico</h4>
+                <LaudoEditor
               value={laudo}
-              onChange={e => setLaudo(e.target.value)}
+                  onChange={setLaudo}
               placeholder="Descreva o diagnóstico técnico com todos os detalhes relevantes..."
+                  minHeight="200px"
             />
           </div>
 
-          {/* Imagens - separar entrada e técnico */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
-                <FiCamera className="w-6 h-6 text-indigo-600" />
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Observações Técnicas</h4>
+                <textarea
+                  className="w-full border border-gray-300 px-4 py-3 rounded-xl text-sm min-h-[100px] focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors resize-none bg-white"
+                  value={observacoes}
+                  onChange={e => setObservacoes(e.target.value)}
+                  placeholder="Observações adicionais do técnico..."
+                />
               </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 text-lg">Imagens</h3>
-                <p className="text-sm text-gray-500">Entrada (atendente) e Laudo (técnico)</p>
               </div>
-            </div>
+          </CollapsibleSection>
 
-            {/* Upload de novas imagens do técnico */}
+          {/* Documentação - Colapsável */}
+          <CollapsibleSection
+            title="Documentação"
+            subtitle="Imagens, checklist e informações de acesso"
+            icon={<FiCamera className="w-5 h-5 text-indigo-600" />}
+            defaultOpen={false}
+          >
+            <div className="space-y-6 pt-2">
+              {/* Upload de Imagens */}
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Imagens do Técnico</h4>
             <div className="space-y-4">
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 sm:p-6 text-center hover:border-gray-400 transition-colors">
                 <input
@@ -1489,26 +1417,21 @@ export default function DetalheBancadaPage() {
             </div>
           </div>
 
-          {/* Informações de Acesso Card */}
+              {/* Informações de Acesso */}
           {(os?.senha_aparelho || os?.senha_padrao) && (
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
-                  <FiLock className="w-6 h-6 text-yellow-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900 text-lg">Informações de Acesso</h3>
-                  <p className="text-sm text-gray-500">Senhas e padrões</p>
-                </div>
-              </div>
+                <div className="border-t border-gray-200 pt-6">
+                  <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                    <FiLock className="w-4 h-4 text-yellow-600" />
+                    Informações de Acesso
+                  </h4>
               
               {os?.senha_aparelho && (
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-xs font-medium text-gray-600 mb-2">
                     Senha do Aparelho:
                   </label>
-                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-                    <code className="text-xl font-mono text-blue-600">
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <code className="text-lg font-mono text-blue-600">
                       {String(os.senha_aparelho)}
                     </code>
                   </div>
@@ -1517,10 +1440,10 @@ export default function DetalheBancadaPage() {
               
               {os?.senha_padrao && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-xs font-medium text-gray-600 mb-2">
                     Padrão Android:
                   </label>
-                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
                     <PatternDisplay pattern={os.senha_padrao as string | number[]} />
                   </div>
                 </div>
@@ -1528,17 +1451,12 @@ export default function DetalheBancadaPage() {
             </div>
           )}
 
-          {/* Checklist de Entrada Card */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                <FiCheck className="w-6 h-6 text-green-600" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 text-lg">Checklist de Entrada</h3>
-                <p className="text-sm text-gray-500">Verificações iniciais</p>
-              </div>
-            </div>
+              {/* Checklist de Entrada */}
+              <div className="border-t border-gray-200 pt-6">
+                <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                  <FiCheck className="w-4 h-4 text-green-600" />
+                  Checklist de Entrada
+                </h4>
             
             {checklistItens.length > 0 ? (
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -1555,6 +1473,8 @@ export default function DetalheBancadaPage() {
               </div>
             )}
           </div>
+            </div>
+          </CollapsibleSection>
 
           {/* Modal de visualização de imagem (anexos) */}
           {previewImagemUrl && (
@@ -1584,25 +1504,6 @@ export default function DetalheBancadaPage() {
             </div>
           )}
 
-          {/* Observações Técnicas Card */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center">
-                <FiClipboard className="w-6 h-6 text-gray-600" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 text-lg">Observações Técnicas</h3>
-                <p className="text-sm text-gray-500">Notas adicionais</p>
-              </div>
-            </div>
-            <textarea
-              className="w-full border border-gray-300 px-4 py-4 rounded-xl text-base min-h-[100px] focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors resize-none bg-white"
-              value={observacoes}
-              onChange={e => setObservacoes(e.target.value)}
-              placeholder="Observações adicionais do técnico..."
-            />
-          </div>
-
           {/* Botões de Ação - Mobile App Style */}
           <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 -mx-4 -mb-4">
             <div className="space-y-3">
@@ -1625,6 +1526,8 @@ export default function DetalheBancadaPage() {
                 <FiSave size={20} className="mr-2" /> 
                 {salvando ? 'Salvando...' : 'Salvar Alterações'}
               </Button>
+            </div>
+          </div>
             </div>
           </div>
         </div>

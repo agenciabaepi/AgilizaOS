@@ -23,6 +23,7 @@ import {
   FiMessageCircle,
   FiBarChart,
   FiTrendingUp,
+  FiMessageSquare,
 } from 'react-icons/fi';
 import { Toaster } from 'react-hot-toast';
 import { supabase, forceLogout } from '@/lib/supabaseClient';
@@ -34,6 +35,7 @@ import { useWhatsAppNotification } from '@/hooks/useWhatsAppNotification';
 import { useLogout } from '@/hooks/useLogout';
 import AvisosBanner from '@/components/AvisosBanner';
 import FinanceiroAlertsBanner from '@/components/FinanceiroAlertsBanner';
+import { useSubscription } from '@/hooks/useSubscription';
 
 // Funções locais como fallback
 const isUsuarioTesteLocal = (usuario: any) => {
@@ -53,6 +55,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const { signOut, usuarioData, empresaData, lastUpdate } = useAuth();
   const { addToast } = useToast();
   const { logout, isLoggingOut } = useLogout();
+  const { temRecurso, loading: subscriptionLoading } = useSubscription();
 
   const [userLevel, setUserLevel] = useState<string>('');
   const [menuExpandido, setMenuExpandido] = useState<boolean | null>(null);
@@ -69,6 +72,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [menuRecolhido, setMenuRecolhido] = useState<boolean>(false);
   const [catalogoHabilitado, setCatalogoHabilitado] = useState<boolean>(false);
+  const [notificacoesTickets, setNotificacoesTickets] = useState<any[]>([]);
 
   const avatarUrl = useMemo(() => {
     if (!usuarioData?.foto_url) return null;
@@ -81,6 +85,83 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   // ✅ DESABILITADO TEMPORARIAMENTE: Hook muito pesado, causando lentidão
   // useWhatsAppNotification();
 
+  // Buscar notificações de tickets
+  useEffect(() => {
+    if (!empresaData?.id) return;
+
+    const buscarNotificacoes = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('notificacoes')
+          .select('*')
+          .eq('empresa_id', empresaData.id)
+          .in('tipo', ['ticket_resposta', 'ticket_status', 'ticket_comentario'])
+          .eq('lida', false)
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        if (error) {
+          console.error('Erro ao buscar notificações de tickets:', error);
+          return;
+        }
+
+        setNotificacoesTickets(data || []);
+      } catch (error) {
+        console.error('Erro ao buscar notificações:', error);
+      }
+    };
+
+    buscarNotificacoes();
+
+    // Atualizar a cada 30 segundos
+    const interval = setInterval(buscarNotificacoes, 30000);
+
+    // Escutar mudanças em tempo real (INSERT e UPDATE para quando marcar como lida)
+    const channel = supabase
+      .channel(`notificacoes_tickets_${empresaData.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notificacoes',
+        filter: `empresa_id=eq.${empresaData.id}`
+      }, () => {
+        buscarNotificacoes();
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'notificacoes',
+        filter: `empresa_id=eq.${empresaData.id}`
+      }, () => {
+        buscarNotificacoes();
+      })
+      .subscribe();
+
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(channel);
+    };
+  }, [empresaData?.id]);
+
+  // Função para marcar notificação como lida
+  const marcarNotificacaoLida = async (notificacaoId: string) => {
+    try {
+      const { error } = await supabase
+        .from('notificacoes')
+        .update({ lida: true })
+        .eq('id', notificacaoId);
+
+      if (error) {
+        console.error('Erro ao marcar notificação como lida:', error);
+        return;
+      }
+
+      // Atualizar a lista local removendo a notificação lida
+      setNotificacoesTickets(prev => prev.filter(n => n.id !== notificacaoId));
+    } catch (error) {
+      console.error('Erro ao marcar notificação como lida:', error);
+    }
+  };
 
   const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
   const pathname = usePathname();
@@ -181,6 +262,27 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
     return temPermissao;
   };
 
+  // Função para verificar se pode ver módulo (permissão + recurso do plano)
+  const podeVerModulo = (area: string, recurso?: string) => {
+    // Primeiro verifica permissão do usuário
+    if (!podeVer(area)) {
+      return false;
+    }
+    
+    // Se não precisa de recurso específico, retorna true
+    if (!recurso) {
+      return true;
+    }
+    
+    // Se ainda está carregando a assinatura, não mostra (evita flash)
+    if (subscriptionLoading) {
+      return false;
+    }
+    
+    // Verifica se o plano tem o recurso
+    return temRecurso(recurso);
+  };
+
   const toggleMenu = () => {
     const newState = !menuRecolhido;
     setMenuRecolhido(newState);
@@ -234,7 +336,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {podeVer('ordens') && (
             <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} menuRecolhido={menuRecolhidoFinal} />
           )}
-          {podeVer('caixa') && (
+          {podeVer('caixa') && temRecurso('financeiro') && (
             <>
               <div 
                 className={`flex items-center px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10
@@ -257,7 +359,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               
               {caixaExpanded && !menuRecolhido && (
                 <div className="ml-6 flex flex-col gap-1 mt-1">
-                  <SidebarButton path="/fluxo-caixa" icon={<FiTrendingUp size={18} />} label="Fluxo de Caixa" isActive={pathname === '/fluxo-caixa'} menuRecolhido={menuRecolhido || false} />
+                  {podeVerModulo('movimentacao-caixa', 'financeiro') && (
+                    <SidebarButton path="/fluxo-caixa" icon={<FiTrendingUp size={18} />} label="Fluxo de Caixa" isActive={pathname === '/fluxo-caixa'} menuRecolhido={menuRecolhido || false} />
+                  )}
                 </div>
               )}
             </>
@@ -325,7 +429,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               )}
             </>
           )}
-          {podeVer('financeiro') && (
+          {podeVerModulo('financeiro', 'financeiro') && (
             <>
               <div 
                 className={`flex items-center px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10
@@ -348,7 +452,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               
               {financeiroExpanded && !menuRecolhido && (
                 <div className="ml-6 flex flex-col gap-1 mt-1">
-                  {podeVer('lucro-desempenho') && (
+                  {podeVerModulo('lucro-desempenho', 'financeiro') && (
                     <SidebarButton 
                       path="/financeiro/lucro-desempenho" 
                       icon={
@@ -362,7 +466,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                       menuRecolhido={menuRecolhido} 
                     />
                   )}
-                  {podeVer('vendas') && (
+                  {podeVerModulo('vendas', 'financeiro') && (
                     <SidebarButton 
                       path="/financeiro/vendas" 
                       icon={
@@ -379,7 +483,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                       menuRecolhido={menuRecolhido} 
                     />
                   )}
-                  {podeVer('movimentacao-caixa') && (
+                  {podeVerModulo('movimentacao-caixa', 'financeiro') && (
                     <SidebarButton 
                       path="/financeiro/movimentacoes-caixa" 
                       icon={
@@ -393,7 +497,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                       menuRecolhido={menuRecolhido} 
                     />
                   )}
-                  {podeVer('contas-a-pagar') && (
+                  {podeVerModulo('contas-a-pagar', 'financeiro') && (
                     <SidebarButton 
                       path="/financeiro/contas-a-pagar" 
                       icon={
@@ -408,7 +512,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                       menuRecolhido={menuRecolhido} 
                     />
                   )}
-                  {podeVer('lucro-desempenho') && (
+                  {podeVerModulo('lucro-desempenho', 'financeiro') && (
                     <SidebarButton 
                       path="/financeiro/comissoes-tecnicos" 
                       icon={
@@ -434,6 +538,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {usuarioData?.nivel === 'tecnico' && (
             <SidebarButton path="/comissoes" icon={<FiDollarSign size={20} />} label="Comissões" isActive={pathname === '/comissoes'} menuRecolhido={menuRecolhido} />
           )}
+          <SidebarButton path="/suporte" icon={<FiMessageSquare size={20} />} label="Suporte" isActive={pathname === '/suporte'} menuRecolhido={menuRecolhido} />
           
           <SidebarButton path="/perfil" icon={<FiUsers size={20} />} label="Meu Perfil" isActive={pathname === '/perfil'} menuRecolhido={menuRecolhido} />
           {podeVer('configuracoes') && (
@@ -484,7 +589,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               {podeVer('ordens') && (
                 <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} menuRecolhido={menuRecolhido || false} />
               )}
-              {podeVer('caixa') && (
+              {podeVer('caixa') && temRecurso('financeiro') && (
                 <>
                   <div 
                     className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
@@ -503,7 +608,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   
                   {caixaExpanded && (
                     <div className="ml-6 flex flex-col gap-1 mt-1">
-                      <SidebarButton path="/fluxo-caixa" icon={<FiTrendingUp size={18} />} label="Fluxo de Caixa" isActive={pathname === '/fluxo-caixa'} menuRecolhido={menuRecolhido || false} />
+                      {podeVerModulo('movimentacao-caixa', 'financeiro') && (
+                    <SidebarButton path="/fluxo-caixa" icon={<FiTrendingUp size={18} />} label="Fluxo de Caixa" isActive={pathname === '/fluxo-caixa'} menuRecolhido={menuRecolhido || false} />
+                  )}
                     </div>
                   )}
                 </>
@@ -563,7 +670,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   )}
                 </>
               )}
-              {podeVer('financeiro') && (
+              {podeVerModulo('financeiro', 'financeiro') && (
                 <>
                   <div 
                     className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
@@ -582,7 +689,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   
                   {financeiroExpanded && (
                     <div className="ml-6 flex flex-col gap-1 mt-1">
-                      {podeVer('lucro-desempenho') && (
+                      {podeVerModulo('lucro-desempenho', 'financeiro') && (
                         <SidebarButton 
                           path="/financeiro/lucro-desempenho" 
                           icon={
@@ -596,47 +703,53 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                           menuRecolhido={menuRecolhido || false} 
                         />
                       )}
-                      <SidebarButton 
-                        path="/financeiro/vendas" 
-                        icon={
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14,2 14,8 20,8"></polyline>
-                            <line x1="16" y1="13" x2="8" y2="13"></line>
-                            <line x1="16" y1="17" x2="8" y2="17"></line>
-                            <polyline points="10,9 9,9 8,9"></polyline>
-                          </svg>
-                        } 
-                        label="Vendas" 
-                        isActive={pathname === '/financeiro/vendas'} 
-                        menuRecolhido={menuRecolhido || false} 
-                      />
-                      <SidebarButton 
-                        path="/financeiro/movimentacoes-caixa" 
-                        icon={
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="12" y1="1" x2="12" y2="23"></line>
-                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                          </svg>
-                        } 
-                        label="Movimentações Caixa" 
-                        isActive={pathname === '/financeiro/movimentacoes-caixa'} 
-                        menuRecolhido={menuRecolhido || false} 
-                      />
-                      <SidebarButton 
-                        path="/financeiro/contas-a-pagar" 
-                        icon={
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                            <line x1="8" y1="21" x2="16" y2="21"></line>
-                            <line x1="12" y1="17" x2="12" y2="21"></line>
-                          </svg>
-                        } 
-                        label="Contas a Pagar" 
-                        isActive={pathname === '/financeiro/contas-a-pagar'} 
-                        menuRecolhido={menuRecolhido || false} 
-                      />
-                      {podeVer('lucro-desempenho') && (
+                      {podeVerModulo('vendas', 'financeiro') && (
+                        <SidebarButton 
+                          path="/financeiro/vendas" 
+                          icon={
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                              <polyline points="14,2 14,8 20,8"></polyline>
+                              <line x1="16" y1="13" x2="8" y2="13"></line>
+                              <line x1="16" y1="17" x2="8" y2="17"></line>
+                              <polyline points="10,9 9,9 8,9"></polyline>
+                            </svg>
+                          } 
+                          label="Vendas" 
+                          isActive={pathname === '/financeiro/vendas'} 
+                          menuRecolhido={menuRecolhido || false} 
+                        />
+                      )}
+                      {podeVerModulo('movimentacao-caixa', 'financeiro') && (
+                        <SidebarButton 
+                          path="/financeiro/movimentacoes-caixa" 
+                          icon={
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <line x1="12" y1="1" x2="12" y2="23"></line>
+                              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                            </svg>
+                          } 
+                          label="Movimentações Caixa" 
+                          isActive={pathname === '/financeiro/movimentacoes-caixa'} 
+                          menuRecolhido={menuRecolhido || false} 
+                        />
+                      )}
+                      {podeVerModulo('contas-a-pagar', 'financeiro') && (
+                        <SidebarButton 
+                          path="/financeiro/contas-a-pagar" 
+                          icon={
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                              <line x1="8" y1="21" x2="16" y2="21"></line>
+                              <line x1="12" y1="17" x2="12" y2="21"></line>
+                            </svg>
+                          } 
+                          label="Contas a Pagar" 
+                          isActive={pathname === '/financeiro/contas-a-pagar'} 
+                          menuRecolhido={menuRecolhido || false} 
+                        />
+                      )}
+                      {podeVerModulo('lucro-desempenho', 'financeiro') && (
                         <SidebarButton 
                           path="/financeiro/comissoes-tecnicos" 
                           icon={
@@ -758,20 +871,72 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             
             {/* Notificações */}
             <div className="relative">
-              <FiBell
-                className="text-zinc-500 hover:text-lime-500 cursor-pointer transition-colors"
-                size={20}
-                onClick={() => setShowNotifications(!showNotifications)}
-              />
+              <div className="relative">
+                <FiBell
+                  className={`${
+                    notificacoesTickets.length > 0 
+                      ? 'text-red-500 hover:text-red-600' 
+                      : 'text-zinc-500 hover:text-lime-500'
+                  } cursor-pointer transition-colors`}
+                  size={20}
+                  onClick={() => setShowNotifications(!showNotifications)}
+                />
+                {notificacoesTickets.length > 0 && (
+                  <span className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 bg-red-500 text-white text-xs font-bold rounded-full">
+                    {notificacoesTickets.length > 9 ? '9+' : notificacoesTickets.length}
+                  </span>
+                )}
+              </div>
               {showNotifications && (
-                <div className="absolute right-0 top-8 w-72 z-50">
+                <div className="absolute right-0 top-8 w-80 z-50 max-h-96 overflow-y-auto">
                   <div className="bg-white text-black rounded-xl shadow-xl p-4 border border-black/10">
-                    <h4 className="font-semibold text-sm mb-2">Notificações</h4>
-                    <ul className="space-y-2 text-sm">
-                      <li className="border-b border-gray-200 pb-1">🔧 Ordem #324 foi aprovada.</li>
-                      <li className="border-b border-gray-200 pb-1">📦 Novo produto cadastrado.</li>
-                      <li>💰 Entrada no financeiro registrada.</li>
-                    </ul>
+                    <h4 className="font-semibold text-sm mb-3">Notificações</h4>
+                    {notificacoesTickets.length === 0 ? (
+                      <p className="text-sm text-gray-500 py-4 text-center">Nenhuma notificação</p>
+                    ) : (
+                      <ul className="space-y-2 text-sm">
+                        {notificacoesTickets.map((notif) => (
+                          <li 
+                            key={notif.id} 
+                            className={`border-b border-gray-200 pb-2 last:border-0 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors ${
+                              !notif.lida ? 'bg-red-50 border-l-4 border-l-red-500' : ''
+                            }`}
+                            onClick={() => {
+                              // Marcar como lida ao clicar
+                              if (!notif.lida) {
+                                marcarNotificacaoLida(notif.id);
+                              }
+                              router.push('/suporte');
+                              setShowNotifications(false);
+                            }}
+                          >
+                            <div className="flex items-start gap-2">
+                              <span className="text-base flex-shrink-0">
+                                {notif.tipo === 'ticket_resposta' ? '📩' : 
+                                 notif.tipo === 'ticket_status' ? '🔄' : 
+                                 notif.tipo === 'ticket_comentario' ? '💬' : '📋'}
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <p className={`${!notif.lida ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
+                                  {notif.mensagem}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {new Date(notif.created_at).toLocaleString('pt-BR', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </p>
+                              </div>
+                              {!notif.lida && (
+                                <span className="flex-shrink-0 w-2 h-2 bg-red-500 rounded-full mt-2"></span>
+                              )}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                 </div>
               )}
@@ -864,7 +1029,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               )}
               
               {/* Caixa */}
-              {podeVer('caixa') && (
+              {podeVer('caixa') && temRecurso('financeiro') && (
                 <MobileMenuItem
                   path="/fluxo-caixa"
                   icon={<FiTrendingUp size={20} />}
@@ -1028,6 +1193,15 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                 icon={<FiUsers size={20} />}
                 label="Meu Perfil"
                 isActive={pathname === '/perfil'}
+                onNavigate={() => setMobileMenuOpen(false)}
+              />
+              
+              {/* Suporte */}
+              <MobileMenuItem
+                path="/suporte"
+                icon={<FiMessageSquare size={20} />}
+                label="Suporte"
+                isActive={pathname === '/suporte'}
                 onNavigate={() => setMobileMenuOpen(false)}
               />
               

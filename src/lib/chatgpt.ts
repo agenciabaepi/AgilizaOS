@@ -261,3 +261,91 @@ export function isChatGPTAvailable(): boolean {
   return !!process.env.OPENAI_API_KEY;
 }
 
+/**
+ * Corrige e melhora o texto do laudo técnico usando ChatGPT
+ * @param textoOriginal - Texto do laudo a ser corrigido (pode ser HTML ou texto simples)
+ * @returns Texto corrigido em HTML ou null em caso de erro
+ */
+export async function corrigirLaudoTecnico(textoOriginal: string): Promise<string | null> {
+  try {
+    const client = getOpenAIClient();
+    
+    if (!client) {
+      console.warn('⚠️ ChatGPT não disponível - OPENAI_API_KEY não configurada');
+      return null;
+    }
+
+    // Remover tags HTML para análise (preservar apenas o texto)
+    const textoLimpo = textoOriginal
+      .replace(/<[^>]*>/g, ' ') // Remove tags HTML
+      .replace(/\s+/g, ' ') // Remove espaços múltiplos
+      .trim();
+
+    if (!textoLimpo || textoLimpo.length < 10) {
+      console.warn('⚠️ Texto muito curto para correção');
+      return null;
+    }
+
+    const systemMessage = `Você é um assistente especializado em correção de laudos técnicos para assistência técnica de equipamentos eletrônicos.
+
+INSTRUÇÕES:
+1. Corrija erros de ortografia e gramática
+2. Melhore a clareza e objetividade do texto
+3. Mantenha todos os termos técnicos e informações técnicas exatas
+4. Preserve a estrutura e formatação do texto original
+5. Use linguagem técnica profissional e clara
+6. Mantenha parágrafos e quebras de linha quando apropriado
+7. NÃO adicione informações que não estavam no texto original
+8. Retorne APENAS o texto corrigido, sem explicações ou comentários
+
+O texto deve ser retornado em formato HTML simples, usando tags como <p>, <strong>, <em>, <ul>, <ol>, <li> quando apropriado para melhor formatação.`;
+
+    const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+      {
+        role: 'system',
+        content: systemMessage,
+      },
+      {
+        role: 'user',
+        content: `Corrija e melhore o seguinte laudo técnico:\n\n${textoLimpo}`,
+      },
+    ];
+
+    console.log('🤖 Corrigindo laudo técnico com ChatGPT:', {
+      textoLength: textoLimpo.length,
+      preview: textoLimpo.substring(0, 100),
+    });
+
+    const completion = await client.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages,
+      max_tokens: 2000,
+      temperature: 0.3, // Temperatura baixa para manter precisão técnica
+    });
+
+    const response = completion.choices[0]?.message?.content;
+
+    if (!response) {
+      console.error('❌ ChatGPT retornou resposta vazia para correção de laudo');
+      return null;
+    }
+
+    console.log('✅ Laudo técnico corrigido:', {
+      length: response.length,
+      preview: response.substring(0, 100),
+    });
+
+    // Retornar o texto corrigido (já em HTML se o modelo retornou)
+    return response.trim();
+
+  } catch (error: any) {
+    console.error('❌ Erro ao corrigir laudo técnico com ChatGPT:', {
+      error: error.message,
+      code: error.code,
+      status: error.status,
+    });
+    
+    return null;
+  }
+}
+

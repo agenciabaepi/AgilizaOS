@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useToast } from '@/components/Toast'
+import { useSubscription } from '@/hooks/useSubscription'
 import { FiPlus, FiEdit2, FiTrash2, FiX, FiSave } from 'react-icons/fi'
 import { supabase } from '@/lib/supabaseClient'
 
@@ -44,6 +45,7 @@ interface ConfigAvisoContasPagar {
 export default function AvisosPage() {
   const { usuarioData, empresaData, loading: authLoading } = useAuth()
   const { addToast } = useToast()
+  const { temRecurso } = useSubscription()
   const [avisos, setAvisos] = useState<Aviso[]>([])
   const [loading, setLoading] = useState(true) // Iniciar como true para mostrar loading na primeira renderização
   const [showModal, setShowModal] = useState(false)
@@ -974,7 +976,8 @@ export default function AvisosPage() {
         </div>
       )}
 
-      {/* Seção de Avisos de Contas a Pagar */}
+      {/* Seção de Avisos de Contas a Pagar - Apenas para empresas com módulo financeiro */}
+      {temRecurso('financeiro') && (
       <div className="mt-8 pt-8 border-t border-gray-200">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -1055,6 +1058,7 @@ export default function AvisosPage() {
           </div>
         )}
       </div>
+      )}
 
       {/* Modal de criar/editar configuração de avisos de contas a pagar */}
       {showModalContasPagar && (

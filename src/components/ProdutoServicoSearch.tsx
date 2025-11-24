@@ -59,12 +59,14 @@ export default function ProdutoServicoSearch({
       try {
         // Usar safeQuery para verificar se a tabela existe antes de consultar
         const { data, error } = await safeQuery('produtos_servicos', async () => {
+          const searchPattern = `%${searchTerm}%`;
           let query = supabase
             .from('produtos_servicos')
             .select('id, nome, preco, tipo, codigo, marca, categoria, grupo, obs')
-            .eq('ativo', true)
-            .or(`nome.ilike.%${searchTerm}%,codigo.ilike.%${searchTerm}%,categoria.ilike.%${searchTerm}%,marca.ilike.%${searchTerm}%`)
-            .limit(10);
+            .eq('ativo', true);
+          
+          // Aplicar filtro de busca com OR (deve ser aplicado após eq)
+          query = query.or(`nome.ilike.${searchPattern},codigo.ilike.${searchPattern},categoria.ilike.${searchPattern},marca.ilike.${searchPattern}`);
 
           if (tipo !== 'todos') {
             query = query.eq('tipo', tipo);
@@ -75,7 +77,7 @@ export default function ProdutoServicoSearch({
             query = query.eq('empresa_id', empresaId);
           }
 
-          return query;
+          return query.limit(10);
         });
 
         // Se a tabela não existe, usar dados de teste

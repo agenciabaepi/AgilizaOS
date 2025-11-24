@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/useToast';
 import { useConfirm } from '@/hooks/useConfirm';
 import { useFluxoCaixa, FluxoCaixaFormData } from '@/hooks/useFluxoCaixa';
 import MenuLayout from '@/components/MenuLayout';
+import AuthGuard from '@/components/AuthGuard';
 import { FiChevronLeft, FiChevronRight, FiCalendar } from 'react-icons/fi';
 
 export default function FluxoCaixaPage() {
@@ -262,6 +263,7 @@ export default function FluxoCaixaPage() {
 
   return (
     <MenuLayout>
+      <AuthGuard requiredPermission="financeiro">
       <div className="p-6">
       {/* Cabeçalho */}
       <div className="flex justify-between items-center mb-6">
@@ -689,7 +691,8 @@ export default function FluxoCaixaPage() {
 
       {/* Modal de confirmação */}
       <ConfirmDialog />
-      </div>
+        </div>
+      </AuthGuard>
     </MenuLayout>
   );
 }

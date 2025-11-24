@@ -9,10 +9,12 @@ import ProdutoServicoManager from '@/components/ProdutoServicoManager';
 import EquipamentoSelector from '@/components/EquipamentoSelector';
 import DynamicChecklist from '@/components/DynamicChecklist';
 import ImageEditor from '@/components/ImageEditor';
+import LaudoEditor from '@/components/LaudoEditor';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { useAuth } from '@/context/AuthContext';
 import { useStatusHistorico } from '@/hooks/useStatusHistorico';
+import { useSubscription } from '@/hooks/useSubscription';
 import { FiArrowLeft, FiSave, FiUser, FiCheckCircle, FiTool, FiFileText, FiEdit3 } from 'react-icons/fi';
 
 interface Item {
@@ -76,6 +78,7 @@ export default function EditarOSSimples() {
   const confirm = useConfirm();
   const { usuarioData, empresaData } = useAuth();
   const { registrarMudancaStatus, historico, buscarHistorico } = useStatusHistorico(id);
+  const { temRecurso } = useSubscription();
 
   const [ordem, setOrdem] = useState<Ordem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -610,6 +613,12 @@ export default function EditarOSSimples() {
 
   // Função para abrir editor de imagem
   const abrirEditorImagem = (imageUrl: string, index: number, isNew: boolean = false) => {
+    // Verificar se tem o recurso editor_foto
+    if (!temRecurso('editor_foto')) {
+      addToast('error', 'Editor de imagens disponível apenas no plano Ultra. Faça upgrade para acessar.');
+      return;
+    }
+    
     setEditingImageUrl(imageUrl);
     setEditingImageIndex(index);
     setEditingNewImage(isNew);
@@ -1142,12 +1151,11 @@ export default function EditarOSSimples() {
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Laudo Técnico</label>
-              <textarea
+              <LaudoEditor
                 value={laudo}
-                onChange={(e) => setLaudo(e.target.value.toUpperCase())}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase"
-                rows={4}
+                onChange={setLaudo}
                 placeholder="Diagnóstico detalhado e procedimentos realizados..."
+                minHeight="160px"
               />
             </div>
           </div>

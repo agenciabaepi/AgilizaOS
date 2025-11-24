@@ -38,7 +38,7 @@ interface Limites {
 }
 
 export const useSubscription = () => {
-  const { user, usuarioData } = useAuth();
+  const { user, usuarioData, empresaData } = useAuth();
   const [assinatura, setAssinatura] = useState<Assinatura | null>(null);
   const [limites, setLimites] = useState<Limites | null>(null);
   const [loading, setLoading] = useState(true);
@@ -97,8 +97,15 @@ export const useSubscription = () => {
           
           // Buscar limites reais
           await fetchLimites(usuarioData.empresa_id);
-        } else if (assinaturaError && assinaturaError.code !== 'PGRST116') {
-          console.error('Erro ao buscar assinatura:', assinaturaError);
+        } else {
+          // Se não encontrou assinatura, verificar se há coluna plano na empresa (fallback legado)
+          if (assinaturaError && assinaturaError.code === 'PGRST116') {
+            // Não há assinatura, mas isso é OK - o sistema funcionará sem restrições
+            // ou pode criar uma assinatura padrão se necessário
+            console.log('⚠️ Empresa sem assinatura registrada. Sistema funcionará sem restrições de módulos.');
+          } else if (assinaturaError) {
+            console.error('Erro ao buscar assinatura:', assinaturaError);
+          }
         }
       } catch (error) {
         console.error('Erro ao buscar assinatura:', error);
@@ -180,7 +187,18 @@ export const useSubscription = () => {
   };
 
   const temRecurso = (recurso: string): boolean => {
-    if (!assinatura) return true;
+    // 1. Verificar se há recursos customizados (prioridade máxima)
+    if (empresaData?.recursos_customizados && recurso in empresaData.recursos_customizados) {
+      return empresaData.recursos_customizados[recurso] === true;
+    }
+    
+    // 2. Se não há assinatura, permite acesso (compatibilidade com sistema legado)
+    if (!assinatura) {
+      console.warn(`⚠️ Verificando recurso '${recurso}' sem assinatura. Permitindo acesso por compatibilidade.`);
+      return true;
+    }
+    
+    // 3. Usar recursos do plano (padrão)
     return assinatura.plano.recursos_disponiveis[recurso] === true;
   };
 

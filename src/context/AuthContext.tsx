@@ -26,6 +26,7 @@ interface EmpresaData {
   telefone?: string;
   email?: string;
   ativo?: boolean; // Campo para verificar se empresa está ativa
+  recursos_customizados?: Record<string, boolean> | null; // Recursos customizados pelo admin
 }
 
 interface AuthContextType {

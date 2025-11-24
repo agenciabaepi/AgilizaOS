@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/Toast';
 import MenuLayout from '@/components/MenuLayout';
+import AuthGuard from '@/components/AuthGuard';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { Select } from '@/components/Select';
@@ -1297,16 +1298,18 @@ function ContasAPagarPageContent() {
 
 export default function ContasAPagarPage() {
   return (
-    <Suspense fallback={
-      <MenuLayout>
-        <div className="p-6">
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+    <AuthGuard requiredPermission="contas-a-pagar">
+      <Suspense fallback={
+        <MenuLayout>
+          <div className="p-6">
+            <div className="flex items-center justify-center h-64">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+            </div>
           </div>
-        </div>
-      </MenuLayout>
-    }>
-      <ContasAPagarPageContent />
-    </Suspense>
+        </MenuLayout>
+      }>
+        <ContasAPagarPageContent />
+      </Suspense>
+    </AuthGuard>
   );
 }

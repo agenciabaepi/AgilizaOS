@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import MenuLayout from '@/components/MenuLayout';
+import AuthGuard from '@/components/AuthGuard';
 import DashboardCard from '@/components/ui/DashboardCard';
 import { Button } from '@/components/Button';
 import { useAuth } from '@/context/AuthContext';
@@ -164,7 +165,8 @@ export default function MovimentacoesCaixaPage() {
   };
 
   return (
-    <MenuLayout>
+    <AuthGuard requiredPermission="movimentacao-caixa">
+      <MenuLayout>
       <div className="p-8">
         <h1 className="text-2xl font-bold mb-6">Movimentações de Caixa</h1>
         
@@ -350,5 +352,6 @@ export default function MovimentacoesCaixaPage() {
         </div>
       </div>
     </MenuLayout>
+    </AuthGuard>
   );
 } 

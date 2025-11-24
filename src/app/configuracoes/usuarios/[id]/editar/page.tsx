@@ -8,6 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import MenuLayout from '@/components/MenuLayout';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
+import { useSubscription } from '@/hooks/useSubscription';
 import { 
   FiArrowLeft, 
   FiUser, 
@@ -145,6 +146,7 @@ function EditarUsuarioPageInner() {
   const { addToast } = useToast();
   const confirm = useConfirm();
   const { session } = useAuth();
+  const { temRecurso } = useSubscription();
   const userId = params?.id as string;
 
   const [loading, setLoading] = useState(true);
@@ -415,9 +417,13 @@ function EditarUsuarioPageInner() {
       if (value === 'tecnico') {
         permissoesPadrao = ['dashboard', 'ordens', 'clientes', 'bancada', 'equipamentos'];
       } else if (value === 'financeiro') {
-        permissoesPadrao = ['dashboard', 'lembretes', 'clientes', 'ordens', 'equipamentos', 'financeiro', 'vendas', 'caixa'];
+        permissoesPadrao = temRecurso('financeiro')
+          ? ['dashboard', 'lembretes', 'clientes', 'ordens', 'equipamentos', 'financeiro', 'vendas', 'caixa']
+          : ['dashboard', 'lembretes', 'clientes', 'ordens', 'equipamentos'];
       } else if (value === 'atendente') {
-        permissoesPadrao = ['dashboard', 'lembretes', 'clientes', 'ordens', 'equipamentos', 'caixa', 'produtos'];
+        permissoesPadrao = temRecurso('financeiro')
+          ? ['dashboard', 'lembretes', 'clientes', 'ordens', 'equipamentos', 'caixa', 'produtos']
+          : ['dashboard', 'lembretes', 'clientes', 'ordens', 'equipamentos', 'produtos'];
       } else if (value === 'admin') {
         permissoesPadrao = PERMISSOES_SISTEMA.map(p => p.key);
       }
@@ -869,7 +875,15 @@ function EditarUsuarioPageInner() {
                   <div>
                     <h4 className="text-md font-semibold text-gray-800 mb-3">Módulos Principais</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {PERMISSOES_CASCATA.principais.map((permissao) => {
+                      {PERMISSOES_CASCATA.principais
+                        .filter(permissao => {
+                          // Ocultar caixa e comissões se não tiver recurso financeiro
+                          if ((permissao.key === 'caixa' || permissao.key === 'comissoes') && !temRecurso('financeiro')) {
+                            return false;
+                          }
+                          return true;
+                        })
+                        .map((permissao) => {
                         const IconComponent = permissao.icon;
                         const isChecked = form.permissoes.includes(permissao.key);
                         const isDashboard = permissao.key === 'dashboard';
@@ -915,6 +929,7 @@ function EditarUsuarioPageInner() {
                   </div>
 
                   {/* Módulo Financeiro com Sub-permissões */}
+                  {temRecurso('financeiro') && (
                   <div>
                     <h4 className="text-md font-semibold text-gray-800 mb-3">Módulo Financeiro</h4>
                     <div className="space-y-3">
@@ -984,6 +999,7 @@ function EditarUsuarioPageInner() {
                       )}
                     </div>
                   </div>
+                  )}
 
                   {/* Módulo Contatos com Sub-permissões */}
                   <div>

@@ -2,6 +2,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import MenuLayout from '@/components/MenuLayout';
+import AuthGuard from '@/components/AuthGuard';
 import { CupomVenda } from '@/components/CupomVenda';
 import { Dialog } from '@/components/Dialog';
 import { Button } from '@/components/Button';
@@ -245,8 +246,9 @@ export default function ListaVendasPage() {
   };
 
   return (
+    <AuthGuard requiredPermission="vendas">
       <MenuLayout>
-      <div className="p-8">
+        <div className="p-8">
         <h1 className="text-2xl font-bold mb-6">Vendas</h1>
         
         {/* Filtros */}
@@ -457,5 +459,6 @@ export default function ListaVendasPage() {
         )}
       </div>
       </MenuLayout>
+    </AuthGuard>
   );
 } 

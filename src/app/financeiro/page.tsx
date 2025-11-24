@@ -1,5 +1,6 @@
 
 import MenuLayout from '@/components/MenuLayout';
+import AuthGuard from '@/components/AuthGuard';
 import Link from 'next/link';
 import { FiDollarSign, FiFileText, FiTrendingUp, FiUsers } from 'react-icons/fi';
 
@@ -43,8 +44,9 @@ export default function FinanceiroPage() {
   ];
 
   return (
-    <MenuLayout>
-      <div className="p-6">
+    <AuthGuard requiredPermission="financeiro">
+      <MenuLayout>
+        <div className="p-6">
         <h1 className="text-2xl font-bold text-gray-800 mb-6">Financeiro</h1>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
@@ -66,6 +68,7 @@ export default function FinanceiroPage() {
           })}
         </div>
       </div>
-    </MenuLayout>
+      </MenuLayout>
+    </AuthGuard>
   );
 } 

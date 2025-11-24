@@ -297,11 +297,12 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
         id: empresaData.id,
         nome: empresaData.nome || '',
         cnpj: empresaData.cnpj || '',
+        recursos_customizados: empresaData.recursos_customizados || null,
         endereco: empresaData.endereco || '',
         telefone: empresaData.telefone || '',
         email: empresaData.email || '',
         logo_url: empresaData.logo_url || '',
-        plano: 'trial',
+        plano: empresaData.plano || 'trial',
         ativo: empresaData.ativo ?? true // Incluir campo ativo
       }
     };

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/Toast';
@@ -43,6 +43,42 @@ export default function ProdutoServicoManager({
   const { usuarioData } = useAuth();
   const { addToast } = useToast();
   const confirm = useConfirm();
+  
+  // Função para validar se um item é válido
+  const isItemValido = (item: Item): boolean => {
+    return !!(
+      item.nome && 
+      item.nome.trim() !== '' && 
+      !/^[\d\s]+$/.test(item.nome.trim()) && // Não apenas números
+      item.nome.trim().length > 1 // Nome com pelo menos 2 caracteres
+    );
+  };
+  
+  // Filtrar itens inválidos automaticamente quando itens mudam
+  // Usar useRef para evitar loops infinitos
+  const prevItensRef = useRef<string>('');
+  useEffect(() => {
+    const itensStr = JSON.stringify(itens.map(i => ({ nome: i.nome, preco: i.preco, quantidade: i.quantidade })));
+    // Só processar se os itens realmente mudaram
+    if (prevItensRef.current === itensStr) return;
+    prevItensRef.current = itensStr;
+    
+    const itensValidos = itens.filter(isItemValido);
+    // Só atualizar se realmente houver diferença e se houver itens inválidos
+    if (itensValidos.length !== itens.length && itens.length > 0) {
+      console.log('🧹 Removendo itens inválidos:', {
+        total: itens.length,
+        validos: itensValidos.length,
+        removidos: itens.length - itensValidos.length,
+        itensInvalidos: itens.filter(item => !isItemValido(item)).map(i => i.nome)
+      });
+      // Usar setTimeout para evitar atualizações síncronas que podem causar loops
+      setTimeout(() => {
+        onItensChange(itensValidos);
+      }, 0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itens]);
   
   const [produtosServicos, setProdutosServicos] = useState<ProdutoServico[]>([]);
   const [loading, setLoading] = useState(false);
@@ -139,16 +175,41 @@ export default function ProdutoServicoManager({
   };
 
   const removerItem = async (index: number) => {
+    if (index < 0 || index >= itens.length) {
+      console.error('Índice inválido para remover:', index, 'Total de itens:', itens.length);
+      return;
+    }
+
+    const itemToRemove = itens[index];
+    if (!itemToRemove) {
+      console.error('Item não encontrado no índice:', index);
+      return;
+    }
+
     const confirmed = await confirm({
       title: 'Remover Item',
-      message: `Deseja remover "${itens[index].nome}"?`,
+      message: `Deseja remover "${itemToRemove.nome}"?`,
       confirmText: 'Remover',
       cancelText: 'Cancelar'
     });
 
     if (confirmed) {
       const novosItens = itens.filter((_, i) => i !== index);
-      onItensChange(novosItens);
+      console.log('🗑️ Removendo item:', { 
+        index, 
+        itemToRemove, 
+        totalAntes: itens.length, 
+        totalDepois: novosItens.length,
+        itensAntes: itens.map(i => i.nome),
+        itensDepois: novosItens.map(i => i.nome)
+      });
+      
+      // Garantir que onItensChange é chamado com uma nova referência
+      if (onItensChange) {
+        onItensChange([...novosItens]);
+      } else {
+        console.error('❌ onItensChange não está definido!');
+      }
     }
   };
 
@@ -211,7 +272,15 @@ export default function ProdutoServicoManager({
   };
 
   const calcularTotal = () => {
-    return itens.reduce((total, item) => {
+    // Filtrar apenas itens válidos para o cálculo
+    const itensValidos = itens.filter(item => 
+      item.nome && 
+      item.nome.trim() !== '' && 
+      !/^[\d\s]+$/.test(item.nome.trim()) && 
+      item.nome.trim().length > 1
+    );
+    
+    return itensValidos.reduce((total, item) => {
       const preco = typeof item.preco === 'number' ? item.preco : parseFloat(String(item.preco));
       const quantidade = typeof item.quantidade === 'number' ? item.quantidade : parseInt(String(item.quantidade));
       const totalItem = item.total ?? ((isNaN(preco) ? 0 : preco) * (isNaN(quantidade) ? 0 : quantidade));
@@ -252,14 +321,33 @@ export default function ProdutoServicoManager({
         )}
       </div>
 
-      {/* Lista de itens */}
-      <div className="space-y-3 mb-4">
-        {itens.map((item, index) => {
+      {/* Lista de itens - filtrar itens inválidos */}
+      {(() => {
+        const itensValidos = useMemo(() => itens.filter(isItemValido), [itens]);
+        
+        return (
+          <div className="space-y-3 mb-4">
+            {itensValidos.map((item, filteredIndex) => {
+          // Encontrar o índice real no array original para operações de edição/remoção
+          const realIndex = itens.findIndex((i, idx) => {
+            // Tentar encontrar por ID primeiro
+            if (i.id && item.id && i.id === item.id) return true;
+            // Se não tiver ID, tentar por nome, preço e quantidade
+            if (!i.id && !item.id) {
+              return i.nome === item.nome && 
+                     i.preco === item.preco && 
+                     (i.quantidade || 1) === (item.quantidade || 1);
+            }
+            return false;
+          });
+          const index = realIndex >= 0 ? realIndex : filteredIndex;
+          
           const preco = typeof item.preco === 'number' ? item.preco : parseFloat(String(item.preco));
           const quantidade = typeof item.quantidade === 'number' ? item.quantidade : parseInt(String(item.quantidade));
           const totalItem = item.total ?? ((isNaN(preco) ? 0 : preco) * (isNaN(quantidade) ? 0 : quantidade));
+          const itemKey = item.id || `item-${index}-${item.nome}`;
           return (
-          <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+          <div key={itemKey} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
             <div className="flex-1">
               {editingIndex === index && !readonly ? (
                 <input
@@ -317,8 +405,13 @@ export default function ProdutoServicoManager({
             
             {!readonly && (
               <button
-                onClick={() => removerItem(index)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  removerItem(index);
+                }}
                 className="p-1 text-red-500 hover:text-red-700 transition-colors"
+                type="button"
               >
                 <FiTrash2 size={16} />
               </button>
@@ -326,7 +419,9 @@ export default function ProdutoServicoManager({
           </div>
           );
         })}
-      </div>
+          </div>
+        );
+      })()}
 
       {/* Formulário de adicionar */}
       {showAddForm && !readonly && (

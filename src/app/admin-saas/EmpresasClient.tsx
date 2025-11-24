@@ -14,6 +14,7 @@ type Empresa = {
   status?: string | null; // pendente, aprovada, reprovada
   ativo?: boolean | null;
   created_at?: string | null;
+  logo_url?: string | null;
   metrics?: {
     usuarios: number;
     produtos: number;
@@ -53,6 +54,16 @@ export default function EmpresasClient() {
 
   const [showCreate, setShowCreate] = useState(false);
   const [createData, setCreateData] = useState({ nome: '', email: '', cnpj: '' });
+  const [showAlterarPlano, setShowAlterarPlano] = useState(false);
+  const [empresaSelecionada, setEmpresaSelecionada] = useState<Empresa | null>(null);
+  const [planos, setPlanos] = useState<Array<{ id: string; nome: string; descricao: string; preco: number }>>([]);
+  const [planoSelecionado, setPlanoSelecionado] = useState<string>('');
+  const [observacoes, setObservacoes] = useState('');
+  const [alterandoPlano, setAlterandoPlano] = useState(false);
+  
+  const [showGerenciarRecursos, setShowGerenciarRecursos] = useState(false);
+  const [recursosCustomizados, setRecursosCustomizados] = useState<Record<string, boolean>>({});
+  const [salvandoRecursos, setSalvandoRecursos] = useState(false);
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / pageSize)), [total, pageSize]);
 
   async function fetchItems(opts?: { keepPage?: boolean }) {
@@ -118,6 +129,101 @@ export default function EmpresasClient() {
     setShowCreate(false);
     setCreateData({ nome: '', email: '', cnpj: '' });
     await fetchItems({ keepPage: true });
+  }
+
+  async function handleAlterarPlano(e: Empresa) {
+    setEmpresaSelecionada(e);
+    setShowAlterarPlano(true);
+    setPlanoSelecionado(e.billing?.plano?.id || '');
+    setObservacoes('');
+
+    // Buscar planos disponíveis
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
+      const res = await fetch(`${baseUrl}/api/admin-saas/planos`, { cache: 'no-store' });
+      const json = await res.json();
+      if (res.ok && json.ok) {
+        setPlanos(json.planos || []);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar planos:', err);
+    }
+  }
+
+  async function confirmarAlterarPlano() {
+    if (!empresaSelecionada || !planoSelecionado) return;
+
+    setAlterandoPlano(true);
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
+      const res = await fetch(`${baseUrl}/api/admin-saas/empresas/${empresaSelecionada.id}/alterar-plano`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          plano_id: planoSelecionado,
+          observacoes: observacoes || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        throw new Error(json.message || 'Falha ao alterar plano');
+      }
+      setShowAlterarPlano(false);
+      setEmpresaSelecionada(null);
+      setPlanoSelecionado('');
+      setObservacoes('');
+      await fetchItems({ keepPage: true });
+    } catch (err: any) {
+      setError(err.message || 'Erro ao alterar plano');
+    } finally {
+      setAlterandoPlano(false);
+    }
+  }
+
+  async function handleGerenciarRecursos(e: Empresa) {
+    setEmpresaSelecionada(e);
+    setShowGerenciarRecursos(true);
+    
+    // Buscar recursos customizados atuais
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
+      const res = await fetch(`${baseUrl}/api/admin-saas/empresas/${e.id}/recursos`, { cache: 'no-store' });
+      const json = await res.json();
+      if (res.ok && json.ok) {
+        setRecursosCustomizados(json.recursos || {});
+      } else {
+        setRecursosCustomizados({});
+      }
+    } catch (err) {
+      console.error('Erro ao buscar recursos:', err);
+      setRecursosCustomizados({});
+    }
+  }
+
+  async function confirmarSalvarRecursos() {
+    if (!empresaSelecionada) return;
+
+    setSalvandoRecursos(true);
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
+      const res = await fetch(`${baseUrl}/api/admin-saas/empresas/${empresaSelecionada.id}/recursos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recursos: recursosCustomizados }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        throw new Error(json.message || 'Falha ao salvar recursos');
+      }
+      setShowGerenciarRecursos(false);
+      setEmpresaSelecionada(null);
+      setRecursosCustomizados({});
+      await fetchItems({ keepPage: true });
+    } catch (err: any) {
+      setError(err.message || 'Erro ao salvar recursos');
+    } finally {
+      setSalvandoRecursos(false);
+    }
   }
 
   return (
@@ -201,10 +307,34 @@ export default function EmpresasClient() {
               </tr>
             ) : (
               items.map(e => (
-                <tr key={e.id} className="hover:bg-gray-50 transition-colors">
+                <tr 
+                  key={e.id} 
+                  className="hover:bg-gray-50 transition-colors cursor-pointer"
+                  onClick={() => window.location.href = `/admin-saas/empresas/${e.id}`}
+                >
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium text-gray-900">{e.nome}</div>
-                    <div className="text-xs text-gray-500 mt-0.5">{e.email || '-'} • {e.cnpj || '-'}</div>
+                    <div className="flex items-center gap-3">
+                      {e.logo_url ? (
+                        <img 
+                          src={e.logo_url} 
+                          alt={e.nome}
+                          className="w-10 h-10 rounded-lg object-cover border border-gray-200"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center border border-gray-200">
+                          <span className="text-gray-400 text-xs font-medium">
+                            {e.nome.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )}
+                      <div>
+                        <div className="font-medium text-gray-900 hover:text-blue-600">{e.nome}</div>
+                        <div className="text-xs text-gray-500 mt-0.5">{e.email || '-'} • {e.cnpj || '-'}</div>
+                      </div>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {e.status ? (
@@ -257,32 +387,14 @@ export default function EmpresasClient() {
                   <td className="px-6 py-4 whitespace-nowrap text-gray-600">{e.metrics?.servicos ?? 0}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-gray-600">{e.metrics?.ordens ?? 0}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-gray-600">{e.metrics?.usoMb ?? 0}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <Button 
-                        size="sm" 
-                        onClick={() => handleApprove(e)} 
-                        className="bg-green-600 hover:bg-green-700 text-white text-xs px-2 py-1"
-                      >
-                        Aprovar
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="destructive" 
-                        onClick={() => handleReject(e)} 
-                        className="bg-red-600 hover:bg-red-700 text-xs px-2 py-1"
-                      >
-                        Reprovar
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        onClick={() => handleToggleActive(e)} 
-                        className="border-gray-300 text-xs px-2 py-1"
-                      >
-                        {e.ativo ? 'Desativar' : 'Ativar'}
-                      </Button>
-                    </div>
+                  <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                    <Button 
+                      size="sm" 
+                      onClick={() => window.location.href = `/admin-saas/empresas/${e.id}`}
+                      className="bg-gray-900 hover:bg-gray-800 text-white text-xs px-3 py-1"
+                    >
+                      Ver Detalhes
+                    </Button>
                   </td>
                 </tr>
               ))
@@ -367,6 +479,235 @@ export default function EmpresasClient() {
                   Salvar
                 </Button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Alterar Plano */}
+      {showAlterarPlano && empresaSelecionada && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowAlterarPlano(false)}>
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Alterar Plano da Empresa</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Empresa</label>
+                <div className="text-sm text-gray-900 font-medium">{empresaSelecionada.nome}</div>
+                {empresaSelecionada.billing?.plano?.nome && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    Plano atual: <span className="font-medium">{empresaSelecionada.billing.plano.nome}</span>
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Novo Plano</label>
+                <select
+                  value={planoSelecionado}
+                  onChange={(e) => setPlanoSelecionado(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                >
+                  <option value="">Selecione um plano</option>
+                  {planos.map((plano) => (
+                    <option key={plano.id} value={plano.id}>
+                      {plano.nome} - R$ {plano.preco.toFixed(2)}/mês
+                    </option>
+                  ))}
+                </select>
+                {planos.find(p => p.id === planoSelecionado) && (
+                  <div className="mt-2 text-xs text-gray-600">
+                    {planos.find(p => p.id === planoSelecionado)?.descricao}
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Observações (opcional)</label>
+                <textarea
+                  value={observacoes}
+                  onChange={(e) => setObservacoes(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                  rows={3}
+                  placeholder="Observações sobre a alteração do plano..."
+                />
+              </div>
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setShowAlterarPlano(false);
+                    setEmpresaSelecionada(null);
+                    setPlanoSelecionado('');
+                    setObservacoes('');
+                  }}
+                  className="border-gray-300 hover:bg-gray-50"
+                  disabled={alterandoPlano}
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={confirmarAlterarPlano}
+                  className="bg-gray-900 hover:bg-gray-800 text-white"
+                  disabled={!planoSelecionado || alterandoPlano}
+                >
+                  {alterandoPlano ? 'Alterando...' : 'Confirmar Alteração'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Gerenciar Recursos */}
+      {showGerenciarRecursos && empresaSelecionada && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowGerenciarRecursos(false)}>
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Gerenciar Recursos - {empresaSelecionada.nome}</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Libere ou bloqueie recursos específicos para esta empresa. 
+              <br />
+              <span className="font-medium">Por padrão, os recursos seguem o plano da empresa.</span>
+              <br />
+              <span className="text-xs text-gray-500">Recursos marcados aqui sobrescrevem os recursos do plano.</span>
+            </p>
+            
+            <div className="space-y-4 mb-6">
+              {/* Financeiro */}
+              <div className="border border-gray-200 rounded-lg p-4">
+                <h4 className="font-semibold text-gray-900 mb-3">Módulo Financeiro</h4>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={recursosCustomizados['financeiro'] === true}
+                      onChange={(e) => setRecursosCustomizados({
+                        ...recursosCustomizados,
+                        financeiro: e.target.checked
+                      })}
+                      className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
+                    />
+                    <span className="text-sm text-gray-700">Financeiro Completo</span>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={recursosCustomizados['vendas'] === true}
+                      onChange={(e) => setRecursosCustomizados({
+                        ...recursosCustomizados,
+                        vendas: e.target.checked
+                      })}
+                      className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
+                    />
+                    <span className="text-sm text-gray-700">Vendas</span>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={recursosCustomizados['contas_pagar'] === true}
+                      onChange={(e) => setRecursosCustomizados({
+                        ...recursosCustomizados,
+                        contas_pagar: e.target.checked
+                      })}
+                      className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
+                    />
+                    <span className="text-sm text-gray-700">Contas a Pagar</span>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={recursosCustomizados['movimentacao_caixa'] === true}
+                      onChange={(e) => setRecursosCustomizados({
+                        ...recursosCustomizados,
+                        movimentacao_caixa: e.target.checked
+                      })}
+                      className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
+                    />
+                    <span className="text-sm text-gray-700">Movimentações de Caixa</span>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={recursosCustomizados['lucro_desempenho'] === true}
+                      onChange={(e) => setRecursosCustomizados({
+                        ...recursosCustomizados,
+                        lucro_desempenho: e.target.checked
+                      })}
+                      className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
+                    />
+                    <span className="text-sm text-gray-700">Lucro & Desempenho</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* WhatsApp e Automações */}
+              <div className="border border-gray-200 rounded-lg p-4">
+                <h4 className="font-semibold text-gray-900 mb-3">Automações</h4>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={recursosCustomizados['whatsapp'] === true}
+                      onChange={(e) => setRecursosCustomizados({
+                        ...recursosCustomizados,
+                        whatsapp: e.target.checked
+                      })}
+                      className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
+                    />
+                    <span className="text-sm text-gray-700">WhatsApp</span>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={recursosCustomizados['chatgpt'] === true}
+                      onChange={(e) => setRecursosCustomizados({
+                        ...recursosCustomizados,
+                        chatgpt: e.target.checked
+                      })}
+                      className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
+                    />
+                    <span className="text-sm text-gray-700">ChatGPT / IA</span>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={recursosCustomizados['editor_foto'] === true}
+                      onChange={(e) => setRecursosCustomizados({
+                        ...recursosCustomizados,
+                        editor_foto: e.target.checked
+                      })}
+                      className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
+                    />
+                    <span className="text-sm text-gray-700">Editor de Fotos</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-6">
+              <p className="text-xs text-yellow-800">
+                <strong>Nota:</strong> Para remover todas as customizações e voltar a usar apenas os recursos do plano, 
+                desmarque todos os recursos e salve.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setShowGerenciarRecursos(false);
+                  setEmpresaSelecionada(null);
+                  setRecursosCustomizados({});
+                }}
+                className="border-gray-300 hover:bg-gray-50"
+                disabled={salvandoRecursos}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={confirmarSalvarRecursos}
+                className="bg-gray-900 hover:bg-gray-800 text-white"
+                disabled={salvandoRecursos}
+              >
+                {salvandoRecursos ? 'Salvando...' : 'Salvar Recursos'}
+              </Button>
             </div>
           </div>
         </div>

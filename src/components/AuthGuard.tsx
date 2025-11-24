@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
+import { getRequiredResource } from '@/config/pageResources';
+import { useSubscription } from '@/hooks/useSubscription';
+import UpgradeRequiredModal from '@/components/UpgradeRequiredModal';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -50,9 +53,11 @@ export default function AuthGuard({
   const router = useRouter();
   const pathname = usePathname();
   const { user, usuarioData, empresaData, loading: authLoading } = useAuth();
+  const { temRecurso, loading: subscriptionLoading } = useSubscription();
   
   const [isChecking, setIsChecking] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [missingResource, setMissingResource] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -108,7 +113,28 @@ export default function AuthGuard({
           }
         }
 
-        // Passo 5: Tudo OK, autorizar acesso
+        // Passo 5: Verificar recurso do plano se necessário
+        const requiredResource = getRequiredResource(pathname);
+        if (requiredResource) {
+          // Aguardar carregamento da assinatura
+          if (subscriptionLoading) {
+            timeoutId = setTimeout(() => checkAuth(), 100);
+            return;
+          }
+
+          const hasResource = temRecurso(requiredResource);
+          
+          if (!hasResource) {
+            console.log(`🚫 AuthGuard: Plano não tem acesso ao recurso '${requiredResource}'`);
+            if (isMounted) {
+              setMissingResource(requiredResource);
+              setIsChecking(false);
+            }
+            return;
+          }
+        }
+
+        // Passo 6: Tudo OK, autorizar acesso
         if (isMounted) {
           setIsAuthorized(true);
           setIsChecking(false);
@@ -137,7 +163,7 @@ export default function AuthGuard({
       clearTimeout(timeoutId);
       clearTimeout(safetyTimeout);
     };
-  }, [user, usuarioData, empresaData, authLoading, requiredPermission, fallbackPath, pathname, router]);
+  }, [user, usuarioData, empresaData, authLoading, requiredPermission, fallbackPath, pathname, router, temRecurso, subscriptionLoading]);
 
   /**
    * Verifica se o usuário tem a permissão necessária
@@ -190,6 +216,11 @@ export default function AuthGuard({
         </div>
       </div>
     );
+  }
+
+  // Se não tem recurso necessário, mostra modal de upgrade
+  if (missingResource) {
+    return <UpgradeRequiredModal resource={missingResource} onClose={() => router.push(fallbackPath)} />;
   }
 
   // Se não está autorizado, não mostra nada (já está redirecionando)

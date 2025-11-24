@@ -9,6 +9,7 @@ import { useAuth } from '@/context/AuthContext'
 // Removido ProtectedArea - agora é responsabilidade do MenuLayout
 import { ToastProvider } from '@/components/Toast'
 import { ConfirmProvider } from '@/components/ConfirmDialog'
+import { useSubscription } from '@/hooks/useSubscription'
 
 // Dynamic import com SSR desabilitado para a página de empresa
 const EmpresaPage = dynamic(() => import('./empresa/page'), { ssr: false })
@@ -36,6 +37,7 @@ function ConfiguracoesInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, loading: authLoading, usuarioData } = useAuth()
+  const { temRecurso } = useSubscription()
   const [tabIndex, setTabIndex] = useState(0)
 
   useEffect(() => {
@@ -88,23 +90,29 @@ function ConfiguracoesInner() {
     return permissoes.includes(configPermissao);
   };
   
-  // Construir abas baseado nas permissões do usuário
+  // Construir abas baseado nas permissões do usuário e recursos do plano
   const tabsConfig = [
-    { name: 'Empresa', component: <EmpresaPage />, permissao: 'empresa' },
-    { name: 'Usuários', component: <UsuariosPage />, permissao: 'usuarios' },
-    { name: 'Comissões', component: <ComissoesPage />, permissao: 'comissoes' },
-    { name: 'Equipamentos', component: <EquipamentosPage />, permissao: 'equipamentos' },
-    { name: 'Checklist', component: <ChecklistNovoPage />, permissao: 'checklist' },
-    { name: 'Termos de Garantia', component: <TermosPage />, permissao: 'termos' },
-    { name: 'Status', component: <StatusPage />, permissao: 'status' },
-    { name: 'Catálogo', component: <CatalogoPage />, permissao: 'catalogo' },
-    { name: 'WhatsApp', component: <WhatsAppPage />, permissao: 'whatsapp' },
-    { name: 'Avisos', component: <AvisosPage />, permissao: 'configuracoes' },
+    { name: 'Empresa', component: <EmpresaPage />, permissao: 'empresa', requerRecurso: null },
+    { name: 'Usuários', component: <UsuariosPage />, permissao: 'usuarios', requerRecurso: null },
+    { name: 'Comissões', component: <ComissoesPage />, permissao: 'comissoes', requerRecurso: 'financeiro' },
+    { name: 'Equipamentos', component: <EquipamentosPage />, permissao: 'equipamentos', requerRecurso: null },
+    { name: 'Checklist', component: <ChecklistNovoPage />, permissao: 'checklist', requerRecurso: null },
+    { name: 'Termos de Garantia', component: <TermosPage />, permissao: 'termos', requerRecurso: null },
+    { name: 'Status', component: <StatusPage />, permissao: 'status', requerRecurso: null },
+    { name: 'Catálogo', component: <CatalogoPage />, permissao: 'catalogo', requerRecurso: null },
+    { name: 'WhatsApp', component: <WhatsAppPage />, permissao: 'whatsapp', requerRecurso: 'whatsapp' },
+    { name: 'Avisos', component: <AvisosPage />, permissao: 'configuracoes', requerRecurso: null },
   ];
   
-  // Filtrar abas baseado nas permissões do usuário
+  // Filtrar abas baseado nas permissões do usuário e recursos do plano
   const tabs = tabsConfig
-    .filter(tab => podeAcessar(tab.permissao))
+    .filter(tab => {
+      // Verificar permissão do usuário
+      if (!podeAcessar(tab.permissao)) return false;
+      // Verificar recurso do plano (se necessário)
+      if (tab.requerRecurso && !temRecurso(tab.requerRecurso)) return false;
+      return true;
+    })
     .map(tab => ({ name: tab.name, component: tab.component }));
 
   return (

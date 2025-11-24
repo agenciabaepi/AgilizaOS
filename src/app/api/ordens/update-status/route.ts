@@ -185,6 +185,12 @@ export async function POST(request: NextRequest) {
         return;
       }
       
+      // Para campos de texto (peca, servico), sempre incluir mesmo se vazio (para permitir limpar)
+      if (key === 'peca' || key === 'servico') {
+        finalUpdateData[key] = value || '';
+        return;
+      }
+      
       // Para outros campos, só incluir se não for vazio, null, undefined ou string vazia
       // Permitir '0' para valores monetários válidos
       if (value !== null && value !== undefined && value !== '') {

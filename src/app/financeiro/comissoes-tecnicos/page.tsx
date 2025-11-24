@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import MenuLayout from '@/components/MenuLayout';
+import AuthGuard from '@/components/AuthGuard';
 import { useToast } from '@/components/Toast';
 import { FiDollarSign, FiUsers, FiTrendingUp, FiCalendar, FiFilter, FiDownload, FiX, FiUser, FiEye, FiEdit, FiSave, FiPower, FiToggleLeft, FiToggleRight } from 'react-icons/fi';
 import { useConfirm } from '@/components/ConfirmDialog';
@@ -532,7 +533,8 @@ export default function ComissoesTecnicosPage() {
   }
 
   return (
-    <MenuLayout>
+    <AuthGuard requiredPermission="lucro-desempenho">
+      <MenuLayout>
       <div className="p-3 md:-m-8 md:p-4 lg:p-6 space-y-4 md:space-y-6 w-full">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -1344,6 +1346,7 @@ export default function ComissoesTecnicosPage() {
         )}
       </div>
     </MenuLayout>
+    </AuthGuard>
   );
 }
 

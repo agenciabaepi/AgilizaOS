@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useState } from 'react';
 import { Button } from '@/components/Button';
+import { FiLogOut, FiChevronRight } from 'react-icons/fi';
 
 export default function HeaderAdminSaaS() {
   const pathname = usePathname();
@@ -42,12 +43,16 @@ export default function HeaderAdminSaaS() {
   }
 
   return (
-    <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm">
-      <div className="max-w-[1400px] mx-auto px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-sm">
+    <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm">
+      <div className="px-6 lg:px-8 py-3.5 flex items-center justify-between gap-4">
+        {/* Breadcrumbs */}
+        <div className="flex items-center gap-1.5 text-sm min-w-0">
           {crumbs.length > 0 ? (
             <>
-              <Link href="/admin-saas" className="text-gray-500 hover:text-gray-900 transition-colors">
+              <Link 
+                href="/admin-saas" 
+                className="text-gray-500 hover:text-gray-900 transition-colors font-medium text-sm whitespace-nowrap"
+              >
                 Admin SaaS
               </Link>
               {crumbs.map((c, i) => {
@@ -55,12 +60,15 @@ export default function HeaderAdminSaaS() {
                 const isLast = i === crumbs.length - 1;
                 const label = c.replace(/-/g, ' ');
                 return (
-                  <span key={href} className="flex items-center gap-2">
-                    <span className="text-gray-300">/</span>
+                  <span key={href} className="flex items-center gap-1.5 flex-shrink-0">
+                    <FiChevronRight className="text-gray-400 text-xs flex-shrink-0" />
                     {isLast ? (
-                      <span className="text-gray-900 font-medium capitalize">{label}</span>
+                      <span className="text-gray-900 font-semibold capitalize truncate">{label}</span>
                     ) : (
-                      <Link href={href} className="text-gray-600 hover:text-gray-900 capitalize transition-colors">
+                      <Link 
+                        href={href} 
+                        className="text-gray-600 hover:text-gray-900 capitalize transition-colors font-medium text-sm whitespace-nowrap"
+                      >
                         {label}
                       </Link>
                     )}
@@ -69,17 +77,20 @@ export default function HeaderAdminSaaS() {
               })}
             </>
           ) : (
-            <span className="text-gray-900 font-medium">Visão Geral</span>
+            <span className="text-gray-900 font-semibold text-base">Visão Geral</span>
           )}
         </div>
+        
+        {/* Botão de Logout */}
         <Button
           onClick={handleLogout}
           disabled={loggingOut}
           variant="outline"
           size="sm"
-          className="text-gray-700 hover:text-gray-900 border-gray-300 hover:border-gray-400 transition-colors"
+          className="flex items-center gap-2 text-gray-700 hover:text-white hover:bg-gray-900 border-gray-300 hover:border-gray-900 transition-all duration-200 font-medium shadow-sm hover:shadow-md flex-shrink-0"
         >
-          {loggingOut ? 'Saindo...' : 'Sair'}
+          <FiLogOut className={`text-sm ${loggingOut ? 'animate-spin' : ''}`} />
+          <span className="whitespace-nowrap">{loggingOut ? 'Saindo...' : 'Sair'}</span>
         </Button>
       </div>
     </div>

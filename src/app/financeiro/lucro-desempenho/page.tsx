@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/Toast';
 import MenuLayout from '@/components/MenuLayout';
+import AuthGuard from '@/components/AuthGuard';
 import DashboardCard from '@/components/ui/DashboardCard';
 import { InvestimentoModal } from '@/components/InvestimentoModal';
 import { Button } from '@/components/Button';
@@ -2570,8 +2571,9 @@ export default function LucroDesempenhoPage() {
   );
 
   return (
-    <MenuLayout>
-      <style jsx>{`
+    <AuthGuard requiredPermission="lucro-desempenho">
+      <MenuLayout>
+        <style jsx>{`
         @keyframes slideUpParallax {
           0% {
             transform: translateY(100px);
@@ -2853,5 +2855,6 @@ export default function LucroDesempenhoPage() {
         onConfirm={registrarInvestimento}
       />
     </MenuLayout>
+    </AuthGuard>
   );
 }

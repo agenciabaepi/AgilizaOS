@@ -59,16 +59,110 @@ export async function GET(req: NextRequest) {
     }
 
     async function storageUsoMb(empresaId: string): Promise<number> {
-      // Somente bucket 'produtos' com prefixo produtos/{empresa_id}/
-      // Nota: ordens-imagens não possui empresa_id no path; será adicionado depois
-      const { data, error } = await supabase
-        .from('storage.objects')
-        .select('name,size')
-        .eq('bucket_id', 'produtos')
-        .like('name', `produtos/${empresaId}/%`);
-      if (error || !data) return 0;
-      const totalBytes = data.reduce((acc: number, obj: any) => acc + (Number(obj.size) || 0), 0);
-      return Math.round((totalBytes / (1024 * 1024)) * 100) / 100; // MB com 2 casas
+      let totalBytes = 0;
+
+      // 1. Bucket 'produtos' - usar API de Storage
+      try {
+        const prefix = `produtos/${empresaId}/`;
+        const listAllFiles = async (path: string): Promise<any[]> => {
+          const { data, error } = await supabase.storage
+            .from('produtos')
+            .list(path, {
+              limit: 10000,
+              sortBy: { column: 'name', order: 'asc' },
+            });
+          
+          if (error || !data) return [];
+          
+          const files: any[] = [];
+          for (const item of data) {
+            if (item.id) {
+              // É um arquivo
+              files.push(item);
+            } else {
+              // É uma pasta, listar recursivamente
+              const subFiles = await listAllFiles(`${path}${item.name}/`);
+              files.push(...subFiles);
+            }
+          }
+          return files;
+        };
+        
+        const allFiles = await listAllFiles(prefix);
+        totalBytes += allFiles.reduce((acc: number, file: any) => acc + (Number(file.metadata?.size) || 0), 0);
+      } catch (err) {
+        console.error('Erro ao calcular storage produtos:', err);
+      }
+
+      // 2. Bucket 'anexos-contas' - relacionar via contas_pagar
+      try {
+        const { data: contasIds } = await supabase
+          .from('contas_pagar')
+          .select('id')
+          .eq('empresa_id', empresaId);
+        
+        if (contasIds && contasIds.length > 0) {
+          const contaIdsArray = contasIds.map(c => c.id);
+          
+          const { data: anexosList, error: anexosError } = await supabase.storage
+            .from('anexos-contas')
+            .list('', {
+              limit: 10000,
+              sortBy: { column: 'name', order: 'asc' },
+            });
+          
+          if (!anexosError && anexosList) {
+            const anexosEmpresa = anexosList.filter((file: any) => 
+              contaIdsArray.some(contaId => file.name?.startsWith(`anexo_${contaId}_`))
+            );
+            totalBytes += anexosEmpresa.reduce((acc: number, file: any) => acc + (Number(file.metadata?.size) || 0), 0);
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao calcular storage anexos:', err);
+      }
+
+      // 3. Bucket 'ordens-imagens' - relacionar via ordens_servico
+      try {
+        const { data: ordensIds } = await supabase
+          .from('ordens_servico')
+          .select('id')
+          .eq('empresa_id', empresaId);
+        
+        if (ordensIds && ordensIds.length > 0) {
+          const ordemIdsArray = ordensIds.map(o => o.id);
+          
+          // Listar todas as pastas (cada pasta é uma ordem)
+          const { data: folders, error: foldersError } = await supabase.storage
+            .from('ordens-imagens')
+            .list('', {
+              limit: 10000,
+              sortBy: { column: 'name', order: 'asc' },
+            });
+          
+          if (!foldersError && folders) {
+            for (const folder of folders) {
+              const ordemId = folder.name.split('/')[0] || folder.name;
+              if (ordemIdsArray.includes(ordemId)) {
+                // Listar arquivos dentro desta pasta
+                const { data: files, error: filesError } = await supabase.storage
+                  .from('ordens-imagens')
+                  .list(folder.name, {
+                    limit: 10000,
+                  });
+                
+                if (!filesError && files) {
+                  totalBytes += files.reduce((acc: number, file: any) => acc + (Number(file.metadata?.size) || 0), 0);
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao calcular storage ordens-imagens:', err);
+      }
+
+      return Math.round((totalBytes / (1024 * 1024)) * 100) / 100;
     }
 
     const enriched = await Promise.all((empresas || []).map(async (e: any) => {
