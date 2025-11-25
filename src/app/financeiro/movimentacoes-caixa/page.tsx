@@ -166,7 +166,7 @@ export default function MovimentacoesCaixaPage() {
 
   return (
     <AuthGuard requiredPermission="movimentacao-caixa">
-      <MenuLayout>
+    <MenuLayout>
       <div className="p-8">
         <h1 className="text-2xl font-bold mb-6">Movimentações de Caixa</h1>
         

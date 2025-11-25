@@ -104,7 +104,7 @@ export const useSubscription = () => {
             // ou pode criar uma assinatura padrão se necessário
             console.log('⚠️ Empresa sem assinatura registrada. Sistema funcionará sem restrições de módulos.');
           } else if (assinaturaError) {
-            console.error('Erro ao buscar assinatura:', assinaturaError);
+          console.error('Erro ao buscar assinatura:', assinaturaError);
           }
         }
       } catch (error) {

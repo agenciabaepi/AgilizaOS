@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/Toast';
@@ -34,6 +34,16 @@ interface ProdutoServico {
   tipo: 'produto' | 'servico';
 }
 
+// Função para validar se um item é válido (movida para fora do componente)
+const isItemValido = (item: Item): boolean => {
+  return !!(
+    item.nome && 
+    item.nome.trim() !== '' && 
+    !/^[\d\s]+$/.test(item.nome.trim()) && // Não apenas números
+    item.nome.trim().length > 1 // Nome com pelo menos 2 caracteres
+  );
+};
+
 export default function ProdutoServicoManager({ 
   tipo, 
   itens, 
@@ -43,16 +53,6 @@ export default function ProdutoServicoManager({
   const { usuarioData } = useAuth();
   const { addToast } = useToast();
   const confirm = useConfirm();
-  
-  // Função para validar se um item é válido
-  const isItemValido = (item: Item): boolean => {
-    return !!(
-      item.nome && 
-      item.nome.trim() !== '' && 
-      !/^[\d\s]+$/.test(item.nome.trim()) && // Não apenas números
-      item.nome.trim().length > 1 // Nome com pelo menos 2 caracteres
-    );
-  };
   
   // Filtrar itens inválidos automaticamente quando itens mudam
   // Usar useRef para evitar loops infinitos
@@ -106,6 +106,11 @@ export default function ProdutoServicoManager({
   const filteredItems = produtosServicos.filter(item =>
     item.nome.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Filtrar itens válidos usando useMemo no nível superior
+  const itensValidos = useMemo(() => {
+    return itens.filter(isItemValido);
+  }, [itens]);
 
   useEffect(() => {
     if (usuarioData?.empresa_id) {
@@ -322,12 +327,8 @@ export default function ProdutoServicoManager({
       </div>
 
       {/* Lista de itens - filtrar itens inválidos */}
-      {(() => {
-        const itensValidos = useMemo(() => itens.filter(isItemValido), [itens]);
-        
-        return (
-          <div className="space-y-3 mb-4">
-            {itensValidos.map((item, filteredIndex) => {
+      <div className="space-y-3 mb-4">
+        {itensValidos.map((item, filteredIndex) => {
           // Encontrar o índice real no array original para operações de edição/remoção
           const realIndex = itens.findIndex((i, idx) => {
             // Tentar encontrar por ID primeiro
@@ -417,11 +418,9 @@ export default function ProdutoServicoManager({
               </button>
             )}
           </div>
-          );
-        })}
-          </div>
         );
-      })()}
+        })}
+      </div>
 
       {/* Formulário de adicionar */}
       {showAddForm && !readonly && (
