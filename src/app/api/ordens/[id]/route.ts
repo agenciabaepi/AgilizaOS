@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { sendOSApprovedNotification } from '@/lib/whatsapp-notifications';
 
 export async function GET(
   request: NextRequest,
@@ -45,7 +46,12 @@ export async function GET(
     const [empresaResult, clienteResult, termoResult] = await Promise.allSettled([
       supabase.from('empresas').select('*').eq('id', ordemData.empresa_id).single(),
       supabase.from('clientes').select('*').eq('id', ordemData.cliente_id).single(),
-      supabase.from('termos_garantia').select('*').eq('id', ordemData.termo_garantia_id).single()
+      // Buscar termo de garantia com validação de empresa para segurança
+      supabase.from('termos_garantia')
+        .select('*')
+        .eq('id', ordemData.termo_garantia_id)
+        .eq('empresa_id', ordemData.empresa_id)
+        .single()
     ]);
 
     // Buscar checklistItens se houver checklist_entrada e equipamento
@@ -191,6 +197,18 @@ export async function PUT(
     const valor_faturado = (updateData.qtd_servico * updateData.valor_servico) + (updateData.qtd_peca * updateData.valor_peca);
     dataToUpdate.valor_faturado = valor_faturado;
 
+    // ✅ BUSCAR STATUS ANTERIOR PARA VERIFICAR MUDANÇA PARA APROVADO
+    const { data: osAnteriorStatus } = await supabase
+      .from('ordens_servico')
+      .select('status, status_tecnico, tecnico_id')
+      .eq('id', id)
+      .single();
+    
+    const statusAnterior = osAnteriorStatus?.status;
+    const statusTecnicoAnterior = osAnteriorStatus?.status_tecnico;
+    const statusNovo = dataToUpdate.status || statusAnterior;
+    const statusTecnicoNovo = dataToUpdate.status_tecnico || statusTecnicoAnterior;
+
     // 🔍 DEBUG: Log dos dados que serão atualizados
     console.log('🔍 DEBUG API PUT - Dados que serão atualizados:');
     console.log('📋 dataToUpdate:', dataToUpdate);
@@ -286,6 +304,51 @@ export async function PUT(
     } catch (counterError) {
       console.error('❌ Erro ao atualizar contador de equipamentos:', counterError);
       // Não falha a atualização da OS se o contador falhar
+    }
+
+    // ✅ ENVIAR NOTIFICAÇÃO WHATSAPP SE STATUS MUDOU PARA APROVADO
+    // Só enviar se realmente houve mudança de status (não apenas se já estava aprovado)
+    try {
+      const normalize = (s: string) => (s || '').toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+      const statusNormalizado = normalize(statusNovo || '');
+      const statusTecnicoNormalizado = normalize(statusTecnicoNovo || '');
+      const statusAnteriorNormalizado = normalize(statusAnterior || '');
+      const statusTecnicoAnteriorNormalizado = normalize(statusTecnicoAnterior || '');
+      
+      // Verificar se MUDOU para aprovado (não estava antes e agora está)
+      const mudouParaAprovado = (
+        (statusNormalizado.includes('APROVADO') || statusNormalizado.includes('APROVADA')) &&
+        !statusAnteriorNormalizado.includes('APROVADO') && 
+        !statusAnteriorNormalizado.includes('APROVADA')
+      ) || (
+        (statusTecnicoNormalizado.includes('APROVADO') || statusTecnicoNormalizado.includes('APROVADA')) &&
+        !statusTecnicoAnteriorNormalizado.includes('APROVADO') && 
+        !statusTecnicoAnteriorNormalizado.includes('APROVADA')
+      );
+      
+      if (mudouParaAprovado) {
+        console.log('🎉 Status MUDOU para APROVADO - enviando notificação WhatsApp para o técnico');
+        console.log('📊 Mudança detectada:', { 
+          statusAnterior, 
+          statusNovo,
+          statusTecnicoAnterior,
+          statusTecnicoNovo
+        });
+        
+        // Enviar notificação de aprovação
+        const notificationSuccess = await sendOSApprovedNotification(id);
+        
+        if (notificationSuccess) {
+          console.log('✅ Notificação WhatsApp de OS aprovada enviada com sucesso');
+        } else {
+          console.warn('⚠️ Falha ao enviar notificação WhatsApp de OS aprovada');
+        }
+      } else {
+        console.log('ℹ️ Status não mudou para aprovado ou já estava aprovado - não enviando notificação');
+      }
+    } catch (notificationError) {
+      console.error('❌ Erro ao enviar notificação WhatsApp:', notificationError);
+      // Não falha a atualização por causa da notificação
     }
 
     return NextResponse.json({ success: true, data });

@@ -5,20 +5,20 @@ import MenuLayout from '@/components/MenuLayout';
 
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
-import { FiArrowLeft, FiEdit, FiPrinter, FiDollarSign, FiMessageCircle, FiUser, FiSmartphone, FiFileText, FiCalendar, FiShield, FiTool, FiPackage, FiCheckCircle, FiClock, FiRefreshCw, FiExternalLink } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit, FiPrinter, FiDollarSign, FiMessageCircle, FiUser, FiSmartphone, FiFileText, FiCalendar, FiShield, FiTool, FiPackage, FiCheckCircle, FiClock, FiRefreshCw, FiExternalLink, FiAlertTriangle } from 'react-icons/fi';
 import ImagensOS from '@/components/ImagensOS';
 import ChecklistViewer from '@/components/ChecklistViewer';
 import { useToast } from '@/hooks/useToast';
 import { useAuth } from '@/context/AuthContext';
-import { useStatusHistorico } from '@/hooks/useStatusHistorico';
-import StatusHistoricoTimeline from '@/components/StatusHistoricoTimeline';
+import { useHistoricoOS } from '@/hooks/useHistoricoOS';
+import HistoricoOSTimeline from '@/components/HistoricoOSTimeline';
 
 const VisualizarOrdemServicoPage = () => {
   const router = useRouter();
   const { id } = useParams();
   const { addToast } = useToast();
   const { empresaData } = useAuth();
-  const { historico, loading: loadingHistorico } = useStatusHistorico(id as string);
+  const { historico, loading: loadingHistorico, buscarHistoricoOS, registrarHistorico } = useHistoricoOS();
   const [ordem, setOrdem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [custosOS, setCustosOS] = useState<number>(0);
@@ -27,6 +27,7 @@ const VisualizarOrdemServicoPage = () => {
   const [editandoRelato, setEditandoRelato] = useState(false);
   const [relatoEditavel, setRelatoEditavel] = useState('');
   const [salvandoRelato, setSalvandoRelato] = useState(false);
+  
 
   // Estados para sistema de entrega
   const [modalEntrega, setModalEntrega] = useState(false);
@@ -144,6 +145,13 @@ const VisualizarOrdemServicoPage = () => {
     fetchTermosGarantia();
   }, []);
 
+  // Carregar histórico quando a OS for carregada
+  useEffect(() => {
+    if (id) {
+      buscarHistoricoOS(id as string);
+    }
+  }, [id, buscarHistoricoOS]);
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -211,10 +219,16 @@ const VisualizarOrdemServicoPage = () => {
 
 
   const fetchTermosGarantia = async () => {
+    if (!empresaData?.id) {
+      console.warn('Empresa não encontrada para carregar termos de garantia');
+      return;
+    }
+    
     try {
       const { data, error } = await supabase
         .from('termos_garantia')
         .select('*')
+        .eq('empresa_id', empresaData.id)
         .order('nome');
       
       if (error) {
@@ -236,19 +250,25 @@ const VisualizarOrdemServicoPage = () => {
     }
 
     // Se cliente não recusou, validar forma de pagamento e valor
+    // Mas só validar valores se realmente houver valores na OS
     if (!clienteRecusou) {
-      if (!formaPagamento) {
-        addToast('Selecione a forma de pagamento', 'error');
-        return;
-      }
-
       const valorOS = calcularValores().valorFinal;
-      const valorRecebidoNum = parseFloat(valorRecebido.replace(',', '.'));
+      
+      // Se há valores na OS, validar forma de pagamento e valor recebido
+      if (valorOS > 0) {
+        if (!formaPagamento) {
+          addToast('Selecione a forma de pagamento', 'error');
+          return;
+        }
 
-      if (isNaN(valorRecebidoNum) || valorRecebidoNum < valorOS) {
-        addToast(`Valor recebido deve ser pelo menos R$ ${valorOS.toFixed(2)}`, 'error');
-        return;
+        const valorRecebidoNum = parseFloat(valorRecebido.replace(',', '.'));
+
+        if (isNaN(valorRecebidoNum) || valorRecebidoNum < valorOS) {
+          addToast(`Valor recebido deve ser pelo menos R$ ${valorOS.toFixed(2)}`, 'error');
+          return;
+        }
       }
+      // Se não há valores (valorOS === 0), permitir entrega sem validar pagamento
     }
 
     setProcessandoEntrega(true);
@@ -304,6 +324,8 @@ const VisualizarOrdemServicoPage = () => {
             return;
           }
           addToast(`✅ Venda #${numeroVenda} criada com sucesso!`, 'success');
+        } else {
+          addToast('✅ O.S. entregue sem valores (desistência ou sem serviços)', 'success');
         }
       } else {
         addToast('✅ O.S. finalizada (cliente recusou - valores mantidos para histórico)', 'success');
@@ -512,7 +534,7 @@ const VisualizarOrdemServicoPage = () => {
                 <FiExternalLink className="w-4 h-4" />
                 Ver Status Público
               </button>
-              {calcularValores().valorFinal > 0 && ordem.status !== 'ENTREGUE' && (
+              {ordem.status !== 'ENTREGUE' && (
                 <button
                   onClick={() => setModalEntrega(true)}
                   className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
@@ -1061,19 +1083,21 @@ const VisualizarOrdemServicoPage = () => {
                 />
               </div>
 
-              {/* Histórico de Status */}
+              {/* Histórico */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="p-1.5 bg-purple-100 rounded-lg">
                     <FiClock className="w-4 h-4 text-purple-600" />
                   </div>
-                  <h2 className="text-lg font-semibold text-gray-900">Histórico de Status</h2>
+                  <h2 className="text-lg font-semibold text-gray-900">Histórico</h2>
                 </div>
+                
                 <div className="max-h-80 overflow-y-auto pr-1">
-                  <StatusHistoricoTimeline 
+                  <HistoricoOSTimeline 
                     historico={historico} 
                     loading={loadingHistorico}
                     compact={true}
+                    showMetrics={false}
                   />
                 </div>
               </div>
@@ -1114,6 +1138,23 @@ const VisualizarOrdemServicoPage = () => {
                     </select>
                   </div>
 
+                  {/* Aviso se não há valores */}
+                  {calcularValores().valorFinal === 0 && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <FiAlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5" />
+                        <div className="flex-1">
+                          <span className="text-sm font-medium text-yellow-900 block">
+                            OS sem valores lançados
+                          </span>
+                          <p className="text-xs text-yellow-700 mt-1">
+                            Esta OS não possui produtos ou serviços com valores. Você pode entregar mesmo assim, por exemplo, em caso de desistência do cliente.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Opção: Cliente Recusou */}
                   <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                     <label className="flex items-center gap-3 cursor-pointer">
@@ -1141,8 +1182,8 @@ const VisualizarOrdemServicoPage = () => {
                     </label>
                   </div>
 
-                  {/* Forma de Pagamento - Só mostrar se cliente não recusou */}
-                  {!clienteRecusou && (
+                  {/* Forma de Pagamento - Só mostrar se cliente não recusou E há valores */}
+                  {!clienteRecusou && calcularValores().valorFinal > 0 && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Forma de Pagamento *
@@ -1162,8 +1203,8 @@ const VisualizarOrdemServicoPage = () => {
                     </div>
                   )}
 
-                  {/* Valor Recebido - Só mostrar se cliente não recusou */}
-                  {!clienteRecusou && (
+                  {/* Valor Recebido - Só mostrar se cliente não recusou E há valores */}
+                  {!clienteRecusou && calcularValores().valorFinal > 0 && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Valor Recebido *
@@ -1200,6 +1241,13 @@ const VisualizarOrdemServicoPage = () => {
                             Cliente recusou - Valores serão zerados
                           </span>
                         </div>
+                      ) : calcularValores().valorFinal === 0 ? (
+                        <div className="flex justify-between">
+                          <span>Status:</span>
+                          <span className="font-medium text-yellow-600">
+                            Entrega sem valores
+                          </span>
+                        </div>
                       ) : (
                         <div className="flex justify-between">
                           <span>Total:</span>
@@ -1227,7 +1275,11 @@ const VisualizarOrdemServicoPage = () => {
                   </button>
                   <button
                     onClick={processarEntrega}
-                    disabled={processandoEntrega || !termoGarantiaSelecionado || (!clienteRecusou && (!formaPagamento || !valorRecebido))}
+                    disabled={
+                      processandoEntrega || 
+                      !termoGarantiaSelecionado || 
+                      (!clienteRecusou && calcularValores().valorFinal > 0 && (!formaPagamento || !valorRecebido))
+                    }
                     className={`flex-1 px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       clienteRecusou 
                         ? 'bg-orange-600 text-white hover:bg-orange-700' 
@@ -1238,7 +1290,9 @@ const VisualizarOrdemServicoPage = () => {
                       ? 'Processando...' 
                       : clienteRecusou 
                         ? 'Finalizar (Cliente Recusou)' 
-                        : 'Confirmar Entrega'}
+                        : calcularValores().valorFinal === 0
+                          ? 'Confirmar Entrega (Sem Valores)'
+                          : 'Confirmar Entrega'}
                   </button>
                 </div>
               </div>

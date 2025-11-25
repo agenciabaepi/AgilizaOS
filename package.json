@@ -55,6 +55,7 @@
     "cleave.js": "^1.6.0",
     "clsx": "^2.1.1",
     "cpf-cnpj-validator": "^1.0.3",
+    "dotenv": "^17.2.3",
     "fabric": "^6.9.0",
     "firebase": "^11.7.1",
     "framer-motion": "^12.18.1",

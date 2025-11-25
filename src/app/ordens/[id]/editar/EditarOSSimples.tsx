@@ -385,50 +385,85 @@ export default function EditarOSSimples() {
         }
       }
 
-      const updateData: any = {
-        status: statusSelecionado?.nome || ordem?.status,
-        status_tecnico: novoStatusTecnico,
-        valor_servico: totais.totalServicos,
-        valor_peca: totais.totalProdutos,
-        valor_faturado: totais.totalGeral,
-        peca: produtos.map(p => {
-          const preco = typeof p.preco === 'number' ? p.preco : parseFloat(String(p.preco));
-          const quantidade = typeof p.quantidade === 'number' ? p.quantidade : parseInt(String(p.quantidade));
-          const valor = (isNaN(preco) ? 0 : preco);
-          const qtd = (isNaN(quantidade) ? 0 : quantidade);
-          return `${p.nome} - Qtd: ${qtd} - Valor: R$ ${valor.toFixed(2)}`;
-        }).join('\n'),
-        servico: servicos.map(s => {
-          const preco = typeof s.preco === 'number' ? s.preco : parseFloat(String(s.preco));
-          const valor = (isNaN(preco) ? 0 : preco);
-          return `${s.nome} - Valor: R$ ${valor.toFixed(2)}`;
-        }).join('\n'),
-        observacao: observacoesAtualizadas, // Campo observacao com histórico de recusas
-        // Dados do equipamento
-        marca: marca,
-        modelo: modelo,
-        cor: cor,
-        numero_serie: numeroSerie,
-        equipamento: equipamento,
-        acessorios: acessorios,
-        condicoes_equipamento: condicoesEquipamento,
-        // Relatos (campos reais da tabela)
-        problema_relatado: relato,
-        laudo: laudo,
-        // Anexos
-        imagens: todasImagens.join(','),
-        // Datas (comentado - colunas não existem ainda)
-        // data_entrada: dataEntrada ? new Date(dataEntrada).toISOString() : null,
-        // data_saida: dataSaida ? new Date(dataSaida).toISOString() : null,
-        // prazo_entrega: prazoEntrega ? new Date(prazoEntrega).toISOString() : null,
-        termo_garantia_id: termoGarantiaId || null
-      };
+      // ✅ CORREÇÃO: Só enviar campos que realmente mudaram
+      const updateData: any = {};
+      
+      // Status sempre é enviado se mudou
+      const novoStatus = statusSelecionado?.nome || ordem?.status;
+      if (novoStatus !== ordem?.status) {
+        updateData.status = novoStatus;
+      }
+      
+      // Status técnico se mudou
+      if (novoStatusTecnico !== ordem?.status_tecnico) {
+        updateData.status_tecnico = novoStatusTecnico;
+      }
+      
+      // Verificar mudanças nos dados do equipamento (comparar com valores originais)
+      if (marca !== ordem?.marca) updateData.marca = marca;
+      if (modelo !== ordem?.modelo) updateData.modelo = modelo;
+      if (cor !== ordem?.cor) updateData.cor = cor;
+      if (numeroSerie !== ordem?.numero_serie) updateData.numero_serie = numeroSerie;
+      if (equipamento !== ordem?.equipamento) updateData.equipamento = equipamento;
+      if (acessorios !== ordem?.acessorios) updateData.acessorios = acessorios;
+      if (condicoesEquipamento !== ordem?.condicoes_equipamento) updateData.condicoes_equipamento = condicoesEquipamento;
+      
+      // Verificar mudanças nos relatos
+      if (relato !== ordem?.problema_relatado) updateData.problema_relatado = relato;
+      if (laudo !== (ordem as any)?.laudo) updateData.laudo = laudo;
+      
+      // Observações (só se mudaram)
+      if (observacoesAtualizadas !== (ordem as any)?.observacao) updateData.observacao = observacoesAtualizadas;
+      
+      // Produtos e serviços (sempre incluir valores atualizados se mudaram)
+      const produtosText = produtos.map(p => {
+        const preco = typeof p.preco === 'number' ? p.preco : parseFloat(String(p.preco));
+        const quantidade = typeof p.quantidade === 'number' ? p.quantidade : parseInt(String(p.quantidade));
+        const valor = (isNaN(preco) ? 0 : preco);
+        const qtd = (isNaN(quantidade) ? 0 : quantidade);
+        return `${p.nome} - Qtd: ${qtd} - Valor: R$ ${valor.toFixed(2)}`;
+      }).join('\n');
+      
+      const servicosText = servicos.map(s => {
+        const preco = typeof s.preco === 'number' ? s.preco : parseFloat(String(s.preco));
+        const valor = (isNaN(preco) ? 0 : preco);
+        return `${s.nome} - Valor: R$ ${valor.toFixed(2)}`;
+      }).join('\n');
+      
+      // Só incluir produtos/serviços se mudaram
+      if (produtosText !== ((ordem as any)?.peca || '')) {
+        updateData.peca = produtosText;
+        updateData.valor_peca = totais.totalProdutos;
+      }
+      if (servicosText !== ((ordem as any)?.servico || '')) {
+        updateData.servico = servicosText;
+        updateData.valor_servico = totais.totalServicos;
+      }
+      
+      // Valor total só se produtos ou serviços mudaram
+      if (updateData.peca !== undefined || updateData.servico !== undefined) {
+        updateData.valor_faturado = totais.totalGeral;
+      }
+      
+      // Imagens (só se mudaram)
+      const imagensText = todasImagens.join(',');
+      if (imagensText !== ((ordem as any)?.imagens || '')) updateData.imagens = imagensText;
+      
+      // Termo de garantia (só se mudou)
+      if (termoGarantiaId !== ordem?.termo_garantia_id) updateData.termo_garantia_id = termoGarantiaId || null;
 
       // 🔍 DEBUG: Log dos dados sendo enviados
-      console.log('🔍 DEBUG handleSalvar - Dados sendo enviados:');
-      console.log('📋 updateData.equipamento:', updateData.equipamento);
-      console.log('📋 Estado equipamento atual:', equipamento);
+      console.log('🔍 DEBUG handleSalvar - Campos que mudaram:');
+      console.log('📋 Campos alterados:', Object.keys(updateData));
       console.log('📋 updateData completo:', updateData);
+      
+      // Se não há mudanças, não enviar nada
+      if (Object.keys(updateData).length === 0) {
+        console.log('ℹ️ Nenhuma mudança detectada - não enviando para API');
+        addToast('info', 'Nenhuma alteração foi feita');
+        setLoading(false);
+        return;
+      }
 
       // Persistência do checklist de entrada como JSON (string) - SEMPRE incluir
       updateData.checklist_entrada = JSON.stringify(checklistEntrada || {});

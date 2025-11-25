@@ -31,6 +31,54 @@ interface OSData {
 }
 
 /**
+ * Envia mensagem WhatsApp como texto livre (sem template)
+ * Permite quebras de linha e formatação markdown
+ */
+async function sendWhatsAppMessageFreeText(
+  phoneNumber: string,
+  message: string
+): Promise<boolean> {
+  try {
+    console.log('📱 Enviando mensagem WhatsApp como texto livre:', {
+      to: phoneNumber,
+      messageLength: message.length
+    });
+
+    // Determinar URL base automaticamente
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL 
+      || process.env.NEXT_PUBLIC_SITE_URL
+      || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')
+      || 'http://localhost:3000';
+
+    const response = await fetch(`${baseUrl}/api/whatsapp/send-message`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        to: phoneNumber,
+        message: message,
+        useTemplate: false // Forçar mensagem de texto livre
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('❌ Erro ao enviar mensagem WhatsApp:', errorData);
+      return false;
+    }
+
+    const result = await response.json();
+    console.log('✅ Mensagem WhatsApp enviada com sucesso:', result);
+    return true;
+
+  } catch (error) {
+    console.error('❌ Erro ao enviar mensagem WhatsApp:', error);
+    return false;
+  }
+}
+
+/**
  * Envia mensagem diretamente pela API do WhatsApp (sem N8N)
  * Suporta tanto mensagens de texto quanto templates
  */
@@ -242,10 +290,11 @@ export async function sendOSApprovedNotification(osId: string): Promise<boolean>
       return false;
     }
 
-    // Criar mensagem personalizada
+    // Criar mensagem simples de aprovação (sem template, sem imagem)
     const clienteNome = osData.clientes?.nome || 'Cliente não informado';
     const servico = osData.servico || 'Serviço não especificado';
     
+    // Mensagem simples e direta sobre a aprovação
     const message = `🎉 *OS APROVADA!*
 
 📋 *OS #${osData.numero_os}*
@@ -257,15 +306,16 @@ A OS foi aprovada pelo cliente e está pronta para execução!
 
 _Consert - Sistema de Gestão_`;
 
-    // Enviar mensagem diretamente pelo WhatsApp (sem N8N)
-    console.log('📱 Enviando notificação de OS aprovada diretamente:', {
+    console.log('📱 Enviando notificação de OS aprovada (mensagem simples):', {
       os_id: osData.id,
       numero_os: osData.numero_os,
       tecnico: tecnicoData.nome,
       whatsapp: tecnicoData.whatsapp
     });
 
-    const success = await sendWhatsAppMessage(tecnicoData.whatsapp, message);
+    // Enviar como mensagem de texto livre (sem template, sem imagem)
+    // Funciona dentro da janela de 24h
+    const success = await sendWhatsAppMessageFreeText(tecnicoData.whatsapp, message);
 
     if (!success) {
       console.error('❌ Falha ao enviar notificação de OS aprovada');

@@ -216,6 +216,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ✅ GUARDAR STATUS ANTERIOR PARA COMPARAR DEPOIS
+    const statusAnterior = osAnterior?.status;
+    const statusTecnicoAnterior = osAnterior?.status_tecnico;
+
     const equipamentoAnterior = osAnterior?.equipamento;
     const equipamentoNovo = finalUpdateData.equipamento;
     const empresaId = osAnterior?.empresa_id;
@@ -240,6 +244,131 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('✅ Status da OS atualizado com sucesso');
+
+    // ✅ REGISTRAR AUDITORIA APENAS SE HOUVE MUDANÇAS REAIS
+    try {
+      console.log('🔍 Verificando se houve mudanças reais...');
+      
+      // Preparar descrição detalhada das mudanças
+      let descricaoMudancas = [];
+      let detalhesAuditoria: any = {};
+      
+      // Verificar mudança de status
+      if (statusAnterior && newStatus && statusAnterior !== newStatus) {
+        descricaoMudancas.push(`Status alterado de "${statusAnterior}" para "${newStatus}"`);
+        detalhesAuditoria.status = { anterior: statusAnterior, novo: newStatus };
+      }
+      
+      // Verificar mudança de status técnico
+      if (statusTecnicoAnterior && newStatusTecnico && statusTecnicoAnterior !== newStatusTecnico) {
+        descricaoMudancas.push(`Status técnico alterado de "${statusTecnicoAnterior}" para "${newStatusTecnico}"`);
+        detalhesAuditoria.status_tecnico = { anterior: statusTecnicoAnterior, novo: newStatusTecnico };
+      }
+      
+      // Verificar outras mudanças importantes nos dados
+      const camposImportantes = [
+        'equipamento', 'marca', 'modelo', 'cor', 'numero_serie',
+        'problema_relatado', 'laudo', 'servico', 'peca', 'acessorios',
+        'condicoes_equipamento', 'observacao', 'valor_faturado'
+      ];
+      
+      // NOVA LÓGICA: Só verificar campos que realmente estão sendo enviados E são diferentes
+      Object.keys(updateData).forEach(key => {
+        if (camposImportantes.includes(key)) {
+          const valorAnterior = osAnterior[key];
+          const valorNovo = updateData[key];
+          
+          // Normalizar valores para comparação
+          const normalizar = (valor: any) => {
+            if (valor === null || valor === undefined || valor === 'undefined' || valor === 'null') return '';
+            return String(valor).trim();
+          };
+          
+          const anteriorNormalizado = normalizar(valorAnterior);
+          const novoNormalizado = normalizar(valorNovo);
+          
+          // Só registrar se há diferença real e pelo menos um não está vazio
+          if (anteriorNormalizado !== novoNormalizado && (anteriorNormalizado !== '' || novoNormalizado !== '')) {
+            const nomeAmigavel = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            
+            // Usar linguagem mais natural
+            if (anteriorNormalizado === '') {
+              descricaoMudancas.push(`${nomeAmigavel} definido como "${novoNormalizado}"`);
+            } else if (novoNormalizado === '') {
+              descricaoMudancas.push(`${nomeAmigavel} removido (era "${anteriorNormalizado}")`);
+            } else {
+              descricaoMudancas.push(`${nomeAmigavel} alterado de "${anteriorNormalizado}" para "${novoNormalizado}"`);
+            }
+            
+            detalhesAuditoria[key] = { anterior: valorAnterior, novo: valorNovo };
+          }
+        }
+      });
+      
+      // Só registrar se houve mudanças reais
+      if (descricaoMudancas.length === 0) {
+        console.log('ℹ️ Nenhuma mudança real detectada - não registrando histórico');
+        return NextResponse.json({ success: true, message: 'OS atualizada com sucesso' });
+      }
+      
+      const descricaoCompleta = descricaoMudancas.join('; ');
+      
+      // Determinar categoria baseada no tipo de mudança
+      let categoria = 'DADOS';
+      if (detalhesAuditoria.status || detalhesAuditoria.status_tecnico) {
+        categoria = 'STATUS';
+      } else if (detalhesAuditoria.valor_faturado) {
+        categoria = 'FINANCEIRO';
+      }
+      
+      console.log('📝 Registrando histórico:', { descricaoCompleta, categoria, detalhes: Object.keys(detalhesAuditoria) });
+      
+      // Registrar histórico via função SQL
+      const { error: historicoError } = await supabase.rpc('registrar_historico_os', {
+        p_os_id: osAnterior.id,
+        p_acao: categoria === 'STATUS' ? 'STATUS_CHANGE' : 'UPDATE_FIELDS',
+        p_categoria: categoria,
+        p_descricao: descricaoCompleta,
+        p_detalhes: JSON.stringify(detalhesAuditoria),
+        p_valor_anterior: statusAnterior,
+        p_valor_novo: newStatus,
+        p_campo_alterado: 'status',
+        p_usuario_id: null, // Será determinado pela função
+        p_motivo: 'Atualização via API',
+        p_observacoes: cliente_recusou ? 'Cliente recusou orçamento' : null,
+        p_ip_address: null,
+        p_user_agent: request.headers.get('user-agent'),
+        p_origem: 'API'
+      });
+      
+      if (historicoError) {
+        console.warn('⚠️ Erro ao registrar histórico (não crítico):', historicoError);
+        
+        // Fallback: inserção direta
+        await supabase.from('os_historico').insert({
+          os_id: osAnterior.id,
+          numero_os: osAnterior.numero_os,
+          acao: 'UPDATE_STATUS',
+          categoria: 'STATUS',
+          descricao: descricaoCompleta,
+          detalhes: JSON.stringify(detalhesAuditoria),
+          valor_anterior: statusAnterior,
+          valor_novo: newStatus,
+          campo_alterado: 'status',
+          usuario_nome: 'API',
+          usuario_tipo: 'SISTEMA',
+          motivo: 'Atualização via API',
+          observacoes: cliente_recusou ? 'Cliente recusou orçamento' : null,
+          user_agent: request.headers.get('user-agent'),
+          origem: 'API',
+          empresa_id: empresaId
+        });
+      }
+      
+      console.log('✅ Histórico registrado com sucesso');
+    } catch (historicoError) {
+      console.warn('⚠️ Erro ao registrar histórico (não crítico):', historicoError);
+    }
 
     // ✅ REGISTRAR COMISSÃO SE A OS FOI FINALIZADA E CLIENTE NÃO RECUSOU
     // Buscar OS atualizada para verificar status final
@@ -537,25 +666,51 @@ export async function POST(request: NextRequest) {
     }
 
     // ✅ ENVIAR NOTIFICAÇÃO WHATSAPP DIRETA PARA APROVAÇÃO OU MUDANÇA DE STATUS
+    // ✅ VERIFICAR SE HOUVE MUDANÇA DE STATUS PARA APROVADO
     if (newStatus || newStatusTecnico) {
-      console.log('📱 Enviando notificação WhatsApp para mudança de status...');
       try {
         const normalize = (s: string) => (s || '').toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
         const statusNormalizado = normalize(newStatus || '');
+        const statusTecnicoNormalizado = normalize(newStatusTecnico || '');
+        const statusAnteriorNormalizado = normalize(statusAnterior || '');
+        const statusTecnicoAnteriorNormalizado = normalize(statusTecnicoAnterior || '');
         
-        // Enviar notificação direta via WhatsApp
+        // Verificar se o status MUDOU para "aprovado" (não estava antes e agora está)
+        const mudouParaAprovado = (
+          (statusNormalizado.includes('APROVADO') || statusNormalizado.includes('APROVADA')) &&
+          !statusAnteriorNormalizado.includes('APROVADO') && 
+          !statusAnteriorNormalizado.includes('APROVADA')
+        ) || (
+          (statusTecnicoNormalizado.includes('APROVADO') || statusTecnicoNormalizado.includes('APROVADA')) &&
+          !statusTecnicoAnteriorNormalizado.includes('APROVADO') && 
+          !statusTecnicoAnteriorNormalizado.includes('APROVADA')
+        );
+        
+        // Enviar notificação APENAS se mudou para aprovado
         let notificationSuccess = false;
-        if (statusNormalizado === 'APROVADO') {
-          console.log('🎉 Status APROVADO detectado - enviando notificação de aprovação');
+        if (mudouParaAprovado) {
+          console.log('🎉 Status MUDOU para APROVADO - enviando notificação de aprovação para o técnico');
+          console.log('📊 Mudança detectada:', { 
+            statusAnterior,
+            statusNovo: newStatus,
+            statusTecnicoAnterior,
+            statusTecnicoNovo: newStatusTecnico
+          });
           notificationSuccess = await sendOSApprovedNotification(osId);
-        } else if (newStatus) {
-          console.log('🔄 Mudança de status geral - enviando notificação de status');
-          notificationSuccess = await sendOSStatusNotification(osId, newStatus);
+        } else {
+          console.log('ℹ️ Status não mudou para aprovado ou já estava aprovado - não enviando notificação');
+          console.log('📊 Status atual:', { 
+            statusAnterior,
+            statusNovo: newStatus || statusAnterior,
+            statusTecnicoAnterior,
+            statusTecnicoNovo: newStatusTecnico || statusTecnicoAnterior,
+            mudouParaAprovado: false
+          });
         }
         
         if (notificationSuccess) {
           console.log('✅ Notificação WhatsApp enviada com sucesso');
-        } else {
+        } else if (mudouParaAprovado) {
           console.warn('⚠️ Falha ao enviar notificação WhatsApp');
         }
       } catch (notificationError) {
