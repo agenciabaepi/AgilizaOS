@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTecnicoByWhatsApp, getComissoesTecnico, formatComissoesMessage } from '@/lib/whatsapp-commands';
+import { getTecnicoByWhatsApp, getComissoesTecnico, formatComissoesMessage, getSenhaOSPorNumero, formatSenhaOSMessage } from '@/lib/whatsapp-commands';
 import { getChatGPTResponse, isChatGPTAvailable } from '@/lib/chatgpt';
 import { getUsuarioByWhatsApp, getUserDataByLevel } from '@/lib/user-data';
 
@@ -107,6 +107,77 @@ async function processWhatsAppMessage(from: string, messageBody: string) {
       const message = formatComissoesMessage(comissoes, total, totalPago, totalPendente, tecnico.nome);
 
       return { message };
+    }
+
+    // Verificar se é uma pergunta sobre senha da OS
+    // Padrões: "qual a senha da os 890", "senha os 890", "qual senha os 890", "senha da os 890", etc.
+    const mencionaSenha = /senha|password/i.test(trimmedMessage);
+    const mencionaOS = /(?:os|ordem)/i.test(trimmedMessage);
+    
+    if (mencionaSenha && mencionaOS) {
+      // 🔒 SEGURANÇA CRÍTICA: Apenas técnicos podem buscar senhas de OS
+      if (usuario.nivel !== 'tecnico') {
+        console.log('🚫 Acesso negado - não é técnico:', {
+          usuario: usuario.nome,
+          nivel: usuario.nivel,
+          mensagem: trimmedMessage
+        });
+        return {
+          message: '❌ *Acesso Restrito*\n\nEste comando é exclusivo para técnicos.\n\nApenas técnicos podem consultar senhas de aparelhos das OS atribuídas a eles.'
+        };
+      }
+
+      // Tentar extrair número da OS da mensagem
+      const numeros = trimmedMessage.match(/\d+/g);
+      let numeroOS: string | null = null;
+      
+      if (numeros && numeros.length > 0) {
+        // Pegar o número que pareça ser um número de OS (geralmente 2-5 dígitos)
+        // Priorizar números menores (mais prováveis de ser número de OS)
+        const numerosOS = numeros.filter(n => n.length >= 2 && n.length <= 5);
+        numeroOS = numerosOS.length > 0 ? numerosOS[0] : numeros[0];
+      }
+      
+      if (numeroOS) {
+        console.log('🔐 Pergunta sobre senha da OS detectada (técnico):', {
+          numeroOS,
+          usuario: usuario.nome,
+          nivel: usuario.nivel,
+          auth_user_id: usuario.auth_user_id,
+          mensagem: trimmedMessage,
+          todosNumeros: numeros
+        });
+
+        // Buscar senha da OS
+        if (!usuario.empresa_id) {
+          return {
+            message: '❌ Erro: Não foi possível identificar sua empresa. Entre em contato com o administrador.'
+          };
+        }
+
+        if (!usuario.auth_user_id) {
+          return {
+            message: '❌ Erro: Não foi possível identificar seu ID de técnico. Entre em contato com o administrador.'
+          };
+        }
+
+        // 🔒 SEGURANÇA: Passar auth_user_id do técnico para verificar se a OS pertence a ele
+        const dadosOS = await getSenhaOSPorNumero(numeroOS, usuario.empresa_id, usuario.auth_user_id);
+        
+        if (!dadosOS) {
+          return {
+            message: `❌ OS #${numeroOS} não encontrada ou não está atribuída a você.\n\nVocê só pode consultar senhas de OS que foram atribuídas a você como técnico responsável.\n\nVerifique o número da OS e tente novamente.`
+          };
+        }
+
+        const message = formatSenhaOSMessage(dadosOS);
+        return { message };
+      } else {
+        // Perguntou sobre senha mas não mencionou número
+        return {
+          message: '❓ Você perguntou sobre senha da OS, mas não informou o número.\n\nPor favor, mencione o número da OS. Exemplo:\n"Qual a senha da OS 890?"'
+        };
+      }
     }
 
     // Se não for comando, tentar usar ChatGPT

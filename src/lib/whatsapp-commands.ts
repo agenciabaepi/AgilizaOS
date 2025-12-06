@@ -162,3 +162,113 @@ export function formatComissoesMessage(comissoes: ComissaoResumo[], total: numbe
   return message;
 }
 
+/**
+ * Busca senha do aparelho de uma OS pelo número
+ * ⚠️ SEGURANÇA: Apenas técnicos podem buscar senhas, e apenas de OS que pertencem a eles
+ */
+export async function getSenhaOSPorNumero(
+  numeroOS: string | number, 
+  empresaId: string,
+  tecnicoAuthUserId: string | null = null
+): Promise<{
+  numero_os: string;
+  senha_aparelho: string | null;
+  senha_padrao: string | null;
+  cliente_nome: string;
+  equipamento: string;
+} | null> {
+  try {
+    const supabase = createAdminClient();
+    
+    // Buscar OS pelo número e empresa
+    let query = supabase
+      .from('ordens_servico')
+      .select(`
+        numero_os,
+        senha_aparelho,
+        senha_padrao,
+        equipamento,
+        empresa_id,
+        tecnico_id,
+        cliente:cliente_id (
+          nome
+        )
+      `)
+      .eq('numero_os', String(numeroOS))
+      .eq('empresa_id', empresaId);
+
+    // 🔒 SEGURANÇA CRÍTICA: Se tecnicoAuthUserId foi fornecido, verificar se a OS pertence a ele
+    if (tecnicoAuthUserId) {
+      query = query.eq('tecnico_id', tecnicoAuthUserId);
+    }
+
+    const { data: os, error } = await query.single();
+
+    if (error || !os) {
+      console.error('❌ Erro ao buscar OS:', error);
+      return null;
+    }
+
+    // 🔒 VERIFICAÇÃO ADICIONAL: Se tecnicoAuthUserId foi fornecido, garantir que a OS pertence ao técnico
+    if (tecnicoAuthUserId && os.tecnico_id !== tecnicoAuthUserId) {
+      console.error('🚫 Acesso negado: OS não pertence ao técnico', {
+        numeroOS,
+        tecnicoAuthUserId,
+        osTecnicoId: os.tecnico_id
+      });
+      return null;
+    }
+
+    return {
+      numero_os: String(os.numero_os),
+      senha_aparelho: os.senha_aparelho || null,
+      senha_padrao: os.senha_padrao || null,
+      cliente_nome: (os.cliente as any)?.nome || 'N/A',
+      equipamento: os.equipamento || 'N/A'
+    };
+  } catch (error) {
+    console.error('❌ Erro interno ao buscar senha da OS:', error);
+    return null;
+  }
+}
+
+/**
+ * Formata mensagem de senha da OS para WhatsApp
+ */
+export function formatSenhaOSMessage(dadosOS: {
+  numero_os: string;
+  senha_aparelho: string | null;
+  senha_padrao: string | null;
+  cliente_nome: string;
+  equipamento: string;
+}): string {
+  let message = `🔐 *Senha da OS #${dadosOS.numero_os}*\n\n`;
+  
+  if (dadosOS.senha_aparelho) {
+    message += `🔑 *Senha do Aparelho:*\n`;
+    message += `\`${dadosOS.senha_aparelho}\`\n\n`;
+  } else {
+    message += `⚠️ Senha do aparelho não foi informada.\n\n`;
+  }
+  
+  if (dadosOS.senha_padrao) {
+    try {
+      const padrao = typeof dadosOS.senha_padrao === 'string' 
+        ? JSON.parse(dadosOS.senha_padrao) 
+        : dadosOS.senha_padrao;
+      
+      if (Array.isArray(padrao) && padrao.length > 0) {
+        message += `📱 *Padrão Android:*\n`;
+        message += `${padrao.join(' → ')}\n\n`;
+      }
+    } catch (e) {
+      // Ignorar erro de parsing
+    }
+  }
+  
+  message += `📋 Cliente: ${dadosOS.cliente_nome}\n`;
+  message += `📱 Equipamento: ${dadosOS.equipamento}\n`;
+  
+  return message;
+}
+
