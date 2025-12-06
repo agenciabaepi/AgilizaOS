@@ -166,7 +166,7 @@ async function processWhatsAppMessage(from: string, messageBody: string) {
         
         if (!dadosOS) {
           return {
-            message: `❌ OS #${numeroOS} não encontrada ou não está atribuída a você.\n\nVocê só pode consultar senhas de OS que foram atribuídas a você como técnico responsável.\n\nVerifique o número da OS e tente novamente.`
+            message: `❌ *Acesso Negado*\n\nA OS #${numeroOS} pertence a outro técnico.\n\nVocê não tem permissão para consultar dados de OS que não estão atribuídas a você como técnico responsável.`
           };
         }
 
@@ -177,6 +177,37 @@ async function processWhatsAppMessage(from: string, messageBody: string) {
         return {
           message: '❓ Você perguntou sobre senha da OS, mas não informou o número.\n\nPor favor, mencione o número da OS. Exemplo:\n"Qual a senha da OS 890?"'
         };
+      }
+    }
+
+    // Verificar se técnico está perguntando sobre uma OS (sem mencionar senha)
+    // Exemplo: "qual a os 1196", "os 1196", "me passa dados da os 1196"
+    if (usuario.nivel === 'tecnico' && mencionaOS && !mencionaSenha) {
+      const numeros = trimmedMessage.match(/\d+/g);
+      let numeroOS: string | null = null;
+      
+      if (numeros && numeros.length > 0) {
+        const numerosOS = numeros.filter(n => n.length >= 2 && n.length <= 5);
+        numeroOS = numerosOS.length > 0 ? numerosOS[0] : numeros[0];
+      }
+      
+      if (numeroOS && usuario.empresa_id && usuario.auth_user_id) {
+        console.log('🔍 Técnico perguntando sobre OS (sem senha):', {
+          numeroOS,
+          usuario: usuario.nome,
+          mensagem: trimmedMessage
+        });
+
+        // Verificar se a OS pertence ao técnico
+        const dadosOS = await getSenhaOSPorNumero(numeroOS, usuario.empresa_id, usuario.auth_user_id);
+        
+        if (!dadosOS) {
+          return {
+            message: `❌ *Acesso Negado*\n\nA OS #${numeroOS} pertence a outro técnico.\n\nVocê não tem permissão para consultar dados de OS que não estão atribuídas a você como técnico responsável.`
+          };
+        }
+        
+        // Se a OS pertence ao técnico, deixa passar para o ChatGPT responder normalmente
       }
     }
 
