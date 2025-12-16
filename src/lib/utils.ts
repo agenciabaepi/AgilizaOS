@@ -28,3 +28,22 @@ export function formatPhoneNumber(phone: string): string | null {
   
   return null;
 }
+
+/**
+ * Remove tags HTML e converte entidades HTML para texto simples
+ * Útil para renderizar HTML em locais que não suportam HTML (como PDF)
+ */
+export function stripHTML(html: string): string {
+  if (!html) return '';
+  
+  return html
+    .replace(/<[^>]*>/g, '') // Remove todas as tags HTML
+    .replace(/&nbsp;/g, ' ') // Converte &nbsp; para espaço
+    .replace(/&amp;/g, '&') // Converte &amp; para &
+    .replace(/&lt;/g, '<') // Converte &lt; para <
+    .replace(/&gt;/g, '>') // Converte &gt; para >
+    .replace(/&quot;/g, '"') // Converte &quot; para "
+    .replace(/&#39;/g, "'") // Converte &#39; para '
+    .replace(/\s+/g, ' ') // Remove espaços múltiplos
+    .trim();
+}

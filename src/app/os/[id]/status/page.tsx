@@ -7,6 +7,7 @@ import { FiClock, FiCheckCircle, FiAlertCircle, FiCamera, FiFileText, FiSmartpho
 import ImagensOS from '@/components/ImagensOS';
 import ChecklistPublic from '@/components/ChecklistPublic';
 import StatusHistoricoTimeline from '@/components/StatusHistoricoTimeline';
+import LaudoRenderer from '@/components/LaudoRenderer';
 
 export default function OSPublicPage() {
   const params = useParams();
@@ -615,10 +616,8 @@ export default function OSPublicPage() {
               </div>
               <h3 className="text-lg font-semibold text-gray-900">Laudo Técnico</h3>
             </div>
-            <div className="prose max-w-none">
-              <div className="whitespace-pre-wrap text-gray-700 bg-gray-50 p-4 rounded-lg border mb-4">
-                {osData.laudo}
-              </div>
+            <div className="bg-gray-50 p-4 rounded-lg border mb-4">
+              <LaudoRenderer content={osData.laudo} className="text-gray-700" />
             </div>
             {osData.imagens_tecnico && (
               <div className="mt-2">

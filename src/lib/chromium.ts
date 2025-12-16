@@ -1,5 +1,6 @@
 import puppeteer from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
+import { stripHTML } from './utils';
 
 // Configuração do Chromium para Vercel
 export const getChromiumExecutablePath = async () => {
@@ -330,7 +331,7 @@ export const generateOSPDF = async (osData: any) => {
       ${osData.laudo ? `
       <div class="info-section">
         <h3>Laudo Técnico</h3>
-        <div class="info-value">${osData.laudo}</div>
+        <div class="info-value">${stripHTML(osData.laudo)}</div>
       </div>
       ` : ''}
       

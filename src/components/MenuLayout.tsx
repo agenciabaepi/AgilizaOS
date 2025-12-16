@@ -166,12 +166,12 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
   const pathname = usePathname();
 
-  // Carregar configurações do catálogo
+  // Carregar configurações do catálogo e escutar mudanças em tempo real
   useEffect(() => {
-    (async () => {
+    if (!empresaData?.id) return;
+    
+    const carregarConfig = async () => {
       try {
-        if (!empresaData?.id) return;
-        
         const { data, error } = await supabase
           .from('configuracoes_empresa')
           .select('catalogo_habilitado')
@@ -180,19 +180,77 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           
         if (error) {
           // Se não encontrar configurações, assumir que está habilitado por padrão
+          console.log('⚠️ Debug Catálogo - Config não encontrada, assumindo habilitado:', error);
           setCatalogoHabilitado(true);
           return;
         }
         
         const habilitado = data?.catalogo_habilitado === true;
+        console.log('🔍 Debug Catálogo - Config carregada:', {
+          empresa_id: empresaData.id,
+          catalogo_habilitado: habilitado,
+          data: data
+        });
         setCatalogoHabilitado(habilitado);
         
       } catch (error) {
         // Em caso de erro, assumir que está habilitado
+        console.error('❌ Debug Catálogo - Erro ao carregar config:', error);
         setCatalogoHabilitado(true);
       }
-    })();
+    };
+    
+    // Carregar inicialmente
+    carregarConfig();
+    
+    // Escutar mudanças em tempo real
+    const channel = supabase
+      .channel(`config_catalogo_${empresaData.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'configuracoes_empresa',
+        filter: `empresa_id=eq.${empresaData.id}`
+      }, (payload) => {
+        console.log('🔄 Debug Catálogo - Config atualizada em tempo real:', payload);
+        if (payload.new?.catalogo_habilitado !== undefined) {
+          setCatalogoHabilitado(payload.new.catalogo_habilitado === true);
+        }
+      })
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'configuracoes_empresa',
+        filter: `empresa_id=eq.${empresaData.id}`
+      }, (payload) => {
+        console.log('🆕 Debug Catálogo - Config criada:', payload);
+        if (payload.new?.catalogo_habilitado !== undefined) {
+          setCatalogoHabilitado(payload.new.catalogo_habilitado === true);
+        }
+      })
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [empresaData?.id]);
+  
+  // Debug: Log quando condições do menu mudam
+  useEffect(() => {
+    const temEquipamentos = podeVer('equipamentos');
+    const temCatalogo = podeVer('catalogo');
+    
+    console.log('🔍 Debug Catálogo - Condições do Menu:', {
+      catalogoHabilitado,
+      temEquipamentos,
+      temCatalogo,
+      permissoes: usuarioData?.permissoes,
+      nivel: usuarioData?.nivel,
+      usuarioId: usuarioData?.id,
+      deveAparecerNoEquipamentos: catalogoHabilitado && temCatalogo && temEquipamentos,
+      deveAparecerIndependente: !temEquipamentos && temCatalogo && catalogoHabilitado
+    });
+  }, [catalogoHabilitado, usuarioData?.permissoes, usuarioData?.nivel, usuarioData?.id]);
 
   useEffect(() => {
     const stored = localStorage.getItem('menuExpandido') === 'true';
@@ -258,6 +316,18 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
     // Verificar se o usuário tem a permissão específica
     const temPermissao = usuarioData?.permissoes && usuarioData.permissoes.includes(area);
     
+    // Debug para catálogo
+    if (area === 'catalogo') {
+      console.log('🔍 Debug Catálogo - podeVer:', {
+        area,
+        temPermissao,
+        permissoes: usuarioData?.permissoes,
+        nivel: usuarioData?.nivel,
+        catalogoHabilitado,
+        temPermissaoCatalogo: usuarioData?.permissoes?.includes('catalogo'),
+        arrayPermissoes: JSON.stringify(usuarioData?.permissoes || [])
+      });
+    }
     
     return temPermissao;
   };
@@ -422,12 +492,16 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                 <div className="ml-6 flex flex-col gap-1 mt-1">
                   <SidebarButton path="/equipamentos" icon={<FiBox size={18} />} label="Produtos" isActive={pathname === '/equipamentos'} menuRecolhido={menuRecolhido || false} />
                   <SidebarButton path="/equipamentos/categorias" icon={<FiGrid size={18} />} label="Categorias" isActive={pathname === '/equipamentos/categorias'} menuRecolhido={menuRecolhido || false} />
-                  {catalogoHabilitado && (
-                                          <SidebarButton path="/catalogo" icon={<FiStar size={18} />} label="Catálogo" isActive={pathname === '/catalogo'} menuRecolhido={menuRecolhido || false} />
+                  {catalogoHabilitado && podeVer('catalogo') && (
+                    <SidebarButton path="/catalogo" icon={<FiStar size={18} />} label="Catálogo" isActive={pathname === '/catalogo'} menuRecolhido={menuRecolhido || false} />
                   )}
                 </div>
               )}
             </>
+          )}
+          {/* Catálogo independente - se usuário tem permissão de catálogo mas não de equipamentos */}
+          {!podeVer('equipamentos') && podeVer('catalogo') && catalogoHabilitado && (
+            <SidebarButton path="/catalogo" icon={<FiStar size={20} />} label="Catálogo" isActive={pathname === '/catalogo'} menuRecolhido={menuRecolhidoFinal} />
           )}
           {podeVerModulo('financeiro', 'financeiro') && (
             <>
@@ -663,7 +737,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                     <div className="ml-6 flex flex-col gap-1 mt-1">
                       <SidebarButton path="/equipamentos" icon={<FiBox size={18} />} label="Produtos" isActive={pathname === '/equipamentos'} menuRecolhido={menuRecolhido || false} />
                       <SidebarButton path="/equipamentos/categorias" icon={<FiGrid size={18} />} label="Categorias" isActive={pathname === '/equipamentos/categorias'} menuRecolhido={menuRecolhido || false} />
-                  {catalogoHabilitado && (
+                  {catalogoHabilitado && podeVer('catalogo') && (
                     <SidebarButton path="/catalogo" icon={<FiStar size={18} />} label="Catálogo" isActive={pathname === '/catalogo'} menuRecolhido={menuRecolhido || false} />
                   )}
                     </div>
@@ -1078,7 +1152,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                       isActive={pathname === '/equipamentos/categorias'}
                       onNavigate={() => setMobileMenuOpen(false)}
                     />
-                  {catalogoHabilitado && (
+                  {catalogoHabilitado && podeVer('catalogo') && (
                     <MobileMenuItem
                       path="/catalogo"
                       icon={<FiStar size={20} />}
@@ -1088,6 +1162,17 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                     />
                   )}
                 </>
+              )}
+              
+              {/* Catálogo independente no mobile - se usuário tem permissão de catálogo mas não de equipamentos */}
+              {!podeVer('equipamentos') && podeVer('catalogo') && catalogoHabilitado && (
+                <MobileMenuItem
+                  path="/catalogo"
+                  icon={<FiStar size={20} />}
+                  label="Catálogo"
+                  isActive={pathname === '/catalogo'}
+                  onNavigate={() => setMobileMenuOpen(false)}
+                />
               )}
               
               {/* Financeiro */}

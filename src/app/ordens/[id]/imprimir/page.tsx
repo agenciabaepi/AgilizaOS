@@ -7,6 +7,7 @@ import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/render
 
 import QRCodePDF from '@/components/QRCodePDF';
 import ChecklistPDF from '@/components/ChecklistPDF';
+import { stripHTML } from '@/lib/utils';
 
 const styles = StyleSheet.create({
   page: {
@@ -403,7 +404,7 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
         {ordem.laudo && (
           <View style={styles.block}>
             <Text style={styles.sectionTitle}>Laudo Técnico</Text>
-            <Text style={styles.paragraph}>{ordem.laudo}</Text>
+            <Text style={styles.paragraph}>{stripHTML(ordem.laudo)}</Text>
             {/* Imagens do Técnico coladas ao laudo */}
             {renderImagens((ordem as any).imagens_tecnico, 'Imagens do Técnico (Laudo)')}
           </View>

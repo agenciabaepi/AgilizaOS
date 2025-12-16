@@ -33,8 +33,21 @@ export default function CatalogoConfigPage() {
     setSaving(true);
     try {
       const payload = { empresa_id: empresaData.id, catalogo_habilitado: habilitado } as any;
-      const { error } = await supabase.from('configuracoes_empresa').upsert(payload, { onConflict: 'empresa_id' });
-      if (error) throw error;
+      const { error, data } = await supabase
+        .from('configuracoes_empresa')
+        .upsert(payload, { onConflict: 'empresa_id' })
+        .select();
+      
+      if (error) {
+        console.error('❌ Erro ao salvar configuração do catálogo:', error);
+        alert('Erro ao salvar: ' + error.message);
+        throw error;
+      }
+      
+      console.log('✅ Configuração do catálogo salva com sucesso:', data);
+      alert(`Catálogo ${habilitado ? 'habilitado' : 'desabilitado'} com sucesso! O menu será atualizado automaticamente.`);
+    } catch (error) {
+      console.error('Erro ao salvar:', error);
     } finally {
       setSaving(false);
     }

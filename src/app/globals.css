@@ -446,3 +446,40 @@ body {
   color: #6b7280;
   font-style: italic;
 }
+
+/* Safe Area Insets para dispositivos móveis (iPhone com notch) */
+@supports (padding: max(0px)) {
+  .safe-area-inset-top {
+    padding-top: max(0.75rem, env(safe-area-inset-top));
+  }
+  
+  .safe-area-inset-bottom {
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+  
+  .safe-area-inset-left {
+    padding-left: max(0.75rem, env(safe-area-inset-left));
+  }
+  
+  .safe-area-inset-right {
+    padding-right: max(0.75rem, env(safe-area-inset-right));
+  }
+}
+
+/* Touch manipulation para melhor performance em mobile */
+.touch-manipulation {
+  touch-action: manipulation;
+}
+
+/* Prevenir zoom em inputs no iOS */
+@supports (-webkit-touch-callout: none) {
+  input[type="text"],
+  input[type="email"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="password"],
+  textarea,
+  select {
+    font-size: 16px; /* Previne zoom automático no iOS */
+  }
+}

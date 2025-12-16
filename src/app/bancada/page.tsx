@@ -360,11 +360,11 @@ export default function BancadaPage() {
   return (
     
       <MenuLayout>
-        <div className="p-4 sm:p-6">
+        <div className="p-3 sm:p-4 md:p-6">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
-              <FiCpu className="text-blue-600" />
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
+            <h1 className="text-lg sm:text-xl md:text-2xl font-bold flex items-center gap-2">
+              <FiCpu className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
               Minha Bancada
             </h1>
             
@@ -403,20 +403,20 @@ export default function BancadaPage() {
           </div>
           
           {/* Abas */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-4 sm:mb-6 overflow-x-auto">
-            <div className="flex border-b border-gray-200 min-w-max">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-4 sm:mb-6 overflow-x-auto -mx-3 sm:mx-0">
+            <div className="flex border-b border-gray-200 min-w-max px-3 sm:px-0">
               <button
                 onClick={() => handleTabChange('pendentes')}
-                className={`px-3 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm border-b-2 transition-colors ${
+                className={`px-4 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm border-b-2 transition-colors touch-manipulation whitespace-nowrap ${
                   activeTab === 'pendentes'
                     ? 'border-blue-500 text-blue-600 bg-blue-50'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <FiClock className="w-4 h-4" />
-                  Pendentes
-                  <span className={`px-2 py-1 text-xs rounded-full ${
+                  <FiClock className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+                  <span className="whitespace-nowrap">Pendentes</span>
+                  <span className={`px-2 py-0.5 text-xs rounded-full flex-shrink-0 ${
                     activeTab === 'pendentes' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
                   }`}>
                     {contadores.pendentes}
@@ -426,38 +426,38 @@ export default function BancadaPage() {
               
               <button
                 onClick={() => handleTabChange('aprovadas')}
-                className={`px-3 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm border-b-2 transition-colors relative ${
+                className={`px-4 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm border-b-2 transition-colors relative touch-manipulation whitespace-nowrap ${
                   activeTab === 'aprovadas'
                     ? 'border-green-500 text-green-600 bg-green-50'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <FiCheckCircle className="w-4 h-4" />
-                  Aprovadas
-                  <span className={`px-2 py-1 text-xs rounded-full ${
+                  <FiCheckCircle className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+                  <span className="whitespace-nowrap">Aprovadas</span>
+                  <span className={`px-2 py-0.5 text-xs rounded-full flex-shrink-0 ${
                     activeTab === 'aprovadas' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
                   }`}>
                     {contadores.aprovadas}
                   </span>
                   {osAprovadas.length > 0 && (
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse flex-shrink-0"></div>
                   )}
                 </div>
               </button>
               
               <button
                 onClick={() => handleTabChange('em_andamento')}
-                className={`px-3 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm border-b-2 transition-colors ${
+                className={`px-4 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm border-b-2 transition-colors touch-manipulation whitespace-nowrap ${
                   activeTab === 'em_andamento'
                     ? 'border-purple-500 text-purple-600 bg-purple-50'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <FiTool className="w-4 h-4" />
-                  Em Andamento
-                  <span className={`px-2 py-1 text-xs rounded-full ${
+                  <FiTool className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+                  <span className="whitespace-nowrap">Em Andamento</span>
+                  <span className={`px-2 py-0.5 text-xs rounded-full flex-shrink-0 ${
                     activeTab === 'em_andamento' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'
                   }`}>
                     {contadores.emAndamento}
@@ -467,16 +467,16 @@ export default function BancadaPage() {
               
               <button
                 onClick={() => handleTabChange('concluidas')}
-                className={`px-3 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm border-b-2 transition-colors ${
+                className={`px-4 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm border-b-2 transition-colors touch-manipulation whitespace-nowrap ${
                   activeTab === 'concluidas'
                     ? 'border-green-500 text-green-600 bg-green-50'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <FiCheckCircle className="w-4 h-4" />
-                  Concluídas
-                  <span className={`px-2 py-1 text-xs rounded-full ${
+                  <FiCheckCircle className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+                  <span className="whitespace-nowrap">Concluídas</span>
+                  <span className={`px-2 py-0.5 text-xs rounded-full flex-shrink-0 ${
                     activeTab === 'concluidas' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
                   }`}>
                     {contadores.concluidas}
@@ -486,16 +486,16 @@ export default function BancadaPage() {
               
               <button
                 onClick={() => handleTabChange('sem_reparo')}
-                className={`px-3 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm border-b-2 transition-colors ${
+                className={`px-4 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm border-b-2 transition-colors touch-manipulation whitespace-nowrap ${
                   activeTab === 'sem_reparo'
                     ? 'border-red-500 text-red-600 bg-red-50'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <FiAlertCircle className="w-4 h-4" />
-                  Sem Reparo
-                  <span className={`px-2 py-1 text-xs rounded-full ${
+                  <FiAlertCircle className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+                  <span className="whitespace-nowrap">Sem Reparo</span>
+                  <span className={`px-2 py-0.5 text-xs rounded-full flex-shrink-0 ${
                     activeTab === 'sem_reparo' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'
                   }`}>
                     {contadores.semReparo}
@@ -505,16 +505,16 @@ export default function BancadaPage() {
               
               <button
                 onClick={() => handleTabChange('todas')}
-                className={`px-3 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm border-b-2 transition-colors ${
+                className={`px-4 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm border-b-2 transition-colors touch-manipulation whitespace-nowrap ${
                   activeTab === 'todas'
                     ? 'border-gray-500 text-gray-600 bg-gray-50'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <FiPackage className="w-4 h-4" />
-                  Todas
-                  <span className={`px-2 py-1 text-xs rounded-full ${
+                  <FiPackage className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+                  <span className="whitespace-nowrap">Todas</span>
+                  <span className={`px-2 py-0.5 text-xs rounded-full flex-shrink-0 ${
                     activeTab === 'todas' ? 'bg-gray-100 text-gray-700' : 'bg-gray-100 text-gray-600'
                   }`}>
                     {contadores.todas}
@@ -526,19 +526,19 @@ export default function BancadaPage() {
 
           {/* Filtros */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 sm:mb-6">
-            <div className="relative">
+            <div className="relative w-full">
               <input
                 type="text"
                 placeholder="Buscar por cliente ou número da OS..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full sm:w-80 border border-gray-300 rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full sm:w-80 border border-gray-300 rounded-lg pl-10 pr-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[44px]"
               />
-              <svg className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="absolute left-3 top-3 h-5 w-5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
-            <div className="flex flex-wrap gap-1 sm:gap-2">
+            <div className="flex flex-wrap gap-2">
               {[
                 { label: 'Abertas', value: 'ABERTA' },
                 { label: 'Em Análise', value: 'EM_ANALISE' },
@@ -554,10 +554,10 @@ export default function BancadaPage() {
                   <button
                     key={status.value}
                     onClick={() => setFiltroStatus(status.value)}
-                    className={`px-2 sm:px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                    className={`px-3 sm:px-4 py-2.5 rounded-lg text-xs sm:text-sm font-medium border transition-colors touch-manipulation min-h-[40px] ${
                       filtroStatus === status.value
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm active:bg-blue-700'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 active:bg-gray-100'
                     }`}
                   >
                     {status.label} ({count})
@@ -568,7 +568,7 @@ export default function BancadaPage() {
           </div>
 
           {/* Lista de OSs */}
-          <div className="space-y-3 sm:space-y-4">
+          <div className="space-y-3 sm:space-y-4 pb-4">
             {filteredOrdens.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-gray-400 mb-4">
@@ -649,7 +649,7 @@ export default function BancadaPage() {
                   return (
                     <div
                       key={os.id}
-                      className={`bg-white p-4 sm:p-6 rounded-xl shadow-sm transition-all duration-200 ${
+                      className={`bg-white p-4 sm:p-5 md:p-6 rounded-xl shadow-sm transition-all duration-200 border ${
                         isNovaAprovacao 
                           ? 'border-2 border-green-400 shadow-lg bg-gradient-to-r from-green-50 to-white animate-pulse'
                           : isAprovada
@@ -684,16 +684,16 @@ export default function BancadaPage() {
                       
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-3 mb-3">
-                            <h3 className="font-semibold text-gray-900">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-3">
+                            <h3 className="font-semibold text-base sm:text-lg text-gray-900 break-words">
                               #{os.numero_os || os.id} - {os.cliente?.nome || 'Cliente não informado'}
                             </h3>
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(os.status, os.status_tecnico)}`}>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getStatusColor(os.status, os.status_tecnico)}`}>
                               {getStatusLabel(os.status, os.status_tecnico)}
                             </span>
                           </div>
                           
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 text-sm text-gray-600">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm text-gray-600">
                             <div>
                               <p className="font-medium text-gray-700 mb-1">Aparelho</p>
                               <p>{aparelho || 'Não informado'}</p>
@@ -723,21 +723,21 @@ export default function BancadaPage() {
                           )}
                         </div>
 
-                        <div className="sm:ml-6 flex flex-col items-stretch sm:items-end gap-2 w-full sm:w-auto">
+                        <div className="sm:ml-6 flex flex-col items-stretch sm:items-end gap-2 w-full sm:w-auto mt-3 sm:mt-0">
                           {os.status === 'ABERTA' ? (
                             <button
                               onClick={() => abrirModal(os)}
-                              className="inline-flex justify-center items-center gap-2 bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors shadow-sm w-full sm:w-auto"
+                              className="inline-flex justify-center items-center gap-2 bg-gray-600 text-white px-5 py-3 rounded-lg text-sm font-medium hover:bg-gray-700 active:bg-gray-800 transition-colors shadow-sm w-full sm:w-auto min-h-[44px] touch-manipulation"
                             >
-                              <FiEye size={16} /> 
+                              <FiEye size={18} /> 
                               Visualizar
                             </button>
                           ) : (
                             <button
                               onClick={() => router.push(`/bancada/${os.id}`)}
-                              className="inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm w-full sm:w-auto"
+                              className="inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-5 py-3 rounded-lg text-sm font-medium hover:bg-blue-700 active:bg-blue-800 transition-colors shadow-sm w-full sm:w-auto min-h-[44px] touch-manipulation"
                             >
-                              <FiCpu size={16} /> 
+                              <FiCpu size={18} /> 
                               Continuar
                             </button>
                           )}
@@ -746,9 +746,9 @@ export default function BancadaPage() {
                           {((os.imagens && os.imagens.trim() !== '') || (os.imagens_tecnico && os.imagens_tecnico.trim() !== '')) && (
                             <button
                               onClick={() => router.push(`/bancada/${os.id}#anexos`)}
-                              className="inline-flex justify-center items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors w-full sm:w-auto"
+                              className="inline-flex justify-center items-center gap-1.5 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300 transition-colors w-full sm:w-auto min-h-[40px] touch-manipulation"
                             >
-                              <FiPaperclip size={14} />
+                              <FiPaperclip size={16} />
                               Ver anexos
                             </button>
                           )}

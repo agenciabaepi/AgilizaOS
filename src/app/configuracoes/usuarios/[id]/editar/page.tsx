@@ -1102,44 +1102,49 @@ function EditarUsuarioPageInner() {
                         </div>
                       </label>
                       
-                      {/* Sub-permissões */}
-                      {form.permissoes.includes('equipamentos') && (
-                        <div className="ml-8 space-y-2">
-                          {PERMISSOES_CASCATA.produtos.subPermissoes.map((subPermissao) => {
-                            const IconComponent = subPermissao.icon;
-                            const isChecked = form.permissoes.includes(subPermissao.key);
-                            
-                            return (
-                              <label 
-                                key={subPermissao.key} 
-                                className={`flex items-start gap-3 p-3 rounded-lg border border-gray-200 cursor-pointer transition-all duration-200 ${
-                                  isChecked 
-                                    ? 'border-purple-400 bg-purple-25' 
+                      {/* Sub-permissões - sempre visíveis para poder marcar independentemente */}
+                      <div className="ml-8 space-y-2">
+                        {PERMISSOES_CASCATA.produtos.subPermissoes.map((subPermissao) => {
+                          const IconComponent = subPermissao.icon;
+                          const isChecked = form.permissoes.includes(subPermissao.key);
+                          const parentChecked = form.permissoes.includes('equipamentos');
+                          
+                          return (
+                            <label 
+                              key={subPermissao.key} 
+                              className={`flex items-start gap-3 p-3 rounded-lg border border-gray-200 cursor-pointer transition-all duration-200 ${
+                                isChecked 
+                                  ? 'border-purple-400 bg-purple-25' 
+                                  : !parentChecked
+                                    ? 'border-gray-300 bg-gray-50 opacity-75'
                                     : 'border-gray-200 bg-gray-50'
-                                }`}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={() => handlePermissaoChange(subPermissao.key)}
-                                  className="mt-1 w-3 h-3 text-purple-600 border-gray-300 rounded focus:ring-purple-600"
-                                />
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <IconComponent className="w-3 h-3 text-purple-600" />
-                                    <span className="text-sm font-medium text-gray-700">
-                                      {subPermissao.label}
-                                    </span>
-                                  </div>
-                                  <p className="text-xs text-gray-500">
-                                    {subPermissao.description}
-                                  </p>
+                              }`}
+                              title={!parentChecked ? 'Pode ser marcado independentemente da permissão principal' : ''}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => handlePermissaoChange(subPermissao.key)}
+                                className="mt-1 w-3 h-3 text-purple-600 border-gray-300 rounded focus:ring-purple-600"
+                              />
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <IconComponent className="w-3 h-3 text-purple-600" />
+                                  <span className="text-sm font-medium text-gray-700">
+                                    {subPermissao.label}
+                                  </span>
+                                  {!parentChecked && isChecked && (
+                                    <span className="text-xs text-purple-600 font-medium">(Independente)</span>
+                                  )}
                                 </div>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      )}
+                                <p className="text-xs text-gray-500">
+                                  {subPermissao.description}
+                                </p>
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
 

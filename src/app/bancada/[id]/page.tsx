@@ -972,7 +972,7 @@ export default function DetalheBancadaPage() {
   if (loading) {
     return (
       <MenuLayout>
-        <div className="px-10 py-8 max-w-7xl mx-auto text-center text-gray-500">Carregando OS...</div>
+        <div className="px-4 sm:px-6 py-8 max-w-full mx-auto text-center text-gray-500 text-sm sm:text-base">Carregando OS...</div>
       </MenuLayout>
     );
   }
@@ -980,7 +980,7 @@ export default function DetalheBancadaPage() {
   if (!os) {
     return (
       <MenuLayout>
-        <div className="px-10 py-8 max-w-7xl mx-auto text-center text-red-500">Ordem de serviço não encontrada.</div>
+        <div className="px-4 sm:px-6 py-8 max-w-full mx-auto text-center text-red-500 text-sm sm:text-base">Ordem de serviço não encontrada.</div>
       </MenuLayout>
     );
   }
@@ -994,28 +994,28 @@ export default function DetalheBancadaPage() {
       {/* Mobile-First Layout */}
       <div className="min-h-screen bg-gray-50">
         {/* Header Mobile App-like - Fixed */}
-        <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
-          <div className="px-4 py-3">
+        <div className="bg-white border-b border-gray-200 sticky top-0 z-50 safe-area-inset-top">
+          <div className="px-3 sm:px-4 py-2.5 sm:py-3">
             <div className="flex items-center justify-between">
               <button
                 onClick={() => window.history.back()}
-                className="text-blue-600 hover:text-blue-700 p-2 -ml-2 rounded-lg hover:bg-blue-50"
+                className="text-blue-600 hover:text-blue-700 active:text-blue-800 p-2 -ml-2 rounded-lg hover:bg-blue-50 active:bg-blue-100 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
               >
-                <FiArrowLeft className="w-6 h-6" />
+                <FiArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
               
-              <div className="flex-1 text-center">
-                <h1 className="text-lg font-semibold text-gray-900">
+              <div className="flex-1 text-center px-2">
+                <h1 className="text-base sm:text-lg font-semibold text-gray-900 truncate">
                   OS #{os.numero_os || os.id}
                 </h1>
               </div>
               
-              <div className="w-10 h-10"></div> {/* Spacer for centering */}
+              <div className="min-w-[44px] min-h-[44px]"></div> {/* Spacer for centering */}
             </div>
             
             {/* Status Badge */}
             <div className="flex justify-center mt-2">
-              <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${
+              <span className={`inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap ${
                 os.status === 'ABERTA' ? 'bg-yellow-100 text-yellow-800' :
                 os.status === 'EM_ANALISE' ? 'bg-blue-100 text-blue-800' :
                 os.status === 'AGUARDANDO_PECA' ? 'bg-orange-100 text-orange-800' :
@@ -1031,56 +1031,56 @@ export default function DetalheBancadaPage() {
         </div>
 
         {/* Content Container - Mobile Optimized */}
-        <div className="px-4 py-4 pb-24 max-w-full overflow-x-hidden">
+        <div className="px-3 sm:px-4 py-3 sm:py-4 pb-36 sm:pb-28 max-w-full overflow-x-hidden">
           
           {/* PARTE SUPERIOR: Resumo em Colunas */}
-          <div className="mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="mb-4 sm:mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mb-3 sm:mb-4">
               {/* Coluna 1: Cliente */}
-              <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                    <FiUser className="w-5 h-5 text-blue-600" />
+              <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm border border-gray-100">
+                <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 bg-blue-100 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
+                    <FiUser className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
               </div>
-                  <h3 className="font-semibold text-gray-900">Cliente</h3>
+                  <h3 className="font-semibold text-sm sm:text-base text-gray-900">Cliente</h3>
               </div>
-                <p className="text-lg font-bold text-gray-900 mb-1">{os.cliente?.nome || '---'}</p>
-                <div className="space-y-1 text-sm text-gray-600">
-                  <p>Data: {os.created_at ? new Date(os.created_at).toLocaleDateString('pt-BR') : '---'}</p>
-                  <p>Atendente: {os.atendente || '---'}</p>
+                <p className="text-base sm:text-lg font-bold text-gray-900 mb-2 break-words">{os.cliente?.nome || '---'}</p>
+                <div className="space-y-1 text-xs sm:text-sm text-gray-600">
+                  <p className="break-words">Data: {os.created_at ? new Date(os.created_at).toLocaleDateString('pt-BR') : '---'}</p>
+                  <p className="break-words">Atendente: {os.atendente || '---'}</p>
             </div>
           </div>
 
               {/* Coluna 2: Aparelho */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-                    <FiBox className="w-5 h-5 text-green-600" />
+          <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm border border-gray-100">
+                <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 bg-green-100 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
+                    <FiBox className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
               </div>
-                  <h3 className="font-semibold text-gray-900">Aparelho</h3>
+                  <h3 className="font-semibold text-sm sm:text-base text-gray-900">Aparelho</h3>
               </div>
-                <p className="text-lg font-bold text-gray-900 mb-1">{aparelho || '---'}</p>
-                <div className="space-y-1 text-sm text-gray-600">
-                  {os.numero_serie && <p>Série: {os.numero_serie}</p>}
-                  {os.cor && <p>Cor: {os.cor}</p>}
+                <p className="text-base sm:text-lg font-bold text-gray-900 mb-2 break-words">{aparelho || '---'}</p>
+                <div className="space-y-1 text-xs sm:text-sm text-gray-600">
+                  {os.numero_serie && <p className="break-words">Série: {os.numero_serie}</p>}
+                  {os.cor && <p className="break-words">Cor: {os.cor}</p>}
             </div>
           </div>
 
               {/* Coluna 3: Valor e Status */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
-                    <FiDollarSign className="w-5 h-5 text-yellow-600" />
+          <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm border border-gray-100">
+                <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 bg-yellow-100 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
+                    <FiDollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600" />
               </div>
-                  <h3 className="font-semibold text-gray-900">Valor Total</h3>
+                  <h3 className="font-semibold text-sm sm:text-base text-gray-900">Valor Total</h3>
               </div>
-                <p className="text-2xl font-bold text-blue-600 mb-3">
+                <p className="text-xl sm:text-2xl font-bold text-blue-600 mb-3 break-words">
               {((parseFloat(os.valor_servico || '0') + parseFloat(os.valor_peca || '0'))).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </p>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-2">Status Técnico</label>
             <select
-                    className="w-full border border-gray-300 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white"
+                    className="w-full border border-gray-300 px-3 py-3 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white min-h-[44px] touch-manipulation"
               value={statusTecnico}
               onChange={e => setStatusTecnico(e.target.value)}
             >
@@ -1093,15 +1093,43 @@ export default function DetalheBancadaPage() {
               </div>
             </div>
             
-            {/* Informações Adicionais do Cliente (se houver) */}
-            {(os?.relato || os.acessorios || os.condicoes_equipamento) && (
+            {/* Informações Adicionais - Sempre exibir */}
+            {(os?.relato || os.acessorios || os.condicoes_equipamento || os?.senha_aparelho || os?.senha_padrao) && (
               <CollapsibleSection
                 title="Informações Adicionais"
-                subtitle="Relato, acessórios e condições do equipamento"
+                subtitle="Relato, acessórios, condições do equipamento e senha"
                 icon={<FiMessageCircle className="w-5 h-5 text-orange-600" />}
                 defaultOpen={false}
               >
                 <div className="space-y-4 pt-2">
+                  {/* Senha do Aparelho - Sempre exibir se existir */}
+                  {os?.senha_aparelho && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                        <FiLock className="w-4 h-4 text-yellow-600" />
+                        Senha do Aparelho
+                      </h4>
+                      <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-100">
+                        <code className="text-lg font-mono text-blue-600">
+                          {String(os.senha_aparelho)}
+                        </code>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Padrão Android - Só exibir se existir */}
+                  {os?.senha_padrao && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                        <FiLock className="w-4 h-4 text-yellow-600" />
+                        Padrão Android
+                      </h4>
+                      <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-100">
+                        <PatternDisplay pattern={os.senha_padrao as string | number[]} />
+                      </div>
+                    </div>
+                  )}
+                  
                   {os?.relato && (
                     <div>
                       <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
@@ -1227,19 +1255,19 @@ export default function DetalheBancadaPage() {
           >
             <div className="space-y-4 pt-2">
               <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Laudo Técnico</h4>
+                <h4 className="text-sm font-medium text-gray-700 mb-2 sm:mb-3">Laudo Técnico</h4>
                 <LaudoEditor
               value={laudo}
                   onChange={setLaudo}
               placeholder="Descreva o diagnóstico técnico com todos os detalhes relevantes..."
-                  minHeight="200px"
+                  minHeight="180px"
             />
           </div>
 
               <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Observações Técnicas</h4>
+                <h4 className="text-sm font-medium text-gray-700 mb-2 sm:mb-3">Observações Técnicas</h4>
                 <textarea
-                  className="w-full border border-gray-300 px-4 py-3 rounded-xl text-sm min-h-[100px] focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors resize-none bg-white"
+                  className="w-full border border-gray-300 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-sm min-h-[100px] focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors resize-none bg-white"
                   value={observacoes}
                   onChange={e => setObservacoes(e.target.value)}
                   placeholder="Observações adicionais do técnico..."
@@ -1260,7 +1288,7 @@ export default function DetalheBancadaPage() {
               <div>
                 <h4 className="text-sm font-medium text-gray-700 mb-3">Imagens do Técnico</h4>
             <div className="space-y-4">
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 sm:p-6 text-center hover:border-gray-400 transition-colors">
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 sm:p-5 md:p-6 text-center hover:border-gray-400 active:border-gray-500 transition-colors touch-manipulation">
                 <input
                   type="file"
                   multiple
@@ -1269,11 +1297,11 @@ export default function DetalheBancadaPage() {
                   id="image-upload-edit"
                   onChange={handleImageUpload}
                 />
-                <label htmlFor="image-upload-edit" className="cursor-pointer">
+                <label htmlFor="image-upload-edit" className="cursor-pointer block min-h-[120px] sm:min-h-[140px] flex flex-col justify-center">
                   <div className="space-y-2">
-                    <div className="text-4xl">📷</div>
-                    <p className="text-sm text-gray-600">Imagens do técnico (laudo)</p>
-                    <p className="text-xs text-gray-500">PNG, JPG até 5MB cada • Máximo 10 imagens</p>
+                    <div className="text-3xl sm:text-4xl">📷</div>
+                    <p className="text-xs sm:text-sm text-gray-600 font-medium">Imagens do técnico (laudo)</p>
+                    <p className="text-xs text-gray-500 px-2">PNG, JPG até 5MB cada • Máximo 10 imagens</p>
                     {imagensTecnicoNovas.length > 0 && (
                       <p className="text-xs text-green-600 font-medium">
                         {imagensTecnicoNovas.length} imagem{imagensTecnicoNovas.length !== 1 ? 'ns' : ''} selecionada{imagensTecnicoNovas.length !== 1 ? 's' : ''}
@@ -1298,13 +1326,13 @@ export default function DetalheBancadaPage() {
                       Limpar todas
                     </button>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
                     {previewImagensTecnico.map((preview, index) => (
                       <div key={index} className="relative group cursor-pointer">
                         <img
                           src={preview}
                           alt={`Preview ${index + 1}`}
-                          className="w-full h-20 sm:h-24 object-cover rounded-lg border border-gray-200 shadow-sm"
+                          className="w-full h-24 sm:h-28 md:h-32 object-cover rounded-lg border border-gray-200 shadow-sm"
                         />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/60 transition-all duration-200 rounded-lg flex items-center justify-center">
                           <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
@@ -1313,9 +1341,9 @@ export default function DetalheBancadaPage() {
                                 e.stopPropagation();
                                 abrirEditorImagem(preview, index, true, false);
                               }}
-                              className="bg-purple-600 text-white rounded px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 hover:bg-purple-700 transition-colors shadow-lg"
+                              className="bg-purple-600 text-white rounded-lg px-3 py-2 text-xs sm:text-sm font-medium flex items-center gap-1.5 hover:bg-purple-700 active:bg-purple-800 transition-colors shadow-lg min-h-[40px] touch-manipulation"
                             >
-                              <FiEdit3 size={14} />
+                              <FiEdit3 size={16} />
                               Editar
                             </button>
                             <button
@@ -1323,9 +1351,9 @@ export default function DetalheBancadaPage() {
                                 e.stopPropagation();
                                 handleRemoveImage(index);
                               }}
-                              className="bg-red-500 text-white rounded px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 hover:bg-red-600 transition-colors shadow-lg"
+                              className="bg-red-500 text-white rounded-lg px-3 py-2 text-xs sm:text-sm font-medium flex items-center gap-1.5 hover:bg-red-600 active:bg-red-700 transition-colors shadow-lg min-h-[40px] touch-manipulation"
                             >
-                              <FiTrash2 size={14} />
+                              <FiTrash2 size={16} />
                               Remover
                           </button>
                           </div>
@@ -1342,18 +1370,18 @@ export default function DetalheBancadaPage() {
                   <div className="flex items-center justify-between">
                     <h4 className="text-sm font-medium text-gray-700">Imagens de Entrada (Atendente)</h4>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
                     {imagensEntradaExistentes.map((url, index) => (
                       <button
                         key={index}
                         type="button"
                         onClick={() => setPreviewImagemUrl(url)}
-                        className="relative group cursor-zoom-in"
+                        className="relative group cursor-zoom-in touch-manipulation"
                       >
                         <img
                           src={url}
                           alt={`Imagem entrada ${index + 1}`}
-                          className="w-full h-20 sm:h-24 object-cover rounded-lg border border-gray-200 shadow-sm"
+                          className="w-full h-24 sm:h-28 md:h-32 object-cover rounded-lg border border-gray-200 shadow-sm"
                         />
                       </button>
                     ))}
@@ -1373,17 +1401,17 @@ export default function DetalheBancadaPage() {
                       Remover todas
                     </button>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
                     {imagensTecnicoExistentes.map((url, index) => (
                       <div
                         key={index}
-                        className="relative group cursor-zoom-in"
+                        className="relative group cursor-zoom-in touch-manipulation"
                         onClick={() => setPreviewImagemUrl(url)}
                       >
                         <img
                           src={url}
                           alt={`Imagem técnico ${index + 1}`}
-                          className="w-full h-20 sm:h-24 object-cover rounded-lg border border-gray-200 shadow-sm"
+                          className="w-full h-24 sm:h-28 md:h-32 object-cover rounded-lg border border-gray-200 shadow-sm"
                         />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/60 transition-all duration-200 rounded-lg flex items-center justify-center">
                           <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
@@ -1392,9 +1420,9 @@ export default function DetalheBancadaPage() {
                                 e.stopPropagation();
                                 abrirEditorImagem(url, index, false, true);
                               }}
-                              className="bg-purple-600 text-white rounded px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 hover:bg-purple-700 transition-colors shadow-lg"
+                              className="bg-purple-600 text-white rounded-lg px-3 py-2 text-xs sm:text-sm font-medium flex items-center gap-1.5 hover:bg-purple-700 active:bg-purple-800 transition-colors shadow-lg min-h-[40px] touch-manipulation"
                             >
-                              <FiEdit3 size={14} />
+                              <FiEdit3 size={16} />
                               Editar
                             </button>
                             <button
@@ -1402,9 +1430,9 @@ export default function DetalheBancadaPage() {
                                 e.stopPropagation();
                                 handleRemoveExistingImage(index);
                               }}
-                              className="bg-red-500 text-white rounded px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 hover:bg-red-600 transition-colors shadow-lg"
+                              className="bg-red-500 text-white rounded-lg px-3 py-2 text-xs sm:text-sm font-medium flex items-center gap-1.5 hover:bg-red-600 active:bg-red-700 transition-colors shadow-lg min-h-[40px] touch-manipulation"
                             >
-                              <FiTrash2 size={14} />
+                              <FiTrash2 size={16} />
                               Remover
                             </button>
                           </div>
@@ -1417,39 +1445,6 @@ export default function DetalheBancadaPage() {
             </div>
           </div>
 
-              {/* Informações de Acesso */}
-          {(os?.senha_aparelho || os?.senha_padrao) && (
-                <div className="border-t border-gray-200 pt-6">
-                  <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                    <FiLock className="w-4 h-4 text-yellow-600" />
-                    Informações de Acesso
-                  </h4>
-              
-              {os?.senha_aparelho && (
-                <div className="mb-4">
-                      <label className="block text-xs font-medium text-gray-600 mb-2">
-                    Senha do Aparelho:
-                  </label>
-                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                        <code className="text-lg font-mono text-blue-600">
-                      {String(os.senha_aparelho)}
-                    </code>
-                  </div>
-                </div>
-              )}
-              
-              {os?.senha_padrao && (
-                <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-2">
-                    Padrão Android:
-                  </label>
-                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                    <PatternDisplay pattern={os.senha_padrao as string | number[]} />
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
 
               {/* Checklist de Entrada */}
               <div className="border-t border-gray-200 pt-6">
@@ -1505,13 +1500,13 @@ export default function DetalheBancadaPage() {
           )}
 
           {/* Botões de Ação - Mobile App Style */}
-          <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 -mx-4 -mb-4">
-            <div className="space-y-3">
+          <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-3 sm:p-4 shadow-lg z-40 safe-area-inset-bottom">
+            <div className="space-y-2 sm:space-y-3 max-w-full">
               {mostrarBotaoIniciar && (
                 <Button
                   onClick={handleIniciarOS}
                   disabled={salvando}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-4 rounded-xl shadow-lg"
+                  className="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-semibold py-4 rounded-xl shadow-lg min-h-[52px] touch-manipulation text-base"
                 >
                   <FiPlayCircle size={20} className="mr-2" /> 
                   {salvando ? 'Iniciando...' : 'Iniciar OS'}
@@ -1521,7 +1516,7 @@ export default function DetalheBancadaPage() {
               <Button
                 onClick={handleSalvar}
                 disabled={salvando}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-xl shadow-lg"
+                className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-4 rounded-xl shadow-lg min-h-[52px] touch-manipulation text-base"
               >
                 <FiSave size={20} className="mr-2" /> 
                 {salvando ? 'Salvando...' : 'Salvar Alterações'}
