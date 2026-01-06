@@ -193,11 +193,6 @@ export default function EditarOSSimples() {
         await buscarHistorico(id);
       }
       
-      // 🔍 DEBUG: Log dos dados carregados
-      console.log('🔍 DEBUG fetchOrdem - Dados carregados:');
-      console.log('📋 data.equipamento:', data.equipamento);
-      console.log('📋 data completo:', data);
-      
       // Preencher todos os campos (usando campos reais da tabela)
       setObservacoesInternas(data.observacao || ''); // Campo observacao (singular) da tabela
       setMarca(data.marca || '');
@@ -232,13 +227,65 @@ export default function EditarOSSimples() {
       
       // Carregar produtos e serviços dos campos de texto
       if (data.peca) {
-        const produtosParsed = parseTextToItems(data.peca, 'produto');
+        let produtosParsed = parseTextToItems(data.peca, 'produto');
+        
+        // Se não parseou mas há valor_peca, usar o valor da coluna
+        if (produtosParsed.length === 0 && data.valor_peca) {
+          const valorTotal = parseFloat(String(data.valor_peca || 0));
+          if (valorTotal > 0) {
+            const linhas = data.peca.split(/[,\n]/).filter(l => l.trim() && l.trim().length > 0);
+            if (linhas.length > 0) {
+              const valorPorItem = valorTotal / linhas.length;
+              
+              produtosParsed = linhas.map((linha, index) => {
+                const nome = linha.trim();
+                const nomeLimpo = nome.replace(/[-–]/g, '').trim();
+                return {
+                  id: `temp-${Date.now()}-${index}`,
+                  nome: nomeLimpo || 'Produto',
+                  preco: valorPorItem,
+                  quantidade: 1,
+                  total: valorPorItem
+                };
+              });
+            }
+          }
+        }
+        
         setProdutos(produtosParsed);
+      } else {
+        setProdutos([]);
       }
 
       if (data.servico) {
-        const servicosParsed = parseTextToItems(data.servico, 'servico');
+        let servicosParsed = parseTextToItems(data.servico, 'servico');
+        
+        // Se não parseou mas há valor_servico, usar o valor da coluna
+        if (servicosParsed.length === 0 && data.valor_servico) {
+          const valorTotal = parseFloat(String(data.valor_servico || 0));
+          if (valorTotal > 0) {
+            const linhas = data.servico.split(/[,\n]/).filter(l => l.trim() && l.trim().length > 0);
+            if (linhas.length > 0) {
+              const valorPorItem = valorTotal / linhas.length;
+              
+              servicosParsed = linhas.map((linha, index) => {
+                const nome = linha.trim();
+                const nomeLimpo = nome.replace(/[-–]/g, '').trim();
+                return {
+                  id: `temp-${Date.now()}-${index}`,
+                  nome: nomeLimpo || 'Serviço',
+                  preco: valorPorItem,
+                  quantidade: 1,
+                  total: valorPorItem
+                };
+              });
+            }
+          }
+        }
+        
         setServicos(servicosParsed);
+      } else {
+        setServicos([]);
       }
 
     } catch (error) {
@@ -260,7 +307,7 @@ export default function EditarOSSimples() {
         setStatus(data);
       }
     } catch (error) {
-      console.error('Erro ao carregar status:', error);
+      // Erro ao carregar status
     }
   };
 
@@ -287,7 +334,6 @@ export default function EditarOSSimples() {
       const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
       
       if (error) {
-        console.error('Erro ao buscar técnicos:', error);
         addToast('error', 'Erro ao carregar lista de técnicos');
         return;
       }
@@ -296,7 +342,6 @@ export default function EditarOSSimples() {
         setTecnicos(data);
       }
     } catch (error) {
-      console.error('Erro ao carregar técnicos:', error);
       addToast('error', 'Erro inesperado ao carregar técnicos');
     }
   };
@@ -417,17 +462,17 @@ export default function EditarOSSimples() {
       
       // Produtos e serviços (sempre incluir valores atualizados se mudaram)
       const produtosText = produtos.map(p => {
-        const preco = typeof p.preco === 'number' ? p.preco : parseFloat(String(p.preco));
-        const quantidade = typeof p.quantidade === 'number' ? p.quantidade : parseInt(String(p.quantidade));
-        const valor = (isNaN(preco) ? 0 : preco);
-        const qtd = (isNaN(quantidade) ? 0 : quantidade);
-        return `${p.nome} - Qtd: ${qtd} - Valor: R$ ${valor.toFixed(2)}`;
+        const preco = typeof p.preco === 'number' ? p.preco : parseFloat(String(p.preco || 0));
+        const quantidade = typeof p.quantidade === 'number' ? p.quantidade : parseInt(String(p.quantidade || 1));
+        const valorTotal = (isNaN(preco) ? 0 : preco) * (isNaN(quantidade) ? 1 : quantidade);
+        const qtd = (isNaN(quantidade) ? 1 : quantidade);
+        return `${p.nome} - Qtd: ${qtd} - Valor: R$ ${valorTotal.toFixed(2).replace('.', ',')}`;
       }).join('\n');
       
       const servicosText = servicos.map(s => {
-        const preco = typeof s.preco === 'number' ? s.preco : parseFloat(String(s.preco));
+        const preco = typeof s.preco === 'number' ? s.preco : parseFloat(String(s.preco || 0));
         const valor = (isNaN(preco) ? 0 : preco);
-        return `${s.nome} - Valor: R$ ${valor.toFixed(2)}`;
+        return `${s.nome} - Valor: R$ ${valor.toFixed(2).replace('.', ',')}`;
       }).join('\n');
       
       // Só incluir produtos/serviços se mudaram
@@ -452,14 +497,8 @@ export default function EditarOSSimples() {
       // Termo de garantia (só se mudou)
       if (termoGarantiaId !== ordem?.termo_garantia_id) updateData.termo_garantia_id = termoGarantiaId || null;
 
-      // 🔍 DEBUG: Log dos dados sendo enviados
-      console.log('🔍 DEBUG handleSalvar - Campos que mudaram:');
-      console.log('📋 Campos alterados:', Object.keys(updateData));
-      console.log('📋 updateData completo:', updateData);
-      
       // Se não há mudanças, não enviar nada
       if (Object.keys(updateData).length === 0) {
-        console.log('ℹ️ Nenhuma mudança detectada - não enviando para API');
         addToast('info', 'Nenhuma alteração foi feita');
         setLoading(false);
         return;
@@ -486,13 +525,6 @@ export default function EditarOSSimples() {
 
       // Verificar se temos numero_os ou id
       const osIdParaEnviar = ordem?.numero_os || ordem?.id;
-      console.log('🔍 DEBUG handleSalvar - Dados sendo enviados:', {
-        ordemId: ordem?.id,
-        numeroOS: ordem?.numero_os,
-        osIdParaEnviar: osIdParaEnviar,
-        temNumeroOS: !!ordem?.numero_os,
-        temId: !!ordem?.id
-      });
       
       if (!osIdParaEnviar) {
         addToast('error', 'Erro: ID da OS não encontrado. Recarregue a página.');
@@ -521,22 +553,6 @@ export default function EditarOSSimples() {
       }
 
       const result = await response.json();
-      
-      // DEBUG: Mostrar informações de debug
-      console.log('🔍 DEBUG: Resposta da API:', result);
-      
-      if (result.debug) {
-        const debugInfo = `
-🔍 DEBUG INFO:
-- OS ID: ${result.debug.osId}
-- Novo Status: ${result.debug.newStatus}
-- Status Técnico: ${result.debug.newStatusTecnico}
-- Status para Notificar: ${result.debug.statusToNotify}
-- Notificação Tentada: ${result.debug.notificationAttempted}
-- Resultado da Notificação: ${result.debug.notificationResult}
-        `;
-        console.log(debugInfo);
-      }
       
       // Se a notificação foi enviada, mostrar feedback
       if (result.notificationSent) {
@@ -567,14 +583,10 @@ export default function EditarOSSimples() {
             observacoesAtualizadas !== observacoesInternas ? 'Observações atualizadas automaticamente' : undefined
           );
           
-          if (historicoSucesso) {
-            console.log('✅ Histórico de status registrado com sucesso');
-          } else {
-            console.warn('⚠️ Falha ao registrar histórico, mas OS foi salva');
-          }
+          // Histórico registrado (opcional)
         }
       } catch (error) {
-        console.warn('⚠️ Erro ao registrar histórico (não crítico):', error);
+        // Erro ao registrar histórico (não crítico)
         // Não interrompe o fluxo - histórico é opcional
       }
 
@@ -625,7 +637,6 @@ export default function EditarOSSimples() {
       const uploadResult = await uploadResponse.json();
 
       if (!uploadResponse.ok) {
-        console.error('Erro no upload das imagens:', uploadResult.error);
         addToast('error', 'Erro ao fazer upload das imagens: ' + uploadResult.error);
         return [];
       }
@@ -637,7 +648,6 @@ export default function EditarOSSimples() {
       setNovasImagens([]);
       
     } catch (error) {
-      console.error('Erro no upload das imagens:', error);
       addToast('error', 'Erro inesperado no upload das imagens');
     } finally {
       setUploadingImagens(false);
@@ -691,7 +701,6 @@ export default function EditarOSSimples() {
           .eq('id', id);
 
         if (updateError) {
-          console.error('Erro ao atualizar imagem editada no banco:', updateError);
           addToast('error', 'Erro ao atualizar imagem editada');
           return;
         }
@@ -699,7 +708,6 @@ export default function EditarOSSimples() {
 
       addToast('success', 'Imagem editada salva com sucesso!');
     } catch (error) {
-      console.error('Erro ao salvar imagem editada:', error);
       addToast('error', 'Erro ao salvar imagem editada');
     }
   };
@@ -732,7 +740,6 @@ export default function EditarOSSimples() {
         .remove([filePath]);
         
       if (storageError) {
-        console.warn('Aviso ao remover do storage:', storageError);
         // Continua mesmo com erro no storage para não bloquear
       }
       
@@ -748,7 +755,6 @@ export default function EditarOSSimples() {
         .eq('id', id);
         
       if (updateError) {
-        console.error('Erro ao atualizar imagens no banco:', updateError);
         addToast('error', 'Erro ao atualizar o banco de dados');
         return;
       }
@@ -756,91 +762,181 @@ export default function EditarOSSimples() {
       addToast('success', 'Anexo removido com sucesso!');
       
     } catch (error) {
-      console.error('Erro ao remover anexo:', error);
       addToast('error', 'Erro ao remover anexo');
     }
+  };
+
+  // Função auxiliar para converter string de preço brasileiro para número
+  const parsePrecoBrasileiro = (precoStr: string): number => {
+    if (!precoStr) return 0;
+    
+    // Remover espaços
+    let str = precoStr.trim();
+    
+    // Se tem vírgula, assume formato brasileiro: "1.234,56" ou "1234,56"
+    if (str.includes(',')) {
+      // Remover pontos (separadores de milhar) e substituir vírgula por ponto
+      str = str.replace(/\./g, '').replace(',', '.');
+    } else if (str.includes('.')) {
+      // Se só tem ponto, pode ser formato internacional "1234.56" ou brasileiro "1.234"
+      // Verificar se tem mais de um ponto (formato brasileiro com milhar)
+      const partes = str.split('.');
+      if (partes.length > 2) {
+        // Formato brasileiro: "1.234.567" - remover todos os pontos
+        str = str.replace(/\./g, '');
+      }
+    }
+    
+    const valor = parseFloat(str);
+    return isNaN(valor) ? 0 : valor;
   };
 
   // Função para converter texto em itens estruturados
   const parseTextToItems = (texto: string, tipo: 'produto' | 'servico') => {
     if (!texto || texto.trim() === '') return [];
     
-    const linhas = texto.split('\n').filter(linha => linha.trim());
     const itens = [];
+    
+    // Tentar primeiro formato com vírgulas (formato da bancada)
+    const itensComVirgula = texto.split(',').filter(item => item.trim());
+    if (itensComVirgula.length > 0) {
+      for (const itemTexto of itensComVirgula) {
+        if (tipo === 'produto') {
+          // Formato: "Nome (2x) - R$ 100,00"
+          let match = itemTexto.match(/^(.+?)\s*\(\s*(\d+)\s*x\s*\)\s*-\s*R\$\s*([\d.,]+)\s*$/);
+          if (match) {
+            const precoTotal = parsePrecoBrasileiro(match[3]);
+            const quantidade = parseInt(match[2]) || 1;
+            const precoUnitario = quantidade > 0 && !isNaN(precoTotal) ? precoTotal / quantidade : 0;
+            if (precoUnitario > 0) {
+              itens.push({
+                id: `temp-${Date.now()}-${Math.random()}`,
+                nome: match[1].trim(),
+                quantidade,
+                preco: precoUnitario,
+                total: precoTotal
+              });
+              continue;
+            }
+          }
+        } else {
+          // Formato: "Nome - R$ 100,00" ou "Nome - R$ 1.234,56"
+          let match = itemTexto.match(/^(.+?)\s*-\s*R\$\s*([\d.,\s]+)\s*$/);
+          if (match) {
+            const preco = parsePrecoBrasileiro(match[2]);
+            if (preco > 0) {
+              itens.push({
+                id: `temp-${Date.now()}-${Math.random()}`,
+                nome: match[1].trim(),
+                preco: preco,
+                quantidade: 1,
+                total: preco
+              });
+              continue;
+            }
+          }
+          // Tentar formato sem R$: "Nome - 380,00"
+          match = itemTexto.match(/^(.+?)\s*-\s*([\d.,\s]+)\s*$/);
+          if (match && !match[2].includes('R$')) {
+            const preco = parsePrecoBrasileiro(match[2]);
+            if (preco > 0) {
+              itens.push({
+                id: `temp-${Date.now()}-${Math.random()}`,
+                nome: match[1].trim(),
+                preco: preco,
+                quantidade: 1,
+                total: preco
+              });
+              continue;
+            }
+          }
+        }
+      }
+      if (itens.length > 0) return itens;
+    }
+    
+    // Tentar formato com quebras de linha (formato do atendente)
+    const linhas = texto.split('\n').filter(linha => linha.trim());
     
     for (const linha of linhas) {
       if (tipo === 'produto') {
         // Formato: "Nome - Qtd: X - Valor: R$ Y.YY"
-        const match = linha.match(/^(.+?)\s*-\s*Qtd:\s*(\d+)\s*-\s*Valor:\s*R\$\s*([\d,]+\.?\d*)$/);
+        let match = linha.match(/^(.+?)\s*-\s*Qtd:\s*(\d+)\s*-\s*Valor:\s*R\$\s*([\d,]+\.?\d*)$/);
         if (match) {
-          const preco = parseFloat(match[3].replace(',', ''));
+          const precoTotal = parsePrecoBrasileiro(match[3]);
           const quantidade = parseInt(match[2]) || 1;
-          const item = {
-            id: `temp-${Date.now()}-${Math.random()}`,
-            nome: match[1].trim(),
-            quantidade,
-            preco: isNaN(preco) ? 0 : preco,
-            total: (isNaN(preco) ? 0 : preco) * quantidade
-          };
-          itens.push(item);
-        } else {
-          }
-      } else {
-        // Formato: "Nome - Valor: R$ Y.YY"
-        let match = linha.match(/^(.+?)\s*-\s*Valor:\s*R\$\s*([\d,]+\.?\d*)$/);
-        if (match) {
-          const preco = parseFloat(match[2].replace(',', ''));
-          const quantidade = 1;
-          const item = {
-            id: `temp-${Date.now()}-${Math.random()}`,
-            nome: match[1].trim(),
-            preco: isNaN(preco) ? 0 : preco,
-            quantidade,
-            total: (isNaN(preco) ? 0 : preco) * quantidade
-          };
-          itens.push(item);
-        } else {
-          // Tentar outros formatos possíveis
-          match = linha.match(/^(.+?)\s*-\s*([\d,]+\.?\d*)$/); // "Nome - 160.00"
-          if (match) {
-            const preco = parseFloat(match[2].replace(',', ''));
-            const quantidade = 1;
-            const item = {
+          const precoUnitario = quantidade > 0 && !isNaN(precoTotal) ? precoTotal / quantidade : 0;
+          if (precoUnitario > 0) {
+            itens.push({
               id: `temp-${Date.now()}-${Math.random()}`,
               nome: match[1].trim(),
-              preco: isNaN(preco) ? 0 : preco,
               quantidade,
-              total: (isNaN(preco) ? 0 : preco) * quantidade
-            };
-            itens.push(item);
-          } else {
-            // Tentar formato com "Valor:" sem R$
-            match = linha.match(/^(.+?)\s*-\s*Valor:\s*([\d,]+\.?\d*)$/);
-            if (match) {
-              const preco = parseFloat(match[2].replace(',', ''));
-              const quantidade = 1;
-              const item = {
-                id: `temp-${Date.now()}-${Math.random()}`,
-                nome: match[1].trim(),
-                preco: isNaN(preco) ? 0 : preco,
-                quantidade,
-                total: (isNaN(preco) ? 0 : preco) * quantidade
-              };
-              itens.push(item);
-            } else {
-              // Tentar formato simples (só o nome) - usar valor padrão
-              const nomeSimples = linha.trim();
-              if (nomeSimples) {
-                const item = {
-                  id: `temp-${Date.now()}-${Math.random()}`,
-                  nome: nomeSimples,
-                  preco: 0, // Valor padrão 0 para evitar NaN
-                  quantidade: 1,
-                  total: 0
-                };
-                itens.push(item);
-              }
-            }
+              preco: precoUnitario,
+              total: precoTotal
+            });
+            continue;
+          }
+        }
+      } else {
+        // Formato: "Nome - Valor: R$ Y,YY" (formato do atendente - PRIORIDADE)
+        // Regex mais flexível para capturar espaços opcionais
+        let match = linha.match(/^(.+?)\s*-\s*Valor:\s*R\$\s*([\d.,\s]+)$/i);
+        if (match) {
+          const preco = parsePrecoBrasileiro(match[2].trim());
+          if (preco > 0) {
+            itens.push({
+              id: `temp-${Date.now()}-${Math.random()}`,
+              nome: match[1].trim(),
+              preco: preco,
+              quantidade: 1,
+              total: preco
+            });
+            continue;
+          }
+        }
+        // Tentar formato simples: "Nome - R$ Y.YY"
+        match = linha.match(/^(.+?)\s*-\s*R\$\s*([\d.,\s]+)$/);
+        if (match) {
+          const preco = parsePrecoBrasileiro(match[2]);
+          if (preco > 0) {
+            itens.push({
+              id: `temp-${Date.now()}-${Math.random()}`,
+              nome: match[1].trim(),
+              preco: preco,
+              quantidade: 1,
+              total: preco
+            });
+            continue;
+          }
+        }
+        // Tentar outros formatos possíveis: "Nome - 160,00" ou "Nome - 160.00"
+        match = linha.match(/^(.+?)\s*-\s*([\d.,\s]+)$/);
+        if (match && !match[2].includes('R$') && !match[2].includes('Valor:')) {
+          const preco = parsePrecoBrasileiro(match[2]);
+          if (preco > 0) {
+            itens.push({
+              id: `temp-${Date.now()}-${Math.random()}`,
+              nome: match[1].trim(),
+              preco: preco,
+              quantidade: 1,
+              total: preco
+            });
+            continue;
+          }
+        }
+        // Tentar formato com "Valor:" sem R$
+        match = linha.match(/^(.+?)\s*-\s*Valor:\s*([\d,]+\.?\d*)$/);
+        if (match) {
+          const preco = parsePrecoBrasileiro(match[2]);
+          if (preco > 0) {
+            itens.push({
+              id: `temp-${Date.now()}-${Math.random()}`,
+              nome: match[1].trim(),
+              preco: preco,
+              quantidade: 1,
+              total: preco
+            });
+            continue;
           }
         }
       }

@@ -158,13 +158,11 @@ export default function DetalheBancadaPage() {
         .single();
         
       if (error) {
-        console.error('Erro ao carregar OS:', error);
         setLoading(false);
         return;
       }
       
       if (!data) {
-        console.error('OS não encontrada com ID:', id);
         setLoading(false);
         return;
       }
@@ -175,13 +173,6 @@ export default function DetalheBancadaPage() {
           ...data,
           relato: data.problema_relatado || data.relato
         };
-        
-        console.log('🔍 DEBUG BANCADA: Dados da OS carregados:', {
-          id: osData.id,
-          numero_os: osData.numero_os,
-          problema_relatado: data.problema_relatado,
-          relato: osData.relato,
-          tem_relato: !!osData.relato,
           relato_length: osData.relato?.length || 0
         });
         setOs(osData);
@@ -208,7 +199,6 @@ export default function DetalheBancadaPage() {
               : data.checklist_entrada;
             setChecklistData(checklistParsed);
           } catch (error) {
-            console.warn('Erro ao parsear checklist_entrada:', error);
             setChecklistData(null);
           }
         }
@@ -374,9 +364,12 @@ export default function DetalheBancadaPage() {
         p.nome.trim().length > 1
       );
       const produtosText = produtosValidos.length > 0 
-        ? produtosValidos.map(p => 
-            `${p.nome} (${p.quantidade}x) - ${formatPrice(p.preco * p.quantidade)}`
-          ).join(', ')
+        ? produtosValidos.map(p => {
+            const preco = typeof p.preco === 'number' ? p.preco : parseFloat(String(p.preco || 0));
+            const quantidade = typeof p.quantidade === 'number' ? p.quantidade : parseInt(String(p.quantidade || 1));
+            const precoTotal = (isNaN(preco) ? 0 : preco) * (isNaN(quantidade) ? 1 : quantidade);
+            return `${p.nome} (${quantidade}x) - ${formatPrice(precoTotal)}`;
+          }).join(', ')
         : '';
       
       const servicosValidos = servicosSelecionados.filter(s => 
@@ -386,9 +379,10 @@ export default function DetalheBancadaPage() {
         s.nome.trim().length > 1
       );
       const servicosText = servicosValidos.length > 0
-        ? servicosValidos.map(s => 
-            `${s.nome} - ${formatPrice(s.preco)}`
-          ).join(', ')
+        ? servicosValidos.map(s => {
+            const preco = typeof s.preco === 'number' ? s.preco : parseFloat(String(s.preco || 0));
+            return `${s.nome} - ${formatPrice(isNaN(preco) ? 0 : preco)}`;
+          }).join(', ')
         : '';
       
       const totalProdutos = calcularTotalProdutos();
@@ -421,25 +415,6 @@ export default function DetalheBancadaPage() {
         ...(checklistData && { checklist_entrada: JSON.stringify(checklistData) })
       };
       
-      console.log('🔍 DEBUG BANCADA: Iniciando salvamento...', {
-        id,
-        novoStatus,
-        statusTecnico,
-        produtosSelecionados: produtosSelecionados.length,
-        produtosValidos: produtosValidos.length,
-        produtosText: produtosText || '(vazio)',
-        servicosSelecionados: servicosSelecionados.length,
-        servicosValidos: servicosValidos.length,
-        servicosText: servicosText || '(vazio)',
-        updateData: {
-          ...updateData,
-          peca: updateData.peca || '(vazio)',
-          servico: updateData.servico || '(vazio)',
-        }
-      });
-      
-      // Campos JSON não existem na tabela ainda - pular esta parte
-      
       // Remover campos de debug antes de enviar
       const { _debug, ...updateDataLimpo } = updateData;
       
@@ -450,18 +425,6 @@ export default function DetalheBancadaPage() {
         newStatusTecnico: statusTecnico,
         ...updateDataLimpo
       };
-      
-      console.log('🔍 DEBUG BANCADA: Enviando requisição...', {
-        url: '/api/ordens/update-status',
-        body: requestBody,
-        osId: id,
-        temOsId: !!id,
-        idType: typeof id,
-        idValue: id,
-        requestBodyKeys: Object.keys(requestBody),
-        hasOsIdInBody: 'osId' in requestBody,
-        osIdInBody: requestBody.osId
-      });
       
       // Usar nossa API que envia notificações WhatsApp
       const response = await fetch('/api/ordens/update-status', {
@@ -530,24 +493,16 @@ export default function DetalheBancadaPage() {
             
             if (response.ok) {
               const result = await response.json();
-              } else {
-              console.error('Erro ao enviar notificação:', response.status, response.statusText);
             }
           } catch (error) {
-            console.error('Erro ao emitir notificação de reparo concluído:', error);
+            // Erro ao emitir notificação
           }
         }
       } catch (e) {
-        console.warn('Falha ao emitir notificação:', e);
+        // Falha ao emitir notificação
       }
       
     } catch (error) {
-      console.error('❌ Erro ao salvar:', error);
-      console.error('❌ Detalhes do erro:', {
-        message: (error as Error).message,
-        stack: (error as Error).stack,
-        name: (error as Error).name,
-      });
       const errorMessage = (error as Error).message || 'Erro desconhecido ao salvar';
       addToast('error', `Erro ao atualizar status da OS: ${errorMessage}`);
     } finally {
@@ -565,13 +520,6 @@ export default function DetalheBancadaPage() {
     setSalvando(true);
     
     try {
-      console.log('🔍 DEBUG BANCADA: Iniciando OS...', {
-        id,
-        temId: !!id,
-        idType: typeof id,
-        idValue: id
-      });
-
       // Usar nossa API que registra histórico e envia notificações
       const response = await fetch('/api/ordens/update-status', {
         method: 'POST',
@@ -591,8 +539,6 @@ export default function DetalheBancadaPage() {
         throw new Error(result.error || 'Erro ao iniciar ordem');
       }
 
-      console.log('✅ DEBUG BANCADA: OS iniciada com sucesso:', result);
-
       // Atualizar estado local
       setStatusTecnico('EM ANÁLISE');
       setMostrarBotaoIniciar(false);
@@ -604,7 +550,6 @@ export default function DetalheBancadaPage() {
       addToast('success', 'OS iniciada com sucesso!');
       
     } catch (error) {
-      console.error('❌ Erro ao iniciar OS:', error);
       addToast('error', 'Erro ao iniciar OS: ' + (error as Error).message);
     } finally {
       setSalvando(false);
@@ -699,7 +644,10 @@ export default function DetalheBancadaPage() {
     // Calcular apenas com produtos válidos selecionados
     // Se não há produtos válidos, retornar 0 (não usar valores antigos da OS)
     return produtosValidos.reduce((total, produto) => {
-      return total + (produto.preco * produto.quantidade);
+      const preco = typeof produto.preco === 'number' ? produto.preco : parseFloat(String(produto.preco || 0));
+      const quantidade = typeof produto.quantidade === 'number' ? produto.quantidade : parseInt(String(produto.quantidade || 1));
+      const valorItem = (isNaN(preco) ? 0 : preco) * (isNaN(quantidade) ? 1 : quantidade);
+      return total + valorItem;
     }, 0);
   };
 
@@ -715,113 +663,161 @@ export default function DetalheBancadaPage() {
     // Calcular apenas com serviços válidos selecionados
     // Se não há serviços válidos, retornar 0 (não usar valores antigos da OS)
     return servicosValidos.reduce((total, servico) => {
-      return total + servico.preco;
+      const preco = typeof servico.preco === 'number' ? servico.preco : parseFloat(String(servico.preco || 0));
+      return total + (isNaN(preco) ? 0 : preco);
     }, 0);
+  };
+
+  // Função auxiliar para converter string de preço brasileiro para número
+  const parsePrecoBrasileiro = (precoStr: string): number => {
+    if (!precoStr) return 0;
+    
+    // Remover espaços
+    let str = precoStr.trim();
+    
+    // Se tem vírgula, assume formato brasileiro: "1.234,56" ou "1234,56"
+    if (str.includes(',')) {
+      // Remover pontos (separadores de milhar) e substituir vírgula por ponto
+      str = str.replace(/\./g, '').replace(',', '.');
+    } else if (str.includes('.')) {
+      // Se só tem ponto, pode ser formato internacional "1234.56" ou brasileiro "1.234"
+      // Verificar se tem mais de um ponto (formato brasileiro com milhar)
+      const partes = str.split('.');
+      if (partes.length > 2) {
+        // Formato brasileiro: "1.234.567" - remover todos os pontos
+        str = str.replace(/\./g, '');
+      }
+      // Se tem apenas um ponto, assumir que é decimal
+    }
+    
+    const valor = parseFloat(str);
+    return isNaN(valor) ? 0 : valor;
   };
 
   // Função para converter texto em itens estruturados (igual à página do atendente)
   const parseTextToItems = (texto: string, tipo: 'produto' | 'servico') => {
     if (!texto || texto.trim() === '') return [];
     
+    const itens = [];
+    
     // Tentar primeiro o formato com vírgulas (formato atual da bancada)
     const itensComVirgula = texto.split(',').filter(item => item.trim());
     if (itensComVirgula.length > 0) {
-      const itens = [];
       for (const itemTexto of itensComVirgula) {
         if (tipo === 'produto') {
-          // Formato: "Nome (2x) - R$ 100,00" ou "Nome (2x) - R$ 100.00"
-          // Regex mais flexível para capturar espaços opcionais
-          const match = itemTexto.match(/^(.+?)\s*\(\s*(\d+)\s*x\s*\)\s*-\s*R\$\s*([\d.,]+)\s*$/);
+          // Formato: "Nome (2x) - R$ 100,00" ou "Nome (2x) - R$ 1.234,56"
+          let match = itemTexto.match(/^(.+?)\s*\(\s*(\d+)\s*x\s*\)\s*-\s*R\$\s*([\d.,\s]+)\s*$/);
           if (match) {
-            // Converter preço: remover pontos de milhar e substituir vírgula por ponto
-            const precoStr = match[3].replace(/\./g, '').replace(',', '.');
-            const precoTotal = parseFloat(precoStr);
+            const precoTotal = parsePrecoBrasileiro(match[3]);
             const quantidade = parseInt(match[2]) || 1;
             // Preço unitário = preço total / quantidade
-            const precoUnitario = quantidade > 0 ? precoTotal / quantidade : 0;
-            itens.push({
-              id: `temp-${Date.now()}-${Math.random()}`,
-              nome: match[1].trim(),
-              quantidade,
-              preco: isNaN(precoUnitario) ? 0 : precoUnitario,
-            });
-          } else {
-            // Formato simples: apenas nome
-            itens.push({
-              id: `temp-${Date.now()}-${Math.random()}`,
-              nome: itemTexto.trim(),
-              quantidade: 1,
-              preco: 0,
-            });
+            const precoUnitario = quantidade > 0 && precoTotal > 0 ? precoTotal / quantidade : 0;
+            if (precoUnitario > 0) {
+              itens.push({
+                id: `temp-${Date.now()}-${Math.random()}`,
+                nome: match[1].trim(),
+                quantidade,
+                preco: precoUnitario,
+              });
+              continue;
+            }
+          }
+          // Tentar formato: "Nome - Qtd: X - Valor: R$ Y.YY"
+          match = itemTexto.match(/^(.+?)\s*-\s*Qtd:\s*(\d+)\s*-\s*Valor:\s*R\$\s*([\d.,\s]+)$/);
+          if (match) {
+            const precoTotal = parsePrecoBrasileiro(match[3]);
+            const quantidade = parseInt(match[2]) || 1;
+            const precoUnitario = quantidade > 0 && precoTotal > 0 ? precoTotal / quantidade : 0;
+            if (precoUnitario > 0) {
+              itens.push({
+                id: `temp-${Date.now()}-${Math.random()}`,
+                nome: match[1].trim(),
+                quantidade,
+                preco: precoUnitario,
+              });
+              continue;
+            }
           }
         } else {
-          // Formato: "Nome - R$ 100,00" ou "Nome - R$ 100.00"
-          // Regex mais flexível para capturar espaços opcionais
-          const match = itemTexto.match(/^(.+?)\s*-\s*R\$\s*([\d.,]+)\s*$/);
+          // Formato: "Nome - R$ 100,00" ou "Nome - R$ 1.234,56"
+          let match = itemTexto.match(/^(.+?)\s*-\s*R\$\s*([\d.,\s]+)\s*$/);
           if (match) {
-            // Converter preço: remover pontos de milhar e substituir vírgula por ponto
-            const precoStr = match[2].replace(/\./g, '').replace(',', '.');
-            const preco = parseFloat(precoStr);
-            itens.push({
-              id: `temp-${Date.now()}-${Math.random()}`,
-              nome: match[1].trim(),
-              preco: isNaN(preco) ? 0 : preco,
-            });
-          } else {
-            // Formato simples: apenas nome
-            itens.push({
-              id: `temp-${Date.now()}-${Math.random()}`,
-              nome: itemTexto.trim(),
-              preco: 0,
-            });
+            const preco = parsePrecoBrasileiro(match[2]);
+            if (preco > 0) {
+              itens.push({
+                id: `temp-${Date.now()}-${Math.random()}`,
+                nome: match[1].trim(),
+                preco: preco,
+              });
+              continue;
+            }
+          }
+          // Tentar formato: "Nome - Valor: R$ Y.YY"
+          match = itemTexto.match(/^(.+?)\s*-\s*Valor:\s*R\$\s*([\d.,\s]+)$/);
+          if (match) {
+            const preco = parsePrecoBrasileiro(match[2]);
+            if (preco > 0) {
+              itens.push({
+                id: `temp-${Date.now()}-${Math.random()}`,
+                nome: match[1].trim(),
+                preco: preco,
+              });
+              continue;
+            }
           }
         }
       }
-      if (itens.length > 0) return itens;
+      if (itens.length > 0) {
+        return itens;
+      }
     }
     
     // Tentar formato com quebras de linha (formato do atendente)
     const linhas = texto.split('\n').filter(linha => linha.trim());
-    const itens = [];
     
     for (const linha of linhas) {
       if (tipo === 'produto') {
         // Formato: "Nome - Qtd: X - Valor: R$ Y.YY"
-        const match = linha.match(/^(.+?)\s*-\s*Qtd:\s*(\d+)\s*-\s*Valor:\s*R\$\s*([\d,]+\.?\d*)$/);
+        let match = linha.match(/^(.+?)\s*-\s*Qtd:\s*(\d+)\s*-\s*Valor:\s*R\$\s*([\d.,\s]+)$/);
         if (match) {
-          const precoStr = match[3].replace(',', '.');
-          const preco = parseFloat(precoStr);
+          const precoTotal = parsePrecoBrasileiro(match[3]);
           const quantidade = parseInt(match[2]) || 1;
-          const precoUnitario = preco / quantidade;
-          itens.push({
-            id: `temp-${Date.now()}-${Math.random()}`,
-            nome: match[1].trim(),
-            quantidade,
-            preco: isNaN(precoUnitario) ? 0 : precoUnitario,
-          });
-        }
-      } else {
-        // Formato: "Nome - Valor: R$ Y.YY"
-        let match = linha.match(/^(.+?)\s*-\s*Valor:\s*R\$\s*([\d,]+\.?\d*)$/);
-        if (match) {
-          const precoStr = match[2].replace(',', '.');
-          const preco = parseFloat(precoStr);
-          itens.push({
-            id: `temp-${Date.now()}-${Math.random()}`,
-            nome: match[1].trim(),
-            preco: isNaN(preco) ? 0 : preco,
-          });
-        } else {
-          // Tentar outros formatos possíveis
-          match = linha.match(/^(.+?)\s*-\s*([\d,]+\.?\d*)$/); // "Nome - 160.00"
-          if (match) {
-            const precoStr = match[2].replace(',', '.');
-            const preco = parseFloat(precoStr);
+          const precoUnitario = quantidade > 0 && precoTotal > 0 ? precoTotal / quantidade : 0;
+          if (precoUnitario > 0) {
             itens.push({
               id: `temp-${Date.now()}-${Math.random()}`,
               nome: match[1].trim(),
-              preco: isNaN(preco) ? 0 : preco,
+              quantidade,
+              preco: precoUnitario,
             });
+            continue;
+          }
+        }
+      } else {
+        // Formato: "Nome - Valor: R$ Y.YY"
+        let match = linha.match(/^(.+?)\s*-\s*Valor:\s*R\$\s*([\d.,\s]+)$/);
+        if (match) {
+          const preco = parsePrecoBrasileiro(match[2]);
+          if (preco > 0) {
+            itens.push({
+              id: `temp-${Date.now()}-${Math.random()}`,
+              nome: match[1].trim(),
+              preco: preco,
+            });
+            continue;
+          }
+        }
+        // Tentar outros formatos possíveis
+        match = linha.match(/^(.+?)\s*-\s*([\d.,\s]+)$/); // "Nome - 160.00"
+        if (match) {
+          const preco = parsePrecoBrasileiro(match[2]);
+          if (preco > 0) {
+            itens.push({
+              id: `temp-${Date.now()}-${Math.random()}`,
+              nome: match[1].trim(),
+              preco: preco,
+            });
+            continue;
           }
         }
       }
@@ -908,7 +904,6 @@ export default function DetalheBancadaPage() {
           .eq('id', id);
 
         if (updateError) {
-          console.error('Erro ao atualizar imagem editada no banco:', updateError);
           addToast('error', 'Erro ao atualizar imagem editada');
           return;
         }
@@ -916,7 +911,6 @@ export default function DetalheBancadaPage() {
 
       addToast('success', 'Imagem editada salva com sucesso!');
     } catch (error) {
-      console.error('Erro ao salvar imagem editada:', error);
       addToast('error', 'Erro ao salvar imagem editada');
     }
   };
@@ -943,7 +937,6 @@ export default function DetalheBancadaPage() {
       const uploadResult = await uploadResponse.json();
 
       if (!uploadResponse.ok) {
-        console.error('Erro no upload das imagens:', uploadResult.error);
         addToast('error', 'Erro ao fazer upload das imagens: ' + uploadResult.error);
         return [];
       }
@@ -951,7 +944,6 @@ export default function DetalheBancadaPage() {
       uploadedUrls.push(...uploadResult.files.map((file: any) => file.url));
       
     } catch (error) {
-      console.error('Erro no upload das imagens:', error);
       addToast('error', 'Erro inesperado no upload das imagens');
     } finally {
       setUploadingImagens(false);
@@ -992,30 +984,30 @@ export default function DetalheBancadaPage() {
   return (
     <MenuLayout>
       {/* Mobile-First Layout */}
-      <div className="min-h-screen bg-gray-50">
-        {/* Header Mobile App-like - Fixed */}
-        <div className="bg-white border-b border-gray-200 sticky top-0 z-50 safe-area-inset-top">
-          <div className="px-3 sm:px-4 py-2.5 sm:py-3">
-            <div className="flex items-center justify-between">
+      <div className="min-h-screen bg-gray-50 w-full max-w-full overflow-x-hidden">
+        {/* Header Mobile App-like, Desktop Normal */}
+        <div className="bg-white border-b border-gray-200 sticky lg:static top-0 z-50 safe-area-inset-top w-full max-w-full lg:max-w-7xl lg:mx-auto">
+          <div className="px-3 sm:px-4 lg:px-6 py-2.5 sm:py-3 lg:py-4 w-full max-w-full">
+            <div className="flex items-center justify-between w-full">
               <button
                 onClick={() => window.history.back()}
-                className="text-blue-600 hover:text-blue-700 active:text-blue-800 p-2 -ml-2 rounded-lg hover:bg-blue-50 active:bg-blue-100 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+                className="text-blue-600 hover:text-blue-700 active:text-blue-800 p-2 -ml-2 lg:ml-0 rounded-lg hover:bg-blue-50 active:bg-blue-100 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center shrink-0"
               >
-                <FiArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+                <FiArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 lg:w-7 lg:h-7" />
               </button>
               
-              <div className="flex-1 text-center px-2">
-                <h1 className="text-base sm:text-lg font-semibold text-gray-900 truncate">
+              <div className="flex-1 text-center px-2 min-w-0">
+                <h1 className="text-base sm:text-lg lg:text-2xl font-semibold text-gray-900 truncate w-full">
                   OS #{os.numero_os || os.id}
                 </h1>
               </div>
               
-              <div className="min-w-[44px] min-h-[44px]"></div> {/* Spacer for centering */}
+              <div className="min-w-[44px] min-h-[44px] shrink-0"></div> {/* Spacer for centering */}
             </div>
             
             {/* Status Badge */}
-            <div className="flex justify-center mt-2">
-              <span className={`inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap ${
+            <div className="flex justify-center mt-2 lg:mt-3 w-full">
+              <span className={`inline-flex items-center px-3 sm:px-4 lg:px-5 py-1.5 sm:py-2 lg:py-2.5 rounded-full text-xs sm:text-sm lg:text-base font-medium shrink-0 ${
                 os.status === 'ABERTA' ? 'bg-yellow-100 text-yellow-800' :
                 os.status === 'EM_ANALISE' ? 'bg-blue-100 text-blue-800' :
                 os.status === 'AGUARDANDO_PECA' ? 'bg-orange-100 text-orange-800' :
@@ -1030,57 +1022,57 @@ export default function DetalheBancadaPage() {
           </div>
         </div>
 
-        {/* Content Container - Mobile Optimized */}
-        <div className="px-3 sm:px-4 py-3 sm:py-4 pb-36 sm:pb-28 max-w-full overflow-x-hidden">
+        {/* Content Container - Mobile Compacto, Desktop Espaçado */}
+        <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 lg:py-6 pb-36 lg:pb-8 max-w-full lg:max-w-7xl mx-auto overflow-x-hidden">
           
           {/* PARTE SUPERIOR: Resumo em Colunas */}
-          <div className="mb-4 sm:mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mb-3 sm:mb-4">
+          <div className="mb-4 sm:mb-6 lg:mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 mb-3 sm:mb-4 lg:mb-6">
               {/* Coluna 1: Cliente */}
-              <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm border border-gray-100">
-                <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 bg-blue-100 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
-                    <FiUser className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+              <div className="bg-white rounded-xl lg:rounded-2xl p-3 sm:p-4 lg:p-6 shadow-sm border border-gray-100">
+                <div className="flex items-center gap-2 lg:gap-3 mb-2 sm:mb-3 lg:mb-4">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-blue-100 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
+                    <FiUser className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-blue-600" />
               </div>
-                  <h3 className="font-semibold text-sm sm:text-base text-gray-900">Cliente</h3>
+                  <h3 className="font-semibold text-sm sm:text-base lg:text-lg text-gray-900">Cliente</h3>
               </div>
-                <p className="text-base sm:text-lg font-bold text-gray-900 mb-2 break-words">{os.cliente?.nome || '---'}</p>
-                <div className="space-y-1 text-xs sm:text-sm text-gray-600">
-                  <p className="break-words">Data: {os.created_at ? new Date(os.created_at).toLocaleDateString('pt-BR') : '---'}</p>
-                  <p className="break-words">Atendente: {os.atendente || '---'}</p>
+                <p className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 mb-2 lg:mb-3 break-words">{os.cliente?.nome || '---'}</p>
+                <div className="space-y-1.5 lg:space-y-2 text-xs sm:text-sm lg:text-base text-gray-600">
+                  <p className="break-words overflow-wrap-anywhere">Data: {os.created_at ? new Date(os.created_at).toLocaleDateString('pt-BR') : '---'}</p>
+                  <p className="break-words overflow-wrap-anywhere">Atendente: {os.atendente || '---'}</p>
             </div>
           </div>
 
               {/* Coluna 2: Aparelho */}
-          <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm border border-gray-100">
-                <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 bg-green-100 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
-                    <FiBox className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
+          <div className="bg-white rounded-xl lg:rounded-2xl p-3 sm:p-4 lg:p-6 shadow-sm border border-gray-100">
+                <div className="flex items-center gap-2 lg:gap-3 mb-2 sm:mb-3 lg:mb-4">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-green-100 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
+                    <FiBox className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-green-600" />
               </div>
-                  <h3 className="font-semibold text-sm sm:text-base text-gray-900">Aparelho</h3>
+                  <h3 className="font-semibold text-sm sm:text-base lg:text-lg text-gray-900">Aparelho</h3>
               </div>
-                <p className="text-base sm:text-lg font-bold text-gray-900 mb-2 break-words">{aparelho || '---'}</p>
-                <div className="space-y-1 text-xs sm:text-sm text-gray-600">
-                  {os.numero_serie && <p className="break-words">Série: {os.numero_serie}</p>}
-                  {os.cor && <p className="break-words">Cor: {os.cor}</p>}
+                <p className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 mb-2 lg:mb-3 break-words overflow-wrap-anywhere">{aparelho || '---'}</p>
+                <div className="space-y-1.5 lg:space-y-2 text-xs sm:text-sm lg:text-base text-gray-600">
+                  {os.numero_serie && <p className="break-words overflow-wrap-anywhere">Série: {os.numero_serie}</p>}
+                  {os.cor && <p className="break-words overflow-wrap-anywhere">Cor: {os.cor}</p>}
             </div>
           </div>
 
               {/* Coluna 3: Valor e Status */}
-          <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm border border-gray-100">
-                <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 bg-yellow-100 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
-                    <FiDollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600" />
+          <div className="bg-white rounded-xl lg:rounded-2xl p-3 sm:p-4 lg:p-6 shadow-sm border border-gray-100">
+                <div className="flex items-center gap-2 lg:gap-3 mb-2 sm:mb-3 lg:mb-4">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-yellow-100 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
+                    <FiDollarSign className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-yellow-600" />
               </div>
-                  <h3 className="font-semibold text-sm sm:text-base text-gray-900">Valor Total</h3>
+                  <h3 className="font-semibold text-sm sm:text-base lg:text-lg text-gray-900">Valor Total</h3>
               </div>
-                <p className="text-xl sm:text-2xl font-bold text-blue-600 mb-3 break-words">
+                <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-blue-600 mb-3 lg:mb-4 break-words overflow-wrap-anywhere">
               {((parseFloat(os.valor_servico || '0') + parseFloat(os.valor_peca || '0'))).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </p>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-2">Status Técnico</label>
+                  <label className="block text-xs lg:text-sm font-medium text-gray-600 mb-2">Status Técnico</label>
             <select
-                    className="w-full border border-gray-300 px-3 py-3 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white min-h-[44px] touch-manipulation"
+                    className="w-full border border-gray-300 px-3 py-3 lg:py-2.5 rounded-lg text-sm lg:text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white min-h-[44px]"
               value={statusTecnico}
               onChange={e => setStatusTecnico(e.target.value)}
             >
@@ -1101,16 +1093,16 @@ export default function DetalheBancadaPage() {
                 icon={<FiMessageCircle className="w-5 h-5 text-orange-600" />}
                 defaultOpen={false}
               >
-                <div className="space-y-4 pt-2">
+                <div className="space-y-4 lg:space-y-6 pt-2">
                   {/* Senha do Aparelho - Sempre exibir se existir */}
                   {os?.senha_aparelho && (
                     <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                        <FiLock className="w-4 h-4 text-yellow-600" />
+                      <h4 className="text-sm lg:text-base font-medium text-gray-700 mb-2 lg:mb-3 flex items-center gap-2">
+                        <FiLock className="w-4 h-4 lg:w-5 lg:h-5 text-yellow-600" />
                         Senha do Aparelho
                       </h4>
-                      <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-100">
-                        <code className="text-lg font-mono text-blue-600">
+                      <div className="bg-yellow-50 rounded-lg lg:rounded-xl p-3 lg:p-4 border border-yellow-100 w-full overflow-x-auto">
+                        <code className="text-lg lg:text-xl font-mono text-blue-600 break-all">
                           {String(os.senha_aparelho)}
                         </code>
                       </div>
@@ -1120,11 +1112,11 @@ export default function DetalheBancadaPage() {
                   {/* Padrão Android - Só exibir se existir */}
                   {os?.senha_padrao && (
                     <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                        <FiLock className="w-4 h-4 text-yellow-600" />
+                      <h4 className="text-sm lg:text-base font-medium text-gray-700 mb-2 lg:mb-3 flex items-center gap-2">
+                        <FiLock className="w-4 h-4 lg:w-5 lg:h-5 text-yellow-600" />
                         Padrão Android
                       </h4>
-                      <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-100">
+                      <div className="bg-yellow-50 rounded-lg lg:rounded-xl p-3 lg:p-4 border border-yellow-100">
                         <PatternDisplay pattern={os.senha_padrao as string | number[]} />
                       </div>
                     </div>
@@ -1132,34 +1124,34 @@ export default function DetalheBancadaPage() {
                   
                   {os?.relato && (
                     <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                        <FiMessageCircle className="w-4 h-4 text-orange-600" />
+                      <h4 className="text-sm lg:text-base font-medium text-gray-700 mb-2 lg:mb-3 flex items-center gap-2">
+                        <FiMessageCircle className="w-4 h-4 lg:w-5 lg:h-5 text-orange-600" />
                         Relato do Cliente
                       </h4>
-                      <div className="bg-orange-50 rounded-lg p-3 border border-orange-100">
-                        <p className="text-sm text-gray-700 leading-relaxed">{os.relato}</p>
+                      <div className="bg-orange-50 rounded-lg lg:rounded-xl p-3 lg:p-4 border border-orange-100 w-full">
+                        <p className="text-sm lg:text-base text-gray-700 leading-relaxed break-words overflow-wrap-anywhere w-full">{os.relato}</p>
                   </div>
                 </div>
                   )}
                   {os.acessorios && (
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                        <FiPackage className="w-4 h-4 text-blue-600" />
+                    <div className="w-full">
+                      <h4 className="text-sm lg:text-base font-medium text-gray-700 mb-2 lg:mb-3 flex items-center gap-2">
+                        <FiPackage className="w-4 h-4 lg:w-5 lg:h-5 text-blue-600 shrink-0" />
                         Acessórios
                       </h4>
-                      <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
-                        <p className="text-sm text-gray-700 leading-relaxed">{os.acessorios}</p>
+                      <div className="bg-blue-50 rounded-lg lg:rounded-xl p-3 lg:p-4 border border-blue-100 w-full">
+                        <p className="text-sm lg:text-base text-gray-700 leading-relaxed break-words overflow-wrap-anywhere w-full">{os.acessorios}</p>
                     </div>
                     </div>
                   )}
                   {os.condicoes_equipamento && (
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                        <FiAlertTriangle className="w-4 h-4 text-red-600" />
+                    <div className="w-full">
+                      <h4 className="text-sm lg:text-base font-medium text-gray-700 mb-2 lg:mb-3 flex items-center gap-2">
+                        <FiAlertTriangle className="w-4 h-4 lg:w-5 lg:h-5 text-red-600 shrink-0" />
                         Condições do Equipamento
                       </h4>
-                      <div className="bg-red-50 rounded-lg p-3 border border-red-100">
-                        <p className="text-sm text-gray-700 leading-relaxed">{os.condicoes_equipamento}</p>
+                      <div className="bg-red-50 rounded-lg lg:rounded-xl p-3 lg:p-4 border border-red-100 w-full">
+                        <p className="text-sm lg:text-base text-gray-700 leading-relaxed break-words overflow-wrap-anywhere w-full">{os.condicoes_equipamento}</p>
                 </div>
               </div>
             )}
@@ -1169,7 +1161,7 @@ export default function DetalheBancadaPage() {
           </div>
 
           {/* PARTE INFERIOR: Área de Trabalho Completa */}
-          <div className="space-y-4">
+          <div className="space-y-4 lg:space-y-6 w-full max-w-full">
 
 
           {/* Materiais e Serviços - Colapsável */}
@@ -1191,10 +1183,6 @@ export default function DetalheBancadaPage() {
                   total: p.preco * p.quantidade
                 }))}
                 onItensChange={(itens) => {
-                  console.log('🔄 Atualizando produtos selecionados:', { 
-                    totalItens: itens.length, 
-                    itens: itens.map(i => ({ nome: i.nome, preco: i.preco, quantidade: i.quantidade }))
-                  });
                   // Filtrar itens inválidos antes de atualizar
                   const itensValidos = itens.filter(item => 
                     item.nome && 
@@ -1209,7 +1197,6 @@ export default function DetalheBancadaPage() {
                     quantidade: item.quantidade || 1
                   }));
                   setProdutosSelecionados(novosProdutos);
-                  console.log('✅ Produtos atualizados:', novosProdutos.length, 'itens válidos de', itens.length);
                 }}
               />
               
@@ -1223,10 +1210,6 @@ export default function DetalheBancadaPage() {
                   total: s.preco
                 }))}
                 onItensChange={(itens) => {
-                  console.log('🔄 Atualizando serviços selecionados:', { 
-                    totalItens: itens.length, 
-                    itens: itens.map(i => ({ nome: i.nome, preco: i.preco }))
-                  });
                   // Filtrar itens inválidos antes de atualizar
                   const itensValidos = itens.filter(item => 
                     item.nome && 
@@ -1240,7 +1223,6 @@ export default function DetalheBancadaPage() {
                     preco: item.preco || 0
                   }));
                   setServicosSelecionados(novosServicos);
-                  console.log('✅ Serviços atualizados:', novosServicos.length, 'itens válidos de', itens.length);
                 }}
                         />
                       </div>
@@ -1253,9 +1235,9 @@ export default function DetalheBancadaPage() {
             icon={<FiEdit className="w-5 h-5 text-purple-600" />}
             defaultOpen={true}
           >
-            <div className="space-y-4 pt-2">
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-2 sm:mb-3">Laudo Técnico</h4>
+            <div className="space-y-4 lg:space-y-6 pt-2 w-full max-w-full">
+              <div className="w-full max-w-full">
+                <h4 className="text-sm lg:text-base font-medium text-gray-700 mb-2 sm:mb-3 lg:mb-4">Laudo Técnico</h4>
                 <LaudoEditor
               value={laudo}
                   onChange={setLaudo}
@@ -1264,10 +1246,10 @@ export default function DetalheBancadaPage() {
             />
           </div>
 
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-2 sm:mb-3">Observações Técnicas</h4>
+              <div className="w-full max-w-full">
+                <h4 className="text-sm lg:text-base font-medium text-gray-700 mb-2 sm:mb-3 lg:mb-4">Observações Técnicas</h4>
                 <textarea
-                  className="w-full border border-gray-300 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-sm min-h-[100px] focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors resize-none bg-white"
+                  className="w-full max-w-full border border-gray-300 px-3 sm:px-4 lg:px-5 py-2.5 sm:py-3 lg:py-4 rounded-lg sm:rounded-xl lg:rounded-2xl text-sm lg:text-base min-h-[100px] lg:min-h-[120px] focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors resize-none bg-white"
                   value={observacoes}
                   onChange={e => setObservacoes(e.target.value)}
                   placeholder="Observações adicionais do técnico..."
@@ -1283,10 +1265,10 @@ export default function DetalheBancadaPage() {
             icon={<FiCamera className="w-5 h-5 text-indigo-600" />}
             defaultOpen={false}
           >
-            <div className="space-y-6 pt-2">
+            <div className="space-y-6 lg:space-y-8 pt-2">
               {/* Upload de Imagens */}
               <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Imagens do Técnico</h4>
+                <h4 className="text-sm lg:text-base font-medium text-gray-700 mb-3 lg:mb-4">Imagens do Técnico</h4>
             <div className="space-y-4">
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 sm:p-5 md:p-6 text-center hover:border-gray-400 active:border-gray-500 transition-colors touch-manipulation">
                 <input
@@ -1326,7 +1308,7 @@ export default function DetalheBancadaPage() {
                       Limpar todas
                     </button>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4">
                     {previewImagensTecnico.map((preview, index) => (
                       <div key={index} className="relative group cursor-pointer">
                         <img
@@ -1370,7 +1352,7 @@ export default function DetalheBancadaPage() {
                   <div className="flex items-center justify-between">
                     <h4 className="text-sm font-medium text-gray-700">Imagens de Entrada (Atendente)</h4>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4">
                     {imagensEntradaExistentes.map((url, index) => (
                       <button
                         key={index}
@@ -1401,7 +1383,7 @@ export default function DetalheBancadaPage() {
                       Remover todas
                     </button>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4">
                     {imagensTecnicoExistentes.map((url, index) => (
                       <div
                         key={index}
@@ -1499,14 +1481,14 @@ export default function DetalheBancadaPage() {
             </div>
           )}
 
-          {/* Botões de Ação - Mobile App Style */}
-          <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-3 sm:p-4 shadow-lg z-40 safe-area-inset-bottom">
-            <div className="space-y-2 sm:space-y-3 max-w-full">
+          {/* Botões de Ação - Mobile Fixed, Desktop Normal */}
+          <div className="fixed lg:relative bottom-0 left-0 right-0 lg:right-auto bg-white border-t lg:border-t-0 lg:border border-gray-200 p-3 sm:p-4 lg:p-0 shadow-lg lg:shadow-none z-40 safe-area-inset-bottom w-full max-w-full lg:max-w-none overflow-x-hidden lg:mt-6">
+            <div className="space-y-2 sm:space-y-3 lg:space-y-4 w-full max-w-full lg:max-w-none lg:flex lg:gap-4">
               {mostrarBotaoIniciar && (
                 <Button
                   onClick={handleIniciarOS}
                   disabled={salvando}
-                  className="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-semibold py-4 rounded-xl shadow-lg min-h-[52px] touch-manipulation text-base"
+                  className="w-full lg:w-auto lg:flex-1 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-semibold py-4 lg:py-3 rounded-xl lg:rounded-lg shadow-lg min-h-[52px] lg:min-h-[44px] touch-manipulation text-base"
                 >
                   <FiPlayCircle size={20} className="mr-2" /> 
                   {salvando ? 'Iniciando...' : 'Iniciar OS'}
@@ -1516,7 +1498,7 @@ export default function DetalheBancadaPage() {
               <Button
                 onClick={handleSalvar}
                 disabled={salvando}
-                className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-4 rounded-xl shadow-lg min-h-[52px] touch-manipulation text-base"
+                className="w-full lg:w-auto lg:flex-1 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-4 lg:py-3 rounded-xl lg:rounded-lg shadow-lg min-h-[52px] lg:min-h-[44px] touch-manipulation text-base"
               >
                 <FiSave size={20} className="mr-2" /> 
                 {salvando ? 'Salvando...' : 'Salvar Alterações'}

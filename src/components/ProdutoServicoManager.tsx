@@ -66,19 +66,12 @@ export default function ProdutoServicoManager({
     const itensValidos = itens.filter(isItemValido);
     // Só atualizar se realmente houver diferença e se houver itens inválidos
     if (itensValidos.length !== itens.length && itens.length > 0) {
-      console.log('🧹 Removendo itens inválidos:', {
-        total: itens.length,
-        validos: itensValidos.length,
-        removidos: itens.length - itensValidos.length,
-        itensInvalidos: itens.filter(item => !isItemValido(item)).map(i => i.nome)
-      });
       // Usar setTimeout para evitar atualizações síncronas que podem causar loops
       setTimeout(() => {
         onItensChange(itensValidos);
       }, 0);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [itens]);
+  }, [itens, onItensChange]);
   
   const [produtosServicos, setProdutosServicos] = useState<ProdutoServico[]>([]);
   const [loading, setLoading] = useState(false);
@@ -136,13 +129,11 @@ export default function ProdutoServicoManager({
         // Usar dados de teste se a tabela não existir
         setProdutosServicos([]);
       } else if (error) {
-        console.error('Erro ao buscar items:', error);
         setProdutosServicos([]);
       } else {
         setProdutosServicos((data as any[]) || []);
       }
     } catch (error) {
-      console.error('Erro:', error);
       setProdutosServicos([]);
     } finally {
       setLoading(false);
@@ -170,10 +161,25 @@ export default function ProdutoServicoManager({
 
   const editarItem = (index: number, campo: keyof Item, valor: any) => {
     const novosItens = [...itens];
-    novosItens[index] = { ...novosItens[index], [campo]: valor };
+    const itemAtual = novosItens[index];
     
-    if (campo === 'preco' || campo === 'quantidade') {
-      novosItens[index].total = novosItens[index].preco * novosItens[index].quantidade;
+    // Garantir que valores numéricos sejam preservados corretamente
+    if (campo === 'preco') {
+      const novoPreco = typeof valor === 'number' && !isNaN(valor) ? valor : (typeof valor === 'string' ? parseFloat(valor) || itemAtual.preco || 0 : itemAtual.preco || 0);
+      novosItens[index] = { 
+        ...itemAtual, 
+        preco: novoPreco,
+        total: novoPreco * (itemAtual.quantidade || 1)
+      };
+    } else if (campo === 'quantidade') {
+      const novaQuantidade = typeof valor === 'number' && !isNaN(valor) && valor > 0 ? valor : (typeof valor === 'string' ? parseInt(valor) || itemAtual.quantidade || 1 : itemAtual.quantidade || 1);
+      novosItens[index] = { 
+        ...itemAtual, 
+        quantidade: novaQuantidade,
+        total: (itemAtual.preco || 0) * novaQuantidade
+      };
+    } else {
+      novosItens[index] = { ...itemAtual, [campo]: valor };
     }
     
     onItensChange(novosItens);
@@ -181,13 +187,11 @@ export default function ProdutoServicoManager({
 
   const removerItem = async (index: number) => {
     if (index < 0 || index >= itens.length) {
-      console.error('Índice inválido para remover:', index, 'Total de itens:', itens.length);
       return;
     }
 
     const itemToRemove = itens[index];
     if (!itemToRemove) {
-      console.error('Item não encontrado no índice:', index);
       return;
     }
 
@@ -200,50 +204,26 @@ export default function ProdutoServicoManager({
 
     if (confirmed) {
       const novosItens = itens.filter((_, i) => i !== index);
-      console.log('🗑️ Removendo item:', { 
-        index, 
-        itemToRemove, 
-        totalAntes: itens.length, 
-        totalDepois: novosItens.length,
-        itensAntes: itens.map(i => i.nome),
-        itensDepois: novosItens.map(i => i.nome)
-      });
       
       // Garantir que onItensChange é chamado com uma nova referência
       if (onItensChange) {
         onItensChange([...novosItens]);
-      } else {
-        console.error('❌ onItensChange não está definido!');
       }
     }
   };
 
   const cadastrarNovoItem = async () => {
-    // TESTE DIRETO - criar função global para testar no console
-    if (typeof window !== 'undefined') {
-      (window as any).testarSupabase = async () => {
-        const { data, error } = await supabase.from('produtos_servicos').select('*').limit(1);
-        console.log('TESTE SELECT:', { data, error });
-        return { data, error };
-      };
-    }
-    
-    console.log('🔄 Iniciando cadastro de novo item:', { novoItem, usuarioData });
-    
     if (!novoItem.nome.trim()) {
       addToast('error', 'Nome é obrigatório');
       return;
     }
     
     if (!usuarioData?.empresa_id) {
-      console.error('❌ Empresa não identificada:', usuarioData);
       addToast('error', 'Erro: empresa não identificada');
       return;
     }
 
     try {
-      console.log('📦 MODO OFFLINE: Salvando apenas localmente (tabela produtos_servicos bloqueada)');
-      
       // Criar item apenas localmente - não tentar salvar no banco
       const novoItemCriado = {
         id: `temp-${Math.random().toString(36).substr(2, 9)}`, // ID temporário único
@@ -253,8 +233,6 @@ export default function ProdutoServicoManager({
         total: novoItem.total, // ✅ CORRIGIDO: Incluir total calculado
         tipo: tipo
       };
-
-      console.log('✅ Item criado localmente:', novoItemCriado);
 
       // Adicionar à lista local
       setProdutosServicos(prev => [...prev, novoItemCriado]);
@@ -271,7 +249,6 @@ export default function ProdutoServicoManager({
       setShowAddForm(false);
       
     } catch (error) {
-      console.error('❌ Erro inesperado:', error);
       addToast('error', `Erro ao adicionar item: ${error}`);
     }
   };
@@ -299,6 +276,16 @@ export default function ProdutoServicoManager({
       style: 'currency',
       currency: 'BRL'
     }).format(safe);
+  };
+
+  // Função para formatar preço no input (sem R$)
+  const formatarPrecoInput = (value: number): string => {
+    if (!value || value === 0) return '';
+    // Formatar como número brasileiro sem símbolo de moeda
+    return value.toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
   };
 
   if (readonly && itens.length === 0) {
@@ -374,27 +361,103 @@ export default function ProdutoServicoManager({
                 <input
                   type="number"
                   min="1"
-                  value={item.quantidade}
-                  onChange={(e) => editarItem(index, 'quantidade', parseInt(e.target.value) || 1)}
+                  value={item.quantidade || 1}
+                  onChange={(e) => {
+                    const valor = e.target.value;
+                    if (valor === '') {
+                      // Se o campo estiver vazio, não fazer nada ainda (aguardar blur)
+                      return;
+                    }
+                    const numValor = parseInt(valor);
+                    if (!isNaN(numValor) && numValor > 0) {
+                      editarItem(index, 'quantidade', numValor);
+                    }
+                  }}
+                  onBlur={(e) => {
+                    // Se o campo estiver vazio ao perder foco, usar valor mínimo
+                    if (e.target.value === '' || parseInt(e.target.value) < 1) {
+                      editarItem(index, 'quantidade', item.quantidade || 1);
+                    }
+                  }}
                   className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-center"
                 />
               ) : (
-                <span className="text-sm text-gray-600">{item.quantidade}x</span>
+                <span className="text-sm text-gray-600">{item.quantidade || 1}x</span>
               )}
             </div>
             
             <div className="w-24">
               {!readonly ? (
                 <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={item.preco}
-                  onChange={(e) => editarItem(index, 'preco', parseFloat(e.target.value) || 0)}
+                  type="text"
+                  value={formatarPrecoInput(item.preco || 0)}
+                  onChange={(e) => {
+                    let valor = e.target.value;
+                    
+                    // Remover tudo exceto números e vírgula
+                    valor = valor.replace(/[^\d,]/g, '');
+                    
+                    // Garantir apenas uma vírgula
+                    const partes = valor.split(',');
+                    if (partes.length > 2) {
+                      valor = partes[0] + ',' + partes.slice(1).join('');
+                    }
+                    
+                    // Limitar a 2 casas decimais após a vírgula
+                    if (partes.length === 2 && partes[1].length > 2) {
+                      valor = partes[0] + ',' + partes[1].substring(0, 2);
+                    }
+                    
+                    // Converter para número: se tem vírgula, tratar como decimal brasileiro
+                    // Se não tem vírgula e tem mais de 2 dígitos, assumir que os últimos 2 são centavos
+                    let numValor = 0;
+                    if (valor.includes(',')) {
+                      // Formato: "175,00" -> 175.00
+                      numValor = parseFloat(valor.replace(',', '.'));
+                    } else if (valor.length > 2) {
+                      // Formato: "17500" -> 175.00 (últimos 2 dígitos são centavos)
+                      const inteiro = valor.slice(0, -2) || '0';
+                      const centavos = valor.slice(-2);
+                      numValor = parseFloat(`${inteiro}.${centavos}`);
+                    } else if (valor.length > 0) {
+                      // Formato: "17" -> 0.17 (centavos)
+                      numValor = parseFloat(`0.${valor.padStart(2, '0')}`);
+                    }
+                    
+                    if (!isNaN(numValor) && numValor >= 0) {
+                      editarItem(index, 'preco', numValor);
+                    }
+                  }}
+                  onBlur={(e) => {
+                    // Garantir que o valor está correto ao perder foco
+                    const valor = e.target.value;
+                    if (valor === '' || valor.trim() === '') {
+                      editarItem(index, 'preco', item.preco || 0);
+                    } else {
+                      // Re-parsear o valor para garantir consistência
+                      let numValor = 0;
+                      if (valor.includes(',')) {
+                        numValor = parseFloat(valor.replace(',', '.'));
+                      } else if (valor.length > 2) {
+                        const inteiro = valor.slice(0, -2) || '0';
+                        const centavos = valor.slice(-2);
+                        numValor = parseFloat(`${inteiro}.${centavos}`);
+                      } else if (valor.length > 0) {
+                        numValor = parseFloat(`0.${valor.padStart(2, '0')}`);
+                      }
+                      
+                      if (isNaN(numValor) || numValor < 0) {
+                        editarItem(index, 'preco', item.preco || 0);
+                      } else {
+                        editarItem(index, 'preco', numValor);
+                      }
+                    }
+                  }}
+                  placeholder="0,00"
                   className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-right"
                 />
               ) : (
-                <span className="text-sm text-gray-600">{formatCurrency(item.preco)}</span>
+                <span className="text-sm text-gray-600">{formatCurrency(item.preco || 0)}</span>
               )}
             </div>
             
