@@ -173,8 +173,6 @@ export default function DetalheBancadaPage() {
           ...data,
           relato: data.problema_relatado || data.relato
         };
-          relato_length: osData.relato?.length || 0
-        });
         setOs(osData);
         setEmpresaId(data.empresa_id);
         
