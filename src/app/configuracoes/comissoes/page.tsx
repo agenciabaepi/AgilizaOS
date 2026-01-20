@@ -61,10 +61,22 @@ export default function ComissoesPage() {
   }, [editandoConfig, tempConfig]);
 
   const fetchData = async () => {
-    if (!usuarioData?.empresa_id) return;
+    if (!usuarioData?.empresa_id) {
+      console.warn('⚠️ empresa_id não encontrado, não é possível carregar dados');
+      return;
+    }
     
     setLoading(true);
     try {
+      // Verificar autenticação antes de fazer queries
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        console.error('❌ Erro de autenticação:', sessionError);
+        addToast('error', 'Erro de autenticação. Por favor, faça login novamente.');
+        setLoading(false);
+        return;
+      }
+      
       // Buscar técnicos da empresa
       const { data: tecnicosData, error: tecnicosError } = await supabase
         .from('usuarios')
@@ -74,8 +86,15 @@ export default function ComissoesPage() {
         .order('nome');
 
       if (tecnicosError) {
-        console.error('Erro ao buscar técnicos:', tecnicosError);
-        addToast('error', 'Erro ao carregar técnicos');
+        console.error('❌ Erro ao buscar técnicos:', tecnicosError);
+        
+        // Verificar se é erro de HTML/autenticação
+        const errorMsg = String(tecnicosError.message || '');
+        if (errorMsg.includes('DOCTYPE') || errorMsg.includes('<html')) {
+          addToast('error', 'Erro de autenticação. Por favor, faça login novamente.');
+        } else {
+          addToast('error', 'Erro ao carregar técnicos: ' + errorMsg);
+        }
       } else {
         setTecnicos(tecnicosData || []);
       }
@@ -85,37 +104,69 @@ export default function ComissoesPage() {
         .from('configuracoes_comissao')
         .select('*')
         .eq('empresa_id', usuarioData.empresa_id)
-        .single();
+        .maybeSingle();
 
       if (configError) {
-        if (configError.code === 'PGRST116') {
+        console.error('❌ Erro ao buscar configurações:', configError);
+        
+        // Verificar se é erro de HTML/autenticação
+        const errorMsg = String(configError.message || '');
+        if (errorMsg.includes('DOCTYPE') || errorMsg.includes('<html')) {
+          addToast('error', 'Erro de autenticação. Por favor, faça login novamente.');
+          setLoading(false);
+          return;
+        }
+        
+        // Verificar se é erro de não encontrado ou outro tipo
+        if (configError.code === 'PGRST116' || !configData) {
           // Não existe configuração, criar uma padrão
+          console.log('📝 Configuração não encontrada, criando padrão...');
           await criarConfiguracaoPadrao();
         } else {
-          console.error('Erro ao buscar configurações:', configError);
-          addToast('error', 'Erro ao carregar configurações');
+          addToast('error', 'Erro ao carregar configurações: ' + (configError.message || 'Erro desconhecido'));
         }
-      } else {
+      } else if (configData) {
         // Garantir que os novos campos existam (para compatibilidade com registros antigos)
         const configCompleto = {
           ...configData,
           tipo_comissao: configData.tipo_comissao || 'porcentagem',
-          comissao_fixa_padrao: configData.comissao_fixa_padrao ?? 0.00
+          comissao_fixa_padrao: configData.comissao_fixa_padrao ?? 0.00,
+          comissao_padrao: configData.comissao_padrao ?? 10.00,
+          comissao_apenas_servico: configData.comissao_apenas_servico ?? true,
+          comissao_retorno_ativo: configData.comissao_retorno_ativo ?? false,
+          observacoes: configData.observacoes || ''
         };
         console.log('📊 Configuração carregada:', configCompleto);
         setConfiguracao(configCompleto);
+      } else {
+        // Nenhuma configuração encontrada, criar padrão
+        console.log('📝 Nenhuma configuração encontrada, criando padrão...');
+        await criarConfiguracaoPadrao();
       }
 
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      addToast('error', 'Erro ao carregar dados');
+    } catch (error: any) {
+      console.error('❌ Erro ao carregar dados:', error);
+      console.error('❌ Tipo do erro:', typeof error);
+      console.error('❌ Mensagem:', error?.message);
+      
+      let mensagemErro = 'Erro ao carregar dados';
+      if (error?.message?.includes('DOCTYPE') || error?.message?.includes('<html') || error?.message?.includes('JSON')) {
+        mensagemErro = 'Erro de conexão. Por favor, recarregue a página ou faça login novamente.';
+      } else if (error?.message) {
+        mensagemErro = error.message;
+      }
+      
+      addToast('error', mensagemErro);
     } finally {
       setLoading(false);
     }
   };
 
   const criarConfiguracaoPadrao = async () => {
-    if (!usuarioData?.empresa_id) return;
+    if (!usuarioData?.empresa_id) {
+      console.error('❌ empresa_id não encontrado ao criar configuração padrão');
+      return;
+    }
 
     const configPadrao = {
       empresa_id: usuarioData.empresa_id,
@@ -127,6 +178,8 @@ export default function ComissoesPage() {
       comissao_fixa_padrao: 0.00
     };
 
+    console.log('📝 Criando configuração padrão:', configPadrao);
+
     const { data, error } = await supabase
       .from('configuracoes_comissao')
       .insert(configPadrao)
@@ -134,9 +187,42 @@ export default function ComissoesPage() {
       .single();
 
     if (error) {
-      console.error('Erro ao criar configuração padrão:', error);
-    } else {
-      setConfiguracao(data);
+      console.error('❌ Erro ao criar configuração padrão:', error);
+      
+      // Se já existe, buscar ao invés de criar
+      if (error.code === '23505') {
+        console.log('⚠️ Configuração já existe, buscando...');
+        const { data: existingData } = await supabase
+          .from('configuracoes_comissao')
+          .select('*')
+          .eq('empresa_id', usuarioData.empresa_id)
+          .maybeSingle();
+        
+        if (existingData) {
+          const configCompleto = {
+            ...existingData,
+            tipo_comissao: existingData.tipo_comissao || 'porcentagem',
+            comissao_fixa_padrao: existingData.comissao_fixa_padrao ?? 0.00,
+            comissao_padrao: existingData.comissao_padrao ?? 10.00,
+            comissao_apenas_servico: existingData.comissao_apenas_servico ?? true,
+            comissao_retorno_ativo: existingData.comissao_retorno_ativo ?? false,
+            observacoes: existingData.observacoes || ''
+          };
+          setConfiguracao(configCompleto);
+        }
+      }
+    } else if (data) {
+      console.log('✅ Configuração padrão criada com sucesso:', data);
+      const configCompleto = {
+        ...data,
+        tipo_comissao: data.tipo_comissao || 'porcentagem',
+        comissao_fixa_padrao: data.comissao_fixa_padrao ?? 0.00,
+        comissao_padrao: data.comissao_padrao ?? 10.00,
+        comissao_apenas_servico: data.comissao_apenas_servico ?? true,
+        comissao_retorno_ativo: data.comissao_retorno_ativo ?? false,
+        observacoes: data.observacoes || ''
+      };
+      setConfiguracao(configCompleto);
     }
   };
 
@@ -209,46 +295,170 @@ export default function ComissoesPage() {
   }, [configuracao]);
 
   const salvarConfiguracao = async () => {
-    if (!configuracao?.id) return;
+    console.log('🔵 salvarConfiguracao chamado');
+    console.log('🔵 configuracao:', configuracao);
+    console.log('🔵 tempConfig:', tempConfig);
+    console.log('🔵 usuarioData?.empresa_id:', usuarioData?.empresa_id);
+    
+    if (!usuarioData?.empresa_id) {
+      console.error('❌ Empresa não encontrada');
+      addToast('error', 'Empresa não encontrada. Faça login novamente.');
+      return;
+    }
     
     // Validar campos obrigatórios
     if (!tempConfig.tipo_comissao) {
+      console.error('❌ Tipo de comissão não selecionado');
       addToast('error', 'Selecione o tipo de comissão');
       return;
     }
     
     if (tempConfig.tipo_comissao === 'fixo' && (!tempConfig.comissao_fixa_padrao || tempConfig.comissao_fixa_padrao <= 0)) {
+      console.error('❌ Valor fixo inválido:', tempConfig.comissao_fixa_padrao);
       addToast('error', 'Informe o valor fixo da comissão');
       return;
     }
     
     if (tempConfig.tipo_comissao === 'porcentagem' && (!tempConfig.comissao_padrao || tempConfig.comissao_padrao <= 0)) {
+      console.error('❌ Percentual inválido:', tempConfig.comissao_padrao);
       addToast('error', 'Informe o percentual da comissão');
       return;
     }
     
     setSalvando(true);
     try {
-      console.log('💾 Salvando configuração:', tempConfig);
-      const { error } = await supabase
-        .from('configuracoes_comissao')
-        .update(tempConfig)
-        .eq('id', configuracao.id);
-
-      if (error) {
-        console.error('❌ Erro ao salvar:', error);
-        addToast('error', 'Erro ao salvar configurações: ' + error.message);
+      // Preparar dados para atualização/criação - garantir que todos os campos necessários estejam presentes
+      const dadosCompletos: any = {
+        empresa_id: usuarioData.empresa_id,
+        tipo_comissao: tempConfig.tipo_comissao,
+        comissao_apenas_servico: tempConfig.comissao_apenas_servico ?? configuracao?.comissao_apenas_servico ?? true,
+        comissao_retorno_ativo: tempConfig.comissao_retorno_ativo ?? configuracao?.comissao_retorno_ativo ?? false,
+        observacoes: tempConfig.observacoes ?? configuracao?.observacoes ?? ''
+      };
+      
+      // Adicionar campos específicos do tipo de comissão
+      if (tempConfig.tipo_comissao === 'fixo') {
+        dadosCompletos.comissao_fixa_padrao = tempConfig.comissao_fixa_padrao;
+        // Manter comissao_padrao mesmo quando for fixo (para compatibilidade)
+        dadosCompletos.comissao_padrao = configuracao?.comissao_padrao || 10;
       } else {
-        addToast('success', 'Configurações atualizadas com sucesso!');
-        setEditandoConfig(false);
-        // Aguardar um pouco antes de recarregar para garantir que o update foi processado
-        setTimeout(() => {
-        fetchData();
-        }, 500);
+        dadosCompletos.comissao_padrao = tempConfig.comissao_padrao;
+        // Manter comissao_fixa_padrao mesmo quando for porcentagem (para compatibilidade)
+        dadosCompletos.comissao_fixa_padrao = configuracao?.comissao_fixa_padrao || 0;
       }
-    } catch (error) {
-      console.error('❌ Erro ao salvar dados:', error);
-      addToast('error', 'Erro ao salvar dados');
+      
+      console.log('💾 Salvando configuração via API:', dadosCompletos);
+      
+      try {
+        // Usar API route intermediária para evitar problemas com Supabase client direto
+        const response = await fetch('/api/configuracoes-comissao/salvar', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            dadosCompletos,
+            configuracaoId: configuracao?.id || null
+          })
+        });
+
+        // Ler a resposta como texto primeiro para verificar se é HTML
+        const responseText = await response.text();
+        console.log('📥 Resposta da API (texto):', responseText.substring(0, 200));
+
+        // Verificar se a resposta é HTML
+        if (responseText.trim().startsWith('<!DOCTYPE') || responseText.trim().startsWith('<html')) {
+          console.error('❌ Resposta HTML recebida em vez de JSON');
+          addToast('error', 'Erro de conexão. A resposta do servidor não é válida. Por favor, recarregue a página ou faça login novamente.');
+          return;
+        }
+
+        // Tentar fazer parse do JSON
+        let responseData;
+        try {
+          responseData = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('❌ Erro ao fazer parse da resposta JSON:', parseError);
+          console.error('❌ Texto recebido:', responseText);
+          addToast('error', 'Erro ao processar resposta do servidor. Verifique o console para mais detalhes.');
+          return;
+        }
+
+        if (!response.ok) {
+          console.error('❌ Erro na resposta da API:', responseData);
+          const errorMsg = responseData?.error || 'Erro desconhecido ao salvar';
+          addToast('error', `Erro ao salvar: ${errorMsg}`);
+          return;
+        }
+
+        if (!responseData.data) {
+          console.error('❌ Nenhum dado retornado após salvar');
+          addToast('error', 'Erro ao salvar: nenhum dado retornado');
+          return;
+        }
+
+        console.log('✅ Configuração salva com sucesso:', responseData.data);
+        addToast('success', 'Configurações atualizadas com sucesso!');
+        
+        // Garantir que os novos campos existam (para compatibilidade com registros antigos)
+        const configCompleto = {
+          ...responseData.data,
+          tipo_comissao: responseData.data.tipo_comissao || 'porcentagem',
+          comissao_fixa_padrao: responseData.data.comissao_fixa_padrao ?? 0.00,
+          comissao_padrao: responseData.data.comissao_padrao ?? 10.00,
+          comissao_apenas_servico: responseData.data.comissao_apenas_servico ?? true,
+          comissao_retorno_ativo: responseData.data.comissao_retorno_ativo ?? false,
+          observacoes: responseData.data.observacoes || ''
+        };
+        console.log('📊 Atualizando estado com configuração:', configCompleto);
+        setConfiguracao(configCompleto);
+        setEditandoConfig(false);
+        setTempConfig({});
+        
+        // Recarregar dados para garantir sincronização completa
+        setTimeout(() => {
+          fetchData();
+        }, 300);
+      } catch (dbError: any) {
+        // Capturar erros de rede ou parsing
+        console.error('❌ Erro ao executar operação no banco:', dbError);
+        console.error('❌ Tipo do erro:', typeof dbError);
+        console.error('❌ Mensagem do erro:', dbError?.message);
+        console.error('❌ Stack do erro:', dbError?.stack);
+        
+        let mensagemErro = 'Erro ao salvar configurações';
+        
+        // Verificar se é erro de autenticação
+        if (dbError?.message?.includes('não autenticado') || dbError?.message?.includes('autenticação')) {
+          mensagemErro = 'Erro de autenticação. Por favor, faça login novamente.';
+        } else if (dbError?.message?.includes('JSON') || dbError?.message?.includes('DOCTYPE') || dbError?.message?.includes('<html')) {
+          mensagemErro = 'Erro de conexão com o banco de dados. Verifique sua conexão e tente novamente. Se o problema persistir, faça login novamente.';
+        } else if (dbError?.code === '42501' || dbError?.message?.includes('permission') || dbError?.message?.includes('policy')) {
+          mensagemErro = 'Erro de permissão. Verifique se você tem permissão para alterar configurações.';
+        } else if (dbError?.message) {
+          mensagemErro = dbError.message;
+        }
+        
+        addToast('error', mensagemErro);
+      }
+    } catch (error: any) {
+      console.error('❌ Erro geral ao salvar dados:', error);
+      console.error('❌ Tipo do erro:', typeof error);
+      console.error('❌ Mensagem do erro:', error?.message);
+      console.error('❌ Stack do erro:', error?.stack);
+      
+      let mensagemErro = 'Erro ao salvar dados';
+      
+      // Verificar tipo de erro
+      if (error?.message?.includes('não autenticado') || error?.message?.includes('autenticação')) {
+        mensagemErro = 'Erro de autenticação. Por favor, faça login novamente.';
+      } else if (error?.message?.includes('JSON') || error?.message?.includes('DOCTYPE') || error?.message?.includes('<html')) {
+        mensagemErro = 'Erro de conexão com o banco de dados. Verifique sua conexão e tente novamente. Se o problema persistir, faça login novamente.';
+      } else if (error?.message) {
+        mensagemErro = error.message;
+      }
+      
+      addToast('error', mensagemErro);
     } finally {
       setSalvando(false);
     }
@@ -464,14 +674,31 @@ export default function ComissoesPage() {
             </div>
 
             <div className="flex gap-2">
-              <Button onClick={salvarConfiguracao} disabled={salvando}>
-                <FiSave size={16} className="mr-1" />
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('🔵 Botão Salvar clicado');
+                  salvarConfiguracao();
+                }}
+                disabled={salvando}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FiSave size={16} />
                 {salvando ? 'Salvando...' : 'Salvar'}
-              </Button>
-              <Button onClick={cancelarEdicaoConfig} variant="outline">
-                <FiX size={16} className="mr-1" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  cancelarEdicaoConfig();
+                }}
+                disabled={salvando}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FiX size={16} />
                 Cancelar
-              </Button>
+              </button>
             </div>
           </div>
         ) : (
@@ -483,8 +710,8 @@ export default function ComissoesPage() {
                 </p>
                 <p className="text-2xl font-bold text-blue-900">
                   {configuracao?.tipo_comissao === 'fixo' 
-                    ? `R$ ${configuracao?.comissao_fixa_padrao?.toFixed(2) || '0.00'}` 
-                    : `${configuracao?.comissao_padrao}%`}
+                    ? `R$ ${(configuracao?.comissao_fixa_padrao ?? 0).toFixed(2)}` 
+                    : `${configuracao?.comissao_padrao ?? 10}%`}
                 </p>
                 <p className="text-xs text-blue-600 mt-1">
                   {configuracao?.tipo_comissao === 'fixo' ? 'Por aparelho' : 'Percentual'}
@@ -493,13 +720,13 @@ export default function ComissoesPage() {
               <div className="bg-green-50 p-4 rounded-lg">
                 <p className="text-sm text-green-600 font-medium">Base de Cálculo</p>
                 <p className="text-sm font-semibold text-green-900">
-                  {configuracao?.comissao_apenas_servico ? 'Apenas Serviços' : 'Serviços + Peças'}
+                  {(configuracao?.comissao_apenas_servico ?? true) ? 'Apenas Serviços' : 'Serviços + Peças'}
                 </p>
               </div>
               <div className="bg-orange-50 p-4 rounded-lg">
                 <p className="text-sm text-orange-600 font-medium">Retornos/Garantias</p>
                 <p className="text-sm font-semibold text-orange-900">
-                  {configuracao?.comissao_retorno_ativo ? 'Com Comissão' : 'Sem Comissão'}
+                  {(configuracao?.comissao_retorno_ativo ?? false) ? 'Com Comissão' : 'Sem Comissão'}
                 </p>
               </div>
             </div>

@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import MenuLayout from '@/components/MenuLayout';
 import AuthGuard from '@/components/AuthGuard';
 import { useToast } from '@/components/Toast';
-import { FiDollarSign, FiUsers, FiTrendingUp, FiCalendar, FiFilter, FiDownload, FiX, FiUser, FiEye, FiEdit, FiSave, FiPower, FiToggleLeft, FiToggleRight } from 'react-icons/fi';
+import { FiDollarSign, FiUsers, FiTrendingUp, FiCalendar, FiFilter, FiDownload, FiX, FiUser, FiEye, FiEdit, FiSave, FiPower, FiToggleLeft, FiToggleRight, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import { useConfirm } from '@/components/ConfirmDialog';
 
 interface ComissaoDetalhada {
@@ -29,6 +29,7 @@ interface ComissaoDetalhada {
   tipo_ordem: string;
   created_at: string;
   ativa?: boolean;
+  tecnico_comissao_ativa?: boolean; // Indica se o técnico tem comissão ativa nas configurações
   observacoes?: string | null;
 }
 
@@ -67,6 +68,13 @@ export default function ComissoesTecnicosPage() {
   const [valorEditado, setValorEditado] = useState<number>(0);
   const [observacoesEditadas, setObservacoesEditadas] = useState<string>('');
   
+  // Estado para mês selecionado (formato: YYYY-MM ou 'todos')
+  const [mesSelecionado, setMesSelecionado] = useState<string>(() => {
+    // Começar com o mês atual
+    const hoje = new Date();
+    return hoje.toISOString().slice(0, 7); // YYYY-MM
+  });
+  
   // Estados para filtros
   const [filtros, setFiltros] = useState<Filtros>({
     dataInicio: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
@@ -75,12 +83,281 @@ export default function ComissoesTecnicosPage() {
     status: '',
     tipoOrdem: ''
   });
+  
+  // Função para formatar mês para exibição
+  const formatarMes = (mesString: string | undefined | null) => {
+    // Validar se mesString existe e é uma string válida
+    if (!mesString || typeof mesString !== 'string' || mesString === 'todos') {
+      return 'Todos os meses';
+    }
+    
+    // Validar formato (deve ser YYYY-MM)
+    if (!mesString.includes('-') || mesString.split('-').length !== 2) {
+      console.warn('⚠️ Formato de mês inválido:', mesString);
+      return 'Mês inválido';
+    }
+    
+    try {
+      const [ano, mes] = mesString.split('-');
+      
+      // Validar se ano e mês são números válidos
+      if (!ano || !mes || isNaN(parseInt(ano)) || isNaN(parseInt(mes))) {
+        console.warn('⚠️ Ano ou mês inválido:', mesString);
+        return 'Mês inválido';
+      }
+      
+      const data = new Date(parseInt(ano), parseInt(mes) - 1, 1);
+      
+      // Validar se a data é válida
+      if (isNaN(data.getTime())) {
+        console.warn('⚠️ Data inválida ao formatar mês:', mesString);
+        return 'Mês inválido';
+      }
+      
+      return data.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    } catch (e) {
+      console.error('❌ Erro ao formatar mês:', mesString, e);
+      return 'Mês inválido';
+    }
+  };
+  
+  // Função para navegar entre meses
+  const navegarMes = (direcao: 'anterior' | 'proximo') => {
+    try {
+      // Se estiver em "todos" ou não tiver mês selecionado, usar o mês atual como base
+      let mesAtualParaNavegar: string = mesSelecionado || 'todos';
+      
+      if (!mesSelecionado || mesSelecionado === 'todos') {
+        const hoje = new Date();
+        if (isNaN(hoje.getTime())) {
+          console.error('❌ Data atual inválida');
+          return;
+        }
+        mesAtualParaNavegar = hoje.toISOString().slice(0, 7);
+      }
+      
+      // Verificar se o mês atual para navegar é válido
+      if (!mesAtualParaNavegar || mesAtualParaNavegar === 'todos') {
+        const hoje = new Date();
+        if (isNaN(hoje.getTime())) {
+          console.error('❌ Data atual inválida');
+          return;
+        }
+        const mesAtual = hoje.toISOString().slice(0, 7);
+        setMesSelecionado(mesAtual);
+        return;
+      }
+      
+      // Validar formato
+      if (!mesAtualParaNavegar.includes('-') || mesAtualParaNavegar.split('-').length !== 2) {
+        console.error('❌ Formato de mês inválido:', mesAtualParaNavegar);
+        const hoje = new Date();
+        if (!isNaN(hoje.getTime())) {
+          setMesSelecionado(hoje.toISOString().slice(0, 7));
+        }
+        return;
+      }
+      
+      const [ano, mes] = mesAtualParaNavegar.split('-');
+      
+      // Validar se ano e mês são números válidos
+      if (!ano || !mes || isNaN(parseInt(ano)) || isNaN(parseInt(mes))) {
+        console.error('❌ Ano ou mês inválido:', ano, mes);
+        const hoje = new Date();
+        if (!isNaN(hoje.getTime())) {
+          setMesSelecionado(hoje.toISOString().slice(0, 7));
+        }
+        return;
+      }
+      
+      const anoNum = parseInt(ano);
+      const mesNum = parseInt(mes);
+      
+      // Validar se ano e mês estão em ranges válidos
+      if (anoNum < 1900 || anoNum > 2100 || mesNum < 1 || mesNum > 12) {
+        console.error('❌ Ano ou mês fora do range válido:', anoNum, mesNum);
+        const hoje = new Date();
+        if (!isNaN(hoje.getTime())) {
+          setMesSelecionado(hoje.toISOString().slice(0, 7));
+        }
+        return;
+      }
+      
+      const dataAtual = new Date(anoNum, mesNum - 1, 1);
+      
+      // Validar se a data é válida
+      if (isNaN(dataAtual.getTime())) {
+        console.error('❌ Data criada é inválida:', anoNum, mesNum);
+        const hoje = new Date();
+        if (!isNaN(hoje.getTime())) {
+          setMesSelecionado(hoje.toISOString().slice(0, 7));
+        }
+        return;
+      }
+      
+      if (direcao === 'anterior') {
+        dataAtual.setMonth(dataAtual.getMonth() - 1);
+      } else {
+        dataAtual.setMonth(dataAtual.getMonth() + 1);
+      }
+      
+      // Validar a nova data antes de usar
+      if (isNaN(dataAtual.getTime())) {
+        console.error('❌ Nova data após navegação é inválida');
+        const hoje = new Date();
+        if (!isNaN(hoje.getTime())) {
+          setMesSelecionado(hoje.toISOString().slice(0, 7));
+        }
+        return;
+      }
+      
+      // Validar novamente antes de chamar toISOString
+      const timeValue = dataAtual.getTime();
+      if (isNaN(timeValue)) {
+        console.error('❌ Time value inválido');
+        const hoje = new Date();
+        if (!isNaN(hoje.getTime())) {
+          setMesSelecionado(hoje.toISOString().slice(0, 7));
+        }
+        return;
+      }
+      
+      const novoMesString = dataAtual.toISOString().slice(0, 7);
+      
+      // Validar o resultado
+      if (!novoMesString || novoMesString.length !== 7 || !novoMesString.includes('-')) {
+        console.error('❌ String de mês resultante inválida:', novoMesString);
+        const hoje = new Date();
+        if (!isNaN(hoje.getTime())) {
+          setMesSelecionado(hoje.toISOString().slice(0, 7));
+        }
+        return;
+      }
+      
+      setMesSelecionado(novoMesString);
+    } catch (error) {
+      console.error('❌ Erro na função navegarMes:', error);
+      // Fallback seguro: usar mês atual
+      try {
+        const hoje = new Date();
+        if (!isNaN(hoje.getTime())) {
+          const mesAtual = hoje.toISOString().slice(0, 7);
+          setMesSelecionado(mesAtual);
+        } else {
+          // Se nem mesmo a data atual funciona, usar um mês padrão conhecido
+          setMesSelecionado('todos');
+        }
+      } catch (fallbackError) {
+        console.error('❌ Erro no fallback de navegarMes:', fallbackError);
+        setMesSelecionado('todos');
+      }
+    }
+  };
+  
+  // Função para ir para o mês atual
+  const irParaMesAtual = () => {
+    const hoje = new Date();
+    const mesAtual = hoje.toISOString().slice(0, 7);
+    setMesSelecionado(mesAtual);
+  };
+  
+  // Detectar todos os meses que têm comissões
+  const mesesComComissoes = useMemo(() => {
+    const meses = new Set<string>();
+    comissoes.forEach(comissao => {
+      // Apenas incluir se a comissão e o técnico estiverem ativos
+      if (comissao.ativa !== false && comissao.tecnico_comissao_ativa !== false) {
+        try {
+          const dataEntrega = new Date(comissao.data_entrega);
+          if (!isNaN(dataEntrega.getTime())) {
+            const mesString = dataEntrega.toISOString().slice(0, 7);
+            meses.add(mesString);
+          } else {
+            console.warn('⚠️ Data de entrega inválida ao detectar meses:', comissao.data_entrega);
+          }
+        } catch (e) {
+          console.error('❌ Erro ao processar data ao detectar meses:', comissao.data_entrega, e);
+        }
+      }
+    });
+    
+    // Ordenar do mais recente para o mais antigo
+    const mesesOrdenados = Array.from(meses).sort().reverse();
+    
+    console.log('📅 Meses com comissões detectados:', mesesOrdenados);
+    
+    return mesesOrdenados;
+  }, [comissoes]);
+  
+  // Quando as comissões forem carregadas pela primeira vez, garantir que está no mês atual
+  // Este useEffect só roda uma vez após o carregamento inicial das comissões
+  const [comissoesCarregadas, setComissoesCarregadas] = useState(false);
+  
+  useEffect(() => {
+    if (!comissoesCarregadas && comissoes.length >= 0) {
+      // Primeira vez que as comissões são carregadas (pode ser array vazio)
+      const hoje = new Date();
+      const mesAtual = hoje.toISOString().slice(0, 7);
+      
+      // Se ainda não está no mês atual, mudar para o mês atual
+      if (mesSelecionado !== mesAtual) {
+        console.log('🔄 Primeira carga - Ajustando para mês atual:', mesAtual);
+        setMesSelecionado(mesAtual);
+      }
+      
+      setComissoesCarregadas(true);
+    }
+  }, [comissoes.length, mesSelecionado, comissoesCarregadas]);
 
-  // Resumo por técnico (considerando apenas comissões ativas)
+  // Filtrar comissões por mês selecionado e técnicos ativos
+  const comissoesDoMes = useMemo(() => {
+    const filtradas = comissoes.filter(comissao => {
+      // Filtrar comissões de técnicos desativados
+      const comissaoAtiva = comissao.ativa !== false;
+      const tecnicoComissaoAtiva = comissao.tecnico_comissao_ativa !== false;
+      
+      if (!comissaoAtiva || !tecnicoComissaoAtiva) {
+        return false;
+      }
+      
+      // Filtrar por mês selecionado (se houver mês selecionado e não for "todos")
+      if (mesSelecionado && mesSelecionado !== 'todos') {
+        try {
+          const dataEntrega = new Date(comissao.data_entrega);
+          if (isNaN(dataEntrega.getTime())) {
+            console.warn('⚠️ Data de entrega inválida:', comissao.data_entrega);
+            return false;
+          }
+          const mesComissao = dataEntrega.toISOString().slice(0, 7);
+          if (mesComissao !== mesSelecionado) {
+            return false;
+          }
+        } catch (e) {
+          console.error('❌ Erro ao processar data de entrega:', comissao.data_entrega, e);
+          return false;
+        }
+      }
+      
+      return true;
+    });
+    
+    // Debug: Log do filtro
+    console.log('🔍 Filtro aplicado:', {
+      mesSelecionado,
+      totalComissoes: comissoes.length,
+      comissoesFiltradas: filtradas.length,
+      comissoesAtivas: comissoes.filter(c => c.ativa !== false && c.tecnico_comissao_ativa !== false).length
+    });
+    
+    return filtradas;
+  }, [comissoes, mesSelecionado]);
+  
+  // Resumo por técnico (considerando apenas comissões ativas E técnicos com comissão ativa do mês selecionado)
   const resumoPorTecnico = useMemo(() => {
     const resumo = new Map<string, TecnicoResumo>();
     
-    comissoes.filter(c => c.ativa !== false).forEach(comissao => {
+    // Usar comissões do mês selecionado
+    comissoesDoMes.forEach(comissao => {
       if (!resumo.has(comissao.tecnico_id)) {
         resumo.set(comissao.tecnico_id, {
           tecnico_id: comissao.tecnico_id,
@@ -113,17 +390,17 @@ export default function ComissoesTecnicosPage() {
     });
     
     return Array.from(resumo.values()).sort((a, b) => b.total_comissao_valor - a.total_comissao_valor);
-  }, [comissoes]);
+  }, [comissoesDoMes]);
 
-  // Métricas gerais (considerando apenas comissões ativas)
+  // Métricas gerais do mês selecionado (considerando apenas comissões ativas E técnicos com comissão ativa)
   const metricas = useMemo(() => {
-    const comissoesAtivas = comissoes.filter(c => c.ativa !== false);
-    const total = comissoesAtivas.reduce((acc, c) => acc + c.valor_comissao, 0);
-    const totalOSs = comissoesAtivas.length;
+    // Usar comissões do mês selecionado (já filtradas por técnicos ativos)
+    const total = comissoesDoMes.reduce((acc, c) => acc + c.valor_comissao, 0);
+    const totalOSs = comissoesDoMes.length;
     const mediaGeral = totalOSs > 0 ? total / totalOSs : 0;
     const totalTecnicos = resumoPorTecnico.length;
-    const totalPago = comissoesAtivas.filter(c => c.status === 'PAGA').reduce((acc, c) => acc + c.valor_comissao, 0);
-    const totalCalculado = comissoesAtivas.filter(c => c.status === 'CALCULADA').reduce((acc, c) => acc + c.valor_comissao, 0);
+    const totalPago = comissoesDoMes.filter(c => c.status === 'PAGA').reduce((acc, c) => acc + c.valor_comissao, 0);
+    const totalCalculado = comissoesDoMes.filter(c => c.status === 'CALCULADA').reduce((acc, c) => acc + c.valor_comissao, 0);
     
     return {
       totalComissao: total,
@@ -133,24 +410,18 @@ export default function ComissoesTecnicosPage() {
       totalPago,
       totalCalculado
     };
-  }, [comissoes, resumoPorTecnico]);
+  }, [comissoesDoMes, resumoPorTecnico]);
 
-  // Filtrar comissões
+  // Filtrar comissões com filtros adicionais (técnico, status, tipo)
   const comissoesFiltradas = useMemo(() => {
-    return comissoes.filter(comissao => {
-      const dataEntrega = new Date(comissao.data_entrega);
-      const dataInicio = new Date(filtros.dataInicio);
-      const dataFim = new Date(filtros.dataFim);
-      dataFim.setHours(23, 59, 59, 999); // Incluir o dia inteiro
-      
-      const dentroPeriodo = dataEntrega >= dataInicio && dataEntrega <= dataFim;
+    return comissoesDoMes.filter(comissao => {
       const tecnicoMatch = !filtros.tecnicoId || comissao.tecnico_id === filtros.tecnicoId;
       const statusMatch = !filtros.status || comissao.status === filtros.status;
       const tipoMatch = !filtros.tipoOrdem || comissao.tipo_ordem === filtros.tipoOrdem;
       
-      return dentroPeriodo && tecnicoMatch && statusMatch && tipoMatch;
+      return tecnicoMatch && statusMatch && tipoMatch;
     });
-  }, [comissoes, filtros]);
+  }, [comissoesDoMes, filtros]);
 
   useEffect(() => {
     if (usuarioData?.empresa_id) {
@@ -203,7 +474,8 @@ export default function ComissoesTecnicosPage() {
           observacoes,
           ativa,
           tecnico:tecnico_id (
-            nome
+            nome,
+            comissao_ativa
           ),
           ordens_servico:ordem_servico_id (
             numero_os,
@@ -242,7 +514,8 @@ export default function ComissoesTecnicosPage() {
             observacoes,
             ativa,
             tecnico:tecnico_id (
-              nome
+              nome,
+              comissao_ativa
             ),
             ordens_servico:ordem_servico_id (
               numero_os,
@@ -263,10 +536,17 @@ export default function ComissoesTecnicosPage() {
           return;
         }
 
-        // Garantir que dataRetry tenha a propriedade ativa mesmo se a coluna não existir no banco
+        // Garantir que dataRetry tenha as propriedades ativa e tecnico_comissao_ativa mesmo se as colunas não existirem no banco
         comissoesData = (dataRetry || []).map((item: any) => ({
           ...item,
-          ativa: item.ativa !== undefined ? item.ativa : true
+          ativa: item.ativa !== undefined ? item.ativa : true,
+          // Garantir que o técnico tenha a propriedade comissao_ativa
+          tecnico: {
+            ...item.tecnico,
+            comissao_ativa: item.tecnico?.comissao_ativa !== undefined && item.tecnico?.comissao_ativa !== null
+              ? item.tecnico.comissao_ativa
+              : true
+          }
         }));
         error = null;
       }
@@ -300,10 +580,36 @@ export default function ComissoesTecnicosPage() {
         created_at: comissao.created_at,
         // Campo ativa pode não existir ainda - usar true como padrão
         ativa: comissao.ativa !== undefined && comissao.ativa !== null ? comissao.ativa : true,
+        // Verificar se o técnico tem comissão ativa (se NULL, considera true para compatibilidade)
+        tecnico_comissao_ativa: comissao.tecnico?.comissao_ativa !== undefined && comissao.tecnico?.comissao_ativa !== null 
+          ? comissao.tecnico.comissao_ativa 
+          : true,
         observacoes: comissao.observacoes || null
       }));
 
       setComissoes(comissoesFormatadas);
+      
+      // Debug: Log das comissões carregadas
+      console.log('📊 Comissões carregadas:', {
+        total: comissoesFormatadas.length,
+        comissoes: comissoesFormatadas.slice(0, 5), // Primeiras 5 para debug
+        meses: [...new Set(comissoesFormatadas.map(c => {
+          try {
+            const data = new Date(c.data_entrega);
+            if (isNaN(data.getTime())) {
+              console.warn('⚠️ Data inválida:', c.data_entrega);
+              return null;
+            }
+            return data.toISOString().slice(0, 7);
+          } catch (e) {
+            console.error('❌ Erro ao processar data:', c.data_entrega, e);
+            return null;
+          }
+        }).filter(Boolean))],
+        comissoesComTecnicoAtivo: comissoesFormatadas.filter(c => 
+          c.ativa !== false && c.tecnico_comissao_ativa !== false
+        ).length
+      });
 
       // Verificar se o campo ativa existe fazendo uma query de teste
       // Se a query com o campo ativa funcionar, o campo existe
@@ -377,22 +683,17 @@ export default function ComissoesTecnicosPage() {
 
     setSalvando(true);
     try {
-      // Obter token de autenticação da sessão
-      const token = session?.access_token;
-      
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      
-      // Adicionar token de autenticação se disponível
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
+      console.log('💾 Salvando edição de comissão:', {
+        comissaoId: comissaoEditando.id,
+        valorComissao: valorEditado,
+        observacoes: observacoesEditadas
+      });
 
       const response = await fetch('/api/comissoes/atualizar', {
         method: 'PATCH',
-        headers,
-        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           comissaoId: comissaoEditando.id,
           valorComissao: valorEditado,
@@ -400,10 +701,38 @@ export default function ComissoesTecnicosPage() {
         }),
       });
 
-      const result = await response.json();
+      // Ler a resposta como texto primeiro para verificar se é HTML
+      const responseText = await response.text();
+      console.log('📥 Resposta da API (texto):', responseText.substring(0, 200));
+
+      // Verificar se a resposta é HTML
+      if (responseText.trim().startsWith('<!DOCTYPE') || responseText.trim().startsWith('<html')) {
+        console.error('❌ Resposta HTML recebida em vez de JSON');
+        addToast('error', 'Erro de conexão. A resposta do servidor não é válida. Por favor, recarregue a página ou faça login novamente.');
+        return;
+      }
+
+      // Tentar fazer parse do JSON
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('❌ Erro ao fazer parse da resposta JSON:', parseError);
+        console.error('❌ Texto recebido:', responseText);
+        addToast('error', 'Erro ao processar resposta do servidor. Verifique o console para mais detalhes.');
+        return;
+      }
 
       if (!response.ok) {
-        addToast('error', result.error || 'Erro ao atualizar comissão');
+        console.error('❌ Erro na resposta da API:', result);
+        const errorMsg = result?.error || 'Erro desconhecido ao atualizar comissão';
+        addToast('error', errorMsg);
+        return;
+      }
+
+      if (!result.data) {
+        console.error('❌ Nenhum dado retornado após atualizar');
+        addToast('error', 'Erro ao atualizar: nenhum dado retornado');
         return;
       }
 
@@ -412,9 +741,19 @@ export default function ComissoesTecnicosPage() {
 
       addToast('success', 'Comissão atualizada com sucesso!');
       setComissaoEditando(null);
-    } catch (error) {
-      console.error('Erro ao salvar edição:', error);
-      addToast('error', 'Erro inesperado ao atualizar comissão');
+    } catch (error: any) {
+      console.error('❌ Erro ao salvar edição:', error);
+      console.error('❌ Tipo do erro:', typeof error);
+      console.error('❌ Mensagem:', error?.message);
+      
+      let mensagemErro = 'Erro inesperado ao atualizar comissão';
+      if (error?.message?.includes('JSON') || error?.message?.includes('DOCTYPE') || error?.message?.includes('<html')) {
+        mensagemErro = 'Erro de conexão. Por favor, recarregue a página ou faça login novamente.';
+      } else if (error?.message) {
+        mensagemErro = error.message;
+      }
+      
+      addToast('error', mensagemErro);
     } finally {
       setSalvando(false);
     }
@@ -455,18 +794,47 @@ export default function ComissoesTecnicosPage() {
 
       const response = await fetch('/api/comissoes/atualizar', {
         method: 'PATCH',
-        headers,
-        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           comissaoId: comissao.id,
           ativa: !comissao.ativa,
         }),
       });
 
-      const result = await response.json();
+      // Ler a resposta como texto primeiro para verificar se é HTML
+      const responseText = await response.text();
+      console.log('📥 Resposta da API (texto):', responseText.substring(0, 200));
+
+      // Verificar se a resposta é HTML
+      if (responseText.trim().startsWith('<!DOCTYPE') || responseText.trim().startsWith('<html')) {
+        console.error('❌ Resposta HTML recebida em vez de JSON');
+        addToast('error', 'Erro de conexão. A resposta do servidor não é válida. Por favor, recarregue a página ou faça login novamente.');
+        return;
+      }
+
+      // Tentar fazer parse do JSON
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('❌ Erro ao fazer parse da resposta JSON:', parseError);
+        console.error('❌ Texto recebido:', responseText);
+        addToast('error', 'Erro ao processar resposta do servidor. Verifique o console para mais detalhes.');
+        return;
+      }
 
       if (!response.ok) {
-        addToast('error', result.error || 'Erro ao atualizar comissão');
+        console.error('❌ Erro na resposta da API:', result);
+        const errorMsg = result?.error || 'Erro desconhecido ao atualizar comissão';
+        addToast('error', errorMsg);
+        return;
+      }
+
+      if (!result.data) {
+        console.error('❌ Nenhum dado retornado após atualizar');
+        addToast('error', 'Erro ao atualizar: nenhum dado retornado');
         return;
       }
 
@@ -646,6 +1014,110 @@ export default function ComissoesTecnicosPage() {
             </div>
           </div>
         )}
+
+        {/* Abas por Mês */}
+        <div className="bg-white rounded-lg md:rounded-xl shadow-sm border border-gray-200 mb-6">
+          <div className="flex items-center justify-between p-3 md:p-4 border-b border-gray-200">
+            <div className="flex items-center gap-2 md:gap-4 overflow-x-auto flex-1">
+              {/* Navegação de Mês */}
+              <div className="flex items-center bg-gray-50 border border-gray-300 rounded-lg px-2 md:px-3 py-1.5 md:py-2 flex-shrink-0">
+                <button
+                  onClick={() => navegarMes('anterior')}
+                  className="p-1 hover:bg-gray-200 rounded transition-colors"
+                  title="Mês anterior"
+                >
+                  <FiChevronLeft className="w-4 h-4 text-gray-600" />
+                </button>
+                
+                <div className="flex items-center space-x-2 px-2 md:px-3">
+                  <FiCalendar className="w-4 h-4 text-gray-500" />
+                  <span className="text-sm font-medium text-gray-700 min-w-[120px] md:min-w-[140px] text-center whitespace-nowrap">
+                    {formatarMes(mesSelecionado || 'todos')}
+                  </span>
+                </div>
+                
+                <button
+                  onClick={() => navegarMes('proximo')}
+                  className="p-1 hover:bg-gray-200 rounded transition-colors"
+                  title="Próximo mês"
+                >
+                  <FiChevronRight className="w-4 h-4 text-gray-600" />
+                </button>
+              </div>
+              
+              <button
+                onClick={irParaMesAtual}
+                className="px-3 md:px-4 py-1.5 md:py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors text-xs md:text-sm font-medium whitespace-nowrap flex-shrink-0"
+              >
+                Hoje
+              </button>
+              
+              {/* Abas dos meses com comissões */}
+              <div className="flex gap-1 md:gap-2 overflow-x-auto flex-1">
+                {/* Aba "Todos" */}
+                <button
+                  onClick={() => setMesSelecionado('todos')}
+                  className={`px-3 md:px-4 py-1.5 md:py-2 font-medium text-xs md:text-sm border-b-2 transition-colors whitespace-nowrap flex-shrink-0 ${
+                    mesSelecionado === 'todos'
+                      ? 'border-blue-500 text-blue-600 bg-blue-50'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Todos
+                  <span className={`ml-1.5 md:ml-2 px-1.5 md:px-2 py-0.5 text-xs rounded-full ${
+                    mesSelecionado === 'todos' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {comissoes.filter(c => c.ativa !== false && c.tecnico_comissao_ativa !== false).length}
+                  </span>
+                </button>
+                
+                {mesesComComissoes.map((mes) => {
+                  const comissoesMesAtual = comissoes.filter(c => {
+                    try {
+                      if (c.ativa === false || c.tecnico_comissao_ativa === false) {
+                        return false;
+                      }
+                      const dataEntrega = new Date(c.data_entrega);
+                      if (isNaN(dataEntrega.getTime())) {
+                        return false;
+                      }
+                      const mesComissao = dataEntrega.toISOString().slice(0, 7);
+                      return mesComissao === mes;
+                    } catch (e) {
+                      console.error('❌ Erro ao filtrar comissão por mês:', e);
+                      return false;
+                    }
+                  });
+                  const totalMes = comissoesMesAtual.reduce((acc, c) => acc + (c.valor_comissao || 0), 0);
+                  const countMes = comissoesMesAtual.length;
+                  
+                  return (
+                    <button
+                      key={mes}
+                      onClick={() => setMesSelecionado(mes)}
+                      className={`px-3 md:px-4 py-1.5 md:py-2 font-medium text-xs md:text-sm border-b-2 transition-colors whitespace-nowrap flex-shrink-0 ${
+                        mesSelecionado === mes
+                          ? 'border-blue-500 text-blue-600 bg-blue-50'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {(() => {
+                        const [ano, mesNum] = mes.split('-');
+                        const data = new Date(parseInt(ano), parseInt(mesNum) - 1, 1);
+                        return data.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+                      })()}
+                      <span className={`ml-1.5 md:ml-2 px-1.5 md:px-2 py-0.5 text-xs rounded-full ${
+                        mesSelecionado === mes ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {countMes}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Métricas Gerais */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 lg:gap-6">
