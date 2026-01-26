@@ -507,9 +507,11 @@ function LoginClientInner() {
     localStorage.setItem("empresa_id", usuario.empresa_id);
     
     // Aguardar um pouco para mostrar a mensagem de sucesso
-    setTimeout(() => {
-      // Redirecionar para dashboard principal
-      router.push('/dashboard');
+    setTimeout(async () => {
+      // Redirecionar para dashboard correta baseada no role
+      const { getDashboardPath } = await import('@/lib/dashboardRouting');
+      const dashboardPath = getDashboardPath({ nivel: perfil.nivel });
+      router.push(dashboardPath);
     }, 1500);
     
     // Resetar o estado de loading após o redirecionamento

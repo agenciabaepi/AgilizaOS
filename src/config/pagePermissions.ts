@@ -3,6 +3,7 @@ export const PAGE_PERMISSIONS = {
   // Dashboard
   '/dashboard': 'dashboard',
   '/dashboard-atendente': 'dashboard',
+  '/dashboard-tecnico': 'dashboard',
   
   // Lembretes
   '/lembretes': 'lembretes',
@@ -12,6 +13,8 @@ export const PAGE_PERMISSIONS = {
   '/ordens/[id]': 'ordens',
   '/ordens/[id]/editar': 'ordens',
   '/ordens/[id]/imprimir': 'ordens',
+  '/ordens/[id]/imprimir/cupom': 'ordens',
+  '/ordens/[id]/imprimir/2vias': 'ordens',
   '/ordens/[id]/imprimir/teste': 'ordens',
   '/nova-os': 'ordens',
   '/os': 'ordens',

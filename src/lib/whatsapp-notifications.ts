@@ -1,4 +1,5 @@
 import { createAdminClient } from './supabaseClient';
+import { WHATSAPP_NOTIFICATIONS_ENABLED } from '@/config/whatsapp-config';
 
 interface TecnicoData {
   id: string;
@@ -38,6 +39,12 @@ async function sendWhatsAppMessageFreeText(
   phoneNumber: string,
   message: string
 ): Promise<boolean> {
+  // ⚠️ VERIFICAÇÃO: Notificações WhatsApp desativadas
+  if (!WHATSAPP_NOTIFICATIONS_ENABLED) {
+    console.log('⚠️ WhatsApp notificações desativadas - ignorando envio');
+    return false;
+  }
+
   try {
     console.log('📱 Enviando mensagem WhatsApp como texto livre:', {
       to: phoneNumber,
@@ -97,6 +104,12 @@ async function sendWhatsAppMessage(
     logoUrl?: string;
   }
 ): Promise<boolean> {
+  // ⚠️ VERIFICAÇÃO: Notificações WhatsApp desativadas
+  if (!WHATSAPP_NOTIFICATIONS_ENABLED) {
+    console.log('⚠️ WhatsApp notificações desativadas - ignorando envio');
+    return false;
+  }
+
   try {
     console.log('📱 Enviando mensagem WhatsApp direta:', {
       to: phoneNumber,
@@ -260,6 +273,12 @@ export async function getOSData(osId: string): Promise<OSData | null> {
  * Envia notificação WhatsApp para o técnico quando status muda para aprovado
  */
 export async function sendOSApprovedNotification(osId: string): Promise<boolean> {
+  // ⚠️ VERIFICAÇÃO: Notificações WhatsApp desativadas
+  if (!WHATSAPP_NOTIFICATIONS_ENABLED) {
+    console.log('⚠️ WhatsApp notificações desativadas - ignorando notificação de OS aprovada');
+    return false;
+  }
+
   try {
     // Buscar dados da OS
     const osData = await getOSData(osId);
@@ -340,6 +359,12 @@ _Consert - Sistema de Gestão_`;
  * Envia notificação WhatsApp para o técnico quando uma nova OS é criada
  */
 export async function sendNewOSNotification(osId: string): Promise<boolean> {
+  // ⚠️ VERIFICAÇÃO: Notificações WhatsApp desativadas
+  if (!WHATSAPP_NOTIFICATIONS_ENABLED) {
+    console.log('⚠️ WhatsApp notificações desativadas - ignorando notificação de nova OS');
+    return false;
+  }
+
   try {
     console.log('🔍 DEBUG: sendNewOSNotification iniciada:', { osId });
     
@@ -448,6 +473,12 @@ _Consert - Sistema de Gestão_`;
  * Envia notificação WhatsApp para o técnico quando status muda para qualquer status específico
  */
 export async function sendOSStatusNotification(osId: string, newStatus: string): Promise<boolean> {
+  // ⚠️ VERIFICAÇÃO: Notificações WhatsApp desativadas
+  if (!WHATSAPP_NOTIFICATIONS_ENABLED) {
+    console.log('⚠️ WhatsApp notificações desativadas - ignorando notificação de mudança de status');
+    return false;
+  }
+
   try {
     console.log('🔍 DEBUG: sendOSStatusNotification iniciada:', { osId, newStatus });
     

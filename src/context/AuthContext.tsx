@@ -49,6 +49,11 @@ interface AuthContextType {
   clearSession: () => void;
   podeUsarFuncionalidade: (nomeFuncionalidade: string) => boolean;
   isUsuarioTeste: () => boolean;
+  /** true quando usuarioData, empresaData, catalogoHabilitado e recursosPlano já foram carregados (menu pode renderizar completo) */
+  userDataReady: boolean;
+  catalogoHabilitado: boolean;
+  recursosPlano: Record<string, boolean>;
+  temRecurso: (recurso: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -62,6 +67,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(false); // Sempre false para evitar travamentos
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [userDataReady, setUserDataReady] = useState(false);
+  const [catalogoHabilitado, setCatalogoHabilitado] = useState(true);
+  const [recursosPlano, setRecursosPlano] = useState<Record<string, boolean>>({});
 
   // ✅ OTIMIZADO: Função para buscar dados do usuário com timeout e retry
   const fetchUserData = useCallback(async (userId: string, sessionData: Session) => {
@@ -70,11 +78,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const attemptFetch = async (): Promise<void> => {
       try {
-        const { userData, empresaData: companyData } = await fetchUserDataOptimized(userId);
+        const { userData, empresaData: companyData, catalogoHabilitado: cat, recursosPlano: rec } = await fetchUserDataOptimized(userId);
         
         // ⚠️ BLOQUEAR ACESSO: Verificar se empresa está ativa
         if (companyData && companyData.ativo === false) {
-          // Empresa desativada, forçar logout
           try {
             await supabase.auth.signOut();
           } catch (e) {
@@ -86,6 +93,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         setUsuarioData(userData as UsuarioData);
         setEmpresaData(companyData);
+        setCatalogoHabilitado(cat ?? true);
+        setRecursosPlano(rec || {});
+        setUserDataReady(true);
       } catch (error) {
         // Se erro for de empresa desativada, forçar logout imediatamente (SEM logar como erro)
         if (error instanceof Error && error.message === 'EMPRESA_DESATIVADA') {
@@ -130,6 +140,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               logo_url: '',
               plano: 'trial'
             });
+            setCatalogoHabilitado(true);
+            setRecursosPlano({});
+            setUserDataReady(true);
             return;
           }
         } catch {}
@@ -153,6 +166,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           logo_url: '',
           plano: 'trial'
         });
+        setCatalogoHabilitado(true);
+        setRecursosPlano({});
+        setUserDataReady(true);
       }
     };
 
@@ -165,6 +181,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setSession(null);
     setUsuarioData(null);
     setEmpresaData(null);
+    setUserDataReady(false);
+    setCatalogoHabilitado(true);
+    setRecursosPlano({});
   }, []);
 
   // ✅ ULTRA SIMPLIFICADO: useEffect principal sem travamentos
@@ -183,6 +202,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser(session.user);
 
           // ✅ DADOS TEMPORÁRIOS SEGUROS: Não interferir com dados reais
+          setUserDataReady(false);
           setUsuarioData({
             id: session.user.id,
             empresa_id: '',
@@ -223,6 +243,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser(session.user);
 
           // ✅ DADOS TEMPORÁRIOS SEGUROS
+          setUserDataReady(false);
           setUsuarioData({
             id: session.user.id,
             empresa_id: '',
@@ -263,6 +284,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const isUsuarioTeste = useCallback(() => {
     return isUsuarioTesteUtil(usuarioData);
   }, [usuarioData]);
+
+  const temRecurso = useCallback((recurso: string): boolean => {
+    if (empresaData?.recursos_customizados && recurso in empresaData.recursos_customizados) {
+      return empresaData.recursos_customizados[recurso] === true;
+    }
+    if (!recursosPlano || Object.keys(recursosPlano).length === 0) {
+      return true; // compatibilidade com sistema sem assinatura
+    }
+    return recursosPlano[recurso] === true;
+  }, [empresaData?.recursos_customizados, recursosPlano]);
 
   // ✅ IMPLEMENTAR: Funções de autenticação que estavam faltando
   const signIn = useCallback(async (email: string, password: string) => {
@@ -350,21 +381,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const refreshEmpresaData = useCallback(async () => {
      if (!user?.id) return;
-     
      try {
- 
-       const { userData, empresaData } = await fetchUserDataOptimized(user.id);
-      setUsuarioData(userData as UsuarioData);
-      setEmpresaData(empresaData);
-      setLastUpdate(performance.now());
- 
-       // Forçar re-render de componentes que dependem dos dados da empresa
-       setTimeout(() => {
-         setLastUpdate(performance.now());
-       }, 100);
-     } catch (error) {
- 
-     }
+       const { userData, empresaData: emp, catalogoHabilitado: cat, recursosPlano: rec } = await fetchUserDataOptimized(user.id);
+       setUsuarioData(userData as UsuarioData);
+       setEmpresaData(emp);
+       if (cat !== undefined) setCatalogoHabilitado(cat);
+       if (rec) setRecursosPlano(rec);
+       setLastUpdate(performance.now());
+       setTimeout(() => setLastUpdate(performance.now()), 100);
+     } catch (error) {}
   }, [user?.id]);
 
   // ✅ MEMOIZAR VALUE para evitar re-renders
@@ -388,7 +413,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     clearSession,
     podeUsarFuncionalidade,
     isUsuarioTeste,
-  }), [user, session, usuarioData, empresaData, lastUpdate, loading, showOnboarding, signIn, signUp, signOut, resetPassword, updateUsuarioFoto, refreshEmpresaData, clearSession, podeUsarFuncionalidade, isUsuarioTeste]);
+    userDataReady,
+    catalogoHabilitado,
+    recursosPlano,
+    temRecurso,
+  }), [user, session, usuarioData, empresaData, lastUpdate, loading, showOnboarding, signIn, signUp, signOut, resetPassword, updateUsuarioFoto, refreshEmpresaData, clearSession, podeUsarFuncionalidade, isUsuarioTeste, userDataReady, catalogoHabilitado, recursosPlano, temRecurso]);
 
   return (
     <AuthContext.Provider value={value}>

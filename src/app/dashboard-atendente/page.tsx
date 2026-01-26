@@ -8,6 +8,7 @@ import MenuLayout from '@/components/MenuLayout';
 
 import { FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiFileText, FiMessageSquare, FiStar, FiCheck, FiUser, FiPhone as FiPhoneIcon } from 'react-icons/fi';
 import LaudoProntoAlert from '@/components/LaudoProntoAlert';
+import { getDashboardPath, canAccessRoute } from '@/lib/dashboardRouting';
 
 interface AtendenteMetrics {
   totalOS: number;
@@ -62,7 +63,7 @@ export default function DashboardAtendentePage() {
       const empresaId = usuarioData.empresa_id;
       const hoje = new Date();
 
-      // Buscar OSs criadas pelo atendente
+      // Buscar OSs criadas pelo atendente (filtrar por atendente_id ou criado_por)
       const { data: ordens } = await supabase
         .from('ordens_servico')
         .select(`
@@ -73,6 +74,7 @@ export default function DashboardAtendentePage() {
           created_at,
           tecnico_id,
           atendente_id,
+          criado_por,
           servico,
           observacoes,
           orcamento,
@@ -119,17 +121,47 @@ export default function DashboardAtendentePage() {
         new Date(String(c.created_at)).getMonth() === hoje.getMonth()
       ).length;
 
-      // Simular outras métricas
-      const tempoMedioAtendimento = 15; // minutos
-      const satisfacaoMedia = 4.8;
-      const atendimentosHoje = Math.floor(Math.random() * 10) + 1;
-      const atendimentosSemana = Math.floor(Math.random() * 50) + 10;
-      const ticketMedio = ordensData.length > 0 
-        ? ordensData.reduce((sum, os: Record<string, unknown>) => sum + (Number(os.valor_faturado) || 0), 0) / ordensData.length 
+      // Calcular métricas reais baseadas em dados
+      const hojeInicio = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+      const semanaInicio = new Date(hoje);
+      semanaInicio.setDate(hoje.getDate() - 7);
+      
+      // Atendimentos hoje = OSs criadas hoje pelo atendente
+      // Verificar se a OS foi criada pelo atendente (atendente_id ou criado_por)
+      const atendimentosHoje = ordensData.filter((o: Record<string, unknown>) => {
+        const dataOS = new Date(String(o.created_at));
+        const criadaPeloAtendente = String(o.atendente_id || o.criado_por || '') === String(usuarioData?.id || '');
+        return dataOS >= hojeInicio && criadaPeloAtendente;
+      }).length;
+      
+      // Atendimentos semana = OSs criadas na última semana pelo atendente
+      const atendimentosSemana = ordensData.filter((o: Record<string, unknown>) => {
+        const dataOS = new Date(String(o.created_at));
+        const criadaPeloAtendente = String(o.atendente_id || o.criado_por || '') === String(usuarioData?.id || '');
+        return dataOS >= semanaInicio && criadaPeloAtendente;
+      }).length;
+      
+      // Ticket médio baseado em OSs faturadas
+      const osFaturadas = ordensData.filter((o: Record<string, unknown>) => 
+        Number(o.valor_faturado) > 0
+      );
+      const ticketMedio = osFaturadas.length > 0 
+        ? osFaturadas.reduce((sum, os: Record<string, unknown>) => sum + (Number(os.valor_faturado) || 0), 0) / osFaturadas.length 
         : 0;
-      const rankingAtendente = 1;
-      const chamadasRecebidas = Math.floor(Math.random() * 20) + 5;
-      const mensagensRespondidas = Math.floor(Math.random() * 30) + 10;
+      
+      // Tempo médio de atendimento - calcular baseado em timestamps se disponível
+      // Por enquanto, deixar como 0 se não houver dados de tempo de atendimento
+      const tempoMedioAtendimento = 0; // TODO: Calcular com dados reais de tempo de atendimento
+      
+      // Satisfação e ranking - deixar como 0 se não houver dados reais
+      // TODO: Implementar busca de satisfação se houver tabela de feedbacks
+      const satisfacaoMedia = 0; // Será calculado quando houver dados de feedback
+      const rankingAtendente = 0; // Será calculado quando houver dados de ranking
+      
+      // Chamadas e mensagens - deixar como 0 se não houver dados reais
+      // TODO: Implementar busca de chamadas/mensagens se houver tabela de comunicação
+      const chamadasRecebidas = 0; // Será calculado quando houver dados de chamadas
+      const mensagensRespondidas = 0; // Será calculado quando houver dados de mensagens
 
       setMetrics({
         totalOS,
@@ -162,23 +194,33 @@ export default function DashboardAtendentePage() {
     }
   }, [user, usuarioData?.empresa_id, dataFetched]);
 
+  const [permissionChecked, setPermissionChecked] = useState(false);
+
   useEffect(() => {
-    // Verificar se o usuário tem permissão para acessar esta dashboard
-    if (usuarioData?.nivel) {
-      if (usuarioData.nivel === 'admin') {
-        router.replace('/dashboard');
-        return;
-      } else if (usuarioData.nivel === 'tecnico') {
-        router.replace('/dashboard-tecnico');
+    // Aguardar carregamento do auth
+    if (authLoading) return;
+    
+    // Se não tem dados do usuário ainda, aguardar
+    if (!usuarioData) return;
+    
+    // Verificar se o usuário tem permissão para acessar esta dashboard ANTES de renderizar
+    if (usuarioData.nivel) {
+      if (!canAccessRoute(usuarioData, '/dashboard-atendente')) {
+        const correctPath = getDashboardPath(usuarioData);
+        // Redirecionar imediatamente sem renderizar conteúdo
+        router.replace(correctPath);
         return;
       }
     }
-
+    
+    // Se chegou aqui, tem permissão - marcar como verificado
+    setPermissionChecked(true);
+    
     // Só buscar dados se não estiver carregando e tiver os dados necessários
-    if (!authLoading && user && usuarioData?.empresa_id && !dataFetched) {
+    if (user && usuarioData?.empresa_id && !dataFetched) {
       fetchAtendenteData();
     }
-  }, [authLoading, user, usuarioData?.empresa_id, usuarioData?.nivel, router, fetchAtendenteData, dataFetched]);
+  }, [authLoading, user, usuarioData, router, fetchAtendenteData, dataFetched]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -200,112 +242,122 @@ export default function DashboardAtendentePage() {
     }
   };
 
+  // Não renderizar nada até verificar permissão
+  if (authLoading || !permissionChecked) {
+    return (
+      <MenuLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+        </div>
+      </MenuLayout>
+    );
+  }
+
   if (loading) {
     return (
-      
-        <MenuLayout>
-          <div className="flex items-center justify-center min-h-screen">
-            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
-          </div>
-        </MenuLayout>
-      
+      <MenuLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+        </div>
+      </MenuLayout>
     );
   }
 
   return (
-    
-      <MenuLayout>
-        <div className="space-y-6">
+    <MenuLayout>
+        <div className="space-y-4 md:space-y-6 px-2 md:px-0">
           <LaudoProntoAlert />
           
-          {/* Header */}
-          <div className="flex items-center justify-between">
+          {/* Header - Responsivo */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 md:gap-0 px-2 md:px-0">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Dashboard Atendente</h1>
-              <p className="text-gray-600">Bem-vindo, {usuarioData?.nome}</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Dashboard Atendente</h1>
+              <p className="text-sm md:text-base text-gray-600 mt-1">Bem-vindo, {usuarioData?.nome}</p>
             </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-500">Última atualização</p>
-              <p className="text-sm font-medium">{new Date().toLocaleString('pt-BR')}</p>
+            <div className="text-left sm:text-right">
+              <p className="text-xs md:text-sm text-gray-500">Última atualização</p>
+              <p className="text-xs md:text-sm font-medium">{new Date().toLocaleString('pt-BR')}</p>
             </div>
           </div>
 
-          {/* Métricas Principais */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Métricas Principais - Responsivo */}
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 lg:gap-6 px-2 md:px-0">
             {/* OSs Criadas */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">OSs Criadas</p>
-                  <p className="text-3xl font-bold text-gray-900">{metrics.totalOS}</p>
+            <div className="bg-white rounded-lg md:rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+              <div className="flex items-center justify-between mb-2 md:mb-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs md:text-sm font-medium text-gray-600 truncate">OSs Criadas</p>
+                  <p className="text-2xl md:text-3xl font-bold text-gray-900 mt-1">{metrics.totalOS}</p>
                 </div>
-                <div className="p-3 bg-blue-100 rounded-full">
-                  <FiFileText className="w-6 h-6 text-blue-600" />
+                <div className="p-2 md:p-3 bg-blue-100 rounded-full flex-shrink-0 ml-2">
+                  <FiFileText className="w-4 h-4 md:w-6 md:h-6 text-blue-600" />
                 </div>
               </div>
-              <div className="mt-4 flex items-center text-sm">
-                <FiTrendingUp className="w-4 h-4 text-green-500 mr-1" />
-                <span className="text-green-600">+{metrics.osCriadasMes} este mês</span>
+              <div className="mt-2 md:mt-4 flex items-center text-xs md:text-sm">
+                <FiTrendingUp className="w-3 h-3 md:w-4 md:h-4 text-green-500 mr-1" />
+                <span className="text-green-600 truncate">+{metrics.osCriadasMes} este mês</span>
               </div>
             </div>
 
             {/* Clientes Atendidos */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Clientes Atendidos</p>
-                  <p className="text-3xl font-bold text-gray-900">{metrics.clientesAtendidos}</p>
+            <div className="bg-white rounded-lg md:rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+              <div className="flex items-center justify-between mb-2 md:mb-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs md:text-sm font-medium text-gray-600 truncate">Clientes Atendidos</p>
+                  <p className="text-2xl md:text-3xl font-bold text-gray-900 mt-1">{metrics.clientesAtendidos}</p>
                 </div>
-                <div className="p-3 bg-green-100 rounded-full">
-                  <FiUsers className="w-6 h-6 text-green-600" />
+                <div className="p-2 md:p-3 bg-green-100 rounded-full flex-shrink-0 ml-2">
+                  <FiUsers className="w-4 h-4 md:w-6 md:h-6 text-green-600" />
                 </div>
               </div>
-              <div className="mt-4 flex items-center text-sm">
-                <FiTrendingUp className="w-4 h-4 text-green-500 mr-1" />
-                <span className="text-green-600">+{metrics.clientesNovos} novos</span>
+              <div className="mt-2 md:mt-4 flex items-center text-xs md:text-sm">
+                <FiTrendingUp className="w-3 h-3 md:w-4 md:h-4 text-green-500 mr-1" />
+                <span className="text-green-600 truncate">+{metrics.clientesNovos} novos</span>
               </div>
             </div>
 
             {/* Ticket Médio */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Ticket Médio</p>
-                  <p className="text-3xl font-bold text-gray-900">{formatCurrency(metrics.ticketMedio)}</p>
+            <div className="bg-white rounded-lg md:rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+              <div className="flex items-center justify-between mb-2 md:mb-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs md:text-sm font-medium text-gray-600 truncate">Ticket Médio</p>
+                  <p className="text-lg md:text-2xl lg:text-3xl font-bold text-gray-900 mt-1 truncate">
+                    {formatCurrency(metrics.ticketMedio)}
+                  </p>
                 </div>
-                <div className="p-3 bg-purple-100 rounded-full">
-                  <FiDollarSign className="w-6 h-6 text-purple-600" />
+                <div className="p-2 md:p-3 bg-purple-100 rounded-full flex-shrink-0 ml-2">
+                  <FiDollarSign className="w-4 h-4 md:w-6 md:h-6 text-purple-600" />
                 </div>
               </div>
-              <div className="mt-4 flex items-center text-sm">
-                <FiStar className="w-4 h-4 text-yellow-500 mr-1" />
-                <span className="text-yellow-600">Satisfação: {metrics.satisfacaoMedia}/5</span>
+              <div className="mt-2 md:mt-4 flex items-center text-xs md:text-sm">
+                <FiStar className="w-3 h-3 md:w-4 md:h-4 text-yellow-500 mr-1" />
+                <span className="text-yellow-600 truncate">Satisfação: {metrics.satisfacaoMedia}/5</span>
               </div>
             </div>
 
             {/* Atendimentos Hoje */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Atendimentos Hoje</p>
-                  <p className="text-3xl font-bold text-gray-900">{metrics.atendimentosHoje}</p>
+            <div className="bg-white rounded-lg md:rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+              <div className="flex items-center justify-between mb-2 md:mb-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs md:text-sm font-medium text-gray-600 truncate">Atendimentos Hoje</p>
+                  <p className="text-2xl md:text-3xl font-bold text-gray-900 mt-1">{metrics.atendimentosHoje}</p>
                 </div>
-                <div className="p-3 bg-orange-100 rounded-full">
-                  <FiClock className="w-6 h-6 text-orange-600" />
+                <div className="p-2 md:p-3 bg-orange-100 rounded-full flex-shrink-0 ml-2">
+                  <FiClock className="w-4 h-4 md:w-6 md:h-6 text-orange-600" />
                 </div>
               </div>
-              <div className="mt-4 flex items-center text-sm">
-                <FiMessageSquare className="w-4 h-4 text-blue-500 mr-1" />
-                <span className="text-blue-600">{metrics.mensagensRespondidas} mensagens</span>
+              <div className="mt-2 md:mt-4 flex items-center text-xs md:text-sm">
+                <FiMessageSquare className="w-3 h-3 md:w-4 md:h-4 text-blue-500 mr-1" />
+                <span className="text-blue-600 truncate">{metrics.mensagensRespondidas} mensagens</span>
               </div>
             </div>
           </div>
 
-          {/* Métricas Secundárias */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Métricas Secundárias - Responsivo */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 lg:gap-6 px-2 md:px-0">
             {/* Status das OSs */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Status das OSs</h3>
+            <div className="bg-white rounded-lg md:rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+              <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-3 md:mb-4">Status das OSs</h3>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Pendentes</span>
@@ -323,8 +375,8 @@ export default function DashboardAtendentePage() {
             </div>
 
             {/* Performance */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Performance</h3>
+            <div className="bg-white rounded-lg md:rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+              <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-3 md:mb-4">Performance</h3>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Tempo Médio</span>
@@ -342,8 +394,8 @@ export default function DashboardAtendentePage() {
             </div>
 
             {/* Atendimentos da Semana */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Esta Semana</h3>
+            <div className="bg-white rounded-lg md:rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+              <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-3 md:mb-4">Esta Semana</h3>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Atendimentos</span>
@@ -361,23 +413,23 @@ export default function DashboardAtendentePage() {
             </div>
           </div>
 
-          {/* Conteúdo Recente */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Conteúdo Recente - Responsivo */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4 lg:gap-6 px-2 md:px-0">
             {/* OSs Recentes */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">OSs Recentes</h3>
+            <div className="bg-white rounded-lg md:rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+              <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-3 md:mb-4">OSs Recentes</h3>
               <div className="space-y-3">
                 {recentOS.map((os) => (
-                  <div key={String(os.id)} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <p className="font-medium text-gray-900">OS #{String(os.numero_os)}</p>
-                      <p className="text-sm text-gray-600">{String((os.clientes as any)?.nome || 'Não informado')}</p>
+                  <div key={String(os.id)} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex-1 min-w-0 mb-2 sm:mb-0">
+                      <p className="font-medium text-sm md:text-base text-gray-900 truncate">OS #{String(os.numero_os)}</p>
+                      <p className="text-xs md:text-sm text-gray-600 truncate mt-1">{String((os.clientes as any)?.nome || 'Não informado')}</p>
                     </div>
-                    <div className="text-right">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(String(os.status))}`}>
+                    <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${getStatusColor(String(os.status))}`}>
                         {String(os.status)}
                       </span>
-                      <p className="text-xs text-gray-500 mt-1">{formatDate(String(os.created_at))}</p>
+                      <p className="text-xs text-gray-500 whitespace-nowrap">{formatDate(String(os.created_at))}</p>
                     </div>
                   </div>
                 ))}
@@ -388,8 +440,8 @@ export default function DashboardAtendentePage() {
             </div>
 
             {/* Clientes Recentes */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Clientes Recentes</h3>
+            <div className="bg-white rounded-lg md:rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+              <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-3 md:mb-4">Clientes Recentes</h3>
               <div className="space-y-3">
                 {recentClientes.map((cliente) => (
                   <div key={String(cliente.id)} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">

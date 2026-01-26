@@ -483,3 +483,116 @@ body {
     font-size: 16px; /* Previne zoom automático no iOS */
   }
 }
+
+/* Prevenir overflow horizontal globalmente */
+html {
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
+}
+
+body {
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-width: 100vw;
+  width: 100%;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: none;
+}
+
+/* Garantir que elementos não cortem conteúdo */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Mobile-first: ajustes específicos apenas para mobile */
+@media (max-width: 640px) {
+  /* Apenas prevenir overflow, sem forçar larguras */
+  html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+  
+  /* Apenas containers específicos da bancada */
+  .bg-gray-50 {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+}
+
+/* Forçar quebra de palavras em textos longos */
+.break-long-words {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+/* Garantir que containers não ultrapassem viewport */
+* {
+  box-sizing: border-box;
+}
+
+/* Classe utilitária para quebra de palavras longas */
+.overflow-wrap-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Esconder scrollbar mas manter funcionalidade */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
+
+/* ===== ESTILOS PARA LAYOUT COM HEADER E SIDEBAR ===== */
+
+/* Garantir que o conteúdo principal tenha espaçamento adequado */
+/* Este padding é aplicado automaticamente no MenuLayout */
+/* Se páginas precisarem remover o padding padrão, podem usar a classe .no-padding */
+
+.no-padding {
+  padding: 0 !important;
+}
+
+/* Espaçamento mínimo para evitar conteúdo colado nas bordas */
+.page-content {
+  padding: 1rem;
+}
+
+@media (min-width: 768px) {
+  .page-content {
+    padding: 1.5rem;
+  }
+}
+
+/* Garantir que elementos fixos não sobreponham conteúdo */
+.fixed-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+}
+
+.fixed-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 40;
+}
+
+/* Espaçamento para compensar elementos fixos */
+.content-with-fixed-header {
+  padding-top: 7rem; /* Header (64px) + Banners (~48px) + espaço extra */
+}
+
+@media (min-width: 768px) {
+  .content-with-fixed-header {
+    padding-top: 7rem;
+  }
+}

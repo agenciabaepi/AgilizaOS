@@ -23,6 +23,7 @@ const WhatsAppPage = lazy(() => import('./whatsapp/page'))
 const EquipamentosPage = lazy(() => import('./equipamentos/page'))
 const ChecklistNovoPage = lazy(() => import('./checklist-novo/page'))
 const AvisosPage = lazy(() => import('./avisos/page'))
+const LinkPublicoPage = lazy(() => import('./link-publico/page'))
 
 // Componente de loading para as páginas filhas
 const PageLoader = () => (
@@ -99,6 +100,7 @@ function ConfiguracoesInner() {
     { name: 'Checklist', component: <ChecklistNovoPage />, permissao: 'checklist', requerRecurso: null },
     { name: 'Termos de Garantia', component: <TermosPage />, permissao: 'termos', requerRecurso: null },
     { name: 'Status', component: <StatusPage />, permissao: 'status', requerRecurso: null },
+    { name: 'Link Público', component: <LinkPublicoPage />, permissao: 'empresa', requerRecurso: null },
     { name: 'Catálogo', component: <CatalogoPage />, permissao: 'catalogo', requerRecurso: null },
     { name: 'WhatsApp', component: <WhatsAppPage />, permissao: 'whatsapp', requerRecurso: 'whatsapp' },
     { name: 'Avisos', component: <AvisosPage />, permissao: 'configuracoes', requerRecurso: null },

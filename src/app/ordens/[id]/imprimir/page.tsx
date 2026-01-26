@@ -298,7 +298,7 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
         </View>
         <View style={styles.divider} />
 
-        {/* Cliente + QR code no topo */}
+        {/* Cliente + QR code no topo (QR e senha só quando link público ativo) */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
           <View style={{ flex: 1 }}>
             <Text style={styles.sectionTitle}>Dados do Cliente</Text>
@@ -306,18 +306,20 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
             <Text style={styles.paragraph}><Text style={styles.bold}>CPF:</Text> {ordem.clientes?.cpf}   <Text style={styles.bold}>Endereço:</Text> {ordem.clientes?.endereco}</Text>
             <Text style={styles.paragraph}><Text style={styles.bold}>Atendente:</Text> {ordem.atendente || 'Não informado'}</Text>
           </View>
-          <View style={{ alignItems: 'flex-end', minWidth: 80 }}>
-            <Image
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent(`https://gestaoconsert.com.br/os/${ordem.id}/login`)}`}
-              style={{ width: 60, height: 60 }}
-            />
-            <Text style={{ fontSize: 8, textAlign: 'center', marginTop: 2, color: '#666' }}>
-              Acompanhar OS
-            </Text>
-            <Text style={{ fontSize: 10, textAlign: 'center', marginTop: 4, color: '#000', fontWeight: 'bold' }}>
-              Senha: {ordem.senha_acesso || '1234'}
-            </Text>
-          </View>
+          {(ordem.empresas?.link_publico_ativo ?? true) && (
+            <View style={{ alignItems: 'flex-end', minWidth: 80 }}>
+              <Image
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent(`https://gestaoconsert.com.br/os/${ordem.id}/login`)}`}
+                style={{ width: 60, height: 60 }}
+              />
+              <Text style={{ fontSize: 8, textAlign: 'center', marginTop: 2, color: '#666' }}>
+                Acompanhar OS
+              </Text>
+              <Text style={{ fontSize: 10, textAlign: 'center', marginTop: 4, color: '#000', fontWeight: 'bold' }}>
+                Senha: {ordem.senha_acesso || '1234'}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Aparelho */}
@@ -555,7 +557,7 @@ export default function ImprimirOrdemPage() {
             clientes(nome, telefone, email, cpf, endereco),
             tecnico_id,
             atendente_id,
-            empresas(nome, cnpj, endereco, telefone, email, logo_url),
+            empresas(nome, cnpj, endereco, telefone, email, logo_url, link_publico_ativo),
             termo_garantia:termo_garantia_id(
               id,
               nome,

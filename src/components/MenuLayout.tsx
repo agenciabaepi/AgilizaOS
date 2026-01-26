@@ -35,7 +35,6 @@ import { useWhatsAppNotification } from '@/hooks/useWhatsAppNotification';
 import { useLogout } from '@/hooks/useLogout';
 import AvisosBanner from '@/components/AvisosBanner';
 import FinanceiroAlertsBanner from '@/components/FinanceiroAlertsBanner';
-import { useSubscription } from '@/hooks/useSubscription';
 
 // Funções locais como fallback
 const isUsuarioTesteLocal = (usuario: any) => {
@@ -52,10 +51,9 @@ const podeUsarFuncionalidadeLocal = (usuario: any, nomeFuncionalidade: string) =
 // ✅ REMOVER logs desnecessários
 export default function MenuLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { signOut, usuarioData, empresaData, lastUpdate } = useAuth();
+  const { signOut, usuarioData, empresaData, lastUpdate, userDataReady, catalogoHabilitado, temRecurso } = useAuth();
   const { addToast } = useToast();
   const { logout, isLoggingOut } = useLogout();
-  const { temRecurso, loading: subscriptionLoading } = useSubscription();
 
   const [userLevel, setUserLevel] = useState<string>('');
   const [menuExpandido, setMenuExpandido] = useState<boolean | null>(null);
@@ -70,8 +68,6 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const [caixaExpanded, setCaixaExpanded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [menuRecolhido, setMenuRecolhido] = useState<boolean>(false);
-  const [catalogoHabilitado, setCatalogoHabilitado] = useState<boolean>(false);
   const [notificacoesTickets, setNotificacoesTickets] = useState<any[]>([]);
 
   const avatarUrl = useMemo(() => {
@@ -165,102 +161,13 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
 
   const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
   const pathname = usePathname();
-
-  // Carregar configurações do catálogo e escutar mudanças em tempo real
-  useEffect(() => {
-    if (!empresaData?.id) return;
-    
-    const carregarConfig = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('configuracoes_empresa')
-          .select('catalogo_habilitado')
-          .eq('empresa_id', empresaData.id)
-          .single();
-          
-        if (error) {
-          // Se não encontrar configurações, assumir que está habilitado por padrão
-          console.log('⚠️ Debug Catálogo - Config não encontrada, assumindo habilitado:', error);
-          setCatalogoHabilitado(true);
-          return;
-        }
-        
-        const habilitado = data?.catalogo_habilitado === true;
-        console.log('🔍 Debug Catálogo - Config carregada:', {
-          empresa_id: empresaData.id,
-          catalogo_habilitado: habilitado,
-          data: data
-        });
-        setCatalogoHabilitado(habilitado);
-        
-      } catch (error) {
-        // Em caso de erro, assumir que está habilitado
-        console.error('❌ Debug Catálogo - Erro ao carregar config:', error);
-        setCatalogoHabilitado(true);
-      }
-    };
-    
-    // Carregar inicialmente
-    carregarConfig();
-    
-    // Escutar mudanças em tempo real
-    const channel = supabase
-      .channel(`config_catalogo_${empresaData.id}`)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'configuracoes_empresa',
-        filter: `empresa_id=eq.${empresaData.id}`
-      }, (payload) => {
-        console.log('🔄 Debug Catálogo - Config atualizada em tempo real:', payload);
-        if (payload.new?.catalogo_habilitado !== undefined) {
-          setCatalogoHabilitado(payload.new.catalogo_habilitado === true);
-        }
-      })
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'configuracoes_empresa',
-        filter: `empresa_id=eq.${empresaData.id}`
-      }, (payload) => {
-        console.log('🆕 Debug Catálogo - Config criada:', payload);
-        if (payload.new?.catalogo_habilitado !== undefined) {
-          setCatalogoHabilitado(payload.new.catalogo_habilitado === true);
-        }
-      })
-      .subscribe();
-    
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [empresaData?.id]);
-  
-  // Debug: Log quando condições do menu mudam
-  useEffect(() => {
-    const temEquipamentos = podeVer('equipamentos');
-    const temCatalogo = podeVer('catalogo');
-    
-    console.log('🔍 Debug Catálogo - Condições do Menu:', {
-      catalogoHabilitado,
-      temEquipamentos,
-      temCatalogo,
-      permissoes: usuarioData?.permissoes,
-      nivel: usuarioData?.nivel,
-      usuarioId: usuarioData?.id,
-      deveAparecerNoEquipamentos: catalogoHabilitado && temCatalogo && temEquipamentos,
-      deveAparecerIndependente: !temEquipamentos && temCatalogo && catalogoHabilitado
-    });
-  }, [catalogoHabilitado, usuarioData?.permissoes, usuarioData?.nivel, usuarioData?.id]);
+  const isNovaOSFullScreen = pathname === '/nova-os';
 
   useEffect(() => {
     const stored = localStorage.getItem('menuExpandido') === 'true';
     setMenuExpandido(stored);
   }, []);
 
-  useEffect(() => {
-    const stored = localStorage.getItem('menuRecolhido') === 'true';
-    setMenuRecolhido(stored);
-  }, []);
 
   // Inicializar estados de expansão
   useEffect(() => {
@@ -315,122 +222,85 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
     
     // Verificar se o usuário tem a permissão específica
     const temPermissao = usuarioData?.permissoes && usuarioData.permissoes.includes(area);
-    
-    // Debug para catálogo
-    if (area === 'catalogo') {
-      console.log('🔍 Debug Catálogo - podeVer:', {
-        area,
-        temPermissao,
-        permissoes: usuarioData?.permissoes,
-        nivel: usuarioData?.nivel,
-        catalogoHabilitado,
-        temPermissaoCatalogo: usuarioData?.permissoes?.includes('catalogo'),
-        arrayPermissoes: JSON.stringify(usuarioData?.permissoes || [])
-      });
-    }
-    
     return temPermissao;
   };
 
   // Função para verificar se pode ver módulo (permissão + recurso do plano)
+  // Usa temRecurso do Auth (dados já vêm no fetch inicial) — sem delay de carregamento
   const podeVerModulo = (area: string, recurso?: string) => {
-    // Primeiro verifica permissão do usuário
-    if (!podeVer(area)) {
-      return false;
-    }
-    
-    // Se não precisa de recurso específico, retorna true
-    if (!recurso) {
-      return true;
-    }
-    
-    // Se ainda está carregando a assinatura, não mostra (evita flash)
-    if (subscriptionLoading) {
-      return false;
-    }
-    
-    // Verifica se o plano tem o recurso
+    if (!podeVer(area)) return false;
+    if (!recurso) return true;
     return temRecurso(recurso);
   };
 
-  const toggleMenu = () => {
-    const newState = !menuRecolhido;
-    setMenuRecolhido(newState);
-    localStorage.setItem('menuRecolhido', newState.toString());
-  };
-  
   // ❌ REMOVIDO: Esta linha impedia a renderização do menu
-  // if (menuExpandido === null || menuRecolhido === null) return null;
+  // if (menuExpandido === null) return null;
   
   // ✅ SOLUÇÃO: Usar valores padrão em vez de bloquear a renderização
-  const menuRecolhidoFinal = menuRecolhido ?? false;
   const menuExpandidoFinal = menuExpandido ?? false;
   
   return (
     <div className="flex min-h-screen bg-white">
-        {/* Sidebar Desktop */}
-        <aside className={`${menuRecolhidoFinal ? 'w-16' : 'w-64'} bg-black border-r border-white/20 flex flex-col py-8 ${menuRecolhidoFinal ? 'px-2' : 'px-4'} h-screen fixed top-0 left-0 z-40 hidden md:flex transition-all duration-300 overflow-y-auto no-print`}>
+        {/* Sidebar Desktop - oculto na tela cheia de Nova OS */}
+        <aside className={`w-64 bg-black border-r border-white/20 hidden md:flex flex-col py-8 px-4 h-screen fixed top-0 left-0 z-40 transition-all duration-300 overflow-y-auto no-print ${isNovaOSFullScreen ? '!hidden' : ''}`}>
         {/* Logo branco centralizado */}
         <div className="flex flex-col items-center mb-6">
-          {menuRecolhidoFinal ? (
-            <div className="w-10 h-10 bg-[#D1FE6E] rounded-lg flex items-center justify-center">
-              <span className="text-black font-bold text-lg">C</span>
-            </div>
-          ) : (
-            <Image src="/assets/imagens/logobranco.png" alt="Consert Logo" width={200} height={48} className="h-12 w-auto object-contain" priority />
-          )}
+          <Image src="/assets/imagens/logobranco.png" alt="Consert Logo" width={200} height={48} className="h-12 w-auto object-contain" priority />
         </div>
         {/* Busca */}
-        {!menuRecolhidoFinal && (
-          <div className="flex items-center gap-2 mb-8">
-            <FiSearch className="text-white/60" size={18} />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              placeholder="Buscar no menu..."
-              className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#D1FE6E] focus:border-[#D1FE6E] transition"
-            />
-          </div>
-        )}
+        <div className="flex items-center gap-2 mb-8">
+          <FiSearch className="text-white/60" size={18} />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            placeholder="Buscar no menu..."
+            className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#D1FE6E] focus:border-[#D1FE6E] transition"
+          />
+        </div>
         {/* Menu */}
         <nav className="flex flex-col gap-2 flex-1">
+          {!userDataReady ? (
+            <>
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="h-12 rounded-lg bg-white/10 animate-pulse" />
+              ))}
+            </>
+          ) : (
+            <>
           {/* Dashboard */}
           {(podeVer('dashboard') || usuarioData?.nivel === 'tecnico' || usuarioData?.nivel === 'atendente') && (
-            <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard'} menuRecolhido={menuRecolhidoFinal} />
+            <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard'} menuRecolhido={false} />
           )}
                   {/* Lembretes */}
                   {userLevel === 'admin' && (
-                    <SidebarButton path="/lembretes" icon={<FiBell size={20} />} label="Lembretes" isActive={pathname === '/lembretes'} menuRecolhido={menuRecolhidoFinal} />
+                    <SidebarButton path="/lembretes" icon={<FiBell size={20} />} label="Lembretes" isActive={pathname === '/lembretes'} menuRecolhido={false} />
                   )}
           {podeVer('ordens') && (
-            <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} menuRecolhido={menuRecolhidoFinal} />
+            <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} menuRecolhido={false} />
           )}
           {podeVer('caixa') && temRecurso('financeiro') && (
             <>
               <div 
-                className={`flex items-center px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10
-                  ${menuRecolhido ? 'justify-center' : 'justify-between'}`}
+                className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
                 onClick={() => setCaixaExpanded(!caixaExpanded)}
                 style={{ minHeight: 48 }}
                 title="Caixa"
               >
                 <div className="flex items-center">
                   <FiDollarSign size={20} />
-                  {!menuRecolhido && <span className="ml-3">Caixa</span>}
+                  <span className="ml-3">Caixa</span>
                 </div>
-                {!menuRecolhido && (
-                  <FiChevronDown 
-                    size={16} 
-                    className={`transition-transform ${caixaExpanded ? 'rotate-180' : ''}`} 
-                  />
-                )}
+                <FiChevronDown 
+                  size={16} 
+                  className={`transition-transform ${caixaExpanded ? 'rotate-180' : ''}`} 
+                />
               </div>
               
-              {caixaExpanded && !menuRecolhido && (
+              {caixaExpanded && (
                 <div className="ml-6 flex flex-col gap-1 mt-1">
                   {podeVerModulo('movimentacao-caixa', 'financeiro') && (
-                    <SidebarButton path="/fluxo-caixa" icon={<FiTrendingUp size={18} />} label="Fluxo de Caixa" isActive={pathname === '/fluxo-caixa'} menuRecolhido={menuRecolhido || false} />
+                    <SidebarButton path="/fluxo-caixa" icon={<FiTrendingUp size={18} />} label="Fluxo de Caixa" isActive={pathname === '/fluxo-caixa'} menuRecolhido={false} />
                   )}
                 </div>
               )}
@@ -439,29 +309,26 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {podeVer('clientes') && (
             <>
               <div 
-                className={`flex items-center px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10
-                  ${menuRecolhido ? 'justify-center' : 'justify-between'}`}
+                className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
                 onClick={() => setContatosExpanded(!contatosExpanded)}
                 style={{ minHeight: 48 }}
                 title="Contatos"
               >
                 <div className="flex items-center">
                   <FiUsers size={20} />
-                  {!menuRecolhido && <span className="ml-3">Contatos</span>}
+                  <span className="ml-3">Contatos</span>
                 </div>
-                {!menuRecolhido && (
-                  <FiChevronDown 
-                    size={16} 
-                    className={`transition-transform ${contatosExpanded ? 'rotate-180' : ''}`} 
-                  />
-                )}
+                <FiChevronDown 
+                  size={16} 
+                  className={`transition-transform ${contatosExpanded ? 'rotate-180' : ''}`} 
+                />
               </div>
               
-              {contatosExpanded && !menuRecolhido && (
+              {contatosExpanded && (
                 <div className="ml-6 flex flex-col gap-1 mt-1">
-                  <SidebarButton path="/clientes" icon={<FiUsers size={18} />} label="Clientes" isActive={pathname === '/clientes'} menuRecolhido={menuRecolhido || false} />
+                  <SidebarButton path="/clientes" icon={<FiUsers size={18} />} label="Clientes" isActive={pathname === '/clientes'} menuRecolhido={false} />
                   {podeVer('fornecedores') && (
-                    <SidebarButton path="/fornecedores" icon={<FiTruck size={18} />} label="Fornecedores" isActive={pathname === '/fornecedores'} menuRecolhido={menuRecolhido || false} />
+                    <SidebarButton path="/fornecedores" icon={<FiTruck size={18} />} label="Fornecedores" isActive={pathname === '/fornecedores'} menuRecolhido={false} />
                   )}
                 </div>
               )}
@@ -470,30 +337,27 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {podeVer('equipamentos') && (
             <>
               <div 
-                className={`flex items-center px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10
-                  ${menuRecolhido ? 'justify-center' : 'justify-between'}`}
+                className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
                 onClick={() => setEquipamentosExpanded(!equipamentosExpanded)}
                 style={{ minHeight: 48 }}
                 title="Produtos/Serviços"
               >
                 <div className="flex items-center">
                   <FiBox size={20} />
-                  {!menuRecolhido && <span className="ml-3">Produtos/Serviços</span>}
+                  <span className="ml-3">Produtos/Serviços</span>
                 </div>
-                {!menuRecolhido && (
-                  <FiChevronDown 
-                    size={16} 
-                    className={`transition-transform ${equipamentosExpanded ? 'rotate-180' : ''}`} 
-                  />
-                )}
+                <FiChevronDown 
+                  size={16} 
+                  className={`transition-transform ${equipamentosExpanded ? 'rotate-180' : ''}`} 
+                />
               </div>
               
-              {equipamentosExpanded && !menuRecolhido && (
+              {equipamentosExpanded && (
                 <div className="ml-6 flex flex-col gap-1 mt-1">
-                  <SidebarButton path="/equipamentos" icon={<FiBox size={18} />} label="Produtos" isActive={pathname === '/equipamentos'} menuRecolhido={menuRecolhido || false} />
-                  <SidebarButton path="/equipamentos/categorias" icon={<FiGrid size={18} />} label="Categorias" isActive={pathname === '/equipamentos/categorias'} menuRecolhido={menuRecolhido || false} />
+                  <SidebarButton path="/equipamentos" icon={<FiBox size={18} />} label="Produtos" isActive={pathname === '/equipamentos'} menuRecolhido={false} />
+                  <SidebarButton path="/equipamentos/categorias" icon={<FiGrid size={18} />} label="Categorias" isActive={pathname === '/equipamentos/categorias'} menuRecolhido={false} />
                   {catalogoHabilitado && podeVer('catalogo') && (
-                    <SidebarButton path="/catalogo" icon={<FiStar size={18} />} label="Catálogo" isActive={pathname === '/catalogo'} menuRecolhido={menuRecolhido || false} />
+                    <SidebarButton path="/catalogo" icon={<FiStar size={18} />} label="Catálogo" isActive={pathname === '/catalogo'} menuRecolhido={false} />
                   )}
                 </div>
               )}
@@ -501,30 +365,27 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           )}
           {/* Catálogo independente - se usuário tem permissão de catálogo mas não de equipamentos */}
           {!podeVer('equipamentos') && podeVer('catalogo') && catalogoHabilitado && (
-            <SidebarButton path="/catalogo" icon={<FiStar size={20} />} label="Catálogo" isActive={pathname === '/catalogo'} menuRecolhido={menuRecolhidoFinal} />
+            <SidebarButton path="/catalogo" icon={<FiStar size={20} />} label="Catálogo" isActive={pathname === '/catalogo'} menuRecolhido={false} />
           )}
           {podeVerModulo('financeiro', 'financeiro') && (
             <>
               <div 
-                className={`flex items-center px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10
-                  ${menuRecolhido ? 'justify-center' : 'justify-between'}`}
+                className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
                 onClick={() => setFinanceiroExpanded(!financeiroExpanded)}
                 style={{ minHeight: 48 }}
                 title="Financeiro"
               >
                 <div className="flex items-center">
                   <FiDollarSign size={20} />
-                  {!menuRecolhido && <span className="ml-3">Financeiro</span>}
+                  <span className="ml-3">Financeiro</span>
                 </div>
-                {!menuRecolhido && (
-                  <FiChevronDown 
-                    size={16} 
-                    className={`transition-transform ${financeiroExpanded ? 'rotate-180' : ''}`} 
-                  />
-                )}
+                <FiChevronDown 
+                  size={16} 
+                  className={`transition-transform ${financeiroExpanded ? 'rotate-180' : ''}`} 
+                />
               </div>
               
-              {financeiroExpanded && !menuRecolhido && (
+              {financeiroExpanded && (
                 <div className="ml-6 flex flex-col gap-1 mt-1">
                   {podeVerModulo('lucro-desempenho', 'financeiro') && (
                     <SidebarButton 
@@ -537,7 +398,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                       } 
                       label="Lucro & Desempenho" 
                       isActive={pathname === '/financeiro/lucro-desempenho'} 
-                      menuRecolhido={menuRecolhido} 
+                      menuRecolhido={false} 
                     />
                   )}
                   {podeVerModulo('vendas', 'financeiro') && (
@@ -554,7 +415,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                       } 
                       label="Vendas" 
                       isActive={pathname === '/financeiro/vendas'} 
-                      menuRecolhido={menuRecolhido} 
+                      menuRecolhido={false} 
                     />
                   )}
                   {podeVerModulo('movimentacao-caixa', 'financeiro') && (
@@ -568,7 +429,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                       } 
                       label="Movimentações Caixa" 
                       isActive={pathname === '/financeiro/movimentacoes-caixa'} 
-                      menuRecolhido={menuRecolhido} 
+                      menuRecolhido={false} 
                     />
                   )}
                   {podeVerModulo('contas-a-pagar', 'financeiro') && (
@@ -583,7 +444,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                       } 
                       label="Contas a Pagar" 
                       isActive={pathname === '/financeiro/contas-a-pagar'} 
-                      menuRecolhido={menuRecolhido} 
+                      menuRecolhido={false} 
                     />
                   )}
                   {podeVerModulo('lucro-desempenho', 'financeiro') && (
@@ -599,7 +460,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                       } 
                       label="Comissões dos Técnicos" 
                       isActive={pathname === '/financeiro/comissoes-tecnicos'} 
-                      menuRecolhido={menuRecolhido} 
+                      menuRecolhido={false} 
                     />
                   )}
                 </div>
@@ -607,24 +468,24 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             </>
           )}
           {podeVer('bancada') && (
-            <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" isActive={pathname === '/bancada'} menuRecolhido={menuRecolhido} />
+            <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" isActive={pathname === '/bancada'} menuRecolhido={false} />
           )}
           {usuarioData?.nivel === 'tecnico' && (
-            <SidebarButton path="/comissoes" icon={<FiDollarSign size={20} />} label="Comissões" isActive={pathname === '/comissoes'} menuRecolhido={menuRecolhido} />
+            <SidebarButton path="/comissoes" icon={<FiDollarSign size={20} />} label="Comissões" isActive={pathname === '/comissoes'} menuRecolhido={false} />
           )}
-          <SidebarButton path="/suporte" icon={<FiMessageSquare size={20} />} label="Suporte" isActive={pathname === '/suporte'} menuRecolhido={menuRecolhido} />
+          <SidebarButton path="/suporte" icon={<FiMessageSquare size={20} />} label="Suporte" isActive={pathname === '/suporte'} menuRecolhido={false} />
           
-          <SidebarButton path="/perfil" icon={<FiUsers size={20} />} label="Meu Perfil" isActive={pathname === '/perfil'} menuRecolhido={menuRecolhido} />
+          <SidebarButton path="/perfil" icon={<FiUsers size={20} />} label="Meu Perfil" isActive={pathname === '/perfil'} menuRecolhido={false} />
           {podeVer('configuracoes') && (
-            <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" isActive={pathname === '/configuracoes'} menuRecolhido={menuRecolhido} />
+            <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" isActive={pathname === '/configuracoes'} menuRecolhido={false} />
           )}
-          <SidebarButton path="#logout" icon={<FiLogOut size={20} />} label="Sair" isActive={false} menuRecolhido={menuRecolhido} onClick={logout} />
+          <SidebarButton path="#logout" icon={<FiLogOut size={20} />} label="Sair" isActive={false} menuRecolhido={false} onClick={logout} />
+            </>
+          )}
         </nav>
-        {!menuRecolhido && (
-          <div className="mt-auto text-center text-xs text-[#D1FE6E] pb-2">
-            v1.0.0
-          </div>
-        )}
+        <div className="mt-auto text-center text-xs text-[#D1FE6E] pb-2">
+          v2.7.9
+        </div>
         
       </aside>
       
@@ -652,16 +513,24 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               />
             </div>
             <nav className="flex flex-col gap-1">
+              {!userDataReady ? (
+                <>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="h-12 rounded-lg bg-white/10 animate-pulse" />
+                  ))}
+                </>
+              ) : (
+                <>
               {/* Dashboard */}
               {(podeVer('dashboard') || usuarioData?.nivel === 'tecnico' || usuarioData?.nivel === 'atendente') && (
-                <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard'} menuRecolhido={menuRecolhido || false} />
+                <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard'} menuRecolhido={false} />
               )}
               {/* Lembretes */}
               {userLevel === 'admin' && (
-                <SidebarButton path="/lembretes" icon={<FiBell size={20} />} label="Lembretes" isActive={pathname === '/lembretes'} menuRecolhido={menuRecolhido || false} />
+                <SidebarButton path="/lembretes" icon={<FiBell size={20} />} label="Lembretes" isActive={pathname === '/lembretes'} menuRecolhido={false} />
               )}
               {podeVer('ordens') && (
-                <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} menuRecolhido={menuRecolhido || false} />
+                <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} menuRecolhido={false} />
               )}
               {podeVer('caixa') && temRecurso('financeiro') && (
                 <>
@@ -683,7 +552,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   {caixaExpanded && (
                     <div className="ml-6 flex flex-col gap-1 mt-1">
                       {podeVerModulo('movimentacao-caixa', 'financeiro') && (
-                    <SidebarButton path="/fluxo-caixa" icon={<FiTrendingUp size={18} />} label="Fluxo de Caixa" isActive={pathname === '/fluxo-caixa'} menuRecolhido={menuRecolhido || false} />
+                    <SidebarButton path="/fluxo-caixa" icon={<FiTrendingUp size={18} />} label="Fluxo de Caixa" isActive={pathname === '/fluxo-caixa'} menuRecolhido={false} />
                   )}
                     </div>
                   )}
@@ -708,9 +577,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   
                   {contatosExpanded && (
                     <div className="ml-6 flex flex-col gap-1 mt-1">
-                      <SidebarButton path="/clientes" icon={<FiUsers size={18} />} label="Clientes" isActive={pathname === '/clientes'} menuRecolhido={menuRecolhido || false} />
+                      <SidebarButton path="/clientes" icon={<FiUsers size={18} />} label="Clientes" isActive={pathname === '/clientes'} menuRecolhido={false} />
                       {podeVer('fornecedores') && (
-                        <SidebarButton path="/fornecedores" icon={<FiTruck size={18} />} label="Fornecedores" isActive={pathname === '/fornecedores'} menuRecolhido={menuRecolhido || false} />
+                        <SidebarButton path="/fornecedores" icon={<FiTruck size={18} />} label="Fornecedores" isActive={pathname === '/fornecedores'} menuRecolhido={false} />
                       )}
                     </div>
                   )}
@@ -735,10 +604,10 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   
                   {equipamentosExpanded && (
                     <div className="ml-6 flex flex-col gap-1 mt-1">
-                      <SidebarButton path="/equipamentos" icon={<FiBox size={18} />} label="Produtos" isActive={pathname === '/equipamentos'} menuRecolhido={menuRecolhido || false} />
-                      <SidebarButton path="/equipamentos/categorias" icon={<FiGrid size={18} />} label="Categorias" isActive={pathname === '/equipamentos/categorias'} menuRecolhido={menuRecolhido || false} />
+                      <SidebarButton path="/equipamentos" icon={<FiBox size={18} />} label="Produtos" isActive={pathname === '/equipamentos'} menuRecolhido={false} />
+                      <SidebarButton path="/equipamentos/categorias" icon={<FiGrid size={18} />} label="Categorias" isActive={pathname === '/equipamentos/categorias'} menuRecolhido={false} />
                   {catalogoHabilitado && podeVer('catalogo') && (
-                    <SidebarButton path="/catalogo" icon={<FiStar size={18} />} label="Catálogo" isActive={pathname === '/catalogo'} menuRecolhido={menuRecolhido || false} />
+                    <SidebarButton path="/catalogo" icon={<FiStar size={18} />} label="Catálogo" isActive={pathname === '/catalogo'} menuRecolhido={false} />
                   )}
                     </div>
                   )}
@@ -774,7 +643,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                           } 
                           label="Lucro & Desempenho" 
                           isActive={pathname === '/financeiro/lucro-desempenho'} 
-                          menuRecolhido={menuRecolhido || false} 
+                          menuRecolhido={false} 
                         />
                       )}
                       {podeVerModulo('vendas', 'financeiro') && (
@@ -791,7 +660,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                           } 
                           label="Vendas" 
                           isActive={pathname === '/financeiro/vendas'} 
-                          menuRecolhido={menuRecolhido || false} 
+                          menuRecolhido={false} 
                         />
                       )}
                       {podeVerModulo('movimentacao-caixa', 'financeiro') && (
@@ -805,7 +674,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                           } 
                           label="Movimentações Caixa" 
                           isActive={pathname === '/financeiro/movimentacoes-caixa'} 
-                          menuRecolhido={menuRecolhido || false} 
+                          menuRecolhido={false} 
                         />
                       )}
                       {podeVerModulo('contas-a-pagar', 'financeiro') && (
@@ -820,7 +689,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                           } 
                           label="Contas a Pagar" 
                           isActive={pathname === '/financeiro/contas-a-pagar'} 
-                          menuRecolhido={menuRecolhido || false} 
+                          menuRecolhido={false} 
                         />
                       )}
                       {podeVerModulo('lucro-desempenho', 'financeiro') && (
@@ -836,7 +705,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                           } 
                           label="Comissões dos Técnicos" 
                           isActive={pathname === '/financeiro/comissoes-tecnicos'} 
-                          menuRecolhido={menuRecolhido || false} 
+                          menuRecolhido={false} 
                         />
                       )}
                     </div>
@@ -844,14 +713,14 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                 </>
               )}
               {podeVer('bancada') && (
-                <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" isActive={pathname === '/bancada'} menuRecolhido={menuRecolhido} />
+                <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" isActive={pathname === '/bancada'} menuRecolhido={false} />
               )}
               {usuarioData?.nivel === 'tecnico' && (
-                <SidebarButton path="/comissoes" icon={<FiDollarSign size={20} />} label="Comissões" isActive={pathname === '/comissoes'} menuRecolhido={menuRecolhido} />
+                <SidebarButton path="/comissoes" icon={<FiDollarSign size={20} />} label="Comissões" isActive={pathname === '/comissoes'} menuRecolhido={false} />
               )}
-              <SidebarButton path="/perfil" icon={<FiUsers size={20} />} label="Meu Perfil" isActive={pathname === '/perfil'} menuRecolhido={menuRecolhido} />
+              <SidebarButton path="/perfil" icon={<FiUsers size={20} />} label="Meu Perfil" isActive={pathname === '/perfil'} menuRecolhido={false} />
                         {podeVer('configuracoes') && usuarioData?.nivel !== 'atendente' && (
-            <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" isActive={pathname === '/configuracoes'} menuRecolhido={menuRecolhido} />
+            <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" isActive={pathname === '/configuracoes'} menuRecolhido={false} />
           )}
           
           <SidebarButton 
@@ -859,43 +728,27 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             icon={<FiLogOut size={20} />} 
             label="Sair" 
             isActive={false} 
-            menuRecolhido={menuRecolhido}
+            menuRecolhido={false}
             onClick={logout} 
           />
+                </>
+              )}
             </nav>
             <div className="mt-auto text-center text-xs text-[#D1FE6E] pb-4">
-              v1.0.0
+              v2.7.9
             </div>
           </aside>
         </div>
       )}
-      {/* Main area with header and content */}
-      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ml-0 ${menuRecolhido ? 'md:ml-16' : 'md:ml-64'}`}>
-        {/* TopHeader */}
+      {/* Main area with header and content - tela cheia (sem margin) na página Nova OS */}
+      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 w-full ${isNovaOSFullScreen ? 'md:ml-0' : 'ml-0 md:ml-64'}`}>
+        {/* TopHeader - oculto na tela cheia de Nova OS (só fica o botão Voltar na própria página) */}
+        {!isNovaOSFullScreen && (
         <header className="w-full h-16 bg-white border-b border-zinc-200 flex items-center justify-between px-4 md:px-6 sticky top-0 z-30 no-print">
           {/* Botão menu mobile */}
           <div className="flex md:hidden items-center">
             <button onClick={() => setMobileMenuOpen(true)} className="text-zinc-700 p-2">
               <FiMenu size={24} />
-            </button>
-          </div>
-          
-          {/* Botão hambúrguer desktop */}
-          <div className="hidden md:flex items-center">
-            <button
-              onClick={toggleMenu}
-              className="text-zinc-700 hover:text-[#D1FE6E] transition-colors duration-200 p-2 rounded-lg hover:bg-zinc-100"
-              title={menuRecolhido ? "Expandir menu" : "Recolher menu"}
-            >
-              {menuRecolhido ? (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              ) : (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              )}
             </button>
           </div>
           
@@ -1017,14 +870,19 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             </div>
           </div>
         </header>
-        {/* Banner de Avisos */}
-        <div className="w-full sticky top-16 z-20 space-y-2 no-print">
-          <AvisosBanner />
-          <FinanceiroAlertsBanner />
-        </div>
-        {/* Conteúdo principal */}
-        <main className="flex-1 p-4 md:p-8 w-full max-w-full">
-          {children}
+        )}
+        {/* Banner de Avisos - oculto na tela cheia de Nova OS para mais espaço */}
+        {!isNovaOSFullScreen && (
+          <div className="w-full sticky top-16 z-20 space-y-2 no-print">
+            <AvisosBanner />
+            <FinanceiroAlertsBanner />
+          </div>
+        )}
+        {/* Conteúdo principal - sem padding lateral/superior na Nova OS para máximo espaço */}
+        <main className={`flex-1 w-full ${isNovaOSFullScreen ? 'pb-6 pt-0 px-0' : 'pb-6 px-4 md:px-6 pt-6'}`}>
+          <div className="w-full">
+            {children}
+          </div>
         </main>
       </div>
       
@@ -1069,6 +927,14 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             
             {/* Navegação mobile */}
             <nav className="flex flex-col p-4 space-y-2 overflow-y-auto flex-1 min-h-0">
+              {!userDataReady ? (
+                <>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="h-12 rounded-lg bg-gray-700 animate-pulse" />
+                  ))}
+                </>
+              ) : (
+                <>
               {/* Dashboard */}
               {(podeVer('dashboard') || usuarioData?.nivel === 'tecnico' || usuarioData?.nivel === 'atendente') && (
                 <MobileMenuItem
@@ -1312,11 +1178,13 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   logout();
                 }}
               />
+                </>
+              )}
             </nav>
             
             {/* Footer mobile */}
             <div className="absolute bottom-4 left-4 right-4 text-center text-xs text-gray-400">
-              v1.0.0
+              v2.7.9
             </div>
           </div>
         </div>
@@ -1358,14 +1226,13 @@ function SidebarButton({
   return (
     <button
       onClick={handleClick}
-      className={`flex items-center w-full px-3 py-2 rounded-lg transition font-medium text-base
-        ${menuRecolhido ? 'justify-center' : 'justify-start'}
+      className={`flex items-center justify-start w-full px-3 py-2 rounded-lg transition font-medium text-base
         ${isActive ? 'bg-[#D1FE6E] text-black' : 'hover:bg-white/10 text-white'}`}
       style={{ minHeight: 48 }}
       title={label}
     >
       {icon}
-      {!menuRecolhido && <span className="ml-3 whitespace-nowrap">{label}</span>}
+      <span className="ml-3 whitespace-nowrap">{label}</span>
     </button>
   );
 }

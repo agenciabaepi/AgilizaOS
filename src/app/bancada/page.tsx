@@ -342,72 +342,70 @@ export default function BancadaPage() {
 
   if (loading) {
     return (
-      
-        <MenuLayout>
-          <div className="p-6">
-            <div className="flex items-center justify-center h-64">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="mt-2 text-gray-600">Carregando...</p>
-              </div>
-            </div>
+      <MenuLayout>
+        <div className="w-full bg-gray-50 flex items-center justify-center p-4 min-h-[60vh]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-3"></div>
+            <p className="text-sm text-gray-500">Carregando sua bancada...</p>
           </div>
-        </MenuLayout>
-      
+        </div>
+      </MenuLayout>
     );
   }
 
   return (
     
       <MenuLayout>
-        <div className="p-3 sm:p-4 md:p-6">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
-            <h1 className="text-lg sm:text-xl md:text-2xl font-bold flex items-center gap-2">
-              <FiCpu className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
-              Minha Bancada
+        <div className="w-full bg-gray-50 overflow-x-hidden" style={{ maxWidth: '100vw', width: '100%' }}>
+          <div className="w-full mx-auto px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4" style={{ maxWidth: '100%', width: '100%', boxSizing: 'border-box' }}>
+          {/* Header Compacto Mobile-First */}
+          <div className="mb-2 sm:mb-3">
+            <h1 className="text-base sm:text-lg md:text-xl font-bold flex items-center gap-2 mb-2">
+              <FiCpu className="w-5 h-5 text-blue-600 flex-shrink-0" />
+              <span>Minha Bancada</span>
             </h1>
             
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-              {/* Notificações */}
-              {osAprovadas.length > 0 && (
-                <div className="bg-green-50 border border-green-200 rounded-xl p-3 sm:p-4 relative">
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="p-2 bg-green-100 rounded-lg">
-                      <FiBell className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-green-600 font-medium">Orçamentos Aprovados!</p>
-                      <p className="text-sm font-bold text-green-800">
-                        {osAprovadas.length} OS{osAprovadas.length > 1 ? 's' : ''} aprovada{osAprovadas.length > 1 ? 's' : ''}
-                      </p>
-                    </div>
+            {/* Cards Resumo - Layout Horizontal no Mobile */}
+            <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-2 scrollbar-hide">
+              {/* Card de resumo - Sempre visível */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2.5 sm:p-3 flex-shrink-0 min-w-[140px] sm:min-w-0 sm:flex-1">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-blue-50 rounded-lg flex-shrink-0">
+                    <FiCpu className="w-4 h-4 text-blue-600" />
                   </div>
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                </div>
-              )}
-              
-              {/* Card de resumo */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4">
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <div className="p-2 bg-blue-50 rounded-lg">
-                    <FiCpu className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Hoje</p>
-                    <p className="text-base sm:text-lg font-bold text-gray-900">{contadores.pendentes} OSs pendentes</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] text-gray-500 leading-tight">Pendentes</p>
+                    <p className="text-sm sm:text-base font-bold text-gray-900 leading-tight">{contadores.pendentes}</p>
                   </div>
                 </div>
               </div>
+              
+              {/* Notificações - Condicional */}
+              {osAprovadas.length > 0 && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-2.5 sm:p-3 relative flex-shrink-0 min-w-[160px] sm:min-w-0 sm:flex-1">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-green-100 rounded-lg flex-shrink-0">
+                      <FiBell className="w-4 h-4 text-green-600" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] text-green-600 font-medium leading-tight">Aprovadas</p>
+                      <p className="text-sm sm:text-base font-bold text-green-800 leading-tight">
+                        {osAprovadas.length}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></div>
+                </div>
+              )}
             </div>
           </div>
           
-          {/* Abas */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-4 sm:mb-6 overflow-x-auto -mx-3 sm:mx-0">
-            <div className="flex border-b border-gray-200 min-w-max px-3 sm:px-0">
+          {/* Abas - Scroll horizontal no mobile */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-2 sm:mb-4 overflow-x-auto scrollbar-hide" style={{ width: '100%', maxWidth: '100%' }}>
+            <div className="flex border-b border-gray-200 min-w-max">
               <button
                 onClick={() => handleTabChange('pendentes')}
-                className={`px-4 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm border-b-2 transition-colors touch-manipulation whitespace-nowrap ${
+                className={`px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 font-medium text-xs border-b-2 transition-colors touch-manipulation whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'pendentes'
                     ? 'border-blue-500 text-blue-600 bg-blue-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
@@ -426,7 +424,7 @@ export default function BancadaPage() {
               
               <button
                 onClick={() => handleTabChange('aprovadas')}
-                className={`px-4 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm border-b-2 transition-colors relative touch-manipulation whitespace-nowrap ${
+                className={`px-3 sm:px-4 md:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm border-b-2 transition-colors relative touch-manipulation whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'aprovadas'
                     ? 'border-green-500 text-green-600 bg-green-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
@@ -448,7 +446,7 @@ export default function BancadaPage() {
               
               <button
                 onClick={() => handleTabChange('em_andamento')}
-                className={`px-4 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm border-b-2 transition-colors touch-manipulation whitespace-nowrap ${
+                className={`px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 font-medium text-xs border-b-2 transition-colors touch-manipulation whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'em_andamento'
                     ? 'border-purple-500 text-purple-600 bg-purple-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
@@ -467,7 +465,7 @@ export default function BancadaPage() {
               
               <button
                 onClick={() => handleTabChange('concluidas')}
-                className={`px-4 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm border-b-2 transition-colors touch-manipulation whitespace-nowrap ${
+                className={`px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 font-medium text-xs border-b-2 transition-colors touch-manipulation whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'concluidas'
                     ? 'border-green-500 text-green-600 bg-green-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
@@ -486,7 +484,7 @@ export default function BancadaPage() {
               
               <button
                 onClick={() => handleTabChange('sem_reparo')}
-                className={`px-4 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm border-b-2 transition-colors touch-manipulation whitespace-nowrap ${
+                className={`px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 font-medium text-xs border-b-2 transition-colors touch-manipulation whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'sem_reparo'
                     ? 'border-red-500 text-red-600 bg-red-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
@@ -505,7 +503,7 @@ export default function BancadaPage() {
               
               <button
                 onClick={() => handleTabChange('todas')}
-                className={`px-4 sm:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm border-b-2 transition-colors touch-manipulation whitespace-nowrap ${
+                className={`px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 font-medium text-xs border-b-2 transition-colors touch-manipulation whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'todas'
                     ? 'border-gray-500 text-gray-600 bg-gray-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
@@ -524,21 +522,21 @@ export default function BancadaPage() {
             </div>
           </div>
 
-          {/* Filtros */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 sm:mb-6">
+          {/* Filtros - Compacto Mobile */}
+          <div className="flex flex-col gap-2 mb-3">
             <div className="relative w-full">
               <input
                 type="text"
-                placeholder="Buscar por cliente ou número da OS..."
+                placeholder="Buscar OS ou cliente..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full sm:w-80 border border-gray-300 rounded-lg pl-10 pr-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[44px]"
+                className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[42px]"
               />
-              <svg className="absolute left-3 top-3 h-5 w-5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex gap-1.5 overflow-x-auto pb-1.5 scrollbar-hide" style={{ width: '100%', maxWidth: '100%' }}>
               {[
                 { label: 'Abertas', value: 'ABERTA' },
                 { label: 'Em Análise', value: 'EM_ANALISE' },
@@ -554,7 +552,7 @@ export default function BancadaPage() {
                   <button
                     key={status.value}
                     onClick={() => setFiltroStatus(status.value)}
-                    className={`px-3 sm:px-4 py-2.5 rounded-lg text-xs sm:text-sm font-medium border transition-colors touch-manipulation min-h-[40px] ${
+                    className={`px-2.5 sm:px-3 py-2 rounded-lg text-xs font-medium border transition-colors touch-manipulation min-h-[36px] whitespace-nowrap flex-shrink-0 ${
                       filtroStatus === status.value
                         ? 'bg-blue-600 text-white border-blue-600 shadow-sm active:bg-blue-700'
                         : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 active:bg-gray-100'
@@ -567,15 +565,20 @@ export default function BancadaPage() {
             </div>
           </div>
 
-          {/* Lista de OSs */}
-          <div className="space-y-3 sm:space-y-4 pb-4">
-            {filteredOrdens.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-gray-400 mb-4">
-                  <FiCpu size={48} className="mx-auto" />
+          {/* Lista de OSs - Cards Compactos */}
+          <div className="space-y-2 sm:space-y-3 pb-4 w-full">
+            {loading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                <p className="text-sm text-gray-500">Carregando...</p>
+              </div>
+            ) : filteredOrdens.length === 0 ? (
+              <div className="text-center py-8 px-4">
+                <div className="text-gray-300 mb-3">
+                  <FiCpu size={40} className="mx-auto" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma ordem encontrada</h3>
-                <p className="text-gray-500">
+                <h3 className="text-sm font-medium text-gray-700 mb-1">Nenhuma ordem encontrada</h3>
+                <p className="text-xs text-gray-500">
                   {activeTab === 'pendentes' && 'Não há ordens pendentes no momento.'}
                   {activeTab === 'aprovadas' && 'Não há ordens aprovadas no momento.'}
                   {activeTab === 'em_andamento' && 'Não há ordens em andamento no momento.'}
@@ -649,121 +652,102 @@ export default function BancadaPage() {
                   return (
                     <div
                       key={os.id}
-                      className={`bg-white p-4 sm:p-5 md:p-6 rounded-xl shadow-sm transition-all duration-200 border ${
+                      className={`bg-white p-3 sm:p-4 rounded-lg shadow-sm transition-all duration-200 border ${
                         isNovaAprovacao 
-                          ? 'border-2 border-green-400 shadow-lg bg-gradient-to-r from-green-50 to-white animate-pulse'
+                          ? 'border-2 border-green-400 shadow-md bg-green-50/50'
                           : isAprovada
-                          ? 'border border-green-200 bg-green-50'
-                          : 'border border-gray-100 hover:shadow-md'
+                          ? 'border border-green-200 bg-green-50/30'
+                          : 'border border-gray-200'
                       }`}
+                      style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}
                       onClick={() => isNovaAprovacao && marcarNotificacaoLida(os.id)}
                     >
-                      {/* Banner para OS aprovadas */}
+                      {/* Header do Card - Estilo App */}
+                      <div className="mb-3">
+                        <h3 className="font-bold text-sm text-gray-900 mb-1 break-words">
+                          OS #{os.numero_os || os.id}
+                        </h3>
+                        <p className="text-xs text-gray-600 font-medium uppercase break-words overflow-wrap-anywhere">
+                          {os.cliente?.nome || 'Cliente não informado'}
+                        </p>
+                      </div>
+                      
+                      {/* Banner Aprovada - Compacto */}
                       {isAprovada && (
-                        <div className="mb-4 p-3 bg-green-100 border border-green-300 rounded-lg">
-                          <div className="flex items-center gap-2">
-                            <FiCheckCircle className="w-5 h-5 text-green-600" />
-                            <div>
-                              <p className="text-sm font-semibold text-green-800">
-                                ✅ Orçamento Aprovado pelo Cliente!
-                              </p>
-                              <p className="text-xs text-green-600">
-                                Você pode iniciar o reparo agora.
-                              </p>
-                            </div>
+                        <div className="mb-3 p-2 bg-green-100 border border-green-300 rounded text-[10px]">
+                          <div className="flex items-center gap-1.5">
+                            <FiCheckCircle className="w-3 h-3 text-green-600 flex-shrink-0" />
+                            <span className="font-semibold text-green-800">Aprovada!</span>
                             {isNovaAprovacao && (
-                              <div className="ml-auto">
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-200 text-green-800 animate-bounce">
-                                  NOVO!
-                                </span>
-                              </div>
+                              <span className="ml-auto text-[9px] bg-green-200 text-green-800 px-1.5 py-0.5 rounded font-medium">NOVO</span>
                             )}
                           </div>
                         </div>
                       )}
-                      
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-3">
-                            <h3 className="font-semibold text-base sm:text-lg text-gray-900 break-words">
-                              #{os.numero_os || os.id} - {os.cliente?.nome || 'Cliente não informado'}
-                            </h3>
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getStatusColor(os.status, os.status_tecnico)}`}>
-                              {getStatusLabel(os.status, os.status_tecnico)}
-                            </span>
-                          </div>
-                          
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm text-gray-600">
-                            <div>
-                              <p className="font-medium text-gray-700 mb-1">Aparelho</p>
-                              <p>{aparelho || 'Não informado'}</p>
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-700 mb-1">Cliente</p>
-                              <p>{os.cliente?.nome || 'Não informado'}</p>
-                              {os.cliente?.telefone && (
-                                <p className="text-xs text-gray-500">{os.cliente.telefone}</p>
-                              )}
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-700 mb-1">Entrada</p>
-                              <p>{entrada}</p>
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-700 mb-1">Valor</p>
-                              <p className="font-semibold text-blue-600">{valorFormatado}</p>
-                            </div>
-                          </div>
 
-                          {os.relato && (
-                            <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                              <p className="text-xs font-medium text-gray-700 mb-1">Relato do Cliente</p>
-                              <p className="text-sm text-gray-600 line-clamp-3 sm:line-clamp-2">{os.relato}</p>
-                            </div>
-                          )}
+                      {/* Informações Principais - Layout Vertical Simples */}
+                      <div className="space-y-2.5 mb-3">
+                        <div>
+                          <p className="text-xs text-gray-500 mb-0.5">Aparelho</p>
+                          <p className="text-xs font-bold text-gray-900 uppercase break-words overflow-wrap-anywhere leading-tight">
+                            {aparelho || '---'}
+                          </p>
                         </div>
-
-                        <div className="sm:ml-6 flex flex-col items-stretch sm:items-end gap-2 w-full sm:w-auto mt-3 sm:mt-0">
-                          {os.status === 'ABERTA' ? (
-                            <button
-                              onClick={() => abrirModal(os)}
-                              className="inline-flex justify-center items-center gap-2 bg-gray-600 text-white px-5 py-3 rounded-lg text-sm font-medium hover:bg-gray-700 active:bg-gray-800 transition-colors shadow-sm w-full sm:w-auto min-h-[44px] touch-manipulation"
-                            >
-                              <FiEye size={18} /> 
-                              Visualizar
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => router.push(`/bancada/${os.id}`)}
-                              className="inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-5 py-3 rounded-lg text-sm font-medium hover:bg-blue-700 active:bg-blue-800 transition-colors shadow-sm w-full sm:w-auto min-h-[44px] touch-manipulation"
-                            >
-                              <FiCpu size={18} /> 
-                              Continuar
-                            </button>
-                          )}
-
-                          {/* Botão para visualizar anexos (imagens de entrada/técnico) */}
-                          {((os.imagens && os.imagens.trim() !== '') || (os.imagens_tecnico && os.imagens_tecnico.trim() !== '')) && (
-                            <button
-                              onClick={() => router.push(`/bancada/${os.id}#anexos`)}
-                              className="inline-flex justify-center items-center gap-1.5 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300 transition-colors w-full sm:w-auto min-h-[40px] touch-manipulation"
-                            >
-                              <FiPaperclip size={16} />
-                              Ver anexos
-                            </button>
-                          )}
-                          
-                          {os.status !== 'ABERTA' && (
-                            <p className="text-xs text-gray-500 sm:mt-2 text-center sm:text-right">
-                              Entrada: {entrada}
-                            </p>
-                          )}
+                        <div>
+                          <p className="text-xs text-gray-500 mb-0.5">Entrada</p>
+                          <p className="text-xs text-gray-700 break-words leading-tight">{entrada}</p>
                         </div>
+                        {os.cliente?.telefone && (
+                          <div>
+                            <p className="text-xs text-gray-500 mb-0.5">Telefone</p>
+                            <p className="text-xs text-gray-700 break-all overflow-wrap-anywhere leading-tight">{os.cliente.telefone}</p>
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-xs text-gray-500 mb-0.5">Valor</p>
+                          <p className="text-xs font-bold text-blue-600 break-words leading-tight">{valorFormatado}</p>
+                        </div>
+                      </div>
+
+                      {/* Relato - Se existir */}
+                      {os.relato && (
+                        <div className="mb-3 p-2 bg-gray-50 rounded">
+                          <p className="text-[10px] font-medium text-gray-600 mb-1">Relato:</p>
+                          <p className="text-xs text-gray-700 break-words overflow-wrap-anywhere leading-relaxed">{os.relato}</p>
+                        </div>
+                      )}
+
+                      {/* Botão de Ação - Full Width Estilo App */}
+                      <div className="pt-3">
+                        {os.status === 'ABERTA' ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              abrirModal(os);
+                            }}
+                            className="w-full inline-flex justify-center items-center gap-2 bg-gray-600 text-white px-4 py-3 rounded-lg text-sm font-medium hover:bg-gray-700 active:bg-gray-800 transition-colors min-h-[48px] touch-manipulation shadow-sm"
+                          >
+                            <FiEye size={16} /> 
+                            Visualizar
+                          </button>
+                        ) : (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/bancada/${os.id}`);
+                            }}
+                            className="w-full inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg text-sm font-medium hover:bg-blue-700 active:bg-blue-800 transition-colors min-h-[48px] touch-manipulation shadow-sm relative"
+                          >
+                            <span className="flex-1 text-left">Continuar</span>
+                            <FiCpu size={18} className="ml-auto" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
                 })
             )}
+          </div>
           </div>
         </div>
 

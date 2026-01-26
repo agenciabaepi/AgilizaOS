@@ -14,10 +14,11 @@ import { useAuth } from '@/context/AuthContext';
 import { Suspense } from 'react';
 import { useToast } from '@/components/Toast';
 import PatternLock from '@/components/PatternLock';
-import { FiShield, FiSmartphone, FiCheckCircle, FiInfo } from 'react-icons/fi';
+import { FiSmartphone, FiCheckCircle, FiPackage, FiKey, FiList, FiEye, FiEyeOff } from 'react-icons/fi';
 import EquipamentoSelector from '@/components/EquipamentoSelector';
+import DynamicChecklist from '@/components/DynamicChecklist';
 
-const etapas = ["Cliente", "Aparelho", "Técnico", "Status", "Imagens"];
+const etapas = ["Cliente", "Aparelho", "Checklist", "Técnico", "Status", "Imagens"];
 
 interface Cliente {
   id: string;
@@ -119,6 +120,12 @@ function NovaOS2Content() {
 
   // Estado para acessórios
   const [acessorios, setAcessorios] = useState('');
+
+  // Estado para mostrar/ocultar senha no campo de acesso
+  const [mostrarSenha, setMostrarSenha] = useState(false);
+
+  // Estado para checklist de entrada (etapa 3 - conforme equipamento da etapa 2)
+  const [checklistEntrada, setChecklistEntrada] = useState<Record<string, boolean>>({});
 
   // Verificar se há técnicos cadastrados
   useEffect(() => {
@@ -643,6 +650,7 @@ function NovaOS2Content() {
         // Campos de senha
         senha_aparelho: dadosEquipamento.senha || null,
         senha_padrao: dadosEquipamento.senha_padrao.length > 0 ? JSON.stringify(dadosEquipamento.senha_padrao) : null,
+        checklist_entrada: Object.keys(checklistEntrada).length > 0 ? JSON.stringify(checklistEntrada) : null,
         // Adicionar campo de prazo de entrega
         prazo_entrega: prazoEntrega ? new Date(prazoEntrega).toISOString() : (() => {
           // Se não foi definido, criar prazo automático (7 dias)
@@ -758,23 +766,37 @@ function NovaOS2Content() {
 
   return (
     <MenuLayout>
-      
-        <div className="max-w-4xl mx-auto py-10">
+      <div className="w-full min-h-screen bg-gray-50/50">
+        {/* Barra fixa só com Voltar - no lugar do header */}
+        <div className="sticky top-0 z-20 w-full bg-white border-b border-gray-200 px-4 md:px-6 py-3 flex items-center">
+          <button
+            type="button"
+            onClick={() => router.push('/ordens')}
+            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 font-medium transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Voltar para Ordens
+          </button>
+        </div>
+
+        <div className="w-full max-w-[1800px] mx-auto py-6 px-4 md:px-8 lg:px-10 xl:px-12">
           {/* Cabeçalho */}
-          <div className="w-full text-center mb-10">
-            <h1 className="text-4xl font-bold text-gray-800 mb-2">Nova Ordem de Serviço</h1>
+          <div className="w-full text-center mb-6">
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">Nova Ordem de Serviço</h1>
             <div className="text-gray-500 text-base font-medium">
               Etapa {etapaAtual} de {etapas.length} — <span className="font-semibold">{etapas[etapaAtual-1]}</span>
             </div>
           </div>
 
           {/* Barra de Progresso */}
-          <div className="w-full bg-gray-200 rounded-full h-2 mb-8">
+          <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
             <div className="bg-black h-2 rounded-full transition-all duration-300" style={{ width: `${(etapaAtual/etapas.length)*100}%` }} />
           </div>
 
           {/* Etapas */}
-          <div className="flex items-center justify-between w-full mb-8 gap-4">
+          <div className="flex items-center justify-between w-full mb-6 gap-4">
             {etapas.map((label, idx) => (
               <div key={label} className="flex flex-col items-center">
                 <div className={`flex items-center justify-center w-10 h-10 rounded-full border border-gray-300 ${
@@ -787,13 +809,13 @@ function NovaOS2Content() {
             ))}
           </div>
 
-          {/* Card/Container da etapa */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow p-8 mb-8 min-h-[200px] flex flex-col items-center justify-center">
+          {/* Card/Container da etapa - items-stretch para o conteúdo usar toda a largura */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow p-6 md:p-8 mb-6 min-h-[200px] flex flex-col items-stretch w-full">
             {etapaAtual === 1 && (
-              <div className="w-full max-w-md mx-auto flex flex-col gap-6">
+              <div className="w-full flex flex-col gap-6">
                 {/* Tipo de entrada: Nova ou Retorno Garantia */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Entrada</label>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 text-left">Tipo de Entrada</label>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div
                       className={`p-4 rounded-lg border-2 cursor-pointer transition-all flex items-center gap-3 ${tipoEntrada === 'nova' ? 'border-black bg-gray-50' : 'border-gray-200 hover:border-gray-300'}`}
@@ -816,11 +838,11 @@ function NovaOS2Content() {
                 </div>
                 {/* Busca OS original para garantia */}
                 {tipoEntrada === 'garantia' && (
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Buscar OS original</label>
+                  <div className="w-full">
+                    <label className="block text-sm font-medium text-gray-700 mb-2 text-left">Buscar OS original</label>
                     <input
                       type="text"
-                      className="w-full border border-gray-300 rounded px-3 py-2 mb-2"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-2 focus:ring-2 focus:ring-black focus:border-transparent"
                       placeholder="Digite número da OS, nome do cliente ou modelo..."
                       value={osGarantiaBusca}
                       onChange={async (e) => {
@@ -954,7 +976,7 @@ function NovaOS2Content() {
                     )}
                   </div>
                 )}
-                <label className="block text-sm font-medium text-gray-700 mb-2">Selecione o cliente</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2 text-left">Selecione o cliente</label>
                 {isMounted ? (
                 <ReactSelect
                   options={(clientes || []).map(c => ({ value: c.id, label: c.nome }))}
@@ -996,47 +1018,56 @@ function NovaOS2Content() {
                 )}
                 <Button variant="secondary" className="w-full" onClick={() => setShowCadastroCliente(true)}>Cadastrar novo cliente</Button>
                 {showCadastroCliente && (
-                  <form className="bg-gray-50 border border-gray-200 rounded-xl p-6 mt-4 flex flex-col gap-4" onSubmit={handleSubmit(onCadastrarCliente)}>
-                    <div>
-                      <input
-                        type="text"
-                        placeholder="Nome completo"
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                        {...register("nome", { required: true })}
-                      />
-                      {errors.nome && <span className="text-red-500 text-xs">Nome obrigatório</span>}
+                  <form className="bg-gray-50 border border-gray-200 rounded-xl p-6 mt-4 flex flex-col gap-4 w-full" onSubmit={handleSubmit(onCadastrarCliente)}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1 text-left">Nome completo</label>
+                        <input
+                          type="text"
+                          placeholder="Nome completo"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-black focus:border-transparent"
+                          {...register("nome", { required: true })}
+                        />
+                        {errors.nome && <span className="text-red-500 text-xs">Nome obrigatório</span>}
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1 text-left">WhatsApp</label>
+                        <input
+                          type="text"
+                          placeholder="WhatsApp"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-black focus:border-transparent"
+                          {...register("whatsapp", { required: true })}
+                        />
+                        {errors.whatsapp && <span className="text-red-500 text-xs">WhatsApp obrigatório</span>}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1 text-left">CPF</label>
+                        <input
+                          type="text"
+                          placeholder="CPF"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-black focus:border-transparent"
+                          {...register("cpf", { required: true })}
+                        />
+                        {errors.cpf && <span className="text-red-500 text-xs">CPF obrigatório</span>}
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1 text-left">Número reserva (opcional)</label>
+                        <input
+                          type="text"
+                          placeholder="Número reserva (opcional)"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-black focus:border-transparent"
+                          {...register("numero_reserva")}
+                        />
+                      </div>
                     </div>
                     <div>
-                      <input
-                        type="text"
-                        placeholder="WhatsApp"
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                        {...register("whatsapp", { required: true })}
-                      />
-                      {errors.whatsapp && <span className="text-red-500 text-xs">WhatsApp obrigatório</span>}
-                    </div>
-                    <div>
-                      <input
-                        type="text"
-                        placeholder="CPF"
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                        {...register("cpf", { required: true })}
-                      />
-                      {errors.cpf && <span className="text-red-500 text-xs">CPF obrigatório</span>}
-                    </div>
-                    <div>
-                      <input
-                        type="text"
-                        placeholder="Número reserva (opcional)"
-                        className="w-full border border-gray-300 rounded px-3 py-2"
-                        {...register("numero_reserva")}
-                      />
-                    </div>
-                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1 text-left">E-mail (opcional)</label>
                       <input
                         type="email"
                         placeholder="E-mail (opcional)"
-                        className="w-full border border-gray-300 rounded px-3 py-2"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-black focus:border-transparent"
                         {...register("email")}
                       />
                     </div>
@@ -1051,227 +1082,215 @@ function NovaOS2Content() {
             )}
 
             {etapaAtual === 2 && (
-              <div className="w-full max-w-4xl mx-auto flex flex-col gap-6">
-                <h3 className="text-lg font-medium text-gray-700 mb-4">Dados do Equipamento</h3>
-                
-                {/* Dados do equipamento */}
-                <div className="bg-gray-50 border border-gray-200 rounded-xl p-6">
-                  <h3 className="text-sm font-medium text-gray-700 mb-4">Informações do equipamento</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="w-full flex flex-col gap-6">
+                <h3 className="text-lg font-semibold text-gray-800 text-left">Dados do Aparelho</h3>
+
+                {/* 1. Tipo de equipamento */}
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700 text-left">
+                    <FiPackage className="text-amber-600" />
+                    Tipo de equipamento
+                  </label>
+                  <EquipamentoSelector
+                    empresaId={empresaData?.id || ''}
+                    value={equipamentoSelecionado?.nome}
+                    onChange={handleEquipamentoSelecionado}
+                    placeholder="Ex: CELULAR, NOTEBOOK, IMPRESSORA..."
+                    className="w-full"
+                  />
+                </div>
+
+                {/* 2. Identificação do aparelho - 4 colunas em telas grandes */}
+                <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-5 space-y-4">
+                  <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2 text-left">
+                    <FiSmartphone className="text-gray-500" />
+                    Identificação
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Equipamento</label>
-                      <EquipamentoSelector
-                        empresaId={empresaData?.id || ''}
-                        value={equipamentoSelecionado?.nome}
-                        onChange={handleEquipamentoSelecionado}
-                        placeholder="Selecione o tipo de equipamento (ex: CELULAR, NOTEBOOK)"
-                        className="w-full"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Marca</label>
+                      <label className="block text-xs font-medium text-gray-600 mb-1 text-left">Marca</label>
                       <input
                         type="text"
-                        placeholder="Ex: Samsung, Apple, etc."
-                        className="w-full border border-gray-300 rounded px-3 py-2"
+                        placeholder="Samsung, Apple..."
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-black focus:border-transparent"
                         value={dadosEquipamento.marca}
                         onChange={(e) => setDadosEquipamento(prev => ({ ...prev, marca: e.target.value.toUpperCase() }))}
                         readOnly={tipoEntrada === 'garantia' && !!osGarantiaSelecionada}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Modelo</label>
+                      <label className="block text-xs font-medium text-gray-600 mb-1 text-left">Modelo</label>
                       <input
                         type="text"
-                        placeholder="Ex: Galaxy S21, iPhone 13, etc."
-                        className="w-full border border-gray-300 rounded px-3 py-2"
+                        placeholder="Galaxy S21, iPhone 13..."
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-black focus:border-transparent"
                         value={dadosEquipamento.modelo}
                         onChange={(e) => setDadosEquipamento(prev => ({ ...prev, modelo: e.target.value.toUpperCase() }))}
                         readOnly={tipoEntrada === 'garantia' && !!osGarantiaSelecionada}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Cor</label>
+                      <label className="block text-xs font-medium text-gray-600 mb-1 text-left">Cor</label>
                       <input
                         type="text"
-                        placeholder="Ex: Preto, Prata, Azul, etc."
-                        className="w-full border border-gray-300 rounded px-3 py-2"
+                        placeholder="Preto, Prata..."
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-black focus:border-transparent"
                         value={dadosEquipamento.cor}
                         onChange={(e) => setDadosEquipamento(prev => ({ ...prev, cor: e.target.value.toUpperCase() }))}
                         readOnly={tipoEntrada === 'garantia' && !!osGarantiaSelecionada}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Número de série</label>
+                      <label className="block text-xs font-medium text-gray-600 mb-1 text-left">Nº de série</label>
                       <input
                         type="text"
-                        placeholder="Número de série do equipamento"
-                        className="w-full border border-gray-300 rounded px-3 py-2"
+                        placeholder="Opcional"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-black focus:border-transparent"
                         value={dadosEquipamento.numero_serie}
                         onChange={(e) => setDadosEquipamento(prev => ({ ...prev, numero_serie: e.target.value.toUpperCase() }))}
                         readOnly={tipoEntrada === 'garantia' && !!osGarantiaSelecionada}
                       />
                     </div>
                   </div>
-                  
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Descrição do problema</label>
-                    <textarea
-                      placeholder="Descreva o problema apresentado pelo equipamento..."
-                      className="w-full border border-gray-300 rounded px-3 py-2 h-24 resize-none"
-                      value={dadosEquipamento.descricao_problema}
-                      onChange={(e) => setDadosEquipamento(prev => ({ ...prev, descricao_problema: e.target.value.toUpperCase() }))}
-                    />
-                  </div>
-
-                  {/* Seção de Senhas */}
-                  <div className="mt-6 border-t pt-6">
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className="p-2 bg-indigo-100 rounded-lg">
-                        <FiShield className="w-5 h-5 text-indigo-600" />
-                      </div>
-                      <h4 className="text-sm font-medium text-gray-700">Informações de Acesso</h4>
-                    </div>
-                    
-                    <div className="space-y-6">
-                      {/* Informações de Acesso */}
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Senha do Aparelho */}
-                        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 h-full flex flex-col">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Senha do Aparelho</label>
-                          <div className="relative flex-grow">
-                            <input
-                              type="text"
-                              placeholder="Ex: 1234, senha123, etc."
-                              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                              value={dadosEquipamento.senha}
-                              onChange={(e) => setDadosEquipamento(prev => ({ ...prev, senha: e.target.value }))}
-                            />
-                            <p className="text-xs text-gray-500 mt-2">
-                              Digite a senha/pin do aparelho (opcional)
-                            </p>
-                          </div>
-                          
-                           {/* Dicas de segurança - Adicionado para preencher o espaço vazio */}
-                           <div className="mt-auto pt-4">
-                             <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
-                               <h4 className="text-sm font-medium text-blue-700 flex items-center">
-                                 <FiInfo className="h-4 w-4 mr-1" />
-                                 Dica de segurança
-                               </h4>
-                               <p className="text-xs text-blue-600 mt-1">
-                                 Registrar a senha corretamente é essencial para o diagnóstico e testes do aparelho.
-                               </p>
-                             </div>
-                           </div>
-                        </div>
-
-                        {/* Padrão de Desenho Android */}
-                        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 h-full flex flex-col">
-                          <label className="block text-sm font-medium text-gray-700 mb-2 text-center">Padrão de Desenho Android</label>
-                          <div className="flex justify-center items-center">
-                            <PatternLock
-                              onPatternComplete={(pattern) => {
-                                setDadosEquipamento(prev => ({ ...prev, senha_padrao: pattern }));
-                              }}
-                              onPatternClear={() => {
-                                setDadosEquipamento(prev => ({ ...prev, senha_padrao: [] }));
-                              }}
-                              value={dadosEquipamento.senha_padrao}
-                              className="w-full aspect-square"
-                            />
-                          </div>
-                          <div className="flex justify-center mt-4">
-                            <button 
-                              type="button"
-                              onClick={() => setDadosEquipamento(prev => ({ ...prev, senha_padrao: [] }))}
-                              className="text-xs bg-blue-50 text-blue-600 px-3 py-1 rounded-full border border-blue-100 hover:bg-blue-100 transition-colors"
-                            >
-                              Limpar padrão
-                            </button>
-                          </div>
-                          <p className="text-xs text-gray-500 mt-2 text-center">
-                            Desenhe o padrão de desbloqueio do Android (opcional)
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Segunda linha - Informações do Equipamento */}
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Acessórios que Acompanham */}
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700">Acessórios que Acompanham</label>
-                      <textarea
-                        placeholder="Carregador, cabo, capa, manual, etc..."
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none"
-                            rows={4}
-                        value={acessorios}
-                            onChange={(e) => setAcessorios(e.target.value)}
-                      />
-                          <p className="text-xs text-gray-500">
-                        Liste os acessórios que o cliente está deixando
-                      </p>
-                    </div>
-
-                        {/* Estado do Equipamento */}
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700">Estado do Equipamento</label>
-                      <textarea
-                        placeholder="Riscos, amassados, funcionando, etc..."
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none"
-                            rows={4}
-                        value={condicoesEquipamento}
-                            onChange={(e) => setCondicoesEquipamento(e.target.value)}
-                      />
-                          <p className="text-xs text-gray-500">
-                        Descreva o estado físico do equipamento
-                      </p>
-                    </div>
-                  </div>
                 </div>
 
-                    {/* Resumo das senhas */}
-                    {(dadosEquipamento.senha || dadosEquipamento.senha_padrao.length > 0) && (
-                      <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                        <h5 className="text-sm font-medium text-green-700 mb-3 flex items-center gap-2">
-                          <span className="text-green-600">✅</span>
-                          Informações de Acesso Registradas
-                        </h5>
-                        <div className="space-y-3">
-                          {dadosEquipamento.senha && (
-                            <div className="flex items-center gap-3 text-sm">
-                              <span className="text-green-600 font-medium">🔐 Senha:</span>
-                              <span className="font-mono bg-white border border-green-300 px-3 py-1 rounded text-sm text-green-800">{dadosEquipamento.senha}</span>
-                            </div>
-                          )}
-                          {dadosEquipamento.senha_padrao.length > 0 && (
-                            <div className="flex items-center gap-3 text-sm">
-                              <span className="text-green-600 font-medium">📱 Padrão:</span>
-                              <span className="font-mono bg-white border border-green-300 px-3 py-1 rounded text-sm text-green-800">
-                                {dadosEquipamento.senha_padrao.map((dot, index) => (
-                                  <span key={index}>
-                                    {Math.floor(dot / 3) + 1},{dot % 3 + 1}
-                                    {index < dadosEquipamento.senha_padrao.length - 1 ? ' → ' : ''}
-                                  </span>
-                                ))}
-                              </span>
-                            </div>
-                          )}
+                {/* 3. Problema relatado */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700 text-left">Problema relatado</label>
+                  <textarea
+                    placeholder="Descreva o problema apresentado pelo equipamento..."
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 h-24 resize-none focus:ring-2 focus:ring-black focus:border-transparent"
+                    value={dadosEquipamento.descricao_problema}
+                    onChange={(e) => setDadosEquipamento(prev => ({ ...prev, descricao_problema: e.target.value.toUpperCase() }))}
+                  />
+                </div>
+
+                {/* 4 e 5. Acesso + Itens que acompanham - lado a lado em telas grandes */}
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                  {/* 4. Acesso ao aparelho (opcional) */}
+                  <div className="rounded-xl border border-gray-200 bg-slate-50/50 p-5 space-y-4">
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2 text-left">
+                        <FiKey className="text-slate-600" />
+                        Acesso ao aparelho
+                        <span className="text-xs font-normal text-gray-500">(opcional)</span>
+                      </h4>
+                      <p className="text-xs text-gray-500 mt-1 text-left">
+                        Informe a senha, PIN ou desenhe o padrão de desbloqueio, caso o cliente tenha informado.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Senha / PIN */}
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-medium text-gray-600 mb-1 text-left">Senha / PIN</label>
+                        <div className="relative">
+                          <input
+                            type={mostrarSenha ? "text" : "password"}
+                            placeholder="Ex: 1234 ou senha do cliente"
+                            autoComplete="off"
+                            className="w-full border border-gray-300 rounded-lg pl-3 pr-10 py-2.5 text-sm focus:ring-2 focus:ring-black focus:border-transparent"
+                            value={dadosEquipamento.senha}
+                            onChange={(e) => setDadosEquipamento(prev => ({ ...prev, senha: e.target.value }))}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setMostrarSenha(s => !s)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-600 rounded transition-colors"
+                            title={mostrarSenha ? "Ocultar senha" : "Mostrar senha"}
+                          >
+                            {mostrarSenha ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+                          </button>
                         </div>
+                        <p className="text-xs text-gray-500 text-left">PIN ou senha para desbloqueio</p>
+                      </div>
+                      {/* Padrão Android */}
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-medium text-gray-600 mb-1 text-left">Padrão Android</label>
+                        <PatternLock
+                          onPatternComplete={(p) => setDadosEquipamento(prev => ({ ...prev, senha_padrao: p }))}
+                          onPatternClear={() => setDadosEquipamento(prev => ({ ...prev, senha_padrao: [] }))}
+                          value={dadosEquipamento.senha_padrao}
+                          className="w-full lg:max-w-[220px]"
+                          showCoordinates={false}
+                        />
+                      </div>
+                    </div>
+                    {(dadosEquipamento.senha || dadosEquipamento.senha_padrao.length > 0) && (
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-50 text-green-700 text-xs font-medium border border-green-100">
+                        <FiCheckCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                        Acesso registrado
                       </div>
                     )}
                   </div>
 
+                  {/* 5. Acessórios e estado */}
+                  <div className="rounded-xl border border-gray-200 bg-amber-50/30 p-5 space-y-4">
+                    <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2 text-left">
+                      <FiList className="text-amber-600" />
+                      Itens que acompanham
+                      <span className="text-xs font-normal text-gray-500">(opcional)</span>
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1 text-left">Acessórios</label>
+                        <textarea
+                          placeholder="Carregador, cabo, capa..."
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-black focus:border-transparent"
+                          rows={2}
+                          value={acessorios}
+                          onChange={(e) => setAcessorios(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1 text-left">Estado físico</label>
+                        <textarea
+                          placeholder="Riscos, amassados..."
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-black focus:border-transparent"
+                          rows={2}
+                          value={condicoesEquipamento}
+                          onChange={(e) => setCondicoesEquipamento(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
 
             {etapaAtual === 3 && (
-              <div className="w-full max-w-2xl mx-auto flex flex-col gap-6">
-                <h3 className="text-lg font-medium text-gray-700 mb-4">Técnico Responsável</h3>
+              <div className="w-full flex flex-col gap-6">
+                <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2 text-left">
+                  <FiList className="text-blue-600" />
+                  Checklist de entrada
+                </h3>
+                <p className="text-sm text-gray-600 text-left">
+                  {dadosEquipamento.tipo
+                    ? <>Checklist para <strong>{dadosEquipamento.tipo}</strong>. Marque o que foi verificado na recepção.</>
+                    : 'Selecione o tipo de equipamento na etapa anterior para ver o checklist específico.'}
+                </p>
+                {dadosEquipamento.tipo ? (
+                  <DynamicChecklist
+                    equipamentoCategoria={dadosEquipamento.tipo}
+                    value={checklistEntrada}
+                    onChange={setChecklistEntrada}
+                    showAparelhoNaoLiga={true}
+                  />
+                ) : (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-center">
+                    <FiPackage className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+                    <p className="text-amber-800 font-medium">Volte à etapa Aparelho</p>
+                    <p className="text-amber-700 text-sm mt-1">Selecione o tipo de equipamento para carregar o checklist correspondente.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {etapaAtual === 4 && (
+              <div className="w-full flex flex-col gap-6">
+                <h3 className="text-lg font-medium text-gray-700 mb-4 text-left">Técnico Responsável</h3>
                 
-                <div className="space-y-4">
-                  <label className="block text-sm font-medium text-gray-700">Selecione o Técnico Responsável</label>
+                <div className="space-y-4 w-full">
+                  <label className="block text-sm font-medium text-gray-700 text-left">Selecione o Técnico Responsável</label>
                   {isMounted ? (
                   <ReactSelect
                     options={(tecnicos || []).map(tecnico => ({ 
@@ -1318,8 +1337,8 @@ function NovaOS2Content() {
                 </div>
 
                 {tecnicoResponsavel && (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Técnico Selecionado</h4>
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 w-full">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2 text-left">Técnico Selecionado</h4>
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center text-sm font-medium">
                         {(() => {
@@ -1344,15 +1363,14 @@ function NovaOS2Content() {
               </div>
             )}
 
-            {etapaAtual === 4 && (
-              <div className="w-full max-w-2xl mx-auto flex flex-col gap-6">
-                <h3 className="text-lg font-medium text-gray-700 mb-4">Tipo de Entrada</h3>
+            {etapaAtual === 5 && (
+              <div className="w-full flex flex-col gap-6">
+                <h3 className="text-lg font-medium text-gray-700">Tipo de Entrada</h3>
                 
-                {/* Seleção de Status */}
+                {/* Seleção de Status - 3 cards alinhados em linha em telas maiores */}
                 <div className="space-y-4">
-                  <label className="block text-sm font-medium text-gray-700">Como o cliente deixou o aparelho?</label>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <label className="block text-sm font-medium text-gray-700 text-left">Como o cliente deixou o aparelho?</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     {statusOS.map((status) => (
                       <div 
                         key={status.id}
@@ -1387,8 +1405,8 @@ function NovaOS2Content() {
 
                 {/* Informações do Status Selecionado */}
                 {statusSelecionado && (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Tipo de Entrada Selecionado</h4>
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 w-full">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2 text-left">Tipo de Entrada Selecionado</h4>
                     {(() => {
                       const status = statusOS.find(s => s.id === statusSelecionado);
                       if (!status) return null;
@@ -1417,11 +1435,11 @@ function NovaOS2Content() {
 
                 {/* Busca OS original para retorno de garantia */}
                 {statusSelecionado === 'retorno_garantia' && (
-                  <div className="mt-6 w-full max-w-lg mx-auto">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Buscar OS original</label>
+                  <div className="w-full">
+                    <label className="block text-sm font-medium text-gray-700 mb-2 text-left">Buscar OS original</label>
                     <input
                       type="text"
-                      className="w-full border border-gray-300 rounded px-3 py-2 mb-2"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-2 focus:ring-2 focus:ring-black focus:border-transparent"
                       placeholder="Digite número da OS, nome do cliente ou modelo..."
                       value={osGarantiaBusca}
                       onChange={async (e) => {
@@ -1491,74 +1509,73 @@ function NovaOS2Content() {
                   </div>
                 )}
 
-                {/* Observações Gerais */}
-                <div className="mt-6 w-full max-w-lg mx-auto">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Observações Gerais</label>
+                {/* Observações Gerais - largura total */}
+                <div className="w-full">
+                  <label className="block text-sm font-medium text-gray-700 mb-2 text-left">Observações Gerais</label>
                   <textarea
                     placeholder="Digite observações importantes sobre o atendimento, contexto, observações do cliente, etc..."
-                    className="w-full border border-gray-300 rounded px-3 py-2 h-24 resize-none"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 h-24 resize-none focus:ring-2 focus:ring-black focus:border-transparent"
                     value={observacoes}
                     onChange={(e) => setObservacoes(e.target.value.toUpperCase())}
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-gray-500 mt-1 text-left">
                     Descreva detalhes importantes como: contexto do atendimento, observações do cliente, 
                     informações adicionais relevantes para o técnico, urgência, etc.
                   </p>
                 </div>
 
-                {/* Campo de Prazo de Entrega */}
-                <div className="mt-6 w-full max-w-lg mx-auto">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Prazo de Entrega</label>
-                  <input
-                    type="datetime-local"
-                    className="w-full border border-gray-300 rounded px-3 py-2"
-                    value={prazoEntrega}
-                    onChange={(e) => setPrazoEntrega(e.target.value)}
-                    min={new Date().toISOString().slice(0, 16)} // Não permite datas passadas
-                    required
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Defina quando o aparelho deve ser entregue ao cliente. Este prazo será usado para controle pelos técnicos e atendentes.
-                  </p>
-                </div>
-
-                {/* Seleção de Termo de Garantia */}
-                <div className="mt-6 w-full max-w-lg mx-auto">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Termo de Garantia</label>
-                  <select
-                    className="w-full border border-gray-300 rounded px-3 py-2"
-                    value={termoSelecionado || ''}
-                    onChange={(e) => setTermoSelecionado(e.target.value || null)}
-                  >
-                    <option value="">Selecione um termo de garantia (opcional)</option>
-                    {termos.map((termo, index) => (
-                      <option key={termo.id} value={termo.id}>
-                        {index === 0 ? `${termo.nome} (Padrão)` : termo.nome}
-                      </option>
-                    ))}
-                  </select>
-                  {loadingTermos && <div className="text-xs text-gray-500 mt-1">Carregando termos...</div>}
-                  {termos.length > 0 && termoSelecionado && !loadingTermos && (
-                    <div className="text-xs text-green-600 mt-1">
-                      ✅ Termo padrão selecionado automaticamente
-                    </div>
-                  )}
-                  {termos.length === 0 && !loadingTermos && (
-                    <div className="text-xs text-gray-500 mt-1">
-                      Nenhum termo de garantia cadastrado. 
-                      <a href="/configuracoes?tab=2" className="text-blue-600 hover:underline ml-1">
-                        Cadastrar termos
-                      </a>
-                    </div>
-                  )}
-
+                {/* Prazo de Entrega e Termo de Garantia - lado a lado em telas grandes */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
+                  <div className="w-full">
+                    <label className="block text-sm font-medium text-gray-700 mb-2 text-left">Prazo de Entrega</label>
+                    <input
+                      type="datetime-local"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-black focus:border-transparent"
+                      value={prazoEntrega}
+                      onChange={(e) => setPrazoEntrega(e.target.value)}
+                      min={new Date().toISOString().slice(0, 16)}
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1 text-left">
+                      Defina quando o aparelho deve ser entregue ao cliente. Este prazo será usado para controle pelos técnicos e atendentes.
+                    </p>
+                  </div>
+                  <div className="w-full">
+                    <label className="block text-sm font-medium text-gray-700 mb-2 text-left">Termo de Garantia</label>
+                    <select
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-black focus:border-transparent"
+                      value={termoSelecionado || ''}
+                      onChange={(e) => setTermoSelecionado(e.target.value || null)}
+                    >
+                      <option value="">Selecione um termo de garantia (opcional)</option>
+                      {termos.map((termo, index) => (
+                        <option key={termo.id} value={termo.id}>
+                          {index === 0 ? `${termo.nome} (Padrão)` : termo.nome}
+                        </option>
+                      ))}
+                    </select>
+                    {loadingTermos && <p className="text-xs text-gray-500 mt-1 text-left">Carregando termos...</p>}
+                    {termos.length > 0 && termoSelecionado && !loadingTermos && (
+                      <p className="text-xs text-green-600 mt-1 text-left">
+                        ✅ Termo padrão selecionado automaticamente
+                      </p>
+                    )}
+                    {termos.length === 0 && !loadingTermos && (
+                      <p className="text-xs text-gray-500 mt-1 text-left">
+                        Nenhum termo de garantia cadastrado.{' '}
+                        <a href="/configuracoes?tab=2" className="text-blue-600 hover:underline">
+                          Cadastrar termos
+                        </a>
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Campos para produtos e serviços quando valor aprovado */}
                 {statusSelecionado === 'aprovado' && (
-                  <div className="space-y-6">
-                    <div className="border-t pt-6">
-                      <h4 className="text-sm font-medium text-gray-700 mb-4">Produtos e Serviços Aprovados</h4>
+                  <div className="space-y-6 w-full">
+                    <div className="border-t border-gray-200 pt-6">
+                      <h4 className="text-sm font-medium text-gray-700 mb-4 text-left">Produtos e Serviços Aprovados</h4>
                       
                       {/* Validação visual */}
                       {(() => {
@@ -1774,12 +1791,12 @@ function NovaOS2Content() {
               </div>
             )}
 
-            {etapaAtual === 5 && (
-              <div className="w-full max-w-2xl mx-auto flex flex-col gap-6">
-                <h3 className="text-lg font-medium text-gray-700 mb-4">Imagens do Equipamento</h3>
+            {etapaAtual === 6 && (
+              <div className="w-full flex flex-col gap-6">
+                <h3 className="text-lg font-medium text-gray-700 mb-4 text-left">Imagens do Equipamento</h3>
                 
                 <div className="space-y-4">
-                  <label className="block text-sm font-medium text-gray-700">Fotos do Equipamento</label>
+                  <label className="block text-sm font-medium text-gray-700 text-left">Fotos do Equipamento</label>
                   <div 
                     className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors"
                     onDragOver={(e) => {
@@ -1843,7 +1860,7 @@ function NovaOS2Content() {
                 {previewImagens.length > 0 && (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-medium text-gray-700">Imagens Selecionadas</h4>
+                      <h4 className="text-sm font-medium text-gray-700 text-left">Imagens Selecionadas</h4>
                       <button
                         onClick={() => {
                           setImagens([]);
@@ -1883,8 +1900,8 @@ function NovaOS2Content() {
                 )}
 
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h4 className="text-sm font-medium text-blue-700 mb-2">💡 Dica</h4>
-                  <p className="text-sm text-blue-600">
+                  <h4 className="text-sm font-medium text-blue-700 mb-2 text-left">💡 Dica</h4>
+                  <p className="text-sm text-blue-600 text-left">
                     Tire fotos do equipamento para documentar seu estado atual. 
                     Isso ajuda a evitar problemas futuros e facilita a identificação.
                   </p>
@@ -2093,7 +2110,7 @@ function NovaOS2Content() {
             </div>
           )}
         </div>
-      
+      </div>
     </MenuLayout>
   );
 }

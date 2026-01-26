@@ -221,7 +221,6 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
 
     // Verificar se o usuário tem empresa_id
     if (!data.empresa_id) {
-
       return {
         userData: {
           id: data.id,
@@ -236,7 +235,9 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
           id: null,
           nome: 'Empresa',
           plano: 'trial'
-        }
+        },
+        catalogoHabilitado: true,
+        recursosPlano: {} as Record<string, boolean>
       };
     }
     
@@ -273,7 +274,9 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
           nome: 'Empresa',
           plano: 'trial',
           ativo: true // Assumir ativa se não conseguir buscar
-        }
+        },
+        catalogoHabilitado: true,
+        recursosPlano: {} as Record<string, boolean>
       };
     }
 
@@ -282,6 +285,25 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
     if (empresaData && empresaData.ativo === false) {
       throw new Error('EMPRESA_DESATIVADA');
     }
+
+    // Buscar em paralelo: catálogo e recursos do plano (para o menu carregar de uma vez)
+    const [configRes, assinaturaRes] = await Promise.all([
+      supabase
+        .from('configuracoes_empresa')
+        .select('catalogo_habilitado')
+        .eq('empresa_id', data.empresa_id)
+        .maybeSingle(),
+      supabase
+        .from('assinaturas')
+        .select('*, planos!inner(recursos_disponiveis)')
+        .eq('empresa_id', data.empresa_id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+    ]);
+
+    // Se não houver configuração, assume catálogo habilitado (igual ao comportamento anterior do MenuLayout)
+    const catalogoHabilitado = configRes.data?.catalogo_habilitado !== false;
+    const recursosPlano = (assinaturaRes.data as any)?.[0]?.planos?.recursos_disponiveis || {};
 
     const result = {
       userData: {
@@ -304,7 +326,9 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
         logo_url: empresaData.logo_url || '',
         plano: empresaData.plano || 'trial',
         ativo: empresaData.ativo ?? true // Incluir campo ativo
-      }
+      },
+      catalogoHabilitado,
+      recursosPlano: recursosPlano || {}
     };
     
     return result;
@@ -356,7 +380,9 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
           email: '',
           logo_url: '',
           plano: 'trial'
-        }
+        },
+        catalogoHabilitado: true,
+        recursosPlano: {} as Record<string, boolean>
       };
     }
     

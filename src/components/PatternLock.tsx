@@ -8,6 +8,8 @@ interface PatternLockProps {
   value?: number[];
   disabled?: boolean;
   className?: string;
+  /** Esconde o bloco "Padrão registrado" com as coordenadas. Útil em formulários compactos. */
+  showCoordinates?: boolean;
 }
 
 export default function PatternLock({ 
@@ -15,7 +17,8 @@ export default function PatternLock({
   onPatternClear, 
   value = [], 
   disabled = false,
-  className = ""
+  className = "",
+  showCoordinates = true
 }: PatternLockProps) {
   const [selectedDots, setSelectedDots] = useState<number[]>(value);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -257,7 +260,7 @@ export default function PatternLock({
         )}
       </div>
       
-      {selectedDots.length > 0 && (
+      {showCoordinates && selectedDots.length > 0 && (
         <div className="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-600">
           <span className="font-medium">Padrão registrado:</span> {selectedDots.map((dot, index) => (
             <span key={index} className="font-mono">

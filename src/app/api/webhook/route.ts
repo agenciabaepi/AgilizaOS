@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTecnicoByWhatsApp, getComissoesTecnico, formatComissoesMessage, getSenhaOSPorNumero, formatSenhaOSMessage } from '@/lib/whatsapp-commands';
 import { getChatGPTResponse, isChatGPTAvailable } from '@/lib/chatgpt';
 import { getUsuarioByWhatsApp, getUserDataByLevel } from '@/lib/user-data';
+import { WHATSAPP_WEBHOOK_ENABLED } from '@/config/whatsapp-config';
 
 export async function GET(request: NextRequest) {
   try {
@@ -355,6 +356,15 @@ async function sendWhatsAppTextMessage(to: string, message: string): Promise<boo
 
 export async function POST(request: NextRequest) {
   try {
+    // ⚠️ VERIFICAÇÃO: Webhook WhatsApp desativado
+    if (!WHATSAPP_WEBHOOK_ENABLED) {
+      console.log('⚠️ WhatsApp Webhook desativado - ignorando requisição');
+      return NextResponse.json(
+        { status: 'disabled', message: 'WhatsApp webhook está desativado' },
+        { status: 200 }
+      );
+    }
+
     // Receber o body da requisição
     const body = await request.json();
     

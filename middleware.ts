@@ -161,8 +161,66 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    // ✅ Passou pela verificação de sessão, permitir acesso
-    // A verificação completa de permissões será feita no client-side pelo AuthGuard
+    // 🔒 SEGURANÇA CRÍTICA: Verificar acesso a dashboards específicas ANTES de servir a página
+    const dashboardRoutes = ['/dashboard', '/dashboard-tecnico', '/dashboard-atendente'];
+    const isDashboardRoute = dashboardRoutes.includes(pathname);
+    
+    if (isDashboardRoute) {
+      // Buscar dados do usuário para verificar role
+      const { data: usuarioData, error: usuarioError } = await supabase
+        .from('usuarios')
+        .select('id, nivel, empresa_id')
+        .eq('auth_user_id', session.user.id)
+        .single();
+
+      if (usuarioError || !usuarioData) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🚫 Middleware: Erro ao buscar dados do usuário para ${pathname}`);
+        }
+        const loginUrl = new URL('/login', request.url);
+        return NextResponse.redirect(loginUrl);
+      }
+
+      // Verificar se o usuário tem acesso à dashboard específica
+      const nivel = usuarioData.nivel?.toLowerCase();
+      let temAcesso = false;
+      let dashboardCorreta = '/dashboard';
+
+      if (pathname === '/dashboard') {
+        // Dashboard admin - apenas admin e usuarioteste
+        temAcesso = nivel === 'admin' || nivel === 'usuarioteste';
+        dashboardCorreta = '/dashboard';
+      } else if (pathname === '/dashboard-tecnico') {
+        // Dashboard técnico - apenas técnico
+        temAcesso = nivel === 'tecnico';
+        dashboardCorreta = '/dashboard-tecnico';
+      } else if (pathname === '/dashboard-atendente') {
+        // Dashboard atendente - apenas atendente
+        temAcesso = nivel === 'atendente';
+        dashboardCorreta = '/dashboard-atendente';
+      }
+
+      // Se não tem acesso, redirecionar imediatamente para a dashboard correta
+      if (!temAcesso) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🚫 Middleware: Usuário ${nivel} tentou acessar ${pathname}, redirecionando para ${dashboardCorreta}`);
+        }
+        
+        // Determinar dashboard correta baseada no role
+        if (nivel === 'tecnico') {
+          dashboardCorreta = '/dashboard-tecnico';
+        } else if (nivel === 'atendente') {
+          dashboardCorreta = '/dashboard-atendente';
+        } else if (nivel === 'admin' || nivel === 'usuarioteste') {
+          dashboardCorreta = '/dashboard';
+        }
+        
+        const correctDashboardUrl = new URL(dashboardCorreta, request.url);
+        return NextResponse.redirect(correctDashboardUrl);
+      }
+    }
+
+    // ✅ Passou pela verificação de sessão e permissões, permitir acesso
     return response;
 
   } catch (error) {

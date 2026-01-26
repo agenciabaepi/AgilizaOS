@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
+import { WHATSAPP_AUTOMATION_ENABLED } from '@/config/whatsapp-config';
 
 /**
  * Hook para monitorar mudanças de status das OS e enviar notificações via N8N
@@ -13,6 +14,12 @@ export function useWhatsAppNotification() {
   const { empresaData } = useAuth();
 
   useEffect(() => {
+    // ⚠️ VERIFICAÇÃO: Automações WhatsApp desativadas
+    if (!WHATSAPP_AUTOMATION_ENABLED) {
+      console.log('⚠️ WhatsApp automações desativadas - hook não será executado');
+      return;
+    }
+
     if (!empresaData?.id) {
       return;
     }

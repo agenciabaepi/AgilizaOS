@@ -36,6 +36,7 @@ import AuthGuardFinal from '@/components/AuthGuardFinal';
 import ModernPieChart from '@/components/ModernPieChart';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
+import { getDashboardPath, canAccessRoute } from '@/lib/dashboardRouting';
 
 // Função para formatar data (pode ser ajustada conforme necessidade)
 function formatarData(data: string) {
@@ -104,12 +105,35 @@ interface EventoCalendario {
 
 export default function LembretesPage() {
   // Use o contexto de autenticação apenas para dados necessários
-  const { empresaData } = useAuth();
+  const { empresaData, usuarioData, loading: authLoading } = useAuth();
   const empresa_id = empresaData?.id;
 
   const { addToast } = useToast();
   const confirm = useConfirm();
   const router = useRouter();
+  const [permissionChecked, setPermissionChecked] = useState(false);
+
+  // Proteção: verificar se usuário pode acessar esta dashboard ANTES de renderizar
+  useEffect(() => {
+    // Aguardar carregamento do auth
+    if (authLoading) return;
+    
+    // Se não tem dados do usuário ainda, aguardar
+    if (!usuarioData) return;
+    
+    // Verificar permissão
+    if (usuarioData.nivel) {
+      if (!canAccessRoute(usuarioData, '/dashboard')) {
+        const correctPath = getDashboardPath(usuarioData);
+        // Redirecionar imediatamente sem renderizar conteúdo
+        router.replace(correctPath);
+        return;
+      }
+    }
+    
+    // Se chegou aqui, tem permissão - marcar como verificado
+    setPermissionChecked(true);
+  }, [usuarioData, authLoading, router]);
 
   // Função para buscar colunas do banco
   const fetchColunas = async () => {
@@ -719,9 +743,34 @@ export default function LembretesPage() {
     );
   }
 
-  // Checagem de carregamento apenas
+  // Não renderizar nada até verificar permissão
+  // Usar useEffect para evitar hidratação mismatch
+  const [isClient, setIsClient] = useState(false);
+  
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Durante SSR ou enquanto verifica permissão, mostrar loading consistente
+  if (!isClient || authLoading || !permissionChecked) {
+    return (
+      <MenuLayout>
+        <div className="flex items-center justify-center min-h-screen bg-white">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+        </div>
+      </MenuLayout>
+    );
+  }
+
+  // Checagem de carregamento apenas (após verificação de permissão)
   if (carregando) {
-    return <div className="p-4">Carregando...</div>;
+    return (
+      <MenuLayout>
+        <div className="flex items-center justify-center min-h-screen bg-white">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+        </div>
+      </MenuLayout>
+    );
   }
 
   return (
