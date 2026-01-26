@@ -440,7 +440,8 @@ export default function ListaOrdensPage() {
         // Processar resultados
         let clientesDict: Record<string, { nome: string; telefone: string; email: string }> = {};
         if (clientesResult.status === 'fulfilled' && clientesResult.value.data) {
-          clientesDict = clientesResult.value.data.reduce((acc: Record<string, { nome: string; telefone: string; email: string }>, cliente: any) => {
+          const clientesData = clientesResult.value.data as any[];
+          clientesDict = clientesData.reduce((acc: Record<string, { nome: string; telefone: string; email: string }>, cliente: any) => {
             acc[cliente.id] = { 
               nome: cliente.nome || '', 
               telefone: cliente.telefone || '', 
@@ -452,7 +453,8 @@ export default function ListaOrdensPage() {
 
         let tecnicosDict: Record<string, string> = {};
         if (tecnicosResult.status === 'fulfilled' && tecnicosResult.value.data) {
-          tecnicosDict = tecnicosResult.value.data.reduce((acc: Record<string, string>, tecnico: any) => {
+          const tecnicosData = tecnicosResult.value.data as any[];
+          tecnicosDict = tecnicosData.reduce((acc: Record<string, string>, tecnico: any) => {
             acc[tecnico.id] = tecnico.nome || 'Sem nome';
             return acc;
           }, {} as Record<string, string>);
@@ -460,7 +462,8 @@ export default function ListaOrdensPage() {
 
         let responsaveisDict: Record<string, { nome: string; foto_url: string | null }> = {};
         if (responsaveisResult.status === 'fulfilled' && responsaveisResult.value.data) {
-          responsaveisDict = responsaveisResult.value.data.reduce((acc: Record<string, { nome: string; foto_url: string | null }>, usuario: any) => {
+          const responsaveisData = responsaveisResult.value.data as any[];
+          responsaveisDict = responsaveisData.reduce((acc: Record<string, { nome: string; foto_url: string | null }>, usuario: any) => {
             acc[usuario.id] = { nome: usuario.nome, foto_url: usuario.foto_url || null };
             return acc;
           }, {} as Record<string, { nome: string; foto_url: string | null }>);
