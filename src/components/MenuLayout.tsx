@@ -69,6 +69,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificacoesTickets, setNotificacoesTickets] = useState<any[]>([]);
+  const [isMounted, setIsMounted] = useState(false);
 
   const avatarUrl = useMemo(() => {
     if (!usuarioData?.foto_url) return null;
@@ -76,6 +77,11 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
     const cacheKey = Math.floor(lastUpdate || 0);
     return `${base}?t=${cacheKey}`;
   }, [usuarioData?.foto_url, lastUpdate]);
+
+  // ✅ FIX: Garantir que servidor e cliente renderizem a mesma coisa inicialmente
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
 
   // ✅ DESABILITADO TEMPORARIAMENTE: Hook muito pesado, causando lentidão
@@ -260,7 +266,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
         </div>
         {/* Menu */}
         <nav className="flex flex-col gap-2 flex-1">
-          {!userDataReady ? (
+          {!isMounted || !userDataReady ? (
             <>
               {[1, 2, 3, 4, 5, 6].map((i) => (
                 <div key={i} className="h-12 rounded-lg bg-white/10 animate-pulse" />
@@ -513,7 +519,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               />
             </div>
             <nav className="flex flex-col gap-1">
-              {!userDataReady ? (
+              {!isMounted || !userDataReady ? (
                 <>
                   {[1, 2, 3, 4, 5].map((i) => (
                     <div key={i} className="h-12 rounded-lg bg-white/10 animate-pulse" />
@@ -927,7 +933,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             
             {/* Navegação mobile */}
             <nav className="flex flex-col p-4 space-y-2 overflow-y-auto flex-1 min-h-0">
-              {!userDataReady ? (
+              {!isMounted || !userDataReady ? (
                 <>
                   {[1, 2, 3, 4, 5].map((i) => (
                     <div key={i} className="h-12 rounded-lg bg-gray-700 animate-pulse" />

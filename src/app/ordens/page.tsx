@@ -268,16 +268,11 @@ export default function ListaOrdensPage() {
   };
 
   const fetchOrdens = async (forceRefresh = false) => {
-    console.log('🚀 fetchOrdens chamado com:', { empresaId, forceRefresh });
-    
     if (!empresaId || !empresaId.trim()) {
-      console.warn('⚠️ empresaId não disponível:', empresaId);
       setLoading(false);
       setLoadingOrdens(false);
       return;
     }
-    
-    console.log('✅ empresaId válido:', empresaId);
 
     // ✅ REFRESH AUTOMÁTICO: Refrescar sessão se houver problemas de conexão
     try {
@@ -308,10 +303,7 @@ export default function ListaOrdensPage() {
     
     try {
       await executeWithRetry(async () => {
-      // ✅ QUERY SIMPLIFICADA: Primeiro buscar apenas dados básicos sem relacionamentos
-      // Se funcionar, adicionamos os relacionamentos depois
-      console.log('🔄 Iniciando busca de ordens para empresa:', empresaId);
-      
+      // ✅ OTIMIZADO: Query simplificada com menos campos e limite reduzido
       let query = supabase
         .from('ordens_servico')
         .select(`
@@ -325,9 +317,6 @@ export default function ListaOrdensPage() {
           status_tecnico,
           created_at,
           tecnico_id,
-          tecnico:tecnico_id (
-            nome
-          ),
           data_entrega,
           prazo_entrega,
           valor_faturado,
@@ -342,21 +331,21 @@ export default function ListaOrdensPage() {
           problema_relatado,
           atendente,
           atendente_id,
-          cliente_recusou
+          cliente_recusou,
+          vencimento_garantia
         `)
         .eq("empresa_id", empresaId)
         .order('created_at', { ascending: false })
-        .limit(1000);
+        .limit(500); // ✅ Reduzido de 1000 para 500
       
-      console.log('📝 Query criada, executando...');
-
       // Executar query e tratar erros
       let queryResult: any;
       try {
+        // ✅ OTIMIZADO: Timeout reduzido para 15 segundos (mais responsivo)
         queryResult = await Promise.race([
           query,
           new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Query timeout - dados demorando muito para carregar')), 30000)
+            setTimeout(() => reject(new Error('Query timeout - dados demorando muito para carregar')), 15000)
           )
         ]);
       } catch (timeoutError) {
@@ -366,22 +355,9 @@ export default function ListaOrdensPage() {
       
       let { data, error } = queryResult || { data: null, error: null };
       
-      // Log detalhado para debug
+      // Log apenas erros críticos
       if (error) {
-        console.error('❌ Erro na query de ordens:', error);
-        console.error('❌ Detalhes do erro:', {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint
-        });
-        console.error('❌ Query completa que falhou:', {
-          empresaId: empresaId,
-          table: 'ordens_servico',
-          filters: { empresa_id: empresaId }
-        });
-      } else {
-        console.log('✅ Query executada com sucesso!');
+        console.error('❌ Erro na query de ordens:', error.message || error);
       }
       
       // Tratar erros: NUNCA ignorar erros reais
@@ -422,226 +398,152 @@ export default function ListaOrdensPage() {
         data = data ? [data] : [];
       }
       
-      console.log('📊 Dados recebidos da query:', {
-        quantidade: data?.length || 0,
-        temDados: !!data && Array.isArray(data) && data.length > 0,
-        tipoData: Array.isArray(data) ? 'array' : typeof data,
-        primeiroItem: data && Array.isArray(data) && data.length > 0 ? {
-          id: data[0].id,
-          numero_os: data[0].numero_os,
-          atendente: data[0].atendente,
-          atendente_id: data[0].atendente_id,
-          cliente_id: data[0].cliente_id,
-          empresa_id: data[0].empresa_id
-        } : null,
-        empresaId: empresaId,
-        temErro: !!error,
-        erroDetalhes: error ? {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint
-        } : null
-      });
-      
-      // Se não houver dados E não houver erro, pode ser que não existam ordens
-      if ((!data || (Array.isArray(data) && data.length === 0)) && !error) {
-        console.log('ℹ️ Nenhuma ordem encontrada para esta empresa (sem erro)');
-      }
-      
       // Processar dados mesmo se estiver vazio (para limpar estado anterior)
       if (data && data.length > 0) {
-        console.log('✅ Dados recebidos, processando...', data.length, 'ordens');
 
+        // ✅ OTIMIZADO: Ordenar dados (já vem ordenado do banco, mas garantir)
         data.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         
-        // Buscar dados dos clientes separadamente
+        // ✅ OTIMIZADO: Buscar dados relacionados em paralelo para reduzir tempo total
         const clienteIds = [...new Set(data.filter((item: any) => item.cliente_id).map((item: any) => item.cliente_id))];
-        let clientesDict: Record<string, { nome: string; telefone: string; email: string }> = {};
-        
-        if (clienteIds.length > 0) {
-          console.log('🔍 Buscando dados de', clienteIds.length, 'clientes...');
-          const { data: clientesData, error: clientesError } = await supabase
-            .from('clientes')
-            .select('id, nome, telefone, email')
-            .in('id', clienteIds);
-          
-          if (clientesError) {
-            console.warn('⚠️ Erro ao buscar clientes:', clientesError);
-          } else if (clientesData) {
-            clientesDict = clientesData.reduce((acc: Record<string, { nome: string; telefone: string; email: string }>, cliente: any) => {
-              acc[cliente.id] = { 
-                nome: cliente.nome || '', 
-                telefone: cliente.telefone || '', 
-                email: cliente.email || '' 
-              };
-              return acc;
-            }, {} as Record<string, { nome: string; telefone: string; email: string }>);
-            console.log('✅ Dados de clientes carregados:', Object.keys(clientesDict).length);
-          }
-        }
-        
-        // Buscar nomes dos técnicos se necessário
         const tecnicoIds = [...new Set(
           data
             .filter((item: any) => item.tecnico_id && item.tecnico_id !== null && item.tecnico_id !== undefined)
             .map((item: any) => String(item.tecnico_id))
         )] as string[];
-        let tecnicosDict: Record<string, string> = {};
-        
-        console.log('📊 Total de ordens:', data.length);
-        console.log('📊 Ordens com tecnico_id:', data.filter((item: any) => item.tecnico_id).length);
-        console.log('📊 IDs únicos de técnicos encontrados:', tecnicoIds.length, tecnicoIds);
-        
-        if (tecnicoIds.length > 0) {
-          console.log('🔍 Buscando dados de', tecnicoIds.length, 'técnicos...', tecnicoIds);
-          // Buscar técnicos por IDs (sem filtrar por empresa para evitar problemas de RLS)
-          const { data: tecnicosData, error: tecnicosError } = await supabase
-            .from('usuarios')
-            .select('id, nome')
-            .in('id', tecnicoIds);
-          
-          if (tecnicosError) {
-            console.error('❌ Erro ao buscar técnicos:', tecnicosError);
-            console.error('❌ Detalhes do erro:', {
-              message: tecnicosError.message,
-              code: tecnicosError.code,
-              details: tecnicosError.details,
-              hint: tecnicosError.hint
-            });
-          } else if (tecnicosData && tecnicosData.length > 0) {
-            tecnicosDict = tecnicosData.reduce((acc: Record<string, string>, tecnico: any) => {
-              acc[tecnico.id] = tecnico.nome || 'Sem nome';
-              return acc;
-            }, {} as Record<string, string>);
-            console.log('✅ Dados de técnicos carregados:', Object.keys(tecnicosDict).length, tecnicosDict);
-            
-            // Verificar se algum técnico não foi encontrado
-            const tecnicosNaoEncontrados = tecnicoIds.filter((id: string) => !tecnicosDict[id]);
-            if (tecnicosNaoEncontrados.length > 0) {
-              console.warn('⚠️ Técnicos não encontrados (pode ser problema de RLS ou IDs inválidos):', tecnicosNaoEncontrados);
-          }
-          } else {
-            console.warn('⚠️ Nenhum técnico encontrado para os IDs:', tecnicoIds);
-            console.warn('⚠️ Isso pode indicar problema de RLS ou que os técnicos não existem na empresa:', empresaId);
-          }
-        } else {
-          console.warn('⚠️ Nenhum tecnico_id válido encontrado nas ordens');
-        }
-        
-        // Buscar IDs dos responsáveis (atendentes) se atendente_id existir
         const responsavelIds = [...new Set(data
           .filter((item: any) => item.atendente_id && item.atendente_id !== null && item.atendente_id !== undefined)
           .map((item: any) => item.atendente_id))];
-        let responsaveisDict: Record<string, { nome: string; foto_url: string | null }> = {};
 
-        if (responsavelIds.length > 0) {
-          console.log('🔍 Buscando dados de', responsavelIds.length, 'atendentes...');
-          const { data: responsaveisData, error: responsaveisError } = await supabase
-            .from('usuarios')
-            .select('id, nome, foto_url')
-            .in('id', responsavelIds);
+        // ✅ Executar todas as queries de relacionamento em paralelo
+        const [clientesResult, tecnicosResult, responsaveisResult] = await Promise.allSettled([
+          clienteIds.length > 0 
+            ? supabase
+                .from('clientes')
+                .select('id, nome, telefone, email')
+                .in('id', clienteIds)
+            : Promise.resolve({ data: [], error: null }),
+          tecnicoIds.length > 0
+            ? supabase
+                .from('usuarios')
+                .select('id, nome')
+                .in('id', tecnicoIds)
+            : Promise.resolve({ data: [], error: null }),
+          responsavelIds.length > 0
+            ? supabase
+                .from('usuarios')
+                .select('id, nome, foto_url')
+                .in('id', responsavelIds)
+            : Promise.resolve({ data: [], error: null })
+        ]);
 
-          if (responsaveisError) {
-            console.warn('⚠️ Erro ao buscar atendentes:', responsaveisError);
-          } else if (responsaveisData) {
-            responsaveisDict = responsaveisData.reduce((acc: Record<string, { nome: string; foto_url: string | null }>, usuario: any) => {
-              acc[usuario.id] = { nome: usuario.nome, foto_url: usuario.foto_url || null };
-              return acc;
-            }, {} as Record<string, { nome: string; foto_url: string | null }>);
-            console.log('✅ Dados de atendentes carregados:', Object.keys(responsaveisDict).length);
-          }
+        // Processar resultados
+        let clientesDict: Record<string, { nome: string; telefone: string; email: string }> = {};
+        if (clientesResult.status === 'fulfilled' && clientesResult.value.data) {
+          clientesDict = clientesResult.value.data.reduce((acc: Record<string, { nome: string; telefone: string; email: string }>, cliente: any) => {
+            acc[cliente.id] = { 
+              nome: cliente.nome || '', 
+              telefone: cliente.telefone || '', 
+              email: cliente.email || '' 
+            };
+            return acc;
+          }, {} as Record<string, { nome: string; telefone: string; email: string }>);
         }
 
-        // ✅ OTIMIZADO: Busca de vendas por cliente (contém forma de pagamento real)
+        let tecnicosDict: Record<string, string> = {};
+        if (tecnicosResult.status === 'fulfilled' && tecnicosResult.value.data) {
+          tecnicosDict = tecnicosResult.value.data.reduce((acc: Record<string, string>, tecnico: any) => {
+            acc[tecnico.id] = tecnico.nome || 'Sem nome';
+            return acc;
+          }, {} as Record<string, string>);
+        }
+
+        let responsaveisDict: Record<string, { nome: string; foto_url: string | null }> = {};
+        if (responsaveisResult.status === 'fulfilled' && responsaveisResult.value.data) {
+          responsaveisDict = responsaveisResult.value.data.reduce((acc: Record<string, { nome: string; foto_url: string | null }>, usuario: any) => {
+            acc[usuario.id] = { nome: usuario.nome, foto_url: usuario.foto_url || null };
+            return acc;
+          }, {} as Record<string, { nome: string; foto_url: string | null }>);
+        }
+
+        // ✅ OTIMIZADO: Buscar vendas e contas_pagar apenas para OSs que realmente precisam (lazy loading)
         const vendasDict: Record<string, any> = {};
+        const custosPorOS: Record<string, number> = {};
         
-        try {
-          const vendasTimeoutPromise =         new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Vendas timeout')), 30000) // 30 segundos - mais tolerante
-          );
+        // Filtrar apenas OSs entregues/finalizadas que precisam de venda
+        const osIds = data.map((d: any) => d.id);
+        const osEntregues = data.filter((os: any) => {
+          const valorFaturado = os.valor_faturado || 0;
+          return valorFaturado > 0 && 
+                 !os.cliente_recusou && 
+                 (os.status === 'ENTREGUE' || os.status_tecnico === 'FINALIZADA');
+        });
+        
+        // ✅ Buscar vendas e contas_pagar apenas se houver OSs entregues (reduz carga)
+        if (osEntregues.length > 0) {
+          try {
+            // Buscar vendas e contas em paralelo
+            const [vendasResult, contasResult] = await Promise.allSettled([
+              supabase
+                .from('vendas')
+                .select('id, cliente_id, forma_pagamento, total, status, observacoes')
+                .eq('empresa_id', empresaId)
+                .in('cliente_id', [...new Set(osEntregues.map((os: any) => os.cliente_id))])
+                .order('data_venda', { ascending: false })
+                .limit(200), // ✅ Reduzido de 500 para 200
+              supabase
+                .from('contas_pagar')
+                .select('id, os_id, valor, status, tipo')
+                .eq('empresa_id', empresaId)
+                .in('os_id', osIds)
+                .in('tipo', ['pecas', 'servicos'])
+            ]);
 
-          const vendasQueryPromise = supabase
-            .from('vendas')
-            .select('id, cliente_id, forma_pagamento, total, status, data_venda, observacoes')
-            .eq('empresa_id', empresaId)
-            .order('data_venda', { ascending: false })
-            .limit(500); // Limitar resultados
-
-          const { data: todasVendas, error: errorVendas } = await Promise.race([
-            vendasQueryPromise,
-            vendasTimeoutPromise
-          ]) as any;
-          
-          if (errorVendas) {
-            console.warn('⚠️ Erro ao buscar vendas:', errorVendas);
-          } else if (todasVendas) {
-            // ✅ OTIMIZADO: Processar apenas OSs que realmente precisam de venda
-            // Excluir OSs onde cliente recusou (campo cliente_recusou = true) mesmo que status seja ENTREGUE
-            const osEntregues = data.filter((os: any) => {
-              const valorFaturado = os.valor_faturado || 0;
-              
-              // Só buscar venda se: tem valor faturado > 0, cliente NÃO recusou E está entregue
-              return valorFaturado > 0 && 
-                     !os.cliente_recusou && // Cliente não recusou
-                     (os.status === 'ENTREGUE' || os.status_tecnico === 'FINALIZADA');
-            });
-            
-            osEntregues.forEach((os: any) => {
-              // Buscar venda específica da O.S. através das observações
-              const vendaOS = todasVendas.find((v: any) => 
-                v.observacoes?.includes(`O.S. #${os.numero_os}`) || 
-                v.observacoes?.includes(`OS #${os.numero_os}`)
-              );
-              
-              // Se não encontrar venda específica, buscar por cliente e valor próximo
-              if (!vendaOS) {
-                const vendaCliente = todasVendas
-                  .filter((v: any) => v.cliente_id === os.cliente_id)
-                  .find((v: any) => Math.abs(v.total - (os.valor_faturado || 0)) <= 5); // Tolerância de R$ 5
+            // Processar vendas
+            if (vendasResult.status === 'fulfilled' && vendasResult.value.data) {
+              const todasVendas = vendasResult.value.data;
+              osEntregues.forEach((os: any) => {
+                const vendaOS = todasVendas.find((v: any) => 
+                  v.observacoes?.includes(`O.S. #${os.numero_os}`) || 
+                  v.observacoes?.includes(`OS #${os.numero_os}`)
+                );
                 
-                if (vendaCliente) {
+                if (!vendaOS) {
+                  const vendaCliente = todasVendas
+                    .filter((v: any) => v.cliente_id === os.cliente_id)
+                    .find((v: any) => Math.abs(v.total - (os.valor_faturado || 0)) <= 5);
+                  
+                  if (vendaCliente) {
+                    vendasDict[os.id] = {
+                      id: vendaCliente.id,
+                      forma_pagamento: vendaCliente.forma_pagamento,
+                      total: vendaCliente.total,
+                      status: vendaCliente.status
+                    };
+                  }
+                } else {
                   vendasDict[os.id] = {
-                    id: vendaCliente.id,
-                    forma_pagamento: vendaCliente.forma_pagamento,
-                    total: vendaCliente.total,
-                    status: vendaCliente.status
+                    id: vendaOS.id,
+                    forma_pagamento: vendaOS.forma_pagamento,
+                    total: vendaOS.total,
+                    status: vendaOS.status
                   };
                 }
-              } else {
-                vendasDict[os.id] = {
-                  id: vendaOS.id,
-                  forma_pagamento: vendaOS.forma_pagamento,
-                  total: vendaOS.total,
-                  status: vendaOS.status
-                };
-              }
-            });
-          }
-        } catch (error) {
-          console.warn('⚠️ Timeout na busca de vendas:', error);
-          // Continuar sem dados de vendas
-        }
+              });
+            }
 
-        // Buscar custos por OS (contas_pagar vinculadas) em paralelo
-        const osIds = data.map((d: any) => d.id);
-        const custosPorOS: Record<string, number> = {};
-        try {
-          const { data: contasData } = await supabase
-            .from('contas_pagar')
-            .select('id, os_id, valor, status, tipo')
-            .eq('empresa_id', empresaId)
-            .in('os_id', osIds);
-          (contasData || []).forEach((c: any) => {
-            // considerar custos previstos: contas de pecas/servicos que estejam pendentes ou pagas
-            const relevante = (c.tipo === 'pecas' || c.tipo === 'servicos');
-            if (!relevante) return;
-            const valor = Number(c.valor || 0);
-            if (!custosPorOS[c.os_id]) custosPorOS[c.os_id] = 0;
-            custosPorOS[c.os_id] += valor;
-          });
-        } catch (e) {
-          // segue sem custos
+            // Processar contas_pagar
+            if (contasResult.status === 'fulfilled' && contasResult.value.data) {
+              (contasResult.value.data || []).forEach((c: any) => {
+                const valor = Number(c.valor || 0);
+                if (!custosPorOS[c.os_id]) custosPorOS[c.os_id] = 0;
+                custosPorOS[c.os_id] += valor;
+              });
+            }
+          } catch (e) {
+            console.warn('⚠️ Erro ao buscar vendas/contas:', e);
+            // Continuar sem dados
+          }
         }
 
         const mapped = data.map((item: any) => {
@@ -674,13 +576,9 @@ export default function ListaOrdensPage() {
 
           const clienteInfo = item.cliente_id ? clientesDict[item.cliente_id] : null;
           
-          // Buscar nome do técnico - usar o relacionamento direto se disponível, senão usar o dict
+          // ✅ OTIMIZADO: Buscar nome do técnico do dict (mais rápido que relacionamento)
           let tecnicoNome = 'Sem técnico';
-          if (item.tecnico && item.tecnico.nome) {
-            // Se o relacionamento direto funcionou (como na página de visualização)
-            tecnicoNome = item.tecnico.nome;
-          } else if (item.tecnico_id && tecnicosDict[item.tecnico_id]) {
-            // Fallback para o dict (busca separada)
+          if (item.tecnico_id && tecnicosDict[item.tecnico_id]) {
             tecnicoNome = tecnicosDict[item.tecnico_id];
           } else if (item.tecnico_id) {
             tecnicoNome = 'Técnico não encontrado';
@@ -1169,17 +1067,6 @@ export default function ListaOrdensPage() {
               </p>
             </div>
             <div className="flex gap-3 w-full md:w-auto">
-              <Button
-                onClick={() => fetchOrdens(true)}
-                variant="outline"
-                size="lg"
-                disabled={loadingOrdens || retryState.isRetrying}
-                className="px-4 py-3 text-sm font-semibold"
-              >
-                <FiRefreshCw className={`w-4 h-4 mr-2 ${(loadingOrdens || retryState.isRetrying) ? 'animate-spin' : ''}`} />
-                {retryState.isRetrying ? `Tentando... (${retryState.currentAttempt}/3)` : 
-                 loadingOrdens ? 'Atualizando...' : 'Atualizar'}
-              </Button>
               <Button
                 onClick={() => router.push("/nova-os")}
                 size="lg"
