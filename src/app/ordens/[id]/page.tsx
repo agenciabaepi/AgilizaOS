@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import MenuLayout from '@/components/MenuLayout';
 
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
-import { FiArrowLeft, FiEdit, FiPrinter, FiDollarSign, FiMessageCircle, FiUser, FiSmartphone, FiFileText, FiCalendar, FiShield, FiTool, FiPackage, FiCheckCircle, FiClock, FiRefreshCw, FiExternalLink, FiAlertTriangle } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit, FiPrinter, FiChevronDown, FiDollarSign, FiMessageCircle, FiUser, FiSmartphone, FiFileText, FiCalendar, FiShield, FiTool, FiPackage, FiCheckCircle, FiClock, FiRefreshCw, FiExternalLink, FiAlertTriangle } from 'react-icons/fi';
+import { FaWhatsapp } from 'react-icons/fa';
 import ImagensOS from '@/components/ImagensOS';
 import ChecklistViewer from '@/components/ChecklistViewer';
 import { useToast } from '@/hooks/useToast';
@@ -38,6 +39,18 @@ const VisualizarOrdemServicoPage = () => {
   const [processandoEntrega, setProcessandoEntrega] = useState(false);
   const [termosGarantia, setTermosGarantia] = useState<any[]>([]);
   const [clienteRecusou, setClienteRecusou] = useState(false); // Nova opção
+  const [imprimirMenuOpen, setImprimirMenuOpen] = useState(false);
+  const imprimirMenuRef = useRef<HTMLDivElement>(null);
+  const [linkPublicoAtivo, setLinkPublicoAtivo] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (!imprimirMenuOpen) return;
+    const h = (e: MouseEvent) => {
+      if (imprimirMenuRef.current && !imprimirMenuRef.current.contains(e.target as Node)) setImprimirMenuOpen(false);
+    };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [imprimirMenuOpen]);
 
   useEffect(() => {
     const fetchOrdem = async () => {
@@ -101,12 +114,8 @@ const VisualizarOrdemServicoPage = () => {
           .single();
 
         if (error) {
-          console.error('Erro ao carregar OS:', error);
-          console.error('Detalhes do erro:', {
-            message: error.message,
-            details: error.details,
-            hint: error.hint
-          });
+          const errMsg = error?.message || error?.code || JSON.stringify(error);
+          console.error('Erro ao carregar OS:', errMsg, error);
         } else {
           // Mapear campos para compatibilidade com a interface
           const ordemMapeada = {
@@ -117,6 +126,13 @@ const VisualizarOrdemServicoPage = () => {
           
           setOrdem(ordemMapeada);
           setRelatoEditavel(data.problema_relatado || '');
+          setLinkPublicoAtivo(true); // padrão ao trocar de OS
+          // Buscar link_publico_ativo da empresa em consulta separada (evita quebrar se a coluna não existir)
+          if (data.empresa_id) {
+            void Promise.resolve(supabase.from('empresas').select('link_publico_ativo').eq('id', data.empresa_id).single())
+              .then(({ data: emp }) => { if (typeof emp?.link_publico_ativo === 'boolean') setLinkPublicoAtivo(emp.link_publico_ativo); })
+              .catch(() => { /* mantém true se coluna não existir ou der erro */ });
+          }
           // Buscar custos vinculados à OS (contas_pagar por os_id)
           try {
             const { data: contas } = await supabase
@@ -133,7 +149,8 @@ const VisualizarOrdemServicoPage = () => {
           }
         }
       } catch (error) {
-        console.error('Erro ao carregar OS:', error);
+        const errMsg = error instanceof Error ? error.message : String(error);
+        console.error('Erro ao carregar OS:', errMsg, error);
       } finally {
         setLoading(false);
       }
@@ -446,6 +463,16 @@ const VisualizarOrdemServicoPage = () => {
     return { valorPrevisto: valorFinal, custoPrevisto, lucroPrevisto, margemPrevista };
   };
 
+  const abrirWhatsApp = () => {
+    const raw = (ordem?.cliente?.telefone || '').replace(/\D/g, '');
+    if (raw.length < 10) {
+      addToast('Telefone do cliente não informado ou inválido', 'error');
+      return;
+    }
+    const numero = !raw.startsWith('55') ? '55' + raw : raw;
+    window.open(`https://wa.me/${numero}`, '_blank');
+  };
+
   if (loading) {
     return (
       <MenuLayout>
@@ -484,66 +511,112 @@ const VisualizarOrdemServicoPage = () => {
       <MenuLayout>
         <div className="p-8">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:justify-between sm:items-center gap-4 sm:gap-6 mb-8">
+            {/* Voltar + Título (esquerda) */}
+            <div className="flex items-center gap-4 min-w-0">
               <button
                 onClick={() => router.push('/ordens')}
-                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors shrink-0"
               >
                 <FiArrowLeft className="w-5 h-5" />
-                <span>Voltar</span>
+                <span className="hidden sm:inline">Voltar</span>
               </button>
-              <div className="h-6 w-px bg-gray-300"></div>
-                             <div>
-                 <div className="flex items-center gap-3">
-                   <h1 className="text-3xl font-bold text-gray-900">
-                     OS #{ordem.numero_os}
-                   </h1>
-                   {isRetorno(ordem) && (
-                     <div className="flex items-center gap-2 px-3 py-1 bg-red-50 border border-red-200 rounded-full">
-                       <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                       <span className="text-sm font-medium text-red-700">Retorno</span>
-                     </div>
-                   )}
-                 </div>
-                 <p className="text-gray-600 mt-1">
-                   Criada em {formatDate(ordem.created_at)}
-                 </p>
-               </div>
+              <div className="h-6 w-px bg-gray-300 hidden sm:block" />
+              <div className="min-w-0">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                    OS #{ordem.numero_os}
+                  </h1>
+                  {isRetorno(ordem) && (
+                    <span className="inline-flex items-center gap-2 px-3 py-1 bg-red-50 border border-red-200 rounded-full">
+                      <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                      <span className="text-sm font-medium text-red-700">Retorno</span>
+                    </span>
+                  )}
+                </div>
+                <p className="text-gray-600 mt-0.5 text-sm sm:text-base">
+                  Criada em {formatDate(ordem.created_at)}
+                </p>
+              </div>
             </div>
-            
-            {/* Botões de ação */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => router.push(`/ordens/${id}/editar`)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <FiEdit className="w-4 h-4" />
-                Editar
-              </button>
-              <button
-                onClick={() => window.open(`/ordens/${id}/imprimir`, '_blank')}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-              >
-                <FiPrinter className="w-4 h-4" />
-                Imprimir
-              </button>
-              <button
-                onClick={() => window.open(`/os/${ordem?.id}/status`, '_blank')}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-              >
-                <FiExternalLink className="w-4 h-4" />
-                Ver Status Público
-              </button>
-              {ordem.status !== 'ENTREGUE' && (
+
+            {/* Botões de ação — direita */}
+            <div className="flex flex-wrap items-center justify-end gap-3 shrink-0">
+              {/* Editar / Imprimir (dropdown) */}
+              <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setModalEntrega(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  onClick={() => router.push(`/ordens/${id}/editar`)}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
-                  <FiPackage className="w-4 h-4" />
-                  Entregar O.S.
+                  <FiEdit className="w-4 h-4 shrink-0" />
+                  Editar
                 </button>
-              )}
+                <div className="relative" ref={imprimirMenuRef}>
+                  <button
+                    onClick={() => setImprimirMenuOpen((o) => !o)}
+                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                  >
+                    <FiPrinter className="w-4 h-4 shrink-0" />
+                    Imprimir
+                    <FiChevronDown className={`w-4 h-4 shrink-0 transition-transform ${imprimirMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {imprimirMenuOpen && (
+                    <div className="absolute left-0 top-full z-50 mt-1 w-56 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                      <button
+                        onClick={() => { window.open(`/ordens/${id}/imprimir`, '_blank'); setImprimirMenuOpen(false); }}
+                        className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        Padrão (A4 completo)
+                      </button>
+                      <button
+                        onClick={() => { window.open(`/ordens/${id}/imprimir/cupom`, '_blank'); setImprimirMenuOpen(false); }}
+                        className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        Cupom (receituário)
+                      </button>
+                      <button
+                        onClick={() => { window.open(`/ordens/${id}/imprimir/2vias`, '_blank'); setImprimirMenuOpen(false); }}
+                        className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        2 Vias (meia folha A4)
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* WhatsApp: Conversar */}
+              <button
+                onClick={abrirWhatsApp}
+                className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                title="Abrir conversa com o cliente no WhatsApp"
+              >
+                <FaWhatsapp className="w-4 h-4 shrink-0" />
+                Conversar
+              </button>
+
+              {/* Ver Status + Entregar */}
+              <div className="flex items-center gap-2">
+                {linkPublicoAtivo && (
+                  <button
+                    onClick={() => window.open(`/os/${ordem?.id}/status`, '_blank')}
+                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                    title="Abrir página de acompanhamento para o cliente"
+                  >
+                    <FiExternalLink className="w-4 h-4 shrink-0" />
+                    Ver Status
+                  </button>
+                )}
+                {ordem.status !== 'ENTREGUE' && (
+                  <button
+                    onClick={() => setModalEntrega(true)}
+                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                  >
+                    <FiPackage className="w-4 h-4 shrink-0" />
+                    Entregar O.S.
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -660,7 +733,7 @@ const VisualizarOrdemServicoPage = () => {
                   />
                 </div>
               )}
-              {(ordem.senha_aparelho || ordem.senha_padrao || ordem.senha_acesso) && (
+              {(ordem.senha_aparelho || ordem.senha_padrao || (linkPublicoAtivo && ordem.senha_acesso)) && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="p-2 bg-indigo-100 rounded-lg">
@@ -670,7 +743,7 @@ const VisualizarOrdemServicoPage = () => {
                   </div>
                   
                   <div className="space-y-4">
-                    {ordem.senha_acesso && (
+                    {linkPublicoAtivo && ordem.senha_acesso && (
                       <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
                         <div className="p-1.5 bg-blue-100 rounded">
                           <FiExternalLink className="w-4 h-4 text-blue-600" />

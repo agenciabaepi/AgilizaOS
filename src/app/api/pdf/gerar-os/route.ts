@@ -1,103 +1,67 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateOSPDF } from '@/lib/chromium';
-import { supabase } from '@/lib/supabaseClient';
+import { createAdminClient } from '@/lib/supabaseClient';
+import { generateOSPDF } from '@/lib/pdfOS';
 
-export async function POST(request: NextRequest) {
-  try {
-    const { osId } = await request.json();
-    
-    if (!osId) {
-      return NextResponse.json(
-        { error: 'ID da OS é obrigatório' },
-        { status: 400 }
-      );
-    }
-    
-    // Buscar dados da OS
-    const { data: osData, error } = await supabase
-      .from('ordens_servico')
-      .select(`
-        *,
-        clientes!cliente_id(nome, telefone, email)
-      `)
-      .eq('id', osId)
-      .single();
-    
-    if (error || !osData) {
-      return NextResponse.json(
-        { error: 'OS não encontrada' },
-        { status: 404 }
-      );
-    }
-    
-    // Gerar PDF
-    const pdfBuffer = await generateOSPDF(osData);
-    
-    // Retornar PDF como resposta
-    return new NextResponse(pdfBuffer, {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="OS-${osData.numero_os}.pdf"`,
-        'Content-Length': pdfBuffer.length.toString(),
-      },
-    });
-    
-  } catch (error) {
-    console.error('Erro ao gerar PDF da OS:', error);
-    return NextResponse.json(
-      { error: 'Erro interno do servidor' },
-      { status: 500 }
-    );
-  }
-}
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
+/**
+ * GET /api/pdf/gerar-os?osId=xxx
+ * Gera o PDF da Ordem de Serviço e retorna o arquivo.
+ */
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const osId = searchParams.get('osId');
-  
-  if (!osId) {
-    return NextResponse.json(
-      { error: 'ID da OS é obrigatório' },
-      { status: 400 }
-    );
-  }
-  
   try {
-    // Buscar dados da OS
-    const { data: osData, error } = await supabase
+    const osId = request.nextUrl.searchParams.get('osId');
+    if (!osId) {
+      return NextResponse.json({ error: 'osId é obrigatório' }, { status: 400 });
+    }
+
+    const supabase = createAdminClient();
+
+    const { data, error } = await supabase
       .from('ordens_servico')
       .select(`
-        *,
-        clientes!cliente_id(nome, telefone, email)
+        id,
+        numero_os,
+        created_at,
+        marca,
+        modelo,
+        problema_relatado,
+        status,
+        servico,
+        observacao,
+        laudo,
+        clientes(nome, telefone, email)
       `)
       .eq('id', osId)
       .single();
-    
-    if (error || !osData) {
-      return NextResponse.json(
-        { error: 'OS não encontrada' },
-        { status: 404 }
-      );
+
+    if (error || !data) {
+      console.error('Erro ao buscar OS para PDF:', error);
+      return NextResponse.json({ error: 'Ordem de serviço não encontrada' }, { status: 404 });
     }
-    
-    // Gerar PDF
+
+    const cliente = (data as any).clientes ?? (data as any).cliente ?? null;
+    const osData = {
+      ...data,
+      clientes: cliente,
+      observacoes: data.observacao ?? '',
+      orcamento: (data as any).orcamento ?? '',
+    };
+
     const pdfBuffer = await generateOSPDF(osData);
-    
-    // Retornar PDF como resposta
-    return new NextResponse(pdfBuffer, {
+
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="OS-${osData.numero_os}.pdf"`,
-        'Content-Length': pdfBuffer.length.toString(),
+        'Content-Disposition': `attachment; filename="OS-${data.numero_os || data.id}.pdf"`,
       },
     });
-    
-  } catch (error) {
-    console.error('Erro ao gerar PDF da OS:', error);
+  } catch (err) {
+    console.error('Erro ao gerar PDF da OS:', err);
     return NextResponse.json(
-      { error: 'Erro interno do servidor' },
+      { error: err instanceof Error ? err.message : 'Erro ao gerar PDF' },
       { status: 500 }
     );
   }
