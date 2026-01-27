@@ -563,10 +563,10 @@ export default function ConfigEmpresaContent() {
                       <Button
                         size="sm"
                         onClick={saveEmpresa}
-                        disabled={loading || uploadingLogo}
+                        disabled={loading || uploadingLogoClaro || uploadingLogoEscuro}
                       >
                         <FiSave className="w-4 h-4 mr-2" />
-                        {loading || uploadingLogo ? 'Salvando...' : 'Salvar'}
+                        {loading || uploadingLogoClaro || uploadingLogoEscuro ? 'Salvando...' : 'Salvar'}
                       </Button>
                     </>
                   ) : (
