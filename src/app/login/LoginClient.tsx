@@ -741,8 +741,8 @@ function LoginClientInner() {
               <Image 
                 src={logo} 
                 alt="Consert Logo" 
-                width={140} 
-                height={140}
+                width={240} 
+                height={240}
                 className="transition-all duration-300 hover:scale-105"
               />
             </div>

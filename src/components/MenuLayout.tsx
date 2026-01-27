@@ -70,13 +70,20 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificacoesTickets, setNotificacoesTickets] = useState<any[]>([]);
   const [isMounted, setIsMounted] = useState(false);
-
+ 
   const avatarUrl = useMemo(() => {
     if (!usuarioData?.foto_url) return null;
     const base = usuarioData.foto_url.split('?')[0];
     const cacheKey = Math.floor(lastUpdate || 0);
     return `${base}?t=${cacheKey}`;
   }, [usuarioData?.foto_url, lastUpdate]);
+
+  const empresaLogoUrl = useMemo(() => {
+    if (!empresaData?.logo_url) return null;
+    const base = empresaData.logo_url.split('?')[0];
+    const cacheKey = Math.floor(lastUpdate || 0);
+    return `${base}?t=${cacheKey}`;
+  }, [empresaData?.logo_url, lastUpdate]);
 
   // ✅ FIX: Garantir que servidor e cliente renderizem a mesma coisa inicialmente
   useEffect(() => {
@@ -244,15 +251,17 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   
   // ✅ SOLUÇÃO: Usar valores padrão em vez de bloquear a renderização
   const menuExpandidoFinal = menuExpandido ?? false;
+
+  // Filtro de busca do menu lateral
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const isSearching = normalizedSearch.length > 0;
+  const matchesSearch = (label: string) =>
+    !isSearching || label.toLowerCase().includes(normalizedSearch);
   
   return (
     <div className="flex min-h-screen bg-white">
         {/* Sidebar Desktop - oculto na tela cheia de Nova OS */}
         <aside className={`w-64 bg-black border-r border-white/20 hidden md:flex flex-col py-8 px-4 h-screen fixed top-0 left-0 z-40 transition-all duration-300 overflow-y-auto no-print ${isNovaOSFullScreen ? '!hidden' : ''}`}>
-        {/* Logo branco centralizado */}
-        <div className="flex flex-col items-center mb-6">
-          <Image src="/assets/imagens/logobranco.png" alt="Consert Logo" width={200} height={48} className="h-12 w-auto object-contain" priority />
-        </div>
         {/* Busca */}
         <div className="flex items-center gap-2 mb-8">
           <FiSearch className="text-white/60" size={18} />
@@ -275,17 +284,17 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           ) : (
             <>
           {/* Dashboard */}
-          {(podeVer('dashboard') || usuarioData?.nivel === 'tecnico' || usuarioData?.nivel === 'atendente') && (
+          {(podeVer('dashboard') || usuarioData?.nivel === 'tecnico' || usuarioData?.nivel === 'atendente') && matchesSearch('Dashboard') && (
             <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard'} menuRecolhido={false} />
           )}
                   {/* Lembretes */}
-                  {userLevel === 'admin' && (
+                  {userLevel === 'admin' && matchesSearch('Lembretes') && (
                     <SidebarButton path="/lembretes" icon={<FiBell size={20} />} label="Lembretes" isActive={pathname === '/lembretes'} menuRecolhido={false} />
                   )}
-          {podeVer('ordens') && (
+          {podeVer('ordens') && matchesSearch('Ordens de Serviço') && (
             <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} menuRecolhido={false} />
           )}
-          {podeVer('caixa') && temRecurso('financeiro') && (
+          {podeVer('caixa') && temRecurso('financeiro') && (matchesSearch('Caixa') || matchesSearch('Fluxo de Caixa')) && (
             <>
               <div 
                 className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
@@ -312,7 +321,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               )}
             </>
           )}
-          {podeVer('clientes') && (
+          {podeVer('clientes') && (matchesSearch('Contatos') || matchesSearch('Clientes') || matchesSearch('Fornecedores')) && (
             <>
               <div 
                 className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
@@ -340,7 +349,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               )}
             </>
           )}
-          {podeVer('equipamentos') && (
+          {podeVer('equipamentos') && (matchesSearch('Produtos/Serviços') || matchesSearch('Produtos') || matchesSearch('Categorias') || matchesSearch('Catálogo')) && (
             <>
               <div 
                 className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
@@ -370,10 +379,10 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             </>
           )}
           {/* Catálogo independente - se usuário tem permissão de catálogo mas não de equipamentos */}
-          {!podeVer('equipamentos') && podeVer('catalogo') && catalogoHabilitado && (
+          {!podeVer('equipamentos') && podeVer('catalogo') && catalogoHabilitado && matchesSearch('Catálogo') && (
             <SidebarButton path="/catalogo" icon={<FiStar size={20} />} label="Catálogo" isActive={pathname === '/catalogo'} menuRecolhido={false} />
           )}
-          {podeVerModulo('financeiro', 'financeiro') && (
+          {podeVerModulo('financeiro', 'financeiro') && (matchesSearch('Financeiro') || matchesSearch('Lucro & Desempenho') || matchesSearch('Vendas') || matchesSearch('Movimentações Caixa') || matchesSearch('Contas a Pagar') || matchesSearch('Comissões dos Técnicos')) && (
             <>
               <div 
                 className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
@@ -473,24 +482,40 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               )}
             </>
           )}
-          {podeVer('bancada') && (
+          {podeVer('bancada') && matchesSearch('Bancada') && (
             <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" isActive={pathname === '/bancada'} menuRecolhido={false} />
           )}
-          {usuarioData?.nivel === 'tecnico' && (
+          {usuarioData?.nivel === 'tecnico' && matchesSearch('Comissões') && (
             <SidebarButton path="/comissoes" icon={<FiDollarSign size={20} />} label="Comissões" isActive={pathname === '/comissoes'} menuRecolhido={false} />
           )}
-          <SidebarButton path="/suporte" icon={<FiMessageSquare size={20} />} label="Suporte" isActive={pathname === '/suporte'} menuRecolhido={false} />
+          {matchesSearch('Suporte') && (
+            <SidebarButton path="/suporte" icon={<FiMessageSquare size={20} />} label="Suporte" isActive={pathname === '/suporte'} menuRecolhido={false} />
+          )}
           
-          <SidebarButton path="/perfil" icon={<FiUsers size={20} />} label="Meu Perfil" isActive={pathname === '/perfil'} menuRecolhido={false} />
-          {podeVer('configuracoes') && (
+          {matchesSearch('Meu Perfil') && (
+            <SidebarButton path="/perfil" icon={<FiUsers size={20} />} label="Meu Perfil" isActive={pathname === '/perfil'} menuRecolhido={false} />
+          )}
+          {podeVer('configuracoes') && matchesSearch('Configurações') && (
             <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" isActive={pathname === '/configuracoes'} menuRecolhido={false} />
           )}
-          <SidebarButton path="#logout" icon={<FiLogOut size={20} />} label="Sair" isActive={false} menuRecolhido={false} onClick={logout} />
+          {matchesSearch('Sair') && (
+            <SidebarButton path="#logout" icon={<FiLogOut size={20} />} label="Sair" isActive={false} menuRecolhido={false} onClick={logout} />
+          )}
             </>
           )}
         </nav>
-        <div className="mt-auto text-center text-xs text-[#D1FE6E] pb-2">
-          v2.7.9
+        <div className="mt-auto flex flex-col items-center gap-2 pb-2">
+          <Image
+            src="/assets/imagens/logobranco.png"
+            alt="Consert Logo"
+            width={140}
+            height={40}
+            className="h-10 w-auto object-contain"
+            priority
+          />
+          <div className="text-center text-xs text-[#D1FE6E]">
+            v2.7.9
+          </div>
         </div>
         
       </aside>
@@ -505,9 +530,6 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             <button className="absolute top-4 right-4 text-white" onClick={() => setMobileMenuOpen(false)}>
               <FiX size={28} />
             </button>
-            <div className="flex flex-col items-center mb-8">
-              <Image src="/assets/imagens/logobranco.png" alt="Consert Logo" width={200} height={48} className="h-12 w-auto object-contain" priority />
-            </div>
             <div className="flex items-center gap-2 mb-6">
               <FiSearch className="text-white/60" size={18} />
               <input
@@ -751,22 +773,30 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
         {/* TopHeader - oculto na tela cheia de Nova OS (só fica o botão Voltar na própria página) */}
         {!isNovaOSFullScreen && (
         <header className="w-full h-16 bg-white border-b border-zinc-200 flex items-center justify-between px-4 md:px-6 sticky top-0 z-30 no-print">
-          {/* Botão menu mobile */}
-          <div className="flex md:hidden items-center">
-            <button onClick={() => setMobileMenuOpen(true)} className="text-zinc-700 p-2">
+          {/* Esquerda: botão menu mobile + logo da empresa */}
+          <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
+            <button onClick={() => setMobileMenuOpen(true)} className="md:hidden text-zinc-700 p-2 -ml-2">
               <FiMenu size={24} />
             </button>
-          </div>
-          
-          {/* Área central - Busca */}
-          <div className="flex-1 max-w-md mx-4 hidden sm:flex">
-            <div className="flex items-center gap-2 bg-zinc-100 rounded-lg px-3 py-2 w-full">
-              <FiSearch className="text-zinc-400" size={18} />
-              <input
-                type="text"
-                placeholder="Buscar..."
-                className="bg-transparent text-zinc-700 text-sm focus:outline-none w-full"
-              />
+            <div className="h-9 flex items-center shrink-0" style={{ minWidth: 0 }}>
+              {!userDataReady ? (
+                <div className="h-9 w-24 rounded bg-zinc-200 animate-pulse" aria-hidden />
+              ) : empresaLogoUrl ? (
+                <img
+                  src={empresaLogoUrl}
+                  alt={empresaData?.nome || 'Logo da empresa'}
+                  className="h-9 w-auto max-w-[160px] md:max-w-[180px] object-contain object-left"
+                />
+              ) : (
+                <Image
+                  src="/assets/imagens/logopreto.png"
+                  alt="Consert"
+                  width={120}
+                  height={36}
+                  className="h-9 w-auto object-contain object-left"
+                  priority
+                />
+              )}
             </div>
           </div>
           
@@ -775,13 +805,6 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             {/* Status da assinatura - oculto em mobile */}
             <div className="hidden md:block">
               <SubscriptionStatus />
-            </div>
-            
-            {/* Busca mobile */}
-            <div className="sm:hidden">
-              <button className="text-zinc-500 p-2">
-                <FiSearch size={20} />
-              </button>
             </div>
             
             {/* Avatar e nome do usuário */}
@@ -906,7 +929,6 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             {/* Header do menu mobile */}
             <div className="flex items-center justify-between p-4 border-b border-gray-700">
               <div className="flex items-center gap-3">
-                <Image src="/assets/imagens/logobranco.png" alt="Consert Logo" width={150} height={32} className="h-8 w-auto" priority />
                 <span className="text-white font-semibold">Menu</span>
               </div>
               <button 
@@ -1189,8 +1211,18 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             </nav>
             
             {/* Footer mobile */}
-            <div className="absolute bottom-4 left-4 right-4 text-center text-xs text-gray-400">
-              v2.7.9
+            <div className="absolute bottom-4 left-4 right-4 flex flex-col items-center gap-2">
+              <Image
+                src="/assets/imagens/logobranco.png"
+                alt="Consert Logo"
+                width={140}
+                height={40}
+                className="h-10 w-auto object-contain"
+                priority
+              />
+              <div className="text-center text-xs text-gray-400">
+                v2.7.9
+              </div>
             </div>
           </div>
         </div>
