@@ -833,16 +833,25 @@ export default function DetalheBancadaPage() {
 
   // Funções para manipular imagens (técnico)
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    const validFiles = files.filter(file => file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024);
+    const input = e.target;
+    const files = Array.from(input.files || []);
+    if (files.length === 0) {
+      return;
+    }
+
+    const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+    const validFiles = files.filter(file => file.type.startsWith('image/') && file.size <= MAX_SIZE_BYTES);
     
     if (validFiles.length !== files.length) {
-      addToast('warning', 'Algumas imagens foram ignoradas. Apenas imagens até 5MB são permitidas.');
+      addToast('warning', 'Algumas imagens foram ignoradas. Apenas imagens até 10MB são permitidas.');
     }
     
     setImagensTecnicoNovas(prev => [...prev, ...validFiles]);
     const previews = validFiles.map(file => URL.createObjectURL(file));
     setPreviewImagensTecnico(prev => [...prev, ...previews]);
+
+    // Permitir selecionar o mesmo arquivo novamente no input
+    input.value = '';
   };
 
   const handleRemoveImage = (index: number) => {
@@ -1281,7 +1290,7 @@ export default function DetalheBancadaPage() {
                   <div className="space-y-2">
                     <div className="text-3xl sm:text-4xl">📷</div>
                     <p className="text-xs sm:text-sm text-gray-600 font-medium">Imagens do técnico (laudo)</p>
-                    <p className="text-xs text-gray-500 px-2">PNG, JPG até 5MB cada • Máximo 10 imagens</p>
+                    <p className="text-xs text-gray-500 px-2">PNG, JPG até 10MB cada • Máximo 10 imagens</p>
                     {imagensTecnicoNovas.length > 0 && (
                       <p className="text-xs text-green-600 font-medium">
                         {imagensTecnicoNovas.length} imagem{imagensTecnicoNovas.length !== 1 ? 'ns' : ''} selecionada{imagensTecnicoNovas.length !== 1 ? 's' : ''}

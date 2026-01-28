@@ -713,7 +713,8 @@ function NovaOS2Content() {
       if (imagens.length > 0) {
         try {
           const formData = new FormData();
-          formData.append('ordemId', osData.id);
+          // API de upload espera o campo 'osId' para identificar a OS
+          formData.append('osId', osData.id);
           
           imagens.forEach((file) => {
             formData.append('files', file);

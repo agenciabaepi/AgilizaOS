@@ -103,6 +103,7 @@ const VisualizarOrdemServicoPage = () => {
             termo_garantia_id,
             tipo,
             imagens,
+            imagens_tecnico,
             checklist_entrada,
             termo_garantia:termo_garantia_id (
               id,
@@ -1149,31 +1150,56 @@ const VisualizarOrdemServicoPage = () => {
                 </div>
               </div>
 
-              {/* Imagens do Equipamento */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <ImagensOS 
-                  imagens={ordem.imagens || ''} 
-                  ordemId={ordem.numero_os || ordem.id} 
-                />
-              </div>
+            </div>
+          </div>
 
-              {/* Histórico */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="p-1.5 bg-purple-100 rounded-lg">
-                    <FiClock className="w-4 h-4 text-purple-600" />
+          {/* Seção de Imagens - Full Width */}
+          {(ordem.imagens || ordem.imagens_tecnico) && (
+            <div className="mt-6 sm:mt-8 space-y-6">
+              {/* Grid de 2 colunas para imagens em telas maiores */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Imagens do Equipamento */}
+                {ordem.imagens && (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <ImagensOS 
+                      imagens={ordem.imagens || ''} 
+                      ordemId={ordem.numero_os || ordem.id}
+                      titulo="Imagens do Equipamento"
+                    />
                   </div>
-                  <h2 className="text-lg font-semibold text-gray-900">Histórico</h2>
+                )}
+
+                {/* Imagens do Técnico */}
+                {ordem.imagens_tecnico && (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <ImagensOS 
+                      imagens={ordem.imagens_tecnico || ''} 
+                      ordemId={ordem.numero_os || ordem.id}
+                      titulo="Imagens do Técnico"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Histórico - Por último */}
+          <div className="mt-6 sm:mt-8">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <FiClock className="w-5 h-5 text-purple-600" />
                 </div>
-                
-                <div className="max-h-80 overflow-y-auto pr-1">
-                  <HistoricoOSTimeline 
-                    historico={historico} 
-                    loading={loadingHistorico}
-                    compact={true}
-                    showMetrics={false}
-                  />
-                </div>
+                <h2 className="text-xl font-semibold text-gray-900">Histórico</h2>
+              </div>
+              
+              <div className="max-h-96 overflow-y-auto pr-1">
+                <HistoricoOSTimeline 
+                  historico={historico} 
+                  loading={loadingHistorico}
+                  compact={false}
+                  showMetrics={false}
+                />
               </div>
             </div>
           </div>

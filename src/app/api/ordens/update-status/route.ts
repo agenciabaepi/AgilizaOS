@@ -8,10 +8,31 @@ function normalizeStatus(status: string): string {
   return status.trim().toUpperCase();
 }
 
+// Função auxiliar para formatar valores no histórico
+function formatValorSimples(valor: unknown): string {
+  if (valor === null || valor === undefined || valor === '') return 'vazio';
+  if (typeof valor === 'number') {
+    return valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  if (valor instanceof Date) {
+    return valor.toLocaleString('pt-BR');
+  }
+  return String(valor);
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { osId, newStatus, newStatusTecnico, empresa_id, cliente_recusou, ...updateData } = body;
+    const { 
+      osId, 
+      newStatus, 
+      newStatusTecnico, 
+      empresa_id, 
+      cliente_recusou,
+      usuario_id,
+      usuario_nome,
+      ...updateData 
+    } = body;
 
     if (!osId) {
       return NextResponse.json(
@@ -30,7 +51,34 @@ export async function POST(request: NextRequest) {
     // Construir query baseada no tipo de ID
     let query = supabase
       .from('ordens_servico')
-      .select('id, numero_os, empresa_id, status, status_tecnico, tecnico_id, valor_faturado, valor_servico, valor_peca, tipo, cliente_id, data_entrega')
+      .select(
+        [
+          'id',
+          'numero_os',
+          'empresa_id',
+          'status',
+          'status_tecnico',
+          'tecnico_id',
+          'cliente_id',
+          'tipo',
+          'data_entrega',
+          'valor_faturado',
+          'valor_servico',
+          'valor_peca',
+          // Campos de equipamento/descrição que queremos auditar no histórico
+          'equipamento',
+          'categoria',
+          'marca',
+          'modelo',
+          'cor',
+          'numero_serie',
+          'problema_relatado',
+          'observacao',
+          'prazo_entrega',
+          'acessorios',
+          'condicoes_equipamento'
+        ].join(', ')
+      )
       .limit(1);
 
     if (isUUID) {
@@ -100,7 +148,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Registrar histórico de mudança de status se houver mudança
+    // Registrar histórico de mudança de status em tabela dedicada, se houver mudança
     if (newStatus || newStatusTecnico) {
       try {
         const statusAnterior = osAnterior.status;
@@ -349,6 +397,148 @@ export async function POST(request: NextRequest) {
         temTecnico,
         clienteRecusou: cliente_recusou
       });
+    }
+
+    // ✅ REGISTRAR HISTÓRICO DETALHADO (os_historico) PARA CAMPOS ALTERADOS
+    try {
+      // Campos que queremos auditar no histórico geral da OS
+      const camposMonitorados = [
+        'status',
+        'status_tecnico',
+        'equipamento',
+        'categoria',
+        'marca',
+        'modelo',
+        'cor',
+        'numero_serie',
+        'problema_relatado',
+        'observacao',
+        'valor_faturado',
+        'valor_servico',
+        'valor_peca',
+        'data_entrega',
+        'prazo_entrega',
+        'acessorios',
+        'condicoes_equipamento',
+        'tecnico_id',
+        'cliente_id'
+      ] as const;
+
+      type CampoMonitorado = (typeof camposMonitorados)[number];
+
+      const alteracoes: Array<{
+        campo: CampoMonitorado;
+        valorAnterior: unknown;
+        valorNovo: unknown;
+      }> = [];
+
+      for (const campo of camposMonitorados) {
+        if (campo in dadosAtualizacao) {
+          const valorAnterior = (osAnterior as any)[campo];
+          const valorNovo = (dadosAtualizacao as any)[campo];
+
+          // Comparação segura, tratando null/undefined igual
+          const anteriorNorm = valorAnterior ?? null;
+          const novoNorm = valorNovo ?? null;
+
+          if (JSON.stringify(anteriorNorm) !== JSON.stringify(novoNorm)) {
+            alteracoes.push({ campo, valorAnterior, valorNovo });
+          }
+        }
+      }
+
+      if (alteracoes.length > 0) {
+        const labelPorCampo: Record<CampoMonitorado, string> = {
+          status: 'Status',
+          status_tecnico: 'Status Técnico',
+          equipamento: 'Equipamento',
+          categoria: 'Categoria',
+          marca: 'Marca',
+          modelo: 'Modelo',
+          cor: 'Cor',
+          numero_serie: 'Número de Série',
+          problema_relatado: 'Problema Relatado',
+          observacao: 'Observações Internas',
+          valor_faturado: 'Valor Faturado',
+          valor_servico: 'Valor de Serviço',
+          valor_peca: 'Valor de Peças',
+          data_entrega: 'Data de Entrega',
+          prazo_entrega: 'Prazo de Entrega',
+          acessorios: 'Acessórios',
+          condicoes_equipamento: 'Condições do Equipamento',
+          tecnico_id: 'Técnico Responsável',
+          cliente_id: 'Cliente'
+        };
+
+        for (const alt of alteracoes) {
+          const label = labelPorCampo[alt.campo] || alt.campo;
+          const valorAnteriorFmt = formatValorSimples(alt.valorAnterior);
+          const valorNovoFmt = formatValorSimples(alt.valorNovo);
+
+          const isStatusField = alt.campo === 'status' || alt.campo === 'status_tecnico';
+          const acao = isStatusField ? 'STATUS_CHANGE' : 'FIELD_CHANGE';
+          const categoria = isStatusField ? 'STATUS' : 'DETALHES';
+          const descricao = `Campo ${label} alterado de "${valorAnteriorFmt}" para "${valorNovoFmt}"`;
+
+          try {
+            // Tentar usar a função SQL centralizada
+            const { error: histError } = await supabase.rpc('registrar_historico_os', {
+              p_os_id: osAnterior.id,
+              p_acao: acao,
+              p_categoria: categoria,
+              p_descricao: descricao,
+              p_detalhes: JSON.stringify({
+                campo: alt.campo,
+                valor_anterior: alt.valorAnterior,
+                valor_novo: alt.valorNovo
+              }),
+              p_valor_anterior: valorAnteriorFmt,
+              p_valor_novo: valorNovoFmt,
+              p_campo_alterado: alt.campo,
+              p_usuario_id: usuario_id || null,
+              p_motivo: null,
+              p_observacoes: null,
+              p_ip_address: null,
+              p_user_agent: null,
+              p_origem: 'API_UPDATE_STATUS'
+            });
+
+            if (histError) {
+              console.warn('⚠️ Erro em registrar_historico_os, usando fallback direto:', histError);
+
+              const { error: insertError } = await supabase
+                .from('os_historico')
+                .insert({
+                  os_id: osAnterior.id,
+                  numero_os: osAnterior.numero_os,
+                  acao,
+                  categoria,
+                  descricao,
+                  detalhes: JSON.stringify({
+                    campo: alt.campo,
+                    valor_anterior: alt.valorAnterior,
+                    valor_novo: alt.valorNovo
+                  }),
+                  valor_anterior: valorAnteriorFmt,
+                  valor_novo: valorNovoFmt,
+                  campo_alterado: alt.campo,
+                  usuario_id: usuario_id || null,
+                  usuario_nome: usuario_nome || null,
+                  empresa_id: osAnterior.empresa_id,
+                  origem: 'API_UPDATE_STATUS'
+                });
+
+              if (insertError) {
+                console.warn('⚠️ Erro no fallback de inserção em os_historico:', insertError);
+              }
+            }
+          } catch (histError) {
+            console.warn('⚠️ Erro inesperado ao registrar histórico detalhado:', histError);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('⚠️ Falha geral ao registrar histórico detalhado da OS (não crítico):', e);
     }
 
     // Enviar notificações WhatsApp se necessário (já desativadas por padrão)

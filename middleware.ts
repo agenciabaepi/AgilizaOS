@@ -4,94 +4,60 @@ import { createServerClient } from '@supabase/ssr';
 
 /**
  * Middleware de autenticação - Primeira linha de defesa
- * 
+ *
  * Responsabilidades:
  * 1. Proteger rotas privadas de acesso não autenticado
  * 2. Redirecionar usuários não logados para /login
  * 3. Preservar URL de destino para redirecionamento pós-login
- * 
+ *
  * ⚠️ IMPORTANTE: Apenas as rotas listadas em publicPaths são acessíveis sem autenticação.
  * Todas as outras rotas requerem autenticação válida.
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  
+
   // ✅ OTIMIZADO: Logs apenas em desenvolvimento
   if (process.env.NODE_ENV === 'development') {
     console.log(`🔍 Middleware: ${pathname}`);
   }
-  
+
   // ⚠️ SEGURANÇA CRÍTICA: Proteger rotas do admin-saas
-  // Rotas do admin-saas requerem cookie de verificação 2FA (admin_saas_access)
-  // A rota de login foi movida para /admin-login para evitar conflitos de layout
-  
-  // Redirecionar /admin-saas/login antigo para /admin-login novo
   if (pathname === '/admin-saas/login') {
     const loginUrl = new URL('/admin-login', request.url);
     return NextResponse.redirect(loginUrl);
   }
-  
+
   if (pathname.startsWith('/admin-saas')) {
-    // Para TODAS as rotas do admin-saas, verificar cookie obrigatoriamente
     const adminCookie = request.cookies.get('admin_saas_access')?.value === '1';
-    
     if (!adminCookie) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`🚫 Middleware: Acesso negado ao admin-saas sem cookie de autenticação: ${pathname}`);
-      }
       const loginUrl = new URL('/admin-login', request.url);
       return NextResponse.redirect(loginUrl);
     }
-    
-    // Cookie válido, permitir acesso
     return NextResponse.next();
   }
-  
-  // Permitir /admin-login sem verificação de cookie
+
   if (pathname === '/admin-login') {
     return NextResponse.next();
   }
 
-  // ✅ LISTA COMPLETA DE ROTAS PÚBLICAS (sem autenticação)
-  // ATENÇÃO: Todas as rotas que não estão nesta lista REQUEREM autenticação
+  // Rotas públicas – lógica inline para evitar import no Edge Runtime (evita erro webpack)
   const publicPaths = [
-    '/admin-login', // Login do admin (movido de /admin-saas/login)
-    '/login',
-    '/cadastro', 
-    '/',
-    '/sobre',
-    '/termos',
-    '/politicas-privacidade',
-    '/planos',
-    '/pagamentos/sucesso',
-    '/pagamentos/falha',
-    '/pagamentos/pendente',
-    '/instrucoes-verificacao',
-    '/clear-auth',
-    '/clear-cache',
-    // Rotas públicas de OS (clientes podem acessar com senha)
-    '/os',
-    '/os/buscar',
-    '/os/[id]/status', // Permite acesso público com senha na query string
+    '/login', '/cadastro', '/', '/sobre', '/termos', '/politicas-privacidade',
+    '/planos', '/pagamentos/sucesso', '/pagamentos/falha', '/pagamentos/pendente',
+    '/instrucoes-verificacao', '/clear-auth', '/clear-cache', '/os', '/os/buscar',
   ];
-
-  // Verificar se é uma rota pública usando match exato ou prefixo
-  const isPublicPath = publicPaths.some(path => {
-    // Match exato
+  const isPublicPath = publicPaths.some((path) => {
     if (pathname === path) return true;
-    // Match com prefixo (ex: /os, /os/buscar, /os/123/status)
     if (path.startsWith('/os') && pathname.startsWith('/os')) {
-      // Permitir rotas públicas de OS
       if (pathname.startsWith('/os/buscar')) return true;
-      if (pathname.match(/^\/os\/[^\/]+\/status$/)) return true;
+      if (/^\/os\/[^/]+\/status$/.test(pathname)) return true;
+      if (/^\/os\/[^/]+\/login$/.test(pathname)) return true;
       if (pathname === '/os') return true;
-      // Bloquear outras rotas de OS que não são públicas
       return false;
     }
-    // Para outras rotas, usar match exato ou prefixo simples
     return pathname.startsWith(path + '/') || pathname === path;
   });
-  
+
   // Rotas de API não devem ser bloqueadas pelo middleware de autenticação
   // (elas têm sua própria validação interna)
   const isApiRoute = pathname.startsWith('/api');

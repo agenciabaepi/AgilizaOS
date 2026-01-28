@@ -140,39 +140,119 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
     const d = new Date(dateStr);
     return d.toLocaleDateString('pt-BR');
   }
+  function formatDateTimeFromMs(ms: number | null) {
+    if (!ms || !Number.isFinite(ms)) return '---';
+    const d = new Date(ms);
+    if (Number.isNaN(d.getTime())) return '---';
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = String(d.getFullYear());
+    const hh = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+  }
   function formatMoney(val: any) {
     if (val == null) return '---';
     return `R$ ${Number(val).toFixed(2)}`;
   }
 
-  function renderImagens(imagens: string | null | undefined, titulo: string) {
+  function extractTimestampMsFromUrl(rawUrl: string): number | null {
+    const s = String(rawUrl || '').trim();
+    if (!s) return null;
+    let path = s;
+    try {
+      const u = new URL(s);
+      path = decodeURIComponent(u.pathname);
+    } catch {
+      path = s;
+    }
+    const m13 = path.match(/(?:^|\/)(\d{13})(?:[_-])/);
+    if (m13) return Number(m13[1]);
+    const m10 = path.match(/(?:^|\/)(\d{10})(?:[_-])/);
+    if (m10) return Number(m10[1]) * 1000;
+    return null;
+  }
+
+  function renderImagens(
+    imagens: string | null | undefined,
+    titulo: string,
+    opts?: { size?: number; max?: number },
+    imagensOriginal?: string | null | undefined
+  ) {
     if (!imagens || typeof imagens !== 'string') return null;
     
-    const imageUrls = imagens.split(',').filter((url: string) => url.trim() !== '');
+    const size = opts?.size ?? 80;
+    const max = opts?.max ?? 4;
+
+    // `imagens` pode vir como CSV (URLs separadas por vírgula) OU como JSON array
+    // (necessário para suportar `data:image/...` que contém vírgulas).
+    const rawList: string[] = (() => {
+      const t = String(imagens).trim();
+      if (!t) return [];
+      if (t.startsWith('[')) {
+        try {
+          const parsed = JSON.parse(t);
+          if (Array.isArray(parsed)) return parsed.map((v) => String(v));
+        } catch {
+          // cai no split por vírgula
+        }
+      }
+      return t.split(',');
+    })();
+
+    const imageUrls = Array.from(
+      new Set(
+        rawList
+          .map((url: string) => url.trim())
+          .filter((url: string) => url !== '' && url !== 'null' && url !== 'undefined')
+          // React-PDF precisa de URL absoluta (ou data:image/*)
+          .filter((url: string) => /^https?:\/\//i.test(url) || /^data:image\//i.test(url))
+      )
+    );
+
+    const originalUrls =
+      typeof imagensOriginal === 'string'
+        ? imagensOriginal
+            .split(',')
+            .map((url: string) => url.trim())
+            .filter((url: string) => url !== '' && url !== 'null' && url !== 'undefined')
+        : [];
     
     if (imageUrls.length === 0) return null;
     
     return (
       <View style={{ marginBottom: 8 }}>
         <Text style={[styles.sectionTitle, { marginBottom: 4 }]}>{titulo}</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {imageUrls.slice(0, 4).map((imageUrl, index) => (
-            <Image 
-              key={index}
-              src={imageUrl.trim()} 
-              style={{ 
-                width: 80, 
-                height: 80, 
-                objectFit: 'cover',
-                borderWidth: 1,
-                borderColor: '#ddd'
-              }} 
-            />
-          ))}
+        {/* react-pdf não suporta "gap" de CSS; usar margens nos itens */}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+          {imageUrls.slice(0, max).map((imageUrl, index) => {
+            const originalUrlForDate = originalUrls[index] || imageUrl;
+            const ts = extractTimestampMsFromUrl(originalUrlForDate);
+            const dt = formatDateTimeFromMs(ts);
+            const src =
+              /^https?:\/\//i.test(imageUrl) ? encodeURI(imageUrl.trim()) : imageUrl.trim();
+            return (
+              <View key={index} style={{ width: size, marginRight: 8, marginBottom: 8 }}>
+                <Image
+                  src={src}
+                  style={{
+                    width: size,
+                    height: size,
+                    objectFit: 'cover',
+                    borderWidth: 1,
+                    borderColor: '#ddd',
+                  }}
+                />
+                <Text style={{ fontSize: 7, color: '#666', marginTop: 2, textAlign: 'center' }}>
+                  {dt}
+                </Text>
+              </View>
+            );
+          })}
         </View>
-        {imageUrls.length > 4 && (
+        {imageUrls.length > max && (
           <Text style={[styles.paragraph, { fontSize: 8, color: '#666', marginTop: 4 }]}>
-            +{imageUrls.length - 4} imagem{imageUrls.length - 4 !== 1 ? 'ns' : ''} adicional{imageUrls.length - 4 !== 1 ? 'is' : ''}
+            +{imageUrls.length - max} {imageUrls.length - max === 1 ? 'imagem adicional' : 'imagens adicionais'}
           </Text>
         )}
       </View>
@@ -235,9 +315,9 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
     
     // Renderiza layout em 2 colunas otimizado para uma folha
     return (
-      <View style={{ flexDirection: 'row', gap: 16 }}>
+      <View style={{ flexDirection: 'row' }}>
         {/* Coluna Esquerda */}
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, marginRight: 16 }}>
           {leftColumn.map((section) => (
             <View key={section.key} style={{ marginBottom: 8 }}>
               <Text style={[styles.paragraph, { fontSize: 8, fontWeight: 'bold', color: '#000', marginBottom: 2 }]}>
@@ -407,13 +487,8 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
           <View style={styles.block}>
             <Text style={styles.sectionTitle}>Laudo Técnico</Text>
             <Text style={styles.paragraph}>{stripHTML(ordem.laudo)}</Text>
-            {/* Imagens do Técnico coladas ao laudo */}
-            {renderImagens((ordem as any).imagens_tecnico, 'Imagens do Técnico (Laudo)')}
           </View>
         )}
-
-        {/* Imagens de Entrada (Atendente) */}
-        {renderImagens(ordem.imagens, 'Imagens de Entrada (Atendente)')}
 
         {/* Serviços e Peças (por último) */}
         <View style={styles.block}>
@@ -461,6 +536,25 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
             )}
           </View>
         </View>
+      </Page>
+
+      {/* 2ª folha: Imagens do Técnico + Termo */}
+      <Page size="A4" style={styles.page}>
+        {/* Imagens de Entrada (Atendente) - 2ª folha */}
+        {renderImagens(
+          (ordem as any).imagens_pdf || ordem.imagens,
+          'Imagens de Entrada (Atendente)',
+          { size: 110, max: 3 },
+          ordem.imagens
+        )}
+
+        {/* Imagens do Técnico (sempre que existirem, independente do laudo) */}
+        {renderImagens(
+          (ordem as any).imagens_tecnico_pdf || (ordem as any).imagens_tecnico,
+          'Imagens do Técnico',
+          { size: 110, max: 3 },
+          (ordem as any).imagens_tecnico
+        )}
 
         {/* Termo de Garantia */}
         <View style={[styles.block, { padding: 8, backgroundColor: '#fafafa' }]}>
@@ -474,7 +568,7 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
           </View>
         </View>
 
-        {/* Assinaturas e QR code no rodapé */}
+        {/* Assinaturas no rodapé (na 2ª folha) */}
         <View style={styles.signatureRow}>
           <View style={styles.signatureBox}>
             <View style={styles.signatureLine}></View>
@@ -498,6 +592,47 @@ export default function ImprimirOrdemPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+
+  async function urlToDataUrl(url: string): Promise<string | null> {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      if (!blob.type || !blob.type.startsWith('image/')) return null;
+      return await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error('FileReader failed'));
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  async function prepareImagesForPdf(imagens: string | null | undefined, limit = 8): Promise<string> {
+    if (!imagens || typeof imagens !== 'string') return '';
+    const urls = imagens
+      .split(',')
+      .map((u) => u.trim())
+      .filter((u) => u && u !== 'null' && u !== 'undefined')
+      .filter((u) => /^https?:\/\//i.test(u));
+
+    const unique = Array.from(new Set(urls)).slice(0, limit);
+
+    // Tenta converter para dataURL (evita falhas de carregamento no react-pdf).
+    const resolved = await Promise.all(
+      unique.map(async (u) => {
+        const enc = encodeURI(u);
+        const dataUrl = await urlToDataUrl(enc);
+        return dataUrl || enc;
+      })
+    );
+
+    // IMPORTANTE: dataURL contém vírgulas, então não pode ser CSV.
+    // Guardar como JSON array para o renderer conseguir parsear corretamente.
+    return JSON.stringify(resolved);
+  }
 
   useEffect(() => {
     async function fetchOrdem() {
@@ -597,34 +732,33 @@ export default function ImprimirOrdemPage() {
             valor_faturado: data.valor_faturado
           });
           
-          // Buscar dados do técnico separadamente
-          let tecnicoNome = data.tecnico || 'Sem técnico';
-          console.log('🔍 Buscando técnico para tecnico_id:', data.tecnico_id);
-          if (data.tecnico_id) {
+          // Buscar dados do técnico separadamente (robusto: pode ser id, auth_user_id ou tecnico_id)
+          let tecnicoNome = 'Sem técnico';
+          const tecnicoRef = data.tecnico_id ? String(data.tecnico_id) : '';
+          console.log('🔍 Buscando técnico para tecnico_id:', tecnicoRef);
+          if (tecnicoRef) {
             try {
               const { data: tecnicoData, error: tecnicoError } = await supabase
                 .from('usuarios')
                 .select('nome')
-                .eq('id', data.tecnico_id)
-                .single();
-              
+                .or(`id.eq.${tecnicoRef},auth_user_id.eq.${tecnicoRef},tecnico_id.eq.${tecnicoRef}`)
+                .limit(1)
+                .maybeSingle();
+
               if (tecnicoError) {
                 console.warn('⚠️ Erro ao buscar técnico:', tecnicoError);
                 tecnicoNome = 'Técnico não encontrado';
-              } else if (tecnicoData && tecnicoData.nome) {
+              } else if (tecnicoData?.nome) {
                 tecnicoNome = tecnicoData.nome;
                 console.log('✅ Técnico encontrado:', tecnicoNome);
               } else {
-                console.warn('⚠️ Técnico não encontrado para ID:', data.tecnico_id);
+                console.warn('⚠️ Técnico não encontrado para referência:', tecnicoRef);
                 tecnicoNome = 'Técnico não encontrado';
               }
             } catch (error) {
               console.warn('⚠️ Erro ao buscar técnico:', error);
               tecnicoNome = 'Técnico não encontrado';
             }
-          } else {
-            console.warn('⚠️ tecnico_id não está presente na OS');
-            tecnicoNome = 'Sem técnico';
           }
           
           // Mapear campos para compatibilidade
@@ -635,6 +769,18 @@ export default function ImprimirOrdemPage() {
               nome: tecnicoNome
             }
           };
+
+          // Preparar imagens para o PDF (dataURL quando possível) para evitar falhas no carregamento
+          try {
+            const [imagensPdf, imagensTecnicoPdf] = await Promise.all([
+              prepareImagesForPdf(data.imagens, 8),
+              prepareImagesForPdf((data as any).imagens_tecnico, 8),
+            ]);
+            ordemMapeada.imagens_pdf = imagensPdf || null;
+            ordemMapeada.imagens_tecnico_pdf = imagensTecnicoPdf || null;
+          } catch {
+            // mantém URLs originais como fallback
+          }
           
           // Buscar itens de checklist se houver empresa_id e equipamento
           if (data.empresa_id && data.equipamento) {

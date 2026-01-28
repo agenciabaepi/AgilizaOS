@@ -46,10 +46,10 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Verificar tamanho (5MB)
-      if (file.size > 5 * 1024 * 1024) {
+      // Verificar tamanho (10MB)
+      if (file.size > 10 * 1024 * 1024) {
         return NextResponse.json(
-          { error: 'Arquivo muito grande. Máximo 5MB por arquivo' },
+          { error: 'Arquivo muito grande. Máximo 10MB por arquivo' },
           { status: 400 }
         );
       }

@@ -2,20 +2,17 @@
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 
+/**
+ * Hook DESATIVADO: causava reload da página ao trocar de aba do navegador e voltar,
+ * pois pathname/visibility pode mudar ao retornar à aba e disparava window.location.reload().
+ * Não usar na aplicação — navegação deve ser SPA (sem reload).
+ */
 export function useAutoReload() {
   const pathname = usePathname();
   const previousPathname = useRef<string | null>(null);
 
   useEffect(() => {
-    // Se mudou de página e não é a primeira carga
-    if (previousPathname.current && previousPathname.current !== pathname) {
-      console.log('🔄 Auto-reload: Mudança de página detectada - RELOAD DIRETO');
-      
-      // Reload direto - o Next.js já mostra o loading
-      window.location.reload();
-    }
-    
-    // Atualizar referência
+    // Não fazer reload — estava causando "recarrega sozinho ao mudar de aba e voltar"
     previousPathname.current = pathname;
   }, [pathname]);
 }

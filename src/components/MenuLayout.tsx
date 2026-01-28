@@ -110,13 +110,20 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           .limit(10);
 
         if (error) {
-          console.error('Erro ao buscar notificações de tickets:', error);
+          // Evitar quebrar a UI com erro de console; log mais amigável.
+          console.warn(
+            'Aviso: erro ao buscar notificações de tickets:',
+            error?.message || error?.code || error
+          );
           return;
         }
 
         setNotificacoesTickets(data || []);
-      } catch (error) {
-        console.error('Erro ao buscar notificações:', error);
+      } catch (error: any) {
+        console.warn(
+          'Aviso: exceção ao buscar notificações de tickets:',
+          error?.message || error
+        );
       }
     };
 
@@ -313,7 +320,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               </div>
               
               {caixaExpanded && (
-                <div className="ml-6 flex flex-col gap-1 mt-1">
+                <div className="ml-6 flex flex-col gap-1 mt-1 min-w-0">
                   {podeVerModulo('movimentacao-caixa', 'financeiro') && (
                     <SidebarButton path="/fluxo-caixa" icon={<FiTrendingUp size={18} />} label="Fluxo de Caixa" isActive={pathname === '/fluxo-caixa'} menuRecolhido={false} />
                   )}
@@ -340,7 +347,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               </div>
               
               {contatosExpanded && (
-                <div className="ml-6 flex flex-col gap-1 mt-1">
+                <div className="ml-6 flex flex-col gap-1 mt-1 min-w-0">
                   <SidebarButton path="/clientes" icon={<FiUsers size={18} />} label="Clientes" isActive={pathname === '/clientes'} menuRecolhido={false} />
                   {podeVer('fornecedores') && (
                     <SidebarButton path="/fornecedores" icon={<FiTruck size={18} />} label="Fornecedores" isActive={pathname === '/fornecedores'} menuRecolhido={false} />
@@ -368,7 +375,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               </div>
               
               {equipamentosExpanded && (
-                <div className="ml-6 flex flex-col gap-1 mt-1">
+                <div className="ml-6 flex flex-col gap-1 mt-1 min-w-0">
                   <SidebarButton path="/equipamentos" icon={<FiBox size={18} />} label="Produtos" isActive={pathname === '/equipamentos'} menuRecolhido={false} />
                   <SidebarButton path="/equipamentos/categorias" icon={<FiGrid size={18} />} label="Categorias" isActive={pathname === '/equipamentos/categorias'} menuRecolhido={false} />
                   {catalogoHabilitado && podeVer('catalogo') && (
@@ -401,7 +408,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               </div>
               
               {financeiroExpanded && (
-                <div className="ml-6 flex flex-col gap-1 mt-1">
+                <div className="ml-6 flex flex-col gap-1 mt-1 min-w-0">
                   {podeVerModulo('lucro-desempenho', 'financeiro') && (
                     <SidebarButton 
                       path="/financeiro/lucro-desempenho" 
@@ -578,7 +585,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   </div>
                   
                   {caixaExpanded && (
-                    <div className="ml-6 flex flex-col gap-1 mt-1">
+                    <div className="ml-6 flex flex-col gap-1 mt-1 min-w-0">
                       {podeVerModulo('movimentacao-caixa', 'financeiro') && (
                     <SidebarButton path="/fluxo-caixa" icon={<FiTrendingUp size={18} />} label="Fluxo de Caixa" isActive={pathname === '/fluxo-caixa'} menuRecolhido={false} />
                   )}
@@ -604,7 +611,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   </div>
                   
                   {contatosExpanded && (
-                    <div className="ml-6 flex flex-col gap-1 mt-1">
+                    <div className="ml-6 flex flex-col gap-1 mt-1 min-w-0">
                       <SidebarButton path="/clientes" icon={<FiUsers size={18} />} label="Clientes" isActive={pathname === '/clientes'} menuRecolhido={false} />
                       {podeVer('fornecedores') && (
                         <SidebarButton path="/fornecedores" icon={<FiTruck size={18} />} label="Fornecedores" isActive={pathname === '/fornecedores'} menuRecolhido={false} />
@@ -631,7 +638,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   </div>
                   
                   {equipamentosExpanded && (
-                    <div className="ml-6 flex flex-col gap-1 mt-1">
+                    <div className="ml-6 flex flex-col gap-1 mt-1 min-w-0">
                       <SidebarButton path="/equipamentos" icon={<FiBox size={18} />} label="Produtos" isActive={pathname === '/equipamentos'} menuRecolhido={false} />
                       <SidebarButton path="/equipamentos/categorias" icon={<FiGrid size={18} />} label="Categorias" isActive={pathname === '/equipamentos/categorias'} menuRecolhido={false} />
                   {catalogoHabilitado && podeVer('catalogo') && (
@@ -659,7 +666,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   </div>
                   
                   {financeiroExpanded && (
-                    <div className="ml-6 flex flex-col gap-1 mt-1">
+                    <div className="ml-6 flex flex-col gap-1 mt-1 min-w-0">
                       {podeVerModulo('lucro-desempenho', 'financeiro') && (
                         <SidebarButton 
                           path="/financeiro/lucro-desempenho" 
@@ -1264,13 +1271,15 @@ function SidebarButton({
   return (
     <button
       onClick={handleClick}
-      className={`flex items-center justify-start w-full px-3 py-2 rounded-lg transition font-medium text-base
+      className={`flex items-center justify-start w-full min-w-0 px-3 py-2 rounded-lg transition font-medium text-base
         ${isActive ? 'bg-[#D1FE6E] text-black' : 'hover:bg-white/10 text-white'}`}
       style={{ minHeight: 48 }}
       title={label}
     >
-      {icon}
-      <span className="ml-3 whitespace-nowrap">{label}</span>
+      <span className="shrink-0 flex size-5 items-center justify-center [&_svg]:size-full [&_svg]:shrink-0" aria-hidden>
+        {icon}
+      </span>
+      <span className="ml-3 min-w-0 truncate">{label}</span>
     </button>
   );
 }

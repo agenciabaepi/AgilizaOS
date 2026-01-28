@@ -10,7 +10,6 @@ import { suppressNetworkErrors } from '@/utils/networkErrorSuppressor';
 import { preCheckProblematicTables } from '@/utils/tableChecker';
 import '@/utils/supabaseGlobalInterceptor';
 import { useRealtimeNotificacoes } from '@/hooks/useRealtimeNotificacoes';
-import { useAutoReload } from '@/hooks/useAutoReload';
 import { ToastProvider } from '@/components/Toast';
 import { ConfirmProvider } from '@/components/ConfirmDialog';
 import { initializeAudioContext } from '@/utils/audioPlayer';
@@ -19,6 +18,7 @@ import { initializeAudioContext } from '@/utils/audioPlayer';
 import { Toaster } from 'react-hot-toast';
 import StickyOrcamentoPopup from '@/components/StickyOrcamentoPopup';
 import { Analytics } from '@vercel/analytics/react';
+import RedirectToLoginIfUnauth from '@/components/RedirectToLoginIfUnauth';
 
 // Metadata removida conforme exigência do Next.js para arquivos com "use client"
 
@@ -26,8 +26,6 @@ function AuthContent({ children }: { children: React.ReactNode }) {
   const { isLoggingOut, session, empresaData } = useAuth();
   // Ativar notificações realtime em toda a app quando empresa for conhecida
   useRealtimeNotificacoes(empresaData?.id);
-  // ✅ DESABILITADO: Auto-reload estava causando problemas de redirecionamento
-  // useAutoReload();
   
   // Inicializar contexto de áudio automaticamente (como WhatsApp Web)
   useEffect(() => {
@@ -120,15 +118,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body suppressHydrationWarning>
         <AuthProvider>
-          <ToastProvider>
-            <ConfirmProvider>
-              <AuthContent>
-                <StickyOrcamentoPopup />
-                <>{children}</>
-              </AuthContent>
-              <Toaster position="top-right" />
-            </ConfirmProvider>
-          </ToastProvider>
+          <RedirectToLoginIfUnauth>
+            <ToastProvider>
+              <ConfirmProvider>
+                <AuthContent>
+                  <StickyOrcamentoPopup />
+                  <>{children}</>
+                </AuthContent>
+                <Toaster position="top-right" />
+              </ConfirmProvider>
+            </ToastProvider>
+          </RedirectToLoginIfUnauth>
         </AuthProvider>
         <Analytics />
       </body>
