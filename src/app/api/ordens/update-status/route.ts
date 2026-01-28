@@ -93,7 +93,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Buscar a OS primeiro (antes de atualizar para ter dados anteriores)
-    const { data: osAnterior, error: buscaError } = await query.single();
+    // Tipamos como "any" aqui porque o select é dinâmico e montado por string.
+    const { data: osAnterior, error: buscaError } = await query.single<any>();
 
     if (buscaError || !osAnterior) {
       console.error('❌ Erro ao buscar OS:', buscaError);
