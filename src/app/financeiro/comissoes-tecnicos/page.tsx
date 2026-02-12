@@ -493,6 +493,11 @@ export default function ComissoesTecnicosPage() {
           authIdToTecnico.set(t.auth_user_id, { id: t.id, nome: t.nome });
         }
       });
+      
+      console.log('🗺️ Mapas de técnicos criados:', {
+        porId: Array.from(tecnicoIdToTecnico.entries()),
+        porAuthId: Array.from(authIdToTecnico.entries())
+      });
 
       // Buscar comissões de todos os técnicos da empresa
       // Tentar buscar com o campo ativa primeiro
@@ -601,6 +606,16 @@ export default function ComissoesTecnicosPage() {
         return;
       }
 
+      // Debug: Log das comissões brutas (antes do mapeamento)
+      console.log('📦 Comissões brutas do banco:', (comissoesData || []).map((c: any) => ({
+        id: c.id,
+        tecnico_id: c.tecnico_id,
+        tecnico_nome_join: c.tecnico?.nome,
+        tecnico_id_join: c.tecnico?.id,
+        valor: c.valor_comissao,
+        status: c.status
+      })));
+      
       // Formatar os dados
       const comissoesFormatadas = (comissoesData || []).map((comissao: any) => {
         // Resolver o técnico: pode vir do join ou do mapeamento (se tecnico_id for auth_user_id)
