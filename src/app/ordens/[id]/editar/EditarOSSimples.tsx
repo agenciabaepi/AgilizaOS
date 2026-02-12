@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import MenuLayout from '@/components/MenuLayout';
@@ -14,7 +14,7 @@ import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { useAuth } from '@/context/AuthContext';
 import { useStatusHistorico } from '@/hooks/useStatusHistorico';
-import { useSubscription } from '@/hooks/useSubscription';
+import { getStatusTecnicoLabel } from '@/utils/statusLabels';
 import { FiArrowLeft, FiSave, FiUser, FiCheckCircle, FiTool, FiFileText, FiEdit3 } from 'react-icons/fi';
 
 interface Item {
@@ -78,7 +78,6 @@ export default function EditarOSSimples() {
   const confirm = useConfirm();
   const { usuarioData, empresaData } = useAuth();
   const { registrarMudancaStatus, historico, buscarHistorico } = useStatusHistorico(id);
-  const { temRecurso } = useSubscription();
 
   const [ordem, setOrdem] = useState<Ordem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -129,12 +128,21 @@ export default function EditarOSSimples() {
   // Produtos e Serviços
   const [servicos, setServicos] = useState<Item[]>([]);
   const [produtos, setProdutos] = useState<Item[]>([]);
+  const redirectingEntregueRef = useRef(false);
 
   useEffect(() => {
     if (id) {
       fetchOrdem();
     }
   }, [id]);
+
+  useEffect(() => {
+    if (ordem?.status === 'ENTREGUE' && id && !redirectingEntregueRef.current) {
+      redirectingEntregueRef.current = true;
+      addToast('error', 'O.S. entregue nao pode ser editada. Redirecionando para visualizacao.');
+      router.replace(`/ordens/${id}`);
+    }
+  }, [ordem?.status, id, router, addToast]);
 
   useEffect(() => {
     fetchStatus();
@@ -369,6 +377,11 @@ export default function EditarOSSimples() {
   };
 
   const handleSalvar = async () => {
+    if (ordem?.status === 'ENTREGUE') {
+      addToast('error', 'O.S. entregue está bloqueada para edição.');
+      return;
+    }
+
     const confirmed = await confirm({
       title: 'Salvar Alterações',
       message: 'Deseja salvar as alterações na ordem de serviço?',
@@ -409,7 +422,7 @@ export default function EditarOSSimples() {
       if (sel === 'APROVADO') {
         novoStatusTecnico = 'APROVADO';
       } else if (sel === 'ENTREGUE') {
-        novoStatusTecnico = 'FINALIZADA';
+        novoStatusTecnico = 'REPARO CONCLUÍDO';
       } else if (sel === 'AGUARDANDO APROVACAO') {
         novoStatusTecnico = 'AGUARDANDO APROVAÇÃO';
       }
@@ -497,20 +510,22 @@ export default function EditarOSSimples() {
       // Termo de garantia (só se mudou)
       if (termoGarantiaId !== ordem?.termo_garantia_id) updateData.termo_garantia_id = termoGarantiaId || null;
 
+      // Técnico: considerar mudança antes do check "nenhuma alteração"
+      const novoTecnicoId = tecnicoSelecionado?.tecnico_id || tecnicoSelecionado?.auth_user_id || null;
+      const tecnicoAtualId = ordem?.tecnico_id || null;
+      if (novoTecnicoId !== tecnicoAtualId) {
+        updateData.tecnico_id = novoTecnicoId;
+      }
+
       // Se não há mudanças, não enviar nada
       if (Object.keys(updateData).length === 0) {
         addToast('info', 'Nenhuma alteração foi feita');
-        setLoading(false);
+        setSaving(false);
         return;
       }
 
       // Persistência do checklist de entrada como JSON (string) - SEMPRE incluir
       updateData.checklist_entrada = JSON.stringify(checklistEntrada || {});
-
-      // Adicionar técnico se selecionado
-      if (tecnicoSelecionado?.tecnico_id || tecnicoSelecionado?.auth_user_id) {
-        updateData.tecnico_id = tecnicoSelecionado.tecnico_id || tecnicoSelecionado.auth_user_id;
-      }
 
       // Se ENTREGUE, adiciona datas (tipo date)
       if (sel === 'ENTREGUE') {
@@ -660,12 +675,6 @@ export default function EditarOSSimples() {
 
   // Função para abrir editor de imagem
   const abrirEditorImagem = (imageUrl: string, index: number, isNew: boolean = false) => {
-    // Verificar se tem o recurso editor_foto
-    if (!temRecurso('editor_foto')) {
-      addToast('error', 'Editor de imagens disponível apenas no plano Ultra. Faça upgrade para acessar.');
-      return;
-    }
-    
     setEditingImageUrl(imageUrl);
     setEditingImageIndex(index);
     setEditingNewImage(isNew);
@@ -962,6 +971,16 @@ export default function EditarOSSimples() {
     );
   }
 
+  if (ordem?.status === 'ENTREGUE') {
+    return (
+      <MenuLayout>
+        <div className="flex items-center justify-center h-64">
+          <p className="text-gray-600">Redirecionando para visualizacao da O.S. entregue...</p>
+        </div>
+      </MenuLayout>
+    );
+  }
+
   const totais = calcularTotais();
 
   return (
@@ -997,6 +1016,14 @@ export default function EditarOSSimples() {
             </button>
           </div>
 
+          {ordem?.status === 'ENTREGUE' && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+              <p className="text-sm text-red-800">
+                <strong>O.S. entregue e bloqueada:</strong> esta ordem foi finalizada e nao permite novas alteracoes.
+              </p>
+            </div>
+          )}
+
           {/* Informações do Cliente e OS */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
             <div className="flex items-center gap-3 mb-4">
@@ -1022,10 +1049,10 @@ export default function EditarOSSimples() {
                 <h4 className="font-medium text-gray-900 mb-2">Ordem de Serviço</h4>
                 <p className="text-gray-600">#{ordem?.numero_os}</p>
                 <p className="text-sm text-gray-500">
-                  Status: <span className="font-medium">{ordem?.status || 'N/A'}</span>
+                  Status: <span className="font-medium">{getStatusTecnicoLabel(ordem?.status ?? null, null) || 'N/A'}</span>
                 </p>
                 <p className="text-sm text-gray-500">
-                  Status Técnico: <span className="font-medium">{ordem?.status_tecnico || 'N/A'}</span>
+                  Status Técnico: <span className="font-medium">{getStatusTecnicoLabel(ordem?.status ?? null, ordem?.status_tecnico ?? null) || 'N/A'}</span>
                 </p>
               </div>
               

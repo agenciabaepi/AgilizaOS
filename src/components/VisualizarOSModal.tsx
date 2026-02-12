@@ -63,7 +63,7 @@ export default function VisualizarOSModal({ isOpen, onClose, ordem, onIniciar }:
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'ABERTA': return 'bg-yellow-100 text-yellow-800';
+      case 'ORÇAMENTO': return 'bg-yellow-100 text-yellow-800';
       case 'EM_ANALISE': return 'bg-blue-100 text-blue-800';
       case 'AGUARDANDO_PECA': return 'bg-orange-100 text-orange-800';
       case 'CONCLUIDO': return 'bg-green-100 text-green-800';
@@ -73,7 +73,7 @@ export default function VisualizarOSModal({ isOpen, onClose, ordem, onIniciar }:
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'ABERTA': return 'Aguardando Início';
+      case 'ORÇAMENTO': return 'Orçamento';
       case 'EM_ANALISE': return 'Em Análise';
       case 'AGUARDANDO_PECA': return 'Aguardando Peça';
       case 'CONCLUIDO': return 'Reparo Concluído';
@@ -278,7 +278,7 @@ export default function VisualizarOSModal({ isOpen, onClose, ordem, onIniciar }:
           >
             Fechar
           </button>
-                                {ordem.status === 'ABERTA' && (
+                                {ordem.status === 'ORÇAMENTO' && (
                         <button
                           onClick={handleIniciar}
                           disabled={loading}

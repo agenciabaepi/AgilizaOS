@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { canTecnicoAccessPath, TECNICO_DEFAULT_PERMISSIONS } from '@/config/tecnicoAllowedPaths';
 
 /**
  * Middleware de autenticação - Primeira linha de defesa
@@ -15,6 +16,11 @@ import { createServerClient } from '@supabase/ssr';
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // ✅ Primeira carga: / vai direto para /login (página mais leve, evita travar 20+ min na home pesada)
+  if (pathname === '/') {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
 
   // ✅ OTIMIZADO: Logs apenas em desenvolvimento
   if (process.env.NODE_ENV === 'development') {
@@ -42,7 +48,7 @@ export async function middleware(request: NextRequest) {
 
   // Rotas públicas – lógica inline para evitar import no Edge Runtime (evita erro webpack)
   const publicPaths = [
-    '/login', '/cadastro', '/', '/sobre', '/termos', '/politicas-privacidade',
+    '/login', '/cadastro', '/empresa-desativada', '/', '/sobre', '/termos', '/politicas-privacidade',
     '/planos', '/pagamentos/sucesso', '/pagamentos/falha', '/pagamentos/pendente',
     '/instrucoes-verificacao', '/clear-auth', '/clear-cache', '/os', '/os/buscar',
   ];
@@ -127,60 +133,85 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    // 🔒 SEGURANÇA CRÍTICA: Verificar acesso a dashboards específicas ANTES de servir a página
+    // Buscar dados do usuário (role e permissões para técnico - sistema existente)
+    const { data: usuarioData, error: usuarioError } = await supabase
+      .from('usuarios')
+      .select('id, nivel, empresa_id, permissoes')
+      .eq('auth_user_id', session.user.id)
+      .single();
+
+    if (usuarioError || !usuarioData) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🚫 Middleware: Erro ao buscar dados do usuário para ${pathname}`);
+      }
+      const loginUrl = new URL('/login', request.url);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    const nivel = usuarioData.nivel?.toLowerCase();
+    const rawPermissoes = Array.isArray(usuarioData.permissoes) ? usuarioData.permissoes : [];
+    const isAdminOuTeste = nivel === 'admin' || nivel === 'usuarioteste';
+
+    // Admin e usuarioteste têm acesso total; demais níveis podem ter permissões restritas
+    let permissoes: string[] = [];
+    if (nivel === 'tecnico') {
+      permissoes = rawPermissoes.length > 0 ? rawPermissoes : TECNICO_DEFAULT_PERMISSIONS;
+    } else if (!isAdminOuTeste && rawPermissoes.length > 0) {
+      permissoes = rawPermissoes;
+    }
+
+    // 🔒 /comissoes = só técnico (Minhas Comissões). Admin/atendente redireciona para o dashboard.
+    if (pathname === '/comissoes' && nivel !== 'tecnico') {
+      const dashboardUrl = new URL(nivel === 'atendente' ? '/dashboard-atendente' : '/dashboard', request.url);
+      return NextResponse.redirect(dashboardUrl);
+    }
+
+    // 🔒 /financeiro/comissoes-tecnicos = só admin/atendente (gestão de comissões). Técnico redireciona.
+    if (pathname === '/financeiro/comissoes-tecnicos' && nivel === 'tecnico') {
+      const dashboardTecnicoUrl = new URL('/dashboard-tecnico', request.url);
+      return NextResponse.redirect(dashboardTecnicoUrl);
+    }
+
+    // 🔒 /assinatura = não disponível para técnico (gestão de assinatura é admin/atendente).
+    if (pathname === '/assinatura' && nivel === 'tecnico') {
+      return NextResponse.redirect(new URL('/dashboard-tecnico', request.url));
+    }
+
+    // 🔒 Bloquear rotas por permissão: técnico sempre; atendente/financeiro quando tiverem permissoes definidas
+    if (!isAdminOuTeste && permissoes.length > 0) {
+      const permitido = canTecnicoAccessPath(pathname, permissoes);
+      if (!permitido) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🚫 Middleware: Usuário (${nivel}) tentou acessar ${pathname}, redirecionando`);
+        }
+        const redirectPath = nivel === 'tecnico' ? '/dashboard-tecnico' : nivel === 'atendente' ? '/dashboard-atendente' : '/dashboard';
+        return NextResponse.redirect(new URL(redirectPath, request.url));
+      }
+    }
+
+    // 🔒 Verificar acesso a dashboards específicas (admin/atendente não acessam dashboard do outro)
     const dashboardRoutes = ['/dashboard', '/dashboard-tecnico', '/dashboard-atendente'];
     const isDashboardRoute = dashboardRoutes.includes(pathname);
     
     if (isDashboardRoute) {
-      // Buscar dados do usuário para verificar role
-      const { data: usuarioData, error: usuarioError } = await supabase
-        .from('usuarios')
-        .select('id, nivel, empresa_id')
-        .eq('auth_user_id', session.user.id)
-        .single();
-
-      if (usuarioError || !usuarioData) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`🚫 Middleware: Erro ao buscar dados do usuário para ${pathname}`);
-        }
-        const loginUrl = new URL('/login', request.url);
-        return NextResponse.redirect(loginUrl);
-      }
-
-      // Verificar se o usuário tem acesso à dashboard específica
-      const nivel = usuarioData.nivel?.toLowerCase();
       let temAcesso = false;
       let dashboardCorreta = '/dashboard';
 
       if (pathname === '/dashboard') {
-        // Dashboard admin - apenas admin e usuarioteste
         temAcesso = nivel === 'admin' || nivel === 'usuarioteste';
         dashboardCorreta = '/dashboard';
       } else if (pathname === '/dashboard-tecnico') {
-        // Dashboard técnico - apenas técnico
         temAcesso = nivel === 'tecnico';
         dashboardCorreta = '/dashboard-tecnico';
       } else if (pathname === '/dashboard-atendente') {
-        // Dashboard atendente - apenas atendente
         temAcesso = nivel === 'atendente';
         dashboardCorreta = '/dashboard-atendente';
       }
 
-      // Se não tem acesso, redirecionar imediatamente para a dashboard correta
       if (!temAcesso) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`🚫 Middleware: Usuário ${nivel} tentou acessar ${pathname}, redirecionando para ${dashboardCorreta}`);
-        }
-        
-        // Determinar dashboard correta baseada no role
-        if (nivel === 'tecnico') {
-          dashboardCorreta = '/dashboard-tecnico';
-        } else if (nivel === 'atendente') {
-          dashboardCorreta = '/dashboard-atendente';
-        } else if (nivel === 'admin' || nivel === 'usuarioteste') {
-          dashboardCorreta = '/dashboard';
-        }
-        
+        if (nivel === 'tecnico') dashboardCorreta = '/dashboard-tecnico';
+        else if (nivel === 'atendente') dashboardCorreta = '/dashboard-atendente';
+        else dashboardCorreta = '/dashboard';
         const correctDashboardUrl = new URL(dashboardCorreta, request.url);
         return NextResponse.redirect(correctDashboardUrl);
       }

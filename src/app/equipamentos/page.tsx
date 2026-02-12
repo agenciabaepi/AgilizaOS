@@ -136,8 +136,25 @@ export default function ProdutosServicosPage() {
 
       // Produtos e serviços via API interna - com filtro por empresa
       const url = `/api/produtos-servicos/listar?empresaId=${encodeURIComponent(empresaIdAtual || '')}`;
-      const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      const res = await fetch(url, {
+        cache: 'no-store',
+        signal: controller.signal,
+        credentials: 'same-origin',
+        headers,
+      });
       const dados = await res.json();
+
+      if (!res.ok) {
+        const msg = typeof dados?.error === 'string' ? dados.error : 'Erro ao carregar dados';
+        addToast('error', msg);
+        setLista([]);
+        return;
+      }
+
       const sortedData = (Array.isArray(dados) ? dados : []).slice().sort((a: any, b: any) => {
         const at = new Date(a.criado_em || a.created_at || 0).getTime();
         const bt = new Date(b.criado_em || b.created_at || 0).getTime();
@@ -146,15 +163,20 @@ export default function ProdutosServicosPage() {
       setLista(sortedData);
     } catch (erro) {
       addToast('error', 'Erro ao carregar dados');
+      setLista([]);
     } finally {
       clearTimeout(timeoutId);
       setCarregando(false);
     }
   };
 
+  // Chave estável para o useEffect (tamanho do array de deps deve ser constante)
+  const listarDeps = `${!!session}-${usuarioData?.empresa_id ?? ''}`;
   useEffect(() => {
-    buscar();
-  }, []);
+    if (session) {
+      buscar();
+    }
+  }, [listarDeps]);
 
   const graficoRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -233,11 +255,11 @@ export default function ProdutosServicosPage() {
       return;
     }
 
-    // Buscar o maior código já existente
+    // Buscar o maior código já existente (por empresa)
     const { data: ultimos, error: erroUltimos } = await supabase
       .from('produtos_servicos')
       .select('codigo')
-      // Não filtrar por empresa_id manualmente, RLS já faz isso
+      .eq('empresa_id', empresaId)
       .order('codigo', { ascending: false })
       .limit(1);
 
@@ -281,18 +303,22 @@ export default function ProdutosServicosPage() {
   const excluir = async (id: string) => {
     const ok = await confirm({ message: 'Tem certeza que deseja excluir este item?' });
     if (!ok) return;
-    
+
     try {
-      const { error } = await supabase
-        .from('produtos_servicos')
-        .delete()
-        .eq('id', id);
-      
-      if (error) {
-        addToast('error', 'Erro ao excluir item: ' + error.message);
+      const headers: Record<string, string> = {};
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+      const res = await fetch(`/api/produtos-servicos/excluir?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        credentials: 'same-origin',
+        headers,
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        addToast('error', data?.error || 'Erro ao excluir item');
         return;
       }
-      
+
       buscar();
       addToast('success', 'Item excluído com sucesso!');
     } catch (err) {

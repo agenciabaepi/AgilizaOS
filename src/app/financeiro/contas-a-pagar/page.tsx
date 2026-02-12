@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useRef, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/Toast';
 import MenuLayout from '@/components/MenuLayout';
 import AuthGuard from '@/components/AuthGuard';
+import { useContasAPagar } from '@/hooks/useContasAPagar';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { Select } from '@/components/Select';
@@ -68,26 +69,28 @@ function ContasAPagarPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  // Estados
-  const [contas, setContas] = useState<ContaPagar[]>([]);
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
-  const [ordensServico, setOrdensServico] = useState<OrdemServico[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Filtro de mês - declarado antes do hook para evitar erro de referência
+  const [filtroMes, setFiltroMes] = useState(() => new Date().toISOString().slice(0, 7));
+  const [filtroCategoria, setFiltroCategoria] = useState('');
+  const [filtroStatus, setFiltroStatus] = useState('');
+  const [filtroPeriodo, setFiltroPeriodo] = useState('');
+
+  const {
+    loading,
+    error,
+    contas,
+    contasDoMes,
+    categorias,
+    ordensServico,
+    contasPorTipo,
+    refetch
+  } = useContasAPagar(empresaData?.id, filtroMes);
+
   const [activeTab, setActiveTab] = useState<'todas' | 'fixas' | 'variaveis' | 'pecas'>('todas');
   const [showModal, setShowModal] = useState(false);
   const [editingConta, setEditingConta] = useState<ContaPagar | null>(null);
   const [contaFocus, setContaFocus] = useState<string | null>(null);
   const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
-  // Filtros
-  const [filtroCategoria, setFiltroCategoria] = useState('');
-  const [filtroStatus, setFiltroStatus] = useState('');
-  const [filtroPeriodo, setFiltroPeriodo] = useState('');
-  const [filtroMes, setFiltroMes] = useState(() => {
-    // Definir mês atual como padrão
-    const hoje = new Date();
-    const mesAtual = hoje.toISOString().slice(0, 7);
-    return mesAtual;
-  });
   
   // Funções para navegação entre meses
   const navegarMes = (direcao: 'anterior' | 'proximo') => {
@@ -201,121 +204,6 @@ function ContasAPagarPageContent() {
     data_fixa_mes: 1
   });
 
-  // Carregar dados
-  useEffect(() => {
-    debugLog('🔄 useEffect executado - empresaData:', empresaData);
-    debugLog('🔄 empresaData?.id:', empresaData?.id);
-    
-    if (empresaData?.id) {
-      debugLog('🏢 Carregando dados para empresa:', empresaData.id);
-      loadData();
-    } else {
-      debugLog('⚠️ empresaData.id não disponível, não carregando dados');
-      debugLog('📊 Estado atual:', { empresaData, loading });
-    }
-  }, [empresaData?.id]);
-
-  const loadData = async () => {
-    if (!empresaData?.id) {
-      debugLog('⚠️ EmpresaData não disponível:', empresaData);
-      return;
-    }
-    
-    debugLog('🔄 Iniciando carregamento de dados para empresa:', empresaData.id);
-    try {
-      setLoading(true);
-      
-      // Carregar categorias
-      debugLog('📂 Carregando categorias...');
-      const { data: categoriasData, error: categoriasError } = await supabase
-        .from('categorias_contas')
-        .select('*')
-        .eq('empresa_id', empresaData.id)
-        .eq('ativo', true)
-        .order('nome');
-      
-      if (categoriasError) {
-        console.error('❌ Erro ao carregar categorias:', categoriasError);
-      } else {
-        debugLog('✅ Categorias carregadas:', categoriasData?.length || 0);
-      }
-      
-      setCategorias(categoriasData || []);
-
-      
-      // Carregar ordens de serviço
-      const { data: ordensData } = await supabase
-        .from('ordens_servico')
-        .select(`
-          id,
-          numero_os,
-          cliente_id,
-          cliente:clientes(nome)
-        `)
-        .eq('empresa_id', empresaData.id)
-        .order('numero_os', { ascending: false });
-      
-      setOrdensServico((ordensData || []).map((ordem: any) => ({
-        ...ordem,
-        cliente: Array.isArray(ordem.cliente) ? ordem.cliente[0] : ordem.cliente
-      })));
-      
-      // Carregar contas
-      debugLog('💰 Carregando contas...');
-      const { data: contasData, error: contasError } = await supabase
-        .from('contas_pagar')
-        .select(`
-          *,
-          categoria:categorias_contas(*)
-        `)
-        .eq('empresa_id', empresaData.id)
-        .order('data_vencimento', { ascending: false });
-      
-      if (contasError) {
-        console.error('❌ Erro ao carregar contas:', contasError);
-        addToast('error', 'Erro ao carregar contas: ' + contasError.message);
-        setContas([]);
-        return;
-      } else {
-        debugLog('✅ Contas carregadas com sucesso:', contasData?.length || 0);
-        if (contasData && contasData.length > 0) {
-          debugLog('📋 Primeiras 3 contas:', contasData.slice(0, 3).map(c => ({
-            id: c.id,
-            descricao: c.descricao,
-            tipo: c.tipo,
-            valor: c.valor
-          })));
-        }
-      }
-      
-      debugLog('📊 Dados carregados:', {
-        categorias: categoriasData?.length || 0,
-        ordens: ordensData?.length || 0,
-        contas: contasData?.length || 0,
-        contasFixas: contasData?.filter(c => c.conta_fixa)?.length || 0
-      });
-      
-      if (contasData && contasData.length > 0) {
-        debugLog('📋 Contas carregadas:', contasData.map(c => ({
-          id: c.id,
-          descricao: c.descricao,
-          tipo: c.tipo,
-          conta_fixa: c.conta_fixa,
-          parcelas_totais: c.parcelas_totais,
-          data_vencimento: c.data_vencimento
-        })));
-      }
-      
-      setContas(contasData || []);
-      
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      addToast('error', 'Erro ao carregar dados');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -328,7 +216,7 @@ function ContasAPagarPageContent() {
 
       const contaData = {
         empresa_id: empresaData.id,
-        categoria_id: formData.categoria_id,
+        categoria_id: formData.categoria_id || null,
         tipo: formData.tipo,
         descricao: formData.descricao,
         valor: parseFloat(formData.valor),
@@ -408,7 +296,7 @@ function ContasAPagarPageContent() {
       setShowModal(false);
       setEditingConta(null);
       resetForm();
-      loadData();
+      refetch();
       
     } catch (error) {
       console.error('Erro ao salvar conta:', error);
@@ -462,7 +350,7 @@ function ContasAPagarPageContent() {
       if (error) throw error;
       
       addToast('success', 'Conta excluída com sucesso!');
-      loadData();
+        refetch();
       
     } catch (error) {
       console.error('Erro ao excluir conta:', error);
@@ -504,7 +392,7 @@ function ContasAPagarPageContent() {
       if (error) throw error;
       
       addToast('success', `Conta marcada como ${status}!`);
-      loadData();
+      refetch();
       
     } catch (error) {
       console.error('Erro ao alterar status:', error);
@@ -538,79 +426,43 @@ function ContasAPagarPageContent() {
     setShowModal(true);
   };
 
-  // Usar apenas contas reais do banco (todas as parcelas já são criadas como contas reais)
-  // Filtrar contas
-  const filteredContas = contas.filter(conta => {
-    let matchesTab = activeTab === 'todas';
-    if (activeTab === 'fixas') matchesTab = conta.tipo === 'fixa';
-    if (activeTab === 'variaveis') matchesTab = conta.tipo === 'variavel';
-    if (activeTab === 'pecas') matchesTab = conta.tipo === 'pecas';
-    
-    const matchesCategoria = !filtroCategoria || conta.categoria_id === filtroCategoria;
-    const matchesStatus = !filtroStatus || conta.status === filtroStatus;
-    
-    // Filtro por mês - usar validação dupla como no DRE
-    let matchesMes = true;
-    if (filtroMes) {
-      // Critério 1: Comparação por substring (mais confiável)
-      const contaMes = conta.data_vencimento.substring(0, 7); // YYYY-MM
-      const venceNoMesISO = contaMes === filtroMes;
-      
-      // Critério 2: Comparação por data completa
-      const dataVencimento = new Date(conta.data_vencimento + 'T00:00:00');
-      const inicioMes = new Date(filtroMes + '-01T00:00:00');
-      const fimMes = new Date(inicioMes);
-      fimMes.setMonth(fimMes.getMonth() + 1);
-      fimMes.setDate(0); // Último dia do mês
-      fimMes.setHours(23, 59, 59, 999);
-      const venceNoMesData = dataVencimento >= inicioMes && dataVencimento <= fimMes;
-      
-      // Se a conta foi paga, verificar também se foi paga no mês
-      if (conta.status === 'pago' && conta.data_pagamento) {
-        const pagMes = conta.data_pagamento.substring(0, 7);
-        const foiPagaNoMesISO = pagMes === filtroMes;
-        const dataPagamento = new Date(conta.data_pagamento + 'T00:00:00');
-        const foiPagaNoMesData = dataPagamento >= inicioMes && dataPagamento <= fimMes;
-        
-        // Incluir se vence no mês OU foi paga no mês
-        matchesMes = (venceNoMesISO && venceNoMesData) || (foiPagaNoMesISO && foiPagaNoMesData);
-      } else {
-        // Para contas não pagas, considerar apenas se vence no mês
-        matchesMes = venceNoMesISO && venceNoMesData;
-      }
-    }
-    
-    const matches = matchesTab && matchesCategoria && matchesStatus && matchesMes;
-    
-    
-    return matches;
-  });
+  // contasDoMes já vem filtrado por mês do hook; aplicar tab, categoria e status
+  const filteredContas = useMemo(() => {
+    return contasDoMes.filter(conta => {
+      const tipoNorm = (conta.tipo || '').toLowerCase();
+      const statusNorm = (conta.status || '').toLowerCase();
+      let matchesTab = activeTab === 'todas';
+      if (activeTab === 'fixas') matchesTab = tipoNorm === 'fixa';
+      if (activeTab === 'variaveis') matchesTab = tipoNorm === 'variavel';
+      if (activeTab === 'pecas') matchesTab = tipoNorm === 'pecas';
+      const matchesCategoria = !filtroCategoria || conta.categoria_id === filtroCategoria;
+      const matchesStatus = !filtroStatus || statusNorm === filtroStatus.toLowerCase();
+      return matchesTab && matchesCategoria && matchesStatus;
+    });
+  }, [contasDoMes, activeTab, filtroCategoria, filtroStatus]);
   
 
   // Agrupar contas por mês - APENAS se há filtro de mês ativo
   const contasPorMes = filtroMes ? 
-    // Se há filtro de mês, mostrar apenas contas do mês selecionado
     { [filtroMes]: filteredContas } :
-    // Se não há filtro, agrupar por mês normalmente
-    filteredContas.reduce((acc, conta) => {
-    const mes = new Date(conta.data_vencimento).toISOString().slice(0, 7); // YYYY-MM
+    filteredContas.reduce<Record<string, ContaPagar[]>>((acc, conta) => {
+    const mes = (conta.data_vencimento || '').toString().substring(0, 7);
     if (!acc[mes]) {
       acc[mes] = [];
     }
-    acc[mes].push(conta);
+    acc[mes].push(conta as ContaPagar);
     return acc;
-  }, {} as Record<string, ContaPagar[]>);
+  }, {});
 
   // Ordenar meses
   const mesesOrdenados = Object.keys(contasPorMes).sort();
 
   // Calcular totais baseado nas contas filtradas (com filtro de mês aplicado)
   const totalPendente = filteredContas
-    .filter(c => c.status === 'pendente')
+    .filter(c => ['pendente', 'vencido'].includes((c.status || '').toLowerCase()))
     .reduce((sum, c) => sum + c.valor, 0);
-  
   const totalPago = filteredContas
-    .filter(c => c.status === 'pago')
+    .filter(c => (c.status || '').toLowerCase() === 'pago')
     .reduce((sum, c) => sum + c.valor, 0);
 
 
@@ -635,10 +487,6 @@ function ContasAPagarPageContent() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Contas a Pagar</h1>
             <p className="text-gray-600">Gerencie todas as contas da empresa</p>
-            {/* Debug info */}
-            <div className="text-xs text-gray-500 mt-1">
-              Debug: empresaData.id = {empresaData?.id || 'NÃO DISPONÍVEL'} | contas = {contas.length}
-            </div>
           </div>
           <div className="flex gap-2">
             <Button
@@ -650,7 +498,7 @@ function ContasAPagarPageContent() {
               Categorias
             </Button>
             <Button
-              onClick={() => loadData()}
+              onClick={() => refetch()}
               variant="outline"
               size="sm"
               className="mr-2"
@@ -668,6 +516,12 @@ function ContasAPagarPageContent() {
         </div>
 
 
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-800">{error}</p>
+          </div>
+        )}
 
         {/* Resumo */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
@@ -711,20 +565,12 @@ function ContasAPagarPageContent() {
         {/* Abas */}
         <div className="bg-white rounded-lg border border-gray-200 mb-6">
           <div className="flex border-b border-gray-200">
-            {(() => {
-              const mesParaContagens = filtroMes || new Date().toISOString().slice(0, 7);
-              const contasDoMes = contas.filter(c => {
-                const contaMes = new Date(c.data_vencimento).toISOString().slice(0, 7);
-                return contaMes === mesParaContagens;
-              });
-              
-              return [
-                { key: 'todas', label: 'Todas', count: contasDoMes.length },
-                { key: 'fixas', label: 'Fixas', count: contasDoMes.filter(c => c.tipo === 'fixa').length },
-                { key: 'variaveis', label: 'Variáveis', count: contasDoMes.filter(c => c.tipo === 'variavel').length },
-                { key: 'pecas', label: 'Peças', count: contasDoMes.filter(c => c.tipo === 'pecas').length }
-              ];
-            })().map(tab => (
+            {[
+              { key: 'todas', label: 'Todas', count: contasPorTipo.todas },
+              { key: 'fixas', label: 'Fixas', count: contasPorTipo.fixas },
+              { key: 'variaveis', label: 'Variáveis', count: contasPorTipo.variaveis },
+              { key: 'pecas', label: 'Peças', count: contasPorTipo.pecas }
+            ].map(tab => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key as any)}
@@ -826,6 +672,19 @@ function ContasAPagarPageContent() {
           </div>
         </div>
 
+        {/* Aviso quando filtro de mês não retorna resultados mas existem contas */}
+        {filtroMes && filteredContas.length === 0 && contas.length > 0 && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between">
+            <p className="text-amber-800">
+              Nenhuma conta em <strong>{formatarMes(filtroMes)}</strong>. 
+              Você tem {contas.length} conta(s) em outros meses.
+            </p>
+            <Button onClick={limparFiltroMes} variant="outline" size="sm" className="shrink-0">
+              Ver todas as contas
+            </Button>
+          </div>
+        )}
+
         {/* Lista de Contas Agrupadas por Mês */}
         {mesesOrdenados.length > 0 ? (
           <div className="space-y-6">
@@ -833,7 +692,7 @@ function ContasAPagarPageContent() {
               const contasDoMes = contasPorMes[mes];
               const totalMes = contasDoMes.reduce((sum, conta) => sum + conta.valor, 0);
               const totalPendenteMes = contasDoMes
-                .filter(c => c.status === 'pendente')
+                .filter(c => (c.status || '').toLowerCase() === 'pendente')
                 .reduce((sum, c) => sum + c.valor, 0);
               
               
@@ -906,15 +765,19 @@ function ContasAPagarPageContent() {
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span 
-                                className="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
-                                style={{ 
-                                  backgroundColor: conta.categoria.cor + '20',
-                                  color: conta.categoria.cor 
-                                }}
-                              >
-                                {conta.categoria.nome}
-                              </span>
+                              {conta.categoria ? (
+                                <span 
+                                  className="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
+                                  style={{ 
+                                    backgroundColor: (conta.categoria?.cor || '#6b7280') + '20',
+                                    color: conta.categoria?.cor || '#6b7280'
+                                  }}
+                                >
+                                  {conta.categoria.nome}
+                                </span>
+                              ) : (
+                                <span className="text-sm text-gray-500">-</span>
+                              )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               R$ {conta.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -924,30 +787,30 @@ function ContasAPagarPageContent() {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                conta.status === 'pago' 
+                                (conta.status || '').toLowerCase() === 'pago' 
                                   ? 'bg-green-100 text-green-800'
                                   : conta.status === 'vencido'
                                   ? 'bg-red-100 text-red-800'
                                   : 'bg-yellow-100 text-yellow-800'
                               }`}>
-                                {conta.status === 'pago' ? 'Pago' : 
-                                 conta.status === 'vencido' ? 'Vencido' : 'Pendente'}
+                                {(conta.status || '').toLowerCase() === 'pago' ? 'Pago' : 
+                                 (conta.status || '').toLowerCase() === 'vencido' ? 'Vencido' : 'Pendente'}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex flex-col gap-1">
                                 <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                  conta.tipo === 'fixa' 
+                                  (conta.tipo || '').toLowerCase() === 'fixa' 
                                     ? conta.id.includes('_virtual_') 
                                       ? 'bg-purple-100 text-purple-800'
                                       : 'bg-blue-100 text-blue-800'
-                                    : conta.tipo === 'variavel'
+                                    : (conta.tipo || '').toLowerCase() === 'variavel'
                                     ? 'bg-yellow-100 text-yellow-800'
                                     : 'bg-green-100 text-green-800'
                                 }`}
                               >
-                                {conta.tipo === 'fixa' ? 'Fixa'
-                                   : conta.tipo === 'variavel' ? 'Variável' : 'Peças'}
+                                {(conta.tipo || '').toLowerCase() === 'fixa' ? 'Fixa'
+                                   : (conta.tipo || '').toLowerCase() === 'variavel' ? 'Variável' : 'Peças'}
                                 </span>
                                 {conta.conta_fixa && (
                                   <div className="text-xs text-gray-500">
@@ -972,7 +835,7 @@ function ContasAPagarPageContent() {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                               <div className="flex gap-2">
-                                {conta.status === 'pendente' ? (
+                                {(conta.status || '').toLowerCase() === 'pendente' ? (
                                   <button
                                     onClick={() => handleStatusChange(conta.id, 'pago')}
                                     className="text-green-600 hover:text-green-900"
@@ -1298,7 +1161,7 @@ function ContasAPagarPageContent() {
 
 export default function ContasAPagarPage() {
   return (
-    <AuthGuard requiredPermission="contas-a-pagar">
+    <AuthGuard>
       <Suspense fallback={
         <MenuLayout>
           <div className="p-6">

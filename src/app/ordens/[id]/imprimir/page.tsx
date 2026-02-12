@@ -132,6 +132,26 @@ const styles = StyleSheet.create({
   },
 });
 
+/** Usa data URLs (imagens_pdf) se houver pelo menos uma; senão usa as URLs originais para o PDF tentar carregar. */
+function getImagensParaPdf(pdfField: string | null | undefined, urlField: string | null | undefined): string {
+  if (!urlField && !pdfField) return '';
+  if (!pdfField || typeof pdfField !== 'string') return (urlField as string) || '';
+  const t = pdfField.trim();
+  if (!t || t === '[]') return (urlField as string) || '';
+  if (t.startsWith('[')) {
+    try {
+      const arr = JSON.parse(t);
+      if (!Array.isArray(arr) || arr.length === 0) return (urlField as string) || '';
+      const hasDataUrl = arr.some((x: unknown) => typeof x === 'string' && x.startsWith('data:image/'));
+      if (!hasDataUrl) return (urlField as string) || '';
+      return pdfField;
+    } catch {
+      return (urlField as string) || '';
+    }
+  }
+  return pdfField;
+}
+
 function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[] }) {
   function formatDate(dateStr: string | null | undefined) {
     if (!dateStr) return '---';
@@ -200,13 +220,13 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
       return t.split(',');
     })();
 
+    // No react-pdf, <Image> com URL HTTP costuma falhar (CORS/worker). Só usar data URLs.
     const imageUrls = Array.from(
       new Set(
         rawList
           .map((url: string) => url.trim())
           .filter((url: string) => url !== '' && url !== 'null' && url !== 'undefined')
-          // React-PDF precisa de URL absoluta (ou data:image/*)
-          .filter((url: string) => /^https?:\/\//i.test(url) || /^data:image\//i.test(url))
+          .filter((url: string) => /^data:image\//i.test(url) || /^https?:\/\//i.test(url))
       )
     );
 
@@ -223,26 +243,41 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
     return (
       <View style={{ marginBottom: 8 }}>
         <Text style={[styles.sectionTitle, { marginBottom: 4 }]}>{titulo}</Text>
-        {/* react-pdf não suporta "gap" de CSS; usar margens nos itens */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
           {imageUrls.slice(0, max).map((imageUrl, index) => {
             const originalUrlForDate = originalUrls[index] || imageUrl;
             const ts = extractTimestampMsFromUrl(originalUrlForDate);
             const dt = formatDateTimeFromMs(ts);
-            const src =
-              /^https?:\/\//i.test(imageUrl) ? encodeURI(imageUrl.trim()) : imageUrl.trim();
+            const isDataUrl = /^data:image\//i.test(imageUrl);
+            const src = isDataUrl ? imageUrl.trim() : (encodeURI(imageUrl.trim()) as string);
             return (
               <View key={index} style={{ width: size, marginRight: 8, marginBottom: 8 }}>
-                <Image
-                  src={src}
-                  style={{
-                    width: size,
-                    height: size,
-                    objectFit: 'cover',
-                    borderWidth: 1,
-                    borderColor: '#ddd',
-                  }}
-                />
+                {isDataUrl ? (
+                  <Image
+                    src={src}
+                    style={{
+                      width: size,
+                      height: size,
+                      objectFit: 'cover',
+                      borderWidth: 1,
+                      borderColor: '#ddd',
+                    }}
+                  />
+                ) : (
+                  <View
+                    style={{
+                      width: size,
+                      height: size,
+                      borderWidth: 1,
+                      borderColor: '#ddd',
+                      backgroundColor: '#f0f0f0',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text style={{ fontSize: 8, color: '#999' }}>?</Text>
+                  </View>
+                )}
                 <Text style={{ fontSize: 7, color: '#666', marginTop: 2, textAlign: 'center' }}>
                   {dt}
                 </Text>
@@ -503,22 +538,22 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
             {ordem.servico && (
               <View style={styles.tableRow}>
                 <Text style={[styles.tableCell, styles.tableCellLeftAlign, { flex: 3 }]}>{ordem.servico}</Text>
-                <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 1 }]}>{ordem.qtd_servico || 1}</Text>
+                <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 1 }]}>{String(ordem.qtd_servico ?? 1)}</Text>
                 <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 2 }]}>{formatMoney(ordem.valor_servico)}</Text>
-                <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 2 }]}>{formatMoney((ordem.qtd_servico || 1) * (ordem.valor_servico || 0))}</Text>
+                <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 2 }]}>{formatMoney((ordem.qtd_servico ?? 1) * (ordem.valor_servico ?? 0))}</Text>
               </View>
             )}
             {ordem.peca && (
               <View style={styles.tableRow}>
                 <Text style={[styles.tableCell, styles.tableCellLeftAlign, { flex: 3 }]}>{ordem.peca}</Text>
-                <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 1 }]}>{ordem.qtd_peca || 1}</Text>
+                <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 1 }]}>{String(ordem.qtd_peca ?? 1)}</Text>
                 <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 2 }]}>{formatMoney(ordem.valor_peca)}</Text>
-                <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 2 }]}>{formatMoney((ordem.qtd_peca || 1) * (ordem.valor_peca || 0))}</Text>
+                <Text style={[styles.tableCell, styles.tableCellCenterAlign, { flex: 2 }]}>{formatMoney((ordem.qtd_peca ?? 1) * (ordem.valor_peca ?? 0))}</Text>
               </View>
             )}
             <View style={styles.tableRow}>
               <Text style={[styles.tableCell, { flex: 8, borderRightWidth: 0, textAlign: 'right', fontWeight: 'bold' }]}>Subtotal:</Text>
-              <Text style={[styles.tableCell, { flex: 2, textAlign: 'right', fontWeight: 'bold' }]}>{formatMoney(((ordem.qtd_servico || 1) * (ordem.valor_servico || 0)) + ((ordem.qtd_peca || 1) * (ordem.valor_peca || 0)))}</Text>
+              <Text style={[styles.tableCell, { flex: 2, textAlign: 'right', fontWeight: 'bold' }]}>{formatMoney(((ordem.qtd_servico ?? 1) * (ordem.valor_servico ?? 0)) + ((ordem.qtd_peca ?? 1) * (ordem.valor_peca ?? 0)))}</Text>
             </View>
             <View style={styles.tableRow}>
               <Text style={[styles.tableCell, { flex: 8, borderRightWidth: 0, textAlign: 'right', fontWeight: 'bold' }]}>Desconto:</Text>
@@ -526,7 +561,7 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
             </View>
             <View style={styles.tableRow}>
               <Text style={[styles.tableCell, { flex: 8, borderRightWidth: 0, textAlign: 'right', fontWeight: 'bold' }]}>Total:</Text>
-              <Text style={[styles.tableCell, { flex: 2, textAlign: 'right', fontWeight: 'bold' }]}> {formatMoney((((ordem.qtd_servico || 1) * (ordem.valor_servico || 0)) + ((ordem.qtd_peca || 1) * (ordem.valor_peca || 0))) - (ordem.desconto || 0))}</Text>
+              <Text style={[styles.tableCell, { flex: 2, textAlign: 'right', fontWeight: 'bold' }]}> {formatMoney((((ordem.qtd_servico ?? 1) * (ordem.valor_servico ?? 0)) + ((ordem.qtd_peca ?? 1) * (ordem.valor_peca ?? 0))) - (ordem.desconto ?? 0))}</Text>
             </View>
             {ordem.valor_faturado && ordem.valor_faturado > 0 && (
               <View style={styles.tableRow}>
@@ -540,19 +575,19 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
 
       {/* 2ª folha: Imagens do Técnico + Termo */}
       <Page size="A4" style={styles.page}>
-        {/* Imagens de Entrada (Atendente) - 2ª folha */}
+        {/* Imagens de Entrada (Atendente) - 2ª folha. Usa URLs se não houver data URLs. */}
         {renderImagens(
-          (ordem as any).imagens_pdf || ordem.imagens,
+          getImagensParaPdf((ordem as any).imagens_pdf, ordem.imagens),
           'Imagens de Entrada (Atendente)',
-          { size: 110, max: 3 },
+          { size: 110, max: 30 },
           ordem.imagens
         )}
 
-        {/* Imagens do Técnico (sempre que existirem, independente do laudo) */}
+        {/* Imagens do Técnico. Usa URLs se não houver data URLs. */}
         {renderImagens(
-          (ordem as any).imagens_tecnico_pdf || (ordem as any).imagens_tecnico,
+          getImagensParaPdf((ordem as any).imagens_tecnico_pdf, (ordem as any).imagens_tecnico),
           'Imagens do Técnico',
-          { size: 110, max: 3 },
+          { size: 110, max: 30 },
           (ordem as any).imagens_tecnico
         )}
 
@@ -593,9 +628,235 @@ export default function ImprimirOrdemPage() {
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
+  /** Carrega heic2any do CDN (sem npm) para converter HEIC → JPEG no navegador. */
+  function loadHeic2any(): Promise<(opts: { blob: Blob; toType?: string }) => Promise<Blob | Blob[]>> {
+    const w = typeof window === 'undefined' ? null : (window as any);
+    if (!w) return Promise.reject(new Error('no window'));
+    if (w.__heic2any) return Promise.resolve(w.__heic2any);
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://unpkg.com/heic2any@0.0.4/dist/heic2any.min.js';
+      s.onload = () => {
+        w.__heic2any = w.heic2any;
+        resolve(w.heic2any);
+      };
+      s.onerror = () => reject(new Error('Falha ao carregar heic2any'));
+      document.head.appendChild(s);
+    });
+  }
+
+  function isHeicDataUrl(s: string): boolean {
+    return typeof s === 'string' && /^data:image\/(heic|heif)/i.test(s);
+  }
+
+  async function convertHeicDataUrlToJpeg(dataUrl: string, heic2anyFn: (opts: { blob: Blob; toType?: string }) => Promise<Blob | Blob[]>): Promise<string> {
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const result = await heic2anyFn({ blob, toType: 'image/jpeg' });
+    const outBlob = Array.isArray(result) ? result[0] : result;
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error('FileReader failed'));
+      reader.readAsDataURL(outBlob);
+    });
+  }
+
+  /** Quando a API não retorna data URLs, busca cada imagem via proxy no cliente e monta os arrays. */
+  async function preencherImagensPdfPeloCliente(ordemFromApi: any): Promise<any> {
+    let imagens_pdf = ordemFromApi.imagens_pdf;
+    let imagens_tecnico_pdf = ordemFromApi.imagens_tecnico_pdf;
+
+    const hasDataUrls = (s: string | null | undefined) => {
+      if (!s || typeof s !== 'string') return false;
+      const t = s.trim();
+      if (!t || t === '[]') return false;
+      if (t.startsWith('[')) {
+        try {
+          const arr = JSON.parse(t);
+          return Array.isArray(arr) && arr.length > 0 && typeof arr[0] === 'string';
+        } catch {
+          return false;
+        }
+      }
+      return false;
+    };
+
+    if (!hasDataUrls(imagens_pdf) && ordemFromApi.imagens) {
+      imagens_pdf = await prepareImagesForPdf(ordemFromApi.imagens, 30);
+    }
+    if (!hasDataUrls(imagens_tecnico_pdf) && ordemFromApi.imagens_tecnico) {
+      imagens_tecnico_pdf = await prepareImagesForPdf(ordemFromApi.imagens_tecnico, 30);
+    }
+
+    if (imagens_pdf === ordemFromApi.imagens_pdf && imagens_tecnico_pdf === ordemFromApi.imagens_tecnico_pdf) {
+      return ordemFromApi;
+    }
+    return { ...ordemFromApi, imagens_pdf, imagens_tecnico_pdf };
+  }
+
+  /** Tamanho máximo do lado maior da imagem no PDF (evita payload gigante e bugs do react-pdf). */
+  const MAX_IMAGE_DIM = 400;
+
+  /**
+   * Converte qualquer data URL de imagem para PNG e redimensiona para caber em MAX_IMAGE_DIM.
+   * Evita o erro "Unknown version" do react-pdf com JPEG/WebP e reduz tamanho do base64.
+   */
+  async function dataUrlToPng(dataUrl: string): Promise<string | null> {
+    if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) return null;
+    const trimmed = dataUrl.trim();
+    if (trimmed.startsWith('data:image/png;base64,')) {
+      // Já é PNG; opcionalmente redimensionar se for muito grande
+      return new Promise((resolve) => {
+        const img = new window.Image();
+        img.onload = () => {
+          try {
+            const w = img.naturalWidth;
+            const h = img.naturalHeight;
+            if (w <= MAX_IMAGE_DIM && h <= MAX_IMAGE_DIM) {
+              resolve(trimmed);
+              return;
+            }
+            const scale = MAX_IMAGE_DIM / Math.max(w, h);
+            const cw = Math.round(w * scale);
+            const ch = Math.round(h * scale);
+            const canvas = document.createElement('canvas');
+            canvas.width = cw;
+            canvas.height = ch;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              resolve(trimmed);
+              return;
+            }
+            ctx.drawImage(img, 0, 0, cw, ch);
+            resolve(canvas.toDataURL('image/png'));
+          } catch {
+            resolve(trimmed);
+          }
+        };
+        img.onerror = () => resolve(trimmed);
+        img.src = trimmed;
+      });
+    }
+    return new Promise((resolve) => {
+      const img = new window.Image();
+      img.onload = () => {
+        try {
+          const w = img.naturalWidth;
+          const h = img.naturalHeight;
+          const scale = Math.min(1, MAX_IMAGE_DIM / Math.max(w, h, 1));
+          const cw = Math.round(w * scale);
+          const ch = Math.round(h * scale);
+          const canvas = document.createElement('canvas');
+          canvas.width = cw;
+          canvas.height = ch;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(dataUrl);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, cw, ch);
+          resolve(canvas.toDataURL('image/png'));
+        } catch {
+          resolve(dataUrl);
+        }
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = trimmed;
+    });
+  }
+
+  /** Normaliza todas as imagens (data URLs) para PNG para evitar bug do react-pdf com JPEG. */
+  async function normalizeImagensToPng(ordemFromApi: any): Promise<any> {
+    if (!ordemFromApi?.imagens_pdf && !ordemFromApi?.imagens_tecnico_pdf) return ordemFromApi;
+    const convertArray = async (jsonStr: string | null): Promise<string> => {
+      if (!jsonStr || typeof jsonStr !== 'string') return jsonStr || '';
+      let arr: string[];
+      try {
+        arr = JSON.parse(jsonStr);
+      } catch {
+        return jsonStr;
+      }
+      if (!Array.isArray(arr)) return jsonStr;
+      const out = await Promise.all(
+        arr.map(async (item: string) => {
+          if (typeof item !== 'string' || !item.startsWith('data:image/')) return item;
+          const png = await dataUrlToPng(item);
+          return png || item;
+        })
+      );
+      return JSON.stringify(out);
+    };
+    return {
+      ...ordemFromApi,
+      imagens_pdf: await convertArray(ordemFromApi.imagens_pdf),
+      imagens_tecnico_pdf: await convertArray(ordemFromApi.imagens_tecnico_pdf),
+    };
+  }
+
+  /** Converte data URLs HEIC em imagens_pdf e imagens_tecnico_pdf para JPEG no navegador. */
+  async function convertHeicInOrdem(ordemFromApi: any): Promise<any> {
+    if (!ordemFromApi.imagens_pdf && !ordemFromApi.imagens_tecnico_pdf) return ordemFromApi;
+    try {
+      const heic2anyFn = await loadHeic2any();
+      const convertArray = async (jsonStr: string | null): Promise<string> => {
+        if (!jsonStr || typeof jsonStr !== 'string') return jsonStr || '';
+        let arr: string[];
+        try {
+          arr = JSON.parse(jsonStr);
+        } catch {
+          return jsonStr;
+        }
+        if (!Array.isArray(arr)) return jsonStr;
+        const out = await Promise.all(
+          arr.map(async (item: string) => {
+            if (typeof item !== 'string' || !isHeicDataUrl(item)) return item;
+            try {
+              return await convertHeicDataUrlToJpeg(item, heic2anyFn);
+            } catch {
+              return item;
+            }
+          })
+        );
+        return JSON.stringify(out);
+      };
+      return {
+        ...ordemFromApi,
+        imagens_pdf: await convertArray(ordemFromApi.imagens_pdf),
+        imagens_tecnico_pdf: await convertArray(ordemFromApi.imagens_tecnico_pdf),
+      };
+    } catch (e) {
+      console.warn('Conversão HEIC no navegador falhou:', e);
+      return ordemFromApi;
+    }
+  }
+
   async function urlToDataUrl(url: string): Promise<string | null> {
     try {
-      const res = await fetch(url);
+      // Tentar via proxy no servidor primeiro (evita CORS e bucket privado)
+      const supabaseUrl = typeof window !== 'undefined' ? (process.env.NEXT_PUBLIC_SUPABASE_URL || '') : '';
+      let isSupabase = false;
+      if (supabaseUrl) {
+        try {
+          isSupabase = url.includes(new URL(supabaseUrl).hostname);
+        } catch {
+          isSupabase = url.includes('supabase');
+        }
+      }
+      if (isSupabase && typeof window !== 'undefined') {
+        const proxyRes = await fetch(
+          `/api/ordens/imagem-proxy?url=${encodeURIComponent(url.trim())}`,
+          { cache: 'no-store' }
+        );
+        if (proxyRes.ok) {
+          const json = await proxyRes.json().catch(() => null);
+          if (json?.dataUrl && typeof json.dataUrl === 'string' && json.dataUrl.startsWith('data:image/')) {
+            return json.dataUrl;
+          }
+        }
+      }
+      // Fallback: fetch direto (pode falhar por CORS em bucket privado)
+      const res = await fetch(url, { mode: 'cors' });
       if (!res.ok) return null;
       const blob = await res.blob();
       if (!blob.type || !blob.type.startsWith('image/')) return null;
@@ -610,7 +871,7 @@ export default function ImprimirOrdemPage() {
     }
   }
 
-  async function prepareImagesForPdf(imagens: string | null | undefined, limit = 8): Promise<string> {
+  async function prepareImagesForPdf(imagens: string | null | undefined, limit = 30): Promise<string> {
     if (!imagens || typeof imagens !== 'string') return '';
     const urls = imagens
       .split(',')
@@ -620,18 +881,15 @@ export default function ImprimirOrdemPage() {
 
     const unique = Array.from(new Set(urls)).slice(0, limit);
 
-    // Tenta converter para dataURL (evita falhas de carregamento no react-pdf).
+    // Busca cada imagem via proxy (data URL). Se falhar, mantém a URL para o PDF tentar carregar.
     const resolved = await Promise.all(
       unique.map(async (u) => {
-        const enc = encodeURI(u);
-        const dataUrl = await urlToDataUrl(enc);
-        return dataUrl || enc;
+        const dataUrl = await urlToDataUrl(u.trim());
+        return dataUrl || u.trim();
       })
     );
-
-    // IMPORTANTE: dataURL contém vírgulas, então não pode ser CSV.
-    // Guardar como JSON array para o renderer conseguir parsear corretamente.
-    return JSON.stringify(resolved);
+    const valid = resolved.filter((r): r is string => typeof r === 'string' && (r.startsWith('data:image/') || /^https?:\/\//i.test(r)));
+    return JSON.stringify(valid);
   }
 
   useEffect(() => {
@@ -643,176 +901,31 @@ export default function ImprimirOrdemPage() {
         return;
       }
 
-      console.log('🔍 Debug - Buscando OS com ID:', id);
-      
-      // Primeiro tenta buscar dados reais do Supabase
       try {
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout na busca da OS')), 30000)
-        );
-
-        // Query completa com todos os campos necessários para impressão
-        const queryPromise = supabase
-          .from('ordens_servico')
-          .select(`
-            id,
-            numero_os,
-            equipamento,
-            marca,
-            modelo,
-            status,
-            created_at,
-            prazo_entrega,
-            data_entrega,
-            vencimento_garantia,
-            servico,
-            observacao,
-            problema_relatado,
-            condicoes_equipamento,
-            cor,
-            numero_serie,
-            acessorios,
-            atendente,
-            senha_acesso,
-            senha_aparelho,
-            senha_padrao,
-            laudo,
-            imagens,
-            imagens_tecnico,
-            checklist_entrada,
-            qtd_peca,
-            peca,
-            valor_peca,
-            qtd_servico,
-            valor_servico,
-            valor_faturado,
-            desconto,
-            termo_garantia_id,
-            empresa_id,
-            clientes(nome, telefone, email, cpf, endereco),
-            tecnico_id,
-            atendente_id,
-            empresas(nome, cnpj, endereco, telefone, email, logo_url, link_publico_ativo),
-            termo_garantia:termo_garantia_id(
-              id,
-              nome,
-              conteudo
-            )
-          `)
-          .eq('id', id)
-          .single();
-
-        const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
-
-        console.log('🔍 Debug - Query resultado:', { data, error, id });
-
-        if (error) {
-          console.log('❌ Erro ao buscar OS real:', error.message);
-          console.log('❌ Detalhes do erro:', error);
-          console.log('❌ Código do erro:', error.code);
-          console.log('❌ Detalhes completos:', JSON.stringify(error, null, 2));
-          setError(`Erro ao buscar OS: ${error.message}`);
+        const res = await fetch(`/api/ordens/${id}/dados-impressao`, { cache: 'no-store' });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          setError(errData?.error || `Erro ${res.status} ao carregar OS`);
           setLoading(false);
           return;
         }
-
-        if (data) {
-          console.log('✅ Dados reais encontrados:', data);
-          console.log('✅ Cliente encontrado:', data.clientes);
-          console.log('✅ Empresa encontrada:', data.empresas);
-          console.log('✅ Laudo encontrado:', data.laudo);
-          console.log('✅ Imagens encontradas:', data.imagens);
-          console.log('✅ Imagens técnico encontradas:', data.imagens_tecnico);
-          console.log('✅ Valores encontrados:', {
-            valor_servico: data.valor_servico,
-            qtd_servico: data.qtd_servico,
-            valor_peca: data.valor_peca,
-            qtd_peca: data.qtd_peca,
-            desconto: data.desconto,
-            valor_faturado: data.valor_faturado
-          });
-          
-          // Buscar dados do técnico separadamente (robusto: pode ser id, auth_user_id ou tecnico_id)
-          let tecnicoNome = 'Sem técnico';
-          const tecnicoRef = data.tecnico_id ? String(data.tecnico_id) : '';
-          console.log('🔍 Buscando técnico para tecnico_id:', tecnicoRef);
-          if (tecnicoRef) {
-            try {
-              const { data: tecnicoData, error: tecnicoError } = await supabase
-                .from('usuarios')
-                .select('nome')
-                .or(`id.eq.${tecnicoRef},auth_user_id.eq.${tecnicoRef},tecnico_id.eq.${tecnicoRef}`)
-                .limit(1)
-                .maybeSingle();
-
-              if (tecnicoError) {
-                console.warn('⚠️ Erro ao buscar técnico:', tecnicoError);
-                tecnicoNome = 'Técnico não encontrado';
-              } else if (tecnicoData?.nome) {
-                tecnicoNome = tecnicoData.nome;
-                console.log('✅ Técnico encontrado:', tecnicoNome);
-              } else {
-                console.warn('⚠️ Técnico não encontrado para referência:', tecnicoRef);
-                tecnicoNome = 'Técnico não encontrado';
-              }
-            } catch (error) {
-              console.warn('⚠️ Erro ao buscar técnico:', error);
-              tecnicoNome = 'Técnico não encontrado';
-            }
-          }
-          
-          // Mapear campos para compatibilidade
-          const ordemMapeada = {
-            ...data,
-            relato: data.problema_relatado, // Mapear problema_relatado para relato
-            tecnico: {
-              nome: tecnicoNome
-            }
-          };
-
-          // Preparar imagens para o PDF (dataURL quando possível) para evitar falhas no carregamento
-          try {
-            const [imagensPdf, imagensTecnicoPdf] = await Promise.all([
-              prepareImagesForPdf(data.imagens, 8),
-              prepareImagesForPdf((data as any).imagens_tecnico, 8),
-            ]);
-            ordemMapeada.imagens_pdf = imagensPdf || null;
-            ordemMapeada.imagens_tecnico_pdf = imagensTecnicoPdf || null;
-          } catch {
-            // mantém URLs originais como fallback
-          }
-          
-          // Buscar itens de checklist se houver empresa_id e equipamento
-          if (data.empresa_id && data.equipamento) {
-            try {
-              const { data: checklistData } = await supabase
-                .from('checklist_itens')
-                .select('id, nome, categoria')
-                .eq('empresa_id', data.empresa_id)
-                .eq('equipamento_categoria', data.equipamento)
-                .eq('ativo', true)
-                .order('ordem');
-              
-              console.log('🔍 Buscando checklist para equipamento:', data.equipamento);
-              console.log('✅ Itens encontrados:', checklistData?.length || 0);
-              
-              setChecklistItens(checklistData || []);
-            } catch (error) {
-              console.error('Erro ao buscar itens de checklist:', error);
-              setChecklistItens([]);
-            }
-          }
-          
-          setOrdem(ordemMapeada);
-          setLoading(false);
-        } else {
-          console.log('⚠️ Nenhum dado encontrado');
+        const { ordem: ordemFromApi, checklistItens: checklistFromApi } = await res.json();
+        if (!ordemFromApi) {
           setError('OS não encontrada');
           setLoading(false);
+          return;
         }
+        // Se a API não trouxe data URLs, busca imagens via proxy no cliente
+        const ordemComImagens = await preencherImagensPdfPeloCliente(ordemFromApi);
+        // Converte HEIC (iPhone) para JPEG no navegador (heic2any via CDN, sem npm)
+        const ordemComHeicConvertido = await convertHeicInOrdem(ordemComImagens);
+        // Normaliza todas as imagens para PNG (evita "Unknown version" do react-pdf com JPEG)
+        const ordemComPng = await normalizeImagensToPng(ordemComHeicConvertido);
+        setOrdem(ordemComPng);
+        setChecklistItens(checklistFromApi || []);
       } catch (err: any) {
-        console.log('Timeout ou erro na busca:', err.message);
-        setError(`Erro ao conectar: ${err.message}`);
+        setError(err?.message || 'Erro ao conectar');
+      } finally {
         setLoading(false);
       }
     }
@@ -824,10 +937,26 @@ export default function ImprimirOrdemPage() {
     setMounted(true);
   }, []);
 
+  // Carregar PDFViewer com retry (evita ChunkLoadError após rebuild/cache)
   useEffect(() => {
-    import('@react-pdf/renderer').then((mod) => {
-      setPDFViewer(() => mod.PDFViewer);
-    });
+    let cancelled = false;
+    const load = (attempt = 1) => {
+      import('@react-pdf/renderer')
+        .then((mod) => {
+          if (!cancelled) setPDFViewer(() => mod.PDFViewer);
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          const isChunk = err?.name === 'ChunkLoadError' || /ChunkLoadError|Loading chunk/i.test(String(err?.message));
+          if (isChunk && attempt < 3) {
+            setTimeout(() => load(attempt + 1), 800 * attempt);
+          } else {
+            console.warn('Falha ao carregar visualizador PDF:', err);
+          }
+        });
+    };
+    load();
+    return () => { cancelled = true; };
   }, []);
 
   if (!mounted || loading) {

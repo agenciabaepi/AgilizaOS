@@ -94,64 +94,22 @@ export class AudioPlayer {
   }
 
   async playNotificationSound(): Promise<boolean> {
-    console.log('🔔 AudioPlayer: Tentando reproduzir som de notificação em tempo real...');
+    console.log('🔔 AudioPlayer: Tentando reproduzir som de notificação...');
     console.log(`👆 AudioPlayer: Usuário interagiu: ${this.userInteracted}`);
 
-    // Estratégia agressiva para reproduzir som sem interação do usuário (como WhatsApp Web)
-    console.log('🔔 AudioPlayer: Forçando reprodução automática...');
-    
-    // 1. Tentar ativar contexto de áudio automaticamente
+    // Sem gesto do usuário, navegadores bloqueiam áudio. Tentar apenas HTML5 uma vez.
     if (!this.userInteracted) {
-      console.log('⚠️ AudioPlayer: Ativando contexto de áudio automaticamente...');
-      
       try {
-        // Método 1: Som silencioso para ativar contexto
-        const silentAudio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT');
-        silentAudio.volume = 0.001; // Volume ainda menor
-        silentAudio.play().then(() => {
-          this.userInteracted = true;
-          console.log('✅ AudioPlayer: Contexto de áudio ativado!');
-        }).catch(() => {
-          console.log('⚠️ AudioPlayer: Falha na ativação silenciosa, continuando...');
-        });
-        
-        // Método 2: Simular clique invisível para ativar contexto
-        setTimeout(() => {
-          if (!this.userInteracted) {
-            const fakeButton = document.createElement('button');
-            fakeButton.style.display = 'none';
-            fakeButton.style.position = 'absolute';
-            fakeButton.style.left = '-9999px';
-            document.body.appendChild(fakeButton);
-            fakeButton.click();
-            document.body.removeChild(fakeButton);
-            this.userInteracted = true;
-            console.log('✅ AudioPlayer: Contexto ativado via simulação de clique');
-          }
-        }, 100);
-        
-      } catch (error) {
-        console.warn('⚠️ AudioPlayer: Erro na ativação automática:', error);
-        // Marcar como interagido mesmo com erro para continuar tentando
+        const audio = new Audio('/assets/sounds/Msn.mp3');
+        audio.volume = 0.7;
+        await audio.play();
         this.userInteracted = true;
+        console.log('✅ AudioPlayer: Som reproduzido (sem gesto prévio).');
+        return true;
+      } catch {
+        console.log('⚠️ AudioPlayer: Reprodução bloqueada até haver interação (clique/toque/tecla).');
+        return false;
       }
-    }
-
-    // Estratégia adicional: Tentar reproduzir SOM IMEDIATO sem esperar contexto
-    console.log('🔔 AudioPlayer: Tentando reprodução imediata (estratégia WhatsApp Web)...');
-    
-    // Tentar reproduzir som imediatamente, mesmo sem contexto ativo
-    try {
-      const immediateAudio = new Audio('/assets/sounds/Msn.mp3');
-      immediateAudio.volume = 0.8;
-      immediateAudio.play().then(() => {
-        console.log('✅ AudioPlayer: Som reproduzido IMEDIATAMENTE!');
-        this.userInteracted = true;
-      }).catch((error) => {
-        console.log('⚠️ AudioPlayer: Reprodução imediata falhou, tentando outros métodos...', error);
-      });
-    } catch (error) {
-      console.log('⚠️ AudioPlayer: Erro na reprodução imediata:', error);
     }
 
     // Tentar múltiplas vezes com diferentes métodos (fallback)
@@ -398,46 +356,9 @@ export const createAudioActivationButton = (): HTMLElement | null => {
   return player.createAudioActivationButton();
 };
 
-// Função para inicializar automaticamente o contexto de áudio (como WhatsApp Web)
+// Não inicializar áudio automaticamente: o contexto só deve ser criado/retomado
+// após um gesto do usuário (clique, toque, tecla). O AudioPlayer já registra
+// esses eventos no construtor e ativa permissão na primeira interação.
 export const initializeAudioContext = async (): Promise<void> => {
-  if (typeof window === 'undefined') return;
-  
-  console.log('🔔 Inicializando contexto de áudio automaticamente...');
-  
-  // Tentar ativar contexto de áudio assim que a página carrega
-  try {
-    const audioPlayer = AudioPlayer.getInstance();
-    
-    // Criar um evento de clique invisível para ativar contexto
-    const activateContext = () => {
-      console.log('🔔 Ativando contexto de áudio via evento de página...');
-      
-      // Simular interação do usuário
-      const fakeEvent = new MouseEvent('click', { bubbles: true });
-      document.dispatchEvent(fakeEvent);
-      
-      // Tentar reproduzir som silencioso
-      const silentAudio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT');
-      silentAudio.volume = 0.001;
-      silentAudio.play().then(() => {
-        console.log('✅ Contexto de áudio ativado automaticamente!');
-      }).catch(() => {
-        console.log('⚠️ Falha na ativação automática do contexto');
-      });
-    };
-    
-    // Ativar contexto em múltiplos eventos
-    document.addEventListener('DOMContentLoaded', activateContext);
-    window.addEventListener('load', activateContext);
-    document.addEventListener('click', activateContext, { once: true });
-    document.addEventListener('keydown', activateContext, { once: true });
-    
-    // Ativar contexto imediatamente se a página já carregou
-    if (document.readyState === 'complete') {
-      activateContext();
-    }
-    
-  } catch (error) {
-    console.warn('⚠️ Erro ao inicializar contexto de áudio:', error);
-  }
+  // No-op: evita erro "AudioContext was not allowed to start" em carregamento.
 };

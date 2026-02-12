@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { FiCheckCircle, FiAlertCircle, FiClock, FiShare2 } from 'react-icons/fi';
 import QRCode from 'qrcode';
-import logoMP from '@/assets/imagens/logomercadopago.png';
 import logoPIX from '@/assets/imagens/logopix.png';
 import { supabase as supabaseBrowser } from '@/lib/supabaseClient';
+import { dispatchAssinaturaUpdated } from '@/hooks/useSubscription';
 
 interface PixQRCodeProps {
   valor: number;
@@ -15,10 +15,12 @@ interface PixQRCodeProps {
   onError?: (error: string) => void;
   mock?: boolean;
   planoSlug?: 'basico' | 'pro' | 'avancado' | string;
+  /** Quando informado, usa cobrança existente (pendente) em vez de criar nova */
+  existingPaymentId?: string;
 }
 
-export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, planoSlug }: PixQRCodeProps) {
-  const [loading, setLoading] = useState(false);
+export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, planoSlug, existingPaymentId }: PixQRCodeProps) {
+  const [loading, setLoading] = useState(!!existingPaymentId);
   const [qrCodeData, setQrCodeData] = useState<{
     qr_code?: string;
     qr_code_base64?: string;
@@ -56,6 +58,48 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, 
       }
     } catch {}
   }
+
+  // Cobrança existente (pendente): carrega QR Code ao montar
+  useEffect(() => {
+    if (!existingPaymentId || qrCodeData) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: { session } } = await supabaseBrowser.auth.getSession();
+        const authHeader = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+        const res = await fetch(`/api/assinatura/pix-qrcode?payment_id=${encodeURIComponent(existingPaymentId)}`, {
+          cache: 'no-store',
+          headers: authHeader as HeadersInit,
+        });
+        const data = await res.json();
+        if (cancelled) return;
+        if (!res.ok) {
+          setError(data?.error || 'Erro ao carregar QR Code');
+          onError?.(data?.error || 'Erro ao carregar QR Code');
+          return;
+        }
+        if (data.success) {
+          setQrCodeData({
+            qr_code: data.qr_code,
+            qr_code_base64: data.qr_code_base64,
+            payment_id: data.payment_id,
+            pagamento_id: data.pagamento_id,
+            status: data.status,
+          });
+          setExpiresIn(5 * 60);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          const msg = e instanceof Error ? e.message : 'Erro ao carregar QR Code';
+          setError(msg);
+          onError?.(msg);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [existingPaymentId, qrCodeData]);
 
   const gerarPIX = async () => {
     setLoading(true);
@@ -104,11 +148,7 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, 
                 });
                 // Timer simples de validade visual (5 min)
                 setExpiresIn(5 * 60);
-                
-                // Chama onSuccess se tiver QR Code
-                if (data.qr_code || data.qr_code_base64) {
-                  onSuccess?.();
-                }
+                // NÃO chamar onSuccess aqui - só quando pagamento for realmente confirmado (polling)
       } else {
         throw new Error('Erro ao gerar PIX');
       }
@@ -134,7 +174,7 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, 
               status: dataMock.status,
             });
             setExpiresIn(5 * 60);
-            onSuccess?.();
+            // NÃO chamar onSuccess aqui - mock também espera confirmação
             setError('');
             return;
           }
@@ -159,7 +199,7 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, 
     if (!qrCodeData?.qr_code) return;
     try {
       if (navigator.share) {
-        await navigator.share({ title: 'PIX ConsertOS', text: 'Código PIX para pagamento do plano', url: window.location.href });
+        await navigator.share({ title: 'PIX ConsertOS', text: 'Código PIX para pagamento da assinatura', url: window.location.href });
       } else {
         await navigator.clipboard.writeText(qrCodeData.qr_code);
         alert('Código PIX copiado. Compartilhe no seu app preferido.');
@@ -182,7 +222,12 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, 
         setQrCodeData(prev => prev ? { ...prev, status: json.status } : prev);
         if (json.status === 'approved') {
           triggerConfetti();
-          setTimeout(() => (window.location.href = '/dashboard'), 10000);
+          dispatchAssinaturaUpdated();
+          if (onSuccess) {
+            onSuccess();
+          } else {
+            setTimeout(() => (window.location.href = '/dashboard'), 10000);
+          }
         }
       }
     } catch (_) {
@@ -204,7 +249,12 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, 
       if (res.ok && json?.status) {
         setQrCodeData(prev => prev ? { ...prev, status: json.status } : prev);
         if (json.status === 'approved') {
-          setTimeout(() => (window.location.href = '/dashboard'), 1200);
+          dispatchAssinaturaUpdated();
+          if (onSuccess) {
+            onSuccess();
+          } else {
+            setTimeout(() => (window.location.href = '/dashboard'), 1200);
+          }
         }
       }
     } catch (_) {}
@@ -235,10 +285,14 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, 
           setQrCodeData(prev => prev ? { ...prev, status: json.status } : prev);
           if (json.status === 'approved') {
             triggerConfetti();
-            // pequeno delay para UX e permitir atualização de backend
-            setTimeout(() => {
-              if (!stopped) window.location.href = '/dashboard';
-            }, 10000);
+            dispatchAssinaturaUpdated();
+            if (onSuccess) {
+              if (!stopped) onSuccess();
+            } else {
+              setTimeout(() => {
+                if (!stopped) window.location.href = '/dashboard';
+              }, 2500);
+            }
           }
         } else if (res.status === 401) {
           // para evitar loop quando sessão não é reconhecida
@@ -409,7 +463,7 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, 
             </div>
             <ul className="mt-2 text-xs text-green-700 space-y-1">
               <li>✓ Recebendo confirmação…</li>
-              <li>✓ Ativando plano…</li>
+              <li>✓ Ativando assinatura…</li>
               <li>✓ Redirecionando…</li>
             </ul>
           </div>
@@ -423,8 +477,6 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, 
 
         <div className="mt-4 flex items-center justify-center gap-4 opacity-80">
           <Image src={logoPIX} alt="PIX" width={60} height={18} />
-          <span className="text-gray-400">•</span>
-          <Image src={logoMP} alt="Mercado Pago" width={120} height={20} />
         </div>
       </div>
     );
@@ -448,23 +500,28 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, 
       )}
 
       <div className="space-y-3">
-        <button
-          onClick={gerarPIX}
-          disabled={loading}
-          className="w-full px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? 'Gerando PIX...' : 'Gerar PIX'}
-        </button>
-
-        <p className="text-xs text-gray-500 text-center">
-          Pagamento processado com segurança pelo Mercado Pago
-        </p>
+        {existingPaymentId ? (
+          <p className="text-sm text-gray-600 text-center py-2">
+            {loading ? 'Carregando QR Code...' : 'Use o QR Code abaixo para pagar esta cobrança.'}
+          </p>
+        ) : (
+          <>
+            <button
+              onClick={gerarPIX}
+              disabled={loading}
+              className="w-full px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Gerando PIX...' : 'Gerar PIX'}
+            </button>
+            <p className="text-xs text-gray-500 text-center">
+              Pagamento via PIX. Após a confirmação, você ganha 30 dias de acesso ao sistema.
+            </p>
+          </>
+        )}
       </div>
 
       <div className="mt-3 flex items-center justify-center gap-4 opacity-80">
         <Image src={logoPIX} alt="PIX" width={60} height={18} />
-        <span className="text-gray-300">•</span>
-        <Image src={logoMP} alt="Mercado Pago" width={120} height={20} />
       </div>
     </div>
   );

@@ -5,7 +5,6 @@ import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
-import { interceptSupabaseQuery } from '@/utils/supabaseInterceptor';
 import { FiPlus, FiX, FiEdit2, FiTrash2, FiDollarSign, FiPackage, FiTool } from 'react-icons/fi';
 import { Button } from './Button';
 
@@ -50,7 +49,7 @@ export default function ProdutoServicoManager({
   onItensChange, 
   readonly = false 
 }: ProdutoServicoManagerProps) {
-  const { usuarioData } = useAuth();
+  const { usuarioData, session } = useAuth();
   const { addToast } = useToast();
   const confirm = useConfirm();
   
@@ -93,7 +92,12 @@ export default function ProdutoServicoManager({
 
   const icon = tipo === 'servico' ? <FiTool size={20} /> : <FiPackage size={20} />;
   const title = tipo === 'servico' ? 'Serviços' : 'Produtos/Peças';
-  const color = tipo === 'servico' ? 'green' : 'blue';
+  const isServico = tipo === 'servico';
+  const iconBgClass = isServico ? 'bg-green-100' : 'bg-blue-100';
+  const iconTextClass = isServico ? 'text-green-600' : 'text-blue-600';
+  const btnClass = isServico
+    ? 'bg-green-600 hover:bg-green-700 text-white'
+    : 'bg-blue-600 hover:bg-blue-700 text-white';
 
   // Filtrar produtos/serviços baseado na busca
   const filteredItems = produtosServicos.filter(item =>
@@ -106,33 +110,33 @@ export default function ProdutoServicoManager({
   }, [itens]);
 
   useEffect(() => {
-    if (usuarioData?.empresa_id) {
+    if (usuarioData?.empresa_id || session) {
       fetchProdutosServicos();
     }
-  }, [usuarioData, tipo]);
+  }, [usuarioData?.empresa_id, session, tipo]);
 
   const fetchProdutosServicos = async () => {
     if (!usuarioData?.empresa_id) return;
-    
+
     setLoading(true);
     try {
-      const { data, error } = await interceptSupabaseQuery('produtos_servicos', async () => {
-        return await supabase
-          .from('produtos_servicos')
-          .select('id, nome, preco, tipo')
-          .eq('empresa_id', usuarioData.empresa_id)
-          .eq('tipo', tipo)
-          .order('nome');
-      });
+      const url = `/api/produtos-servicos/listar?empresaId=${encodeURIComponent(usuarioData.empresa_id)}&tipo=${tipo}`;
+      const headers: Record<string, string> = {};
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+      const res = await fetch(url, { cache: 'no-store', credentials: 'same-origin', headers });
+      const data = await res.json();
 
-      if (error && error.code === 'TABLE_NOT_EXISTS') {
-        // Usar dados de teste se a tabela não existir
+      if (!res.ok) {
         setProdutosServicos([]);
-      } else if (error) {
-        setProdutosServicos([]);
-      } else {
-        setProdutosServicos((data as any[]) || []);
+        return;
       }
+      const list = Array.isArray(data) ? data : [];
+      setProdutosServicos(list.map((row: { id: string; nome: string; preco: number; tipo?: string }) => ({
+        id: row.id,
+        nome: row.nome,
+        preco: typeof row.preco === 'number' ? row.preco : parseFloat(String(row.preco)) || 0,
+        tipo: (row.tipo || tipo) as 'produto' | 'servico',
+      })));
     } catch (error) {
       setProdutosServicos([]);
     } finally {
@@ -293,25 +297,69 @@ export default function ProdutoServicoManager({
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className={`p-2 bg-${color}-100 rounded-lg`}>
-            <div className={`text-${color}-600`}>{icon}</div>
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`p-2 rounded-lg flex-shrink-0 ${iconBgClass}`}>
+            <div className={iconTextClass}>{icon}</div>
           </div>
-          <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">{title}</h2>
         </div>
         
         {!readonly && (
           <button
+            type="button"
             onClick={() => setShowAddForm(true)}
-            className={`flex items-center gap-2 px-4 py-2 bg-${color}-600 text-white rounded-lg hover:bg-${color}-700 transition-colors`}
+            className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg transition-colors flex-shrink-0 w-full sm:w-auto min-h-[44px] ${btnClass}`}
           >
-            <FiPlus size={16} />
+            <FiPlus size={18} />
             Adicionar
           </button>
         )}
       </div>
+
+      {/* Buscar produtos/serviços cadastrados (catálogo da empresa) */}
+      {!readonly && (
+        <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <p className="text-sm font-medium text-gray-700 mb-2">Buscar {tipo === 'servico' ? 'serviços' : 'produtos'} cadastrados</p>
+          <input
+            type="text"
+            placeholder={`Digite para buscar ${tipo === 'servico' ? 'serviço' : 'produto'}...`}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-offset-0 focus:ring-[#D1FE6E] focus:border-[#D1FE6E]"
+          />
+          {!searchTerm.trim() ? (
+            <p className="text-xs text-gray-500 mt-2">Digite acima para buscar no catálogo ou use &quot;Adicionar&quot; para criar um novo.</p>
+          ) : loading ? (
+            <p className="text-xs text-gray-500 mt-2">Carregando...</p>
+          ) : filteredItems.length > 0 ? (
+            <ul className="mt-2 max-h-40 overflow-y-auto space-y-1">
+              {filteredItems.slice(0, 20).map((item) => (
+                <li
+                  key={item.id}
+                  className="flex items-center justify-between gap-2 py-2 px-2 rounded hover:bg-gray-100 text-sm"
+                >
+                  <span className="flex-1 min-w-0 truncate">{item.nome}</span>
+                  <span className="text-gray-600 shrink-0">{formatCurrency(item.preco)}</span>
+                  <button
+                    type="button"
+                    onClick={() => adicionarItem(item)}
+                    className={`shrink-0 px-2 py-1 rounded text-xs font-medium ${btnClass}`}
+                  >
+                    Adicionar
+                  </button>
+                </li>
+              ))}
+              {filteredItems.length > 20 && (
+                <li className="text-xs text-gray-500 py-1">Digite mais para refinar a busca ({filteredItems.length} itens)</li>
+              )}
+            </ul>
+          ) : (
+            <p className="text-xs text-gray-500 mt-2">Nenhum item encontrado. Use &quot;Adicionar&quot; para criar um novo.</p>
+          )}
+        </div>
+      )}
 
       {/* Lista de itens - filtrar itens inválidos */}
       <div className="space-y-3 mb-4">
@@ -335,151 +383,115 @@ export default function ProdutoServicoManager({
           const totalItem = item.total ?? ((isNaN(preco) ? 0 : preco) * (isNaN(quantidade) ? 0 : quantidade));
           const itemKey = item.id || `item-${index}-${item.nome}`;
           return (
-          <div key={itemKey} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-            <div className="flex-1">
-              {editingIndex === index && !readonly ? (
-                <input
-                  type="text"
-                  value={item.nome}
-                  onChange={(e) => editarItem(index, 'nome', e.target.value)}
-                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
-                  onBlur={() => setEditingIndex(null)}
-                  autoFocus
-                />
-              ) : (
-                <div 
-                  className="font-medium text-gray-900 cursor-pointer"
-                  onClick={() => !readonly && setEditingIndex(index)}
+          <div key={itemKey} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 bg-gray-50 rounded-lg">
+            {/* Nome + delete no topo no mobile; inline no desktop */}
+            <div className="flex items-start sm:items-center gap-2 flex-1 min-w-0 order-1">
+              <div className="flex-1 min-w-0">
+                {editingIndex === index && !readonly ? (
+                  <input
+                    type="text"
+                    value={item.nome}
+                    onChange={(e) => editarItem(index, 'nome', e.target.value)}
+                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded min-h-[44px]"
+                    onBlur={() => setEditingIndex(null)}
+                    autoFocus
+                  />
+                ) : (
+                  <div 
+                    className="font-medium text-gray-900 cursor-pointer py-1 break-words"
+                    onClick={() => !readonly && setEditingIndex(index)}
+                  >
+                    {item.nome}
+                  </div>
+                )}
+              </div>
+              {!readonly && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    removerItem(index);
+                  }}
+                  className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                  type="button"
+                  aria-label="Remover item"
                 >
-                  {item.nome}
-                </div>
+                  <FiTrash2 size={18} />
+                </button>
               )}
             </div>
             
-            <div className="w-20">
-              {!readonly ? (
-                <input
-                  type="number"
-                  min="1"
-                  value={item.quantidade || 1}
-                  onChange={(e) => {
-                    const valor = e.target.value;
-                    if (valor === '') {
-                      // Se o campo estiver vazio, não fazer nada ainda (aguardar blur)
-                      return;
-                    }
-                    const numValor = parseInt(valor);
-                    if (!isNaN(numValor) && numValor > 0) {
-                      editarItem(index, 'quantidade', numValor);
-                    }
-                  }}
-                  onBlur={(e) => {
-                    // Se o campo estiver vazio ao perder foco, usar valor mínimo
-                    if (e.target.value === '' || parseInt(e.target.value) < 1) {
-                      editarItem(index, 'quantidade', item.quantidade || 1);
-                    }
-                  }}
-                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-center"
-                />
-              ) : (
-                <span className="text-sm text-gray-600">{item.quantidade || 1}x</span>
-              )}
-            </div>
-            
-            <div className="w-24">
-              {!readonly ? (
-                <input
-                  type="text"
-                  value={formatarPrecoInput(item.preco || 0)}
-                  onChange={(e) => {
-                    let valor = e.target.value;
-                    
-                    // Remover tudo exceto números e vírgula
-                    valor = valor.replace(/[^\d,]/g, '');
-                    
-                    // Garantir apenas uma vírgula
-                    const partes = valor.split(',');
-                    if (partes.length > 2) {
-                      valor = partes[0] + ',' + partes.slice(1).join('');
-                    }
-                    
-                    // Limitar a 2 casas decimais após a vírgula
-                    if (partes.length === 2 && partes[1].length > 2) {
-                      valor = partes[0] + ',' + partes[1].substring(0, 2);
-                    }
-                    
-                    // Converter para número: se tem vírgula, tratar como decimal brasileiro
-                    // Se não tem vírgula e tem mais de 2 dígitos, assumir que os últimos 2 são centavos
-                    let numValor = 0;
-                    if (valor.includes(',')) {
-                      // Formato: "175,00" -> 175.00
-                      numValor = parseFloat(valor.replace(',', '.'));
-                    } else if (valor.length > 2) {
-                      // Formato: "17500" -> 175.00 (últimos 2 dígitos são centavos)
-                      const inteiro = valor.slice(0, -2) || '0';
-                      const centavos = valor.slice(-2);
-                      numValor = parseFloat(`${inteiro}.${centavos}`);
-                    } else if (valor.length > 0) {
-                      // Formato: "17" -> 0.17 (centavos)
-                      numValor = parseFloat(`0.${valor.padStart(2, '0')}`);
-                    }
-                    
-                    if (!isNaN(numValor) && numValor >= 0) {
-                      editarItem(index, 'preco', numValor);
-                    }
-                  }}
-                  onBlur={(e) => {
-                    // Garantir que o valor está correto ao perder foco
-                    const valor = e.target.value;
-                    if (valor === '' || valor.trim() === '') {
-                      editarItem(index, 'preco', item.preco || 0);
-                    } else {
-                      // Re-parsear o valor para garantir consistência
-                      let numValor = 0;
-                      if (valor.includes(',')) {
-                        numValor = parseFloat(valor.replace(',', '.'));
-                      } else if (valor.length > 2) {
-                        const inteiro = valor.slice(0, -2) || '0';
-                        const centavos = valor.slice(-2);
-                        numValor = parseFloat(`${inteiro}.${centavos}`);
-                      } else if (valor.length > 0) {
-                        numValor = parseFloat(`0.${valor.padStart(2, '0')}`);
+            {/* Qtd, preço, total: em linha no mobile com labels; inline no desktop */}
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 sm:flex-nowrap order-2">
+              <div className="w-16 sm:w-20">
+                {!readonly ? (
+                  <input
+                    type="number"
+                    min="1"
+                    value={item.quantidade || 1}
+                    onChange={(e) => {
+                      const valor = e.target.value;
+                      if (valor === '') return;
+                      const numValor = parseInt(valor);
+                      if (!isNaN(numValor) && numValor > 0) {
+                        editarItem(index, 'quantidade', numValor);
                       }
-                      
-                      if (isNaN(numValor) || numValor < 0) {
+                    }}
+                    onBlur={(e) => {
+                      if (e.target.value === '' || parseInt(e.target.value) < 1) {
+                        editarItem(index, 'quantidade', item.quantidade || 1);
+                      }
+                    }}
+                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded text-center min-h-[44px]"
+                  />
+                ) : (
+                  <span className="text-sm text-gray-600 block py-1.5">{item.quantidade || 1}x</span>
+                )}
+              </div>
+              
+              <div className="flex-1 min-w-[80px] sm:w-24">
+                {!readonly ? (
+                  <input
+                    type="text"
+                    value={formatarPrecoInput(item.preco || 0)}
+                    onChange={(e) => {
+                      let valor = e.target.value;
+                      valor = valor.replace(/[^\d,]/g, '');
+                      const partes = valor.split(',');
+                      if (partes.length > 2) valor = partes[0] + ',' + partes.slice(1).join('');
+                      if (partes.length === 2 && partes[1].length > 2) valor = partes[0] + ',' + partes[1].substring(0, 2);
+                      let numValor = 0;
+                      if (valor.includes(',')) numValor = parseFloat(valor.replace(',', '.'));
+                      else if (valor.length > 2) numValor = parseFloat(`${valor.slice(0, -2) || '0'}.${valor.slice(-2)}`);
+                      else if (valor.length > 0) numValor = parseFloat(`0.${valor.padStart(2, '0')}`);
+                      if (!isNaN(numValor) && numValor >= 0) editarItem(index, 'preco', numValor);
+                    }}
+                    onBlur={(e) => {
+                      const valor = e.target.value;
+                      if (valor === '' || valor.trim() === '') {
                         editarItem(index, 'preco', item.preco || 0);
                       } else {
-                        editarItem(index, 'preco', numValor);
+                        let numValor = 0;
+                        if (valor.includes(',')) numValor = parseFloat(valor.replace(',', '.'));
+                        else if (valor.length > 2) numValor = parseFloat(`${valor.slice(0, -2) || '0'}.${valor.slice(-2)}`);
+                        else if (valor.length > 0) numValor = parseFloat(`0.${valor.padStart(2, '0')}`);
+                        editarItem(index, 'preco', isNaN(numValor) || numValor < 0 ? item.preco || 0 : numValor);
                       }
-                    }
-                  }}
-                  placeholder="0,00"
-                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-right"
-                />
-              ) : (
-                <span className="text-sm text-gray-600">{formatCurrency(item.preco || 0)}</span>
-              )}
+                    }}
+                    placeholder="0,00"
+                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded text-right min-h-[44px]"
+                  />
+                ) : (
+                  <span className="text-sm text-gray-600 block py-1.5 text-right">{formatCurrency(item.preco || 0)}</span>
+                )}
+              </div>
+              
+              <div className="w-20 sm:w-24 text-right flex-shrink-0">
+                <span className="font-semibold text-gray-900 text-sm sm:text-base">
+                  {formatCurrency(totalItem)}
+                </span>
+              </div>
             </div>
-            
-            <div className="w-24 text-right">
-              <span className="font-semibold text-gray-900">
-                {formatCurrency(totalItem)}
-              </span>
-            </div>
-            
-            {!readonly && (
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  removerItem(index);
-                }}
-                className="p-1 text-red-500 hover:text-red-700 transition-colors"
-                type="button"
-              >
-                <FiTrash2 size={16} />
-              </button>
-            )}
           </div>
         );
         })}

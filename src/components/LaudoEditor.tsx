@@ -7,7 +7,6 @@ import Link from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
 import { useState, useEffect } from 'react';
 import { FiBold, FiItalic, FiUnderline, FiList, FiAlignLeft, FiAlignCenter, FiAlignRight, FiLink, FiZap, FiLoader } from 'react-icons/fi';
-import { useSubscription } from '@/hooks/useSubscription';
 import { useToast } from '@/components/Toast';
 
 interface LaudoEditorProps {
@@ -16,6 +15,7 @@ interface LaudoEditorProps {
   placeholder?: string;
   className?: string;
   minHeight?: string;
+  readOnly?: boolean;
 }
 
 export default function LaudoEditor({ 
@@ -23,9 +23,9 @@ export default function LaudoEditor({
   onChange, 
   placeholder = 'Descreva o diagnóstico técnico com todos os detalhes relevantes...',
   className = '',
-  minHeight = '140px'
+  minHeight = '140px',
+  readOnly = false
 }: LaudoEditorProps) {
-  const { temRecurso } = useSubscription();
   const { addToast } = useToast();
   const [mounted, setMounted] = useState(false);
   const [corrigindo, setCorrigindo] = useState(false);
@@ -66,6 +66,11 @@ export default function LaudoEditor({
     }
   }, [value, editor]);
 
+  // Modo somente leitura (ex.: OS ainda não iniciada)
+  useEffect(() => {
+    if (editor) editor.setEditable(!readOnly);
+  }, [editor, readOnly]);
+
   // Função para corrigir texto com IA
   const corrigirComIA = async () => {
     if (!editor) return;
@@ -88,10 +93,22 @@ export default function LaudoEditor({
         body: JSON.stringify({ texto: textoAtual }),
       });
 
-      const data = await response.json();
+      const contentType = response.headers.get('content-type') || '';
+      const isJson = contentType.includes('application/json');
+      let data: { success?: boolean; message?: string; textoCorrigido?: string };
+      if (isJson) {
+        data = await response.json();
+      } else {
+        await response.text();
+        data = { success: false, message: 'Resposta inválida do servidor. Verifique se a API está disponível.' };
+      }
 
       if (!response.ok || !data.success) {
         throw new Error(data.message || 'Erro ao corrigir texto');
+      }
+
+      if (!data.textoCorrigido) {
+        throw new Error('Nenhum texto retornado.');
       }
 
       // Substituir o conteúdo do editor com o texto corrigido
@@ -111,7 +128,6 @@ export default function LaudoEditor({
   const Toolbar = () => {
     if (!editor || !mounted) return null;
 
-    const temChatGPT = temRecurso('chatgpt');
     const textoVazio = !editor.getText() || editor.getText().trim().length < 10;
 
     return (
@@ -197,8 +213,8 @@ export default function LaudoEditor({
           <FiLink className="w-4 h-4" />
         </button>
         
-        {/* Botão de correção com IA (apenas se tiver recurso ChatGPT) */}
-        {temChatGPT && (
+        {/* Botão de correção com IA */}
+        {(
           <>
             <div className="w-px bg-gray-300 mx-1 h-6"></div>
             <button
@@ -242,8 +258,8 @@ export default function LaudoEditor({
   }
 
   return (
-    <div className={`border border-gray-300 rounded-xl flex flex-col bg-white relative ${className}`} style={{ minHeight }}>
-      <Toolbar />
+    <div className={`border border-gray-300 rounded-xl flex flex-col relative ${className} ${readOnly ? 'bg-gray-100' : 'bg-white'}`} style={{ minHeight }}>
+      {!readOnly && <Toolbar />}
       <div className="relative flex-1 min-h-0">
         <EditorContent 
           editor={editor} 

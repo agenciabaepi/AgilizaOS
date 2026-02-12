@@ -2,6 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabaseClient';
 import { sendNewOSNotification } from '@/lib/whatsapp-notifications';
 
+function normalizeStatusText(value: unknown): string {
+  return String(value || '')
+    .trim()
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '');
+}
+
+function parseMoneyLike(value: unknown): number {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  if (typeof value !== 'string') return 0;
+  const normalized = value.trim().replace(/\./g, '').replace(',', '.');
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -15,14 +31,38 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = createAdminClient();
+    const valorServico = parseMoneyLike(body.valor_servico);
+    const valorPeca = parseMoneyLike(body.valor_peca);
+    const valorFaturado = parseMoneyLike(body.valor_faturado);
+    const temValorInicial = valorServico > 0 || valorPeca > 0 || valorFaturado > 0;
+    let statusInicialOS =
+      body.status !== undefined ? String(body.status).trim() : (temValorInicial ? 'APROVADO' : 'ORÇAMENTO');
+    let statusInicialTecnico =
+      body.status_tecnico !== undefined ? String(body.status_tecnico).trim() : 'AGUARDANDO INÍCIO';
+
+    const statusOSNorm = normalizeStatusText(statusInicialOS);
+    const statusTecNorm = normalizeStatusText(statusInicialTecnico);
+
+    // Compatibilidade legada de entrada
+    if (statusOSNorm === 'ABERTA') statusInicialOS = 'ORÇAMENTO';
+    if (statusOSNorm === 'ORCAMENTO ENVIADO') statusInicialOS = 'ORÇAMENTO CONCLUÍDO';
+    if (statusTecNorm === 'FINALIZADA') statusInicialTecnico = 'REPARO CONCLUÍDO';
+
+    // Regra de criação: se técnico ainda está aguardando início, a OS não pode nascer como orçamento concluído/enviado.
+    if (
+      normalizeStatusText(statusInicialTecnico) === 'AGUARDANDO INICIO' &&
+      ['ORCAMENTO CONCLUIDO', 'ORCAMENTO ENVIADO'].includes(normalizeStatusText(statusInicialOS))
+    ) {
+      statusInicialOS = temValorInicial ? 'APROVADO' : 'ORÇAMENTO';
+    }
 
     // Preparar dados para inserção
     const dadosOS: any = {
       cliente_id: body.cliente_id,
       empresa_id: body.empresa_id,
       tecnico_id: body.tecnico_id || null,
-      status: body.status || 'ORÇAMENTO',
-      status_tecnico: body.status_tecnico || null,
+      status: statusInicialOS,
+      status_tecnico: statusInicialTecnico,
       equipamento: body.equipamento || null,
       categoria: body.categoria || null,
       marca: body.marca || null,

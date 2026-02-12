@@ -37,6 +37,8 @@ interface Venda {
   desconto: number;
   acrescimo: number;
   tipo_pedido: string;
+  observacoes?: string | null;
+  numero_os?: string | null;
   cliente_nome?: string;
   cliente?: Cliente;
   itens?: VendaItem[];
@@ -72,6 +74,13 @@ export default function ListaVendasPage() {
     crescimento: 0
   });
   const { empresaData } = useAuth();
+
+  const extrairNumeroOS = (observacoes?: string | null) => {
+    if (!observacoes) return null;
+
+    const match = observacoes.match(/(?:O\.?S\.?|OS)\s*#\s*(\d+)/i) || observacoes.match(/#\s*(\d+)/);
+    return match?.[1] || null;
+  };
 
   // Calcular datas para lucro do dia e da semana usando useMemo
   const { dataInicioDia, dataFimDia, dataInicioSemana, dataFimSemana } = useMemo(() => {
@@ -124,6 +133,7 @@ export default function ListaVendasPage() {
           desconto, 
           acrescimo, 
           tipo_pedido,
+          observacoes,
           empresa_id,
           cliente:cliente_id(nome, telefone, celular, numero_cliente)
         `)
@@ -133,6 +143,7 @@ export default function ListaVendasPage() {
         setVendas(data.map((v: any) => ({
           ...v,
           cliente_nome: v.cliente?.nome || '---',
+          numero_os: extrairNumeroOS(v.observacoes),
         })));
       }
       setLoading(false);
@@ -246,7 +257,7 @@ export default function ListaVendasPage() {
   };
 
   return (
-    <AuthGuard requiredPermission="vendas">
+    <AuthGuard>
       <MenuLayout>
         <div className="p-8">
         <h1 className="text-2xl font-bold mb-6">Vendas</h1>
@@ -380,6 +391,7 @@ export default function ListaVendasPage() {
                   <tr className="bg-gray-100 text-left text-sm">
                     <th className="p-3">#</th>
                     <th className="p-3">Data</th>
+                    <th className="p-3">O.S.</th>
                     <th className="p-3">Cliente</th>
                     <th className="p-3">Total</th>
                     <th className="p-3">Pagamento</th>
@@ -392,6 +404,7 @@ export default function ListaVendasPage() {
                     <tr key={venda.id} className="border-b hover:bg-gray-50">
                       <td className="p-3 whitespace-nowrap font-semibold text-blue-600">#{venda.numero_venda}</td>
                       <td className="p-3 whitespace-nowrap">{new Date(venda.data_venda).toLocaleString('pt-BR')}</td>
+                      <td className="p-3 whitespace-nowrap">{venda.numero_os ? `#${venda.numero_os}` : '---'}</td>
                       <td className="p-3 whitespace-nowrap">{venda.cliente_nome}</td>
                       <td className="p-3 whitespace-nowrap font-semibold text-green-700">{formatCurrency(venda.total)}</td>
                       <td className="p-3 whitespace-nowrap">{venda.forma_pagamento}</td>

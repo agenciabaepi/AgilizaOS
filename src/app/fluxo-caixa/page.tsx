@@ -263,7 +263,7 @@ export default function FluxoCaixaPage() {
 
   return (
     <MenuLayout>
-      <AuthGuard requiredPermission="financeiro">
+      <AuthGuard>
       <div className="p-6">
       {/* Cabeçalho */}
       <div className="flex justify-between items-center mb-6">

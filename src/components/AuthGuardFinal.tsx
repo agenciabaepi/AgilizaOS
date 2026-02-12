@@ -17,12 +17,11 @@ interface AuthGuardFinalProps {
  */
 export default function AuthGuardFinal({ 
   children, 
-  requiredPermission, 
   fallbackPath = '/dashboard' 
 }: AuthGuardFinalProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { usuarioData, empresaData, loading: authContextLoading } = useAuth();
+  const { usuarioData, empresaData, loading: authContextLoading, userDataReady } = useAuth();
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
 
@@ -50,53 +49,28 @@ export default function AuthGuardFinal({
           return;
         }
 
-        // Se tem sessão, mas AuthContext ainda carregando
+        // Se AuthContext ainda carregando, aguardar até 2s depois liberar
         if (authContextLoading) {
-          console.log('⏳ AuthGuardFinal: AuthContext ainda carregando...');
-          setTimeout(checkAuth, 50);
+          setTimeout(checkAuth, 100);
           return;
         }
 
-        // ⚠️ BLOQUEAR ACESSO: Verificar se empresa está ativa
-        // Precisamos aguardar empresaData estar disponível
-        if (authContextLoading || !empresaData) {
-          console.log('⏳ AuthGuardFinal: Aguardando empresaData...');
-          setTimeout(checkAuth, 50);
-          return;
-        }
-        
+        // Só bloquear se empresaData já carregou e está desativada
         if (empresaData && empresaData.ativo === false) {
-          console.log('🚫 AuthGuardFinal: Empresa desativada, redirecionando para login');
+          console.log('🚫 AuthGuardFinal: Empresa desativada, redirecionando');
           setIsRedirecting(true);
           supabase.auth.signOut().then(() => {
-            router.replace('/login?error=empresa_desativada');
+            router.replace('/empresa-desativada');
           }).catch((e) => {
             console.error('Erro ao fazer logout:', e);
-            router.replace('/login?error=empresa_desativada');
+            router.replace('/empresa-desativada');
           });
           return;
         }
 
-        // Verificar permissões se necessário
-        if (requiredPermission) {
-          if (!usuarioData) {
-            console.log('⏳ AuthGuardFinal: Aguardando usuarioData para permissões...');
-            setTimeout(checkAuth, 50);
-            return;
-          }
-          
-          const hasPermission = checkPermission(usuarioData, requiredPermission);
-          if (!hasPermission) {
-            console.log(`🚫 AuthGuardFinal: Sem permissão '${requiredPermission}', redirecionando para fallback.`);
-            setIsRedirecting(true);
-            setTimeout(() => {
-              router.replace(fallbackPath);
-            }, 50);
-            return;
-          }
-        }
+        // Plano único - sem verificação de permissão
         
-        // Se tem sessão e permissões (se necessário), autorizar
+        // Se tem sessão, autorizar
         console.log('✅ AuthGuardFinal: Autorizado!');
         setIsAuthorized(true);
         
@@ -111,23 +85,16 @@ export default function AuthGuardFinal({
 
     checkAuth();
     
-    // Timeout de segurança
+    // Timeout de segurança - 5s (evitar redirect prematuro enquanto getSession carrega)
     const timeout = setTimeout(() => {
       if (!isAuthorized && !isRedirecting) {
-        console.log('⚠️ AuthGuardFinal: Timeout...');
         setIsRedirecting(true);
         router.replace('/login');
       }
-    }, 200);
+    }, 5000);
     
     return () => clearTimeout(timeout);
-  }, [isAuthorized, isRedirecting, pathname, router, requiredPermission, fallbackPath, usuarioData, empresaData, authContextLoading]);
-
-  // Helper para verificar permissões
-  const checkPermission = (user: any, permission: string): boolean => {
-    if (user.nivel === 'usuarioteste' || user.nivel === 'admin') return true;
-    return user.permissoes && user.permissoes.includes(permission);
-  };
+  }, [isAuthorized, isRedirecting, pathname, router, fallbackPath, usuarioData, empresaData, authContextLoading, userDataReady]);
 
   // Se está redirecionando, não renderizar nada
   if (isRedirecting) {

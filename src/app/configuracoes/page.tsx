@@ -1,44 +1,31 @@
 'use client'
 
-import { Suspense, useEffect, useState, lazy } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import MenuLayout from '@/components/MenuLayout'
 import { Tab } from '@headlessui/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
-// Removido ProtectedArea - agora é responsabilidade do MenuLayout
 import { ToastProvider } from '@/components/Toast'
 import { ConfirmProvider } from '@/components/ConfirmDialog'
-import { useSubscription } from '@/hooks/useSubscription'
 
-// Dynamic import com SSR desabilitado para a página de empresa
+// Apenas Empresa usa dynamic (ssr: false). Demais: import estático para evitar erro de HMR "module factory is not available"
 const EmpresaPage = dynamic(() => import('./empresa/page'), { ssr: false })
-// Lazy loading das outras páginas para melhor performance
-const UsuariosPage = lazy(() => import('./usuarios/page'))
-const TermosPage = lazy(() => import('./termos/page'))
-const StatusPage = lazy(() => import('./status/page'))
-const ComissoesPage = lazy(() => import('./comissoes/page'))
-const CatalogoPage = lazy(() => import('./catalogo/page'))
-const WhatsAppPage = lazy(() => import('./whatsapp/page'))
-const EquipamentosPage = lazy(() => import('./equipamentos/page'))
-const ChecklistNovoPage = lazy(() => import('./checklist-novo/page'))
-const AvisosPage = lazy(() => import('./avisos/page'))
-const LinkPublicoPage = lazy(() => import('./link-publico/page'))
-
-// Componente de loading para as páginas filhas
-const PageLoader = () => (
-  <div className="animate-pulse">
-    <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
-    <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
-    <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-  </div>
-)
+import UsuariosPage from './usuarios/page'
+import TermosPage from './termos/page'
+import StatusPage from './status/page'
+import ComissoesPage from './comissoes/page'
+import CatalogoPage from './catalogo/page'
+import WhatsAppPage from './whatsapp/page'
+import EquipamentosPage from './equipamentos/page'
+import ChecklistNovoPage from './checklist-novo/page'
+import AvisosPage from './avisos/page'
+import LinkPublicoPage from './link-publico/page'
 
 function ConfiguracoesInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, loading: authLoading, usuarioData } = useAuth()
-  const { temRecurso } = useSubscription()
   const [tabIndex, setTabIndex] = useState(0)
 
   useEffect(() => {
@@ -80,51 +67,29 @@ function ConfiguracoesInner() {
     )
   }
 
-  // ✅ CORRIGIDO: Verificar permissões específicas do usuário
-  const isAdmin = usuarioData.nivel === 'admin';
-  const isUsuarioTeste = usuarioData.nivel === 'usuarioteste';
-  const permissoes = usuarioData.permissoes || [];
-  
-  // Função para verificar se o usuário tem permissão para uma configuração específica
-  const podeAcessar = (configPermissao: string) => {
-    if (isAdmin || isUsuarioTeste) return true;
-    return permissoes.includes(configPermissao);
-  };
-  
-  // Construir abas baseado nas permissões do usuário e recursos do plano
+  // Plano único R$119,90 - todas as abas visíveis para todos
   const tabsConfig = [
-    { name: 'Empresa', component: <EmpresaPage />, permissao: 'empresa', requerRecurso: null },
-    { name: 'Usuários', component: <UsuariosPage />, permissao: 'usuarios', requerRecurso: null },
-    { name: 'Comissões', component: <ComissoesPage />, permissao: 'comissoes', requerRecurso: 'financeiro' },
-    { name: 'Equipamentos', component: <EquipamentosPage />, permissao: 'equipamentos', requerRecurso: null },
-    { name: 'Checklist', component: <ChecklistNovoPage />, permissao: 'checklist', requerRecurso: null },
-    { name: 'Termos de Garantia', component: <TermosPage />, permissao: 'termos', requerRecurso: null },
-    { name: 'Status', component: <StatusPage />, permissao: 'status', requerRecurso: null },
-    { name: 'Link Público', component: <LinkPublicoPage />, permissao: 'empresa', requerRecurso: null },
-    { name: 'Catálogo', component: <CatalogoPage />, permissao: 'catalogo', requerRecurso: null },
-    { name: 'WhatsApp', component: <WhatsAppPage />, permissao: 'whatsapp', requerRecurso: 'whatsapp' },
-    { name: 'Avisos', component: <AvisosPage />, permissao: 'configuracoes', requerRecurso: null },
+    { name: 'Empresa', Component: EmpresaPage, permissao: 'empresa', requerRecurso: null },
+    { name: 'Usuários', Component: UsuariosPage, permissao: 'usuarios', requerRecurso: null },
+    { name: 'Comissões', Component: ComissoesPage, permissao: 'comissoes', requerRecurso: 'financeiro' },
+    { name: 'Equipamentos', Component: EquipamentosPage, permissao: 'equipamentos', requerRecurso: null },
+    { name: 'Checklist', Component: ChecklistNovoPage, permissao: 'checklist', requerRecurso: null },
+    { name: 'Termos de Garantia', Component: TermosPage, permissao: 'termos', requerRecurso: null },
+    { name: 'Status', Component: StatusPage, permissao: 'status', requerRecurso: null },
+    { name: 'Link Público', Component: LinkPublicoPage, permissao: 'empresa', requerRecurso: null },
+    { name: 'Catálogo', Component: CatalogoPage, permissao: 'catalogo', requerRecurso: null },
+    { name: 'WhatsApp', Component: WhatsAppPage, permissao: 'whatsapp', requerRecurso: 'whatsapp' },
+    { name: 'Avisos', Component: AvisosPage, permissao: 'configuracoes', requerRecurso: null },
   ];
-  
-  // Filtrar abas baseado nas permissões do usuário e recursos do plano
-  const tabs = tabsConfig
-    .filter(tab => {
-      // Verificar permissão do usuário
-      if (!podeAcessar(tab.permissao)) return false;
-      // Verificar recurso do plano (se necessário)
-      if (tab.requerRecurso && !temRecurso(tab.requerRecurso)) return false;
-      return true;
-    })
-    .map(tab => ({ name: tab.name, component: tab.component }));
+
+  const ActiveComponent = tabsConfig[tabIndex]?.Component
 
   return (
     <MenuLayout>
       <div className="p-8">
-        <h1 className="text-2xl font-bold mb-6">Configurações Gerais</h1>
-
         <Tab.Group selectedIndex={tabIndex} onChange={handleTabChange}>
           <Tab.List className="flex space-x-2 bg-gray-100 p-1 rounded-lg overflow-x-auto">
-            {tabs.map((tab) => (
+            {tabsConfig.map((tab) => (
               <Tab
                 key={tab.name}
                 className={({ selected }) =>
@@ -141,11 +106,9 @@ function ConfiguracoesInner() {
           </Tab.List>
 
           <Tab.Panels className="mt-6">
-            {tabs.map((tab) => (
+            {tabsConfig.map((tab, idx) => (
               <Tab.Panel key={tab.name}>
-                <Suspense fallback={<PageLoader />}>
-                  {tab.component}
-                </Suspense>
+                {idx === tabIndex && ActiveComponent ? <ActiveComponent embedded /> : null}
               </Tab.Panel>
             ))}
           </Tab.Panels>

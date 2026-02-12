@@ -3,11 +3,10 @@
 import MenuLayout from '@/components/MenuLayout';
 // Removido ProtectedArea - agora é responsabilidade do MenuLayout
 import { useRouter } from 'next/navigation';
-import { FiCpu, FiEye, FiBell, FiCheckCircle, FiClock, FiTool, FiPackage, FiPaperclip, FiAlertCircle } from 'react-icons/fi';
+import { FiCpu, FiBell, FiCheckCircle, FiClock, FiTool, FiPackage, FiPaperclip, FiAlertCircle, FiChevronRight } from 'react-icons/fi';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
-import VisualizarOSModal from '@/components/VisualizarOSModal';
 import { useToast } from '@/components/Toast';
 
 export default function BancadaPage() {
@@ -17,9 +16,6 @@ export default function BancadaPage() {
   const [ordens, setOrdens] = useState<OrdemServico[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filtroStatus, setFiltroStatus] = useState('Todos');
-  const [modalOpen, setModalOpen] = useState(false);
-  const [ordemSelecionada, setOrdemSelecionada] = useState<OrdemServico | null>(null);
   
   // Estados para abas e notificações
   const [activeTab, setActiveTab] = useState('pendentes');
@@ -66,12 +62,15 @@ export default function BancadaPage() {
     [key: string]: unknown;
   }
 
-  interface StatusFixo {
-    id: string;
-    nome: string;
-    tipo: string;
-    [key: string]: unknown;
-  }
+  /** Extrai string do status/status_tecnico (Supabase pode retornar objeto da relação com .nome). */
+  const normStatusVal = useCallback((v: unknown): string => {
+    if (v == null || v === '') return '';
+    if (typeof v === 'string') return v.trim();
+    if (typeof v === 'object' && v !== null && 'nome' in v && typeof (v as { nome: string }).nome === 'string') {
+      return (v as { nome: string }).nome.trim();
+    }
+    return String(v).trim();
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -117,7 +116,12 @@ export default function BancadaPage() {
         if (ordensError) {
           console.error('Erro ao buscar ordens:', ordensError);
         } else {
-          setOrdens(ordensData || []);
+          const lista = (ordensData || []).map((o: any) => ({
+            ...o,
+            status: normStatusVal(o.status) || '',
+            status_tecnico: normStatusVal(o.status_tecnico) || '',
+          }));
+          setOrdens(lista);
           }
 
       } catch (error) {
@@ -136,7 +140,7 @@ export default function BancadaPage() {
     return () => {
       isMounted = false;
     };
-  }, [user, authLoading]);
+  }, [user, authLoading, normStatusVal]);
   
   // ✅ TIMEOUT: Loading timeout para bancada
   useEffect(() => {
@@ -162,24 +166,27 @@ export default function BancadaPage() {
         search === '' ||
         clienteNome.includes(search) ||
         numeroOsStr.includes(search);
-        
-      const matchesStatus = filtroStatus === 'Todos' || os.status === filtroStatus;
-      
+
       // Filtro por aba - normalizar status para comparação
       const statusNormalizado = (os.status || '').toUpperCase().trim();
       let matchesTab = true;
       
       if (activeTab === 'pendentes') {
-        // OS pendentes/aguardando - status de início
-        // Excluir OS sem reparo, pois já foram avaliadas
+        // OS pendentes/aguardando - status de início (exclui orçamento enviado e sem reparo)
         const statusSemReparo = ['SEM REPARO', 'SEM_REPARO'];
         const temSemReparo = statusSemReparo.some(s => statusNormalizado === s.toUpperCase()) ||
                              (os.status_tecnico && ['SEM REPARO', 'SEM_REPARO'].some(s => os.status_tecnico.toUpperCase().includes(s.toUpperCase())));
+        // Orçamento ENVIADO/CONCLUÍDO (não confundir com status 'ORÇAMENTO' que é uma OS nova)
+        const statusOrcamentoEnviado = ['ORÇAMENTO CONCLUÍDO', 'ORCAMENTO CONCLUIDO'];
+        const statusTecnicoUpper = (os.status_tecnico || '').toUpperCase();
+        const temOrcamentoConcluido = statusOrcamentoEnviado.some(s => statusNormalizado === s.toUpperCase()) ||
+                                      statusOrcamentoEnviado.some(s => statusTecnicoUpper.includes(s));
         
-        if (temSemReparo) {
-          matchesTab = false; // Não mostrar OS sem reparo na aba pendentes
+        if (temSemReparo || temOrcamentoConcluido) {
+          matchesTab = false;
         } else {
-          const statusPendentes = ['ABERTA', 'EM_ANALISE', 'EM ANÁLISE', 'ORCAMENTO', 'ORÇAMENTO', 'PENDENTE', 'AGUARDANDO INÍCIO'];
+          // Incluir também AGUARDANDO PEÇA na visão de pendência da bancada
+          const statusPendentes = ['ORÇAMENTO', 'ORCAMENTO', 'EM_ANALISE', 'EM ANÁLISE', 'PENDENTE', 'AGUARDANDO INÍCIO', 'AGUARDANDO PEÇA', 'AGUARDANDO_PECA'];
           matchesTab = statusPendentes.some(s => statusNormalizado === s.toUpperCase());
         }
       } else if (activeTab === 'aprovadas') {
@@ -192,22 +199,29 @@ export default function BancadaPage() {
                      (os.status_tecnico && ['EM ANÁLISE', 'AGUARDANDO PEÇA', 'EM EXECUÇÃO'].includes(os.status_tecnico.toUpperCase()));
       } else if (activeTab === 'concluidas') {
         // OS concluídas
-        const statusConcluidas = ['CONCLUIDO', 'REPARO CONCLUÍDO', 'ENTREGUE', 'FINALIZADO', 'FATURADO'];
+        const statusConcluidas = ['CONCLUIDO', 'REPARO CONCLUÍDO', 'ENTREGUE', 'FATURADO', 'CLIENTE RECUSOU'];
         matchesTab = statusConcluidas.some(s => statusNormalizado === s.toUpperCase()) ||
                      (os.status_tecnico && ['REPARO CONCLUÍDO'].includes(os.status_tecnico.toUpperCase()));
       } else if (activeTab === 'sem_reparo') {
         // OS sem reparo
         const statusSemReparo = ['SEM REPARO', 'SEM_REPARO'];
-        matchesTab = statusSemReparo.some(s => statusNormalizado === s.toUpperCase()) ||
+        matchesTab = statusNormalizado === 'CLIENTE RECUSOU' ||
+                     statusSemReparo.some(s => statusNormalizado === s.toUpperCase()) ||
                      (os.status_tecnico && ['SEM REPARO', 'SEM_REPARO'].some(s => os.status_tecnico.toUpperCase().includes(s.toUpperCase())));
+      } else if (activeTab === 'orcamentos_concluidos') {
+        // Orçamentos concluídos (enviados ao cliente, aguardando resposta)
+        const statusOrcamentoEnviado = ['ORÇAMENTO CONCLUÍDO', 'ORCAMENTO CONCLUIDO'];
+        const statusTecnicoUpper = (os.status_tecnico || '').toUpperCase();
+        matchesTab = statusOrcamentoEnviado.some(s => statusNormalizado === s.toUpperCase()) ||
+                     statusOrcamentoEnviado.some(s => statusTecnicoUpper.includes(s));
       } else if (activeTab === 'todas') {
         // Todas as OSs
         matchesTab = true;
       }
       
-      return matchesSearch && matchesStatus && matchesTab;
+      return matchesSearch && matchesTab;
     });
-  }, [ordens, searchTerm, filtroStatus, activeTab]);
+  }, [ordens, searchTerm, activeTab]);
   
   // Contadores para as abas - normalizar status para comparação
   const contadores = useMemo(() => {
@@ -224,8 +238,14 @@ export default function BancadaPage() {
       if (temSemReparo) {
         return false; // Não contar OS sem reparo como pendente
       }
-      
-      return ['ABERTA', 'EM_ANALISE', 'EM ANÁLISE', 'ORCAMENTO', 'ORÇAMENTO', 'PENDENTE', 'AGUARDANDO INÍCIO'].some(s => status === s.toUpperCase());
+      // Excluir orçamentos ENVIADOS/CONCLUÍDOS do contador de pendentes (não confundir com 'ORÇAMENTO' que é OS nova)
+      const statusOrcamentoEnviado = ['ORÇAMENTO CONCLUÍDO', 'ORCAMENTO CONCLUIDO'];
+      if (statusOrcamentoEnviado.some(s => status === s.toUpperCase()) ||
+          statusOrcamentoEnviado.some(s => statusTecnico.includes(s))) {
+        return false;
+      }
+      // Incluir 'ORÇAMENTO' como pendente (é o status padrão de OS nova)
+      return ['ORÇAMENTO', 'ORCAMENTO', 'EM_ANALISE', 'EM ANÁLISE', 'PENDENTE', 'AGUARDANDO INÍCIO', 'AGUARDANDO PEÇA', 'AGUARDANDO_PECA'].some(s => status === s.toUpperCase());
     }).length;
     
     const aprovadas = ordens.filter((os: OrdemServico) => {
@@ -243,18 +263,27 @@ export default function BancadaPage() {
     const concluidas = ordens.filter((os: OrdemServico) => {
       const status = normalizarStatus(os.status);
       const statusTecnico = os.status_tecnico ? normalizarStatus(os.status_tecnico) : '';
-      return ['CONCLUIDO', 'REPARO CONCLUÍDO', 'ENTREGUE', 'FINALIZADO', 'FATURADO'].some(s => status === s.toUpperCase()) ||
+      return ['CONCLUIDO', 'REPARO CONCLUÍDO', 'ENTREGUE', 'FATURADO', 'CLIENTE RECUSOU'].some(s => status === s.toUpperCase()) ||
              ['REPARO CONCLUÍDO'].some(s => statusTecnico === s.toUpperCase());
     }).length;
     
     const semReparo = ordens.filter((os: OrdemServico) => {
       const status = normalizarStatus(os.status);
       const statusTecnico = os.status_tecnico ? normalizarStatus(os.status_tecnico) : '';
-      return ['SEM REPARO', 'SEM_REPARO'].some(s => status === s.toUpperCase()) ||
+      return status === 'CLIENTE RECUSOU' ||
+             ['SEM REPARO', 'SEM_REPARO'].some(s => status === s.toUpperCase()) ||
              ['SEM REPARO', 'SEM_REPARO'].some(s => statusTecnico.includes(s.toUpperCase()));
     }).length;
     
-    return { pendentes, aprovadas, emAndamento, concluidas, semReparo, todas: ordens.length };
+    const orcamentosConcluidos = ordens.filter((os: OrdemServico) => {
+      const status = normalizarStatus(os.status);
+      const statusTecnico = os.status_tecnico ? normalizarStatus(os.status_tecnico) : '';
+      const statusOrcamentoEnviado = ['ORÇAMENTO CONCLUÍDO', 'ORCAMENTO CONCLUIDO'];
+      return statusOrcamentoEnviado.some(s => status === s.toUpperCase()) ||
+             statusOrcamentoEnviado.some(s => statusTecnico.includes(s));
+    }).length;
+    
+    return { pendentes, aprovadas, emAndamento, concluidas, semReparo, orcamentosConcluidos, todas: ordens.length };
   }, [ordens]);
   
   // OS aprovadas não lidas (para notificações)
@@ -267,78 +296,60 @@ export default function BancadaPage() {
   const handleTabChange = useCallback((tab: string) => {
     setActiveTab(tab);
   }, []);
-  
+
+  /**
+   * OS só é "iniciada" quando o técnico clicou em Iniciar OS (status_tecnico passa a ser "EM ANÁLISE").
+   * Usamos APENAS status_tecnico como critério (status da OS pode vir com formatos diferentes).
+   * Não iniciada = status_tecnico vazio ou "Aguardando início" → só mostra Visualizar, sem Continuar.
+   */
+  const osIniciadaPeloTecnico = useCallback((os: OrdemServico) => {
+    const st = (os.status_tecnico ?? '').toString().trim();
+    const stUpper = st.toUpperCase();
+    if (!st) return false;
+    if (stUpper === 'AGUARDANDO INÍCIO' || stUpper === 'AGUARDANDO INICIO') return false;
+    if (/^AGUARDANDO\s*IN[IÍ]CIO$/i.test(st)) return false;
+    return true;
+  }, []);
+
   const marcarNotificacaoLida = useCallback((osId: string) => {
     setNotificacoesLidas(prev => [...prev, osId]);
   }, []);
 
-  const iniciarOrdem = async (id: string) => {
-    // Se a OS está aguardando início, mudar para "em análise" automaticamente
-    const ordem = ordens.find((os: OrdemServico) => os.id === id);
-    if (ordem && ordem.status === 'ABERTA') {
-      try {
-        // Buscar status fixos para obter os nomes corretos
-        const { data: statusFixos, error: statusError } = await supabase
-          .from('status_fixo')
-          .select('*')
-          .eq('tipo', 'os');
+  // Cores dos badges de status do técnico (usado na tabela desktop e nos cards mobile)
+  const getStatusColor = useCallback((status: string, statusTecnico?: string) => {
+    const statusNormalizado = (status || '').toUpperCase().trim();
+    const statusTecnicoNormalizado = (statusTecnico || '').toString().toUpperCase().trim();
 
-        if (statusError) {
-          console.error('Erro ao buscar status fixos:', statusError);
-          return;
-        }
-
-        // Encontrar o status "EM ANÁLISE" nos status fixos
-        const statusEmAnalise = statusFixos?.find((s: StatusFixo) => s.nome === 'EM ANÁLISE');
-        
-        if (statusEmAnalise) {
-          const { error: updateError } = await supabase
-            .from('ordens_servico')
-            .update({ 
-              status: statusEmAnalise.nome,
-              status_tecnico: 'EM ANÁLISE'
-            })
-            .eq('id', id);
-
-          if (updateError) {
-            console.error('Erro ao atualizar status:', updateError);
-            alert('Erro ao iniciar a ordem. Tente novamente.');
-            return;
-          } else {
-            // Atualizar a lista local
-            setOrdens(prevOrdens => 
-              prevOrdens.map((os: OrdemServico) => 
-                os.id === id 
-                  ? { ...os, status: statusEmAnalise.nome, status_tecnico: 'EM ANÁLISE' }
-                  : os
-              )
-            );
-          }
-        } else {
-          console.error('Status "EM ANÁLISE" não encontrado nos status fixos');
-          alert('Erro: Status "EM ANÁLISE" não encontrado. Verifique a configuração do sistema.');
-          return;
-        }
-      } catch (error) {
-        console.error('Erro ao iniciar ordem:', error);
-        alert('Erro ao iniciar a ordem. Tente novamente.');
-        return;
-      }
+    // Prioridade: status técnico (na bancada usamos só esse para a coluna Status Técnico)
+    if (statusTecnicoNormalizado) {
+      if (statusTecnicoNormalizado.includes('SEM REPARO') || statusTecnicoNormalizado.includes('SEM_REPARO')) return 'bg-red-100 text-red-800';
+      if (statusTecnicoNormalizado.includes('AGUARDANDO INÍCIO') || statusTecnicoNormalizado.includes('AGUARDANDO INICIO')) return 'bg-yellow-100 text-yellow-800';
+      if (statusTecnicoNormalizado.includes('EM ANÁLISE') || statusTecnicoNormalizado.includes('EM_ANALISE')) return 'bg-blue-100 text-blue-800';
+      if (statusTecnicoNormalizado.includes('ORÇAMENTO') || statusTecnicoNormalizado.includes('ORCAMENTO')) return 'bg-amber-100 text-amber-800';
+      if (statusTecnicoNormalizado.includes('EM ATENDIMENTO')) return 'bg-slate-100 text-slate-800';
+      if (statusTecnicoNormalizado.includes('AGUARDANDO PEÇA') || statusTecnicoNormalizado.includes('AGUARDANDO_PECA')) return 'bg-orange-100 text-orange-800';
+      if (statusTecnicoNormalizado.includes('EM EXECUÇÃO') || statusTecnicoNormalizado.includes('EM_EXECUCAO')) return 'bg-purple-100 text-purple-800';
+      if (statusTecnicoNormalizado.includes('REPARO CONCLUÍDO') || statusTecnicoNormalizado.includes('CONCLUIDO')) return 'bg-green-100 text-green-800';
+      if (statusTecnicoNormalizado.includes('ENTREGUE')) return 'bg-emerald-100 text-emerald-800';
+      if (statusTecnicoNormalizado.includes('APROVADO')) return 'bg-green-100 text-green-800';
     }
-    
-    // Redirecionar para a página de edição
-    router.push(`/bancada/${id}`);
-  };
 
-  const abrirModal = (ordem: OrdemServico) => {
-    setOrdemSelecionada(ordem);
-    setModalOpen(true);
-  };
+    // Quando status_tecnico está vazio, "Aguardando início" (amarelo)
+    if (!statusTecnicoNormalizado) return 'bg-yellow-100 text-yellow-800';
 
-  const fecharModal = () => {
-    setModalOpen(false);
-    setOrdemSelecionada(null);
-  };
+    // Fallback para status da OS (se usado em outro contexto)
+    if (statusNormalizado.includes('SEM REPARO') || statusNormalizado.includes('SEM_REPARO')) return 'bg-red-100 text-red-800';
+    if (statusNormalizado.includes('AGUARDANDO')) return 'bg-yellow-100 text-yellow-800';
+    if (statusNormalizado.includes('ANÁLISE') || statusNormalizado.includes('ANALISE')) return 'bg-blue-100 text-blue-800';
+    if (statusNormalizado.includes('ORÇAMENTO') || statusNormalizado.includes('ORCAMENTO')) return 'bg-amber-100 text-amber-800';
+    if (statusNormalizado.includes('EM ATENDIMENTO')) return 'bg-slate-100 text-slate-800';
+    if (statusNormalizado.includes('AGUARDANDO PEÇA') || statusNormalizado.includes('AGUARDANDO_PECA')) return 'bg-orange-100 text-orange-800';
+    if (statusNormalizado === 'APROVADO' || statusNormalizado.includes('APROVADO')) return 'bg-green-100 text-green-800';
+    if (statusNormalizado.includes('EXECUÇÃO') || statusNormalizado.includes('EXECUCAO')) return 'bg-purple-100 text-purple-800';
+    if (statusNormalizado.includes('CONCLUIDO') || statusNormalizado.includes('CONCLUÍDO')) return 'bg-green-100 text-green-800';
+    if (statusNormalizado === 'ENTREGUE') return 'bg-emerald-100 text-emerald-800';
+    return 'bg-gray-100 text-gray-800';
+  }, []);
 
   if (loading) {
     return (
@@ -356,8 +367,8 @@ export default function BancadaPage() {
   return (
     
       <MenuLayout>
-        <div className="w-full bg-gray-50 overflow-x-hidden" style={{ maxWidth: '100vw', width: '100%' }}>
-          <div className="w-full mx-auto px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4" style={{ maxWidth: '100%', width: '100%', boxSizing: 'border-box' }}>
+        <div className="min-w-0 w-full max-w-full bg-gray-50">
+          <div className="w-full mx-auto px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 max-w-full box-border">
           {/* Header Compacto Mobile-First */}
           <div className="mb-2 sm:mb-3">
             <h1 className="text-base sm:text-lg md:text-xl font-bold flex items-center gap-2 mb-2">
@@ -400,12 +411,12 @@ export default function BancadaPage() {
             </div>
           </div>
           
-          {/* Abas - Scroll horizontal no mobile */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-2 sm:mb-4 overflow-x-auto scrollbar-hide" style={{ width: '100%', maxWidth: '100%' }}>
-            <div className="flex border-b border-gray-200 min-w-max">
+          {/* Abas - Scroll horizontal com barra visível para não cortar */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-2 sm:mb-4 min-w-0 w-full max-w-full overflow-x-auto overflow-y-hidden pb-1" style={{ scrollbarGutter: 'stable' }}>
+            <div className="flex border-b border-gray-200 min-w-max w-max pr-4">
               <button
                 onClick={() => handleTabChange('pendentes')}
-                className={`px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 font-medium text-xs border-b-2 transition-colors touch-manipulation whitespace-nowrap flex-shrink-0 ${
+                className={`px-2.5 sm:px-3 md:px-4 py-2.5 sm:py-3 font-medium text-xs border-b-2 transition-colors touch-manipulation whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'pendentes'
                     ? 'border-blue-500 text-blue-600 bg-blue-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
@@ -423,8 +434,27 @@ export default function BancadaPage() {
               </button>
               
               <button
+                onClick={() => handleTabChange('orcamentos_concluidos')}
+                className={`px-2.5 sm:px-3 md:px-4 py-2.5 sm:py-3 font-medium text-xs border-b-2 transition-colors touch-manipulation whitespace-nowrap flex-shrink-0 ${
+                  activeTab === 'orcamentos_concluidos'
+                    ? 'border-amber-500 text-amber-600 bg-amber-50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <FiPaperclip className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+                  <span className="whitespace-nowrap">Orç. concluídos</span>
+                  <span className={`px-2 py-0.5 text-xs rounded-full flex-shrink-0 ${
+                    activeTab === 'orcamentos_concluidos' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {contadores.orcamentosConcluidos}
+                  </span>
+                </div>
+              </button>
+              
+              <button
                 onClick={() => handleTabChange('aprovadas')}
-                className={`px-3 sm:px-4 md:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm border-b-2 transition-colors relative touch-manipulation whitespace-nowrap flex-shrink-0 ${
+                className={`px-2.5 sm:px-3 md:px-4 py-2.5 sm:py-3 font-medium text-xs border-b-2 transition-colors relative touch-manipulation whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'aprovadas'
                     ? 'border-green-500 text-green-600 bg-green-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
@@ -446,7 +476,7 @@ export default function BancadaPage() {
               
               <button
                 onClick={() => handleTabChange('em_andamento')}
-                className={`px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 font-medium text-xs border-b-2 transition-colors touch-manipulation whitespace-nowrap flex-shrink-0 ${
+                className={`px-2.5 sm:px-3 md:px-4 py-2.5 sm:py-3 font-medium text-xs border-b-2 transition-colors touch-manipulation whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'em_andamento'
                     ? 'border-purple-500 text-purple-600 bg-purple-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
@@ -465,7 +495,7 @@ export default function BancadaPage() {
               
               <button
                 onClick={() => handleTabChange('concluidas')}
-                className={`px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 font-medium text-xs border-b-2 transition-colors touch-manipulation whitespace-nowrap flex-shrink-0 ${
+                className={`px-2.5 sm:px-3 md:px-4 py-2.5 sm:py-3 font-medium text-xs border-b-2 transition-colors touch-manipulation whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'concluidas'
                     ? 'border-green-500 text-green-600 bg-green-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
@@ -484,7 +514,7 @@ export default function BancadaPage() {
               
               <button
                 onClick={() => handleTabChange('sem_reparo')}
-                className={`px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 font-medium text-xs border-b-2 transition-colors touch-manipulation whitespace-nowrap flex-shrink-0 ${
+                className={`px-2.5 sm:px-3 md:px-4 py-2.5 sm:py-3 font-medium text-xs border-b-2 transition-colors touch-manipulation whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'sem_reparo'
                     ? 'border-red-500 text-red-600 bg-red-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
@@ -503,7 +533,7 @@ export default function BancadaPage() {
               
               <button
                 onClick={() => handleTabChange('todas')}
-                className={`px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 font-medium text-xs border-b-2 transition-colors touch-manipulation whitespace-nowrap flex-shrink-0 ${
+                className={`px-2.5 sm:px-3 md:px-4 py-2.5 sm:py-3 font-medium text-xs border-b-2 transition-colors touch-manipulation whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'todas'
                     ? 'border-gray-500 text-gray-600 bg-gray-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 active:bg-gray-100'
@@ -522,51 +552,22 @@ export default function BancadaPage() {
             </div>
           </div>
 
-          {/* Filtros - Compacto Mobile */}
-          <div className="flex flex-col gap-2 mb-3">
-            <div className="relative w-full">
-              <input
-                type="text"
-                placeholder="Buscar OS ou cliente..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[42px]"
-              />
-              <svg className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-            <div className="flex gap-1.5 overflow-x-auto pb-1.5 scrollbar-hide" style={{ width: '100%', maxWidth: '100%' }}>
-              {[
-                { label: 'Abertas', value: 'ABERTA' },
-                { label: 'Em Análise', value: 'EM_ANALISE' },
-                { label: 'Aguardando Peça', value: 'AGUARDANDO_PECA' },
-                { label: 'Concluídas', value: 'CONCLUIDO' },
-                { label: 'Todas', value: 'Todos' }
-              ].map((status) => {
-                const count = status.value === 'Todos' 
-                  ? ordens.length 
-                  : ordens.filter((os: OrdemServico) => os.status === status.value).length;
-                
-                return (
-                  <button
-                    key={status.value}
-                    onClick={() => setFiltroStatus(status.value)}
-                    className={`px-2.5 sm:px-3 py-2 rounded-lg text-xs font-medium border transition-colors touch-manipulation min-h-[36px] whitespace-nowrap flex-shrink-0 ${
-                      filtroStatus === status.value
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm active:bg-blue-700'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 active:bg-gray-100'
-                    }`}
-                  >
-                    {status.label} ({count})
-                  </button>
-                );
-              })}
-            </div>
+          {/* Busca */}
+          <div className="relative w-full mb-3">
+            <input
+              type="text"
+              placeholder="Buscar OS ou cliente..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[42px]"
+            />
+            <svg className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
           </div>
 
-          {/* Lista de OSs - Cards Compactos */}
-          <div className="space-y-2 sm:space-y-3 pb-4 w-full">
+          {/* Lista de OSs - Cards (mobile, tablet e desktop até 2xl — evita corte em telas menores) */}
+          <div className="space-y-2 sm:space-y-3 pb-4 w-full min-w-0 max-w-full 2xl:hidden">
             {loading ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
@@ -580,6 +581,7 @@ export default function BancadaPage() {
                 <h3 className="text-sm font-medium text-gray-700 mb-1">Nenhuma ordem encontrada</h3>
                 <p className="text-xs text-gray-500">
                   {activeTab === 'pendentes' && 'Não há ordens pendentes no momento.'}
+                  {activeTab === 'orcamentos_concluidos' && 'Não há orçamentos concluídos no momento.'}
                   {activeTab === 'aprovadas' && 'Não há ordens aprovadas no momento.'}
                   {activeTab === 'em_andamento' && 'Não há ordens em andamento no momento.'}
                   {activeTab === 'concluidas' && 'Não há ordens concluídas no momento.'}
@@ -593,57 +595,38 @@ export default function BancadaPage() {
                   const entrada = os.created_at ? new Date(os.created_at).toLocaleDateString('pt-BR') : '';
                   const valor = parseFloat(os.valor_servico || '0') + parseFloat(os.valor_peca || '0');
                   const valorFormatado = valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-                  
-                  const getStatusColor = (status: string, statusTecnico?: string) => {
-                    const statusNormalizado = (status || '').toUpperCase().trim();
-                    const statusTecnicoNormalizado = statusTecnico ? statusTecnico.toUpperCase().trim() : '';
-                    
-                    // Priorizar status técnico se existir
-                    if (statusTecnicoNormalizado) {
-                      if (statusTecnicoNormalizado.includes('SEM REPARO') || statusTecnicoNormalizado.includes('SEM_REPARO')) return 'bg-red-100 text-red-800';
-                      if (statusTecnicoNormalizado.includes('AGUARDANDO INÍCIO')) return 'bg-yellow-100 text-yellow-800';
-                      if (statusTecnicoNormalizado.includes('EM ANÁLISE') || statusTecnicoNormalizado.includes('EM_ANALISE')) return 'bg-blue-100 text-blue-800';
-                      if (statusTecnicoNormalizado.includes('AGUARDANDO PEÇA') || statusTecnicoNormalizado.includes('AGUARDANDO_PECA')) return 'bg-orange-100 text-orange-800';
-                      if (statusTecnicoNormalizado.includes('EM EXECUÇÃO') || statusTecnicoNormalizado.includes('EM_EXECUCAO')) return 'bg-purple-100 text-purple-800';
-                      if (statusTecnicoNormalizado.includes('REPARO CONCLUÍDO') || statusTecnicoNormalizado.includes('CONCLUIDO')) return 'bg-green-100 text-green-800';
-                    }
-                    
-                    // Fallback para status principal
-                    if (statusNormalizado.includes('SEM REPARO') || statusNormalizado.includes('SEM_REPARO')) return 'bg-red-100 text-red-800';
-                    if (statusNormalizado === 'ABERTA' || statusNormalizado.includes('AGUARDANDO')) return 'bg-yellow-100 text-yellow-800';
-                    if (statusNormalizado.includes('ANÁLISE') || statusNormalizado.includes('ANALISE')) return 'bg-blue-100 text-blue-800';
-                    if (statusNormalizado.includes('AGUARDANDO PEÇA') || statusNormalizado.includes('AGUARDANDO_PECA')) return 'bg-orange-100 text-orange-800';
-                    if (statusNormalizado === 'APROVADO' || statusNormalizado.includes('APROVADO')) return 'bg-green-100 text-green-800';
-                    if (statusNormalizado.includes('EXECUÇÃO') || statusNormalizado.includes('EXECUCAO')) return 'bg-purple-100 text-purple-800';
-                    if (statusNormalizado.includes('CONCLUIDO') || statusNormalizado.includes('CONCLUÍDO')) return 'bg-green-100 text-green-800';
-                    if (statusNormalizado === 'ENTREGUE') return 'bg-emerald-100 text-emerald-800';
-                    return 'bg-gray-100 text-gray-800';
-                  };
 
                   const getStatusLabel = (status: string, statusTecnico?: string) => {
                     // Priorizar status técnico se existir
                     if (statusTecnico) {
-                      const statusTecnicoUpper = statusTecnico.toUpperCase();
+                      const statusTecnicoUpper = statusTecnico.toUpperCase().trim();
                       if (statusTecnicoUpper.includes('SEM REPARO') || statusTecnicoUpper.includes('SEM_REPARO')) return 'Sem Reparo';
                       if (statusTecnicoUpper.includes('AGUARDANDO INÍCIO')) return 'Aguardando Início';
                       if (statusTecnicoUpper.includes('EM ANÁLISE') || statusTecnicoUpper.includes('EM_ANALISE')) return 'Em Análise';
-                      if (statusTecnicoUpper.includes('ORÇAMENTO ENVIADO')) return 'Orçamento Enviado';
+                      if (statusTecnicoUpper.includes('ORÇAMENTO CONCLUÍDO') || statusTecnicoUpper.includes('ORCAMENTO CONCLUIDO')) return 'Orçamento Concluído';
+                      if (statusTecnicoUpper.includes('EM ATENDIMENTO')) return 'Em Atendimento';
                       if (statusTecnicoUpper.includes('AGUARDANDO PEÇA') || statusTecnicoUpper.includes('AGUARDANDO_PECA')) return 'Aguardando Peça';
                       if (statusTecnicoUpper.includes('EM EXECUÇÃO') || statusTecnicoUpper.includes('EM_EXECUCAO')) return 'Em Execução';
                       if (statusTecnicoUpper.includes('REPARO CONCLUÍDO') || statusTecnicoUpper.includes('CONCLUIDO')) return 'Reparo Concluído';
+                      if (statusTecnicoUpper === 'ENTREGUE') return 'Entregue';
                     }
                     
                     // Fallback para status principal
                     const statusNormalizado = (status || '').toUpperCase().trim();
                     if (statusNormalizado.includes('SEM REPARO') || statusNormalizado.includes('SEM_REPARO')) return 'Sem Reparo';
-                    if (statusNormalizado === 'ABERTA') return 'Aguardando Início';
+                    if (statusNormalizado === 'ORÇAMENTO' || statusNormalizado === 'ORCAMENTO') return 'Orçamento';
                     if (statusNormalizado.includes('ANÁLISE') || statusNormalizado.includes('ANALISE')) return 'Em Análise';
+                    if (statusNormalizado.includes('ORÇAMENTO') || statusNormalizado.includes('ORCAMENTO')) return 'Orçamento';
+                    if (statusNormalizado.includes('EM ATENDIMENTO')) return 'Em Atendimento';
                     if (statusNormalizado.includes('AGUARDANDO PEÇA') || statusNormalizado.includes('AGUARDANDO_PECA')) return 'Aguardando Peça';
                     if (statusNormalizado === 'APROVADO' || statusNormalizado.includes('APROVADO')) return 'Aprovado';
                     if (statusNormalizado.includes('EXECUÇÃO') || statusNormalizado.includes('EXECUCAO')) return 'Em Execução';
                     if (statusNormalizado.includes('CONCLUIDO') || statusNormalizado.includes('CONCLUÍDO')) return 'Reparo Concluído';
                     if (statusNormalizado === 'ENTREGUE') return 'Entregue';
-                    return status || 'Sem Status';
+                    // Formatar com primeira letra maiúscula se vier em minúsculo (ex: "em atendimento")
+                    const raw = (statusTecnico || status || '').trim();
+                    if (raw) return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+                    return 'Sem Status';
                   };
 
                   const isAprovada = os.status === 'APROVADO';
@@ -652,7 +635,20 @@ export default function BancadaPage() {
                   return (
                     <div
                       key={os.id}
-                      className={`bg-white p-3 sm:p-4 rounded-lg shadow-sm transition-all duration-200 border ${
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => {
+                        if (isNovaAprovacao) marcarNotificacaoLida(os.id);
+                        router.push(`/bancada/${os.id}`);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          if (isNovaAprovacao) marcarNotificacaoLida(os.id);
+                          router.push(`/bancada/${os.id}`);
+                        }
+                      }}
+                      className={`bg-white p-3 sm:p-4 rounded-lg shadow-sm transition-all duration-200 border cursor-pointer hover:shadow-md ${
                         isNovaAprovacao 
                           ? 'border-2 border-green-400 shadow-md bg-green-50/50'
                           : isAprovada
@@ -660,7 +656,6 @@ export default function BancadaPage() {
                           : 'border border-gray-200'
                       }`}
                       style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}
-                      onClick={() => isNovaAprovacao && marcarNotificacaoLida(os.id)}
                     >
                       {/* Header do Card - Estilo App */}
                       <div className="mb-3">
@@ -717,47 +712,129 @@ export default function BancadaPage() {
                         </div>
                       )}
 
-                      {/* Botão de Ação - Full Width Estilo App */}
-                      <div className="pt-3">
-                        {os.status === 'ABERTA' ? (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              abrirModal(os);
-                            }}
-                            className="w-full inline-flex justify-center items-center gap-2 bg-gray-600 text-white px-4 py-3 rounded-lg text-sm font-medium hover:bg-gray-700 active:bg-gray-800 transition-colors min-h-[48px] touch-manipulation shadow-sm"
-                          >
-                            <FiEye size={16} /> 
-                            Visualizar
-                          </button>
-                        ) : (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push(`/bancada/${os.id}`);
-                            }}
-                            className="w-full inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg text-sm font-medium hover:bg-blue-700 active:bg-blue-800 transition-colors min-h-[48px] touch-manipulation shadow-sm relative"
-                          >
-                            <span className="flex-1 text-left">Continuar</span>
-                            <FiCpu size={18} className="ml-auto" />
-                          </button>
-                        )}
-                      </div>
+                      <p className="text-xs text-blue-600 font-medium pt-2">Clique para abrir →</p>
                     </div>
                   );
                 })
             )}
           </div>
+
+          {/* Lista de OSs - Tabela só em telas grandes (2xl: 1536px+) para não cortar Ações */}
+          <div className="hidden 2xl:block bg-white rounded-xl shadow-sm border border-gray-200 mt-4 min-w-0 w-full max-w-full">
+            <div className="w-full min-w-0 overflow-x-auto overflow-y-visible" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <table className="w-full min-w-[700px] divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-2 sm:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20 min-w-[72px]">OS</th>
+                    <th className="px-2 sm:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">Cliente</th>
+                    <th className="px-2 sm:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[140px]">Aparelho</th>
+                    <th className="px-2 sm:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24 min-w-[80px]">Entrada</th>
+                    <th className="px-2 sm:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[110px]">Status Técnico</th>
+                    <th className="px-2 sm:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28 min-w-[88px]">Valor</th>
+                    <th className="px-2 sm:px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-16">Abrir</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-6 text-center text-sm text-gray-500">
+                        Carregando...
+                      </td>
+                    </tr>
+                  ) : filteredOrdens.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-6 text-center text-sm text-gray-500">
+                        {activeTab === 'todas'
+                          ? 'Nenhuma ordem atribuída à sua bancada no momento.'
+                          : 'Nenhuma ordem encontrada com os filtros atuais.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredOrdens.map((os) => {
+                      const aparelho = [os.categoria, os.marca, os.modelo, os.cor].filter(Boolean).join(' ');
+                      const entrada = os.created_at
+                        ? new Date(os.created_at).toLocaleDateString('pt-BR')
+                        : '';
+                      const valor =
+                        parseFloat(os.valor_servico || '0') + parseFloat(os.valor_peca || '0');
+                      const valorFormatado = valor.toLocaleString('pt-BR', {
+                        style: 'currency',
+                        currency: 'BRL',
+                      });
+
+                      // Na bancada: exibir somente o status do técnico (nunca o status da OS nesta coluna)
+                      const statusLabel = (() => {
+                        const st = (os.status_tecnico || '').toString().trim();
+                        const statusTecnicoUpper = st.toUpperCase();
+                        if (!st) return 'Aguardando início';
+                        if (statusTecnicoUpper.includes('SEM REPARO') || statusTecnicoUpper.includes('SEM_REPARO')) return 'Sem Reparo';
+                        if (statusTecnicoUpper.includes('AGUARDANDO INÍCIO') || statusTecnicoUpper.includes('AGUARDANDO INICIO')) return 'Aguardando Início';
+                        if (statusTecnicoUpper.includes('EM ANÁLISE') || statusTecnicoUpper.includes('EM_ANALISE')) return 'Em Análise';
+                        if (statusTecnicoUpper.includes('ORÇAMENTO CONCLUÍDO') || statusTecnicoUpper.includes('ORCAMENTO CONCLUIDO')) return 'Orçamento Concluído';
+                        if (statusTecnicoUpper.includes('EM ATENDIMENTO')) return 'Em Atendimento';
+                        if (statusTecnicoUpper.includes('AGUARDANDO PEÇA') || statusTecnicoUpper.includes('AGUARDANDO_PECA')) return 'Aguardando Peça';
+                        if (statusTecnicoUpper.includes('EM EXECUÇÃO') || statusTecnicoUpper.includes('EM_EXECUCAO')) return 'Em Execução';
+                        if (statusTecnicoUpper.includes('REPARO CONCLUÍDO') || statusTecnicoUpper.includes('CONCLUIDO')) return 'Reparo Concluído';
+                        if (statusTecnicoUpper === 'ENTREGUE') return 'Entregue';
+                        return st.charAt(0).toUpperCase() + st.slice(1).toLowerCase();
+                      })();
+
+                      return (
+                        <tr
+                          key={os.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => router.push(`/bancada/${os.id}`)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              router.push(`/bancada/${os.id}`);
+                            }
+                          }}
+                          className="hover:bg-blue-50 transition-colors cursor-pointer"
+                        >
+                          <td className="px-2 sm:px-3 py-2 text-sm text-gray-900 font-semibold whitespace-nowrap">
+                            #{os.numero_os || os.id}
+                          </td>
+                          <td className="px-2 sm:px-3 py-2 text-sm text-gray-900 min-w-0 max-w-[180px]">
+                            <div className="font-medium truncate">
+                              {os.cliente?.nome || 'Cliente não informado'}
+                            </div>
+                            {os.cliente?.telefone && (
+                              <div className="text-xs text-gray-500 truncate">
+                                {os.cliente.telefone}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-2 sm:px-3 py-2 text-sm text-gray-700 min-w-0 max-w-[200px] truncate" title={aparelho || undefined}>
+                            {aparelho || '---'}
+                          </td>
+                          <td className="px-2 sm:px-3 py-2 text-sm text-gray-700 whitespace-nowrap">
+                            {entrada || '---'}
+                          </td>
+                          <td className="px-2 sm:px-3 py-2 text-sm">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${getStatusColor('', os.status_tecnico)}`}>
+                              {statusLabel}
+                            </span>
+                          </td>
+                          <td className="px-2 sm:px-3 py-2 text-sm font-semibold text-blue-600 whitespace-nowrap">
+                            {valorFormatado}
+                          </td>
+                          <td className="px-2 sm:px-3 py-2 text-sm text-right text-gray-400">
+                            <span className="inline-flex items-center gap-1" aria-hidden>
+                              Abrir <FiChevronRight className="w-4 h-4" />
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
           </div>
         </div>
-
-        {/* Modal */}
-        <VisualizarOSModal
-          isOpen={modalOpen}
-          onClose={fecharModal}
-          ordem={ordemSelecionada}
-          onIniciar={iniciarOrdem}
-        />
       </MenuLayout>
     
   );

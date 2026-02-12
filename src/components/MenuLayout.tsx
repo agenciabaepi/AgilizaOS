@@ -1,7 +1,7 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { usePathname } from 'next/navigation';
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useContext, createContext, type ReactNode } from 'react';
 
 import Image from 'next/image';
 import {
@@ -24,10 +24,13 @@ import {
   FiBarChart,
   FiTrendingUp,
   FiMessageSquare,
+  FiSun,
+  FiMoon,
+  FiCreditCard,
 } from 'react-icons/fi';
-import { Toaster } from 'react-hot-toast';
 import { supabase, forceLogout } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
+import { ThemeContext } from '@/context/ThemeContext';
 import { useToast } from '@/components/Toast';
 import { SubscriptionStatus } from '@/components/SubscriptionStatus';
 import LogoutScreen from '@/components/LogoutScreen';
@@ -35,6 +38,11 @@ import { useWhatsAppNotification } from '@/hooks/useWhatsAppNotification';
 import { useLogout } from '@/hooks/useLogout';
 import AvisosBanner from '@/components/AvisosBanner';
 import FinanceiroAlertsBanner from '@/components/FinanceiroAlertsBanner';
+import { TECNICO_DEFAULT_PERMISSIONS } from '@/config/tecnicoAllowedPaths';
+import { getMenuAccentColor, MENU_ACCENT_DEFAULT } from '@/lib/menuTheme';
+
+type MenuTheme = { accentColor: string; inverted: boolean };
+const MenuAccentContext = createContext<MenuTheme>({ accentColor: MENU_ACCENT_DEFAULT, inverted: false });
 
 // Funções locais como fallback
 const isUsuarioTesteLocal = (usuario: any) => {
@@ -49,13 +57,15 @@ const podeUsarFuncionalidadeLocal = (usuario: any, nomeFuncionalidade: string) =
 };
 
 // ✅ REMOVER logs desnecessários
-export default function MenuLayout({ children }: { children: React.ReactNode }) {
+export default function MenuLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const { signOut, usuarioData, empresaData, lastUpdate, userDataReady, catalogoHabilitado, temRecurso } = useAuth();
+  const { signOut, usuarioData, empresaData, lastUpdate, userDataReady, catalogoHabilitado } = useAuth();
   const { addToast } = useToast();
+  const themeContext = useContext(ThemeContext);
+  const theme = themeContext?.theme ?? 'light';
+  const toggleTheme = themeContext?.toggleTheme ?? (() => {});
   const { logout, isLoggingOut } = useLogout();
 
-  const [userLevel, setUserLevel] = useState<string>('');
   const [menuExpandido, setMenuExpandido] = useState<boolean | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -70,7 +80,17 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificacoesTickets, setNotificacoesTickets] = useState<any[]>([]);
   const [isMounted, setIsMounted] = useState(false);
- 
+  const [menuAccentColor, setMenuAccentColor] = useState<string>(MENU_ACCENT_DEFAULT);
+
+  useEffect(() => {
+    setMenuAccentColor(getMenuAccentColor(empresaData?.id));
+  }, [empresaData?.id]);
+  useEffect(() => {
+    const handler = () => setMenuAccentColor(getMenuAccentColor(empresaData?.id));
+    window.addEventListener('menu-color-changed', handler);
+    return () => window.removeEventListener('menu-color-changed', handler);
+  }, [empresaData?.id]);
+
   const avatarUrl = useMemo(() => {
     if (!usuarioData?.foto_url) return null;
     const base = usuarioData.foto_url.split('?')[0];
@@ -223,35 +243,12 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
   // Remover menuExpandido, hoverTimeout, handleMouseEnter, handleMouseLeave, e toda lógica relacionada
   // Sidebar sempre expandida
 
-  // Função para checar permissão
-  const podeVer = (area: string) => {
-    // Usuários de teste têm acesso a TUDO
-    if (usuarioData?.nivel === 'usuarioteste') {
-      return true; // ✅ Acesso total garantido
-    }
-    
-    // Admin tem acesso a TUDO
-    if (usuarioData?.nivel === 'admin') {
-      return true;
-    }
-    
-    // Técnicos sempre podem ver dashboard
-    if (area === 'dashboard' && usuarioData?.nivel === 'tecnico') {
-      return true;
-    }
-    
-    // Verificar se o usuário tem a permissão específica
-    const temPermissao = usuarioData?.permissoes && usuarioData.permissoes.includes(area);
-    return temPermissao;
-  };
-
-  // Função para verificar se pode ver módulo (permissão + recurso do plano)
-  // Usa temRecurso do Auth (dados já vêm no fetch inicial) — sem delay de carregamento
-  const podeVerModulo = (area: string, recurso?: string) => {
-    if (!podeVer(area)) return false;
-    if (!recurso) return true;
-    return temRecurso(recurso);
-  };
+  // Técnico: só vê itens cuja permissão está em usuarioData.permissoes; se vazio, usa padrão (dashboard, bancada, comissoes).
+  const isTecnico = usuarioData?.nivel === 'tecnico';
+  const rawPermissoes = usuarioData?.permissoes ?? [];
+  const permissoesTecnico = isTecnico && rawPermissoes.length === 0 ? TECNICO_DEFAULT_PERMISSIONS : rawPermissoes;
+  const podeVer = (area: string) => isTecnico ? permissoesTecnico.includes(area) : true;
+  const podeVerModulo = (area: string, _recurso?: string) => isTecnico ? permissoesTecnico.includes(area) : true;
 
   // ❌ REMOVIDO: Esta linha impedia a renderização do menu
   // if (menuExpandido === null) return null;
@@ -266,18 +263,22 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
     !isSearching || label.toLowerCase().includes(normalizedSearch);
   
   return (
-    <div className="flex min-h-screen bg-white">
-        {/* Sidebar Desktop - oculto na tela cheia de Nova OS */}
-        <aside className={`w-64 bg-black border-r border-white/20 hidden md:flex flex-col py-8 px-4 h-screen fixed top-0 left-0 z-40 transition-all duration-300 overflow-y-auto no-print ${isNovaOSFullScreen ? '!hidden' : ''}`}>
+    <MenuAccentContext.Provider value={{ accentColor: menuAccentColor, inverted: isTecnico }}>
+    <div className="flex min-h-screen bg-white dark:bg-zinc-900">
+        {/* Sidebar Desktop - invertido (fundo claro) para técnico */}
+        <aside
+          className={`w-64 hidden md:flex flex-col py-8 px-4 h-screen fixed top-0 left-0 z-40 transition-all duration-300 overflow-y-auto no-print ${isNovaOSFullScreen ? '!hidden' : ''} ${isTecnico ? 'bg-white border-r border-gray-200' : 'bg-black border-r border-white/20'}`}
+          style={{ ['--menu-accent' as string]: menuAccentColor }}
+        >
         {/* Busca */}
         <div className="flex items-center gap-2 mb-8">
-          <FiSearch className="text-white/60" size={18} />
+          <FiSearch className={isTecnico ? 'text-gray-500' : 'text-white/60'} size={18} />
           <input
             type="text"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             placeholder="Buscar no menu..."
-            className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#D1FE6E] focus:border-[#D1FE6E] transition"
+            className={`w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--menu-accent)] focus:border-[color:var(--menu-accent)] transition ${isTecnico ? 'bg-gray-100 border border-gray-300 text-gray-900 placeholder-gray-500' : 'bg-white/10 border border-white/20 text-white placeholder-white/50'}`}
           />
         </div>
         {/* Menu */}
@@ -285,26 +286,26 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {!isMounted || !userDataReady ? (
             <>
               {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div key={i} className="h-12 rounded-lg bg-white/10 animate-pulse" />
+                <div key={i} className={`h-12 rounded-lg animate-pulse ${isTecnico ? 'bg-gray-200' : 'bg-white/10'}`} />
               ))}
             </>
           ) : (
             <>
-          {/* Dashboard */}
-          {(podeVer('dashboard') || usuarioData?.nivel === 'tecnico' || usuarioData?.nivel === 'atendente') && matchesSearch('Dashboard') && (
-            <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard'} menuRecolhido={false} />
+          {/* Dashboard - técnico vai para dashboard-tecnico */}
+          {(podeVer('dashboard') || usuarioData?.nivel === 'atendente') && matchesSearch('Dashboard') && (
+            <SidebarButton path={isTecnico ? '/dashboard-tecnico' : '/dashboard'} icon={<FiHome size={20} />} label="Dashboard" isActive={isTecnico ? pathname === '/dashboard-tecnico' : pathname === '/dashboard'} menuRecolhido={false} />
           )}
                   {/* Lembretes */}
-                  {userLevel === 'admin' && matchesSearch('Lembretes') && (
+                  {podeVer('lembretes') && matchesSearch('Lembretes') && (
                     <SidebarButton path="/lembretes" icon={<FiBell size={20} />} label="Lembretes" isActive={pathname === '/lembretes'} menuRecolhido={false} />
                   )}
           {podeVer('ordens') && matchesSearch('Ordens de Serviço') && (
             <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} menuRecolhido={false} />
           )}
-          {podeVer('caixa') && temRecurso('financeiro') && (matchesSearch('Caixa') || matchesSearch('Fluxo de Caixa')) && (
+          {podeVer('caixa') && (matchesSearch('Caixa') || matchesSearch('Fluxo de Caixa')) && (
             <>
               <div 
-                className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
+                className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base ${isTecnico ? 'text-gray-900 hover:bg-gray-100' : 'text-white hover:bg-white/10'}`}
                 onClick={() => setCaixaExpanded(!caixaExpanded)}
                 style={{ minHeight: 48 }}
                 title="Caixa"
@@ -331,7 +332,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {podeVer('clientes') && (matchesSearch('Contatos') || matchesSearch('Clientes') || matchesSearch('Fornecedores')) && (
             <>
               <div 
-                className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
+                className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base ${isTecnico ? 'text-gray-900 hover:bg-gray-100' : 'text-white hover:bg-white/10'}`}
                 onClick={() => setContatosExpanded(!contatosExpanded)}
                 style={{ minHeight: 48 }}
                 title="Contatos"
@@ -359,7 +360,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {podeVer('equipamentos') && (matchesSearch('Produtos/Serviços') || matchesSearch('Produtos') || matchesSearch('Categorias') || matchesSearch('Catálogo')) && (
             <>
               <div 
-                className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
+                className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base ${isTecnico ? 'text-gray-900 hover:bg-gray-100' : 'text-white hover:bg-white/10'}`}
                 onClick={() => setEquipamentosExpanded(!equipamentosExpanded)}
                 style={{ minHeight: 48 }}
                 title="Produtos/Serviços"
@@ -392,7 +393,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {podeVerModulo('financeiro', 'financeiro') && (matchesSearch('Financeiro') || matchesSearch('Lucro & Desempenho') || matchesSearch('Vendas') || matchesSearch('Movimentações Caixa') || matchesSearch('Contas a Pagar') || matchesSearch('Comissões dos Técnicos')) && (
             <>
               <div 
-                className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
+                className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base ${isTecnico ? 'text-gray-900 hover:bg-gray-100' : 'text-white hover:bg-white/10'}`}
                 onClick={() => setFinanceiroExpanded(!financeiroExpanded)}
                 style={{ minHeight: 48 }}
                 title="Financeiro"
@@ -469,7 +470,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                       menuRecolhido={false} 
                     />
                   )}
-                  {podeVerModulo('lucro-desempenho', 'financeiro') && (
+                  {!isTecnico && podeVerModulo('lucro-desempenho', 'financeiro') && (
                     <SidebarButton 
                       path="/financeiro/comissoes-tecnicos" 
                       icon={
@@ -492,18 +493,20 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {podeVer('bancada') && matchesSearch('Bancada') && (
             <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" isActive={pathname === '/bancada'} menuRecolhido={false} />
           )}
-          {usuarioData?.nivel === 'tecnico' && matchesSearch('Comissões') && (
+          {isTecnico && podeVer('comissoes') && matchesSearch('Comissões') && (
             <SidebarButton path="/comissoes" icon={<FiDollarSign size={20} />} label="Comissões" isActive={pathname === '/comissoes'} menuRecolhido={false} />
           )}
           {matchesSearch('Suporte') && (
             <SidebarButton path="/suporte" icon={<FiMessageSquare size={20} />} label="Suporte" isActive={pathname === '/suporte'} menuRecolhido={false} />
           )}
-          
+          {!isTecnico && matchesSearch('Assinatura') && (
+            <SidebarButton path="/assinatura" icon={<FiCreditCard size={20} />} label="Assinatura" isActive={pathname === '/assinatura'} menuRecolhido={false} />
+          )}
           {matchesSearch('Meu Perfil') && (
             <SidebarButton path="/perfil" icon={<FiUsers size={20} />} label="Meu Perfil" isActive={pathname === '/perfil'} menuRecolhido={false} />
           )}
           {podeVer('configuracoes') && matchesSearch('Configurações') && (
-            <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" isActive={pathname === '/configuracoes'} menuRecolhido={false} />
+            <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" isActive={pathname === '/configuracoes' || pathname.startsWith('/configuracoes/')} menuRecolhido={false} />
           )}
           {matchesSearch('Sair') && (
             <SidebarButton path="#logout" icon={<FiLogOut size={20} />} label="Sair" isActive={false} menuRecolhido={false} onClick={logout} />
@@ -518,9 +521,10 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             width={140}
             height={40}
             className="h-10 w-auto object-contain"
+            style={isTecnico ? { filter: 'invert(1)' } : undefined}
             priority
           />
-          <div className="text-center text-xs text-[#D1FE6E]">
+          <div className={`text-center text-xs ${isTecnico ? 'text-black' : ''}`} style={!isTecnico ? { color: menuAccentColor } : undefined}>
             v2.7.9
           </div>
         </div>
@@ -533,44 +537,44 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
           {/* Overlay */}
           <div className="absolute inset-0 bg-black/40" onClick={() => setMobileMenuOpen(false)} />
           {/* Drawer */}
-          <aside className="relative w-64 bg-black border-r border-white/20 flex flex-col py-8 px-4 min-h-screen animate-slide-in">
-            <button className="absolute top-4 right-4 text-white" onClick={() => setMobileMenuOpen(false)}>
+          <aside className={`relative w-64 flex flex-col py-8 px-4 min-h-screen animate-slide-in ${isTecnico ? 'bg-white border-r border-gray-200' : 'bg-black border-r border-white/20'}`} style={{ ['--menu-accent' as string]: menuAccentColor }}>
+            <button className={`absolute top-4 right-4 ${isTecnico ? 'text-gray-900' : 'text-white'}`} onClick={() => setMobileMenuOpen(false)}>
               <FiX size={28} />
             </button>
             <div className="flex items-center gap-2 mb-6">
-              <FiSearch className="text-white/60" size={18} />
+              <FiSearch className={isTecnico ? 'text-gray-500' : 'text-white/60'} size={18} />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
                 placeholder="Buscar no menu..."
-                className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#D1FE6E] focus:border-[#D1FE6E] transition"
+                className={`w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--menu-accent)] focus:border-[color:var(--menu-accent)] transition ${isTecnico ? 'bg-gray-100 border border-gray-300 text-gray-900 placeholder-gray-500' : 'bg-white/10 border border-white/20 text-white placeholder-white/50'}`}
               />
             </div>
             <nav className="flex flex-col gap-1">
               {!isMounted || !userDataReady ? (
                 <>
                   {[1, 2, 3, 4, 5].map((i) => (
-                    <div key={i} className="h-12 rounded-lg bg-white/10 animate-pulse" />
+                    <div key={i} className={`h-12 rounded-lg animate-pulse ${isTecnico ? 'bg-gray-200' : 'bg-white/10'}`} />
                   ))}
                 </>
               ) : (
                 <>
-              {/* Dashboard */}
-              {(podeVer('dashboard') || usuarioData?.nivel === 'tecnico' || usuarioData?.nivel === 'atendente') && (
-                <SidebarButton path="/dashboard" icon={<FiHome size={20} />} label="Dashboard" isActive={pathname === '/dashboard'} menuRecolhido={false} />
+              {/* Dashboard - técnico vai para dashboard-tecnico */}
+              {(podeVer('dashboard') || usuarioData?.nivel === 'atendente') && (
+                <SidebarButton path={isTecnico ? '/dashboard-tecnico' : '/dashboard'} icon={<FiHome size={20} />} label="Dashboard" isActive={isTecnico ? pathname === '/dashboard-tecnico' : pathname === '/dashboard'} menuRecolhido={false} />
               )}
               {/* Lembretes */}
-              {userLevel === 'admin' && (
+              {podeVer('lembretes') && (
                 <SidebarButton path="/lembretes" icon={<FiBell size={20} />} label="Lembretes" isActive={pathname === '/lembretes'} menuRecolhido={false} />
               )}
               {podeVer('ordens') && (
                 <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} menuRecolhido={false} />
               )}
-              {podeVer('caixa') && temRecurso('financeiro') && (
+              {podeVer('caixa') && (
                 <>
                   <div 
-                    className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
+                    className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base ${isTecnico ? 'text-gray-900 hover:bg-gray-100' : 'text-white hover:bg-white/10'}`}
                     onClick={() => setCaixaExpanded(!caixaExpanded)}
                     style={{ minHeight: 48 }}
                   >
@@ -596,7 +600,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               {podeVer('clientes') && (
                 <>
                   <div 
-                    className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
+                    className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base ${isTecnico ? 'text-gray-900 hover:bg-gray-100' : 'text-white hover:bg-white/10'}`}
                     onClick={() => setContatosExpanded(!contatosExpanded)}
                     style={{ minHeight: 48 }}
                   >
@@ -623,7 +627,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                             {podeVer('equipamentos') && (
                 <>
                   <div 
-                    className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
+                    className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base ${isTecnico ? 'text-gray-900 hover:bg-gray-100' : 'text-white hover:bg-white/10'}`}
                     onClick={() => setEquipamentosExpanded(!equipamentosExpanded)}
                     style={{ minHeight: 48 }}
                   >
@@ -651,7 +655,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               {podeVerModulo('financeiro', 'financeiro') && (
                 <>
                   <div 
-                    className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base text-white hover:bg-white/10"
+                    className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base ${isTecnico ? 'text-gray-900 hover:bg-gray-100' : 'text-white hover:bg-white/10'}`}
                     onClick={() => setFinanceiroExpanded(!financeiroExpanded)}
                     style={{ minHeight: 48 }}
                   >
@@ -727,7 +731,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                           menuRecolhido={false} 
                         />
                       )}
-                      {podeVerModulo('lucro-desempenho', 'financeiro') && (
+                      {!isTecnico && podeVerModulo('lucro-desempenho', 'financeiro') && (
                         <SidebarButton 
                           path="/financeiro/comissoes-tecnicos" 
                           icon={
@@ -750,12 +754,12 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               {podeVer('bancada') && (
                 <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" isActive={pathname === '/bancada'} menuRecolhido={false} />
               )}
-              {usuarioData?.nivel === 'tecnico' && (
+              {isTecnico && podeVer('comissoes') && (
                 <SidebarButton path="/comissoes" icon={<FiDollarSign size={20} />} label="Comissões" isActive={pathname === '/comissoes'} menuRecolhido={false} />
               )}
               <SidebarButton path="/perfil" icon={<FiUsers size={20} />} label="Meu Perfil" isActive={pathname === '/perfil'} menuRecolhido={false} />
-                        {podeVer('configuracoes') && usuarioData?.nivel !== 'atendente' && (
-            <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" isActive={pathname === '/configuracoes'} menuRecolhido={false} />
+                        {podeVer('configuracoes') && (
+            <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" isActive={pathname === '/configuracoes' || pathname.startsWith('/configuracoes/')} menuRecolhido={false} />
           )}
           
           <SidebarButton 
@@ -769,20 +773,20 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                 </>
               )}
             </nav>
-            <div className="mt-auto text-center text-xs text-[#D1FE6E] pb-4">
+            <div className={`mt-auto text-center text-xs pb-4 ${isTecnico ? 'text-black' : ''}`} style={!isTecnico ? { color: menuAccentColor } : undefined}>
               v2.7.9
             </div>
           </aside>
         </div>
       )}
-      {/* Main area with header and content - tela cheia (sem margin) na página Nova OS */}
-      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 w-full ${isNovaOSFullScreen ? 'md:ml-0' : 'ml-0 md:ml-64'}`}>
+      {/* Main area - largura limitada para não cortar à direita (sidebar 16rem = 256px) */}
+      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 min-w-0 bg-white dark:bg-zinc-900 ${isNovaOSFullScreen ? 'md:ml-0 w-full md:max-w-full' : 'ml-0 w-full md:ml-64 md:max-w-[calc(100vw-16rem)]'}`}>
         {/* TopHeader - oculto na tela cheia de Nova OS (só fica o botão Voltar na própria página) */}
         {!isNovaOSFullScreen && (
-        <header className="w-full h-16 bg-white border-b border-zinc-200 flex items-center justify-between px-4 md:px-6 sticky top-0 z-30 no-print">
+        <header className="w-full h-16 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between px-4 md:px-6 sticky top-0 z-30 no-print">
           {/* Esquerda: botão menu mobile + logo da empresa */}
           <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
-            <button onClick={() => setMobileMenuOpen(true)} className="md:hidden text-zinc-700 p-2 -ml-2">
+            <button onClick={() => setMobileMenuOpen(true)} className="md:hidden text-zinc-700 dark:text-zinc-300 p-2 -ml-2">
               <FiMenu size={24} />
             </button>
             <div className="h-9 flex items-center shrink-0" style={{ minWidth: 0 }}>
@@ -796,7 +800,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                 />
               ) : (
                 <Image
-                  src="/assets/imagens/logopreto.png"
+                  src={theme === 'dark' ? '/assets/imagens/logobranco.png' : '/assets/imagens/logopreto.png'}
                   alt="Consert"
                   width={120}
                   height={36}
@@ -805,10 +809,25 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                 />
               )}
             </div>
+            {isTecnico && (
+              <span className="text-lg font-semibold text-zinc-700 dark:text-zinc-300 hidden sm:block ml-2 truncate">
+                Área do técnico
+              </span>
+            )}
           </div>
           
           {/* Área direita - Usuário e notificações */}
           <div className="flex items-center gap-2 md:gap-4">
+            {/* Toggle modo escuro - desativado temporariamente */}
+            {/* <button
+              type="button"
+              onClick={toggleTheme}
+              className="p-2 rounded-lg text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+              aria-label={theme === 'dark' ? 'Ativar modo claro' : 'Ativar modo escuro'}
+            >
+              {theme === 'dark' ? <FiSun size={20} /> : <FiMoon size={20} />}
+            </button> */}
             {/* Status da assinatura - oculto em mobile */}
             <div className="hidden md:block">
               <SubscriptionStatus />
@@ -829,7 +848,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   </span>
                 </div>
               )}
-              <span className="text-zinc-700 text-sm font-medium hidden sm:block">{usuarioData?.nome || 'Usuário'}</span>
+              <span className="text-zinc-700 dark:text-zinc-300 text-sm font-medium hidden sm:block">{usuarioData?.nome || 'Usuário'}</span>
             </div>
             
             {/* Notificações */}
@@ -839,7 +858,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                   className={`${
                     notificacoesTickets.length > 0 
                       ? 'text-red-500 hover:text-red-600' 
-                      : 'text-zinc-500 hover:text-lime-500'
+                      : 'text-zinc-500 dark:text-zinc-400 hover:text-lime-500 dark:hover:text-lime-400'
                   } cursor-pointer transition-colors`}
                   size={20}
                   onClick={() => setShowNotifications(!showNotifications)}
@@ -852,7 +871,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               </div>
               {showNotifications && (
                 <div className="absolute right-0 top-8 w-80 z-50 max-h-96 overflow-y-auto">
-                  <div className="bg-white text-black rounded-xl shadow-xl p-4 border border-black/10">
+                  <div className="bg-white dark:bg-zinc-800 text-black dark:text-zinc-100 rounded-xl shadow-xl p-4 border border-black/10 dark:border-zinc-600">
                     <h4 className="font-semibold text-sm mb-3">Notificações</h4>
                     {notificacoesTickets.length === 0 ? (
                       <p className="text-sm text-gray-500 py-4 text-center">Nenhuma notificação</p>
@@ -914,9 +933,9 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
             <FinanceiroAlertsBanner />
           </div>
         )}
-        {/* Conteúdo principal - sem padding lateral/superior na Nova OS para máximo espaço */}
-        <main className={`flex-1 w-full ${isNovaOSFullScreen ? 'pb-6 pt-0 px-0' : 'pb-6 px-4 md:px-6 pt-6'}`}>
-          <div className="w-full">
+        {/* Conteúdo principal - min-w-0 para permitir scroll horizontal em tabelas em qualquer resolução */}
+        <main className={`flex-1 w-full min-w-0 ${isNovaOSFullScreen ? 'pb-6 pt-0 px-0' : 'pb-6 px-4 md:px-6 pt-6'}`}>
+          <div className="w-full min-w-0 max-w-full">
             {children}
           </div>
         </main>
@@ -970,19 +989,19 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                 </>
               ) : (
                 <>
-              {/* Dashboard */}
-              {(podeVer('dashboard') || usuarioData?.nivel === 'tecnico' || usuarioData?.nivel === 'atendente') && (
+              {/* Dashboard - técnico vai para dashboard-tecnico */}
+              {(podeVer('dashboard') || usuarioData?.nivel === 'atendente') && (
                 <MobileMenuItem
-                  path="/dashboard"
+                  path={isTecnico ? '/dashboard-tecnico' : '/dashboard'}
                   icon={<FiHome size={20} />}
                   label="Dashboard"
-                  isActive={pathname === '/dashboard'}
+                  isActive={isTecnico ? pathname === '/dashboard-tecnico' : pathname === '/dashboard'}
                   onNavigate={() => setMobileMenuOpen(false)}
                 />
               )}
               
               {/* Lembretes */}
-              {userLevel === 'admin' && (
+              {podeVer('lembretes') && (
                 <MobileMenuItem
                   path="/lembretes"
                   icon={<FiBell size={20} />}
@@ -1004,7 +1023,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
               )}
               
               {/* Caixa */}
-              {podeVer('caixa') && temRecurso('financeiro') && (
+              {podeVer('caixa') && (
                 <MobileMenuItem
                   path="/fluxo-caixa"
                   icon={<FiTrendingUp size={20} />}
@@ -1131,7 +1150,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                     isActive={pathname === '/financeiro/contas-a-pagar'}
                     onNavigate={() => setMobileMenuOpen(false)}
                   />
-                  {podeVer('lucro-desempenho') && (
+                  {!isTecnico && podeVer('lucro-desempenho') && (
                     <MobileMenuItem
                       path="/financeiro/comissoes-tecnicos"
                       icon={
@@ -1161,8 +1180,8 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                 />
               )}
               
-              {/* Comissões */}
-              {usuarioData?.nivel === 'tecnico' && (
+              {/* Comissões - apenas técnico (Minhas Comissões) */}
+              {isTecnico && podeVer('comissoes') && (
                 <MobileMenuItem
                   path="/comissoes"
                   icon={<FiDollarSign size={20} />}
@@ -1190,18 +1209,26 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
                 isActive={pathname === '/suporte'}
                 onNavigate={() => setMobileMenuOpen(false)}
               />
-              
+              {/* Assinatura - não exibir para técnico */}
+              {!isTecnico && (
+                <MobileMenuItem
+                  path="/assinatura"
+                  icon={<FiCreditCard size={20} />}
+                  label="Assinatura"
+                  isActive={pathname === '/assinatura'}
+                  onNavigate={() => setMobileMenuOpen(false)}
+                />
+              )}
               {/* Configurações */}
-              {podeVer('configuracoes') && usuarioData?.nivel !== 'atendente' && (
+              {(
                 <MobileMenuItem
                   path="/configuracoes"
                   icon={<FiTool size={20} />}
                   label="Configurações"
-                  isActive={pathname === '/configuracoes'}
+                  isActive={pathname === '/configuracoes' || pathname.startsWith('/configuracoes/')}
                   onNavigate={() => setMobileMenuOpen(false)}
                 />
               )}
-              
               {/* Sair */}
               <MobileMenuItem
                 path="#logout"
@@ -1240,6 +1267,7 @@ export default function MenuLayout({ children }: { children: React.ReactNode }) 
       
       
     </div>
+    </MenuAccentContext.Provider>
   );
 }
 
@@ -1252,13 +1280,14 @@ function SidebarButton({
   menuRecolhido 
 }: { 
   path: string; 
-  icon: React.ReactNode; 
+  icon: ReactNode; 
   label: string; 
   isActive: boolean; 
   onClick?: () => void; 
   menuRecolhido: boolean; 
 }) {
   const router = useRouter();
+  const { accentColor, inverted } = useContext(MenuAccentContext);
   
   const handleClick = () => {
     if (onClick) {
@@ -1268,12 +1297,13 @@ function SidebarButton({
     }
   };
   
+  const inactiveClass = inverted ? 'text-gray-900 hover:bg-gray-100' : 'text-white hover:bg-white/10';
   return (
     <button
       onClick={handleClick}
       className={`flex items-center justify-start w-full min-w-0 px-3 py-2 rounded-lg transition font-medium text-base
-        ${isActive ? 'bg-[#D1FE6E] text-black' : 'hover:bg-white/10 text-white'}`}
-      style={{ minHeight: 48 }}
+        ${isActive ? 'text-black' : inactiveClass}`}
+      style={{ minHeight: 48, ...(isActive ? { backgroundColor: accentColor } : {}) }}
       title={label}
     >
       <span className="shrink-0 flex size-5 items-center justify-center [&_svg]:size-full [&_svg]:shrink-0" aria-hidden>
@@ -1294,13 +1324,14 @@ function MobileMenuItem({
   onNavigate
 }: { 
   path: string; 
-  icon: React.ReactNode; 
+  icon: ReactNode; 
   label: string; 
   isActive: boolean; 
   onClick?: () => void; 
   onNavigate?: () => void;
 }) {
   const router = useRouter();
+  const { accentColor, inverted } = useContext(MenuAccentContext);
   
   const handleClick = () => {
 
@@ -1315,12 +1346,13 @@ function MobileMenuItem({
     }
   };
   
+  const inactiveClass = inverted ? 'text-gray-900 hover:bg-gray-200' : 'hover:bg-gray-800 text-white';
   return (
     <button
       onClick={handleClick}
       className={`flex items-center w-full px-4 py-3 rounded-lg transition font-medium text-base
-        ${isActive ? 'bg-[#D1FE6E] text-black' : 'hover:bg-gray-800 text-white'}`}
-      style={{ minHeight: 48 }}
+        ${isActive ? 'text-black' : inactiveClass}`}
+      style={{ minHeight: 48, ...(isActive ? { backgroundColor: accentColor } : {}) }}
     >
       <div className="flex items-center gap-3">
         {icon}

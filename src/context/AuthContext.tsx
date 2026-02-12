@@ -56,7 +56,7 @@ interface AuthContextType {
   temRecurso: (recurso: string) => boolean;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -87,7 +87,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           } catch (e) {
             console.error('Erro ao fazer logout:', e);
           }
-          window.location.href = '/login?error=empresa_desativada';
+          window.location.href = '/empresa-desativada';
           return;
         }
         
@@ -105,7 +105,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           } catch (e) {
             // Silenciar erros de logout durante desativação de empresa
           }
-          window.location.href = '/login?error=empresa_desativada';
+          window.location.href = '/empresa-desativada';
           return;
         }
         
@@ -210,6 +210,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             email: session.user.email || '',
             nivel: '',
             permissoes: [],
+            paginas_liberadas: [],
             foto_url: null
           });
 
@@ -251,6 +252,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             email: session.user.email || '',
             nivel: '',
             permissoes: [],
+            paginas_liberadas: [],
             foto_url: null
           });
 
@@ -285,15 +287,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return isUsuarioTesteUtil(usuarioData);
   }, [usuarioData]);
 
-  const temRecurso = useCallback((recurso: string): boolean => {
-    if (empresaData?.recursos_customizados && recurso in empresaData.recursos_customizados) {
-      return empresaData.recursos_customizados[recurso] === true;
-    }
-    if (!recursosPlano || Object.keys(recursosPlano).length === 0) {
-      return true; // compatibilidade com sistema sem assinatura
-    }
-    return recursosPlano[recurso] === true;
-  }, [empresaData?.recursos_customizados, recursosPlano]);
+  // Plano único R$119,90 - todos têm acesso a todos os recursos
+  const temRecurso = useCallback((_recurso: string): boolean => true, []);
 
   // ✅ IMPLEMENTAR: Funções de autenticação que estavam faltando
   const signIn = useCallback(async (email: string, password: string) => {

@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
 import bglogin from '@/assets/imagens/bglogin.jpg';
@@ -9,6 +9,7 @@ import logo from '@/assets/imagens/logopreto.png';
 import { ToastProvider, useToast } from '@/components/Toast';
 import { ConfirmProvider, useConfirm } from '@/components/ConfirmDialog';
 import { FaEye, FaEyeSlash, FaArrowLeft, FaArrowRight } from 'react-icons/fa';
+import { getDashboardPath } from '@/lib/dashboardRouting';
 
 function LoginClientInner() {
   const [loginInput, setLoginInput] = useState('');
@@ -30,6 +31,7 @@ function LoginClientInner() {
   const loginInProgress = useRef(false);
   
   const router = useRouter();
+  const searchParams = useSearchParams();
   const auth = useAuth();
   const { addToast } = useToast();
   const confirm = useConfirm();
@@ -80,33 +82,41 @@ function LoginClientInner() {
     const verificacao = searchParams.get('verificacao');
     const error = searchParams.get('error');
     
-    // Verificar erro de empresa desativada
+    // Verificar erro de empresa desativada (edge case: URL antiga) → redirecionar para página dedicada
     if (error === 'empresa_desativada') {
-      addToast('error', 'Sua empresa foi desativada. Entre em contato com o suporte para mais informações.');
-      // Limpar o parâmetro da URL
-      const url = new URL(window.location.href);
-      url.searchParams.delete('error');
-      window.history.replaceState({}, '', url.toString());
+      window.location.href = '/empresa-desativada';
     }
     
     if (email && verificacao === 'pending') {
       setPendingEmail(email);
       setShowVerification(true);
     }
-  }, [addToast]);
+  }, []);
   
   // 🔒 CORREÇÃO DE HIDRATAÇÃO: Aguardar montagem no cliente
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  // 🔒 PROTEÇÃO EXTRA: Se já estiver logado, redirecionar automaticamente
+  // 🔒 PROTEÇÃO EXTRA: Se já estiver logado, redirecionar para o destino (redirect param) ou dashboard correta por role
+  const didRedirectLoggedIn = useRef(false);
   useEffect(() => {
-    if (auth.user && auth.session && !auth.loading) {
-      console.log('🔄 Usuário já logado, redirecionando para dashboard...');
-      router.replace('/dashboard');
+    if (!auth.user || !auth.session || auth.loading) return;
+    if (didRedirectLoggedIn.current) return;
+    didRedirectLoggedIn.current = true;
+    // Ler redirect da URL (fallback: window.location para garantir que pegamos o param)
+    const redirectTo = searchParams.get('redirect') ?? (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('redirect') : null);
+    if (redirectTo && typeof redirectTo === 'string') {
+      const path = decodeURIComponent(redirectTo).trim();
+      const isInternalPath = path.startsWith('/') && !path.startsWith('//') && path.indexOf('://') === -1;
+      if (isInternalPath && path !== '/login' && !path.startsWith('/login') && !path.startsWith('/cadastro')) {
+        router.replace(path);
+        return;
+      }
     }
-  }, [auth.user, auth.session, auth.loading, router]);
+    const dashboardPath = getDashboardPath({ nivel: auth.usuarioData?.nivel });
+    router.replace(dashboardPath);
+  }, [auth.user, auth.session, auth.loading, auth.usuarioData?.nivel, searchParams, router]);
 
   // 🔒 PROTEÇÃO EXTRA: Se já estiver logado, mostrar loading
   if (auth.user && auth.session && !auth.loading) {
@@ -452,6 +462,7 @@ function LoginClientInner() {
         message: 'Sua empresa foi desativada. Entre em contato com o suporte para mais informações.',
         confirmText: 'OK',
       });
+      router.replace('/empresa-desativada');
       return;
     }
     

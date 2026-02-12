@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabaseClient';
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { comissaoId, valorComissao, observacoes, ativa } = body;
+    const { comissaoId, valorComissao, observacoes, ativa, status } = body;
 
     if (!comissaoId) {
       return NextResponse.json(
@@ -31,6 +31,11 @@ export async function PATCH(request: NextRequest) {
 
     if (ativa !== undefined) {
       updateData.ativa = ativa;
+    }
+
+    // Status do pagamento: PAGA | CALCULADA | PENDENTE (admin marca comissão como paga)
+    if (status !== undefined && status !== null && ['PAGA', 'CALCULADA', 'PENDENTE'].includes(String(status).toUpperCase())) {
+      updateData.status = String(status).toUpperCase();
     }
 
     console.log('💾 Atualizando comissão:', { comissaoId, updateData });

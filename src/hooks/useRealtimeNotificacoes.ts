@@ -29,7 +29,8 @@ export function useRealtimeNotificacoes(empresaId?: string | null) {
       'AGUARDANDO RETIRADA',
       'AGUARDANDO_RETIRADA', 
       'ENTREGUE',
-      'FINALIZADA',
+      'REPARO CONCLUÍDO',
+      'REPARO CONCLUIDO',
       'CONCLUIDA',
       'CONCLUÍDO',
       'CANCELADA'

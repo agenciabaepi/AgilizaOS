@@ -19,7 +19,7 @@ export async function getAtendenteData(empresaId: string): Promise<DadosAtendent
         usuarios!tecnico_id(nome)
       `)
       .eq('empresa_id', empresaId)
-      .not('status', 'in', '(FINALIZADA,CANCELADA)')
+      .not('status', 'in', '(ENTREGUE,CANCELADA)')
       .order('created_at', { ascending: false })
       .limit(10);
     

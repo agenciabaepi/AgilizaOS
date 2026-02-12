@@ -136,42 +136,37 @@ export default function NovoProdutoPage() {
     }
   };
 
-  // Função para carregar fornecedores
+  // Função para carregar fornecedores (usa usuarioData do Auth quando disponível)
   const carregarFornecedores = async () => {
     setLoadingFornecedores(true);
     try {
-      if (!user?.id) {
-        addToast('error', 'Usuário não autenticado');
-        return;
+      let empresaId = usuarioData?.empresa_id;
+
+      if (!empresaId && user?.id) {
+        try {
+          const response = await fetch(`/api/usuarios/buscar-empresa?authUserId=${user.id}`);
+          if (response.ok) {
+            const data = await response.json();
+            empresaId = data.empresa_id;
+          }
+        } catch (_e) {
+          // ignora; vamos mostrar toast só se realmente não tiver empresa
+        }
       }
 
-      try {
-        const response = await fetch(`/api/usuarios/buscar-empresa?authUserId=${user.id}`);
-        if (!response.ok) {
-        addToast('error', 'Erro ao buscar dados do usuário');
-        return;
-      }
-        const data = await response.json();
-        if (!data.empresa_id) {
+      if (!empresaId) {
         addToast('error', 'Empresa não encontrada. Verifique se você está associado a uma empresa.');
         return;
       }
-        
-        const usuarioData = { empresa_id: data.empresa_id };
 
       const { data: fornecedoresData } = await supabase
         .from('fornecedores')
         .select('id, nome')
-        .eq('empresa_id', usuarioData.empresa_id)
+        .eq('empresa_id', empresaId)
         .eq('ativo', true)
         .order('nome');
 
       setFornecedores(fornecedoresData || []);
-      } catch (error) {
-        console.error('Erro ao buscar usuário:', error);
-        addToast('error', 'Erro ao buscar dados do usuário');
-        return;
-      }
     } catch (error) {
       console.error('Erro ao carregar fornecedores:', error);
       addToast('error', 'Erro ao carregar fornecedores');
@@ -208,12 +203,12 @@ export default function NovoProdutoPage() {
       carregarCategorias();
   }, []);
 
-  // Carregar fornecedores quando o usuário estiver disponível
+  // Carregar fornecedores quando usuário ou empresa do contexto estiver disponível
   useEffect(() => {
-    if (user) {
+    if (user || usuarioData?.empresa_id) {
       carregarFornecedores();
     }
-  }, [user]);
+  }, [user, usuarioData?.empresa_id]);
 
   useEffect(() => {
     console.log('🔍 produtoId da URL:', produtoId);
@@ -256,7 +251,7 @@ export default function NovoProdutoPage() {
               unidade: produtoData.unidade || '',
               fornecedor_id: produtoData.fornecedor_id || '',
               marca: produtoData.marca || '',
-              estoque_min: produtoData.estoque_min?.toString() || '',
+              estoque_min: (produtoData.estoque_min ?? produtoData.estoque_minimo)?.toString() || '',
               estoque_max: produtoData.estoque_max?.toString() || '',
               estoque_atual: produtoData.estoque_atual?.toString() || '',
               situacao: produtoData.situacao || '',

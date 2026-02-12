@@ -8,6 +8,17 @@ function normalizeStatus(status: string): string {
   return status.trim().toUpperCase();
 }
 
+function isStatusTecnicoFinal(status: string): boolean {
+  const normalized = normalizeStatus(status);
+  return normalized === 'REPARO CONCLUÍDO' || normalized === 'REPARO CONCLUIDO';
+}
+
+function extractMissingColumn(message: string): string | null {
+  if (!message) return null;
+  const match = message.match(/column\s+[^\s.]+\.(\w+)\s+does not exist/i);
+  return match?.[1] || null;
+}
+
 // Função auxiliar para formatar valores no histórico
 function formatValorSimples(valor: unknown): string {
   if (valor === null || valor === undefined || valor === '') return 'vazio';
@@ -20,6 +31,22 @@ function formatValorSimples(valor: unknown): string {
   return String(valor);
 }
 
+// Função auxiliar para comparar valores numéricos (especialmente dinheiro) de forma robusta
+function parseNumeroBrasil(valor: unknown): number | null {
+  if (valor === null || valor === undefined || valor === '') return 0;
+  if (typeof valor === 'number') {
+    return Number.isNaN(valor) ? null : valor;
+  }
+  if (typeof valor === 'string') {
+    const trimmed = valor.trim();
+    if (!trimmed) return 0;
+    const normalizado = trimmed.replace(/\./g, '').replace(',', '.');
+    const n = Number(normalizado);
+    return Number.isNaN(n) ? null : n;
+  }
+  return null;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -29,6 +56,7 @@ export async function POST(request: NextRequest) {
       newStatusTecnico, 
       empresa_id, 
       cliente_recusou,
+      aparelho_sem_conserto,
       usuario_id,
       usuario_nome,
       ...updateData 
@@ -76,7 +104,8 @@ export async function POST(request: NextRequest) {
           'observacao',
           'prazo_entrega',
           'acessorios',
-          'condicoes_equipamento'
+          'condicoes_equipamento',
+          'videos_tecnico'
         ].join(', ')
       )
       .limit(1);
@@ -104,10 +133,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Regra final: OS entregue não pode mais ser alterada
+    if (normalizeStatus(String((osAnterior as any).status || '')) === 'ENTREGUE') {
+      return NextResponse.json(
+        { error: 'Esta O.S. já foi entregue e está bloqueada para edição.' },
+        { status: 409 }
+      );
+    }
+
+    // Excluir do Supabase Storage os vídeos que foram removidos
+    const oldVideos = String((osAnterior as any).videos_tecnico || '').split(',').map((u: string) => u.trim()).filter(Boolean);
+    const newVideos = String(updateData.videos_tecnico ?? '').split(',').map((u: string) => u.trim()).filter(Boolean);
+    const removedVideoUrls = oldVideos.filter((url: string) => !newVideos.includes(url));
+    if (removedVideoUrls.length > 0) {
+      try {
+        const BUCKET = 'ordens-imagens';
+        for (const url of removedVideoUrls) {
+          try {
+            const decoded = decodeURIComponent(url);
+            const idx = decoded.indexOf(`${BUCKET}/`);
+            if (idx !== -1) {
+              const path = decoded.slice(idx + BUCKET.length + 1).split('?')[0].trim().replace(/^\/+|\/+$/g, '');
+              if (path) {
+                await supabase.storage.from(BUCKET).remove([path]);
+              }
+            }
+          } catch (_) {}
+        }
+      } catch (_) {}
+    }
+
     // Normalizar status para comparação
     const statusNormalizado = normalizeStatus(newStatus || '');
     const statusTecnicoNormalizado = normalizeStatus(newStatusTecnico || '');
-    const seraFinalizada = statusNormalizado === 'ENTREGUE' || statusTecnicoNormalizado === 'FINALIZADA';
+    const seraFinalizada = statusNormalizado === 'ENTREGUE' || isStatusTecnicoFinal(statusTecnicoNormalizado);
     
     // Preparar dados de atualização
     const dadosAtualizacao: any = {
@@ -123,23 +182,40 @@ export async function POST(request: NextRequest) {
       console.log('📅 Data de entrega definida automaticamente:', dataStr);
     }
 
-    // Adicionar status se fornecido
-    if (newStatus) {
+    // Sempre aplicar status e status_tecnico quando enviados (garantir que o salvamento não seja ignorado)
+    if (body.newStatus !== undefined) {
+      dadosAtualizacao.status = body.newStatus;
+    } else if (newStatus) {
       dadosAtualizacao.status = newStatus;
     }
-
-    // Adicionar status técnico se fornecido
-    if (newStatusTecnico) {
-      dadosAtualizacao.status_tecnico = newStatusTecnico;
+    if (body.newStatusTecnico !== undefined) {
+      dadosAtualizacao.status_tecnico = String(body.newStatusTecnico).trim() || '';
+    } else if (newStatusTecnico) {
+      dadosAtualizacao.status_tecnico = String(newStatusTecnico).trim() || '';
     }
 
-    // Atualizar a OS usando o ID UUID
-    const { data: ordemAtualizada, error: updateError } = await supabase
-      .from('ordens_servico')
-      .update(dadosAtualizacao)
-      .eq('id', osAnterior.id)
-      .select()
-      .single();
+    // Atualizar a OS usando o ID UUID (com fallback para colunas opcionais ausentes)
+    let payloadAtualizacao: Record<string, any> = { ...dadosAtualizacao };
+    let ordemAtualizada: any = null;
+    let updateError: any = null;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const result = await supabase
+        .from('ordens_servico')
+        .update(payloadAtualizacao)
+        .eq('id', osAnterior.id)
+        .select()
+        .single();
+      ordemAtualizada = result.data;
+      updateError = result.error;
+      if (!updateError) break;
+
+      const missingColumn = extractMissingColumn(String(updateError.message || ''));
+      if (!missingColumn || !(missingColumn in payloadAtualizacao)) break;
+
+      console.warn(`⚠️ Coluna opcional ausente (${missingColumn}) em ordens_servico. Repetindo atualização sem este campo.`);
+      const { [missingColumn]: _ignored, ...rest } = payloadAtualizacao;
+      payloadAtualizacao = rest;
+    }
 
     if (updateError) {
       console.error('❌ Erro ao atualizar OS:', updateError);
@@ -150,19 +226,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Registrar histórico de mudança de status em tabela dedicada, se houver mudança
-    if (newStatus || newStatusTecnico) {
+    const statusNovoParaHistorico = dadosAtualizacao.status ?? osAnterior.status;
+    const statusTecnicoNovoParaHistorico = dadosAtualizacao.status_tecnico ?? osAnterior.status_tecnico;
+    const statusMudou = (osAnterior.status !== statusNovoParaHistorico) || (String(osAnterior.status_tecnico || '') !== String(statusTecnicoNovoParaHistorico || ''));
+    if (statusMudou) {
       try {
-        const statusAnterior = osAnterior.status;
-        const statusTecnicoAnterior = osAnterior.status_tecnico;
-        
         const { error: historicoError } = await supabase
           .from('status_historico')
           .insert({
             os_id: osAnterior.id,
-            status_anterior: statusAnterior,
-            status_novo: newStatus || statusAnterior,
-            status_tecnico_anterior: statusTecnicoAnterior,
-            status_tecnico_novo: newStatusTecnico || statusTecnicoAnterior,
+            status_anterior: osAnterior.status,
+            status_novo: statusNovoParaHistorico,
+            status_tecnico_anterior: osAnterior.status_tecnico,
+            status_tecnico_novo: statusTecnicoNovoParaHistorico,
             empresa_id: osAnterior.empresa_id,
             created_at: new Date().toISOString()
           });
@@ -175,7 +251,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ✅ REGISTRAR COMISSÃO SE A OS FOI FINALIZADA E CLIENTE NÃO RECUSOU
+    // ✅ REGISTRAR COMISSÃO SE A OS FOI CONCLUÍDA E CLIENTE NÃO RECUSOU
     // Buscar OS atualizada para verificar status final
     const { data: osAtualizada } = await supabase
       .from('ordens_servico')
@@ -185,7 +261,7 @@ export async function POST(request: NextRequest) {
     
     const statusAtual = normalizeStatus(osAtualizada?.status || '');
     const statusTecnicoAtual = normalizeStatus(osAtualizada?.status_tecnico || '');
-    const foiFinalizada = statusAtual === 'ENTREGUE' || statusTecnicoAtual === 'FINALIZADA';
+    const foiFinalizada = statusAtual === 'ENTREGUE' || isStatusTecnicoFinal(statusTecnicoAtual);
     const temDataEntrega = osAtualizada?.data_entrega;
     const temTecnico = osAtualizada?.tecnico_id || osAnterior.tecnico_id;
     
@@ -194,6 +270,7 @@ export async function POST(request: NextRequest) {
       temDataEntrega: !!temDataEntrega,
       temTecnico: !!temTecnico,
       clienteRecusou: !!cliente_recusou,
+      aparelhoSemConserto: !!aparelho_sem_conserto,
       statusAtual,
       statusTecnicoAtual,
       dataEntrega: temDataEntrega,
@@ -201,8 +278,8 @@ export async function POST(request: NextRequest) {
       osId: osAnterior.id
     });
     
-    // Não registrar comissão se cliente recusou o serviço
-    if (foiFinalizada && temDataEntrega && temTecnico && !cliente_recusou) {
+    // Não registrar comissão se cliente recusou o serviço ou aparelho não teve conserto
+    if (foiFinalizada && temDataEntrega && temTecnico && !cliente_recusou && !aparelho_sem_conserto) {
       console.log('💰 REGISTRANDO COMISSÃO - Técnico:', temTecnico, 'OS:', osAnterior.id);
       
       try {
@@ -392,11 +469,12 @@ export async function POST(request: NextRequest) {
       }
     } else {
       console.log('⏭️ COMISSÃO NÃO SERÁ REGISTRADA:', {
-        motivo: cliente_recusou ? 'Cliente recusou o serviço' : !foiFinalizada ? 'OS não finalizada' : !temDataEntrega ? 'Sem data de entrega' : !temTecnico ? 'Sem técnico' : 'Desconhecido',
+        motivo: cliente_recusou ? 'Cliente recusou o serviço' : aparelho_sem_conserto ? 'Aparelho sem conserto' : !foiFinalizada ? 'OS não finalizada' : !temDataEntrega ? 'Sem data de entrega' : !temTecnico ? 'Sem técnico' : 'Desconhecido',
         foiFinalizada,
         temDataEntrega,
         temTecnico,
-        clienteRecusou: cliente_recusou
+        clienteRecusou: cliente_recusou,
+        aparelhoSemConserto: aparelho_sem_conserto
       });
     }
 
@@ -438,13 +516,34 @@ export async function POST(request: NextRequest) {
           const valorAnterior = (osAnterior as any)[campo];
           const valorNovo = (dadosAtualizacao as any)[campo];
 
-          // Comparação segura, tratando null/undefined igual
-          const anteriorNorm = valorAnterior ?? null;
-          const novoNorm = valorNovo ?? null;
+          // Para campos monetários, comparar pelo valor numérico (ignorando formatação "100,00" vs "100")
+          const isCampoMonetario =
+            campo === 'valor_faturado' ||
+            campo === 'valor_servico' ||
+            campo === 'valor_peca';
 
-          if (JSON.stringify(anteriorNorm) !== JSON.stringify(novoNorm)) {
-            alteracoes.push({ campo, valorAnterior, valorNovo });
+          if (isCampoMonetario) {
+            const numAnterior = parseNumeroBrasil(valorAnterior);
+            const numNovo = parseNumeroBrasil(valorNovo);
+
+            if (numAnterior !== null && numNovo !== null) {
+              const diff = Math.abs(numAnterior - numNovo);
+              if (diff < 0.000001) {
+                // Mesma quantidade em reais (apenas formatação diferente) → não registrar alteração
+                continue;
+              }
+            }
+          } else {
+            // Comparação genérica para outros campos, tratando null/undefined igual
+            const anteriorNorm = valorAnterior ?? null;
+            const novoNorm = valorNovo ?? null;
+
+            if (JSON.stringify(anteriorNorm) === JSON.stringify(novoNorm)) {
+              continue;
+            }
           }
+
+          alteracoes.push({ campo, valorAnterior, valorNovo });
         }
       }
 

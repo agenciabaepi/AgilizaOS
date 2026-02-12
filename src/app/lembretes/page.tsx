@@ -1,39 +1,46 @@
-
-
 'use client';
 export const dynamic = 'force-dynamic';
 
-import React, { useEffect, useState, useId } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useId } from 'react';
 import MenuLayout from '@/components/MenuLayout';
 import { format } from 'date-fns';
-import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import {
   DndContext,
-  closestCenter,
+  DragOverlay,
   PointerSensor,
   useSensor,
   useSensors,
-  DragEndEvent
+  DragEndEvent,
+  DragStartEvent,
+  pointerWithin,
+  useDroppable,
 } from '@dnd-kit/core';
 import {
   arrayMove,
   SortableContext,
   useSortable,
   verticalListSortingStrategy,
-  horizontalListSortingStrategy
+  horizontalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import {CSS} from '@dnd-kit/utilities';
-import { Book, Pencil, Move } from 'lucide-react';
+import { CSS } from '@dnd-kit/utilities';
+import {
+  Book,
+  Pencil,
+  GripVertical,
+  Plus,
+  Trash2,
+  CheckSquare,
+  Square,
+  ListTodo,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import { v4 as uuidv4 } from 'uuid';
-
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
 
-// Função para formatar data (pode ser ajustada conforme necessidade)
 function formatarData(data: string) {
   try {
     return format(new Date(data), 'dd/MM/yyyy');
@@ -42,7 +49,12 @@ function formatarData(data: string) {
   }
 }
 
-// Tipo para nota
+export interface ChecklistItem {
+  id: string;
+  label: string;
+  concluido: boolean;
+}
+
 interface Nota {
   id: string;
   titulo: string;
@@ -55,9 +67,9 @@ interface Nota {
   pos_y: number;
   empresa_id: string;
   responsavel: string;
+  checklist?: ChecklistItem[];
 }
 
-// Tipo para nota em edição
 interface NotaEditando {
   id: string;
   titulo: string;
@@ -67,9 +79,9 @@ interface NotaEditando {
   prioridade: string;
   data: string;
   data_criacao: string;
+  checklist?: ChecklistItem[];
 }
 
-// Tipo para nota selecionada
 interface NotaSelecionada {
   id: string;
   titulo: string;
@@ -79,16 +91,57 @@ interface NotaSelecionada {
   prioridade: string;
 }
 
+const CORES = [
+  { cor: 'bg-amber-400', ring: 'ring-amber-500' },
+  { cor: 'bg-emerald-400', ring: 'ring-emerald-500' },
+  { cor: 'bg-sky-400', ring: 'ring-sky-500' },
+  { cor: 'bg-violet-400', ring: 'ring-violet-500' },
+  { cor: 'bg-rose-400', ring: 'ring-rose-500' },
+];
+
+function parseChecklist(raw: unknown): ChecklistItem[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((x) => x && typeof x.id === 'string' && typeof x.label === 'string' && typeof x.concluido === 'boolean')
+    .map((x) => ({ id: x.id, label: x.label, concluido: x.concluido }));
+}
+
+function progressoChecklist(items: ChecklistItem[]): { concluidos: number; total: number } {
+  const total = items.length;
+  if (total === 0) return { concluidos: 0, total: 0 };
+  const concluidos = items.filter((i) => i.concluido).length;
+  return { concluidos, total };
+}
+
 export default function LembretesPage() {
-  // Use o contexto de autenticação
   const { session, user, usuarioData, empresaData } = useAuth();
   const empresa_id = empresaData?.id;
-
   const { addToast } = useToast();
   const confirm = useConfirm();
 
-  // Função para buscar colunas do banco
-  const fetchColunas = async () => {
+  const [notes, setNotes] = useState<Nota[]>([]);
+  const [colunas, setColunas] = useState<string[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [modalColunaAberta, setModalColunaAberta] = useState<null | { index: number; valor: string }>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [novaNota, setNovaNota] = useState({
+    titulo: '',
+    texto: '',
+    cor: 'bg-amber-400',
+    coluna: 'lembretes',
+    prioridade: 'Média',
+    checklist: [] as ChecklistItem[],
+  });
+  const [notaEditando, setNotaEditando] = useState<NotaEditando | null>(null);
+  const [notaSelecionada, setNotaSelecionada] = useState<NotaSelecionada | null>(null);
+  const [exibirExcluirNotaModal, setExibirExcluirNotaModal] = useState(false);
+  const [activeDrag, setActiveDrag] = useState<{ id: string; type: 'coluna' | 'nota' } | null>(null);
+
+  useEffect(() => {
+    if (usuarioData !== undefined) setCarregando(false);
+  }, [usuarioData]);
+
+  const fetchColunas = useCallback(async () => {
     if (!empresa_id) return;
     const { data, error } = await supabase
       .from('colunas_dashboard')
@@ -96,253 +149,141 @@ export default function LembretesPage() {
       .eq('empresa_id', empresa_id)
       .order('posicao', { ascending: true });
     if (!error && data && data.length > 0) {
-      setColunas(data.map((c: any) => c.nome));
+      setColunas(data.map((c: { nome: string }) => c.nome));
     }
-  };
+  }, [empresa_id]);
 
-  // Função para criar uma nova coluna (agora dentro do componente, com acesso ao user)
-  const criarColuna = async (titulo: string) => {
-    // Usar empresa_id do contexto de autenticação
-    if (!empresa_id) {
-      addToast('error', "Erro: empresa não identificada.");
-      return;
+  const fetchNotas = useCallback(async () => {
+    if (!empresa_id) return;
+    const { data, error } = await supabase
+      .from('notas_dashboard')
+      .select('*')
+      .eq('empresa_id', empresa_id);
+    if (!error && data) {
+      setNotes(
+        data.map((n: Record<string, unknown>) => ({
+          ...n,
+          checklist: parseChecklist(n.checklist ?? []),
+        }))
+      );
     }
-    if (!titulo) return;
-    
-    const colunaData = {
-      nome: titulo,
-      empresa_id: empresa_id,
-      posicao: colunas.length, // Adiciona a nova coluna no final
-    };
-    
-    try {
-      const { data, error } = await supabase
-        .from("colunas_dashboard")
-        .insert([colunaData])
-        .select();
+  }, [empresa_id]);
 
-      if (error) {
-        console.error('Erro ao criar coluna:', error);
-        console.error('Tipo do erro:', typeof error);
-        console.error('String do erro:', JSON.stringify(error, null, 2));
-        console.error('Detalhes do erro:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-        addToast('error', `Erro ao criar coluna: ${error.message || 'Erro desconhecido'}`);
-      } else {
-        addToast('success', "Coluna criada com sucesso!");
-        await fetchColunas();
-      }
-    } catch (err) {
-      console.error("Erro inesperado ao criar coluna:", err);
-      console.error("Tipo do erro:", typeof err);
-      console.error("String do erro:", JSON.stringify(err, null, 2));
-      addToast('error', `Erro inesperado ao criar coluna: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
-    }
-  };
-
-  // Função para remover uma coluna
-  const removerColuna = async (coluna: string) => {
-    if (!empresa_id || !coluna) return;
-    const { error } = await supabase
-      .from('colunas_dashboard')
-      .delete()
-      .eq('empresa_id', empresa_id)
-      .eq('nome', coluna);
-    if (!error) {
-      addToast('success', "Coluna excluída com sucesso!");
-    } else {
-      addToast('error', "Erro ao excluir coluna.");
-    }
-  };
-
-  // Estado para notas e colunas
-  const [notes, setNotes] = useState<Nota[]>([]);
-  // Estado dinâmico das colunas
-  const [colunas, setColunas] = useState<string[]>([]);
-  const [carregando, setCarregando] = useState(true);
-  // Estado para modal de edição de coluna
-  const [modalColunaAberta, setModalColunaAberta] = useState<null | { index: number, valor: string }>(null);
-
-  // Carregando depende de usuarioData
-  useEffect(() => {
-    if (usuarioData !== undefined) setCarregando(false);
-  }, [usuarioData]);
-
-  // Buscar colunas salvas do banco ao carregar empresa_id
   useEffect(() => {
     fetchColunas();
-  }, [empresa_id, supabase]);
+  }, [fetchColunas]);
 
-  // Buscar notas do banco assim que empresa_id estiver disponível
   useEffect(() => {
-    const fetchNotas = async () => {
-      if (!empresa_id) return;
-      const { data, error } = await supabase
-        .from("notas_dashboard")
-        .select("*")
-        .eq("empresa_id", empresa_id);
-      if (!error && data) {
-        setNotes(data);
-      }
-    };
     fetchNotas();
-  }, [empresa_id, supabase]);
+  }, [fetchNotas]);
 
-  // Salvar colunas no banco
-  const salvarColunasNoBanco = async (colunas: string[]) => {
-    if (!empresa_id) return;
-    
-    try {
-      // Primeiro, busca as colunas existentes
+  const criarColuna = useCallback(
+    async (titulo: string) => {
+      if (!empresa_id) {
+        addToast('error', 'Empresa não identificada.');
+        return;
+      }
+      if (!titulo.trim()) return;
+      const colunaData = { nome: titulo.trim(), empresa_id, posicao: colunas.length };
+      const { error } = await supabase.from('colunas_dashboard').insert([colunaData]).select();
+      if (error) {
+        addToast('error', `Erro ao criar coluna: ${error.message}`);
+        return;
+      }
+      addToast('success', 'Coluna criada!');
+      await fetchColunas();
+    },
+    [empresa_id, colunas.length, fetchColunas, addToast]
+  );
+
+  const removerColuna = useCallback(
+    async (coluna: string) => {
+      if (!empresa_id || !coluna) return;
+      const { error } = await supabase
+        .from('colunas_dashboard')
+        .delete()
+        .eq('empresa_id', empresa_id)
+        .eq('nome', coluna);
+      if (error) {
+        addToast('error', 'Erro ao excluir coluna.');
+        return;
+      }
+      addToast('success', 'Coluna excluída.');
+      setColunas((p) => p.filter((c) => c !== coluna));
+      setNotes((p) => p.filter((n) => n.coluna !== coluna));
+    },
+    [empresa_id, addToast]
+  );
+
+  const salvarColunasNoBanco = useCallback(
+    async (novaOrdem: string[]) => {
+      if (!empresa_id) return;
       const { data: colunasExistentes, error: erroBusca } = await supabase
         .from('colunas_dashboard')
         .select('id, nome')
         .eq('empresa_id', empresa_id);
-        
       if (erroBusca) {
-        console.error('Erro ao buscar colunas existentes:', erroBusca);
-        addToast('error', 'Erro ao atualizar ordem das colunas');
+        addToast('error', 'Erro ao atualizar ordem.');
         return;
       }
-      
-      // Atualiza a posição de cada coluna
-      for (let i = 0; i < colunas.length; i++) {
-        const nomeColuna = colunas[i];
-        const colunaExistente = colunasExistentes?.find((c: any) => c.nome === nomeColuna);
-        
-        if (colunaExistente) {
-          const { error: erroUpdate } = await supabase
-            .from('colunas_dashboard')
-            .update({ posicao: i })
-            .eq('id', colunaExistente.id);
-            
-          if (erroUpdate) {
-            console.error('Erro ao atualizar posição da coluna:', erroUpdate);
-            addToast('error', 'Erro ao atualizar ordem das colunas');
-            return;
-          }
+      for (let i = 0; i < novaOrdem.length; i++) {
+        const nome = novaOrdem[i];
+        const row = colunasExistentes?.find((c: { nome: string }) => c.nome === nome);
+        if (row) {
+          await supabase.from('colunas_dashboard').update({ posicao: i }).eq('id', row.id);
         }
       }
-      
-      } catch (err) {
-      console.error('Erro inesperado ao salvar colunas:', err);
-      addToast('error', 'Erro ao atualizar ordem das colunas');
-    }
-  };
+    },
+    [empresa_id, addToast]
+  );
 
-  // Função para atualizar o título da coluna localmente (chamada no onChange do input)
-  const handleColunaTituloChange = (index: number, novoNome: string) => {
-    setColunas((prev) => {
-      const novas = [...prev];
-      novas[index] = novoNome;
-      return novas;
-    });
-  };
-
-  // Função para salvar o título da coluna no banco (chamada no onBlur do input)
-  const salvarTituloColuna = async (index: number, novoNome: string) => {
-    if (!empresa_id) return;
-    
-    const nomeAtual = colunas[index];
-    
-    // Busca o id da coluna pelo nome atual e empresa_id
-    const { data, error } = await supabase
-      .from('colunas_dashboard')
-      .select('id, nome')
-      .eq('empresa_id', empresa_id)
-      .eq('nome', nomeAtual)
-      .maybeSingle();
-      
-    if (data && data.id) {
-      const nomeAntigo = data.nome;
-      await editarColuna(data.id, novoNome, nomeAntigo);
-    } else {
-
-      
-      // Vamos tentar buscar todas as colunas para debug
-      const { data: todasColunas, error: erroTodas } = await supabase
+  const editarColuna = useCallback(
+    async (colunaId: string, novoNome: string, nomeAntigo: string) => {
+      const { error: colunaError } = await supabase
         .from('colunas_dashboard')
-        .select('id, nome, empresa_id')
-        .eq('empresa_id', empresa_id);
-        
-      addToast('error', 'Coluna não encontrada para renomear');
-    }
-  };
-
-  // Função dedicada para atualizar o nome da coluna e salvar no banco, atualizando também as notas
-  const editarColuna = async (colunaId: string, novoNome: string, nomeAntigo: string) => {
-    // Atualiza o nome da coluna
-    const { error: colunaError } = await supabase
-      .from('colunas_dashboard')
-      .update({ nome: novoNome })
-      .eq('id', colunaId);
-
-    if (colunaError) {
-      console.error('Erro ao renomear a coluna:', colunaError);
-      addToast('error', `Erro ao renomear a coluna: ${colunaError.message}`);
-      return;
-    }
-
-    // Atualiza o nome da coluna em todas as notas_dashboard relacionadas
-    const { error: notasError } = await supabase
-      .from('notas_dashboard')
-      .update({ coluna: novoNome })
-      .eq('coluna', nomeAntigo);
-
-    if (notasError) {
-      console.error('Erro ao atualizar as notas:', notasError);
-      addToast('error', `Erro ao atualizar as notas: ${notasError.message}`);
-      return;
-    }
-
-    addToast('success', 'Coluna e notas atualizadas com sucesso!');
-    
-    // Atualiza localmente
-    setColunas((prev) => {
-      const atualizado = [...prev];
-      const idx = atualizado.findIndex((c) => c === nomeAntigo);
-      if (idx !== -1) {
-        atualizado[idx] = novoNome;
+        .update({ nome: novoNome })
+        .eq('id', colunaId);
+      if (colunaError) {
+        addToast('error', `Erro ao renomear: ${colunaError.message}`);
+        return;
       }
-      return atualizado;
-    });
-    setNotes((prev) =>
-      prev.map((n) => n.coluna === nomeAntigo ? { ...n, coluna: novoNome } : n)
-    );
-  };
+      await supabase.from('notas_dashboard').update({ coluna: novoNome }).eq('coluna', nomeAntigo);
+      addToast('success', 'Coluna atualizada.');
+      setColunas((p) => p.map((c) => (c === nomeAntigo ? novoNome : c)));
+      setNotes((p) => p.map((n) => (n.coluna === nomeAntigo ? { ...n, coluna: novoNome } : n)));
+    },
+    [addToast]
+  );
 
-  // Modal de nova nota/edição de nota
-  const [showModal, setShowModal] = useState(false);
-  const [novaNota, setNovaNota] = useState({
-    titulo: '',
-    texto: '',
-    cor: 'bg-yellow-500',
-    coluna: 'lembretes',
-    prioridade: 'Média',
-  });
-  // Estado para nota em edição
-  const [notaEditando, setNotaEditando] = useState<NotaEditando | null>(null);
+  const salvarTituloColuna = useCallback(
+    async (index: number, novoNome: string) => {
+      if (!empresa_id) return;
+      const nomeAtual = colunas[index];
+      const { data } = await supabase
+        .from('colunas_dashboard')
+        .select('id, nome')
+        .eq('empresa_id', empresa_id)
+        .eq('nome', nomeAtual)
+        .maybeSingle();
+      if (data?.id) {
+        await editarColuna(data.id, novoNome, data.nome);
+      } else {
+        addToast('error', 'Coluna não encontrada.');
+      }
+    },
+    [empresa_id, colunas, editarColuna, addToast]
+  );
 
-  // Estados para modal de edição e nota selecionada
-  const [notaSelecionada, setNotaSelecionada] = useState<NotaSelecionada | null>(null);
-
-  // Função para criar ou atualizar nota
-  const salvarOuAtualizarNota = async () => {
-    // Adiciona empresaId do contexto de autenticação
+  const salvarOuAtualizarNota = useCallback(async () => {
     const empresaId = empresaData?.id;
     if (!empresaId || !novaNota.titulo.trim()) return;
 
-    const nota = notaEditando;
+    const checklist = novaNota.checklist ?? [];
 
-    if (!nota || !nota.id) {
-      // Criar nova nota
+    if (!notaEditando?.id) {
       const novaNotaObj = {
         id: uuidv4(),
-        titulo: novaNota.titulo,
+        titulo: novaNota.titulo.trim(),
         texto: novaNota.texto,
         cor: novaNota.cor,
         coluna: novaNota.coluna,
@@ -352,616 +293,680 @@ export default function LembretesPage() {
         data_criacao: new Date().toISOString(),
         pos_x: 0,
         pos_y: 0,
+        checklist,
       };
-      
-      try {
-        const { data, error: erroNota } = await supabase
-          .from('notas_dashboard')
-          .insert([novaNotaObj])
-          .select();
-          
-        if (erroNota) {
-          console.error('Erro ao salvar nota:', erroNota);
-          console.error('Tipo do erro:', typeof erroNota);
-          console.error('String do erro:', JSON.stringify(erroNota, null, 2));
-          console.error('Detalhes do erro:', {
-            message: erroNota.message,
-            details: erroNota.details,
-            hint: erroNota.hint,
-            code: erroNota.code
-          });
-          addToast('error', `Erro ao salvar nota: ${erroNota.message || 'Erro desconhecido'}`);
-          return;
-        }
-        
-        // Adiciona a nota localmente para atualização imediata na UI
-        setNotes((prev) => [novaNotaObj as Nota, ...prev]);
-        addToast('success', "Nota criada com sucesso!");
-      } catch (err) {
-        console.error("Erro ao criar nota:", err);
-        console.error("Tipo do erro:", typeof err);
-        console.error("String do erro:", JSON.stringify(err, null, 2));
-        addToast('error', `Erro ao criar nota: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+      const { error } = await supabase.from('notas_dashboard').insert([novaNotaObj]).select();
+      if (error) {
+        addToast('error', `Erro ao salvar: ${error.message}`);
+        return;
       }
+      setNotes((p) => [{ ...novaNotaObj, checklist: parseChecklist(checklist) } as Nota, ...p]);
+      addToast('success', 'Nota criada!');
       setShowModal(false);
-      setNovaNota({ titulo: '', texto: '', cor: 'bg-yellow-500', coluna: 'lembretes', prioridade: 'Média' });
+      setNovaNota({ titulo: '', texto: '', cor: 'bg-amber-400', coluna: 'lembretes', prioridade: 'Média', checklist: [] });
       setNotaEditando(null);
       return;
     }
 
-    // Atualização usando o padrão requisitado
-    const dadosNota = {
-      titulo: novaNota.titulo,
+    const dados = {
+      titulo: novaNota.titulo.trim(),
       texto: novaNota.texto,
       prioridade: novaNota.prioridade,
       cor: novaNota.cor,
       coluna: novaNota.coluna,
+      checklist,
     };
-
-    try {
-      const { data, error: erroNota } = await supabase
-        .from("notas_dashboard")
-        .update(dadosNota)
-        .eq("id", notaEditando.id)
-        .select();
-
-      if (erroNota) {
-        console.error('Erro ao salvar nota:', erroNota);
-        console.error('Tipo do erro:', typeof erroNota);
-        console.error('String do erro:', JSON.stringify(erroNota, null, 2));
-        console.error('Detalhes do erro:', {
-          message: erroNota.message,
-          details: erroNota.details,
-          hint: erroNota.hint,
-          code: erroNota.code
-        });
-        addToast('error', `Erro ao atualizar nota: ${erroNota.message || 'Erro desconhecido'}`);
-      } else {
-        addToast('success', "Nota atualizada com sucesso!");
-        setNotes((prev) =>
-          prev.map((n) =>
-            n.id === notaEditando.id
-              ? {
-                  ...n,
-                  titulo: novaNota.titulo,
-                  texto: novaNota.texto,
-                  cor: novaNota.cor,
-                  prioridade: novaNota.prioridade,
-                  coluna: novaNota.coluna,
-
-                }
-              : n
-          )
-        );
-      }
-    } catch (err) {
-      console.error("Erro ao atualizar nota:", err);
-      console.error("Tipo do erro:", typeof err);
-      console.error("String do erro:", JSON.stringify(err, null, 2));
-      addToast('error', `Erro ao atualizar nota: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
-    }
-
-    setShowModal(false);
-    setNovaNota({ titulo: '', texto: '', cor: 'bg-yellow-500', coluna: 'lembretes', prioridade: 'Média' });
-    setNotaEditando(null);
-  };
-
-  const sensors = useSensors(useSensor(PointerSensor));
-
-  // Função para lidar com o fim do drag and drop (localizada)
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-
-    const isColuna = (id: string) => String(id).startsWith('coluna-');
-
-    // Mover coluna
-    if (isColuna(String(active.id)) && isColuna(String(over.id))) {
-      const activeIndex = colunas.findIndex((c) => `coluna-${c}` === String(active.id));
-      const overIndex = colunas.findIndex((c) => `coluna-${c}` === String(over.id));
-      
-      if (activeIndex !== -1 && overIndex !== -1) {
-        const novasColunas = arrayMove(colunas, activeIndex, overIndex);
-        setColunas(novasColunas);
-        await salvarColunasNoBanco(novasColunas);
-      } else {
-        console.error('Índices inválidos para mover coluna');
-      }
+    const { error } = await supabase.from('notas_dashboard').update(dados).eq('id', notaEditando.id).select();
+    if (error) {
+      addToast('error', `Erro ao atualizar: ${error.message}`);
       return;
     }
+    addToast('success', 'Nota atualizada!');
+    setNotes((p) =>
+      p.map((n) =>
+        n.id === notaEditando.id
+          ? { ...n, ...dados, checklist: parseChecklist(checklist) }
+          : n
+      )
+    );
+    setShowModal(false);
+    setNovaNota({ titulo: '', texto: '', cor: 'bg-amber-400', coluna: 'lembretes', prioridade: 'Média', checklist: [] });
+    setNotaEditando(null);
+  }, [empresaData?.id, session?.user?.email, novaNota, notaEditando, addToast]);
 
-    // Novo bloco: tratar movimentação entre colunas explicitamente
-    if (!isColuna(String(active.id)) && !isColuna(String(over.id))) {
-      const notaMovida = notes.find((n) => n.id === String(active.id));
-      const notaAlvo = notes.find((n) => n.id === String(over.id));
+  const toggleChecklistItem = useCallback(
+    async (notaId: string, itemId: string) => {
+      const nota = notes.find((n) => n.id === notaId);
+      if (!nota) return;
+      const list = parseChecklist(nota.checklist ?? []);
+      const next = list.map((i) => (i.id === itemId ? { ...i, concluido: !i.concluido } : i));
+      const { error } = await supabase.from('notas_dashboard').update({ checklist: next }).eq('id', notaId);
+      if (error) {
+        addToast('error', 'Erro ao atualizar item.');
+        return;
+      }
+      setNotes((p) =>
+        p.map((n) => (n.id === notaId ? { ...n, checklist: next } : n))
+      );
+    },
+    [notes, addToast]
+  );
 
-      if (!notaMovida || !notaAlvo) return;
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    const id = String(event.active.id);
+    if (id.startsWith('coluna-')) {
+      setActiveDrag({ id, type: 'coluna' });
+    } else {
+      setActiveDrag({ id, type: 'nota' });
+    }
+  }, []);
 
-      const novaColuna = notaAlvo.coluna;
+  const handleDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const { active, over } = event;
+      setActiveDrag(null);
+      if (!over || active.id === over.id) return;
 
-      // Atualiza a coluna da nota movida (caso tenha mudado)
-      const novaNotaMovida = { ...notaMovida, coluna: novaColuna };
+      const idStr = (x: string) => String(x);
+      const isColuna = (id: string) => id.startsWith('coluna-');
+      const isDropColuna = (id: string) => id.startsWith('drop-coluna-');
+      const getColunaFromId = (id: string) => id.replace('coluna-', '').replace('drop-coluna-', '');
 
-      // Atualiza lista temporária com a nota movida atualizada
-      const notasTemp = notes.map((n) => (n.id === notaMovida.id ? novaNotaMovida : n));
-
-      // Filtra as notas da nova coluna
-      const notasNaColuna = notasTemp
-        .filter((n) => n.coluna === novaColuna)
-        .sort((a, b) => a.pos_x - b.pos_x);
-
-      // Garante que a nota movida está na lista
-      if (!notasNaColuna.find((n) => n.id === String(active.id))) {
-        notasNaColuna.push(novaNotaMovida);
+      if (isColuna(idStr(active.id)) && (isColuna(idStr(over.id)) || isDropColuna(idStr(over.id)))) {
+        const overColunaId = isColuna(idStr(over.id)) ? idStr(over.id) : `coluna-${getColunaFromId(idStr(over.id))}`;
+        const ai = colunas.findIndex((c) => `coluna-${c}` === idStr(active.id));
+        const oi = colunas.findIndex((c) => `coluna-${c}` === overColunaId);
+        if (ai === -1 || oi === -1) return;
+        const novas = arrayMove(colunas, ai, oi);
+        setColunas(novas);
+        await salvarColunasNoBanco(novas);
+        return;
       }
 
-      const activeIndex = notasNaColuna.findIndex((n) => n.id === String(active.id));
-      const overIndex = notasNaColuna.findIndex((n) => n.id === String(over.id));
-      if (activeIndex === -1 || overIndex === -1) return;
+      const notaMovida = notes.find((n) => n.id === idStr(active.id));
+      if (!notaMovida) return;
 
-      const notasReordenadas = arrayMove(notasNaColuna, activeIndex, overIndex).map(
-        (nota, index) => ({ ...nota, pos_x: index })
-      );
+      const overId = idStr(over.id);
+      let novaColuna: string;
+      let notasNaColuna: Nota[];
 
-      // Atualiza estado antes de salvar no banco para evitar delay visual
+      if (isColuna(overId) || isDropColuna(overId)) {
+        novaColuna = getColunaFromId(overId);
+        notasNaColuna = notes.filter((n) => n.coluna === novaColuna).sort((a, b) => a.pos_x - b.pos_x);
+      } else {
+        const notaAlvo = notes.find((n) => n.id === overId);
+        if (!notaAlvo) return;
+        novaColuna = notaAlvo.coluna;
+        notasNaColuna = notes.filter((n) => n.coluna === novaColuna).sort((a, b) => a.pos_x - b.pos_x);
+      }
+
+      const notaAtualizada = { ...notaMovida, coluna: novaColuna };
+      const restante = notasNaColuna.filter((n) => n.id !== notaMovida.id);
+      const overIndex = restante.findIndex((n) => n.id === overId);
+      const insertIndex = overIndex === -1 ? restante.length : overIndex;
+      const reordenada = [...restante];
+      reordenada.splice(insertIndex, 0, notaAtualizada);
+      const comPos = reordenada.map((n, i) => ({ ...n, pos_x: i }));
+
       setNotes((prev) => {
-        const idsAtualizados = new Set(notasReordenadas.map((n) => n.id));
-        const restantes = prev.filter((n) => !idsAtualizados.has(n.id));
-        return [...restantes, ...notasReordenadas].sort((a, b) => a.pos_x - b.pos_x);
+        const outros = prev.filter((n) => n.coluna !== novaColuna);
+        return [...outros, ...comPos].sort((a, b) => (a.coluna !== b.coluna ? 0 : a.pos_x - b.pos_x));
       });
 
-      // Atualiza no banco
-      for (const nota of notasReordenadas) {
-        await supabase
-          .from('notas_dashboard')
-          .update({ pos_x: nota.pos_x, coluna: nota.coluna })
-          .eq('id', nota.id);
+      for (const n of comPos) {
+        await supabase.from('notas_dashboard').update({ pos_x: n.pos_x, coluna: n.coluna }).eq('id', n.id);
       }
+    },
+    [colunas, notes, salvarColunasNoBanco]
+  );
 
-      return;
-    }
-  };
-
-  // Função para excluir nota individual com feedback e atualização
-  const excluirNota = async (idNota: string) => {
-    try {
-      const { error } = await supabase.from("notas_dashboard").delete().eq("id", idNota);
+  const excluirNota = useCallback(
+    async (idNota: string) => {
+      const { error } = await supabase.from('notas_dashboard').delete().eq('id', idNota);
       if (error) throw error;
-      // Atualiza a lista localmente para refletir imediatamente
-      setNotes((prev) => prev.filter((n) => n.id !== idNota));
-      addToast('success', 'Nota excluída com sucesso!');
-    } catch (error) {
-      console.error("Erro ao excluir nota:", error);
-      throw error;
-    }
-  };
+      setNotes((p) => p.filter((n) => n.id !== idNota));
+      addToast('success', 'Nota excluída.');
+    },
+    [addToast]
+  );
 
-  // Modal de exclusão de nota
-  const [exibirExcluirNotaModal, setExibirExcluirNotaModal] = useState(false);
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    })
+  );
 
-  // Função para confirmar exclusão da nota selecionada (chamada pela modal)
-  const handleConfirmarExcluirNota = async (nota: NotaSelecionada | null) => {
-    if (!nota) return;
-    try {
-      await excluirNota(nota.id);
-      setExibirExcluirNotaModal(false);
-      setNotaSelecionada(null);
-    } catch {}
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function SortableNoteCard({ id, children }: { id: string; children: (opts: { isDragging: boolean, attributes: any, listeners: any }) => React.ReactNode }) {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-    const describedById = useId();
-    const style = {
-      transform: CSS.Transform.toString(transform),
-      transition,
-    };
-    return (
-      <div ref={setNodeRef} style={style}>
-        <div {...attributes} {...listeners} aria-describedby={describedById} id={describedById}>
-          {children({ isDragging, attributes, listeners })}
-        </div>
-      </div>
-    );
-  }
-
-  // Componente para colunas sortables
-  function SortableColunaCard({
-    id,
-    children,
-    className = '',
-  }: {
-    id: string;
-    children: (opts: { attributes: any, listeners: any }) => React.ReactNode;
-    className?: string;
-  }) {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-    const describedById = useId();
-    const style = {
-      transform: CSS.Transform.toString(transform),
-      transition,
-      opacity: isDragging ? 0.5 : 1,
-    };
-    return (
-      <div
-        ref={setNodeRef}
-        style={style}
-        className={className}
-        id={describedById}
-      >
-        {children({ attributes, listeners })}
-      </div>
-    );
-  }
-
-  // Checagem de carregamento e autenticação
   if (carregando || !session?.user) {
-    return <div className="p-4">Carregando...</div>;
+    return (
+      <MenuLayout>
+        <div className="flex items-center justify-center min-h-[320px]">
+          <div className="animate-pulse text-zinc-500">Carregando...</div>
+        </div>
+      </MenuLayout>
+    );
   }
 
   return (
-    
-      <MenuLayout>
-        <div className="p-6 rounded-lg border bg-white">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Book className="text-yellow-500 w-5 h-5" />
-            Anotações Fixas
-          </h2>
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext
-                items={colunas.map((coluna) => `coluna-${coluna}`)}
-                strategy={horizontalListSortingStrategy}
-              >
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 px-4 py-6">
-                  {colunas.map((coluna, index) => {
-                    // Porcentagem demonstrativa para progresso
-                    const percentualConcluido = 50;
-                    const notasDaColuna = notes.filter((n) => n.coluna === coluna);
-                    return (
-                      <SortableColunaCard
-                        key={`coluna-${coluna}`}
-                        id={`coluna-${coluna}`}
-                        className="bg-white border border-zinc-200 rounded-xl shadow-md flex flex-col transition-all"
-                      >
-                        {({ attributes, listeners }) => (
-                          <>
-                            <div
-                              className="px-4 py-3 border-b border-zinc-100 font-semibold text-zinc-800 flex justify-between items-center"
-                            >
-                              <div className="flex items-center gap-2">
-                                <span>{colunas[index]}</span>
-                                <button
-                                  type="button"
-                                  onClick={e => {
-                                    e.stopPropagation();
-                                    setModalColunaAberta({ index, valor: colunas[index] });
-                                  }}
-                                  className="text-gray-400 hover:text-gray-600 transition p-1 rounded hover:bg-gray-100"
-                                  aria-label="Editar título da coluna"
-                                >
-                                  <Pencil size={14} />
-                                </button>
-                              </div>
-                            </div>
-                            {/* Drag handle aprimorado */}
-                            <div className="flex justify-center my-2">
-                              <button
-                                {...attributes}
-                                {...listeners}
-                                className="flex items-center gap-2 px-3 py-1 border border-gray-300 rounded-md bg-gray-100 hover:bg-gray-200 cursor-grab transition"
-                                aria-label="Arraste para mover a coluna"
-                              >
-                                <Move size={16} className="text-gray-500" />
-                                <span className="text-xs font-medium text-gray-600 select-none">
-                                  Segure e arraste
-                                </span>
-                              </button>
-                            </div>
-                            {/* Barra de progresso da coluna */}
-                            <div className="w-full px-4 mb-2">
-                              <div className="text-xs text-gray-600 mb-1 text-center">
-                                {Math.round(percentualConcluido)}% concluído
-                              </div>
-                              <div className="w-full h-2 bg-gray-200 rounded-full">
-                                <div
-                                  className="h-2 bg-green-500 rounded-full transition-all duration-300"
-                                  style={{ width: `${percentualConcluido}%` }}
-                                />
-                              </div>
-                            </div>
+    <MenuLayout>
+      <div className="min-h-screen bg-gradient-to-br from-zinc-50 via-white to-amber-50/30">
+        <div className="p-6 max-w-[1600px] mx-auto">
+          <header className="mb-8">
+            <h1 className="text-2xl font-bold text-zinc-800 flex items-center gap-3">
+              <span className="p-2 rounded-xl bg-amber-100 text-amber-700">
+                <Book className="w-6 h-6" />
+              </span>
+              Lembretes
+            </h1>
+            <p className="text-zinc-500 mt-1">Organize suas tarefas e anotações em colunas. Arraste os cards para mover.</p>
+          </header>
 
-                            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(event: DragEndEvent) => {
-                              const { active, over } = event;
-                              if (!over || active.id === over.id) return;
-                              const isColuna = (id: string) => String(id).startsWith('coluna-');
-                              if (isColuna(String(active.id)) && isColuna(String(over.id))) {
-                                const activeIndex = colunas.findIndex((c) => `coluna-${c}` === String(active.id));
-                                const overIndex = colunas.findIndex((c) => `coluna-${c}` === String(over.id));
-                                if (activeIndex !== -1 && overIndex !== -1) {
-                                  const novas = arrayMove(colunas, activeIndex, overIndex);
-                                  setColunas(novas);
-                                  salvarColunasNoBanco(novas);
-                                }
-                                return;
-                              }
-                              handleDragEnd(event);
-                            }}>
-                              <SortableContext
-                                items={notasDaColuna
-                                  .sort((a, b) => a.pos_x - b.pos_x)
-                                  .map((n) => n.id)}
-                                strategy={verticalListSortingStrategy}
-                              >
-                                <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-                                  <AnimatePresence>
-                                    {notasDaColuna
-                                      .sort((a, b) => a.pos_x - b.pos_x)
-                                      .map((nota, index) => (
-                                        <SortableNoteCard key={nota.id || `nota-${index}`} id={nota.id}>
-                                          {({ isDragging }) =>
-                                            isDragging ? (
-                                              <motion.div
-                                                layout
-                                                initial={false}
-                                                animate={{ opacity: 1, scale: 1 }}
-                                                exit={{ opacity: 0 }}
-                                                whileTap={{ scale: 1.02 }}
-                                                transition={{
-                                                  duration: 0.15,
-                                                  ease: 'easeOut',
-                                                }}
-                                              >
-                                                <div className="flex rounded-lg shadow-md hover:shadow-lg bg-white transition-shadow duration-200 overflow-hidden cursor-pointer relative">
-                                                  <div className={`w-1 ${nota.cor}`} />
-                                                  <div className="flex-1 p-4">
-                                                    <div className="flex items-start justify-between">
-                                                      <p className="text-base font-semibold">{nota.titulo}</p>
-                                                      {/* Ícones de editar e excluir alinhados à direita */}
-                                                      <div className="flex gap-2 ml-2">
-                                                        <button
-                                                          className="text-gray-400 hover:text-primary transition-colors duration-150"
-                                                          type="button"
-                                                          onPointerDown={e => {
-                                                            e.stopPropagation();
-                                                            e.preventDefault();
-                                                            setNovaNota({
-                                                              titulo: nota.titulo,
-                                                              texto: nota.texto,
-                                                              cor: nota.cor,
-                                                              coluna: nota.coluna,
-                                                              prioridade: nota.prioridade || 'Média',
-                                                            });
-                                                            setNotaEditando({
-                                                              id: nota.id,
-                                                              titulo: nota.titulo,
-                                                              texto: nota.texto,
-                                                              cor: nota.cor,
-                                                              coluna: nota.coluna,
-                                                              prioridade: nota.prioridade,
-                                                              data: nota.data_criacao,
-                                                              data_criacao: nota.data_criacao,
-                                                            });
-                                                            setShowModal(true);
-                                                          }}
-                                                        >
-                                                          <Pencil size={16} />
-                                                        </button>
-                                                      </div>
-                                                    </div>
-                                                    <p className="text-sm text-gray-600 mt-1 line-clamp-3">{nota.texto}</p>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={pointerWithin}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={colunas.map((c) => `coluna-${c}`)} strategy={horizontalListSortingStrategy}>
+              <div className="flex gap-4 overflow-x-auto pb-4 min-h-[420px]">
+                {colunas.map((coluna, index) => {
+                  const notasDaColuna = notes.filter((n) => n.coluna === coluna).sort((a, b) => a.pos_x - b.pos_x);
+                  let concluidos = 0,
+                    total = 0;
+                  notasDaColuna.forEach((n) => {
+                    const list = n.checklist ?? [];
+                    if (list.length) {
+                      total += list.length;
+                      concluidos += list.filter((i) => i.concluido).length;
+                    } else {
+                      total += 1;
+                      concluidos += 1;
+                    }
+                  });
+                  const percentual = total ? Math.round((concluidos / total) * 100) : 0;
 
-                                                    {/* Data e prioridade */}
-                                                    <div className="flex justify-between items-end mt-4">
-                                                      <span className="text-xs text-gray-500">
-                                                        {formatarData(nota.data_criacao)}
-                                                      </span>
-                                                      <span
-                                                        className={`text-xs font-semibold px-2 py-1 rounded ${
-                                                          nota.prioridade?.toLowerCase() === 'alta'
-                                                            ? 'bg-red-100 text-red-600'
-                                                            : nota.prioridade?.toLowerCase() === 'média'
-                                                            ? 'bg-yellow-100 text-yellow-600'
-                                                            : 'bg-green-100 text-green-600'
-                                                        }`}
-                                                      >
-                                                        {nota.prioridade}
-                                                      </span>
-                                                    </div>
-                                                  </div>
-                                                </div>
-                                              </motion.div>
-                                            ) : (
-                                              <div className="flex rounded-lg shadow-md hover:shadow-lg bg-white transition-shadow duration-200 overflow-hidden cursor-pointer relative">
-                                                <div className={`w-1 ${nota.cor}`} />
-                                                <div className="flex-1 p-4">
-                                                  <div className="flex items-start justify-between">
-                                                    <p className="text-base font-semibold">{nota.titulo}</p>
-                                                    {/* Ícones de editar e excluir alinhados à direita */}
-                                                    <div className="flex gap-2 ml-2">
-                                                      <button
-                                                        className="text-gray-400 hover:text-primary transition-colors duration-150"
-                                                        type="button"
-                                                        onPointerDown={e => {
-                                                          e.stopPropagation();
-                                                          e.preventDefault();
-                                                          setNovaNota({
-                                                            titulo: nota.titulo,
-                                                            texto: nota.texto,
-                                                            cor: nota.cor,
-                                                            coluna: nota.coluna,
-                                                            prioridade: nota.prioridade || 'Média',
-                                                          });
-                                                          setNotaEditando({
-                                                            id: nota.id,
-                                                            titulo: nota.titulo,
-                                                            texto: nota.texto,
-                                                            cor: nota.cor,
-                                                            coluna: nota.coluna,
-                                                            prioridade: nota.prioridade,
-                                                            data: nota.data_criacao,
-                                                            data_criacao: nota.data_criacao,
-                                                          });
-                                                          setShowModal(true);
-                                                        }}
-                                                      >
-                                                        <Pencil size={16} />
-                                                      </button>
-                                                    </div>
-                                                  </div>
-                                                  <p className="text-sm text-gray-600 mt-1 line-clamp-3">{nota.texto}</p>
-
-                                                  {/* Data e prioridade */}
-                                                  <div className="flex justify-between items-end mt-4">
-                                                    <span className="text-xs text-gray-500">
-                                                      {formatarData(nota.data_criacao)}
-                                                    </span>
-                                                    <span
-                                                      className={`text-xs font-semibold px-2 py-1 rounded ${
-                                                        nota.prioridade?.toLowerCase() === 'alta'
-                                                          ? 'bg-red-100 text-red-600'
-                                                          : nota.prioridade?.toLowerCase() === 'média'
-                                                          ? 'bg-yellow-100 text-yellow-600'
-                                                          : 'bg-green-100 text-green-600'
-                                                      }`}
-                                                    >
-                                                      {nota.prioridade}
-                                                    </span>
-                                                  </div>
-                                                </div>
-                                              </div>
-                                            )
-                                          }
-                                        </SortableNoteCard>
-                                      ))}
-                                  </AnimatePresence>
-                                </div>
-                              </SortableContext>
-                            </DndContext>
-
-                            <div className="border-t border-zinc-100 px-4 py-2 flex items-center justify-end gap-2">
-                              <button
-                                type="button"
-                                className="text-xs text-zinc-600 hover:text-zinc-900 transition"
-                                onMouseDown={() => {
-                                  setNovaNota({ titulo: '', texto: '', cor: 'bg-yellow-500', coluna, prioridade: 'Média' });
-                                  setNotaEditando(null);
-                                  setShowModal(true);
-                                }}
-                              >
-                                + Nova anotação
-                              </button>
-                              <button
-                                type="button"
-                                className="text-xs text-rose-500 hover:text-rose-700 transition"
-                                title="Excluir coluna"
-                                onMouseDown={async () => {
-                                  const confirmed = await confirm({
-                                    title: 'Excluir coluna',
-                                    message: `Tem certeza que deseja excluir a coluna "${coluna}"?`,
-                                    confirmText: 'Excluir',
-                                    cancelText: 'Cancelar',
-                                  });
-                                  if (confirmed) {
-                                    const novas = colunas.filter((_, i) => i !== index);
-                                    setColunas(novas);
-                                    await removerColuna(coluna);
-                                    salvarColunasNoBanco(novas);
-                                    setNotes((prev) => prev.filter((n) => n.coluna !== coluna));
-                                  }
-                                }}
-                              >
-                                Excluir coluna
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </SortableColunaCard>
-                    );
-                  })}
-                  <div className="min-w-[250px]">
-                    <button
-                      onClick={async () => {
-                        const nova = prompt('Nome da nova coluna');
-                        if (nova && !colunas.includes(nova)) {
-                          const novas = [...colunas, nova.toLowerCase()];
-                          setColunas(novas);
-                          await criarColuna(nova.toLowerCase());
-                          salvarColunasNoBanco(novas);
+                  return (
+                    <ColunaKanban
+                      key={coluna}
+                      id={coluna}
+                      index={index}
+                      titulo={coluna}
+                      notas={notasDaColuna}
+                      percentual={percentual}
+                      totalNotas={notasDaColuna.length}
+                      colunas={colunas}
+                      onEditarTitulo={() => setModalColunaAberta({ index, valor: coluna })}
+                      onNovaNota={() => {
+                        setNovaNota((prev) => ({ ...prev, coluna, checklist: [] }));
+                        setNotaEditando(null);
+                        setShowModal(true);
+                      }}
+                      onExcluirColuna={async () => {
+                        const ok = await confirm({
+                          title: 'Excluir coluna',
+                          message: `Excluir a coluna "${coluna}"? As notas serão removidas.`,
+                          confirmText: 'Excluir',
+                          cancelText: 'Cancelar',
+                        });
+                        if (ok) {
+                          await removerColuna(coluna);
                         }
                       }}
-                      className="bg-[#f9ffe0] border border-dashed border-[#cffb6d] text-black hover:bg-[#cffb6d] w-full h-full p-4 text-center text-sm rounded-lg"
-                    >
-                      + Nova coluna
-                    </button>
-                  </div>
-                </div>
-              </SortableContext>
-            </DndContext>
-          {/* Modal Nova Anotação / Editar Anotação */}
-          {showModal && (
-            <EditarNotaModal
-              notaEditando={notaEditando}
-              novaNota={novaNota}
-              setNovaNota={setNovaNota}
-              setShowModal={setShowModal}
-              salvarOuAtualizarNota={salvarOuAtualizarNota}
-              onClose={() => setShowModal(false)}
-              setExibirExcluirNotaModal={setExibirExcluirNotaModal}
-              setNotaSelecionada={setNotaSelecionada}
-            />
-          )}
-          {/* Modal para editar título da coluna */}
-          {modalColunaAberta && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-              <div className="bg-white rounded-lg p-6 w-full max-w-xs shadow-lg flex flex-col gap-4">
-                <h2 className="text-lg font-semibold">Editar título da coluna</h2>
-                <input
-                  type="text"
-                  value={modalColunaAberta.valor}
-                  onChange={e => setModalColunaAberta(m => m ? { ...m, valor: e.target.value } : m)}
-                  className="border rounded p-2 text-sm"
-                  autoFocus
-                />
-                <div className="flex gap-2 justify-end">
+                      onAbrirEditarNota={(nota) => {
+                        setNovaNota({
+                          titulo: nota.titulo,
+                          texto: nota.texto,
+                          cor: nota.cor,
+                          coluna: nota.coluna,
+                          prioridade: nota.prioridade ?? 'Média',
+                          checklist: parseChecklist(nota.checklist ?? []),
+                        });
+                        setNotaEditando({
+                          id: nota.id,
+                          titulo: nota.titulo,
+                          texto: nota.texto,
+                          cor: nota.cor,
+                          coluna: nota.coluna,
+                          prioridade: nota.prioridade ?? 'Média',
+                          data: nota.data_criacao,
+                          data_criacao: nota.data_criacao,
+                          checklist: parseChecklist(nota.checklist ?? []),
+                        });
+                        setShowModal(true);
+                      }}
+                      onToggleChecklist={toggleChecklistItem}
+                      salvarTituloColuna={salvarTituloColuna}
+                      confirm={confirm}
+                      excluirNota={excluirNota}
+                      setNotaSelecionada={setNotaSelecionada}
+                      setExibirExcluirNotaModal={setExibirExcluirNotaModal}
+                    />
+                  );
+                })}
+
+                <div className="flex-shrink-0 w-72">
                   <button
-                    className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 text-sm"
-                    onClick={() => setModalColunaAberta(null)}
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 text-sm"
-                    onClick={async () => {
-                      const { index, valor } = modalColunaAberta;
-                      if (valor.trim() && valor !== colunas[index]) {
-                        handleColunaTituloChange(index, valor);
-                        await salvarTituloColuna(index, valor);
+                    type="button"
+                    onClick={() => {
+                      const nome = window.prompt('Nome da nova coluna');
+                      if (nome?.trim() && !colunas.includes(nome.trim())) {
+                        criarColuna(nome.trim());
                       }
-                      setModalColunaAberta(null);
                     }}
+                    className="w-full h-full min-h-[380px] rounded-2xl border-2 border-dashed border-zinc-300 text-zinc-500 hover:border-amber-400 hover:bg-amber-50/50 hover:text-amber-700 transition-all flex flex-col items-center justify-center gap-2"
                   >
-                    Salvar
+                    <Plus className="w-8 h-8" />
+                    <span className="font-medium">Nova coluna</span>
                   </button>
                 </div>
               </div>
-            </div>
-          )}
-          {/* Modal de confirmação de exclusão */}
-          <ExcluirNotaModal
-            isOpen={exibirExcluirNotaModal}
-            onClose={() => setExibirExcluirNotaModal(false)}
-            onConfirm={() => handleConfirmarExcluirNota(notaSelecionada)}
-          />
-          {/* ToastContainer para notificações */}
-          {/* Remover ToastContainer do react-toastify */}
+            </SortableContext>
+
+            <DragOverlay dropAnimation={null}>
+              {activeDrag?.type === 'coluna' && (() => {
+                const nome = activeDrag.id.replace('coluna-', '');
+                const notasCol = notes.filter((n) => n.coluna === nome).sort((a, b) => a.pos_x - b.pos_x);
+                let concluidos = 0, total = 0;
+                notasCol.forEach((n) => {
+                  const list = n.checklist ?? [];
+                  if (list.length) {
+                    total += list.length;
+                    concluidos += list.filter((i) => i.concluido).length;
+                  } else {
+                    total += 1;
+                    concluidos += 1;
+                  }
+                });
+                const percentual = total ? Math.round((concluidos / total) * 100) : 0;
+                return (
+                  <div className="flex-shrink-0 w-72 flex flex-col rounded-2xl border-2 border-amber-400 bg-white shadow-xl overflow-hidden opacity-95">
+                    <div className="p-4 border-b border-zinc-100 bg-amber-50/50">
+                      <div className="flex items-center gap-2">
+                        <GripVertical className="w-4 h-4 text-zinc-400" />
+                        <h3 className="font-semibold text-zinc-800 truncate">{nome}</h3>
+                        <span className="text-xs text-zinc-400 bg-zinc-200 rounded-full px-2 py-0.5">{notasCol.length}</span>
+                      </div>
+                      <div className="mt-2 h-1.5 bg-zinc-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${percentual}%` }} />
+                      </div>
+                    </div>
+                    <div className="p-3 min-h-[80px] bg-zinc-50/50" />
+                  </div>
+                );
+              })()}
+              {activeDrag?.type === 'nota' && (() => {
+                const nota = notes.find((n) => n.id === activeDrag.id);
+                if (!nota) return null;
+                const checklist = nota.checklist ?? [];
+                const { concluidos, total } = progressoChecklist(checklist);
+                return (
+                  <div className="rounded-xl border-2 border-amber-400 bg-white shadow-xl overflow-hidden w-72 opacity-95 cursor-grabbing">
+                    <div className="flex">
+                      <div className={`w-1 flex-shrink-0 ${nota.cor}`} />
+                      <div className="flex-1 p-3 min-w-0">
+                        <p className="font-semibold text-zinc-800 truncate">{nota.titulo}</p>
+                        {nota.texto && <p className="text-sm text-zinc-500 mt-0.5 line-clamp-2">{nota.texto}</p>}
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                          <span className="text-xs text-zinc-400">{formatarData(nota.data_criacao)}</span>
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                            nota.prioridade === 'Alta' ? 'bg-rose-100 text-rose-700' : nota.prioridade === 'Média' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+                          }`}>{nota.prioridade}</span>
+                          {total > 0 && <span className="text-xs text-zinc-500">{concluidos}/{total}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </DragOverlay>
+          </DndContext>
         </div>
-      </MenuLayout>
-    
+      </div>
+
+      {showModal && (
+        <EditarNotaModal
+          notaEditando={notaEditando}
+          novaNota={novaNota}
+          setNovaNota={setNovaNota}
+          setShowModal={setShowModal}
+          salvarOuAtualizarNota={salvarOuAtualizarNota}
+          onClose={() => {
+            setShowModal(false);
+            setNovaNota({ titulo: '', texto: '', cor: 'bg-amber-400', coluna: 'lembretes', prioridade: 'Média', checklist: [] });
+            setNotaEditando(null);
+          }}
+          setExibirExcluirNotaModal={setExibirExcluirNotaModal}
+          setNotaSelecionada={setNotaSelecionada}
+          colunas={colunas}
+        />
+      )}
+
+      {modalColunaAberta && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl border border-zinc-200">
+            <h2 className="text-lg font-semibold text-zinc-800 mb-4">Editar nome da coluna</h2>
+            <input
+              type="text"
+              value={modalColunaAberta.valor}
+              onChange={(e) => setModalColunaAberta((m) => (m ? { ...m, valor: e.target.value } : m))}
+              className="w-full border border-zinc-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+              autoFocus
+            />
+            <div className="flex gap-2 justify-end mt-4">
+              <button
+                type="button"
+                className="px-4 py-2 rounded-xl bg-zinc-100 text-zinc-700 hover:bg-zinc-200 text-sm font-medium"
+                onClick={() => setModalColunaAberta(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="px-4 py-2 rounded-xl bg-amber-500 text-white hover:bg-amber-600 text-sm font-medium"
+                onClick={async () => {
+                  const { index, valor } = modalColunaAberta;
+                  if (valor.trim() && valor !== colunas[index]) {
+                    setColunas((p) => {
+                      const next = [...p];
+                      next[index] = valor.trim();
+                      return next;
+                    });
+                    await salvarTituloColuna(index, valor.trim());
+                  }
+                  setModalColunaAberta(null);
+                }}
+              >
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ExcluirNotaModal
+        isOpen={exibirExcluirNotaModal}
+        onClose={() => {
+          setExibirExcluirNotaModal(false);
+          setNotaSelecionada(null);
+        }}
+        onConfirm={async () => {
+          if (notaSelecionada) {
+            await excluirNota(notaSelecionada.id);
+            setExibirExcluirNotaModal(false);
+            setNotaSelecionada(null);
+          }
+        }}
+      />
+    </MenuLayout>
   );
 }
 
-// Modal de edição de nota extraído para facilitar lógica do botão de confirmação
+function ColunaKanban({
+  id,
+  index,
+  titulo,
+  notas,
+  percentual,
+  totalNotas,
+  colunas,
+  onEditarTitulo,
+  onNovaNota,
+  onExcluirColuna,
+  onAbrirEditarNota,
+  onToggleChecklist,
+  salvarTituloColuna,
+  confirm,
+  excluirNota,
+  setNotaSelecionada,
+  setExibirExcluirNotaModal,
+}: {
+  id: string;
+  index: number;
+  titulo: string;
+  notas: Nota[];
+  percentual: number;
+  totalNotas: number;
+  colunas: string[];
+  onEditarTitulo: () => void;
+  onNovaNota: () => void;
+  onExcluirColuna: () => void;
+  onAbrirEditarNota: (nota: Nota) => void;
+  onToggleChecklist: (notaId: string, itemId: string) => void;
+  salvarTituloColuna: (index: number, nome: string) => void;
+  confirm: ReturnType<typeof useConfirm>;
+  excluirNota: (id: string) => void;
+  setNotaSelecionada: (v: NotaSelecionada | null) => void;
+  setExibirExcluirNotaModal: (v: boolean) => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: `coluna-${id}` });
+
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: `drop-coluna-${id}` });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  const combineRefs = (el: HTMLDivElement | null) => {
+    setNodeRef(el);
+    setDropRef(el);
+  };
+
+  return (
+    <div
+      ref={combineRefs}
+      style={style}
+      className={`flex-shrink-0 w-72 flex flex-col rounded-2xl border-2 bg-white/80 shadow-sm overflow-hidden transition-all ${
+        isDragging ? 'opacity-90 shadow-lg ring-2 ring-amber-200 border-amber-300' : 'border-zinc-200'
+      } ${isOver ? 'ring-2 ring-amber-400 border-amber-400 bg-amber-50/30' : ''}`}
+    >
+      <div className="p-4 border-b border-zinc-100 bg-zinc-50/50">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              {...attributes}
+              {...listeners}
+              className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-200 hover:text-zinc-600 cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
+              aria-label="Arrastar coluna"
+            >
+              <GripVertical className="w-4 h-4" />
+            </button>
+            <h3 className="font-semibold text-zinc-800 truncate">{titulo}</h3>
+            <span className="text-xs text-zinc-400 bg-zinc-200 rounded-full px-2 py-0.5">{totalNotas}</span>
+          </div>
+          <button
+            type="button"
+            onClick={onEditarTitulo}
+            className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-200 hover:text-zinc-600 flex-shrink-0"
+            aria-label="Editar coluna"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="mt-2">
+          <div className="flex justify-between text-xs text-zinc-500 mb-1">
+            <span>Progresso</span>
+            <span>{percentual}%</span>
+          </div>
+          <div className="h-1.5 bg-zinc-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-emerald-500 rounded-full transition-all duration-300"
+              style={{ width: `${percentual}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-[140px]">
+        <SortableContext items={notas.map((n) => n.id)} strategy={verticalListSortingStrategy}>
+          <AnimatePresence>
+            {notas.map((nota) => (
+              <CardNota
+                key={nota.id}
+                nota={nota}
+                onEditar={() => onAbrirEditarNota(nota)}
+                onToggleChecklist={onToggleChecklist}
+                onExcluir={() => {
+                  setNotaSelecionada({
+                    id: nota.id,
+                    titulo: nota.titulo,
+                    texto: nota.texto,
+                    cor: nota.cor,
+                    coluna: nota.coluna,
+                    prioridade: nota.prioridade,
+                  });
+                  setExibirExcluirNotaModal(true);
+                }}
+              />
+            ))}
+          </AnimatePresence>
+        </SortableContext>
+      </div>
+
+      <div className="p-3 border-t border-zinc-100 flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={onNovaNota}
+          className="flex items-center gap-2 text-sm font-medium text-amber-600 hover:text-amber-700"
+        >
+          <Plus className="w-4 h-4" />
+          Nova nota
+        </button>
+        <button
+          type="button"
+          onClick={onExcluirColuna}
+          className="text-xs text-zinc-400 hover:text-rose-600 transition"
+        >
+          Excluir coluna
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const CardNota = React.memo(function CardNota({
+  nota,
+  onEditar,
+  onToggleChecklist,
+  onExcluir,
+}: {
+  nota: Nota;
+  onEditar: () => void;
+  onToggleChecklist: (notaId: string, itemId: string) => void;
+  onExcluir: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: nota.id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+  const checklist = nota.checklist ?? [];
+  const { concluidos, total } = progressoChecklist(checklist);
+
+  return (
+    <motion.div
+      ref={setNodeRef}
+      style={style}
+      layout
+      initial={false}
+      exit={{ opacity: 0, scale: 0.95 }}
+      className={`rounded-xl border border-zinc-200 bg-white shadow-sm overflow-hidden transition-all hover:shadow-md ${isDragging ? 'opacity-0 pointer-events-none' : ''}`}
+    >
+      <div className="flex">
+        <div className={`w-1 flex-shrink-0 ${nota.cor}`} />
+        <div className="flex-1 p-3 min-w-0">
+          <div className="flex items-start gap-2">
+            <button
+              {...attributes}
+              {...listeners}
+              className="mt-0.5 p-1 rounded text-zinc-400 hover:bg-zinc-100 cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
+              aria-label="Arrastar"
+            >
+              <GripVertical className="w-4 h-4" />
+            </button>
+            <div className="flex-1 min-w-0" onClick={onEditar}>
+              <p className="font-semibold text-zinc-800 truncate">{nota.titulo}</p>
+              {nota.texto ? (
+                <p className="text-sm text-zinc-500 mt-0.5 line-clamp-2">{nota.texto}</p>
+              ) : null}
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <span className="text-xs text-zinc-400">{formatarData(nota.data_criacao)}</span>
+                <span
+                  className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                    nota.prioridade === 'Alta'
+                      ? 'bg-rose-100 text-rose-700'
+                      : nota.prioridade === 'Média'
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-emerald-100 text-emerald-700'
+                  }`}
+                >
+                  {nota.prioridade}
+                </span>
+                {total > 0 && (
+                  <span className="flex items-center gap-1 text-xs text-zinc-500">
+                    <ListTodo className="w-3.5 h-3.5" />
+                    {concluidos}/{total}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-col gap-1 flex-shrink-0">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditar();
+                }}
+                className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
+                aria-label="Editar"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onExcluir();
+                }}
+                className="p-1.5 rounded-lg text-zinc-400 hover:bg-rose-100 hover:text-rose-600"
+                aria-label="Excluir"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+          {checklist.length > 0 && (
+            <div className="mt-2 pt-2 border-t border-zinc-100 space-y-1">
+              {checklist.slice(0, 3).map((item) => (
+                <label
+                  key={item.id}
+                  className="flex items-center gap-2 text-sm cursor-pointer group"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    onClick={() => onToggleChecklist(nota.id, item.id)}
+                    className="flex-shrink-0 text-emerald-600 hover:text-emerald-700"
+                  >
+                    {item.concluido ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4 text-zinc-400" />}
+                  </button>
+                  <span className={item.concluido ? 'text-zinc-400 line-through' : 'text-zinc-600'}>{item.label}</span>
+                </label>
+              ))}
+              {checklist.length > 3 && (
+                <p className="text-xs text-zinc-400">+{checklist.length - 3} itens</p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+});
+
 function EditarNotaModal({
   notaEditando,
   novaNota,
@@ -971,138 +976,203 @@ function EditarNotaModal({
   onClose,
   setExibirExcluirNotaModal,
   setNotaSelecionada,
+  colunas,
 }: {
   notaEditando: NotaEditando | null;
-  novaNota: {
-    titulo: string;
-    texto: string;
-    cor: string;
-    coluna: string;
-    prioridade: string;
-  };
-  setNovaNota: (v: {
-    titulo: string;
-    texto: string;
-    cor: string;
-    coluna: string;
-    prioridade: string;
-  }) => void;
+  novaNota: { titulo: string; texto: string; cor: string; coluna: string; prioridade: string; checklist: ChecklistItem[] };
+  setNovaNota: (v: typeof novaNota) => void;
   setShowModal: (v: boolean) => void;
   salvarOuAtualizarNota: () => void;
   onClose: () => void;
   setExibirExcluirNotaModal: (v: boolean) => void;
   setNotaSelecionada: (v: NotaSelecionada | null) => void;
+  colunas: string[];
 }) {
+  const [novoItemChecklist, setNovoItemChecklist] = useState('');
+
+  const adicionarChecklist = () => {
+    if (!novoItemChecklist.trim()) return;
+    setNovaNota({
+      ...novaNota,
+      checklist: [...(novaNota.checklist ?? []), { id: uuidv4(), label: novoItemChecklist.trim(), concluido: false }],
+    });
+    setNovoItemChecklist('');
+  };
+
+  const removerChecklist = (id: string) => {
+    setNovaNota({ ...novaNota, checklist: (novaNota.checklist ?? []).filter((i) => i.id !== id) });
+  };
+
+  const toggleChecklist = (id: string) => {
+    setNovaNota({
+      ...novaNota,
+      checklist: (novaNota.checklist ?? []).map((i) => (i.id === id ? { ...i, concluido: !i.concluido } : i)),
+    });
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md space-y-4">
-        <h2 className="text-lg font-semibold">
-          {notaEditando ? 'Editar Anotação' : 'Nova Anotação'}
-        </h2>
-        <input
-          type="text"
-          placeholder="Título"
-          value={novaNota.titulo}
-          onChange={(e) => setNovaNota({ ...novaNota, titulo: e.target.value })}
-          className="w-full border rounded p-2 text-sm"
-        />
-        <textarea
-          placeholder="Descrição"
-          value={novaNota.texto}
-          onChange={(e) => setNovaNota({ ...novaNota, texto: e.target.value })}
-          className="w-full border rounded p-2 text-sm"
-        />
-        <div className="flex gap-2">
-          {[
-            { cor: 'bg-yellow-500' },
-            { cor: 'bg-green-500' },
-            { cor: 'bg-blue-500' },
-            { cor: 'bg-purple-500' },
-            { cor: 'bg-orange-500' }
-          ].map((opcao) => (
-            <div
-              key={opcao.cor}
-              onClick={() => setNovaNota({ ...novaNota, cor: opcao.cor })}
-              className={`w-6 h-6 rounded-full ${opcao.cor} ${novaNota.cor === opcao.cor ? 'ring-2 ring-black' : ''} cursor-pointer`}
-            />
-          ))}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl border border-zinc-200 max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="p-6 overflow-y-auto flex-1">
+          <h2 className="text-xl font-semibold text-zinc-800 mb-4">
+            {notaEditando ? 'Editar nota' : 'Nova nota'}
+          </h2>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-zinc-700 mb-1">Título</label>
+              <input
+                type="text"
+                placeholder="Título da nota"
+                value={novaNota.titulo}
+                onChange={(e) => setNovaNota({ ...novaNota, titulo: e.target.value })}
+                className="w-full border border-zinc-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-zinc-700 mb-1">Descrição</label>
+              <textarea
+                placeholder="Descrição (opcional)"
+                value={novaNota.texto}
+                onChange={(e) => setNovaNota({ ...novaNota, texto: e.target.value })}
+                rows={3}
+                className="w-full border border-zinc-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none resize-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-zinc-700 mb-1">Coluna</label>
+              <select
+                value={novaNota.coluna}
+                onChange={(e) => setNovaNota({ ...novaNota, coluna: e.target.value })}
+                className="w-full border border-zinc-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+              >
+                {colunas.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-zinc-700 mb-1">Prioridade</label>
+              <div className="flex gap-2">
+                {['Alta', 'Média', 'Baixa'].map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setNovaNota({ ...novaNota, prioridade: p })}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition ${
+                      novaNota.prioridade === p
+                        ? p === 'Alta'
+                          ? 'bg-rose-100 text-rose-700 border-rose-200'
+                          : p === 'Média'
+                            ? 'bg-amber-100 text-amber-700 border-amber-200'
+                            : 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                        : 'bg-zinc-100 text-zinc-500 border-zinc-200'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-zinc-700 mb-1">Cor</label>
+              <div className="flex gap-2">
+                {CORES.map(({ cor, ring }) => (
+                  <button
+                    key={cor}
+                    type="button"
+                    onClick={() => setNovaNota({ ...novaNota, cor })}
+                    className={`w-8 h-8 rounded-full ${cor} ${novaNota.cor === cor ? `ring-2 ${ring} ring-offset-2` : ''}`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-zinc-700 mb-2">Checklist</label>
+              <div className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  placeholder="Novo item..."
+                  value={novoItemChecklist}
+                  onChange={(e) => setNovoItemChecklist(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), adicionarChecklist())}
+                  className="flex-1 border border-zinc-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={adicionarChecklist}
+                  className="px-3 py-2 rounded-xl bg-amber-500 text-white hover:bg-amber-600 text-sm font-medium"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+              <ul className="space-y-2">
+                {(novaNota.checklist ?? []).map((item) => (
+                  <li key={item.id} className="flex items-center gap-2 group">
+                    <button
+                      type="button"
+                      onClick={() => toggleChecklist(item.id)}
+                      className="flex-shrink-0 text-emerald-600 hover:text-emerald-700"
+                    >
+                      {item.concluido ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5 text-zinc-400" />}
+                    </button>
+                    <span className={`flex-1 text-sm ${item.concluido ? 'text-zinc-400 line-through' : 'text-zinc-700'}`}>
+                      {item.label}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removerChecklist(item.id)}
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded text-zinc-400 hover:bg-rose-100 hover:text-rose-600 transition"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
         </div>
-        {/* Seleção de prioridade */}
-        <div className="flex gap-2 text-xs items-center">
-          <span className="font-semibold">Prioridade:</span>
-          {['Alta', 'Média', 'Baixa'].map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => setNovaNota({ ...novaNota, prioridade: p })}
-              className={`px-2 py-1 rounded-full border text-xs font-semibold
-                ${novaNota.prioridade === p
-                  ? (
-                    p === 'Alta'
-                      ? 'bg-red-100 text-red-600 border-red-200'
-                      : p === 'Média'
-                        ? 'bg-yellow-100 text-yellow-600 border-yellow-200'
-                        : 'bg-green-100 text-green-600 border-green-200'
-                    )
-                  : 'bg-gray-100 text-gray-500 border-gray-200'
-                }
-              `}
-            >
-              {p}
-            </button>
-          ))}
-        </div>
-        <div className="flex justify-end gap-2">
+        <div className="p-4 border-t border-zinc-100 flex flex-wrap gap-2 justify-end">
           <button
-            onClick={() => {
-              setShowModal(false);
-              if (typeof setNovaNota === "function") setNovaNota({
-                titulo: '',
-                texto: '',
-                cor: 'bg-yellow-500',
-                coluna: 'lembretes',
-                prioridade: 'Média',
-              });
-            }}
-            className="px-4 py-2 text-sm rounded bg-gray-200 hover:bg-gray-300"
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl bg-zinc-100 text-zinc-700 hover:bg-zinc-200 font-medium text-sm"
           >
             Cancelar
           </button>
           <button
+            type="button"
             onClick={salvarOuAtualizarNota}
-            className="px-4 py-2 text-sm rounded bg-[#1860fa] text-white hover:bg-blue-700"
+            className="px-4 py-2 rounded-xl bg-amber-500 text-white hover:bg-amber-600 font-medium text-sm"
           >
-            {notaEditando ? 'Atualizar' : 'Salvar'}
+            {notaEditando ? 'Salvar' : 'Criar'}
           </button>
-        </div>
-        {/* Botão de exclusão visível dentro da modal de edição */}
-        {notaEditando && (
-          <button
-            className="bg-red-500 text-white px-4 py-2 rounded mt-4"
-            onClick={() => {
-              onClose();
-              setNotaSelecionada({
-                id: notaEditando.id,
-                titulo: notaEditando.titulo,
-                texto: notaEditando.texto,
-                cor: notaEditando.cor,
-                coluna: notaEditando.coluna,
-                prioridade: notaEditando.prioridade,
-              });
-              setTimeout(() => {
+          {notaEditando && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                setNotaSelecionada({
+                  id: notaEditando.id,
+                  titulo: notaEditando.titulo,
+                  texto: notaEditando.texto,
+                  cor: notaEditando.cor,
+                  coluna: notaEditando.coluna,
+                  prioridade: notaEditando.prioridade,
+                });
                 setExibirExcluirNotaModal(true);
-              }, 200);
-            }}
-          >
-            Excluir Nota
-          </button>
-        )}
+              }}
+              className="px-4 py-2 rounded-xl bg-rose-100 text-rose-700 hover:bg-rose-200 font-medium text-sm"
+            >
+              Excluir nota
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-// Modal de confirmação de exclusão de nota
 function ExcluirNotaModal({
   isOpen,
   onClose,
@@ -1114,22 +1184,24 @@ function ExcluirNotaModal({
 }) {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-lg p-6 w-full max-w-xs shadow-lg">
-        <h2 className="text-lg font-semibold mb-4">Confirmar Exclusão</h2>
-        <p className="text-base text-gray-800 mb-4">Tem certeza que deseja excluir esta nota?</p>
-        <div className="flex gap-2 mt-4 justify-end">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl border border-zinc-200">
+        <h2 className="text-lg font-semibold text-zinc-800 mb-2">Excluir nota</h2>
+        <p className="text-zinc-600 text-sm mb-4">Tem certeza? Esta ação não pode ser desfeita.</p>
+        <div className="flex gap-2 justify-end">
           <button
-            className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 text-sm"
+            type="button"
             onClick={onClose}
+            className="px-4 py-2 rounded-xl bg-zinc-100 text-zinc-700 hover:bg-zinc-200 text-sm font-medium"
           >
             Cancelar
           </button>
           <button
-            className="px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700 text-sm"
+            type="button"
             onClick={onConfirm}
+            className="px-4 py-2 rounded-xl bg-rose-500 text-white hover:bg-rose-600 text-sm font-medium"
           >
-            Confirmar Exclusão
+            Excluir
           </button>
         </div>
       </div>

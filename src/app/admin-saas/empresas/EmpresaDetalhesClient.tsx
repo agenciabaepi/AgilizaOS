@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/Button';
-import { FiArrowLeft, FiDollarSign, FiUsers, FiBox, FiFileText, FiTrendingUp, FiCheck, FiX, FiToggleLeft, FiToggleRight } from 'react-icons/fi';
+import { FiArrowLeft, FiDollarSign, FiUsers, FiBox, FiFileText, FiTrendingUp, FiCheck, FiX, FiToggleLeft, FiToggleRight, FiSlash } from 'react-icons/fi';
 import { BuildingOfficeIcon as FiBuilding } from '@heroicons/react/24/outline';
 
 type EmpresaDetalhes = {
@@ -43,7 +43,7 @@ type EmpresaDetalhes = {
   recursos_customizados?: Record<string, boolean> | null;
 };
 
-// Modal de Alterar Plano (definido antes do componente principal)
+// Modal de Alterar Assinatura (definido antes do componente principal)
 const ModalAlterarPlano = ({ empresa, onClose, onSuccess }: { empresa: EmpresaDetalhes; onClose: () => void; onSuccess: () => void }) => {
   const [planos, setPlanos] = useState<Array<{ id: string; nome: string; descricao: string; preco: number }>>([]);
   const [planoSelecionado, setPlanoSelecionado] = useState<string>(empresa.billing?.plano?.id || '');
@@ -54,7 +54,7 @@ const ModalAlterarPlano = ({ empresa, onClose, onSuccess }: { empresa: EmpresaDe
     async function fetchPlanos() {
       try {
         const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
-        const res = await fetch(`${baseUrl}/api/admin-saas/planos`, { cache: 'no-store' });
+        const res = await fetch(`${baseUrl}/api/admin-saas/planos`, { cache: 'no-store', credentials: 'include' });
         const json = await res.json();
         if (res.ok && json.ok) {
           setPlanos(json.planos || []);
@@ -73,6 +73,7 @@ const ModalAlterarPlano = ({ empresa, onClose, onSuccess }: { empresa: EmpresaDe
     try {
       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
       const res = await fetch(`${baseUrl}/api/admin-saas/empresas/${empresa.id}/alterar-plano`, {
+        credentials: 'include',
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -86,7 +87,7 @@ const ModalAlterarPlano = ({ empresa, onClose, onSuccess }: { empresa: EmpresaDe
       }
       onSuccess();
     } catch (err: any) {
-      alert(err.message || 'Erro ao alterar plano');
+      alert(err.message || 'Erro ao alterar assinatura');
     } finally {
       setAlterandoPlano(false);
     }
@@ -95,14 +96,14 @@ const ModalAlterarPlano = ({ empresa, onClose, onSuccess }: { empresa: EmpresaDe
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Alterar Plano da Empresa</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Alterar Assinatura da Empresa</h3>
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Empresa</label>
             <div className="text-sm text-gray-900 font-medium">{empresa.nome}</div>
             {empresa.billing?.plano?.nome && (
               <div className="text-xs text-gray-500 mt-1">
-                Plano atual: <span className="font-medium">{empresa.billing.plano.nome}</span>
+                Assinatura atual: <span className="font-medium">{empresa.billing.plano.nome}</span>
               </div>
             )}
           </div>
@@ -113,7 +114,7 @@ const ModalAlterarPlano = ({ empresa, onClose, onSuccess }: { empresa: EmpresaDe
               onChange={(e) => setPlanoSelecionado(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
             >
-              <option value="">Selecione um plano</option>
+              <option value="">Selecione uma assinatura</option>
               {planos.map((plano) => (
                 <option key={plano.id} value={plano.id}>
                   {plano.nome} - R$ {plano.preco.toFixed(2)}/mês
@@ -168,7 +169,7 @@ const ModalGerenciarRecursos = ({ empresa, onClose, onSuccess }: { empresa: Empr
     async function fetchRecursos() {
       try {
         const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
-        const res = await fetch(`${baseUrl}/api/admin-saas/empresas/${empresa.id}/recursos`, { cache: 'no-store' });
+        const res = await fetch(`${baseUrl}/api/admin-saas/empresas/${empresa.id}/recursos`, { cache: 'no-store', credentials: 'include' });
         const json = await res.json();
         if (res.ok && json.ok) {
           setRecursosCustomizados(json.recursos || {});
@@ -188,6 +189,7 @@ const ModalGerenciarRecursos = ({ empresa, onClose, onSuccess }: { empresa: Empr
     try {
       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
       const res = await fetch(`${baseUrl}/api/admin-saas/empresas/${empresa.id}/recursos`, {
+        credentials: 'include',
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ recursos: recursosCustomizados }),
@@ -211,9 +213,9 @@ const ModalGerenciarRecursos = ({ empresa, onClose, onSuccess }: { empresa: Empr
         <p className="text-sm text-gray-600 mb-6">
           Libere ou bloqueie recursos específicos para esta empresa. 
           <br />
-          <span className="font-medium">Por padrão, os recursos seguem o plano da empresa.</span>
+          <span className="font-medium">Por padrão, os recursos seguem a assinatura da empresa.</span>
           <br />
-          <span className="text-xs text-gray-500">Recursos marcados aqui sobrescrevem os recursos do plano.</span>
+          <span className="text-xs text-gray-500">Recursos marcados aqui sobrescrevem os recursos da assinatura.</span>
         </p>
         
         <div className="space-y-4 mb-6">
@@ -330,7 +332,7 @@ const ModalGerenciarRecursos = ({ empresa, onClose, onSuccess }: { empresa: Empr
 
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-6">
           <p className="text-xs text-yellow-800">
-            <strong>Nota:</strong> Para remover todas as customizações e voltar a usar apenas os recursos do plano, 
+            <strong>Nota:</strong> Para remover todas as customizações e voltar a usar apenas os recursos da assinatura, 
             desmarque todos os recursos e salve.
           </p>
         </div>
@@ -364,16 +366,21 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
   const [empresa, setEmpresa] = useState<EmpresaDetalhes | null>(null);
   const [showAlterarPlano, setShowAlterarPlano] = useState(false);
   const [showGerenciarRecursos, setShowGerenciarRecursos] = useState(false);
+  const [salvandoAtivo, setSalvandoAtivo] = useState(false);
+  const [cancelandoAssinatura, setCancelandoAssinatura] = useState(false);
 
   // Função para recarregar dados da empresa
   const recarregarEmpresa = async () => {
     if (!empresaId) return;
     setLoading(true);
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
-      const res = await fetch(`${baseUrl}/api/admin-saas/empresas/${empresaId}`, { cache: 'no-store' });
+      const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_SITE_URL || '');
+      const res = await fetch(`${baseUrl}/api/admin-saas/empresas/${empresaId}`, { cache: 'no-store', credentials: 'include' });
       const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.message || 'Falha ao carregar empresa');
+      if (!res.ok || !json.ok) {
+        const msg = json.message || (typeof json.error === 'string' ? json.error : json.error?.message) || 'Falha ao carregar empresa';
+        throw new Error(msg);
+      }
       setEmpresa(json.empresa);
     } catch (e: any) {
       console.error(e);
@@ -391,8 +398,9 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
   }, [empresaId]);
 
   async function patchEmpresa(payload: Record<string, unknown>) {
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
+    const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_SITE_URL || '');
     const res = await fetch(`${baseUrl}/api/admin-saas/empresas/${empresaId}`, {
+      credentials: 'include',
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -400,7 +408,7 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
     const json = await res.json();
     if (!res.ok || !json.ok) throw new Error('Falha na atualização');
     // Recarregar dados
-    const res2 = await fetch(`${baseUrl}/api/admin-saas/empresas/${empresaId}`, { cache: 'no-store' });
+    const res2 = await fetch(`${baseUrl}/api/admin-saas/empresas/${empresaId}`, { cache: 'no-store', credentials: 'include' });
     const json2 = await res2.json();
     if (res2.ok && json2.ok) {
       setEmpresa(json2.empresa);
@@ -409,7 +417,14 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
 
   async function handleToggleActive() {
     if (!empresa) return;
-    await patchEmpresa({ ativo: !empresa.ativo });
+    setSalvandoAtivo(true);
+    try {
+      await patchEmpresa({ ativo: !empresa.ativo });
+    } catch (e: any) {
+      alert(e.message || 'Não foi possível atualizar. Tente novamente.');
+    } finally {
+      setSalvandoAtivo(false);
+    }
   }
 
   async function handleApprove() {
@@ -500,17 +515,18 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
           <Button
             variant="outline"
             onClick={handleToggleActive}
+            disabled={salvandoAtivo}
             className={empresa.ativo ? 'border-red-300 text-red-700 hover:bg-red-50' : 'border-green-300 text-green-700 hover:bg-green-50'}
           >
             {empresa.ativo ? (
               <>
                 <FiToggleRight className="mr-2" />
-                Desativar
+                {salvandoAtivo ? 'Desativando...' : 'Desativar'}
               </>
             ) : (
               <>
                 <FiToggleLeft className="mr-2" />
-                Ativar
+                {salvandoAtivo ? 'Ativando...' : 'Ativar'}
               </>
             )}
           </Button>
@@ -558,9 +574,9 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
               </span>
             )}
           </div>
-          <div className="text-sm font-medium text-gray-600 mb-1">Plano</div>
+          <div className="text-sm font-medium text-gray-600 mb-1">Assinatura</div>
           <div className="text-2xl font-bold text-gray-900">
-            {empresa.billing?.plano?.nome || 'Acesso Completo'}
+            {empresa.billing?.plano?.nome || 'Assinatura'}
           </div>
         </div>
 
@@ -778,7 +794,7 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
             className="bg-blue-600 hover:bg-blue-700 text-white"
           >
             <FiDollarSign className="mr-2" />
-            Alterar Plano
+            Alterar Assinatura
           </Button>
           <Button
             onClick={() => setShowGerenciarRecursos(true)}
@@ -787,6 +803,40 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
             <FiToggleRight className="mr-2" />
             Gerenciar Recursos
           </Button>
+          {empresa.billing?.assinaturaStatus === 'active' || empresa.billing?.assinaturaStatus === 'trial' ? (
+            <Button
+              onClick={async () => {
+                if (!confirm('Tem certeza que deseja cancelar a assinatura desta empresa? O usuário deixará de ter acesso ao sistema ao vencer o período atual.')) return;
+                setCancelandoAssinatura(true);
+                try {
+                  const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_SITE_URL || '');
+                  const res = await fetch(`${baseUrl}/api/admin-saas/empresas/${empresaId}/cancelar-assinatura`, {
+                    method: 'POST',
+                    credentials: 'include',
+                  });
+                  const json = await res.json();
+                  if (!res.ok || !json.ok) {
+                    throw new Error(json.message || 'Falha ao cancelar assinatura');
+                  }
+                  await recarregarEmpresa();
+                } catch (e: any) {
+                  alert(e.message || 'Erro ao cancelar assinatura');
+                } finally {
+                  setCancelandoAssinatura(false);
+                }
+              }}
+              disabled={cancelandoAssinatura}
+              className="bg-red-600 hover:bg-red-700 text-white disabled:opacity-50"
+            >
+              <FiSlash className="mr-2" />
+              {cancelandoAssinatura ? 'Cancelando...' : 'Cancelar assinatura'}
+            </Button>
+          ) : empresa.billing?.assinaturaStatus === 'cancelled' ? (
+            <span className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 text-gray-600 text-sm">
+              <FiSlash className="text-gray-500" />
+              Assinatura cancelada
+            </span>
+          ) : null}
         </div>
       </div>
 

@@ -8,12 +8,14 @@ import { supabase } from '@/lib/supabaseClient';
 import { FiArrowLeft, FiEdit, FiPrinter, FiChevronDown, FiDollarSign, FiMessageCircle, FiUser, FiSmartphone, FiFileText, FiCalendar, FiShield, FiTool, FiPackage, FiCheckCircle, FiClock, FiRefreshCw, FiExternalLink, FiAlertTriangle } from 'react-icons/fi';
 import { FaWhatsapp } from 'react-icons/fa';
 import ImagensOS from '@/components/ImagensOS';
+import VideosOS from '@/components/VideosOS';
 import ChecklistViewer from '@/components/ChecklistViewer';
 import { useToast } from '@/hooks/useToast';
 import { useAuth } from '@/context/AuthContext';
 import { useHistoricoOS } from '@/hooks/useHistoricoOS';
 import HistoricoOSTimeline from '@/components/HistoricoOSTimeline';
 import LaudoRenderer from '@/components/LaudoRenderer';
+import { getStatusTecnicoLabel } from '@/utils/statusLabels';
 
 const VisualizarOrdemServicoPage = () => {
   const router = useRouter();
@@ -39,6 +41,7 @@ const VisualizarOrdemServicoPage = () => {
   const [processandoEntrega, setProcessandoEntrega] = useState(false);
   const [termosGarantia, setTermosGarantia] = useState<any[]>([]);
   const [clienteRecusou, setClienteRecusou] = useState(false); // Nova opção
+  const [aparelhoSemConserto, setAparelhoSemConserto] = useState(false); // Aparelho não teve conserto
   const [imprimirMenuOpen, setImprimirMenuOpen] = useState(false);
   const imprimirMenuRef = useRef<HTMLDivElement>(null);
   const [linkPublicoAtivo, setLinkPublicoAtivo] = useState<boolean>(true);
@@ -104,6 +107,7 @@ const VisualizarOrdemServicoPage = () => {
             tipo,
             imagens,
             imagens_tecnico,
+            videos_tecnico,
             checklist_entrada,
             termo_garantia:termo_garantia_id (
               id,
@@ -207,6 +211,10 @@ const VisualizarOrdemServicoPage = () => {
   // Função para salvar o relato do cliente
   const salvarRelato = async () => {
     if (!ordem?.id) return;
+    if (ordem?.status === 'ENTREGUE') {
+      addToast('O.S. entregue está bloqueada para edição.', 'error');
+      return;
+    }
     
     setSalvandoRelato(true);
     try {
@@ -268,9 +276,9 @@ const VisualizarOrdemServicoPage = () => {
       return;
     }
 
-    // Se cliente não recusou, validar forma de pagamento e valor
+    // Se cliente não recusou e aparelho tem conserto, validar forma de pagamento e valor
     // Mas só validar valores se realmente houver valores na OS
-    if (!clienteRecusou) {
+    if (!clienteRecusou && !aparelhoSemConserto) {
       const valorOS = calcularValores().valorFinal;
       
       // Se há valores na OS, validar forma de pagamento e valor recebido
@@ -294,7 +302,7 @@ const VisualizarOrdemServicoPage = () => {
 
     try {
       // 1. Atualizar O.S. para ENTREGUE usando nosso endpoint
-      // Passar flag clienteRecusou para a API não registrar comissão
+      // Passar flags clienteRecusou e aparelhoSemConserto para a API não registrar comissão
       const response = await fetch('/api/ordens/update-status', {
         method: 'POST',
         headers: {
@@ -303,8 +311,12 @@ const VisualizarOrdemServicoPage = () => {
         body: JSON.stringify({
           osId: id,
           newStatus: 'ENTREGUE',
-          newStatusTecnico: 'FINALIZADA',
-          cliente_recusou: clienteRecusou // Flag para não registrar comissão
+          newStatusTecnico: 'REPARO CONCLUÍDO',
+          termo_garantia_id: termoGarantiaSelecionado.id,
+          data_entrega: new Date().toISOString().split('T')[0],
+          vencimento_garantia: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          cliente_recusou: clienteRecusou, // Flag para não registrar comissão
+          aparelho_sem_conserto: aparelhoSemConserto // Flag para aparelho sem conserto
         }),
       });
 
@@ -315,26 +327,9 @@ const VisualizarOrdemServicoPage = () => {
       }
 
       const result = await response.json();
-      
-      // Atualizar campos específicos da entrega diretamente no Supabase
-      // INCLUINDO cliente_recusou para marcar que o cliente recusou (sem zerar valores)
-      const { error: updateError } = await supabase
-        .from('ordens_servico')
-        .update({
-          termo_garantia_id: termoGarantiaSelecionado.id,
-          data_entrega: new Date().toISOString().split('T')[0],
-          vencimento_garantia: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          cliente_recusou: clienteRecusou // Marcar flag sem zerar valores (mantém histórico)
-        })
-        .eq('id', id);
 
-      if (updateError) {
-        addToast('Erro ao atualizar dados de entrega: ' + updateError.message, 'error');
-        return;
-      }
-
-      // 2. Se houver valor E cliente não recusou, criar venda
-      if (!clienteRecusou) {
+      // 2. Se houver valor E cliente não recusou E aparelho teve conserto, criar venda
+      if (!clienteRecusou && !aparelhoSemConserto) {
         const valorOS = calcularValores().valorFinal;
         if (valorOS > 0) {
           const numeroVenda = await criarVenda();
@@ -346,8 +341,10 @@ const VisualizarOrdemServicoPage = () => {
         } else {
           addToast('✅ O.S. entregue sem valores (desistência ou sem serviços)', 'success');
         }
-      } else {
+      } else if (clienteRecusou) {
         addToast('✅ O.S. finalizada (cliente recusou - valores mantidos para histórico)', 'success');
+      } else if (aparelhoSemConserto) {
+        addToast('✅ O.S. finalizada (aparelho sem conserto)', 'success');
       }
 
       addToast('✅ O.S. entregue com sucesso!', 'success');
@@ -479,8 +476,8 @@ const VisualizarOrdemServicoPage = () => {
       <MenuLayout>
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-            <p className="text-gray-600">Carregando ordem de serviço...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 dark:border-zinc-100 mx-auto mb-4"></div>
+            <p className="text-gray-600 dark:text-zinc-400">Carregando ordem de serviço...</p>
           </div>
         </div>
       </MenuLayout>
@@ -517,25 +514,25 @@ const VisualizarOrdemServicoPage = () => {
             <div className="flex items-center gap-4 min-w-0">
               <button
                 onClick={() => router.push('/ordens')}
-                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors shrink-0"
+                className="flex items-center gap-2 text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 transition-colors shrink-0"
               >
                 <FiArrowLeft className="w-5 h-5" />
                 <span className="hidden sm:inline">Voltar</span>
               </button>
-              <div className="h-6 w-px bg-gray-300 hidden sm:block" />
+              <div className="h-6 w-px bg-gray-300 dark:bg-zinc-600 hidden sm:block" />
               <div className="min-w-0">
                 <div className="flex items-center gap-3 flex-wrap">
-                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-zinc-100">
                     OS #{ordem.numero_os}
                   </h1>
                   {isRetorno(ordem) && (
-                    <span className="inline-flex items-center gap-2 px-3 py-1 bg-red-50 border border-red-200 rounded-full">
+                    <span className="inline-flex items-center gap-2 px-3 py-1 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-full">
                       <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                      <span className="text-sm font-medium text-red-700">Retorno</span>
+                      <span className="text-sm font-medium text-red-700 dark:text-red-300">Retorno</span>
                     </span>
                   )}
                 </div>
-                <p className="text-gray-600 mt-0.5 text-sm sm:text-base">
+                <p className="text-gray-600 dark:text-zinc-400 mt-0.5 text-sm sm:text-base">
                   Criada em {formatDate(ordem.created_at)}
                 </p>
               </div>
@@ -547,7 +544,8 @@ const VisualizarOrdemServicoPage = () => {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => router.push(`/ordens/${id}/editar`)}
-                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  disabled={ordem.status === 'ENTREGUE'}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <FiEdit className="w-4 h-4 shrink-0" />
                   Editar
@@ -562,22 +560,22 @@ const VisualizarOrdemServicoPage = () => {
                     <FiChevronDown className={`w-4 h-4 shrink-0 transition-transform ${imprimirMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
                   {imprimirMenuOpen && (
-                    <div className="absolute left-0 top-full z-50 mt-1 w-56 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                    <div className="absolute left-0 top-full z-50 mt-1 w-56 rounded-lg border border-gray-200 dark:border-zinc-600 bg-white dark:bg-zinc-800 py-1 shadow-lg">
                       <button
                         onClick={() => { window.open(`/ordens/${id}/imprimir`, '_blank'); setImprimirMenuOpen(false); }}
-                        className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                        className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-700"
                       >
                         Padrão (A4 completo)
                       </button>
                       <button
                         onClick={() => { window.open(`/ordens/${id}/imprimir/cupom`, '_blank'); setImprimirMenuOpen(false); }}
-                        className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                        className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-700"
                       >
                         Cupom (receituário)
                       </button>
                       <button
                         onClick={() => { window.open(`/ordens/${id}/imprimir/2vias`, '_blank'); setImprimirMenuOpen(false); }}
-                        className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                        className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-700"
                       >
                         2 Vias (meia folha A4)
                       </button>
@@ -621,21 +619,29 @@ const VisualizarOrdemServicoPage = () => {
             </div>
           </div>
 
+          {ordem.status === 'ENTREGUE' && (
+            <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4">
+              <p className="text-sm text-red-800">
+                <strong>O.S. entregue e bloqueada:</strong> esta ordem foi finalizada e nao pode mais ser editada.
+              </p>
+            </div>
+          )}
+
           {/* Status */}
           <div className="mb-8">
             <div className="flex items-center gap-3">
               <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(ordem.status)}`}>
                 <FiCheckCircle className="w-4 h-4 mr-2" />
-                {ordem.status || 'Status não definido'}
+                {getStatusTecnicoLabel(ordem.status, null) || 'Status não definido'}
               </span>
               {ordem.status_tecnico && (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700">
                   <FiTool className="w-4 h-4 mr-2" />
-                  {ordem.status_tecnico}
+                  {getStatusTecnicoLabel(ordem.status, ordem.status_tecnico)}
                 </span>
               )}
               {isRetorno(ordem) && (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800 border border-red-200 animate-pulse">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700 animate-pulse">
                   <FiRefreshCw className="w-4 h-4 mr-2" />
                   Retorno
                 </span>
@@ -648,81 +654,81 @@ const VisualizarOrdemServicoPage = () => {
                          {/* Coluna Esquerda - Informações Principais */}
              <div className="lg:col-span-2 space-y-4 sm:space-y-6">
                {/* Cliente */}
-               <div className={`bg-white rounded-xl shadow-sm border p-4 sm:p-6 ${
+               <div className={`bg-white dark:bg-zinc-800 rounded-xl shadow-sm dark:shadow-none border p-4 sm:p-6 ${
                  isRetorno(ordem)
-                   ? 'border-red-200 bg-red-50/30' 
-                   : 'border-gray-200'
+                   ? 'border-red-200 dark:border-red-800 bg-red-50/30 dark:bg-red-900/20' 
+                   : 'border-gray-200 dark:border-zinc-600'
                }`}>
                 <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-                  <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0">
-                    <FiUser className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg flex-shrink-0">
+                    <FiUser className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 dark:text-blue-300" />
                   </div>
-                  <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Cliente</h2>
+                  <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-zinc-100">Cliente</h2>
                 </div>
                 <div className="space-y-3">
                   <div>
-                    <p className="text-lg font-medium text-gray-900">{ordem.cliente?.nome || 'Nome não informado'}</p>
+                    <p className="text-lg font-medium text-gray-900 dark:text-zinc-100">{ordem.cliente?.nome || 'Nome não informado'}</p>
                   </div>
                   <div className="text-sm">
                     <div>
-                      <span className="text-gray-600">Telefone:</span>
-                      <p className="font-medium text-gray-900">{ordem.cliente?.telefone || '---'}</p>
+                      <span className="text-gray-600 dark:text-zinc-400">Telefone:</span>
+                      <p className="font-medium text-gray-900 dark:text-zinc-100">{ordem.cliente?.telefone || '---'}</p>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Aparelho */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+              <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600 p-4 sm:p-6">
                 <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-                  <div className="p-2 bg-green-100 rounded-lg flex-shrink-0">
-                    <FiSmartphone className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
+                  <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-lg flex-shrink-0">
+                    <FiSmartphone className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 dark:text-green-300" />
                   </div>
-                  <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Aparelho</h2>
+                  <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-zinc-100">Aparelho</h2>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
                   <div>
-                    <span className="text-gray-600">Tipo de Equipamento:</span>
-                    <p className="font-medium text-gray-900">{ordem.equipamento || '---'}</p>
+                    <span className="text-gray-600 dark:text-zinc-400">Tipo de Equipamento:</span>
+                    <p className="font-medium text-gray-900 dark:text-zinc-100">{ordem.equipamento || '---'}</p>
                   </div>
                   <div>
-                    <span className="text-gray-600">Marca:</span>
-                    <p className="font-medium text-gray-900">{ordem.marca || '---'}</p>
+                    <span className="text-gray-600 dark:text-zinc-400">Marca:</span>
+                    <p className="font-medium text-gray-900 dark:text-zinc-100">{ordem.marca || '---'}</p>
                   </div>
                   <div>
-                    <span className="text-gray-600">Modelo:</span>
-                    <p className="font-medium text-gray-900">{ordem.modelo || '---'}</p>
+                    <span className="text-gray-600 dark:text-zinc-400">Modelo:</span>
+                    <p className="font-medium text-gray-900 dark:text-zinc-100">{ordem.modelo || '---'}</p>
                   </div>
                   <div>
-                    <span className="text-gray-600">Cor:</span>
-                    <p className="font-medium text-gray-900">{ordem.cor || '---'}</p>
+                    <span className="text-gray-600 dark:text-zinc-400">Cor:</span>
+                    <p className="font-medium text-gray-900 dark:text-zinc-100">{ordem.cor || '---'}</p>
                   </div>
                   <div>
-                    <span className="text-gray-600">Número de Série:</span>
-                    <p className="font-medium text-gray-900">{ordem.numero_serie || '---'}</p>
+                    <span className="text-gray-600 dark:text-zinc-400">Número de Série:</span>
+                    <p className="font-medium text-gray-900 dark:text-zinc-100">{ordem.numero_serie || '---'}</p>
                   </div>
                   <div>
-                    <span className="text-gray-600">Acessórios:</span>
-                    <p className="font-medium text-gray-900">{ordem.acessorios || '---'}</p>
+                    <span className="text-gray-600 dark:text-zinc-400">Acessórios:</span>
+                    <p className="font-medium text-gray-900 dark:text-zinc-100">{ordem.acessorios || '---'}</p>
                   </div>
                   <div className="md:col-span-2">
-                    <span className="text-gray-600">Condições do Equipamento:</span>
-                    <p className="font-medium text-gray-900">{ordem.condicoes_equipamento || '---'}</p>
+                    <span className="text-gray-600 dark:text-zinc-400">Condições do Equipamento:</span>
+                    <p className="font-medium text-gray-900 dark:text-zinc-100">{ordem.condicoes_equipamento || '---'}</p>
                   </div>
                 </div>
               </div>
 
               {/* Checklist de Entrada */}
               {ordem.checklist_entrada && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600 p-6">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-green-100 rounded-lg">
-                      <FiCheckCircle className="w-5 h-5 text-green-600" />
+                    <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-lg">
+                      <FiCheckCircle className="w-5 h-5 text-green-600 dark:text-green-300" />
                     </div>
                     <div className="flex-1">
-                      <h2 className="text-xl font-semibold text-gray-900">Checklist de Entrada</h2>
+                      <h2 className="text-xl font-semibold text-gray-900 dark:text-zinc-100">Checklist de Entrada</h2>
                       {ordem.equipamento && (
-                        <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                        <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-200 rounded-full text-xs font-medium">
                           Categoria: {ordem.equipamento}
                         </span>
                       )}
@@ -735,28 +741,28 @@ const VisualizarOrdemServicoPage = () => {
                 </div>
               )}
               {(ordem.senha_aparelho || ordem.senha_padrao || (linkPublicoAtivo && ordem.senha_acesso)) && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600 p-6">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-indigo-100 rounded-lg">
-                      <FiShield className="w-5 h-5 text-indigo-600" />
+                    <div className="p-2 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg">
+                      <FiShield className="w-5 h-5 text-indigo-600 dark:text-indigo-300" />
                     </div>
-                    <h2 className="text-xl font-semibold text-gray-900">Informações de Acesso</h2>
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-zinc-100">Informações de Acesso</h2>
                   </div>
                   
                   <div className="space-y-4">
                     {linkPublicoAtivo && ordem.senha_acesso && (
-                      <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800">
                         <div className="p-1.5 bg-blue-100 rounded">
                           <FiExternalLink className="w-4 h-4 text-blue-600" />
                         </div>
                         <div className="flex-1">
-                          <span className="text-sm font-medium text-gray-700">Senha para Acompanhamento Público:</span>
-                          <p className="font-mono text-blue-800 bg-white px-3 py-2 rounded text-lg font-bold mt-1 border border-blue-200 text-center">
+                          <span className="text-sm font-medium text-gray-700 dark:text-zinc-300">Senha para Acompanhamento Público:</span>
+                          <p className="font-mono text-blue-800 dark:text-blue-200 bg-white dark:bg-zinc-800 px-3 py-2 rounded text-lg font-bold mt-1 border border-blue-200 dark:border-blue-700 text-center">
                             {ordem.senha_acesso}
                           </p>
-                          <p className="text-xs text-blue-600 mt-1">
+                          <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
                             O cliente pode usar esta senha para acompanhar a OS em: <br/>
-                            <span className="font-mono bg-blue-100 px-2 py-1 rounded text-xs">
+                            <span className="font-mono bg-blue-100 dark:bg-blue-900/50 px-2 py-1 rounded text-xs">
                               {typeof window !== 'undefined' ? window.location.origin : ''}/os/{ordem.id}/login
                             </span>
                           </p>
@@ -765,13 +771,13 @@ const VisualizarOrdemServicoPage = () => {
                     )}
 
                     {ordem.senha_aparelho && (
-                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                        <div className="p-1.5 bg-gray-100 rounded">
-                          <FiShield className="w-4 h-4 text-gray-600" />
+                      <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-zinc-700 rounded-lg">
+                        <div className="p-1.5 bg-gray-100 dark:bg-zinc-600 rounded">
+                          <FiShield className="w-4 h-4 text-gray-600 dark:text-zinc-300" />
                         </div>
                         <div>
-                          <span className="text-sm font-medium text-gray-700">Senha do Aparelho:</span>
-                          <p className="font-mono text-gray-800 bg-white px-2 py-1 rounded text-sm mt-1 border">
+                          <span className="text-sm font-medium text-gray-700 dark:text-zinc-300">Senha do Aparelho:</span>
+                          <p className="font-mono text-gray-800 dark:text-zinc-200 bg-white dark:bg-zinc-800 px-2 py-1 rounded text-sm mt-1 border dark:border-zinc-600">
                             {ordem.senha_aparelho}
                           </p>
                         </div>
@@ -779,14 +785,14 @@ const VisualizarOrdemServicoPage = () => {
                     )}
                     
                     {ordem.senha_padrao && (
-                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                        <div className="p-1.5 bg-gray-100 rounded">
-                          <FiSmartphone className="w-4 h-4 text-gray-600" />
+                      <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-zinc-700 rounded-lg">
+                        <div className="p-1.5 bg-gray-100 dark:bg-zinc-600 rounded">
+                          <FiSmartphone className="w-4 h-4 text-gray-600 dark:text-zinc-300" />
                         </div>
                         <div className="flex-1">
-                          <span className="text-sm font-medium text-gray-700">Padrão de Desenho:</span>
+                          <span className="text-sm font-medium text-gray-700 dark:text-zinc-300">Padrão de Desenho:</span>
                           <div className="mt-2">
-                            <div className="grid grid-cols-3 gap-1 w-24 bg-white border border-gray-300 rounded p-2">
+                            <div className="grid grid-cols-3 gap-1 w-24 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded p-2">
                               {Array.from({ length: 9 }, (_, index) => {
                                 const pattern = JSON.parse(ordem.senha_padrao);
                                 const isSelected = pattern.includes(index);
@@ -796,8 +802,8 @@ const VisualizarOrdemServicoPage = () => {
                                     key={index}
                                     className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
                                       isSelected
-                                        ? 'bg-gray-800 border-gray-800'
-                                        : 'bg-gray-100 border-gray-300'
+                                        ? 'bg-gray-800 dark:bg-zinc-600 border-gray-800 dark:border-zinc-500'
+                                        : 'bg-gray-100 dark:bg-zinc-700 border-gray-300 dark:border-zinc-600'
                                     }`}
                                   >
                                     {isSelected && (
@@ -819,17 +825,18 @@ const VisualizarOrdemServicoPage = () => {
 
               {/* Relato e Observações */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600 p-6">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-purple-100 rounded-lg">
-                        <FiMessageCircle className="w-5 h-5 text-purple-600" />
+                      <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
+                        <FiMessageCircle className="w-5 h-5 text-purple-600 dark:text-purple-300" />
                       </div>
-                      <h2 className="text-xl font-semibold text-gray-900">Relato do Cliente</h2>
+                      <h2 className="text-xl font-semibold text-gray-900 dark:text-zinc-100">Relato do Cliente</h2>
                     </div>
                     <button
                       onClick={() => setEditandoRelato(!editandoRelato)}
-                      className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                      disabled={ordem.status === 'ENTREGUE'}
+                      className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium"
                     >
                       {editandoRelato ? 'Cancelar' : 'Editar'}
                     </button>
@@ -841,7 +848,7 @@ const VisualizarOrdemServicoPage = () => {
                         value={relatoEditavel}
                         onChange={(e) => setRelatoEditavel(e.target.value)}
                         placeholder="Descreva o problema relatado pelo cliente..."
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 h-24 resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full border border-gray-300 dark:border-zinc-600 rounded-lg px-3 py-2 h-24 resize-none focus:ring-2 focus:ring-blue-500 dark:bg-zinc-800 dark:text-zinc-100 focus:border-transparent"
                       />
                       <div className="flex gap-2">
                         <button
@@ -856,28 +863,28 @@ const VisualizarOrdemServicoPage = () => {
                             setEditandoRelato(false);
                             setRelatoEditavel(ordem?.problema_relatado || '');
                           }}
-                          className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 text-sm"
+                          className="bg-gray-200 dark:bg-zinc-600 text-gray-700 dark:text-zinc-200 px-4 py-2 rounded-lg hover:bg-gray-300 dark:hover:bg-zinc-500 text-sm"
                         >
                           Cancelar
                         </button>
                       </div>
                     </div>
                   ) : (
-                    <p className="text-gray-700 whitespace-pre-line">
+                    <p className="text-gray-700 dark:text-zinc-300 whitespace-pre-line">
                       {ordem.relato || 'Nenhum relato registrado.'}
                     </p>
                   )}
                   
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600 p-6">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-orange-100 rounded-lg">
-                      <FiFileText className="w-5 h-5 text-orange-600" />
+                    <div className="p-2 bg-orange-100 dark:bg-orange-900/50 rounded-lg">
+                      <FiFileText className="w-5 h-5 text-orange-600 dark:text-orange-300" />
                     </div>
-                    <h2 className="text-xl font-semibold text-gray-900">Observações</h2>
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-zinc-100">Observações</h2>
                   </div>
-                  <p className="text-gray-700 whitespace-pre-line">
+                  <p className="text-gray-700 dark:text-zinc-300 whitespace-pre-line">
                     {ordem.observacao || 'Nenhuma observação registrada.'}
                   </p>
                 </div>
@@ -885,38 +892,38 @@ const VisualizarOrdemServicoPage = () => {
 
                              {/* Laudo Técnico */}
                {ordem.laudo && (
-                 <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-6">
+                 <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm dark:shadow-none border border-blue-200 dark:border-blue-800 p-6">
                    <div className="flex items-center gap-3 mb-4">
-                     <div className="p-2 bg-blue-100 rounded-lg">
-                       <FiTool className="w-5 h-5 text-blue-600" />
+                     <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+                       <FiTool className="w-5 h-5 text-blue-600 dark:text-blue-300" />
                      </div>
-                     <h2 className="text-xl font-semibold text-gray-900">Laudo Técnico</h2>
+                     <h2 className="text-xl font-semibold text-gray-900 dark:text-zinc-100">Laudo Técnico</h2>
                    </div>
-                   <LaudoRenderer content={ordem.laudo} className="text-gray-700" />
+                   <LaudoRenderer content={ordem.laudo} className="text-gray-700 dark:text-zinc-300" />
                  </div>
                )}
 
                {/* Informações do Retorno */}
                {isRetorno(ordem) && (
-                 <div className="bg-red-50 rounded-xl shadow-sm border border-red-200 p-6">
+                 <div className="bg-red-50 dark:bg-red-900/20 rounded-xl shadow-sm dark:shadow-none border border-red-200 dark:border-red-800 p-6">
                    <div className="flex items-center gap-3 mb-4">
-                     <div className="p-2 bg-red-100 rounded-lg">
-                       <FiRefreshCw className="w-5 h-5 text-red-600" />
+                     <div className="p-2 bg-red-100 dark:bg-red-900/50 rounded-lg">
+                       <FiRefreshCw className="w-5 h-5 text-red-600 dark:text-red-300" />
                      </div>
-                     <h2 className="text-xl font-semibold text-red-900">Informações do Retorno</h2>
+                     <h2 className="text-xl font-semibold text-red-900 dark:text-red-200">Informações do Retorno</h2>
                    </div>
                    <div className="space-y-3 text-sm">
-                     <div className="bg-white rounded-lg p-4 border border-red-200">
-                       <p className="text-red-800 font-medium mb-2">⚠️ Esta é uma ordem de retorno</p>
-                       <p className="text-red-700">
+                     <div className="bg-white dark:bg-zinc-800 rounded-lg p-4 border border-red-200 dark:border-red-800">
+                       <p className="text-red-800 dark:text-red-200 font-medium mb-2">⚠️ Esta é uma ordem de retorno</p>
+                       <p className="text-red-700 dark:text-red-300">
                          O equipamento foi devolvido pelo cliente para correção ou ajuste. 
                          Verifique o relato do cliente e o laudo técnico para entender o motivo do retorno.
                        </p>
                      </div>
                      {ordem.relato && (
                        <div>
-                         <span className="text-red-700 font-medium">Motivo do retorno:</span>
-                         <p className="text-red-700 mt-1 whitespace-pre-line">{ordem.relato}</p>
+                         <span className="text-red-700 dark:text-red-300 font-medium">Motivo do retorno:</span>
+                         <p className="text-red-700 dark:text-red-300 mt-1 whitespace-pre-line">{ordem.relato}</p>
                        </div>
                      )}
                    </div>
@@ -927,50 +934,50 @@ const VisualizarOrdemServicoPage = () => {
             {/* Coluna Direita - Valores e Informações Técnicas */}
             <div className="space-y-6">
               {/* Informações da OS */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600 p-6">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-indigo-100 rounded-lg">
-                    <FiFileText className="w-5 h-5 text-indigo-600" />
+                  <div className="p-2 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg">
+                    <FiFileText className="w-5 h-5 text-indigo-600 dark:text-indigo-300" />
                   </div>
-                  <h2 className="text-xl font-semibold text-gray-900">Informações da OS</h2>
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-zinc-100">Informações da OS</h2>
                 </div>
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Técnico:</span>
-                    <span className="font-medium text-gray-900">{ordem.tecnico?.nome || '---'}</span>
+                    <span className="text-gray-600 dark:text-zinc-400">Técnico:</span>
+                    <span className="font-medium text-gray-900 dark:text-zinc-100">{ordem.tecnico?.nome || '---'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Garantia:</span>
-                    <span className="font-medium text-gray-900">{ordem.termo_garantia?.nome || '---'}</span>
+                    <span className="text-gray-600 dark:text-zinc-400">Garantia:</span>
+                    <span className="font-medium text-gray-900 dark:text-zinc-100">{ordem.termo_garantia?.nome || '---'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Venc. Garantia:</span>
+                    <span className="text-gray-600 dark:text-zinc-400">Venc. Garantia:</span>
                     <span className="font-medium text-gray-900">{formatDate(ordem.vencimento_garantia)}</span>
                   </div>
                 </div>
               </div>
 
               {/* Datas Importantes - Versão Compacta */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600 p-6">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <FiCalendar className="w-5 h-5 text-blue-600" />
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+                    <FiCalendar className="w-5 h-5 text-blue-600 dark:text-blue-300" />
                   </div>
-                  <h2 className="text-xl font-semibold text-gray-900">Prazos</h2>
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-zinc-100">Prazos</h2>
                 </div>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   {/* Prazo de Entrega */}
                   <div>
-                    <span className="text-gray-600 block mb-1">Prazo:</span>
+                    <span className="text-gray-600 dark:text-zinc-400 block mb-1">Prazo:</span>
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900">
+                      <span className="font-medium text-gray-900 dark:text-zinc-100">
                         {ordem.prazo_entrega ? formatDate(ordem.prazo_entrega) : 'Não definido'}
                       </span>
                       {ordem.prazo_entrega && !ordem.data_entrega && (
                         <span className={`px-2 py-1 text-xs rounded-full ${
                           new Date(ordem.prazo_entrega) < new Date()
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-green-100 text-green-700'
+                            ? 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-200'
+                            : 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-200'
                         }`}>
                           {new Date(ordem.prazo_entrega) < new Date() ? 'Vencido' : 'No prazo'}
                         </span>
@@ -980,13 +987,13 @@ const VisualizarOrdemServicoPage = () => {
                   
                   {/* Data de Retirada */}
                   <div>
-                    <span className="text-gray-600 block mb-1">Retirada:</span>
+                    <span className="text-gray-600 dark:text-zinc-400 block mb-1">Retirada:</span>
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900">
+                      <span className="font-medium text-gray-900 dark:text-zinc-100">
                         {ordem.data_entrega ? formatDate(ordem.data_entrega) : 'Aguardando'}
                       </span>
                       {ordem.data_entrega && (
-                        <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">
+                        <span className="px-2 py-1 text-xs rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-200">
                           Entregue
                         </span>
                       )}
@@ -996,19 +1003,19 @@ const VisualizarOrdemServicoPage = () => {
               </div>
 
               {/* Valores */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600 p-6">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <FiDollarSign className="w-5 h-5 text-green-600" />
+                  <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-lg">
+                    <FiDollarSign className="w-5 h-5 text-green-600 dark:text-green-300" />
                   </div>
-                  <h2 className="text-xl font-semibold text-gray-900">Valores</h2>
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-zinc-100">Valores</h2>
                 </div>
                 
                 {/* Serviços */}
                 {ordem.servico && (
                   <div className="mb-4">
-                    <h3 className="text-sm font-medium text-gray-700 mb-2">Serviços</h3>
-                    <div className="bg-gray-50 rounded-lg p-3">
+                    <h3 className="text-sm font-medium text-gray-700 dark:text-zinc-300 mb-2">Serviços</h3>
+                    <div className="bg-gray-50 dark:bg-zinc-700 rounded-lg p-3">
                       <div className="flex justify-between text-sm">
                         <span>{ordem.servico}</span>
                         <span className="font-medium">{formatCurrency(ordem.valor_servico)}</span>
@@ -1024,13 +1031,13 @@ const VisualizarOrdemServicoPage = () => {
                 {/* Peças */}
                 {ordem.peca && (
                   <div className="mb-4">
-                    <h3 className="text-sm font-medium text-gray-700 mb-2">Peças</h3>
-                    <div className="bg-gray-50 rounded-lg p-3">
+                    <h3 className="text-sm font-medium text-gray-700 dark:text-zinc-300 mb-2">Peças</h3>
+                    <div className="bg-gray-50 dark:bg-zinc-700 rounded-lg p-3">
                       <div className="flex justify-between text-sm">
                         <span>{ordem.peca}</span>
                         <span className="font-medium">{formatCurrency(ordem.valor_peca)}</span>
                       </div>
-                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <div className="flex justify-between text-xs text-gray-500 dark:text-zinc-400 mt-1">
                         <span>Qtd: {ordem.qtd_peca || 1}</span>
                         <span>Subtotal: {formatCurrency((ordem.valor_peca || 0) * (ordem.qtd_peca || 1))}</span>
                       </div>
@@ -1063,21 +1070,21 @@ const VisualizarOrdemServicoPage = () => {
                 {(() => {
                   const { valorTotal, valorFinal } = calcularValores();
                   return (
-                    <div className="border-t pt-4 space-y-2">
+                    <div className="border-t dark:border-zinc-600 pt-4 space-y-2">
                       <div className="flex justify-between text-sm">
-                        <span>Subtotal:</span>
-                        <span className="font-medium">{formatCurrency(valorTotal)}</span>
+                        <span className="dark:text-zinc-400">Subtotal:</span>
+                        <span className="font-medium dark:text-zinc-100">{formatCurrency(valorTotal)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span>Desconto:</span>
-                        <span className="font-medium text-red-600">-{formatCurrency(ordem.desconto || 0)}</span>
+                        <span className="dark:text-zinc-400">Desconto:</span>
+                        <span className="font-medium text-red-600 dark:text-red-400">-{formatCurrency(ordem.desconto || 0)}</span>
                       </div>
-                      <div className="flex justify-between text-lg font-bold border-t pt-2">
-                        <span>Total:</span>
-                        <span className="text-green-600">{formatCurrency(valorFinal)}</span>
+                      <div className="flex justify-between text-lg font-bold border-t dark:border-zinc-600 pt-2">
+                        <span className="dark:text-zinc-100">Total:</span>
+                        <span className="text-green-600 dark:text-green-400">{formatCurrency(valorFinal)}</span>
                       </div>
                       {ordem.valor_faturado && Math.abs(ordem.valor_faturado - valorFinal) > 0.01 && (
-                        <div className="flex justify-between text-sm bg-yellow-50 p-2 rounded border border-yellow-200">
+                        <div className="flex justify-between text-sm bg-yellow-50 dark:bg-yellow-900/20 p-2 rounded border border-yellow-200 dark:border-yellow-800">
                           <span>Faturado:</span>
                           <span className="font-medium">{formatCurrency(ordem.valor_faturado)}</span>
                         </div>
@@ -1101,19 +1108,19 @@ const VisualizarOrdemServicoPage = () => {
                     return (
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
-                          <span className="text-gray-700">Receita prevista:</span>
-                          <span className="font-semibold text-green-700">{formatCurrency(valorPrevisto)}</span>
+                          <span className="text-gray-700 dark:text-zinc-300">Receita prevista:</span>
+                          <span className="font-semibold text-green-700 dark:text-green-400">{formatCurrency(valorPrevisto)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-700">Custos previstos (peças/serviços):</span>
-                          <span className="font-semibold text-red-700">{formatCurrency(custoPrevisto)}</span>
+                          <span className="text-gray-700 dark:text-zinc-300">Custos previstos (peças/serviços):</span>
+                          <span className="font-semibold text-red-700 dark:text-red-400">{formatCurrency(custoPrevisto)}</span>
                         </div>
-                        <div className="flex justify-between border-t pt-2">
-                          <span className="text-gray-900 font-medium">Lucro previsto:</span>
-                          <span className={`font-bold ${lucroPrevisto >= 0 ? 'text-green-700' : 'text-red-700'}`}>{formatCurrency(lucroPrevisto)}</span>
+                        <div className="flex justify-between border-t dark:border-zinc-600 pt-2">
+                          <span className="text-gray-900 dark:text-zinc-100 font-medium">Lucro previsto:</span>
+                          <span className={`font-bold ${lucroPrevisto >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>{formatCurrency(lucroPrevisto)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-700">Margem prevista:</span>
+                          <span className="text-gray-700 dark:text-zinc-300">Margem prevista:</span>
                           <span className={`font-medium ${margemPrevista >= 0 ? 'text-green-700' : 'text-red-700'}`}>{margemPrevista.toFixed(1)}%</span>
                         </div>
                       </div>
@@ -1123,26 +1130,26 @@ const VisualizarOrdemServicoPage = () => {
               )}
 
               {/* Garantia */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600 p-6">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-yellow-100 rounded-lg">
-                    <FiShield className="w-5 h-5 text-yellow-600" />
+                  <div className="p-2 bg-yellow-100 dark:bg-yellow-900/50 rounded-lg">
+                    <FiShield className="w-5 h-5 text-yellow-600 dark:text-yellow-300" />
                   </div>
-                  <h2 className="text-xl font-semibold text-gray-900">Garantia</h2>
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-zinc-100">Garantia</h2>
                 </div>
                 <div className="space-y-3 text-sm">
                   <div>
-                    <span className="text-gray-600">Termo:</span>
-                    <p className="font-medium text-gray-900">{ordem.termo_garantia?.nome || 'Nenhum termo selecionado'}</p>
+                    <span className="text-gray-600 dark:text-zinc-400">Termo:</span>
+                    <p className="font-medium text-gray-900 dark:text-zinc-100">{ordem.termo_garantia?.nome || 'Nenhum termo selecionado'}</p>
                   </div>
                   <div>
-                    <span className="text-gray-600">Vencimento:</span>
-                    <p className="font-medium text-gray-900">{formatDate(ordem.vencimento_garantia)}</p>
+                    <span className="text-gray-600 dark:text-zinc-400">Vencimento:</span>
+                    <p className="font-medium text-gray-900 dark:text-zinc-100">{formatDate(ordem.vencimento_garantia)}</p>
                   </div>
                   {ordem.vencimento_garantia && (
                     <div className="flex items-center gap-2">
-                      <FiClock className="w-4 h-4 text-gray-500" />
-                      <span className="text-xs text-gray-500">
+                      <FiClock className="w-4 h-4 text-gray-500 dark:text-zinc-400" />
+                      <span className="text-xs text-gray-500 dark:text-zinc-400">
                         {new Date(ordem.vencimento_garantia) > new Date() ? 'Garantia válida' : 'Garantia expirada'}
                       </span>
                     </div>
@@ -1153,14 +1160,14 @@ const VisualizarOrdemServicoPage = () => {
             </div>
           </div>
 
-          {/* Seção de Imagens - Full Width */}
-          {(ordem.imagens || ordem.imagens_tecnico) && (
+          {/* Seção de Imagens e Vídeos - Full Width */}
+          {(ordem.imagens || ordem.imagens_tecnico || (ordem as any).videos_tecnico) && (
             <div className="mt-6 sm:mt-8 space-y-6">
               {/* Grid de 2 colunas para imagens em telas maiores */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Imagens do Equipamento */}
                 {ordem.imagens && (
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600 p-6">
                     <ImagensOS 
                       imagens={ordem.imagens || ''} 
                       ordemId={ordem.numero_os || ordem.id}
@@ -1171,7 +1178,7 @@ const VisualizarOrdemServicoPage = () => {
 
                 {/* Imagens do Técnico */}
                 {ordem.imagens_tecnico && (
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600 p-6">
                     <ImagensOS 
                       imagens={ordem.imagens_tecnico || ''} 
                       ordemId={ordem.numero_os || ordem.id}
@@ -1180,17 +1187,28 @@ const VisualizarOrdemServicoPage = () => {
                   </div>
                 )}
               </div>
+
+              {/* Vídeos do Técnico - linha separada */}
+              {(ordem as any).videos_tecnico && (
+                <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600 p-6">
+                  <VideosOS 
+                    videos={(ordem as any).videos_tecnico || ''} 
+                    ordemId={ordem.numero_os || ordem.id}
+                    titulo="Vídeos do Técnico"
+                  />
+                </div>
+              )}
             </div>
           )}
 
           {/* Histórico - Por último */}
           <div className="mt-6 sm:mt-8">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600 p-6">
               <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <FiClock className="w-5 h-5 text-purple-600" />
+                <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
+                  <FiClock className="w-5 h-5 text-purple-600 dark:text-purple-300" />
                 </div>
-                <h2 className="text-xl font-semibold text-gray-900">Histórico</h2>
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-zinc-100">Histórico</h2>
               </div>
               
               <div className="max-h-96 overflow-y-auto pr-1">
@@ -1207,12 +1225,12 @@ const VisualizarOrdemServicoPage = () => {
           {/* Modal de Entrega */}
           {modalEntrega && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+              <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-xl dark:shadow-none dark:border dark:border-zinc-600 max-w-md w-full p-6">
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <FiPackage className="w-6 h-6 text-green-600" />
+                  <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-lg">
+                    <FiPackage className="w-6 h-6 text-green-600 dark:text-green-300" />
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900">Entregar O.S.</h3>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-zinc-100">Entregar O.S.</h3>
                 </div>
 
                 <div className="space-y-4">
@@ -1240,14 +1258,14 @@ const VisualizarOrdemServicoPage = () => {
 
                   {/* Aviso se não há valores */}
                   {calcularValores().valorFinal === 0 && (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
                       <div className="flex items-start gap-3">
                         <FiAlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5" />
                         <div className="flex-1">
-                          <span className="text-sm font-medium text-yellow-900 block">
+                          <span className="text-sm font-medium text-yellow-900 dark:text-yellow-200 block">
                             OS sem valores lançados
                           </span>
-                          <p className="text-xs text-yellow-700 mt-1">
+                          <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
                             Esta OS não possui produtos ou serviços com valores. Você pode entregar mesmo assim, por exemplo, em caso de desistência do cliente.
                           </p>
                         </div>
@@ -1256,7 +1274,7 @@ const VisualizarOrdemServicoPage = () => {
                   )}
 
                   {/* Opção: Cliente Recusou */}
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
                     <label className="flex items-center gap-3 cursor-pointer">
                       <input
                         type="checkbox"
@@ -1264,7 +1282,7 @@ const VisualizarOrdemServicoPage = () => {
                         onChange={(e) => {
                           setClienteRecusou(e.target.checked);
                           if (e.target.checked) {
-                            // Quando marcar, limpar campos de pagamento
+                            setAparelhoSemConserto(false); // Desmarcar a outra opção
                             setFormaPagamento('');
                             setValorRecebido('');
                           }
@@ -1272,26 +1290,53 @@ const VisualizarOrdemServicoPage = () => {
                         className="w-5 h-5 text-red-600 border-red-300 rounded focus:ring-red-500"
                       />
                       <div className="flex-1">
-                        <span className="text-sm font-medium text-red-900">
+                        <span className="text-sm font-medium text-red-900 dark:text-red-200">
                           Cliente recusou o serviço
                         </span>
-                        <p className="text-xs text-red-700 mt-1">
+                        <p className="text-xs text-red-700 dark:text-red-300 mt-1">
                           Ao marcar esta opção, os valores da OS serão zerados e nenhuma venda/comissão será registrada.
                         </p>
                       </div>
                     </label>
                   </div>
 
-                  {/* Forma de Pagamento - Só mostrar se cliente não recusou E há valores */}
-                  {!clienteRecusou && calcularValores().valorFinal > 0 && (
+                  {/* Opção: Aparelho Sem Conserto */}
+                  <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={aparelhoSemConserto}
+                        onChange={(e) => {
+                          setAparelhoSemConserto(e.target.checked);
+                          if (e.target.checked) {
+                            setClienteRecusou(false); // Desmarcar a outra opção
+                            setFormaPagamento('');
+                            setValorRecebido('');
+                          }
+                        }}
+                        className="w-5 h-5 text-orange-600 border-orange-300 rounded focus:ring-orange-500"
+                      />
+                      <div className="flex-1">
+                        <span className="text-sm font-medium text-orange-900 dark:text-orange-200">
+                          Aparelho sem conserto
+                        </span>
+                        <p className="text-xs text-orange-700 dark:text-orange-300 mt-1">
+                          Marque esta opção quando o aparelho não teve condições de reparo (sem conserto possível).
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Forma de Pagamento - Só mostrar se cliente não recusou, aparelho tem conserto E há valores */}
+                  {!clienteRecusou && !aparelhoSemConserto && calcularValores().valorFinal > 0 && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-2">
                         Forma de Pagamento *
                       </label>
                       <select
                         value={formaPagamento}
                         onChange={(e) => setFormaPagamento(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       >
                         <option value="">Selecione...</option>
                         <option value="dinheiro">Dinheiro</option>
@@ -1303,10 +1348,10 @@ const VisualizarOrdemServicoPage = () => {
                     </div>
                   )}
 
-                  {/* Valor Recebido - Só mostrar se cliente não recusou E há valores */}
-                  {!clienteRecusou && calcularValores().valorFinal > 0 && (
+                  {/* Valor Recebido - Só mostrar se cliente não recusou, aparelho tem conserto E há valores */}
+                  {!clienteRecusou && !aparelhoSemConserto && calcularValores().valorFinal > 0 && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-2">
                         Valor Recebido *
                       </label>
                       <input
@@ -1314,16 +1359,16 @@ const VisualizarOrdemServicoPage = () => {
                         value={valorRecebido}
                         onChange={(e) => setValorRecebido(e.target.value)}
                         placeholder={`Mínimo: R$ ${calcularValores().valorFinal.toFixed(2)}`}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1">
                         Valor da O.S.: R$ {calcularValores().valorFinal.toFixed(2)}
                       </p>
                     </div>
                   )}
 
                   {/* Resumo */}
-                  <div className={`rounded-lg p-4 ${clienteRecusou ? 'bg-red-50 border border-red-200' : 'bg-gray-50'}`}>
+                  <div className={`rounded-lg p-4 ${clienteRecusou ? 'bg-red-50 border border-red-200' : aparelhoSemConserto ? 'bg-orange-50 border border-orange-200' : 'bg-gray-50'}`}>
                     <h4 className="font-medium text-gray-900 mb-2">Resumo da Entrega</h4>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
@@ -1339,6 +1384,13 @@ const VisualizarOrdemServicoPage = () => {
                           <span>Status:</span>
                           <span className="font-medium text-red-600">
                             Cliente recusou - Valores serão zerados
+                          </span>
+                        </div>
+                      ) : aparelhoSemConserto ? (
+                        <div className="flex justify-between">
+                          <span>Status:</span>
+                          <span className="font-medium text-orange-600">
+                            Aparelho sem conserto - Sem cobrança
                           </span>
                         </div>
                       ) : calcularValores().valorFinal === 0 ? (
@@ -1366,10 +1418,11 @@ const VisualizarOrdemServicoPage = () => {
                     onClick={() => {
                       setModalEntrega(false);
                       setClienteRecusou(false); // Resetar ao fechar
+                      setAparelhoSemConserto(false); // Resetar ao fechar
                       setFormaPagamento('');
                       setValorRecebido('');
                     }}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-zinc-600 text-gray-700 dark:text-zinc-200 rounded-lg hover:bg-gray-50 dark:hover:bg-zinc-600 transition-colors"
                   >
                     Cancelar
                   </button>
@@ -1378,21 +1431,25 @@ const VisualizarOrdemServicoPage = () => {
                     disabled={
                       processandoEntrega || 
                       !termoGarantiaSelecionado || 
-                      (!clienteRecusou && calcularValores().valorFinal > 0 && (!formaPagamento || !valorRecebido))
+                      (!clienteRecusou && !aparelhoSemConserto && calcularValores().valorFinal > 0 && (!formaPagamento || !valorRecebido))
                     }
                     className={`flex-1 px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       clienteRecusou 
-                        ? 'bg-orange-600 text-white hover:bg-orange-700' 
-                        : 'bg-green-600 text-white hover:bg-green-700'
+                        ? 'bg-red-600 text-white hover:bg-red-700' 
+                        : aparelhoSemConserto
+                          ? 'bg-orange-600 text-white hover:bg-orange-700'
+                          : 'bg-green-600 text-white hover:bg-green-700'
                     }`}
                   >
                     {processandoEntrega 
                       ? 'Processando...' 
                       : clienteRecusou 
                         ? 'Finalizar (Cliente Recusou)' 
-                        : calcularValores().valorFinal === 0
-                          ? 'Confirmar Entrega (Sem Valores)'
-                          : 'Confirmar Entrega'}
+                        : aparelhoSemConserto
+                          ? 'Finalizar (Sem Conserto)'
+                          : calcularValores().valorFinal === 0
+                            ? 'Confirmar Entrega (Sem Valores)'
+                            : 'Confirmar Entrega'}
                   </button>
                 </div>
               </div>

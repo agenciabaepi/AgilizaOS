@@ -3,9 +3,8 @@
 import { useAuth } from '@/context/AuthContext';
 import MenuLayout from '@/components/MenuLayout';
 
-export default function TesteConfiguracoesPage() {
-  return (
-    <MenuLayout>
+export default function TesteConfiguracoesPage({ embedded = false }: { embedded?: boolean }) {
+  const content = (
       <div className="p-8">
         <h1 className="text-3xl font-bold text-green-600 mb-4">
           ✅ PÁGINA DE TESTE FUNCIONANDO!
@@ -18,8 +17,8 @@ export default function TesteConfiguracoesPage() {
           <TesteInfo />
         </div>
       </div>
-    </MenuLayout>
   );
+  return embedded ? content : <MenuLayout>{content}</MenuLayout>;
 }
 
 function TesteInfo() {

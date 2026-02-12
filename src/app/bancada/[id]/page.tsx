@@ -3,7 +3,7 @@
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { FiClipboard, FiSave, FiBox, FiTool, FiPlayCircle, FiX, FiCamera, FiTrash2, FiEdit, FiCheck, FiAlertCircle, FiLock, FiArrowLeft, FiUser, FiDollarSign, FiMessageCircle, FiPackage, FiAlertTriangle, FiEdit3 } from 'react-icons/fi';
+import { FiClipboard, FiSave, FiBox, FiTool, FiPlayCircle, FiX, FiCamera, FiTrash2, FiEdit, FiCheck, FiAlertCircle, FiLock, FiArrowLeft, FiUser, FiDollarSign, FiMessageCircle, FiPackage, FiAlertTriangle, FiEdit3, FiVideo, FiPlay } from 'react-icons/fi';
 import MenuLayout from '@/components/MenuLayout';
 // Removido ProtectedArea - agora é responsabilidade do MenuLayout
 import ProdutoServicoManager from '@/components/ProdutoServicoManager';
@@ -12,9 +12,33 @@ import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
 import DynamicChecklist from '@/components/DynamicChecklist';
 import ImageEditor from '@/components/ImageEditor';
-import { useSubscription } from '@/hooks/useSubscription';
 import LaudoEditor from '@/components/LaudoEditor';
 import CollapsibleSection from '@/components/CollapsibleSection';
+import Lottie from 'lottie-react';
+import uploadingAnimation from '@/assets/animations/Uploading file.json';
+
+// Etapas da OS para a barra de progresso (status por etapa) — ordem do fluxo
+const OS_STEPS = [
+  { label: 'Início', key: 'AGUARDANDO INÍCIO' },
+  { label: 'Em análise', key: 'EM ANÁLISE' },
+  { label: 'Orçamento', key: 'ORÇAMENTO' },
+  { label: 'Aguard. peça', key: 'AGUARDANDO PEÇA' },
+  { label: 'Em execução', key: 'EM EXECUÇÃO' },
+  { label: 'Sem reparo', key: 'SEM REPARO' },
+  { label: 'Concluído', key: 'REPARO CONCLUÍDO' },
+] as const;
+
+function getStatusStepIndex(status: string | undefined, statusTecnico: string): number {
+  const st = (statusTecnico || status || '').toUpperCase();
+  if (!st || /AGUARDANDO\s*IN[IÍ]CIO|AGUARDANDO INICIO/.test(st)) return 0;
+  if (/EM\s*AN[ÁA]LISE|EM_ANALISE/.test(st)) return 1;
+  if (/OR[ÇC]AMENTO|ORCAMENTO/.test(st)) return 2;
+  if (/AGUARDANDO\s*PE[ÇC]A|AGUARDANDO_PECA/.test(st)) return 3;
+  if (/EM\s*EXECU[ÇC][ÃA]O|EM_EXECUCAO/.test(st)) return 4;
+  if (/SEM\s*REPARO|SEM_REPARO/.test(st)) return 5;
+  if (/CONCLU[IÍ]DO|REPARO CONCLU[IÍ]DO/.test(st)) return 6;
+  return 0;
+}
 
 // Componente simples para exibir o padrão Android
 const PatternDisplay = ({ pattern }: { pattern: string | number[] }) => {
@@ -57,7 +81,6 @@ export default function DetalheBancadaPage() {
   const id = params?.id as string;
   const { addToast, showModal } = useToast();
   const confirm = useConfirm();
-  const { temRecurso } = useSubscription();
   interface OrdemServico {
     id: string;
     empresa_id: string;
@@ -103,9 +126,11 @@ export default function DetalheBancadaPage() {
   const [produtos, setProdutos] = useState<string>('');
   const [servicos, setServicos] = useState<string>('');
   const [salvando, setSalvando] = useState(false);
+  const [saveStep, setSaveStep] = useState<'imagens' | 'videos' | 'dados' | null>(null);
   const [statusTecnicoOptions, setStatusTecnicoOptions] = useState<{ id: string, nome: string }[]>([]);
   const [mostrarBotaoIniciar, setMostrarBotaoIniciar] = useState(false);
-  
+  const [progressBarReady, setProgressBarReady] = useState(false);
+
   // Estados para produtos e serviços selecionados
   const [produtosSelecionados, setProdutosSelecionados] = useState<Array<{
     id: string;
@@ -128,6 +153,12 @@ export default function DetalheBancadaPage() {
   const [previewImagensTecnico, setPreviewImagensTecnico] = useState<string[]>([]);
   const [imagensTecnicoExistentes, setImagensTecnicoExistentes] = useState<string[]>([]);
   const [uploadingImagens, setUploadingImagens] = useState(false);
+
+  // Estados para upload de vídeos (técnico)
+  const [videosTecnicoNovas, setVideosTecnicoNovas] = useState<File[]>([]);
+  const [previewVideosTecnico, setPreviewVideosTecnico] = useState<string[]>([]);
+  const [videosTecnicoExistentes, setVideosTecnicoExistentes] = useState<string[]>([]);
+  const [uploadingVideos, setUploadingVideos] = useState(false);
   
   // Estado do editor de imagem
   const [editingImageUrl, setEditingImageUrl] = useState<string | null>(null);
@@ -135,6 +166,7 @@ export default function DetalheBancadaPage() {
   const [editingNewImage, setEditingNewImage] = useState<boolean>(false);
   const [editingExistingImage, setEditingExistingImage] = useState<boolean>(false);
   const [previewImagemUrl, setPreviewImagemUrl] = useState<string | null>(null);
+  const [previewVideoUrl, setPreviewVideoUrl] = useState<string | null>(null);
   
   // Estados para checklist e senha
   const [checklistData, setChecklistData] = useState<any>(null);
@@ -188,6 +220,13 @@ export default function DetalheBancadaPage() {
             .filter((url: string) => url.trim() !== '');
           setImagensTecnicoExistentes(urlsTecnico);
         }
+        // Carregar vídeos do técnico (se a coluna existir)
+        if ((data as any).videos_tecnico) {
+          const urlsVideos = String((data as any).videos_tecnico)
+            .split(',')
+            .filter((url: string) => url.trim() !== '');
+          setVideosTecnicoExistentes(urlsVideos);
+        }
         
         // Carregar dados do checklist
         if (data.checklist_entrada) {
@@ -215,13 +254,21 @@ export default function DetalheBancadaPage() {
           }
         }
         
-        // Definir status inicial baseado no status atual da OS
-        let statusInicial = data.status_tecnico || '';
+        // Normalizar status/status_tecnico (Supabase pode retornar objeto da relação)
+        const norm = (v: unknown): string => {
+          if (v == null || v === '') return '';
+          if (typeof v === 'string') return v.trim();
+          if (typeof v === 'object' && v !== null && 'nome' in v && typeof (v as { nome: string }).nome === 'string')
+            return (v as { nome: string }).nome.trim();
+          return String(v).trim();
+        };
+        const statusOs = norm(data.status);
+        let statusInicial = norm(data.status_tecnico);
         
         if (!statusInicial) {
-          // Se não há status técnico definido, usar o status da OS
-          switch (data.status) {
-            case 'ABERTA':
+          switch (statusOs.toUpperCase()) {
+            case 'ORÇAMENTO':
+            case 'ORCAMENTO':
               statusInicial = 'AGUARDANDO INÍCIO';
               break;
             case 'EM_ANALISE':
@@ -273,13 +320,25 @@ export default function DetalheBancadaPage() {
           setServicosSelecionados([]);
         }
         
-        // Mostrar botão iniciar se estiver aguardando início
-        setMostrarBotaoIniciar(statusInicial === 'AGUARDANDO INÍCIO');
+        // Só permitir editar depois que o técnico clicar em "Iniciar OS" (status → Em análise)
+        const aguardandoInicio = !statusInicial || statusInicial.toUpperCase() === 'AGUARDANDO INÍCIO' || statusInicial.toUpperCase() === 'AGUARDANDO INICIO' || /^AGUARDANDO\s*IN[IÍ]CIO$/i.test(statusInicial);
+        // Considerar OS como "ainda não iniciada" se status for: ORÇAMENTO, vazio, ou qualquer status que não seja de andamento/conclusão
+        const statusOsUpper = statusOs.toUpperCase();
+        const statusNaoIniciados = ['ORÇAMENTO', 'ORCAMENTO', ''];
+        const statusJaEmAndamento = ['EM_ANALISE', 'EM ANÁLISE', 'AGUARDANDO_PECA', 'AGUARDANDO PEÇA', 'EM_EXECUCAO', 'EM EXECUÇÃO', 'CONCLUIDO', 'REPARO CONCLUÍDO', 'ENTREGUE', 'APROVADO'];
+        const aindaAberta = statusNaoIniciados.includes(statusOsUpper) || (!statusJaEmAndamento.some(s => statusOsUpper.includes(s)) && !statusOsUpper);
+        setMostrarBotaoIniciar(aindaAberta && aguardandoInicio);
       }
       setLoading(false);
     };
     if (id) fetchOS();
   }, [id]);
+
+  // Animação de entrada da barra de progresso (preenche após mount)
+  useEffect(() => {
+    const t = setTimeout(() => setProgressBarReady(true), 80);
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     async function fetchStatusTecnico() {
@@ -287,9 +346,8 @@ export default function DetalheBancadaPage() {
       const statusPadrao = [
         { id: '1', nome: 'AGUARDANDO INÍCIO' },
         { id: '2', nome: 'EM ANÁLISE' },
-        { id: '3', nome: 'ORÇAMENTO ENVIADO' },
-        { id: '4', nome: 'AGUARDANDO PEÇA' },
-        { id: '5', nome: 'EM EXECUÇÃO' },
+        { id: '3', nome: 'ORÇAMENTO CONCLUÍDO' },
+        { id: '4', nome: 'EM EXECUÇÃO' },
         { id: '6', nome: 'SEM REPARO' },
         { id: '7', nome: 'REPARO CONCLUÍDO' }
       ];
@@ -314,9 +372,15 @@ export default function DetalheBancadaPage() {
       ];
       
       // ✅ CORRIGIDO: Remover duplicatas baseado no nome
-      const statusUnicos = todosStatus.filter((status, index, array) => 
-        array.findIndex(s => s.nome === status.nome) === index
-      );
+      const statusUnicos = todosStatus
+        // Regra atual: AGUARDANDO PEÇA não é status editável do técnico
+        .filter((status) => {
+          const nome = (status.nome || '').toUpperCase().trim();
+          return nome !== 'AGUARDANDO PEÇA' && nome !== 'AGUARDANDO_PECA';
+        })
+        .filter((status, index, array) =>
+          array.findIndex(s => s.nome === status.nome) === index
+        );
       
       setStatusTecnicoOptions(statusUnicos);
     }
@@ -334,23 +398,52 @@ export default function DetalheBancadaPage() {
       addToast('error', 'Erro: Dados da OS não carregados. Recarregue a página.');
       return;
     }
+
+    if ((os.status || '').toUpperCase() === 'ENTREGUE') {
+      addToast('error', 'O.S. entregue está bloqueada para edição.');
+      return;
+    }
     
     setSalvando(true);
     
     try {
-      // Upload de imagens primeiro
+      setSaveStep('imagens');
       const novasImagens = await uploadImagens();
+      setSaveStep('videos');
+      const novosVideos = await uploadVideos();
+      setSaveStep('dados');
       
-      // Atualizar status da OS baseado no status técnico
+      // Garantir que sempre temos um status técnico para salvar (nunca enviar vazio e apagar no banco)
+      const statusAtualOs = typeof os.status_tecnico === 'string' ? os.status_tecnico : (os as any).status_tecnico?.nome ?? '';
+      let statusTecnicoParaSalvar = (statusTecnico && statusTecnico.trim()) ? statusTecnico.trim() : (statusAtualOs && statusAtualOs.trim() ? statusAtualOs.trim() : 'AGUARDANDO INÍCIO');
+      // Normalizar para o nome exato de uma opção (evitar diferença de acento/caixa entre select e DB)
+      const opcaoCorrespondente = statusTecnicoOptions.find(s => (s.nome || '').toUpperCase() === statusTecnicoParaSalvar.toUpperCase());
+      if (opcaoCorrespondente?.nome) statusTecnicoParaSalvar = opcaoCorrespondente.nome;
+      // Se o técnico preencheu o laudo e o status ainda não é de orçamento concluído, marcar como ORÇAMENTO CONCLUÍDO
+      const laudoPreenchido = typeof laudo === 'string' && laudo.trim().length > 0;
+      const jaOrcamentoEnviado = (statusTecnicoParaSalvar || '').toUpperCase().includes('ORÇAMENTO CONCLUÍDO');
+      if (laudoPreenchido && !jaOrcamentoEnviado) {
+        const opcaoConcluido = statusTecnicoOptions.find(s => (s.nome || '').toUpperCase() === 'ORÇAMENTO CONCLUÍDO');
+        statusTecnicoParaSalvar = opcaoConcluido?.nome ?? 'ORÇAMENTO CONCLUÍDO';
+      }
+      
+      // Atualizar status da OS baseado no status técnico (mapeamento consistente com a API)
       let novoStatus = os?.status;
-      if (statusTecnico === 'EM ANÁLISE') {
+      const stUpper = (statusTecnicoParaSalvar || '').toUpperCase();
+      if (statusTecnicoParaSalvar === 'EM ANÁLISE' || /EM\s*AN[ÁA]LISE|EM_ANALISE/.test(stUpper)) {
         novoStatus = 'EM_ANALISE';
-      } else if (statusTecnico === 'AGUARDANDO PEÇA') {
-        novoStatus = 'AGUARDANDO_PECA';
-      } else if (statusTecnico === 'REPARO CONCLUÍDO') {
+      } else if (statusTecnicoParaSalvar === 'AGUARDANDO INÍCIO' || /AGUARDANDO\s*IN[IÍ]CIO|AGUARDANDO INICIO/.test(stUpper)) {
+        novoStatus = 'ORÇAMENTO';
+      } else if (/OR[ÇC]AMENTO CONCLU[IÍ]DO/.test(stUpper)) {
+        novoStatus = 'ORÇAMENTO CONCLUÍDO'; // orçamento pronto pelo técnico
+      } else if (statusTecnicoParaSalvar === 'REPARO CONCLUÍDO' || /REPARO CONCLU[IÍ]DO/.test(stUpper)) {
         novoStatus = 'CONCLUIDO';
-      } else if (statusTecnico === 'AGUARDANDO INÍCIO') {
-        novoStatus = 'ABERTA';
+      } else if (/SEM\s*REPARO|SEM_REPARO/.test(stUpper)) {
+        // Regra solicitada: espelhar o mesmo status na OS.
+        novoStatus = 'SEM REPARO';
+      } else if (/EM\s*EXECU[ÇC][ÃA]O|EM_EXECUCAO/.test(stUpper)) {
+        // Em execução não deve cair em status de concluído na OS.
+        novoStatus = 'APROVADO';
       }
 
       // Preparar dados dos produtos e serviços
@@ -388,13 +481,18 @@ export default function DetalheBancadaPage() {
       // Combinar imagens do técnico existentes com novas
       const todasImagensTecnico = [...imagensTecnicoExistentes, ...novasImagens];
       const imagensTecnicoString = todasImagensTecnico.join(',');
+      // Combinar vídeos do técnico existentes com novos
+      const todosVideosTecnico = [...videosTecnicoExistentes, ...novosVideos];
+      const videosTecnicoString = todosVideosTecnico.join(',');
+
+      // (A exclusão dos vídeos no Supabase Storage é feita pela API update-status)
 
       // Preparar dados para salvar (sem campos JSON por enquanto)
       
       // ✅ CORREÇÃO: Sempre atualizar produtos/serviços, mesmo que vazios (para permitir remoção)
       const updateData: any = {
         status: novoStatus,
-        status_tecnico: statusTecnico,
+        status_tecnico: statusTecnicoParaSalvar,
         // ✅ Sempre atualizar produtos e serviços (permitir limpar quando removidos)
         peca: produtosText,
         servico: servicosText,
@@ -407,8 +505,9 @@ export default function DetalheBancadaPage() {
         // ✅ PRESERVAR dados existentes se não há novos dados (apenas para laudo e observações)
         ...(laudo && { laudo }),
         ...(observacoes && { observacao: observacoes }),
-        // ✅ Imagens do técnico em coluna separada
-        ...(imagensTecnicoString && { imagens_tecnico: imagensTecnicoString }),
+        // ✅ Imagens e vídeos do técnico - sempre enviar (incluindo vazio) para permitir remoção
+        imagens_tecnico: imagensTecnicoString || '',
+        videos_tecnico: videosTecnicoString || '',
         // ✅ SALVAR checklist se foi modificado
         ...(checklistData && { checklist_entrada: JSON.stringify(checklistData) })
       };
@@ -416,15 +515,16 @@ export default function DetalheBancadaPage() {
       // Remover campos de debug antes de enviar
       const { _debug, ...updateDataLimpo } = updateData;
       
-      // Usar nossa API que envia notificações WhatsApp
+      // Garantir que status e status_tecnico vão explícitos no body (a API usa esses nomes)
       const requestBody = {
         osId: id,
-        newStatus: novoStatus,
-        newStatusTecnico: statusTecnico,
-        ...updateDataLimpo
+        newStatus: novoStatus ?? os?.status,
+        newStatusTecnico: statusTecnicoParaSalvar,
+        ...updateDataLimpo,
+        status: novoStatus ?? os?.status,
+        status_tecnico: statusTecnicoParaSalvar,
       };
       
-      // Usar nossa API que envia notificações WhatsApp
       const response = await fetch('/api/ordens/update-status', {
         method: 'POST',
         headers: {
@@ -439,11 +539,13 @@ export default function DetalheBancadaPage() {
         throw new Error(result.error || 'Erro ao atualizar ordem');
       }
 
-      // Atualizar estado local
+      // Atualizar estado local (incluindo status técnico se foi alterado automaticamente pelo laudo)
+      setStatusTecnico(statusTecnicoParaSalvar);
       if (os) {
         setOs({ 
           ...os, 
           status: novoStatus || os.status,
+          status_tecnico: statusTecnicoParaSalvar,
           valor_peca: calcularTotalProdutos().toString(),
           valor_servico: calcularTotalServicos().toString(),
           valor_faturado: (calcularTotalProdutos() + calcularTotalServicos()).toString(),
@@ -454,15 +556,19 @@ export default function DetalheBancadaPage() {
       setImagensTecnicoNovas([]);
       setPreviewImagensTecnico([]);
       setImagensTecnicoExistentes(todasImagensTecnico);
+      // Limpar vídeos temporários e atualizar listas
+      setVideosTecnicoNovas([]);
+      setPreviewVideosTecnico([]);
+      setVideosTecnicoExistentes(todosVideosTecnico);
 
-      // Atualizar botão iniciar
-      setMostrarBotaoIniciar(statusTecnico === 'AGUARDANDO INÍCIO');
+      // Atualizar botão iniciar (usar valor salvo, não o state que pode ainda não ter atualizado)
+      setMostrarBotaoIniciar(statusTecnicoParaSalvar === 'AGUARDANDO INÍCIO');
 
       // Mostrar toast de sucesso
       addToast('success', 'Dados salvos com sucesso!');
       // Se enviou orçamento, emite notificação backend
       try {
-        if (statusTecnico === 'ORÇAMENTO ENVIADO' && empresaId && id) {
+        if ((statusTecnicoParaSalvar || '').toUpperCase().includes('ORÇAMENTO CONCLUÍDO') && empresaId && id) {
           await fetch('/api/notificacoes/emitir', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -475,8 +581,8 @@ export default function DetalheBancadaPage() {
           });
         }
         
-        // Se concluiu o reparo, emite notificação mais simples
-        if (statusTecnico === 'REPARO CONCLUÍDO' && empresaId && id) {
+        // Se concluiu o reparo, emite notificação (usar valor salvo)
+        if (statusTecnicoParaSalvar === 'REPARO CONCLUÍDO' && empresaId && id) {
           try {
             const response = await fetch('/api/notificacoes/emitir', {
               method: 'POST',
@@ -504,6 +610,7 @@ export default function DetalheBancadaPage() {
       const errorMessage = (error as Error).message || 'Erro desconhecido ao salvar';
       addToast('error', `Erro ao atualizar status da OS: ${errorMessage}`);
     } finally {
+      setSaveStep(null);
       setSalvando(false);
     }
   };
@@ -863,14 +970,75 @@ export default function DetalheBancadaPage() {
     setImagensTecnicoExistentes(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Validar duração do vídeo (máx 60 segundos) e retornar Promise<File | null>
+  const validarDuracaoVideo = (file: File): Promise<File | null> => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.onloadedmetadata = () => {
+        window.URL.revokeObjectURL(video.src);
+        if (video.duration <= 60) {
+          resolve(file);
+        } else {
+          addToast('warning', `Vídeo "${file.name}" tem ${Math.ceil(video.duration)}s. Máximo permitido: 1 minuto.`);
+          resolve(null);
+        }
+      };
+      video.onerror = () => {
+        window.URL.revokeObjectURL(video.src);
+        addToast('warning', `Não foi possível validar o vídeo "${file.name}". Tente outro formato (MP4, WebM).`);
+        resolve(null);
+      };
+      video.src = URL.createObjectURL(file);
+    });
+  };
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target;
+    const files = Array.from(input.files || []);
+    if (files.length === 0) return;
+
+    const MAX_SIZE = 50 * 1024 * 1024; // 50MB por vídeo
+    const validTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo'];
+    const validByType = files.filter(f => validTypes.includes(f.type) || /\.(mp4|webm|mov|avi)$/i.test(f.name));
+    const validBySize = validByType.filter(f => f.size <= MAX_SIZE);
+
+    if (validBySize.length !== validByType.length) {
+      addToast('warning', 'Alguns vídeos foram ignorados. Máximo 50MB por arquivo.');
+    }
+    if (validByType.length !== files.length) {
+      addToast('warning', 'Apenas vídeos MP4, WebM, MOV ou AVI são permitidos.');
+    }
+
+    const accepted: File[] = [];
+    for (const file of validBySize) {
+      const ok = await validarDuracaoVideo(file);
+      if (ok) accepted.push(ok);
+    }
+
+    if (accepted.length > 0) {
+      setVideosTecnicoNovas(prev => [...prev, ...accepted]);
+      setPreviewVideosTecnico(prev => [...prev, ...accepted.map(f => URL.createObjectURL(f))]);
+      addToast('success', `${accepted.length} vídeo(s) adicionado(s). Clique em Salvar para enviar.`);
+    }
+    input.value = '';
+  };
+
+  const handleRemoveVideo = (index: number) => {
+    setVideosTecnicoNovas(prev => prev.filter((_, i) => i !== index));
+    setPreviewVideosTecnico(prev => {
+      const next = prev.filter((_, i) => i !== index);
+      URL.revokeObjectURL(prev[index] || '');
+      return next;
+    });
+  };
+
+  const handleRemoveExistingVideo = (index: number) => {
+    setVideosTecnicoExistentes(prev => prev.filter((_, i) => i !== index));
+  };
+
   // Função para abrir editor de imagem
   const abrirEditorImagem = (imageUrl: string, index: number, isNew: boolean = false, isExisting: boolean = false) => {
-    // Verificar se tem o recurso editor_foto
-    if (!temRecurso('editor_foto')) {
-      addToast('error', 'Editor de imagens disponível apenas no plano Ultra. Faça upgrade para acessar.');
-      return;
-    }
-    
     setEditingImageUrl(imageUrl);
     setEditingImageIndex(index);
     setEditingNewImage(isNew);
@@ -959,6 +1127,41 @@ export default function DetalheBancadaPage() {
     return uploadedUrls;
   };
 
+  const uploadVideos = async () => {
+    if (videosTecnicoNovas.length === 0) return [];
+    setUploadingVideos(true);
+    const uploadedUrls: string[] = [];
+    const MAX_VIDEO_MB = 50 * 1024 * 1024; // 50MB por vídeo
+    try {
+      for (const file of videosTecnicoNovas) {
+        if (file.size > MAX_VIDEO_MB) {
+          addToast('error', `Vídeo "${file.name}" muito grande. Máximo 50MB.`);
+          continue;
+        }
+        const timestamp = Date.now();
+        const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+        const filePath = `${id}/videos/${timestamp}_${safeName}`;
+        const { error: uploadError } = await supabase.storage
+          .from('ordens-imagens')
+          .upload(filePath, file, { upsert: false });
+        if (uploadError) {
+          const msg = /maximum allowed size|exceeded|too large/i.test(uploadError.message)
+            ? 'Vídeo muito grande. Máximo 50MB por arquivo.'
+            : uploadError.message;
+          addToast('error', `Erro ao enviar "${file.name}": ${msg}`);
+          continue;
+        }
+        const { data: urlData } = supabase.storage.from('ordens-imagens').getPublicUrl(filePath);
+        uploadedUrls.push(urlData.publicUrl);
+      }
+    } catch (error) {
+      addToast('error', 'Erro inesperado no upload dos vídeos');
+    } finally {
+      setUploadingVideos(false);
+    }
+    return uploadedUrls;
+  };
+
   // const steps = [
   //   { label: 'Orçamento', icon: <FiFileText /> },
   //   { label: 'Aberto', icon: <FiPlay /> },
@@ -990,195 +1193,286 @@ export default function DetalheBancadaPage() {
 
   return (
     <MenuLayout>
-      {/* Mobile-First Layout */}
-      <div className="min-h-screen bg-gray-50 w-full max-w-full overflow-x-hidden">
-        {/* Header Mobile App-like, Desktop Normal */}
-        <div className="bg-white border-b border-gray-200 sticky lg:static top-0 z-50 safe-area-inset-top w-full max-w-full lg:max-w-7xl lg:mx-auto">
-          <div className="px-3 sm:px-4 lg:px-6 py-2.5 sm:py-3 lg:py-4 w-full max-w-full">
-            <div className="flex items-center justify-between w-full">
+      <div className="min-h-screen bg-gray-100/80 w-full max-w-full overflow-x-hidden">
+        {/* Header */}
+        <div className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm w-full">
+          <div className="px-4 sm:px-5 lg:px-6 py-3.5 lg:py-4 max-w-full lg:max-w-7xl mx-auto">
+            <div className="flex items-center gap-3 w-full">
               <button
                 onClick={() => window.history.back()}
-                className="text-blue-600 hover:text-blue-700 active:text-blue-800 p-2 -ml-2 lg:ml-0 rounded-lg hover:bg-blue-50 active:bg-blue-100 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center shrink-0"
+                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 p-2.5 rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center shrink-0 transition-colors"
+                aria-label="Voltar"
               >
-                <FiArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 lg:w-7 lg:h-7" />
+                <FiArrowLeft className="w-5 h-5" />
               </button>
-              
-              <div className="flex-1 text-center px-2 min-w-0">
-                <h1 className="text-base sm:text-lg lg:text-2xl font-semibold text-gray-900 truncate w-full">
+              <div className="flex-1 min-w-0">
+                <h1 className="text-lg font-semibold text-gray-900 truncate">
                   OS #{os.numero_os || os.id}
                 </h1>
+                <p className="text-xs text-gray-500 mt-0.5 truncate">
+                  {[os.cliente?.nome, aparelho].filter(Boolean).join(' · ') || '—'}
+                </p>
               </div>
-              
-              <div className="min-w-[44px] min-h-[44px] shrink-0"></div> {/* Spacer for centering */}
-            </div>
-            
-            {/* Status Badge */}
-            <div className="flex justify-center mt-2 lg:mt-3 w-full">
-              <span className={`inline-flex items-center px-3 sm:px-4 lg:px-5 py-1.5 sm:py-2 lg:py-2.5 rounded-full text-xs sm:text-sm lg:text-base font-medium shrink-0 ${
-                os.status === 'ABERTA' ? 'bg-yellow-100 text-yellow-800' :
+              <span className={`shrink-0 inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium ${
+                os.status === 'ORÇAMENTO' ? 'bg-yellow-100 text-yellow-800' :
                 os.status === 'EM_ANALISE' ? 'bg-blue-100 text-blue-800' :
                 os.status === 'AGUARDANDO_PECA' ? 'bg-orange-100 text-orange-800' :
                 os.status === 'CONCLUIDO' ? 'bg-green-100 text-green-800' :
                 'bg-gray-100 text-gray-800'
               }`}>
-                {os.status === 'ABERTA' ? 'Aguardando' :
-                 os.status === 'EM_ANALISE' ? 'Em Análise' :
-                 os.status === 'AGUARDANDO_PECA' ? 'Aguardando Peça' :
-                 os.status === 'CONCLUIDO' ? 'Concluído' : os.status}
+                {os.status === 'ORÇAMENTO' ? 'Orçamento' : os.status === 'EM_ANALISE' ? 'Em Análise' : os.status === 'AGUARDANDO_PECA' ? 'Aguardando Peça' : os.status === 'CONCLUIDO' ? 'Concluído' : os.status}
               </span>
+            </div>
+            {/* Barra de progresso por etapa */}
+            {(() => {
+              const currentStep = getStatusStepIndex(os?.status, statusTecnico);
+              const progressPercent = ((currentStep + 1) / OS_STEPS.length) * 100;
+              const displayPercent = progressBarReady ? progressPercent : 0;
+              return (
+                <div className="mt-3 w-full">
+                  <div className="h-1.5 w-full rounded-full bg-gray-200 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-500 transition-[width] duration-700 ease-out"
+                      style={{
+                        width: `${displayPercent}%`,
+                        boxShadow: '0 0 12px rgba(99, 102, 241, 0.4)',
+                      }}
+                    />
+                  </div>
+                  <div className="flex justify-between mt-1.5 gap-1 flex-wrap">
+                    {OS_STEPS.map((step, i) => {
+                      const isDone = i < currentStep;
+                      const isCurrent = i === currentStep;
+                      return (
+                        <span
+                          key={step.key}
+                          className={`inline-flex items-center gap-1.5 text-[10px] sm:text-xs font-medium transition-colors duration-300 ${
+                            isDone ? 'text-indigo-600' : isCurrent ? 'text-indigo-700' : 'text-gray-400'
+                          } ${isCurrent ? 'rounded-md bg-indigo-50 px-2 py-1 -m-1 animate-status-current' : ''}`}
+                        >
+                          {isCurrent && (
+                            <span className="relative flex h-1.5 w-1.5 shrink-0">
+                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-75" />
+                              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                            </span>
+                          )}
+                          {step.label}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
 
-        {/* Content Container - Mobile Compacto, Desktop Espaçado */}
-        <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 lg:py-6 pb-36 lg:pb-8 max-w-full lg:max-w-7xl mx-auto overflow-x-hidden">
-          
-          {/* PARTE SUPERIOR: Resumo em Colunas */}
-          <div className="mb-4 sm:mb-6 lg:mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 mb-3 sm:mb-4 lg:mb-6">
-              {/* Coluna 1: Cliente */}
-              <div className="bg-white rounded-xl lg:rounded-2xl p-3 sm:p-4 lg:p-6 shadow-sm border border-gray-100">
-                <div className="flex items-center gap-2 lg:gap-3 mb-2 sm:mb-3 lg:mb-4">
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-blue-100 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
-                    <FiUser className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-blue-600" />
-              </div>
-                  <h3 className="font-semibold text-sm sm:text-base lg:text-lg text-gray-900">Cliente</h3>
-              </div>
-                <p className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 mb-2 lg:mb-3 break-words">{os.cliente?.nome || '---'}</p>
-                <div className="space-y-1.5 lg:space-y-2 text-xs sm:text-sm lg:text-base text-gray-600">
-                  <p className="break-words overflow-wrap-anywhere">Data: {os.created_at ? new Date(os.created_at).toLocaleDateString('pt-BR') : '---'}</p>
-                  <p className="break-words overflow-wrap-anywhere">Atendente: {os.atendente || '---'}</p>
+        <div className="px-4 sm:px-5 lg:px-6 py-5 lg:py-7 pb-40 lg:pb-10 max-w-full lg:max-w-7xl mx-auto overflow-x-hidden">
+          {/* Aviso: OS não iniciada — em cima */}
+          {mostrarBotaoIniciar && (
+            <div className="mb-5 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
+              <FiAlertCircle className="w-6 h-6 text-amber-600 shrink-0" />
+              <p className="text-sm text-amber-800">
+                <strong>OS ainda não iniciada.</strong> Clique em &quot;Iniciar OS&quot; abaixo para poder editar diagnóstico, materiais e documentação. O status da OS passará automaticamente para <strong>Em análise</strong>.
+              </p>
             </div>
-          </div>
+          )}
 
-              {/* Coluna 2: Aparelho */}
-          <div className="bg-white rounded-xl lg:rounded-2xl p-3 sm:p-4 lg:p-6 shadow-sm border border-gray-100">
-                <div className="flex items-center gap-2 lg:gap-3 mb-2 sm:mb-3 lg:mb-4">
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-green-100 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
-                    <FiBox className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-green-600" />
-              </div>
-                  <h3 className="font-semibold text-sm sm:text-base lg:text-lg text-gray-900">Aparelho</h3>
-              </div>
-                <p className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 mb-2 lg:mb-3 break-words overflow-wrap-anywhere">{aparelho || '---'}</p>
-                <div className="space-y-1.5 lg:space-y-2 text-xs sm:text-sm lg:text-base text-gray-600">
-                  {os.numero_serie && <p className="break-words overflow-wrap-anywhere">Série: {os.numero_serie}</p>}
-                  {os.cor && <p className="break-words overflow-wrap-anywhere">Cor: {os.cor}</p>}
+          {(os.status || '').toUpperCase() === 'ENTREGUE' && (
+            <div className="mb-5 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
+              <FiAlertCircle className="w-6 h-6 text-red-600 shrink-0" />
+              <p className="text-sm text-red-800">
+                <strong>O.S. entregue e bloqueada:</strong> esta ordem ja foi entregue e nao pode mais ser editada.
+              </p>
             </div>
-          </div>
+          )}
 
-              {/* Coluna 3: Valor e Status */}
-          <div className="bg-white rounded-xl lg:rounded-2xl p-3 sm:p-4 lg:p-6 shadow-sm border border-gray-100">
-                <div className="flex items-center gap-2 lg:gap-3 mb-2 sm:mb-3 lg:mb-4">
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-yellow-100 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
-                    <FiDollarSign className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-yellow-600" />
+          {/* Resumo da OS */}
+          <section className="mb-6 lg:mb-8" aria-label="Resumo da ordem">
+            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3.5">Resumo da OS</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+              {/* Cliente */}
+              <div className="bg-white rounded-xl border border-gray-200 p-4 lg:p-5 shadow-sm flex flex-col min-h-[140px]">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Cliente</p>
+                <p className="text-sm font-medium text-gray-900 break-words">{os.cliente?.nome || '—'}</p>
+                <dl className="mt-auto pt-3 space-y-1.5 border-t border-gray-100">
+                  <div>
+                    <dt className="text-xs text-gray-500">Data de entrada</dt>
+                    <dd className="text-sm text-gray-900">{os.created_at ? new Date(os.created_at).toLocaleDateString('pt-BR') : '—'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-gray-500">Atendente</dt>
+                    <dd className="text-sm text-gray-900">{os.atendente || '—'}</dd>
+                  </div>
+                </dl>
               </div>
-                  <h3 className="font-semibold text-sm sm:text-base lg:text-lg text-gray-900">Valor Total</h3>
-              </div>
-                <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-blue-600 mb-3 lg:mb-4 break-words overflow-wrap-anywhere">
-              {((parseFloat(os.valor_servico || '0') + parseFloat(os.valor_peca || '0'))).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-            </p>
-                <div>
-                  <label className="block text-xs lg:text-sm font-medium text-gray-600 mb-2">Status Técnico</label>
-            <select
-                    className="w-full border border-gray-300 px-3 py-3 lg:py-2.5 rounded-lg text-sm lg:text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white min-h-[44px]"
-              value={statusTecnico}
-              onChange={e => setStatusTecnico(e.target.value)}
-            >
-              <option value="">Selecione o status</option>
-              {statusTecnicoOptions.map(option => (
-                <option key={option.id} value={option.nome}>{option.nome}</option>
-              ))}
-            </select>
-          </div>
-              </div>
-            </div>
-            
-            {/* Informações Adicionais - Sempre exibir */}
-            {(os?.relato || os.acessorios || os.condicoes_equipamento || os?.senha_aparelho || os?.senha_padrao) && (
-              <CollapsibleSection
-                title="Informações Adicionais"
-                subtitle="Relato, acessórios, condições do equipamento e senha"
-                icon={<FiMessageCircle className="w-5 h-5 text-orange-600" />}
-                defaultOpen={false}
-              >
-                <div className="space-y-4 lg:space-y-6 pt-2">
-                  {/* Senha do Aparelho - Sempre exibir se existir */}
-                  {os?.senha_aparelho && (
+
+              {/* Aparelho */}
+              <div className="bg-white rounded-xl border border-gray-200 p-4 lg:p-5 shadow-sm flex flex-col min-h-[140px]">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Aparelho</p>
+                <p className="text-sm font-medium text-gray-900 break-words">{aparelho || '—'}</p>
+                <dl className="mt-auto pt-3 space-y-1.5 border-t border-gray-100">
+                  {os.numero_serie && (
                     <div>
-                      <h4 className="text-sm lg:text-base font-medium text-gray-700 mb-2 lg:mb-3 flex items-center gap-2">
-                        <FiLock className="w-4 h-4 lg:w-5 lg:h-5 text-yellow-600" />
-                        Senha do Aparelho
-                      </h4>
-                      <div className="bg-yellow-50 rounded-lg lg:rounded-xl p-3 lg:p-4 border border-yellow-100 w-full overflow-x-auto">
-                        <code className="text-lg lg:text-xl font-mono text-blue-600 break-all">
-                          {String(os.senha_aparelho)}
-                        </code>
+                      <dt className="text-xs text-gray-500">Nº Série</dt>
+                      <dd className="text-sm text-gray-900 break-all">{os.numero_serie}</dd>
+                    </div>
+                  )}
+                  {os.cor && (
+                    <div>
+                      <dt className="text-xs text-gray-500">Cor</dt>
+                      <dd className="text-sm text-gray-900">{os.cor}</dd>
+                    </div>
+                  )}
+                  {!os.numero_serie && !os.cor && (
+                    <div>
+                      <dt className="text-xs text-gray-500">Detalhes</dt>
+                      <dd className="text-sm text-gray-400">—</dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
+
+              {/* Valores */}
+              <div className="bg-white rounded-xl border border-gray-200 p-4 lg:p-5 shadow-sm flex flex-col min-h-[140px]">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Valores</p>
+                <dl className="space-y-1.5 flex-1">
+                  <div>
+                    <dt className="text-xs text-gray-500">Peças</dt>
+                    <dd className="text-sm text-gray-900">{parseFloat(os.valor_peca || '0').toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-gray-500">Serviço</dt>
+                    <dd className="text-sm text-gray-900">{parseFloat(os.valor_servico || '0').toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</dd>
+                  </div>
+                </dl>
+                <div className="pt-3 mt-auto border-t border-gray-100">
+                  <dt className="text-xs text-gray-500">Total</dt>
+                  <dd className="text-base font-semibold text-blue-600">{(parseFloat(os.valor_servico || '0') + parseFloat(os.valor_peca || '0')).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</dd>
+                </div>
+              </div>
+
+              {/* Status técnico */}
+              <div className="bg-white rounded-xl border border-gray-200 p-4 lg:p-5 shadow-sm flex flex-col min-h-[140px]">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Status técnico</p>
+                <div className="mt-auto">
+                  <select
+                    value={statusTecnico}
+                    onChange={e => setStatusTecnico(e.target.value)}
+                    disabled={mostrarBotaoIniciar}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  >
+                    <option value="">Selecione o status</option>
+                    {statusTecnicoOptions.map(option => (
+                      <option key={option.id} value={option.nome}>{option.nome}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          </section>
+            
+          {/* Relato e informações do cliente */}
+          {(os?.relato || os.acessorios || os.condicoes_equipamento || os?.senha_aparelho || os?.senha_padrao) && (
+            <section className="mb-6 lg:mb-8" aria-label="Relato e informações">
+              <CollapsibleSection
+                title="Relato e informações do cliente"
+                subtitle="Relato, acessórios, condições e senhas"
+                icon={<FiMessageCircle className="w-5 h-5 text-orange-600" />}
+                defaultOpen={true}
+              >
+                <div className="space-y-5 pt-3 pb-1">
+                  {os?.relato && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Relato do cliente</p>
+                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                        <p className="text-sm text-gray-900 leading-relaxed break-words">{os.relato}</p>
                       </div>
                     </div>
                   )}
-                  
-                  {/* Padrão Android - Só exibir se existir */}
+                  {os.acessorios && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Acessórios</p>
+                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                        <p className="text-sm text-gray-900 leading-relaxed break-words">{os.acessorios}</p>
+                      </div>
+                    </div>
+                  )}
+                  {os.condicoes_equipamento && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Condições do equipamento</p>
+                      <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
+                        <p className="text-sm text-gray-900 leading-relaxed break-words">{os.condicoes_equipamento}</p>
+                      </div>
+                    </div>
+                  )}
+                  {os?.senha_aparelho && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                        <FiLock className="w-3.5 h-3.5 text-amber-600" /> Senha do aparelho
+                      </p>
+                      <div className="bg-amber-50 rounded-lg p-3 border border-amber-200 overflow-x-auto">
+                        <code className="text-sm font-mono text-gray-900 break-all">{String(os.senha_aparelho)}</code>
+                      </div>
+                    </div>
+                  )}
                   {os?.senha_padrao && (
                     <div>
-                      <h4 className="text-sm lg:text-base font-medium text-gray-700 mb-2 lg:mb-3 flex items-center gap-2">
-                        <FiLock className="w-4 h-4 lg:w-5 lg:h-5 text-yellow-600" />
-                        Padrão Android
-                      </h4>
-                      <div className="bg-yellow-50 rounded-lg lg:rounded-xl p-3 lg:p-4 border border-yellow-100">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                        <FiLock className="w-3.5 h-3.5 text-amber-600" /> Padrão Android
+                      </p>
+                      <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
                         <PatternDisplay pattern={os.senha_padrao as string | number[]} />
                       </div>
                     </div>
                   )}
-                  
-                  {os?.relato && (
-                    <div>
-                      <h4 className="text-sm lg:text-base font-medium text-gray-700 mb-2 lg:mb-3 flex items-center gap-2">
-                        <FiMessageCircle className="w-4 h-4 lg:w-5 lg:h-5 text-orange-600" />
-                        Relato do Cliente
-                      </h4>
-                      <div className="bg-orange-50 rounded-lg lg:rounded-xl p-3 lg:p-4 border border-orange-100 w-full">
-                        <p className="text-sm lg:text-base text-gray-700 leading-relaxed break-words overflow-wrap-anywhere w-full">{os.relato}</p>
-                  </div>
                 </div>
-                  )}
-                  {os.acessorios && (
-                    <div className="w-full">
-                      <h4 className="text-sm lg:text-base font-medium text-gray-700 mb-2 lg:mb-3 flex items-center gap-2">
-                        <FiPackage className="w-4 h-4 lg:w-5 lg:h-5 text-blue-600 shrink-0" />
-                        Acessórios
-                      </h4>
-                      <div className="bg-blue-50 rounded-lg lg:rounded-xl p-3 lg:p-4 border border-blue-100 w-full">
-                        <p className="text-sm lg:text-base text-gray-700 leading-relaxed break-words overflow-wrap-anywhere w-full">{os.acessorios}</p>
-                    </div>
-                    </div>
-                  )}
-                  {os.condicoes_equipamento && (
-                    <div className="w-full">
-                      <h4 className="text-sm lg:text-base font-medium text-gray-700 mb-2 lg:mb-3 flex items-center gap-2">
-                        <FiAlertTriangle className="w-4 h-4 lg:w-5 lg:h-5 text-red-600 shrink-0" />
-                        Condições do Equipamento
-                      </h4>
-                      <div className="bg-red-50 rounded-lg lg:rounded-xl p-3 lg:p-4 border border-red-100 w-full">
-                        <p className="text-sm lg:text-base text-gray-700 leading-relaxed break-words overflow-wrap-anywhere w-full">{os.condicoes_equipamento}</p>
-                </div>
-              </div>
-            )}
-                      </div>
               </CollapsibleSection>
-            )}
-          </div>
+            </section>
+          )}
 
-          {/* PARTE INFERIOR: Área de Trabalho Completa */}
-          <div className="space-y-4 lg:space-y-6 w-full max-w-full">
+          {/* Seu trabalho — só editável após "Iniciar OS" */}
+          <div className="space-y-4 w-full max-w-full">
+            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3.5">Seu trabalho</h2>
 
-
-          {/* Materiais e Serviços - Colapsável */}
           <CollapsibleSection
-            title="Materiais e Serviços"
+            title="Diagnóstico técnico"
+            subtitle="Laudo e observações"
+            icon={<FiEdit className="w-5 h-5 text-purple-600" />}
+            defaultOpen={true}
+          >
+            <div className="space-y-5 pt-0 pb-1 w-full max-w-full">
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Laudo técnico</p>
+                <LaudoEditor
+                  value={laudo}
+                  onChange={setLaudo}
+                  placeholder="Descreva o diagnóstico técnico com todos os detalhes relevantes..."
+                  minHeight="180px"
+                  readOnly={mostrarBotaoIniciar}
+                />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Observações técnicas</p>
+                <textarea
+                  className="w-full border border-gray-300 px-3 py-2.5 rounded-lg text-sm text-gray-900 min-h-[100px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white resize-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  value={observacoes}
+                  onChange={e => setObservacoes(e.target.value)}
+                  placeholder="Observações adicionais do técnico..."
+                  readOnly={mostrarBotaoIniciar}
+                  disabled={mostrarBotaoIniciar}
+                />
+              </div>
+            </div>
+          </CollapsibleSection>
+
+          <CollapsibleSection
+            title="Materiais e serviços"
             subtitle="Produtos utilizados e serviços realizados"
             icon={<FiTool className="w-5 h-5 text-green-600" />}
             defaultOpen={true}
           >
-            <div className="space-y-6 pt-2">
+            <div className="space-y-6 pt-1 pb-1">
               {/* Produtos e Serviços usando ProdutoServicoManager */}
               <ProdutoServicoManager
                 tipo="produto"
@@ -1205,6 +1499,7 @@ export default function DetalheBancadaPage() {
                   }));
                   setProdutosSelecionados(novosProdutos);
                 }}
+                readonly={mostrarBotaoIniciar}
               />
               
               <ProdutoServicoManager
@@ -1231,53 +1526,22 @@ export default function DetalheBancadaPage() {
                   }));
                   setServicosSelecionados(novosServicos);
                 }}
-                        />
+                readonly={mostrarBotaoIniciar}
+              />
                       </div>
           </CollapsibleSection>
 
-          {/* Diagnóstico - Colapsável */}
-          <CollapsibleSection
-            title="Diagnóstico Técnico"
-            subtitle="Laudo e observações do técnico"
-            icon={<FiEdit className="w-5 h-5 text-purple-600" />}
-            defaultOpen={true}
-          >
-            <div className="space-y-4 lg:space-y-6 pt-2 w-full max-w-full">
-              <div className="w-full max-w-full">
-                <h4 className="text-sm lg:text-base font-medium text-gray-700 mb-2 sm:mb-3 lg:mb-4">Laudo Técnico</h4>
-                <LaudoEditor
-              value={laudo}
-                  onChange={setLaudo}
-              placeholder="Descreva o diagnóstico técnico com todos os detalhes relevantes..."
-                  minHeight="180px"
-            />
-          </div>
-
-              <div className="w-full max-w-full">
-                <h4 className="text-sm lg:text-base font-medium text-gray-700 mb-2 sm:mb-3 lg:mb-4">Observações Técnicas</h4>
-                <textarea
-                  className="w-full max-w-full border border-gray-300 px-3 sm:px-4 lg:px-5 py-2.5 sm:py-3 lg:py-4 rounded-lg sm:rounded-xl lg:rounded-2xl text-sm lg:text-base min-h-[100px] lg:min-h-[120px] focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors resize-none bg-white"
-                  value={observacoes}
-                  onChange={e => setObservacoes(e.target.value)}
-                  placeholder="Observações adicionais do técnico..."
-                />
-              </div>
-              </div>
-          </CollapsibleSection>
-
-          {/* Documentação - Colapsável */}
           <CollapsibleSection
             title="Documentação"
-            subtitle="Imagens, checklist e informações de acesso"
+            subtitle="Imagens, vídeos e checklist de entrada"
             icon={<FiCamera className="w-5 h-5 text-indigo-600" />}
             defaultOpen={false}
           >
-            <div className="space-y-6 lg:space-y-8 pt-2">
-              {/* Upload de Imagens */}
+            <div className="space-y-6 lg:space-y-8 pt-1 pb-1">
               <div>
-                <h4 className="text-sm lg:text-base font-medium text-gray-700 mb-3 lg:mb-4">Imagens do Técnico</h4>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Imagens do técnico</p>
             <div className="space-y-4">
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 sm:p-5 md:p-6 text-center hover:border-gray-400 active:border-gray-500 transition-colors touch-manipulation">
+              <div className={`border-2 border-dashed rounded-lg p-4 sm:p-5 md:p-6 text-center transition-colors touch-manipulation ${mostrarBotaoIniciar ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-75' : 'border-gray-300 hover:border-gray-400 active:border-gray-500'}`}>
                 <input
                   type="file"
                   multiple
@@ -1285,8 +1549,9 @@ export default function DetalheBancadaPage() {
                   className="hidden"
                   id="image-upload-edit"
                   onChange={handleImageUpload}
+                  disabled={mostrarBotaoIniciar}
                 />
-                <label htmlFor="image-upload-edit" className="cursor-pointer block min-h-[120px] sm:min-h-[140px] flex flex-col justify-center">
+                <label htmlFor={mostrarBotaoIniciar ? undefined : 'image-upload-edit'} className={`flex min-h-[120px] sm:min-h-[140px] flex-col justify-center ${mostrarBotaoIniciar ? 'cursor-not-allowed pointer-events-none' : 'cursor-pointer'}`}>
                   <div className="space-y-2">
                     <div className="text-3xl sm:text-4xl">📷</div>
                     <p className="text-xs sm:text-sm text-gray-600 font-medium">Imagens do técnico (laudo)</p>
@@ -1296,6 +1561,9 @@ export default function DetalheBancadaPage() {
                         {imagensTecnicoNovas.length} imagem{imagensTecnicoNovas.length !== 1 ? 'ns' : ''} selecionada{imagensTecnicoNovas.length !== 1 ? 's' : ''}
                       </p>
                     )}
+                    {mostrarBotaoIniciar && (
+                      <p className="text-xs text-amber-600 font-medium mt-1">Inicie a OS para adicionar imagens</p>
+                    )}
                   </div>
                 </label>
               </div>
@@ -1304,13 +1572,15 @@ export default function DetalheBancadaPage() {
               {previewImagensTecnico.length > 0 && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-medium text-gray-700">Novas Imagens do Técnico</h4>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Novas imagens</p>
                     <button
+                      type="button"
                       onClick={() => {
                         setImagensTecnicoNovas([]);
                         setPreviewImagensTecnico([]);
                       }}
-                      className="text-xs text-red-600 hover:text-red-800 font-medium"
+                      disabled={mostrarBotaoIniciar}
+                      className="text-xs text-red-600 hover:text-red-800 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Limpar todas
                     </button>
@@ -1326,21 +1596,25 @@ export default function DetalheBancadaPage() {
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/60 transition-all duration-200 rounded-lg flex items-center justify-center">
                           <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                           <button
+                              type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 abrirEditorImagem(preview, index, true, false);
                               }}
-                              className="bg-purple-600 text-white rounded-lg px-3 py-2 text-xs sm:text-sm font-medium flex items-center gap-1.5 hover:bg-purple-700 active:bg-purple-800 transition-colors shadow-lg min-h-[40px] touch-manipulation"
+                              disabled={mostrarBotaoIniciar}
+                              className="bg-purple-600 text-white rounded-lg px-3 py-2 text-xs sm:text-sm font-medium flex items-center gap-1.5 hover:bg-purple-700 active:bg-purple-800 transition-colors shadow-lg min-h-[40px] touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <FiEdit3 size={16} />
                               Editar
                             </button>
                             <button
+                              type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleRemoveImage(index);
                               }}
-                              className="bg-red-500 text-white rounded-lg px-3 py-2 text-xs sm:text-sm font-medium flex items-center gap-1.5 hover:bg-red-600 active:bg-red-700 transition-colors shadow-lg min-h-[40px] touch-manipulation"
+                              disabled={mostrarBotaoIniciar}
+                              className="bg-red-500 text-white rounded-lg px-3 py-2 text-xs sm:text-sm font-medium flex items-center gap-1.5 hover:bg-red-600 active:bg-red-700 transition-colors shadow-lg min-h-[40px] touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <FiTrash2 size={16} />
                               Remover
@@ -1348,17 +1622,147 @@ export default function DetalheBancadaPage() {
                           </div>
                         </div>
                       </div>
-                    ))}
+                    )                    )}
                   </div>
                 </div>
               )}
 
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <FiVideo className="w-3.5 h-3.5 text-indigo-600" /> Vídeos do técnico
+                </p>
+                <div className={`border-2 border-dashed rounded-lg p-4 sm:p-5 md:p-6 text-center transition-colors touch-manipulation ${mostrarBotaoIniciar ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-75' : 'border-gray-300 hover:border-gray-400 active:border-gray-500'}`}>
+                  <input
+                    type="file"
+                    multiple
+                    accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,.mp4,.webm,.mov,.avi"
+                    className="hidden"
+                    id="video-upload-edit"
+                    onChange={handleVideoUpload}
+                    disabled={mostrarBotaoIniciar}
+                  />
+                  <label htmlFor={mostrarBotaoIniciar ? undefined : 'video-upload-edit'} className={`flex min-h-[100px] flex-col justify-center ${mostrarBotaoIniciar ? 'cursor-not-allowed pointer-events-none' : 'cursor-pointer'}`}>
+                    <div className="space-y-2">
+                      <div className="text-3xl sm:text-4xl">🎬</div>
+                      <p className="text-xs sm:text-sm text-gray-600 font-medium">Vídeos do técnico (até 1 minuto)</p>
+                      <p className="text-xs text-gray-500 px-2">MP4, WebM, MOV até 50MB • Máximo 1 min de duração</p>
+                      {videosTecnicoNovas.length > 0 && (
+                        <p className="text-xs text-green-600 font-medium">
+                          {videosTecnicoNovas.length} vídeo{videosTecnicoNovas.length !== 1 ? 's' : ''} selecionado{videosTecnicoNovas.length !== 1 ? 's' : ''}
+                        </p>
+                      )}
+                      {mostrarBotaoIniciar && (
+                        <p className="text-xs text-amber-600 font-medium mt-1">Inicie a OS para adicionar vídeos</p>
+                      )}
+                    </div>
+                  </label>
+                </div>
+
+                {/* Preview dos novos vídeos */}
+                {previewVideosTecnico.length > 0 && (
+                  <div className="mt-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Novos vídeos</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setVideosTecnicoNovas([]);
+                          previewVideosTecnico.forEach(u => URL.revokeObjectURL(u));
+                          setPreviewVideosTecnico([]);
+                        }}
+                        disabled={mostrarBotaoIniciar}
+                        className="text-xs text-red-600 hover:text-red-800 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Limpar todos
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {previewVideosTecnico.map((preview, index) => (
+                        <div key={index} className="relative group rounded-lg overflow-hidden border border-gray-200 bg-black">
+                          <video
+                            src={preview}
+                            className="w-full aspect-video object-contain cursor-pointer"
+                            muted
+                            playsInline
+                            preload="metadata"
+                            onClick={() => setPreviewVideoUrl(preview)}
+                          />
+                          <div className="absolute inset-0 bg-black/50 group-hover:opacity-100 flex items-center justify-center gap-2">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setPreviewVideoUrl(preview); }}
+                              className="bg-blue-600 text-white rounded-lg px-3 py-2 text-xs font-medium flex items-center gap-1.5 hover:bg-blue-700"
+                            >
+                              <FiPlay size={14} /> Visualizar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleRemoveVideo(index); }}
+                              disabled={mostrarBotaoIniciar}
+                              className="bg-red-500 text-white rounded-lg px-3 py-2 text-xs font-medium flex items-center gap-1.5 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <FiTrash2 size={14} /> Remover
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Vídeos existentes */}
+                {videosTecnicoExistentes.length > 0 && (
+                  <div className="mt-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Vídeos já anexados</p>
+                      <button
+                        type="button"
+                        onClick={() => setVideosTecnicoExistentes([])}
+                        disabled={mostrarBotaoIniciar}
+                        className="text-xs text-red-600 hover:text-red-800 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Remover todos
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {videosTecnicoExistentes.map((url, index) => (
+                        <div key={index} className="relative group rounded-lg overflow-hidden border border-gray-200 bg-black">
+                          <video
+                            src={url}
+                            className="w-full aspect-video object-contain cursor-pointer"
+                            muted
+                            playsInline
+                            preload="metadata"
+                            onClick={() => setPreviewVideoUrl(url)}
+                          />
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setPreviewVideoUrl(url); }}
+                              className="bg-blue-600 text-white rounded-lg px-3 py-2 text-xs font-medium flex items-center gap-1.5 hover:bg-blue-700"
+                            >
+                              <FiPlay size={14} /> Visualizar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleRemoveExistingVideo(index); }}
+                              disabled={mostrarBotaoIniciar}
+                              className="bg-red-500 text-white rounded-lg px-3 py-2 text-xs font-medium flex items-center gap-1.5 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <FiTrash2 size={14} /> Remover
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Imagens de Entrada (Atendente) */}
               {imagensEntradaExistentes.length > 0 && (
                 <div id="anexos" className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-medium text-gray-700">Imagens de Entrada (Atendente)</h4>
-                  </div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Imagens de entrada (atendente)</p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4">
                     {imagensEntradaExistentes.map((url, index) => (
                       <button
@@ -1382,10 +1786,12 @@ export default function DetalheBancadaPage() {
               {imagensTecnicoExistentes.length > 0 && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-medium text-gray-700">Imagens do Técnico (Laudo)</h4>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Imagens do técnico (laudo)</p>
                     <button
+                      type="button"
                       onClick={() => setImagensTecnicoExistentes([])}
-                      className="text-xs text-red-600 hover:text-red-800 font-medium"
+                      disabled={mostrarBotaoIniciar}
+                      className="text-xs text-red-600 hover:text-red-800 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Remover todas
                     </button>
@@ -1405,21 +1811,25 @@ export default function DetalheBancadaPage() {
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/60 transition-all duration-200 rounded-lg flex items-center justify-center">
                           <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                             <button
+                              type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 abrirEditorImagem(url, index, false, true);
                               }}
-                              className="bg-purple-600 text-white rounded-lg px-3 py-2 text-xs sm:text-sm font-medium flex items-center gap-1.5 hover:bg-purple-700 active:bg-purple-800 transition-colors shadow-lg min-h-[40px] touch-manipulation"
+                              disabled={mostrarBotaoIniciar}
+                              className="bg-purple-600 text-white rounded-lg px-3 py-2 text-xs sm:text-sm font-medium flex items-center gap-1.5 hover:bg-purple-700 active:bg-purple-800 transition-colors shadow-lg min-h-[40px] touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <FiEdit3 size={16} />
                               Editar
                             </button>
                             <button
+                              type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleRemoveExistingImage(index);
                               }}
-                              className="bg-red-500 text-white rounded-lg px-3 py-2 text-xs sm:text-sm font-medium flex items-center gap-1.5 hover:bg-red-600 active:bg-red-700 transition-colors shadow-lg min-h-[40px] touch-manipulation"
+                              disabled={mostrarBotaoIniciar}
+                              className="bg-red-500 text-white rounded-lg px-3 py-2 text-xs sm:text-sm font-medium flex items-center gap-1.5 hover:bg-red-600 active:bg-red-700 transition-colors shadow-lg min-h-[40px] touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <FiTrash2 size={16} />
                               Remover
@@ -1435,19 +1845,17 @@ export default function DetalheBancadaPage() {
           </div>
 
 
-              {/* Checklist de Entrada */}
               <div className="border-t border-gray-200 pt-6">
-                <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                  <FiCheck className="w-4 h-4 text-green-600" />
-                  Checklist de Entrada
-                </h4>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <FiCheck className="w-3.5 h-3.5 text-green-600" /> Checklist de entrada
+                </p>
             
             {checklistItens.length > 0 ? (
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                 <DynamicChecklist
                   value={checklistData || {}}
                   onChange={setChecklistData}
-                  disabled={false}
+                  disabled={mostrarBotaoIniciar}
                   equipamentoCategoria={os?.equipamento as string || undefined}
                 />
               </div>
@@ -1488,9 +1896,37 @@ export default function DetalheBancadaPage() {
             </div>
           )}
 
-          {/* Botões de Ação - Mobile Fixed, Desktop Normal */}
-          <div className="fixed lg:relative bottom-0 left-0 right-0 lg:right-auto bg-white border-t lg:border-t-0 lg:border border-gray-200 p-3 sm:p-4 lg:p-0 shadow-lg lg:shadow-none z-40 safe-area-inset-bottom w-full max-w-full lg:max-w-none overflow-x-hidden lg:mt-6">
-            <div className="space-y-2 sm:space-y-3 lg:space-y-4 w-full max-w-full lg:max-w-none lg:flex lg:gap-4">
+          {/* Modal de visualização de vídeo */}
+          {previewVideoUrl && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4"
+              onClick={() => setPreviewVideoUrl(null)}
+            >
+              <div
+                className="relative max-w-4xl w-full max-h-[90vh]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  onClick={() => setPreviewVideoUrl(null)}
+                  className="absolute -top-2 -right-2 z-10 bg-black/80 text-white rounded-full p-2 shadow-lg hover:bg-black transition-colors"
+                >
+                  <FiX size={20} />
+                </button>
+                <video
+                  src={previewVideoUrl}
+                  controls
+                  autoPlay
+                  className="w-full max-h-[85vh] rounded-xl"
+                  playsInline
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Botões de ação */}
+          <div className="fixed bottom-0 left-0 right-0 lg:relative lg:mt-8 bg-white border-t border-gray-200 lg:border-0 p-4 lg:p-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.08)] lg:shadow-none z-40 safe-area-inset-bottom w-full max-w-full lg:max-w-7xl mx-auto overflow-x-hidden">
+            <div className="flex flex-col lg:flex-row gap-3 w-full max-w-full lg:max-w-none">
               {mostrarBotaoIniciar && (
                 <Button
                   onClick={handleIniciarOS}
@@ -1504,8 +1940,9 @@ export default function DetalheBancadaPage() {
               
               <Button
                 onClick={handleSalvar}
-                disabled={salvando}
-                className="w-full lg:w-auto lg:flex-1 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-4 lg:py-3 rounded-xl lg:rounded-lg shadow-lg min-h-[52px] lg:min-h-[44px] touch-manipulation text-base"
+                disabled={salvando || mostrarBotaoIniciar}
+                className="w-full lg:w-auto lg:flex-1 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-4 lg:py-3 rounded-xl lg:rounded-lg shadow-lg min-h-[52px] lg:min-h-[44px] touch-manipulation text-base disabled:opacity-60 disabled:cursor-not-allowed"
+                title={mostrarBotaoIniciar ? 'Inicie a OS para poder salvar' : undefined}
               >
                 <FiSave size={20} className="mr-2" /> 
                 {salvando ? 'Salvando...' : 'Salvar Alterações'}
@@ -1513,9 +1950,33 @@ export default function DetalheBancadaPage() {
             </div>
           </div>
             </div>
-          </div>
         </div>
       </div>
+
+      {/* Overlay de salvamento com animação Lottie */}
+      {salvando && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
+          style={{ animation: 'save-fade-in 0.25s ease-out' }}
+        >
+          <div
+            className="bg-white dark:bg-zinc-800 rounded-2xl shadow-xl p-8 max-w-sm mx-4 flex flex-col items-center gap-6 border border-gray-100 dark:border-zinc-700"
+            style={{ animation: 'save-scale-in 0.3s ease-out' }}
+          >
+            <div className="w-56 h-56 -mt-2 sm:w-64 sm:h-64">
+              <Lottie
+                animationData={uploadingAnimation}
+                loop
+                style={{ width: '100%', height: '100%' }}
+              />
+            </div>
+            <p className="text-gray-700 dark:text-zinc-200 font-medium text-center -mt-2">
+              {saveStep === 'imagens' ? 'Enviando imagens...' : saveStep === 'videos' ? 'Enviando vídeos...' : saveStep === 'dados' ? 'Salvando dados...' : 'Processando...'}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-zinc-400">Aguarde, não feche a página</p>
+          </div>
+        </div>
+      )}
 
       {/* Editor de Imagem */}
       {editingImageUrl && (

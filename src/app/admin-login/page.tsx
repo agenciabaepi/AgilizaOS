@@ -30,45 +30,15 @@ export default function AdminLoginPage() {
   }, [router]);
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
-  const [whatsapp, setWhatsapp] = useState('');
   const [codigo, setCodigo] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [countdown, setCountdown] = useState(0);
 
-  // Countdown para reenvio de código
-  useEffect(() => {
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [countdown]);
-
-  async function handleEmailSubmit(e: React.FormEvent) {
+  function handleEmailSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setLoading(true);
-
-    try {
-      const res = await fetch('/api/admin-saas/2fa/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, whatsapp }),
-      });
-
-      const json = await res.json();
-
-      if (!res.ok || !json.ok) {
-        throw new Error(json.error || 'Erro ao enviar código');
-      }
-
-      setStep('2fa');
-      setCountdown(60); // 60 segundos para reenvio
-    } catch (err: any) {
-      setError(err.message || 'Erro ao enviar código');
-    } finally {
-      setLoading(false);
-    }
+    if (!email.trim()) return;
+    setStep('2fa');
   }
 
   async function handleCodeSubmit(e: React.FormEvent) {
@@ -80,7 +50,7 @@ export default function AdminLoginPage() {
       const res = await fetch('/api/admin-saas/2fa/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, codigo }),
+        body: JSON.stringify({ email: email.trim(), codigo }),
       });
 
       const json = await res.json();
@@ -89,38 +59,9 @@ export default function AdminLoginPage() {
         throw new Error(json.error || 'Código inválido');
       }
 
-      // Redirecionar para o admin
       router.push('/admin-saas');
     } catch (err: any) {
       setError(err.message || 'Erro ao validar código');
-      setLoading(false);
-    }
-  }
-
-  async function handleResendCode() {
-    if (countdown > 0) return;
-
-    setError(null);
-    setLoading(true);
-
-    try {
-      const res = await fetch('/api/admin-saas/2fa/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, whatsapp }),
-      });
-
-      const json = await res.json();
-
-      if (!res.ok || !json.ok) {
-        throw new Error(json.error || 'Erro ao reenviar código');
-      }
-
-      setCountdown(60);
-      setError(null);
-    } catch (err: any) {
-      setError(err.message || 'Erro ao reenviar código');
-    } finally {
       setLoading(false);
     }
   }
@@ -152,7 +93,7 @@ export default function AdminLoginPage() {
         {step === '2fa' && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 flex items-start gap-2">
             <span className="text-blue-500">📱</span>
-            <span>Enviamos um código de 6 dígitos para seu WhatsApp. Verifique suas mensagens.</span>
+            <span>Abra seu app de autenticação (Google Authenticator, Authy, Microsoft Authenticator, etc.) e digite o código de 6 dígitos.</span>
           </div>
         )}
 
@@ -172,29 +113,12 @@ export default function AdminLoginPage() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                WhatsApp (com DDD)
-              </label>
-              <Input
-                type="tel"
-                value={whatsapp}
-                onChange={(e) => setWhatsapp(e.target.value)}
-                placeholder="11999999999"
-                required
-                className="w-full"
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                Enviaremos o código de verificação via WhatsApp
-              </p>
-            </div>
-
             <Button
               type="submit"
-              disabled={loading}
+              disabled={loading || !email.trim()}
               className="w-full bg-black hover:bg-gray-800 text-white"
             >
-              {loading ? 'Enviando código...' : 'Enviar código via WhatsApp'}
+              Continuar
             </Button>
           </form>
         )}
@@ -236,11 +160,11 @@ export default function AdminLoginPage() {
                 ))}
               </div>
               <p className="mt-2 text-xs text-gray-500 text-center">
-                Digite o código de 6 dígitos enviado para seu WhatsApp
+                Código do app de autenticação (6 dígitos)
               </p>
             </div>
 
-            <div className="flex items-center justify-between text-sm">
+            <div className="flex justify-start text-sm">
               <button
                 type="button"
                 onClick={() => setStep('email')}
@@ -248,20 +172,6 @@ export default function AdminLoginPage() {
               >
                 ← Voltar
               </button>
-
-              {countdown > 0 ? (
-                <span className="text-gray-500">
-                  Reenviar em {countdown}s
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleResendCode}
-                  className="text-black hover:underline"
-                >
-                  Reenviar código
-                </button>
-              )}
             </div>
 
             <Button
@@ -274,9 +184,14 @@ export default function AdminLoginPage() {
           </form>
         )}
 
-        <div className="mt-6 pt-6 border-t border-gray-200">
+        <div className="mt-6 pt-6 border-t border-gray-200 space-y-2">
           <p className="text-xs text-gray-500 text-center">
-            🔒 Acesso protegido por verificação em duas etapas via WhatsApp
+            🔒 Acesso protegido por 2FA com app autenticador (Google Authenticator, Authy, etc.)
+          </p>
+          <p className="text-xs text-center">
+            <a href="/admin-login/setup" className="text-gray-600 hover:text-gray-900 underline">
+              Configurar 2FA (primeira vez)
+            </a>
           </p>
         </div>
       </div>

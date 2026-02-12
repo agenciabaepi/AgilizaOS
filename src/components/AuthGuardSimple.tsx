@@ -18,13 +18,12 @@ interface AuthGuardSimpleProps {
  */
 export default function AuthGuardSimple({
   children,
-  requiredPermission,
   fallbackPath = '/dashboard',
   showLoading = true,
 }: AuthGuardSimpleProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, usuarioData, empresaData } = useAuth();
+  const { user, usuarioData, empresaData, userDataReady } = useAuth();
   
   const [isChecking, setIsChecking] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -46,9 +45,8 @@ export default function AuthGuardSimple({
           return;
         }
 
-        // Passo 2: Se há sessão mas não há dados do usuário ainda
-        // Vamos aguardar um pouco, mas com timeout mais agressivo
-        if (!usuarioData || !empresaData) {
+        // Passo 2: Aguardar dados completos (evita redirect ao atualizar - AuthContext usa dados temporários)
+        if (!userDataReady || !usuarioData || !empresaData?.id) {
           console.log('⏳ AuthGuardSimple: Aguardando dados do usuário...');
           
           // Aguarda até 2 segundos pelos dados do usuário
@@ -60,15 +58,15 @@ export default function AuthGuardSimple({
             
             attempts++;
             
-            if (usuarioData && empresaData) {
+            if (usuarioData?.empresa_id && empresaData?.id) {
               // ⚠️ BLOQUEAR ACESSO: Verificar se empresa está ativa
-              if (empresaData && empresaData.ativo === false) {
-                console.log('🚫 AuthGuardSimple: Empresa desativada, redirecionando para login');
+              if (empresaData.ativo === false) {
+                console.log('🚫 AuthGuardSimple: Empresa desativada, redirecionando');
                 supabase.auth.signOut().then(() => {
-                  router.replace('/login?error=empresa_desativada');
+                  router.replace('/empresa-desativada');
                 }).catch((e) => {
                   console.error('Erro ao fazer logout:', e);
-                  router.replace('/login?error=empresa_desativada');
+                  router.replace('/empresa-desativada');
                 });
                 return;
               }
@@ -105,23 +103,14 @@ export default function AuthGuardSimple({
 
       // ⚠️ BLOQUEAR ACESSO: Verificar se empresa está ativa
       if (empresaData && empresaData.ativo === false) {
-        console.log('🚫 AuthGuardSimple: Empresa desativada, redirecionando para login');
+        console.log('🚫 AuthGuardSimple: Empresa desativada, redirecionando');
         supabase.auth.signOut().then(() => {
-          router.replace('/login?error=empresa_desativada');
+          router.replace('/empresa-desativada');
         });
         return;
       }
 
-      // Verificar permissão se necessário
-      if (requiredPermission) {
-        const hasPermission = checkPermission(usuarioData, requiredPermission);
-        
-        if (!hasPermission) {
-          console.log(`🚫 AuthGuardSimple: Usuário não tem permissão '${requiredPermission}'`);
-          router.replace(fallbackPath);
-          return;
-        }
-      }
+      // Plano único - sem verificação de permissão
 
       // Tudo OK, autorizar acesso
       if (isMounted) {
@@ -144,35 +133,7 @@ export default function AuthGuardSimple({
       isMounted = false;
       clearTimeout(safetyTimeout);
     };
-  }, [user, usuarioData, empresaData, requiredPermission, fallbackPath, pathname, router]);
-
-  /**
-   * Verifica se o usuário tem a permissão necessária
-   */
-  const checkPermission = (userData: any, permission: string): boolean => {
-    // Usuários de teste têm acesso total
-    if (userData?.nivel === 'usuarioteste') {
-      return true;
-    }
-    
-    // Administradores têm acesso total
-    if (userData?.nivel === 'admin') {
-      return true;
-    }
-    
-    // Técnicos sempre têm acesso ao dashboard
-    if (permission === 'dashboard' && userData?.nivel === 'tecnico') {
-      return true;
-    }
-
-    // Atendentes sempre têm acesso ao dashboard
-    if (permission === 'dashboard' && userData?.nivel === 'atendente') {
-      return true;
-    }
-    
-    // Verifica se a permissão está na lista de permissões do usuário
-    return userData?.permissoes && userData.permissoes.includes(permission);
-  };
+  }, [user, usuarioData, empresaData, userDataReady, fallbackPath, pathname, router]);
 
   // Enquanto está verificando, mostra loading ou nada
   if (isChecking) {

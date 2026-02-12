@@ -1,5 +1,5 @@
 // Configuração de recursos/módulos necessários para cada página do sistema
-// Isso permite controlar o acesso baseado no plano da empresa
+// Isso permite controlar o acesso baseado na assinatura da empresa
 
 export const PAGE_RESOURCES = {
   // Financeiro - Módulo completo

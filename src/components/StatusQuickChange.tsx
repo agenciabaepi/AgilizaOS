@@ -132,7 +132,7 @@ export default function StatusQuickChange({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            ordemId,
+            osId: ordemId,
             ...updateData
           }),
         });
@@ -167,7 +167,8 @@ export default function StatusQuickChange({
 
   const getStatusIcon = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'aberta':
+      case 'orçamento':
+      case 'orcamento':
       case 'aguardando início':
         return <FiClock className="w-4 h-4" />;
       case 'em análise':
@@ -189,18 +190,18 @@ export default function StatusQuickChange({
     const actions = [];
     
     // Ações rápidas baseadas no status atual
-    if (currentStatus === 'ABERTA') {
-      actions.push({ label: 'Iniciar Análise', status: 'EM_ANALISE', statusTecnico: 'EM ANÁLISE' });
+    if (currentStatus === 'ORÇAMENTO' || currentStatus === 'APROVADO') {
+      actions.push({ label: 'Iniciar Análise', status: 'EM ANÁLISE', statusTecnico: 'EM ANÁLISE' });
     }
     
-    if (currentStatus === 'EM_ANALISE') {
-      actions.push({ label: 'Aguardando Peça', status: 'AGUARDANDO_PECA', statusTecnico: 'AGUARDANDO PEÇA' });
-      actions.push({ label: 'Finalizar', status: 'CONCLUIDO', statusTecnico: 'CONCLUÍDO' });
+    if (currentStatus === 'EM ANALISE' || currentStatus === 'EM_ANÁLISE' || currentStatus === 'EM ANÁLISE') {
+      actions.push({ label: 'Aguardando Peça', status: 'AGUARDANDO PEÇA', statusTecnico: 'AGUARDANDO PEÇA' });
+      actions.push({ label: 'Iniciar Execução', status: 'APROVADO', statusTecnico: 'EM EXECUÇÃO' });
     }
     
-    if (currentStatus === 'AGUARDANDO_PECA') {
-      actions.push({ label: 'Continuar Análise', status: 'EM_ANALISE', statusTecnico: 'EM ANÁLISE' });
-      actions.push({ label: 'Finalizar', status: 'CONCLUIDO', statusTecnico: 'CONCLUÍDO' });
+    if (currentStatus === 'AGUARDANDO PEÇA' || currentStatus === 'AGUARDANDO_PECA') {
+      actions.push({ label: 'Continuar Análise', status: 'EM ANÁLISE', statusTecnico: 'EM ANÁLISE' });
+      actions.push({ label: 'Iniciar Execução', status: 'APROVADO', statusTecnico: 'EM EXECUÇÃO' });
     }
 
     return actions;

@@ -22,16 +22,19 @@ export async function GET(req: NextRequest) {
       .range(from, to);
 
     if (search) {
-      // Buscar por nome ou cnpj/email simples
       query = query.or(`nome.ilike.%${search}%,cnpj.ilike.%${search}%,email.ilike.%${search}%`);
     }
     if (status) {
       query = query.eq('status', status);
     }
 
-    const { data: empresas, error, count } = await query;
+    const result = await query;
+    const empresas = result.data ?? null;
+    const error = result.error;
+    const count = result.count ?? null;
     if (error) {
-      return NextResponse.json({ ok: false, error }, { status: 500 });
+      const msg = (error as { message?: string })?.message || String(error);
+      return NextResponse.json({ ok: false, error: msg }, { status: 500 });
     }
 
     const empresaIds = (empresas || []).map((e: any) => e.id);
@@ -165,89 +168,109 @@ export async function GET(req: NextRequest) {
       return Math.round((totalBytes / (1024 * 1024)) * 100) / 100;
     }
 
+    const defaultMetrics = { usuarios: 0, produtos: 0, servicos: 0, ordens: 0, usoMb: 0 };
+    const defaultBilling = {
+      plano: { id: null, nome: 'Assinatura' },
+      assinaturaStatus: null,
+      proximaCobranca: null,
+      vencido: false,
+      cobrancaStatus: '—',
+      ultimoPagamentoStatus: null,
+      ultimoPagamentoPagoEm: null,
+      ultimoPagamentoValor: null,
+    };
+
+    // Storage omitido na listagem (muito lento). Mostra 0; detalhes calculam na página individual.
     const enriched = await Promise.all((empresas || []).map(async (e: any) => {
-      const [usuarios, produtos, servicos, ordens, usoMb] = await Promise.all([
-        countBy('usuarios', e.id),
-        countProdutos(e.id),
-        countServicos(e.id),
-        countBy('ordens_servico', e.id),
-        storageUsoMb(e.id),
-      ]);
-
-      // Assinatura e cobrança
-      let assinatura: any = null;
       try {
-        const { data } = await supabase
-          .from('assinaturas')
-          .select('id,status,proxima_cobranca,plano_id,created_at')
-          .eq('empresa_id', e.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-        assinatura = data || null;
-      } catch {}
+        const [usuarios, produtos, servicos, ordens] = await Promise.all([
+          countBy('usuarios', e.id),
+          countProdutos(e.id),
+          countServicos(e.id),
+          countBy('ordens_servico', e.id),
+        ]);
+        const usoMb = 0;
 
-      let planoNome = 'Acesso Completo';
-      if (assinatura?.plano_id) {
+        // Assinatura e cobrança
+        let assinatura: any = null;
         try {
-          const { data: plano } = await supabase
-            .from('planos')
-            .select('nome')
-            .eq('id', assinatura.plano_id)
+          const { data } = await supabase
+            .from('assinaturas')
+            .select('id,status,proxima_cobranca,plano_id,created_at')
+            .eq('empresa_id', e.id)
+            .order('created_at', { ascending: false })
             .limit(1)
             .single();
-          if (plano?.nome) planoNome = plano.nome;
+          assinatura = data || null;
         } catch {}
-      }
 
-      let ultimoPagamento: any = null;
-      try {
-        const { data } = await supabase
-          .from('pagamentos')
-          .select('status,paid_at,created_at,valor')
-          .eq('empresa_id', e.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-        ultimoPagamento = data || null;
-      } catch {}
-
-      // Cálculo de vencimento
-      let vencido = false;
-      let cobrancaStatus = '—';
-      const hoje = new Date();
-      if (assinatura?.status === 'trial') {
-        cobrancaStatus = 'Trial';
-      } else if (assinatura?.status === 'active' || assinatura?.status === 'ativa') {
-        cobrancaStatus = 'Em dia';
-        if (assinatura?.proxima_cobranca) {
-          const prox = new Date(assinatura.proxima_cobranca);
-          if (prox < new Date(hoje.toDateString())) {
-            vencido = true;
-            cobrancaStatus = 'Vencido';
-          }
+        let planoNome = 'Assinatura';
+        if (assinatura?.plano_id) {
+          try {
+            const { data: plano } = await supabase
+              .from('planos')
+              .select('nome')
+              .eq('id', assinatura.plano_id)
+              .limit(1)
+              .single();
+            if (plano?.nome) planoNome = plano.nome;
+          } catch {}
         }
-      } else if (assinatura?.status) {
-        cobrancaStatus = assinatura.status;
+
+        let ultimoPagamento: any = null;
+        try {
+          const { data } = await supabase
+            .from('pagamentos')
+            .select('status,paid_at,created_at,valor')
+            .eq('empresa_id', e.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+          ultimoPagamento = data || null;
+        } catch {}
+
+        // Cálculo de vencimento
+        let vencido = false;
+        let cobrancaStatus = '—';
+        const hoje = new Date();
+        if (assinatura?.status === 'trial') {
+          cobrancaStatus = 'Trial';
+        } else if (assinatura?.status === 'active' || assinatura?.status === 'ativa') {
+          cobrancaStatus = 'Em dia';
+          if (assinatura?.proxima_cobranca) {
+            const prox = new Date(assinatura.proxima_cobranca);
+            if (prox < new Date(hoje.toDateString())) {
+              vencido = true;
+              cobrancaStatus = 'Vencido';
+            }
+          }
+        } else if (assinatura?.status) {
+          cobrancaStatus = assinatura.status;
+        }
+
+        const billing = {
+          plano: { id: assinatura?.plano_id || null, nome: planoNome },
+          assinaturaStatus: assinatura?.status || null,
+          proximaCobranca: assinatura?.proxima_cobranca || null,
+          vencido,
+          cobrancaStatus,
+          ultimoPagamentoStatus: ultimoPagamento?.status || null,
+          ultimoPagamentoPagoEm: ultimoPagamento?.paid_at || null,
+          ultimoPagamentoValor: ultimoPagamento?.valor || null,
+        };
+
+        return { ...e, metrics: { usuarios, produtos, servicos, ordens, usoMb }, billing };
+      } catch (err) {
+        console.error('Erro ao enriquecer empresa', e.id, err);
+        return { ...e, metrics: defaultMetrics, billing: defaultBilling };
       }
-
-      const billing = {
-        plano: { id: assinatura?.plano_id || null, nome: planoNome },
-        assinaturaStatus: assinatura?.status || null,
-        proximaCobranca: assinatura?.proxima_cobranca || null,
-        vencido,
-        cobrancaStatus,
-        ultimoPagamentoStatus: ultimoPagamento?.status || null,
-        ultimoPagamentoPagoEm: ultimoPagamento?.paid_at || null,
-        ultimoPagamentoValor: ultimoPagamento?.valor || null,
-      };
-
-      return { ...e, metrics: { usuarios, produtos, servicos, ordens, usoMb }, billing };
     }));
 
     return NextResponse.json({ ok: true, items: enriched, page, pageSize, total: count || 0 });
   } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err?.message || 'Erro inesperado' }, { status: 500 });
+    const msg = err?.message || (typeof err === 'string' ? err : 'Erro inesperado');
+    console.error('[admin-saas/empresas] Erro:', err);
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }
 

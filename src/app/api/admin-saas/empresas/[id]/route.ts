@@ -204,7 +204,7 @@ export async function GET(
       assinatura = data || null;
     } catch {}
 
-    let planoNome = 'Acesso Completo';
+    let planoNome = 'Assinatura';
     if (assinatura?.plano_id) {
       try {
         const { data: plano } = await supabase
@@ -266,6 +266,61 @@ export async function GET(
     };
 
     return NextResponse.json({ ok: true, empresa: empresaCompleta });
+  } catch (err: any) {
+    return NextResponse.json(
+      { ok: false, error: err?.message || 'Erro inesperado' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * Atualiza uma empresa (ex.: ativo, status)
+ * PATCH /api/admin-saas/empresas/[id]
+ */
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const ok = await isAdminAuthorized(req);
+    if (!ok) {
+      return NextResponse.json({ ok: false, reason: 'unauthorized' }, { status: 401 });
+    }
+
+    const { id: empresaId } = await params;
+    const body = await req.json();
+
+    const updateData: Record<string, unknown> = {};
+    if (typeof body.ativo === 'boolean') updateData.ativo = body.ativo;
+    if (typeof body.status === 'string' && ['pendente', 'aprovada', 'reprovada'].includes(body.status)) {
+      updateData.status = body.status;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ ok: false, message: 'Nenhum campo válido para atualizar' }, { status: 400 });
+    }
+
+    const supabase = getSupabaseAdmin();
+    const { data: empresa, error } = await supabase
+      .from('empresas')
+      .update(updateData)
+      .eq('id', empresaId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[admin-saas/empresas] Erro PATCH:', error);
+      return NextResponse.json(
+        { ok: false, message: (error as { message?: string }).message || 'Falha ao atualizar' },
+        { status: 500 }
+      );
+    }
+    if (!empresa) {
+      return NextResponse.json({ ok: false, message: 'Empresa não encontrada' }, { status: 404 });
+    }
+
+    return NextResponse.json({ ok: true, empresa });
   } catch (err: any) {
     return NextResponse.json(
       { ok: false, error: err?.message || 'Erro inesperado' },

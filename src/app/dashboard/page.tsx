@@ -755,8 +755,8 @@ export default function LembretesPage() {
   if (!isClient || authLoading || !permissionChecked) {
     return (
       <MenuLayout>
-        <div className="flex items-center justify-center min-h-screen bg-white">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+        <div className="flex items-center justify-center min-h-screen bg-white dark:bg-zinc-900">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 dark:border-zinc-100"></div>
         </div>
       </MenuLayout>
     );
@@ -766,8 +766,8 @@ export default function LembretesPage() {
   if (carregando) {
     return (
       <MenuLayout>
-        <div className="flex items-center justify-center min-h-screen bg-white">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+        <div className="flex items-center justify-center min-h-screen bg-white dark:bg-zinc-900">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 dark:border-zinc-100"></div>
         </div>
       </MenuLayout>
     );
@@ -876,7 +876,7 @@ export default function LembretesPage() {
         </div>
 
         {/* Sistema de Calendário */}
-        <div className="mt-3 md:mt-8 mx-2 md:mx-0 p-2 md:p-6 rounded-lg border bg-white">
+        <div className="mt-3 md:mt-8 mx-2 md:mx-0 p-2 md:p-6 rounded-lg border border-gray-200 dark:border-zinc-600 bg-white dark:bg-zinc-800">
           <h2 className="text-base md:text-lg font-semibold mb-3 md:mb-4 flex items-center gap-2">
             <Book className="text-blue-500 w-4 h-4 md:w-5 md:h-5" />
             Calendário de O.S.
@@ -975,7 +975,7 @@ export default function LembretesPage() {
         </div>
 
         {/* Kanban de Lembretes */}
-        <div className="mx-2 md:mx-0 p-2 md:p-6 rounded-lg border bg-white">
+        <div className="mx-2 md:mx-0 p-2 md:p-6 rounded-lg border border-gray-200 dark:border-zinc-600 bg-white dark:bg-zinc-800">
           <h2 className="text-base md:text-lg font-semibold mb-3 md:mb-4 flex items-center gap-2">
             <Book className="text-yellow-500 w-4 h-4 md:w-5 md:h-5" />
             Anotações Fixas
@@ -1085,7 +1085,7 @@ export default function LembretesPage() {
                                                   ease: 'easeOut',
                                                 }}
                                               >
-                                                <div className="flex rounded-lg shadow-md hover:shadow-lg bg-white transition-shadow duration-200 overflow-hidden cursor-pointer relative">
+                                                <div className="flex rounded-lg shadow-md hover:shadow-lg bg-white dark:bg-zinc-800 dark:border dark:border-zinc-600 transition-shadow duration-200 overflow-hidden cursor-pointer relative">
                                                   <div className={`w-1 ${nota.cor}`} />
                                                   <div className="flex-1 p-4">
                                                     <div className="flex items-start justify-between">
@@ -1145,7 +1145,7 @@ export default function LembretesPage() {
                                                 </div>
                                               </motion.div>
                                             ) : (
-                                              <div className="flex rounded-lg shadow-md hover:shadow-lg bg-white transition-shadow duration-200 overflow-hidden cursor-pointer relative">
+                                              <div className="flex rounded-lg shadow-md hover:shadow-lg bg-white dark:bg-zinc-800 dark:border dark:border-zinc-600 transition-shadow duration-200 overflow-hidden cursor-pointer relative">
                                                 <div className={`w-1 ${nota.cor}`} />
                                                 <div className="flex-1 p-4">
                                                   <div className="flex items-start justify-between">
@@ -1287,7 +1287,7 @@ export default function LembretesPage() {
           {/* Modal para editar título da coluna */}
           {modalColunaAberta && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-              <div className="bg-white rounded-lg p-6 w-full max-w-xs shadow-lg flex flex-col gap-4">
+              <div className="bg-white dark:bg-zinc-800 rounded-lg p-6 w-full max-w-xs shadow-lg dark:shadow-none dark:border dark:border-zinc-600 flex flex-col gap-4">
                 <h2 className="text-lg font-semibold">Editar título da coluna</h2>
                 <input
                   type="text"
@@ -1376,8 +1376,8 @@ function CalendarioComponent({
           return (
             <div
               key={dia.toISOString()}
-              className={`min-h-[120px] p-2 border border-gray-200 ${
-                isSameMonth(dia, dataAtual) ? 'bg-white' : 'bg-gray-50'
+              className={`min-h-[120px] p-2 border border-gray-200 dark:border-zinc-600 ${
+                isSameMonth(dia, dataAtual) ? 'bg-white dark:bg-zinc-800' : 'bg-gray-50 dark:bg-zinc-700'
               } ${isSameDay(dia, new Date()) ? 'bg-blue-50 border-blue-300' : ''}`}
             >
               <div className="text-sm font-medium mb-1">
@@ -1628,7 +1628,7 @@ function EditarNotaModal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md space-y-4">
+      <div className="bg-white dark:bg-zinc-800 rounded-lg p-6 w-full max-w-md space-y-4 dark:border dark:border-zinc-600">
         <h2 className="text-lg font-semibold">
           {notaEditando ? 'Editar Anotação' : 'Nova Anotação'}
         </h2>
@@ -1748,7 +1748,7 @@ function ExcluirNotaModal({
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-lg p-6 w-full max-w-xs shadow-lg">
+      <div className="bg-white dark:bg-zinc-800 rounded-lg p-6 w-full max-w-xs shadow-lg dark:shadow-none dark:border dark:border-zinc-600">
         <h2 className="text-lg font-semibold mb-4">Confirmar Exclusão</h2>
         <p className="text-base text-gray-800 mb-4">Tem certeza que deseja excluir esta nota?</p>
         <div className="flex gap-2 mt-4 justify-end">

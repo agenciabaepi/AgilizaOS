@@ -11,7 +11,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 const buttonVariants = {
   default: "bg-black text-white hover:bg-neutral-800",
   destructive: "bg-red-500 text-white hover:bg-red-600",
-  outline: "border border-input hover:bg-accent hover:text-accent-foreground",
+  outline: "border border-input hover:bg-accent hover:text-accent-foreground dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-700",
   secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
   ghost: "hover:bg-accent hover:text-accent-foreground",
   link: "underline-offset-4 hover:underline text-primary",

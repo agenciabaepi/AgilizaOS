@@ -36,9 +36,14 @@ export default async function AdminSaaSPage() {
   const supabase = await getSupabase();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Buscar métricas via API, encaminhando cookies (inclui o cookie do gate)
+  // Buscar métricas via API, repassando cookies para autorizar a requisição no servidor
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-  const metricsRes = await fetch(`${baseUrl}/api/admin-saas/metrics`, { cache: 'no-store' });
+  const cookieStore = await cookies();
+  const cookieHeader = cookieStore.getAll().map((c) => `${c.name}=${c.value}`).join('; ');
+  const metricsRes = await fetch(`${baseUrl}/api/admin-saas/metrics`, {
+    cache: 'no-store',
+    headers: cookieHeader ? { Cookie: cookieHeader } : undefined,
+  });
   const metricsJson = metricsRes.ok ? await metricsRes.json() : null;
   const metrics: { empresas: number; usuarios: number; assinaturas: number; pagamentos: number; assinaturasPorStatus: Record<string, number>; pagamentosPorStatus: Record<string, number> } = metricsJson?.ok
     ? metricsJson
@@ -172,7 +177,7 @@ export default async function AdminSaaSPage() {
           </button>
         </form>
         <p className="text-xs text-gray-500 mt-4">
-          Acesso protegido por verificação 2FA via WhatsApp
+          Acesso protegido por 2FA com app autenticador
         </p>
       </div>
 

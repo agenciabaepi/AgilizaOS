@@ -17,10 +17,13 @@
     background: white;
   }
 
-  /* Página de cupom em 80mm */
-  body.only-cupom @page {
+  /* Página de cupom em 80mm: @page não pode ter seletor, usamos página nomeada */
+  @page cupom-80mm {
     margin: 0;
     size: 80mm auto;
+  }
+  body.only-cupom {
+    page: cupom-80mm;
   }
 
   /* Utilitário genérico */
@@ -481,8 +484,9 @@
     padding: 0 !important;
   }
 
-  /* Remover qualquer limitação de largura */
-  .hidden.print\\:block {
+  /* Remover qualquer limitação de largura (classe Tailwind print:block) */
+  .hidden[class*="print:block"],
+  [class*="print:block"].hidden {
     display: block !important;
     width: 100% !important;
   }

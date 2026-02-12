@@ -30,32 +30,14 @@ export function useRouteProtection({
       return;
     }
 
-    // Verifica permissão
-    const permissionGranted = checkPermission(usuarioData, requiredPermission);
-    setHasAccess(permissionGranted);
-
-    // Se não tem permissão e deve redirecionar
-    if (!permissionGranted && redirectOnNoPermission) {
-      router.replace(fallbackPath);
-    }
+    // Plano único - todos têm acesso
+    setHasAccess(true);
   }, [usuarioData, loading, requiredPermission, fallbackPath, redirectOnNoPermission, router]);
-
-  // Função para verificar permissão
-  const checkPermission = (user: any, permission: string): boolean => {
-    // Usuários de teste têm acesso total
-    if (user.nivel === 'usuarioteste') return true;
-    
-    // Administradores têm acesso total
-    if (user.nivel === 'admin') return true;
-    
-    // Verifica se a permissão está na lista de permissões do usuário
-    return user.permissoes && user.permissoes.includes(permission);
-  };
 
   return {
     hasAccess,
     loading,
     usuarioData,
-    checkPermission: (permission: string) => usuarioData ? checkPermission(usuarioData, permission) : false
+    checkPermission: (_permission: string) => true
   };
 }

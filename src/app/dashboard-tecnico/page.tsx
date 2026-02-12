@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import MenuLayout from '@/components/MenuLayout';
 import { getDashboardPath, canAccessRoute } from '@/lib/dashboardRouting';
+import { getStatusTecnicoLabel } from '@/utils/statusLabels';
 
 import { 
   FiClock, 
@@ -71,32 +72,22 @@ export default function DashboardTecnicoPage() {
   const [dataFetched, setDataFetched] = useState(false);
 
   const fetchTecnicoData = useCallback(async () => {
-    if (!user || !usuarioData?.empresa_id || dataFetched) return;
+    if (!user || !usuarioData?.empresa_id || !usuarioData?.id) return;
+    if (dataFetched) return;
 
     setLoading(true);
     try {
       const empresaId = usuarioData.empresa_id;
-      const tecnicoId = user.id;
+      const tecnicoId = usuarioData.id; // mesmo critério da página Comissões
       const hoje = new Date();
       const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
       const inicioSemana = new Date(hoje);
       inicioSemana.setDate(hoje.getDate() - hoje.getDay());
 
-      // Buscar OSs atribuídas ao técnico
-      // Tentar buscar com ambos os IDs possíveis (auth_user_id e usuarios.id)
-      // Usar .in() para buscar por qualquer um dos IDs
-      const idsParaBuscar = [tecnicoId];
-      if (usuarioData?.id && usuarioData.id !== tecnicoId) {
-        idsParaBuscar.push(usuarioData.id);
-      }
-      
-      console.log('🔍 Dashboard Técnico - Buscando OSs com IDs:', {
-        tecnicoId: tecnicoId,
-        usuarioDataId: usuarioData?.id,
-        idsParaBuscar: idsParaBuscar,
-        empresaId: empresaId
-      });
-      
+      // 1) OS do técnico: buscar por auth OU id da tabela usuarios (cobre os dois formatos usados no sistema)
+      const orFiltro = [user.id, tecnicoId].filter(Boolean).map(id => `tecnico_id.eq.${id}`);
+      const orClause = orFiltro.length > 0 ? orFiltro.join(',') : 'tecnico_id.is.null';
+
       let { data: ordens, error: ordensError } = await supabase
         .from('ordens_servico')
         .select(`
@@ -105,7 +96,6 @@ export default function DashboardTecnicoPage() {
           status,
           status_tecnico,
           valor_faturado,
-          valor_total,
           valor_peca,
           valor_servico,
           created_at,
@@ -114,55 +104,62 @@ export default function DashboardTecnicoPage() {
           tecnico_id,
           cliente_id,
           servico,
-          observacoes,
+          observacao,
           orcamento,
           laudo,
           prioridade
         `)
         .eq('empresa_id', empresaId)
-        .in('tecnico_id', idsParaBuscar)
+        .or(orClause)
         .order('created_at', { ascending: false });
 
-      // Se não encontrou nada, tentar buscar todas as OSs da empresa para debug
-      if ((!ordens || ordens.length === 0)) {
-        console.log('⚠️ Nenhuma OS encontrada com os IDs fornecidos. Buscando todas as OSs da empresa para debug...');
-        const { data: todasOS, error: todasOSError } = await supabase
-          .from('ordens_servico')
-          .select('id, numero_os, tecnico_id, status')
-          .eq('empresa_id', empresaId)
-          .limit(10);
-        
-        if (todasOS && todasOS.length > 0) {
-          console.log('📋 Amostra de OSs da empresa (primeiras 10):', todasOS.map((os: any) => ({
-            numero_os: os.numero_os,
-            tecnico_id: os.tecnico_id,
-            status: os.status,
-            tecnico_id_tipo: typeof os.tecnico_id,
-            match_auth_user: os.tecnico_id === tecnicoId,
-            match_usuarios_id: os.tecnico_id === usuarioData?.id
-          })));
-        }
+      // 2) Receita e comissão: mesma fonte da página Comissões (comissoes_historico)
+      let receitaTotal = 0;
+      let receitaMes = 0;
+      let comissaoTotal = 0;
+      let comissaoMes = 0;
+      try {
+        const { data: comissoesData } = await supabase
+          .from('comissoes_historico')
+          .select('valor_total, valor_comissao, data_entrega, ativa')
+          .eq('tecnico_id', tecnicoId);
+
+        (comissoesData || []).forEach((c: { valor_total?: number; valor_comissao?: number; data_entrega?: string; ativa?: boolean }) => {
+          if (c.ativa === false) return; // mesma regra da página Comissões
+          const vt = Number(c.valor_total) || 0;
+          const vc = Number(c.valor_comissao) || 0;
+          receitaTotal += vt;
+          comissaoTotal += vc;
+          if (c.data_entrega) {
+            const dataEntrega = new Date(c.data_entrega);
+            if (dataEntrega >= inicioMes) {
+              receitaMes += vt;
+              comissaoMes += vc;
+            }
+          }
+        });
+      } catch (_) {
+        // se coluna ativa não existir, tentar sem ela
+        try {
+          const { data: comissoesData } = await supabase
+            .from('comissoes_historico')
+            .select('valor_total, valor_comissao, data_entrega')
+            .eq('tecnico_id', tecnicoId);
+          (comissoesData || []).forEach((c: { valor_total?: number; valor_comissao?: number; data_entrega?: string }) => {
+            const vt = Number(c.valor_total) || 0;
+            const vc = Number(c.valor_comissao) || 0;
+            receitaTotal += vt;
+            comissaoTotal += vc;
+            if (c.data_entrega) {
+              const dataEntrega = new Date(c.data_entrega);
+              if (dataEntrega >= inicioMes) {
+                receitaMes += vt;
+                comissaoMes += vc;
+              }
+            }
+          });
+        } catch (_) {}
       }
-      
-      // Log para debug
-      console.log('📊 Dashboard Técnico - Resultado da busca:', {
-        totalEncontradas: ordens?.length || 0,
-        tecnicoId: tecnicoId,
-        usuarioDataId: usuarioData?.id,
-        empresaId: empresaId,
-        temErro: !!ordensError,
-        erroDetalhes: ordensError ? {
-          message: ordensError.message,
-          code: ordensError.code,
-          details: ordensError.details
-        } : null,
-        amostraOSs: ordens?.slice(0, 3).map((o: any) => ({
-          numero_os: o.numero_os,
-          status: o.status,
-          tecnico_id: o.tecnico_id,
-          tecnico_id_tipo: typeof o.tecnico_id
-        }))
-      });
 
       // Buscar dados dos clientes separadamente se houver OSs
       // Verificar se ordensError é um erro real (não apenas objeto vazio)
@@ -187,49 +184,17 @@ export default function DashboardTecnicoPage() {
         }
       }
 
-      // Verificar se há erro real (não apenas objeto vazio)
-      // Se ordensError existe mas está vazio, apenas continuar sem logar
-      if (ordensError && (ordensError.message || ordensError.code || ordensError.details)) {
-        // Log detalhado do erro apenas se houver informações reais
-        const errorInfo = {
-          message: ordensError?.message || 'Erro desconhecido',
-          details: ordensError?.details || 'Sem detalhes',
-          hint: ordensError?.hint || 'Sem dica',
-          code: ordensError?.code || 'Sem código',
-          tecnicoId: tecnicoId,
-          empresaId: empresaId,
-          usuarioDataId: usuarioData?.id
-        };
-        
-        // Usar console.log em vez de console.error/warn para evitar supressão
-        console.log('⚠️ [Dashboard Técnico] Erro ao buscar OSs (continuando com dados vazios):', JSON.stringify(errorInfo, null, 2));
-      }
-      
-      // Garantir que ordens seja um array válido
-      if (!ordens) {
-        ordens = [];
+      if (ordensError) {
+        console.warn('[Dashboard Técnico] Erro ao buscar OSs:', ordensError.message);
       }
 
-      const ordensData = ordens || [];
+      const ordensData = Array.isArray(ordens) ? ordens : [];
       const hojeTimestamp = hoje.getTime();
 
-      // Função auxiliar para normalizar status
       const normalizarStatus = (status: string | null | undefined): string => {
         if (!status) return '';
         return String(status).toUpperCase().trim().replace(/_/g, ' ');
       };
-
-      // Log para debug
-      console.log('📊 Dashboard Técnico - Dados carregados:', {
-        totalOS: ordensData.length,
-        tecnicoId: tecnicoId,
-        empresaId: empresaId,
-        amostraStatus: ordensData.slice(0, 3).map((o: Record<string, unknown>) => ({
-          numero_os: o.numero_os,
-          status: o.status,
-          status_tecnico: o.status_tecnico
-        }))
-      });
 
       // Calcular métricas com comparação flexível de status
       const totalOS = ordensData.length;
@@ -241,11 +206,11 @@ export default function DashboardTecnicoPage() {
       }).length;
       const osPendentes = ordensData.filter((o: Record<string, unknown>) => {
         const status = normalizarStatus(String(o.status));
-        return status === 'PENDENTE' || status === 'ABERTA' || status.includes('AGUARDANDO');
+        return status === 'PENDENTE' || status === 'ORÇAMENTO' || status.includes('AGUARDANDO');
       }).length;
       const osConcluidas = ordensData.filter((o: Record<string, unknown>) => {
         const status = normalizarStatus(String(o.status));
-        return status.includes('CONCLUID') || status.includes('FINALIZAD') || 
+        return status.includes('CONCLUID') || 
                status.includes('ENTREGUE') || status === 'FATURADO';
       }).length;
 
@@ -277,53 +242,12 @@ export default function DashboardTecnicoPage() {
         );
       }).length;
 
-      // Receita
-      const receitaTotal = ordensData.reduce((sum, os: Record<string, unknown>) => 
-        sum + (Number(os.valor_faturado) || 0), 0
-      );
-      const receitaMes = ordensData
-        .filter((o: Record<string, unknown>) => {
-          const dataOS = new Date(String(o.created_at));
-          return dataOS >= inicioMes;
-        })
-        .reduce((sum, os: Record<string, unknown>) => 
-          sum + (Number(os.valor_faturado) || 0), 0
-        );
-
-      // Buscar configuração de comissão real
-      let percentualComissao = 0.10; // Padrão se não encontrar
-      try {
-        const { data: configComissao } = await supabase
-          .from('configuracoes_comissao')
-          .select('comissao_padrao')
-          .eq('empresa_id', empresaId)
-          .single();
-        
-        if (configComissao?.comissao_padrao) {
-          percentualComissao = configComissao.comissao_padrao / 100; // Converter de % para decimal
-        } else {
-          // Tentar buscar comissão específica do técnico usando auth_user_id
-          const { data: tecnicoData } = await supabase
-            .from('usuarios')
-            .select('comissao_percentual')
-            .eq('auth_user_id', tecnicoId) // tecnicoId é o user.id (auth_user_id)
-            .single();
-          
-          if (tecnicoData?.comissao_percentual) {
-            percentualComissao = tecnicoData.comissao_percentual / 100;
-          }
-        }
-      } catch (error) {
-        console.warn('Erro ao buscar configuração de comissão, usando padrão:', error);
-      }
-      
-      const comissaoTotal = receitaTotal * percentualComissao;
-      const comissaoMes = receitaMes * percentualComissao;
+      // Receita e comissão já vêm de comissoes_historico acima (mesma fonte da página Comissões)
 
       // OSs concluídas
       const osConcluidasData = ordensData.filter((o: Record<string, unknown>) => {
         const status = normalizarStatus(String(o.status));
-        return status.includes('CONCLUID') || status.includes('FINALIZAD') || 
+        return status.includes('CONCLUID') || 
                status.includes('ENTREGUE') || status === 'FATURADO';
       });
       const osConcluidasMes = osConcluidasData.filter((o: Record<string, unknown>) => {
@@ -357,7 +281,7 @@ export default function DashboardTecnicoPage() {
         if (!o.prazo_entrega) return false;
         const prazo = new Date(String(o.prazo_entrega)).getTime();
         const status = normalizarStatus(String(o.status));
-        const estaConcluida = status.includes('CONCLUID') || status.includes('FINALIZAD') || 
+        const estaConcluida = status.includes('CONCLUID') || 
                              status.includes('ENTREGUE') || status === 'FATURADO';
         return prazo < hojeTimestamp && !estaConcluida;
       }).length;
@@ -426,7 +350,7 @@ export default function DashboardTecnicoPage() {
         error,
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
-        tecnicoId: user?.id,
+        userId: user?.id,
         empresaId: usuarioData?.empresa_id,
         usuarioDataId: usuarioData?.id
       });
@@ -455,9 +379,14 @@ export default function DashboardTecnicoPage() {
     } finally {
       setLoading(false);
     }
-  }, [user, usuarioData?.empresa_id, dataFetched]);
+  }, [user, usuarioData?.empresa_id, usuarioData?.id, dataFetched]);
 
   const [permissionChecked, setPermissionChecked] = useState(false);
+
+  // Permitir refetch quando usuário ou empresa mudar (ex.: novo login)
+  useEffect(() => {
+    setDataFetched(false);
+  }, [user?.id, usuarioData?.empresa_id, usuarioData?.id]);
 
   useEffect(() => {
     // Aguardar carregamento do auth
@@ -479,8 +408,8 @@ export default function DashboardTecnicoPage() {
     // Se chegou aqui, tem permissão - marcar como verificado
     setPermissionChecked(true);
     
-    // Só buscar dados se não estiver carregando e tiver os dados necessários
-    if (user && usuarioData?.empresa_id && !dataFetched) {
+    // Só buscar dados quando tiver user, empresa e id do técnico (mesmo que Comissões)
+    if (user && usuarioData?.empresa_id && usuarioData?.id && !dataFetched) {
       fetchTecnicoData();
     }
   }, [authLoading, user, usuarioData, router, fetchTecnicoData, dataFetched]);
@@ -497,15 +426,18 @@ export default function DashboardTecnicoPage() {
   };
 
   const getStatusColor = (status: string) => {
-    const statusUpper = status.toUpperCase();
-    if (statusUpper.includes('CONCLUID') || statusUpper.includes('FINALIZAD')) {
+    const statusUpper = (status || '').toUpperCase();
+    if (statusUpper.includes('CONCLUID')) {
       return 'text-green-600 bg-green-100';
     }
     if (statusUpper.includes('ANÁLISE') || statusUpper.includes('REPARO')) {
       return 'text-yellow-600 bg-yellow-100';
     }
-    if (statusUpper.includes('PENDENTE')) {
-      return 'text-blue-600 bg-blue-100';
+    if (statusUpper.includes('PENDENTE') || statusUpper.includes('ORÇAMENTO') || statusUpper.includes('ORCAMENTO')) {
+      return 'text-yellow-600 bg-yellow-100';
+    }
+    if (statusUpper.includes('EM ATENDIMENTO')) {
+      return 'text-slate-600 bg-slate-100';
     }
     if (statusUpper.includes('URGENTE')) {
       return 'text-red-600 bg-red-100';
@@ -791,7 +723,7 @@ export default function DashboardTecnicoPage() {
                   <div
                     key={String(os.id)}
                     className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-3 md:p-4 border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => router.push(`/ordens/${os.id}`)}
+                    onClick={() => router.push(`/bancada/${os.id}`)}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1 min-w-0">
@@ -826,7 +758,7 @@ export default function DashboardTecnicoPage() {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-base md:text-lg font-semibold text-gray-900">OSs Recentes</h3>
             <button
-              onClick={() => router.push('/ordens')}
+              onClick={() => router.push('/bancada')}
               className="text-xs md:text-sm text-blue-600 hover:text-blue-800 font-medium"
             >
               Ver todas →
@@ -837,7 +769,7 @@ export default function DashboardTecnicoPage() {
               <div
                 key={String(os.id)}
                 className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-                onClick={() => router.push(`/ordens/${os.id}`)}
+                onClick={() => router.push(`/bancada/${os.id}`)}
               >
                 <div className="flex-1 min-w-0 mb-2 sm:mb-0">
                   <p className="font-medium text-sm md:text-base text-gray-900 truncate">
@@ -849,7 +781,7 @@ export default function DashboardTecnicoPage() {
                 </div>
                 <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${getStatusColor(String(os.status))}`}>
-                    {String(os.status)}
+                    {getStatusTecnicoLabel(os.status, (os as any).status_tecnico)}
                   </span>
                   <span className="text-xs text-gray-500 whitespace-nowrap">
                     {formatDate(String(os.created_at))}

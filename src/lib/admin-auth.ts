@@ -11,7 +11,7 @@ import { cookies } from 'next/headers';
  * 1. Cookie de acesso (admin_saas_access) - OBRIGATÓRIO
  * 
  * O cookie só é setado após:
- * - Login com 2FA via WhatsApp (validação do código)
+ * - Login com 2FA por app autenticador (TOTP)
  * - Código de acesso temporário via /api/admin-saas/gate
  */
 export async function isAdminAuthorized(req: NextRequest): Promise<boolean> {

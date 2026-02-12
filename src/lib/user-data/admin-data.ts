@@ -16,10 +16,10 @@ export async function getAdminData(empresaId: string): Promise<DadosAdmin | null
     
     const totalOS = todasOS?.length || 0;
     const osAbertas = todasOS?.filter(
-      os => !['FINALIZADA', 'CANCELADA'].includes(os.status)
+      os => !['ENTREGUE', 'CANCELADA'].includes(os.status)
     ).length || 0;
     const osFechadas = todasOS?.filter(
-      os => ['FINALIZADA', 'CANCELADA'].includes(os.status)
+      os => ['ENTREGUE', 'CANCELADA'].includes(os.status)
     ).length || 0;
     
     // Total de técnicos
@@ -89,7 +89,7 @@ export async function getAdminData(empresaId: string): Promise<DadosAdmin | null
         clientes!cliente_id(nome)
       `)
       .eq('empresa_id', empresaId)
-      .not('status', 'in', '(FINALIZADA,CANCELADA)')
+      .not('status', 'in', '(ENTREGUE,CANCELADA)')
       .lt('created_at', quinzeDiasAtras.toISOString())
       .order('created_at', { ascending: true })
       .limit(5);

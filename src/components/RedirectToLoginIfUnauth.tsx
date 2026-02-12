@@ -5,10 +5,16 @@ import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { isPublicPath } from '@/config/publicPaths';
 
+/** Rotas do painel admin - acesso totalmente separado do sistema principal (não exige sessão Supabase). */
+function isAdminRoute(pathname: string): boolean {
+  return pathname?.startsWith('/admin-login') === true || pathname?.startsWith('/admin-saas') === true;
+}
+
 /**
  * Redireciona imediatamente para /login se o usuário não está logado
  * e tentou acessar qualquer rota privada do sistema.
  * Evita flash de conteúdo e complementa o redirect feito pelo middleware.
+ * ⚠️ Admin (admin-login, admin-saas) é exceção: usa autenticação própria via cookie.
  */
 export default function RedirectToLoginIfUnauth({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -17,18 +23,34 @@ export default function RedirectToLoginIfUnauth({ children }: { children: React.
 
   useEffect(() => {
     let cancelled = false;
+    const path = pathname || '';
+
+    if (isAdminRoute(path) || isPublicPath(path)) {
+      setReady(true);
+      return;
+    }
+
+    // Timeout de segurança: não travar a tela em branco se getSession demorar
+    const safetyTimer = setTimeout(() => {
+      if (!cancelled) setReady(true);
+    }, 2500);
 
     async function check() {
-      if (isPublicPath(pathname || '')) {
-        setReady(true);
-        return;
-      }
       const {
         data: { session },
       } = await supabase.auth.getSession();
       if (cancelled) return;
       if (!session) {
-        const loginUrl = `/login?redirect=${encodeURIComponent(pathname || '/')}`;
+        await new Promise((r) => setTimeout(r, 200));
+        if (cancelled) return;
+        const { data: { session: sessionRetry } } = await supabase.auth.getSession();
+        if (cancelled) return;
+        if (sessionRetry) {
+          setReady(true);
+          return;
+        }
+        clearTimeout(safetyTimer);
+        const loginUrl = `/login?redirect=${encodeURIComponent(path || '/')}`;
         router.replace(loginUrl);
         return;
       }
@@ -38,11 +60,12 @@ export default function RedirectToLoginIfUnauth({ children }: { children: React.
     check();
     return () => {
       cancelled = true;
+      clearTimeout(safetyTimer);
     };
   }, [pathname, router]);
 
   const path = pathname || '';
-  if (!ready && !isPublicPath(path)) {
+  if (!ready && !isPublicPath(path) && !isAdminRoute(path)) {
     return null;
   }
 

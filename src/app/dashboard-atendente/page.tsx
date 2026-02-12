@@ -9,6 +9,7 @@ import MenuLayout from '@/components/MenuLayout';
 import { FiClock, FiDollarSign, FiUsers, FiTrendingUp, FiFileText, FiMessageSquare, FiStar, FiCheck, FiUser, FiPhone as FiPhoneIcon } from 'react-icons/fi';
 import LaudoProntoAlert from '@/components/LaudoProntoAlert';
 import { getDashboardPath, canAccessRoute } from '@/lib/dashboardRouting';
+import { getStatusTecnicoLabel } from '@/utils/statusLabels';
 
 interface AtendenteMetrics {
   totalOS: number;
@@ -98,7 +99,10 @@ export default function DashboardAtendentePage() {
       
       // Buscar OSs com orçamento enviado (mesma lógica do LaudoProntoAlert)
       const osComOrcamentoData = ordensData.filter((os: Record<string, unknown>) => {
-        const temOrcamentoEnviado = String(os.status_tecnico) === 'ORÇAMENTO ENVIADO' || String(os.status_tecnico) === 'AGUARDANDO APROVAÇÃO';
+        const stTec = String(os.status_tecnico || '');
+        const temOrcamentoEnviado =
+          stTec === 'ORÇAMENTO CONCLUÍDO' ||
+          stTec === 'AGUARDANDO APROVAÇÃO';
         return temOrcamentoEnviado;
       });
       
@@ -234,12 +238,13 @@ export default function DashboardAtendentePage() {
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'CONCLUIDO': return 'text-green-600 bg-green-100';
-      case 'EM_ANALISE': return 'text-yellow-600 bg-yellow-100';
-      case 'ABERTA': return 'text-blue-600 bg-blue-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
+    const s = (status || '').toUpperCase();
+    if (s.includes('CONCLUID') || s.includes('ENTREGUE')) return 'text-green-600 bg-green-100';
+    if (s.includes('ANÁLISE') || s.includes('ANALISE')) return 'text-yellow-600 bg-yellow-100';
+    if (s.includes('ORÇAMENTO') || s.includes('ORCAMENTO')) return 'text-amber-600 bg-amber-100';
+    if (s.includes('EM ATENDIMENTO')) return 'text-slate-600 bg-slate-100';
+    if (s.includes('PENDENTE')) return 'text-blue-600 bg-blue-100';
+    return 'text-gray-600 bg-gray-100';
   };
 
   // Não renderizar nada até verificar permissão
@@ -427,7 +432,7 @@ export default function DashboardAtendentePage() {
                     </div>
                     <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${getStatusColor(String(os.status))}`}>
-                        {String(os.status)}
+                        {getStatusTecnicoLabel(os.status, (os as any).status_tecnico)}
                       </span>
                       <p className="text-xs text-gray-500 whitespace-nowrap">{formatDate(String(os.created_at))}</p>
                     </div>

@@ -1,6 +1,18 @@
 
 'use client';
 
+import { getStatusTecnicoLabel } from '@/utils/statusLabels';
+
+/** Extrai string do status/status_tecnico (Supabase pode retornar objeto da relação com .nome). */
+function normStatusVal(v: unknown): string {
+  if (v == null || v === '') return '';
+  if (typeof v === 'string') return v.trim();
+  if (typeof v === 'object' && v !== null && 'nome' in v && typeof (v as { nome: string }).nome === 'string') {
+    return (v as { nome: string }).nome.trim();
+  }
+  return String(v).trim();
+}
+
 interface OrdemTransformada {
   id: string;
   numero: number;
@@ -29,6 +41,7 @@ interface OrdemTransformada {
   foiFaturada: boolean;
   formaPagamento: string;
   clienteRecusou: boolean;
+  aparelhoSemConserto: boolean;
   observacao?: string | null;
   problema_relatado?: string | null;
   responsavelId?: string | null;
@@ -246,6 +259,8 @@ export default function ListaOrdensPage() {
       case 'finalizada':
       case 'finalizado':
         return 'bg-green-100 text-green-800 border border-green-200';
+      case 'em atendimento':
+        return 'bg-slate-100 text-slate-800 border border-slate-200';
       default:
         return 'bg-gray-100 text-gray-800 border border-gray-200';
     }
@@ -303,47 +318,49 @@ export default function ListaOrdensPage() {
     
     try {
       await executeWithRetry(async () => {
-      // ✅ OTIMIZADO: Query simplificada com menos campos e limite reduzido
-      let query = supabase
-        .from('ordens_servico')
-        .select(`
-          id,
-          numero_os,
-          cliente_id,
-          categoria,
-          marca,
-          modelo,
-          status,
-          status_tecnico,
-          created_at,
-          tecnico_id,
-          data_entrega,
-          prazo_entrega,
-          valor_faturado,
-          valor_peca,
-          valor_servico,
-          qtd_peca,
-          qtd_servico,
-          desconto,
-          servico,
-          tipo,
-          observacao,
-          problema_relatado,
-          atendente,
-          atendente_id,
-          cliente_recusou,
-          vencimento_garantia
-        `)
-        .eq("empresa_id", empresaId)
-        .order('created_at', { ascending: false })
-        .limit(500); // ✅ Reduzido de 1000 para 500
+      const baseSelect = `
+        id,
+        numero_os,
+        cliente_id,
+        categoria,
+        marca,
+        modelo,
+        status,
+        status_tecnico,
+        created_at,
+        tecnico_id,
+        data_entrega,
+        prazo_entrega,
+        valor_faturado,
+        valor_peca,
+        valor_servico,
+        qtd_peca,
+        qtd_servico,
+        desconto,
+        servico,
+        tipo,
+        observacao,
+        problema_relatado,
+        atendente,
+        atendente_id,
+        cliente_recusou,
+        vencimento_garantia
+      `;
+      const selectComAparelhoSemConserto = `${baseSelect}, aparelho_sem_conserto`;
+      const buildQuery = (selectFields: string) =>
+        supabase
+          .from('ordens_servico')
+          .select(selectFields)
+          .eq("empresa_id", empresaId)
+          .order('created_at', { ascending: false })
+          .limit(500); // ✅ Reduzido de 1000 para 500
       
       // Executar query e tratar erros
       let queryResult: any;
       try {
         // ✅ OTIMIZADO: Timeout reduzido para 15 segundos (mais responsivo)
         queryResult = await Promise.race([
-          query,
+          buildQuery(selectComAparelhoSemConserto),
           new Promise((_, reject) => 
             setTimeout(() => reject(new Error('Query timeout - dados demorando muito para carregar')), 15000)
           )
@@ -354,6 +371,19 @@ export default function ListaOrdensPage() {
       }
       
       let { data, error } = queryResult || { data: null, error: null };
+      const columnMissingAparelhoSemConserto =
+        !!error && typeof error.message === 'string' && error.message.includes('aparelho_sem_conserto');
+      if (columnMissingAparelhoSemConserto) {
+        console.warn('⚠️ Coluna aparelho_sem_conserto ausente neste banco; executando fallback de compatibilidade.');
+        const fallbackResult = await Promise.race([
+          buildQuery(baseSelect),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Query timeout - fallback sem aparelho_sem_conserto')), 15000)
+          )
+        ]);
+        data = (fallbackResult as any)?.data ?? [];
+        error = (fallbackResult as any)?.error ?? null;
+      }
       
       // Log apenas erros críticos
       if (error) {
@@ -416,6 +446,18 @@ export default function ListaOrdensPage() {
           .map((item: any) => item.atendente_id))];
 
         // ✅ Executar todas as queries de relacionamento em paralelo
+        // técnicos: ordens_servico.tecnico_id pode ser usuarios.id OU auth_user_id — buscar pelos dois
+        const tecnicosPromise = tecnicoIds.length > 0
+          ? Promise.all([
+              supabase.from('usuarios').select('id, nome, auth_user_id').in('id', tecnicoIds),
+              supabase.from('usuarios').select('id, nome, auth_user_id').in('auth_user_id', tecnicoIds)
+            ]).then(([byId, byAuth]) => {
+              const byIdData = (byId.data || []) as any[];
+              const byAuthData = (byAuth.data || []).filter((u: any) => !byIdData.some((x: any) => x.id === u.id)) as any[];
+              return { data: [...byIdData, ...byAuthData], error: byId.error || byAuth.error };
+            })
+          : Promise.resolve({ data: [], error: null });
+
         const [clientesResult, tecnicosResult, responsaveisResult] = await Promise.allSettled([
           clienteIds.length > 0 
             ? supabase
@@ -423,12 +465,7 @@ export default function ListaOrdensPage() {
                 .select('id, nome, telefone, email')
                 .in('id', clienteIds)
             : Promise.resolve({ data: [], error: null }),
-          tecnicoIds.length > 0
-            ? supabase
-                .from('usuarios')
-                .select('id, nome')
-                .in('id', tecnicoIds)
-            : Promise.resolve({ data: [], error: null }),
+          tecnicosPromise,
           responsavelIds.length > 0
             ? supabase
                 .from('usuarios')
@@ -454,8 +491,10 @@ export default function ListaOrdensPage() {
         let tecnicosDict: Record<string, string> = {};
         if (tecnicosResult.status === 'fulfilled' && tecnicosResult.value.data) {
           const tecnicosData = tecnicosResult.value.data as any[];
+          const nomeTecnico = (t: any) => t.nome || 'Sem nome';
           tecnicosDict = tecnicosData.reduce((acc: Record<string, string>, tecnico: any) => {
-            acc[tecnico.id] = tecnico.nome || 'Sem nome';
+            acc[tecnico.id] = nomeTecnico(tecnico);
+            if (tecnico.auth_user_id) acc[tecnico.auth_user_id] = nomeTecnico(tecnico);
             return acc;
           }, {} as Record<string, string>);
         }
@@ -479,7 +518,7 @@ export default function ListaOrdensPage() {
           const valorFaturado = os.valor_faturado || 0;
           return valorFaturado > 0 && 
                  !os.cliente_recusou && 
-                 (os.status === 'ENTREGUE' || os.status_tecnico === 'FINALIZADA');
+                (os.status === 'ENTREGUE' || os.status_tecnico === 'REPARO CONCLUÍDO');
         });
         
         // ✅ Buscar vendas e contas_pagar apenas se houver OSs entregues (reduz carga)
@@ -597,8 +636,8 @@ export default function ListaOrdensPage() {
             aparelhoCategoria: item.categoria || '',
             aparelhoMarca: item.marca || '',
             servico: item.servico || '',
-            statusOS: item.status || '',
-            statusTecnico: item.status_tecnico || '',
+            statusOS: normStatusVal(item.status) || '',
+            statusTecnico: normStatusVal(item.status_tecnico) || '',
             entrada: item.created_at || '',
             tecnico: tecnicoNome,
             atendente: item.atendente || '',
@@ -613,10 +652,11 @@ export default function ListaOrdensPage() {
             valorFaturado: valorFaturado,
             tipo: item.tipo || 'Nova',
             clienteRecusou: item.cliente_recusou || false, // Campo para marcar se cliente recusou
-            // Verificar se foi faturada: precisa ter valor > 0, status ENTREGUE/FINALIZADA, ter venda relacionada E cliente não recusou
-            foiFaturada: !item.cliente_recusou && // Cliente não recusou
+            aparelhoSemConserto: item.aparelho_sem_conserto || false, // Campo para marcar se aparelho não teve conserto
+            // Verificar se foi faturada: precisa ter valor > 0, status ENTREGUE/REPARO CONCLUÍDO, ter venda relacionada E cliente não recusou/sem conserto
+            foiFaturada: !item.cliente_recusou && !item.aparelho_sem_conserto && // Cliente não recusou e aparelho teve conserto
                         valorFaturado > 0 && 
-                        (item.status === 'ENTREGUE' || item.status_tecnico === 'FINALIZADA') &&
+                        (item.status === 'ENTREGUE' || item.status_tecnico === 'REPARO CONCLUÍDO') &&
                         !!vendaOS, // Precisa ter venda relacionada
             formaPagamento: getFormaPagamento(item, vendaOS),
             observacao: item.observacao || null,
@@ -877,7 +917,8 @@ export default function ListaOrdensPage() {
       } else if (activeTab === 'laudo_pronto') {
         // OS com laudo pronto (status técnico)
         const stTec = (os.statusTecnico || '').toUpperCase();
-        matchesTab = stTec === 'ORÇAMENTO ENVIADO' || stTec === 'ORCAMENTO ENVIADO' || stTec === 'AGUARDANDO APROVAÇÃO' || stTec === 'AGUARDANDO APROVACAO';
+        matchesTab = stTec === 'ORÇAMENTO CONCLUÍDO' || stTec === 'ORCAMENTO CONCLUIDO' || 
+                     stTec === 'AGUARDANDO APROVAÇÃO' || stTec === 'AGUARDANDO APROVACAO';
       }
       // activeTab === 'todas' não filtra nada - mostra todas as OSs
 
@@ -931,7 +972,7 @@ export default function ListaOrdensPage() {
     }).length;
     
     const orcamentos = ordens.filter(os => {
-      const statusOrcamento = ['orçamento', 'orçamento enviado', 'aguardando aprovação'];
+      const statusOrcamento = ['orçamento', 'orçamento concluído', 'aguardando aprovação'];
       return statusOrcamento.includes(os.statusOS.toLowerCase());
     }).length;
     const aguardandoRetirada = ordens.filter(os => {
@@ -946,7 +987,8 @@ export default function ListaOrdensPage() {
     }).length;
     const laudoPronto = ordens.filter(os => {
       const stTec = (os.statusTecnico || '').toUpperCase();
-      return stTec === 'ORÇAMENTO ENVIADO' || stTec === 'ORCAMENTO ENVIADO' || stTec === 'AGUARDANDO APROVAÇÃO' || stTec === 'AGUARDANDO APROVACAO';
+      return stTec === 'ORÇAMENTO CONCLUÍDO' || stTec === 'ORCAMENTO CONCLUIDO' ||
+             stTec === 'AGUARDANDO APROVAÇÃO' || stTec === 'AGUARDANDO APROVACAO';
     }).length;
     
     return { reparoConcluido, concluidas, orcamentos, aguardandoRetirada, aprovadas, laudoPronto, todas: ordens.length };
@@ -966,7 +1008,7 @@ export default function ListaOrdensPage() {
       <MenuLayout>
         <OSFullPageSkeleton />
         {retryState.isRetrying && (
-          <div className="fixed bottom-4 right-4 bg-blue-100 border border-blue-200 rounded-lg p-4 shadow-lg">
+          <div className="fixed bottom-4 right-4 bg-blue-100 dark:bg-blue-900/50 border border-blue-200 dark:border-blue-700 rounded-lg p-4 shadow-lg">
             <div className="flex items-center space-x-2">
               <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
               <span className="text-blue-700 font-medium">
@@ -1058,14 +1100,14 @@ export default function ListaOrdensPage() {
   }).length;
 
   return (
-    <AuthGuardFinal requiredPermission="ordens">
+    <AuthGuardFinal>
       <MenuLayout>
         <div className="p-4 md:p-8">
           {/* Header com título e botão */}
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 md:mb-8 gap-4">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Ordens de Serviço</h1>
-              <p className="text-gray-600 mt-1 text-sm md:text-base">
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-zinc-100">Ordens de Serviço</h1>
+              <p className="text-gray-600 dark:text-zinc-400 mt-1 text-sm md:text-base">
                 Gerencie todas as ordens de serviço da sua empresa
               </p>
             </div>
@@ -1094,7 +1136,7 @@ export default function ListaOrdensPage() {
               <div className="mt-2">
                 <button 
                   onClick={() => router.push('/financeiro/detalhamento-mes')}
-                  className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium"
                 >
                   Ver mês completo →
                 </button>
@@ -1111,7 +1153,7 @@ export default function ListaOrdensPage() {
               <div className="mt-2">
                 <button 
                   onClick={() => router.push('/financeiro/detalhamento-mes')}
-                  className="text-xs text-green-600 hover:text-green-800 font-medium"
+                  className="text-xs text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 font-medium"
                 >
                   Ver mês completo →
                 </button>
@@ -1128,7 +1170,7 @@ export default function ListaOrdensPage() {
               <div className="mt-2">
                 <button 
                   onClick={() => router.push('/financeiro/detalhamento-mes')}
-                  className="text-xs text-red-600 hover:text-red-800 font-medium"
+                  className="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium"
                 >
                   Ver mês completo →
                 </button>
@@ -1145,7 +1187,7 @@ export default function ListaOrdensPage() {
               <div className="mt-2">
                 <button 
                   onClick={() => router.push('/financeiro/detalhamento-mes')}
-                  className="text-xs text-purple-600 hover:text-purple-800 font-medium"
+                  className="text-xs text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 font-medium"
                 >
                   Ver mês completo →
                 </button>
@@ -1154,8 +1196,8 @@ export default function ListaOrdensPage() {
           </div>
 
           {/* Abas */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
-            <div className="flex overflow-x-auto border-b border-gray-200">
+          <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600 mb-6">
+            <div className="flex overflow-x-auto border-b border-gray-200 dark:border-zinc-600">
               <div className="flex min-w-max">
               <button
                 onClick={() => handleTabChange('todas')}
@@ -1163,13 +1205,13 @@ export default function ListaOrdensPage() {
                 aria-pressed={activeTab === 'todas'}
                 className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === 'todas'
-                    ? 'border-blue-500 text-blue-600 bg-blue-50'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                    ? 'border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40'
+                    : 'border-transparent text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200 hover:bg-gray-50 dark:hover:bg-zinc-700'
                 }`}
               >
                 Todas
                 <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-                  activeTab === 'todas' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                  activeTab === 'todas' ? 'bg-blue-100 dark:bg-blue-800/60 text-blue-700 dark:text-blue-200' : 'bg-gray-100 dark:bg-zinc-600 text-gray-600 dark:text-zinc-300'
                 }`}>
                   {contadores.todas}
                 </span>
@@ -1178,13 +1220,13 @@ export default function ListaOrdensPage() {
                 onClick={() => handleTabChange('reparo_concluido')}
                 className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === 'reparo_concluido'
-                    ? 'border-blue-500 text-blue-600 bg-blue-50'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                    ? 'border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40'
+                    : 'border-transparent text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200 hover:bg-gray-50 dark:hover:bg-zinc-700'
                 }`}
               >
                 Reparo Concluído
                 <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-                  activeTab === 'reparo_concluido' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                  activeTab === 'reparo_concluido' ? 'bg-blue-100 dark:bg-blue-800/60 text-blue-700 dark:text-blue-200' : 'bg-gray-100 dark:bg-zinc-600 text-gray-600 dark:text-zinc-300'
                 }`}>
                   {contadores.reparoConcluido}
                 </span>
@@ -1193,13 +1235,13 @@ export default function ListaOrdensPage() {
                 onClick={() => handleTabChange('orcamentos')}
                 className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === 'orcamentos'
-                    ? 'border-blue-500 text-blue-600 bg-blue-50'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                    ? 'border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40'
+                    : 'border-transparent text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200 hover:bg-gray-50 dark:hover:bg-zinc-700'
                 }`}
               >
                 Orçamentos
                 <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-                  activeTab === 'orcamentos' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                  activeTab === 'orcamentos' ? 'bg-blue-100 dark:bg-blue-800/60 text-blue-700 dark:text-blue-200' : 'bg-gray-100 dark:bg-zinc-600 text-gray-600 dark:text-zinc-300'
                 }`}>
                   {contadores.orcamentos}
                 </span>
@@ -1208,13 +1250,13 @@ export default function ListaOrdensPage() {
                 onClick={() => handleTabChange('aprovadas')}
                 className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === 'aprovadas'
-                    ? 'border-blue-500 text-blue-600 bg-blue-50'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                    ? 'border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40'
+                    : 'border-transparent text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200 hover:bg-gray-50 dark:hover:bg-zinc-700'
                 }`}
               >
                 Aprovadas
                 <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-                  activeTab === 'aprovadas' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                  activeTab === 'aprovadas' ? 'bg-blue-100 dark:bg-blue-800/60 text-blue-700 dark:text-blue-200' : 'bg-gray-100 dark:bg-zinc-600 text-gray-600 dark:text-zinc-300'
                 }`}>
                   {contadores.aprovadas}
                 </span>
@@ -1223,13 +1265,13 @@ export default function ListaOrdensPage() {
                 onClick={() => handleTabChange('laudo_pronto')}
                 className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === 'laudo_pronto'
-                    ? 'border-blue-500 text-blue-600 bg-blue-50'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                    ? 'border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40'
+                    : 'border-transparent text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200 hover:bg-gray-50 dark:hover:bg-zinc-700'
                 }`}
               >
                 Laudo Pronto
                 <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-                  activeTab === 'laudo_pronto' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                  activeTab === 'laudo_pronto' ? 'bg-blue-100 dark:bg-blue-800/60 text-blue-700 dark:text-blue-200' : 'bg-gray-100 dark:bg-zinc-600 text-gray-600 dark:text-zinc-300'
                 }`}>
                   {contadores.laudoPronto}
                 </span>
@@ -1238,13 +1280,13 @@ export default function ListaOrdensPage() {
                 onClick={() => handleTabChange('aguardando_retirada')}
                 className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === 'aguardando_retirada'
-                    ? 'border-blue-500 text-blue-600 bg-blue-50'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                    ? 'border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40'
+                    : 'border-transparent text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200 hover:bg-gray-50 dark:hover:bg-zinc-700'
                 }`}
               >
                                  Aguardando Retirada
                 <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-                  activeTab === 'aguardando_retirada' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                  activeTab === 'aguardando_retirada' ? 'bg-blue-100 dark:bg-blue-800/60 text-blue-700 dark:text-blue-200' : 'bg-gray-100 dark:bg-zinc-600 text-gray-600 dark:text-zinc-300'
                 }`}>
                   {contadores.aguardandoRetirada}
                 </span>
@@ -1253,13 +1295,13 @@ export default function ListaOrdensPage() {
                 onClick={() => handleTabChange('concluidas')}
                 className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === 'concluidas'
-                    ? 'border-blue-500 text-blue-600 bg-blue-50'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                    ? 'border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40'
+                    : 'border-transparent text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200 hover:bg-gray-50 dark:hover:bg-zinc-700'
                 }`}
               >
                                  Concluídas
                 <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-                  activeTab === 'concluidas' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                  activeTab === 'concluidas' ? 'bg-blue-100 dark:bg-blue-800/60 text-blue-700 dark:text-blue-200' : 'bg-gray-100 dark:bg-zinc-600 text-gray-600 dark:text-zinc-300'
                 }`}>
                   {contadores.concluidas}
                 </span>
@@ -1269,11 +1311,11 @@ export default function ListaOrdensPage() {
           </div>
 
           {/* Filtros e busca */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600 p-6 mb-6">
             <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
               {/* Busca */}
               <div className="flex-1 relative">
-                  <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-zinc-500 w-4 h-4" />
                   <Input
                     type="text"
                   placeholder="Buscar por OS, cliente, aparelho ou serviço..."
@@ -1340,13 +1382,13 @@ export default function ListaOrdensPage() {
             </div>
 
             {/* Resultados */}
-            <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
+            <div className="mt-4 flex items-center justify-between text-sm text-gray-600 dark:text-zinc-400">
               <span>
                 {filteredOrdens.length} de {ordens.length} ordens encontradas
               </span>
               {loading && (
                 <div className="flex items-center gap-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900 dark:border-zinc-100"></div>
                   <span>Carregando...</span>
                 </div>
               )}
@@ -1354,73 +1396,63 @@ export default function ListaOrdensPage() {
         </div>
 
         {/* Tabela - Desktop */}
-        <div className="hidden md:block bg-white rounded-xl shadow-sm border border-gray-200">
+        <div className="hidden md:block bg-white dark:bg-zinc-800 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600">
           <div className="w-full">
-            <table className="w-full table-fixed divide-y divide-gray-200">
+            <table className="w-full table-fixed divide-y divide-gray-200 dark:divide-zinc-600">
                 <colgroup>
-                  <col className="w-20" />
-                  <col className="w-16" />
-                  <col className="w-24" />
-                  <col className="w-20" />
-                  <col className="w-16" />
-                  <col className="w-20" />
-                  <col className="w-16" />
-                  <col className="w-20" />
-                  <col className="w-20" />
-                  <col className="w-20" />
-                  <col className="w-16" />
+                  <col className="w-20" /><col className="w-16" /><col className="w-24" /><col className="w-20" /><col className="w-16" /><col className="w-20" /><col className="w-16" /><col className="w-20" /><col className="w-20" /><col className="w-20" /><col className="w-16" />
                 </colgroup>
-              <thead className="bg-gray-50">
+              <thead className="bg-gray-50 dark:bg-zinc-700">
                 <tr>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
                     <div className="flex items-center gap-1">
                         <FiFileText className="w-3 h-3" />
                       <span className="hidden sm:inline">OS</span>
                     </div>
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
                     <div className="flex items-center gap-1">
                         <FiRefreshCw className="w-3 h-3" />
                       <span className="hidden sm:inline">Tipo</span>
                     </div>
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
                     <div className="flex items-center gap-1">
                         <FiSmartphone className="w-3 h-3" />
                       <span className="hidden sm:inline">Aparelho</span>
                     </div>
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
                       <span className="hidden sm:inline">Serviço</span>
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
                     <div className="flex items-center gap-1">
                         <FiClock className="w-3 h-3" />
                       <span className="hidden sm:inline">Prazo</span>
                     </div>
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
                       <span className="hidden sm:inline">Garantia</span>
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
                     <div className="flex items-center gap-1">
                       <FiDollarSign className="w-3 h-3" />
                         <span className="hidden sm:inline">Total</span>
                     </div>
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
                     <div className="flex items-center gap-1">
                       <FiUser className="w-3 h-3" />
                       <span className="hidden sm:inline">Técnico</span>
                     </div>
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
                     <span className="hidden sm:inline">Status</span>
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
                     <span className="hidden sm:inline">Status Técnico</span>
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
                     <div className="flex items-center gap-1">
                       <FiDollarSign className="w-3 h-3" />
                       <span className="hidden sm:inline">Faturado</span>
@@ -1428,12 +1460,12 @@ export default function ListaOrdensPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-600">
                 {paginated.map((os) => (
                   <tr 
                     key={os.id} 
-                    className={`hover:bg-blue-50 hover:shadow-sm transition-all duration-200 cursor-pointer group ${
-                      os.tipo === 'Retorno' ? 'border-l-4 border-l-red-500 bg-red-50/50 hover:bg-red-100/50' : ''
+                    className={`hover:bg-blue-50 dark:hover:bg-zinc-700 hover:shadow-sm transition-all duration-200 cursor-pointer group ${
+                      os.tipo === 'Retorno' ? 'border-l-4 border-l-red-500 bg-red-50/50 dark:bg-red-900/20 hover:bg-red-100/50 dark:hover:bg-red-900/30' : ''
                     }`}
                     onClick={() => router.push(`/ordens/${os.id}`)}
                   >
@@ -1444,21 +1476,21 @@ export default function ListaOrdensPage() {
                         </div>
                         <div className="min-w-0 flex-1 space-y-0.5">
                           <div className="flex items-center gap-1">
-                            <span className="font-bold text-gray-900 text-xs group-hover:text-blue-600 transition-colors">
+                            <span className="font-bold text-gray-900 dark:text-zinc-100 text-xs group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                               #{os.numero}
                             </span>
                             {os.tipo === 'Retorno' && (
                               <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0"></div>
                             )}
                           </div>
-                          <div className="text-[11px] text-gray-500 font-medium truncate">
+                          <div className="text-[11px] text-gray-500 dark:text-zinc-400 font-medium truncate">
                             Criada por {os.responsavelNome || os.atendente || 'Usuário'}
                           </div>
-                          <div className="text-xs text-gray-600 font-medium truncate min-w-0 group-hover:text-gray-900 transition-colors">
+                          <div className="text-xs text-gray-600 dark:text-zinc-400 font-medium truncate min-w-0 group-hover:text-gray-900 dark:group-hover:text-zinc-100 transition-colors">
                             {os.cliente || 'N/A'}
                           </div>
-                          <div className="text-xs text-gray-500 truncate">{os.clienteTelefone || 'N/A'}</div>
-                          <div className="text-xs text-gray-400 truncate">{formatDate(os.entrada) || 'N/A'}</div>
+                          <div className="text-xs text-gray-500 dark:text-zinc-500 truncate">{os.clienteTelefone || 'N/A'}</div>
+                          <div className="text-xs text-gray-400 dark:text-zinc-500 truncate">{formatDate(os.entrada) || 'N/A'}</div>
                         </div>
                       </div>
                       {/* Indicador de recusa - ponto vermelho no canto superior direito da célula */}
@@ -1480,9 +1512,9 @@ export default function ListaOrdensPage() {
                       )}
                     </td>
                     <td className="px-1 py-2">
-                      <div className="text-xs font-medium text-gray-900 truncate min-w-0">{os.aparelho || 'N/A'}</div>
+                      <div className="text-xs font-medium text-gray-900 dark:text-zinc-100 truncate min-w-0">{os.aparelho || 'N/A'}</div>
                       {(os.aparelhoCategoria || os.aparelhoMarca) && (
-                        <div className="text-xs text-gray-500 truncate">
+                        <div className="text-xs text-gray-500 dark:text-zinc-500 truncate">
                           {[os.aparelhoCategoria, os.aparelhoMarca].filter(Boolean).join(' • ')}
                         </div>
                       )}
@@ -1493,22 +1525,22 @@ export default function ListaOrdensPage() {
                       )}
                     </td>
                     <td className="px-1 py-2">
-                      <div className="text-xs text-gray-900 min-w-0">
+                      <div className="text-xs text-gray-900 dark:text-zinc-100 min-w-0">
                         <div className="font-medium truncate">{os.servico || 'Aguardando'}</div>
-                        <div className="text-gray-600 font-semibold">{formatCurrency(os.valorTotal)}</div>
+                        <div className="text-gray-600 dark:text-zinc-400 font-semibold">{formatCurrency(os.valorTotal)}</div>
                       </div>
                     </td>
                     <td className="px-1 py-2">
                       <div className="text-xs text-gray-600 min-w-0">
                         <div className="mb-1">
-                          <span className="font-medium text-gray-700">
+                          <span className="font-medium text-gray-700 dark:text-zinc-300">
                             {formatDate(os.prazoEntrega) || 'Não definido'}
                           </span>
                         </div>
                         <div className={`text-xs ${
                           os.entrega && os.entrega !== 'Aguardando retirada' 
                             ? 'text-green-600' 
-                            : 'text-gray-500'
+                            : 'text-gray-500 dark:text-zinc-500'
                         }`}>
                           {formatDate(os.entrega) || 'Aguardando'}
                         </div>
@@ -1522,7 +1554,7 @@ export default function ListaOrdensPage() {
                       }`}>
                         <div className="whitespace-nowrap">{formatDate(os.garantia) || 'Aguardando'}</div>
                         {os.garantia && (
-                          <div className="text-xs text-gray-500 truncate">
+                          <div className="text-xs text-gray-500 dark:text-zinc-500 truncate">
                             {new Date(os.garantia).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)
                               ? 'Expirada'
                               : `${Math.max(0, Math.ceil((new Date(os.garantia).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / (1000 * 60 * 60 * 24)))} dias restantes`
@@ -1537,12 +1569,12 @@ export default function ListaOrdensPage() {
                       </div>
                     </td>
                     <td className="px-1 py-2">
-                      <div className="text-xs text-gray-900 truncate min-w-0">{os.tecnico || 'N/A'}</div>
+                      <div className="text-xs text-gray-900 dark:text-zinc-100 truncate min-w-0">{os.tecnico || 'N/A'}</div>
                     </td>
                     <td className="px-1 py-2">
                       <div className="flex items-center gap-1 min-w-0 overflow-hidden">
                         <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium truncate max-w-full ${getStatusColor(os.statusOS)}`}>
-                          {os.statusOS || 'N/A'}
+                          {getStatusTecnicoLabel(os.statusOS, null) || 'N/A'}
                         </span>
                         {os.tipo === 'Retorno' && (
                           <div className="w-1.5 h-1.5 bg-red-500 rounded-full flex-shrink-0"></div>
@@ -1552,7 +1584,7 @@ export default function ListaOrdensPage() {
                     <td className="px-1 py-2">
                       <div className="flex items-center gap-1 min-w-0 overflow-hidden">
                         <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium truncate max-w-full ${getStatusTecnicoColor(os.statusTecnico)}`}>
-                            {os.statusTecnico || 'N/A'}
+                            {getStatusTecnicoLabel(os.statusOS, os.statusTecnico) || 'N/A'}
                         </span>
                       </div>
                     </td>
@@ -1567,6 +1599,15 @@ export default function ListaOrdensPage() {
                               Cliente recusou
                             </div>
                           </>
+                        ) : os.aparelhoSemConserto ? (
+                          <>
+                            <div className="font-bold text-orange-600">
+                              Sem conserto
+                            </div>
+                            <div className="text-xs text-orange-500 font-medium mt-1">
+                              Aparelho s/ reparo
+                            </div>
+                          </>
                         ) : os.foiFaturada ? (
                           <>
                             <div className="font-bold text-green-600">
@@ -1578,7 +1619,7 @@ export default function ListaOrdensPage() {
                           </>
                         ) : (
                           <>
-                            <div className="text-gray-500 font-medium">
+                            <div className="text-gray-500 dark:text-zinc-400 font-medium">
                               Aguardando
                             </div>
                           </>
@@ -1599,8 +1640,8 @@ export default function ListaOrdensPage() {
               return (
               <div 
                 key={os.id} 
-                className={`relative bg-white rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer ${
-                  os.tipo === 'Retorno' ? 'border-l-4 border-l-red-500 bg-red-50/60 hover:bg-red-100/60' : ''
+                className={`relative bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-600 p-4 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer ${
+                  os.tipo === 'Retorno' ? 'border-l-4 border-l-red-500 bg-red-50/60 dark:bg-red-900/20 hover:bg-red-100/60 dark:hover:bg-red-900/30' : ''
                 }`}
                 onClick={() => router.push(`/ordens/${os.id}`)}
               >
@@ -1608,18 +1649,22 @@ export default function ListaOrdensPage() {
                 {os.observacao?.includes('🚫 CLIENTE RECUSOU ORÇAMENTO') && (
                   <div className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full shadow-sm z-10" title="Cliente recusou orçamento"></div>
                 )}
+                {/* Indicador de aparelho sem conserto - ponto laranja */}
+                {os.aparelhoSemConserto && (
+                  <div className="absolute top-3 right-3 w-2.5 h-2.5 bg-orange-500 rounded-full shadow-sm z-10" title="Aparelho sem conserto"></div>
+                )}
                 {/* Header do card */}
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
                     {renderUserAvatar(responsavelNome, os.responsavelAvatar, 42)}
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-gray-900">#{os.numero}</span>
+                        <span className="font-bold text-gray-900 dark:text-zinc-100">#{os.numero}</span>
                         {os.tipo === 'Retorno' && (
                           <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
                         )}
                       </div>
-                      <div className="text-[11px] text-gray-500">Criada por {responsavelNome}</div>
+                      <div className="text-[11px] text-gray-500 dark:text-zinc-400">Criada por {responsavelNome}</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1630,53 +1675,57 @@ export default function ListaOrdensPage() {
                       </span>
                     )}
                     <div className={`px-2 py-1 text-xs rounded-full font-medium ${getStatusColor(os.statusOS)}`}>
-                      {os.statusOS}
+                      {getStatusTecnicoLabel(os.statusOS, null)}
                     </div>
                   </div>
                 </div>
 
                 {/* Cliente */}
                 <div className="mb-3">
-                  <div className="text-sm font-medium text-gray-900">{os.cliente || 'N/A'}</div>
-                  <div className="text-xs text-gray-600">{os.clienteTelefone || 'N/A'}</div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-zinc-100">{os.cliente || 'N/A'}</div>
+                  <div className="text-xs text-gray-600 dark:text-zinc-400">{os.clienteTelefone || 'N/A'}</div>
                 </div>
 
                 {/* Aparelho e Serviço */}
                 <div className="mb-3">
-                  <div className="text-sm font-medium text-gray-800">{os.aparelho || 'N/A'}</div>
-                  <div className="text-xs text-gray-600">{os.servico || 'Aguardando'}</div>
+                  <div className="text-sm font-medium text-gray-800 dark:text-zinc-200">{os.aparelho || 'N/A'}</div>
+                  <div className="text-xs text-gray-600 dark:text-zinc-400">{os.servico || 'Aguardando'}</div>
                 </div>
 
                 {/* Relato do Cliente */}
                 {os.problema_relatado && (
-                  <div className="mb-3 p-2 bg-blue-50 rounded-lg border border-blue-200">
-                    <div className="text-xs text-blue-600 font-medium mb-1">💬 Relato do Cliente:</div>
-                    <div className="text-xs text-blue-700 line-clamp-2">{os.problema_relatado}</div>
+                  <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <div className="text-xs text-blue-600 dark:text-blue-300 font-medium mb-1">💬 Relato do Cliente:</div>
+                    <div className="text-xs text-blue-700 dark:text-blue-200 line-clamp-2">{os.problema_relatado}</div>
                   </div>
                 )}
 
                 {/* Informações técnicas */}
                 <div className="grid grid-cols-2 gap-4 mb-3 text-xs">
                   <div>
-                    <div className="text-gray-500">Técnico</div>
-                    <div className="font-medium text-gray-900">{os.tecnico || 'N/A'}</div>
+                    <div className="text-gray-500 dark:text-zinc-400">Técnico</div>
+                    <div className="font-medium text-gray-900 dark:text-zinc-100">{os.tecnico || 'N/A'}</div>
                   </div>
                   <div>
-                    <div className="text-gray-500">Total</div>
-                    <div className="font-medium text-gray-900">{formatCurrency(os.valorTotal)}</div>
+                    <div className="text-gray-500 dark:text-zinc-400">Total</div>
+                    <div className="font-medium text-gray-900 dark:text-zinc-100">{formatCurrency(os.valorTotal)}</div>
                   </div>
                 </div>
 
                 {/* Status técnico e faturado */}
                 <div className="flex items-center justify-between text-xs">
                   <div>
-                    <div className="text-gray-500">Status Técnico</div>
-                    <div className="font-medium text-gray-900">{os.statusTecnico || 'N/A'}</div>
+                    <div className="text-gray-500 dark:text-zinc-400">Status Técnico</div>
+                    <div className="font-medium text-gray-900 dark:text-zinc-100">{getStatusTecnicoLabel(os.statusOS, os.statusTecnico) || 'N/A'}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-gray-500">Faturado</div>
-                    <div className={`font-medium ${os.foiFaturada ? 'text-green-600' : 'text-gray-500'}`}>
-                      {os.foiFaturada ? 'Faturado' : 'Aguardando'}
+                    <div className="text-gray-500 dark:text-zinc-400">Faturado</div>
+                    <div className={`font-medium ${
+                      os.clienteRecusou ? 'text-red-600 dark:text-red-400' :
+                      os.aparelhoSemConserto ? 'text-orange-600 dark:text-orange-400' :
+                      os.foiFaturada ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-zinc-400'
+                    }`}>
+                      {os.clienteRecusou ? 'Recusado' : os.aparelhoSemConserto ? 'Sem conserto' : os.foiFaturada ? 'Faturado' : 'Aguardando'}
                     </div>
                   </div>
                 </div>
@@ -1688,9 +1737,9 @@ export default function ListaOrdensPage() {
           {/* Estado vazio */}
             {!loading && paginated.length === 0 && (
               <div className="text-center py-12">
-                <FiAlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma ordem encontrada</h3>
-                <p className="text-gray-600 mb-4">
+                <FiAlertCircle className="w-12 h-12 text-gray-400 dark:text-zinc-500 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 dark:text-zinc-100 mb-2">Nenhuma ordem encontrada</h3>
+                <p className="text-gray-600 dark:text-zinc-400 mb-4">
                   {searchTerm || statusFilter || tipoFilter || tecnicoFilter 
                     ? 'Tente ajustar os filtros de busca'
                     : 'Comece criando sua primeira ordem de serviço'

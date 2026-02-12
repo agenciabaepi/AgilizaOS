@@ -8,6 +8,7 @@ import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { useAuth } from '@/context/AuthContext';
 import { useConfigPermission, AcessoNegadoComponent } from '@/hooks/useConfigPermission';
+import { getMenuAccentColor, setMenuAccentColor, MENU_COLOR_PRESETS } from '@/lib/menuTheme';
 import { 
   BuildingOfficeIcon as FiBuilding,
   PhotoIcon as FiImage,
@@ -43,7 +44,7 @@ interface EmpresaData {
 }
 
 export default function ConfigEmpresaContent() {
-  const { user } = useAuth();
+  const { user, empresaData } = useAuth();
   const { addToast } = useToast();
   const confirm = useConfirm();
   const { podeAcessar } = useConfigPermission('empresa');
@@ -57,6 +58,7 @@ export default function ConfigEmpresaContent() {
   const [logoEscuroPreview, setLogoEscuroPreview] = useState<string | null>(null);
   const [uploadingLogoClaro, setUploadingLogoClaro] = useState(false);
   const [uploadingLogoEscuro, setUploadingLogoEscuro] = useState(false);
+  const [menuColor, setMenuColor] = useState('#D1FE6E');
   const [formData, setFormData] = useState({
     nome: '',
     cnpj: '',
@@ -122,6 +124,10 @@ export default function ConfigEmpresaContent() {
   useEffect(() => {
     fetchEmpresa();
   }, [user?.id]);
+
+  useEffect(() => {
+    if (empresaData?.id) setMenuColor(getMenuAccentColor(empresaData.id));
+  }, [empresaData?.id]);
 
   // Se não tem permissão, mostrar mensagem
   if (!podeAcessar) {
@@ -540,6 +546,45 @@ export default function ConfigEmpresaContent() {
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Cor do menu lateral */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: menuColor }} />
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Cor do menu</h2>
+                  <p className="text-sm text-gray-600">Personalize a cor de destaque do menu lateral (item ativo e detalhes).</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2 mb-4">
+                {MENU_COLOR_PRESETS.map(({ name, value }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => {
+                      setMenuColor(value);
+                      setMenuAccentColor(empresaData?.id, value);
+                    }}
+                    className="w-8 h-8 rounded-lg border-2 border-gray-300 hover:border-gray-500 transition shrink-0"
+                    style={{ backgroundColor: value }}
+                    title={name}
+                  />
+                ))}
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={menuColor}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setMenuColor(v);
+                    setMenuAccentColor(empresaData?.id, v);
+                  }}
+                  className="w-12 h-10 rounded border border-gray-300 cursor-pointer"
+                />
+                <span className="text-sm text-gray-600">{menuColor}</span>
               </div>
             </div>
 

@@ -82,7 +82,8 @@ export default function StickyOrcamentoPopup() {
       'AGUARDANDO RETIRADA',
       'AGUARDANDO_RETIRADA', 
       'ENTREGUE',
-      'FINALIZADA',
+      'REPARO CONCLUÍDO',
+      'REPARO CONCLUIDO',
       'CONCLUIDA',
       'CONCLUÍDO',
       'CANCELADA'
@@ -92,8 +93,11 @@ export default function StickyOrcamentoPopup() {
       return false;
     }
     
-    // Só exibe se tem orçamento enviado pendente
-    return st.includes('ORÇAMENTO ENVIADO') || st.includes('ORCAMENTO ENVIADO');
+    // Só exibe se tem orçamento concluído pendente
+    return (
+      st.includes('ORÇAMENTO CONCLUÍDO') ||
+      st.includes('ORCAMENTO CONCLUIDO')
+    );
   }
 
   useEffect(() => {

@@ -62,7 +62,7 @@ const SubscriptionStatusContent = () => {
       if (testeGratisExpirado) {
         router.push('/teste-expirado');
       } else {
-        router.push('/planos');
+        router.push('/assinatura');
       }
     }
   };
@@ -81,14 +81,25 @@ const SubscriptionStatusContent = () => {
 
   // Se teste grátis expirou ou assinatura inativa
   if (testeGratisExpirado || !isSubscriptionActive()) {
-    // log suprimido
+    const handleRenovarClick = () => {
+      if (testeGratisExpirado) {
+        router.push('/teste-expirado');
+      } else {
+        router.push('/planos/renovar');
+      }
+    };
     return (
-      <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-1">
+      <button
+        type="button"
+        onClick={handleRenovarClick}
+        className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-1 cursor-pointer hover:bg-red-100 hover:border-red-300 transition-colors"
+        title="Clique para renovar sua assinatura"
+      >
         <FiAlertTriangle className="w-4 h-4 text-red-500" />
         <span className="text-xs text-red-700 font-medium">
           {testeGratisExpirado ? 'Teste Grátis Expirado' : 'Assinatura Expirada'}
         </span>
-      </div>
+      </button>
     );
   }
 
@@ -106,7 +117,7 @@ const SubscriptionStatusContent = () => {
             ? 'bg-red-50 border-red-200 animate-pulse' 
             : 'bg-orange-50 border-orange-200'
         }`}
-        title={`Teste Grátis expira em ${tempoRestante || `${diasRestantes} dias`}. Clique para ver planos.`}
+        title={`Teste Grátis expira em ${tempoRestante || `${diasRestantes} dias`}. Clique para ver assinatura.`}
       >
         <FiClock className={`w-4 h-4 ${
           isProximoDoFim ? 'text-red-500' : 'text-orange-500'
@@ -125,7 +136,7 @@ const SubscriptionStatusContent = () => {
     <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-1">
       <FiStar className="w-4 h-4 text-green-500" />
       <span className="text-xs text-green-700 font-medium">
-        {assinatura.plano?.nome}
+        Assinatura
       </span>
     </div>
   );

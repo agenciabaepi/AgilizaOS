@@ -27,12 +27,12 @@ export default function PlanosPage() {
   const planos = [
     {
       id: 'unico',
-      nome: 'Acesso Completo',
+      nome: 'Assinatura',
       preco: 'R$ 1,00',
       valor: 1.0,
       periodo: '/mês',
       descricao: 'Todos os recursos do sistema liberados',
-      badge: 'Preço único para tudo',
+      badge: 'Assinatura única',
       recursos: [
         'Cadastro de clientes, produtos e serviços',
         'Ordens de serviço completas com laudos e fotos',
@@ -55,7 +55,7 @@ export default function PlanosPage() {
   }
 
   const handleContatoSuporte = () => {
-    const mensagem = encodeURIComponent('Olá! Gostaria de saber mais sobre os planos disponíveis para o sistema Consert.');
+    const mensagem = encodeURIComponent('Olá! Gostaria de saber mais sobre a assinatura do sistema Consert.');
     window.open(`https://wa.me/5511999999999?text=${mensagem}`, '_blank');
   };
 

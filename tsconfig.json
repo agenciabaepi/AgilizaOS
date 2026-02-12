@@ -35,7 +35,8 @@
     "typeRoots": [
       "./types",
       "./node_modules/@types"
-    ]
+    ],
+    "strictNullChecks": true
   },
   "include": [
     "next-env.d.ts",
@@ -47,6 +48,6 @@
     "node_modules",
     "supabase/**/*",
     "src/lib/chromium.ts"
-  ],
+  ]
   // "extends": "expo/tsconfig.base" // Removido - não é um projeto Expo
 }

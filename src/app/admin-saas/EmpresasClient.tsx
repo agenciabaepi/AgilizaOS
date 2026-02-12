@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 
@@ -43,6 +44,7 @@ type ListResponse = {
 }
 
 export default function EmpresasClient() {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<Empresa[]>([]);
@@ -64,27 +66,62 @@ export default function EmpresasClient() {
   const [showGerenciarRecursos, setShowGerenciarRecursos] = useState(false);
   const [recursosCustomizados, setRecursosCustomizados] = useState<Record<string, boolean>>({});
   const [salvandoRecursos, setSalvandoRecursos] = useState(false);
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(total / pageSize)), [total, pageSize]);
+  const safePageSize = Math.max(1, pageSize);
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(total / safePageSize)), [total, safePageSize]);
 
   async function fetchItems(opts?: { keepPage?: boolean }) {
     setLoading(true);
+    setError(null);
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
+      const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_SITE_URL || '');
       const params = new URLSearchParams({
         page: String(opts?.keepPage ? page : 1),
-        pageSize: String(pageSize),
+        pageSize: String(safePageSize),
         search,
         status,
       });
-      const res = await fetch(`${baseUrl}/api/admin-saas/empresas?${params.toString()}`, { cache: 'no-store' });
-      const json: ListResponse = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json as any);
+      const ctrl = new AbortController();
+      const timeoutId = setTimeout(() => ctrl.abort(), 30000); // 30s timeout
+      const res = await fetch(`${baseUrl}/api/admin-saas/empresas?${params.toString()}`, {
+        cache: 'no-store',
+        credentials: 'include',
+        signal: ctrl.signal,
+      });
+      clearTimeout(timeoutId);
+      let json: ListResponse & { reason?: string; error?: string | { message?: string } };
+      try {
+        json = await res.json();
+      } catch {
+        setError('Resposta inválida do servidor');
+        return;
+      }
+      if (res.status === 401) {
+        setError('Sessão expirada. Redirecionando para login...');
+        router.replace('/admin-login');
+        return;
+      }
+      if (!res.ok || !json.ok) {
+        const err = json.error;
+        const msg =
+          typeof err === 'string'
+            ? err
+            : err && typeof err === 'object' && typeof (err as { message?: string }).message === 'string'
+              ? (err as { message: string }).message
+              : json.reason || 'Não foi possível carregar as empresas';
+        setError(msg);
+        setItems([]);
+        setTotal(0);
+        return;
+      }
       setItems(json.items || []);
-      setTotal(json.total || 0);
+      setTotal(json.total ?? 0);
       if (!opts?.keepPage) setPage(1);
     } catch (e) {
-      console.error(e);
-      setError('Não foi possível carregar as empresas');
+      console.error('fetchItems error:', e);
+      const isAbort = e instanceof Error && e.name === 'AbortError';
+      const msg = isAbort ? 'Timeout: servidor demorou para responder' : (e instanceof Error ? (e.message || e.toString()) : 'Não foi possível carregar as empresas');
+      setError(msg || 'Não foi possível carregar as empresas');
+      setItems([]);
     } finally {
       setLoading(false);
     }
@@ -166,7 +203,7 @@ export default function EmpresasClient() {
       });
       const json = await res.json();
       if (!res.ok || !json.ok) {
-        throw new Error(json.message || 'Falha ao alterar plano');
+        throw new Error(json.message || 'Falha ao alterar assinatura');
       }
       setShowAlterarPlano(false);
       setEmpresaSelecionada(null);
@@ -174,7 +211,7 @@ export default function EmpresasClient() {
       setObservacoes('');
       await fetchItems({ keepPage: true });
     } catch (err: any) {
-      setError(err.message || 'Erro ao alterar plano');
+      setError(err.message || 'Erro ao alterar assinatura');
     } finally {
       setAlterandoPlano(false);
     }
@@ -267,7 +304,17 @@ export default function EmpresasClient() {
       </div>
 
       {error && (
-        <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
+        <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-center justify-between gap-3 flex-wrap">
+          <span>{error}</span>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => fetchItems()}
+            className="shrink-0 bg-red-100 hover:bg-red-200 text-red-800 border border-red-300"
+          >
+            Tentar novamente
+          </Button>
+        </div>
       )}
 
       {/* Tabela */}
@@ -484,23 +531,23 @@ export default function EmpresasClient() {
         </div>
       )}
 
-      {/* Modal de Alterar Plano */}
+      {/* Modal de Alterar Assinatura */}
       {showAlterarPlano && empresaSelecionada && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowAlterarPlano(false)}>
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Alterar Plano da Empresa</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Alterar Assinatura da Empresa</h3>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Empresa</label>
                 <div className="text-sm text-gray-900 font-medium">{empresaSelecionada.nome}</div>
                 {empresaSelecionada.billing?.plano?.nome && (
                   <div className="text-xs text-gray-500 mt-1">
-                    Plano atual: <span className="font-medium">{empresaSelecionada.billing.plano.nome}</span>
+                    Assinatura atual: <span className="font-medium">{empresaSelecionada.billing.plano.nome}</span>
                   </div>
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Novo Plano</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nova Assinatura</label>
                 <select
                   value={planoSelecionado}
                   onChange={(e) => setPlanoSelecionado(e.target.value)}
@@ -526,7 +573,7 @@ export default function EmpresasClient() {
                   onChange={(e) => setObservacoes(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
                   rows={3}
-                  placeholder="Observações sobre a alteração do plano..."
+                  placeholder="Observações sobre a alteração da assinatura..."
                 />
               </div>
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
@@ -564,9 +611,9 @@ export default function EmpresasClient() {
             <p className="text-sm text-gray-600 mb-6">
               Libere ou bloqueie recursos específicos para esta empresa. 
               <br />
-              <span className="font-medium">Por padrão, os recursos seguem o plano da empresa.</span>
+              <span className="font-medium">Por padrão, os recursos seguem a assinatura da empresa.</span>
               <br />
-              <span className="text-xs text-gray-500">Recursos marcados aqui sobrescrevem os recursos do plano.</span>
+              <span className="text-xs text-gray-500">Recursos marcados aqui sobrescrevem os recursos da assinatura.</span>
             </p>
             
             <div className="space-y-4 mb-6">
@@ -683,7 +730,7 @@ export default function EmpresasClient() {
 
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-6">
               <p className="text-xs text-yellow-800">
-                <strong>Nota:</strong> Para remover todas as customizações e voltar a usar apenas os recursos do plano, 
+                <strong>Nota:</strong> Para remover todas as customizações e voltar a usar apenas os recursos da assinatura, 
                 desmarque todos os recursos e salve.
               </p>
             </div>

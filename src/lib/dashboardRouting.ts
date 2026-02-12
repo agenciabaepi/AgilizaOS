@@ -42,44 +42,9 @@ export function getDashboardPath(userData: UserData | null | undefined): string 
 }
 
 /**
- * Verifica se o usuário tem permissão para acessar uma rota específica
- * 
- * @param userData - Dados do usuário
- * @param route - Rota que está tentando acessar
- * @returns true se o usuário pode acessar a rota
+ * Plano único R$119,90 - todos os usuários têm acesso a todas as rotas
  */
-export function canAccessRoute(userData: UserData | null | undefined, route: string): boolean {
-  if (!userData?.nivel) {
-    return false;
-  }
-
-  const nivel = userData.nivel.toLowerCase() as UserRole;
-  
-  // Usuários de teste têm acesso a tudo
-  if (nivel === 'usuarioteste') {
-    return true;
-  }
-
-  // Admin tem acesso a tudo
-  if (nivel === 'admin') {
-    return true;
-  }
-
-  // Verificar se a rota é a dashboard apropriada para o role
-  const expectedDashboard = getDashboardPath(userData);
-  
-  // Permitir acesso à dashboard específica do role
-  if (route === expectedDashboard) {
-    return true;
-  }
-
-  // Bloquear acesso a outras dashboards específicas
-  const dashboardRoutes = Object.values(DASHBOARD_ROUTES);
-  if (dashboardRoutes.includes(route) && route !== expectedDashboard) {
-    return false;
-  }
-
-  // Para outras rotas, retornar true (a verificação de permissão será feita pelo AuthGuard)
+export function canAccessRoute(_userData: UserData | null | undefined, _route: string): boolean {
   return true;
 }
 

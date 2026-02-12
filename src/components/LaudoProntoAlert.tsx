@@ -61,13 +61,13 @@ export default function LaudoProntoAlert() {
         tecnico:usuarios!tecnico_id(nome)
       `)
       .eq('empresa_id', empresaData.id)
-      .in('status_tecnico', ['ORÇAMENTO ENVIADO', 'AGUARDANDO APROVAÇÃO'])
+      .in('status_tecnico', ['ORÇAMENTO CONCLUÍDO', 'AGUARDANDO APROVAÇÃO'])
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      // Filtrar apenas OSs com status "ORÇAMENTO ENVIADO"
+      // Filtrar apenas OSs com orçamento concluído
       const laudos = data
-        .filter((os: any) => os.status_tecnico === 'ORÇAMENTO ENVIADO')
+        .filter((os: any) => os.status_tecnico === 'ORÇAMENTO CONCLUÍDO')
         .map((os: any) => ({
           id: os.id,
           numero_os: os.numero_os,
@@ -169,7 +169,7 @@ export default function LaudoProntoAlert() {
           <div className="flex items-center gap-2">
             <FiBell className="w-4 h-4" />
             <span className="text-sm font-medium">
-              Nova OS com orçamento enviado!
+              Nova OS com orçamento concluído!
             </span>
           </div>
         </div>
@@ -193,7 +193,7 @@ export default function LaudoProntoAlert() {
               </div>
               <div>
                 <h3 className="text-sm font-medium text-gray-900">
-                  Orçamentos Enviados
+                  Orçamentos Concluídos
                 </h3>
                 <p className="text-xs text-gray-500">
                   {laudosProntos.length} OS{laudosProntos.length > 1 ? 's' : ''} aguardando aprovação
@@ -223,7 +223,7 @@ export default function LaudoProntoAlert() {
                         OS #{os.numero_os}
                       </span>
                       <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
-                        Enviado
+                        Concluído
                       </span>
                     </div>
                     <p className="text-xs text-gray-600 truncate">

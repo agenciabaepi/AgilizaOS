@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { StatusHistoricoItem } from '@/hooks/useStatusHistorico';
+import { getStatusTecnicoLabel } from '@/utils/statusLabels';
 import { FiUser, FiClock, FiMessageSquare, FiChevronRight } from 'react-icons/fi';
 
 interface StatusHistoricoTimelineProps {
@@ -150,13 +151,13 @@ export default function StatusHistoricoTimeline({
                       {item.status_anterior && previousColors && (
                         <>
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${previousColors.bg} ${previousColors.text} ${previousColors.border} border`}>
-                            {item.status_anterior}
+                            {getStatusTecnicoLabel(item.status_anterior, item.status_tecnico_anterior ?? undefined)}
                           </span>
                           <FiChevronRight className="w-3 h-3 text-gray-400" />
                         </>
                       )}
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${colors.bg} ${colors.text} ${colors.border} border`}>
-                        {item.status_novo}
+                        {getStatusTecnicoLabel(item.status_novo, item.status_tecnico_novo ?? undefined)}
                       </span>
                     </div>
                     <div className="text-xs text-gray-500 whitespace-nowrap">
@@ -187,7 +188,7 @@ export default function StatusHistoricoTimeline({
                       <div className="flex items-center gap-2 text-xs">
                         <span className="text-gray-500">Técnico:</span>
                         <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-md">
-                          {item.status_tecnico_novo}
+                          {getStatusTecnicoLabel(item.status_novo, item.status_tecnico_novo)}
                         </span>
                       </div>
                     )}

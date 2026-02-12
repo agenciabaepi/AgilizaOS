@@ -37,7 +37,7 @@ interface FiltrosPeriodo {
 }
 
 export default function ComissoesPage() {
-  const { usuarioData } = useAuth();
+  const { user, usuarioData } = useAuth();
   const { addToast } = useToast();
   
   const [comissoes, setComissoes] = useState<ComissaoDetalhada[]>([]);
@@ -52,23 +52,7 @@ export default function ComissoesPage() {
     tipoOrdem: ''
   });
 
-  // Métricas calculadas (apenas comissões ativas)
-  const metricas = useMemo(() => {
-    const comissoesAtivas = comissoes.filter(c => c.ativa !== false);
-    const total = comissoesAtivas.reduce((acc, c) => acc + c.valor_comissao, 0);
-    const totalServicos = comissoesAtivas.reduce((acc, c) => acc + c.valor_servico, 0);
-    const mediaComissao = comissoesAtivas.length > 0 ? total / comissoesAtivas.length : 0;
-    const totalOSs = comissoesAtivas.length;
-    
-    return {
-      totalComissao: total,
-      totalServicos,
-      mediaComissao,
-      totalOSs
-    };
-  }, [comissoes]);
-
-  // Filtrar comissões
+// Filtrar comissões
   const comissoesFiltradas = useMemo(() => {
     return comissoes.filter(comissao => {
       const dataEntrega = new Date(comissao.data_entrega);
@@ -83,20 +67,45 @@ export default function ComissoesPage() {
     });
   }, [comissoes, filtros]);
 
+// Métricas calculadas (apenas comissões ativas) COM OS MESMOS FILTROS da tabela
+const metricas = useMemo(() => {
+  const comissoesAtivasFiltradas = comissoesFiltradas.filter(c => c.ativa !== false);
+  const total = comissoesAtivasFiltradas.reduce((acc, c) => acc + c.valor_comissao, 0);
+  const totalPagas = comissoesAtivasFiltradas
+    .filter(c => (c.status || '').toUpperCase() === 'PAGA')
+    .reduce((acc, c) => acc + c.valor_comissao, 0);
+  const totalPrevistas = comissoesAtivasFiltradas
+    .filter(c => (c.status || '').toUpperCase() !== 'PAGA')
+    .reduce((acc, c) => acc + c.valor_comissao, 0);
+  const mediaComissao = comissoesAtivasFiltradas.length > 0 ? total / comissoesAtivasFiltradas.length : 0;
+  const totalOSs = comissoesAtivasFiltradas.length;
+  
+  return {
+    totalComissao: total,
+    totalComissaoPaga: totalPagas,
+    totalComissaoPrevista: totalPrevistas,
+    mediaComissao,
+    totalOSs
+  };
+}, [comissoesFiltradas]);
+
   useEffect(() => {
     fetchComissoes();
   }, [usuarioData]);
 
   const fetchComissoes = async () => {
-    if (!usuarioData?.id) {
-      console.log('⚠️ Comissões - id do técnico não disponível:', usuarioData);
+    if (!usuarioData?.id || !usuarioData?.empresa_id) {
+      console.log('⚠️ Comissões - dados do técnico/empresa não disponíveis:', usuarioData);
       setLoading(false);
       return;
     }
     
     setLoading(true);
     try {
-      // Buscar comissões diretamente da tabela comissoes_historico usando o id do técnico
+      const tecnicoTabelaId = usuarioData.id;
+      const tecnicoAuthId = user?.id;
+
+      // Buscar comissões já registradas diretamente da tabela comissoes_historico usando o id do técnico
       // Tentar buscar com o campo 'ativa' primeiro, se não existir, buscar sem ele
       let comissoesData, error;
       
@@ -127,7 +136,7 @@ export default function ComissoesPage() {
               nome
             )
           `)
-          .eq('tecnico_id', usuarioData.id)
+          .eq('tecnico_id', tecnicoTabelaId)
           .order('data_entrega', { ascending: false })
           .order('created_at', { ascending: false });
         
@@ -160,7 +169,7 @@ export default function ComissoesPage() {
                 nome
               )
             `)
-            .eq('tecnico_id', usuarioData.id)
+            .eq('tecnico_id', tecnicoTabelaId)
             .order('data_entrega', { ascending: false })
             .order('created_at', { ascending: false });
           
@@ -179,7 +188,7 @@ export default function ComissoesPage() {
       }
 
       // Formatar os dados para o formato esperado
-      const comissoesFormatadas = (comissoesData || []).map((comissao: any) => ({
+      const comissoesFormatadas: ComissaoDetalhada[] = (comissoesData || []).map((comissao: any) => ({
         id: comissao.id,
         ordem_servico_id: comissao.ordem_servico_id,
         numero_os: comissao.ordens_servico?.numero_os || 'N/A',
@@ -200,7 +209,157 @@ export default function ComissoesPage() {
         observacoes: comissao.observacoes || null
       }));
 
-      setComissoes(comissoesFormatadas);
+      // Criar um set com OS que já possuem comissão registrada para não duplicar nas previstas
+      const osComComissao = new Set<string>(
+        comissoesFormatadas
+          .map((c) => c.ordem_servico_id)
+          .filter((id): id is string => Boolean(id))
+      );
+
+      // ============================
+      //  PREVISÃO DE COMISSÕES
+      // ============================
+      // 1) Buscar configuração de comissão do técnico / empresa
+      let tipoComissao: 'porcentagem' | 'fixo' = 'porcentagem';
+      let valorBaseComissao = 10; // fallback padrão (10%)
+
+      try {
+        const { data: tecnicoConfig } = await supabase
+          .from('usuarios')
+          .select('id, tipo_comissao, comissao_fixa, comissao_percentual, empresa_id, comissao_ativa')
+          .eq('id', tecnicoTabelaId)
+          .maybeSingle();
+
+        const { data: configEmpresa } = await supabase
+          .from('configuracoes_comissao')
+          .select('tipo_comissao, comissao_fixa_padrao, comissao_padrao')
+          .eq('empresa_id', usuarioData.empresa_id)
+          .maybeSingle();
+
+        if (tecnicoConfig?.tipo_comissao) {
+          tipoComissao = tecnicoConfig.tipo_comissao as 'porcentagem' | 'fixo';
+          if (tipoComissao === 'fixo') {
+            valorBaseComissao = tecnicoConfig.comissao_fixa || 0;
+          } else {
+            valorBaseComissao = tecnicoConfig.comissao_percentual || 10;
+          }
+        } else if (configEmpresa?.tipo_comissao) {
+          tipoComissao = configEmpresa.tipo_comissao as 'porcentagem' | 'fixo';
+          if (tipoComissao === 'fixo') {
+            valorBaseComissao = configEmpresa.comissao_fixa_padrao || 0;
+          } else {
+            valorBaseComissao = configEmpresa.comissao_padrao || 10;
+          }
+        }
+      } catch (e) {
+        console.warn('⚠️ Não foi possível carregar configuração de comissão, usando padrão.', e);
+      }
+
+      // 2) Buscar OS do técnico que ainda não geraram comissões_historico (para prever)
+      //    Considera tanto o id da tabela usuarios quanto o auth_user_id, como no dashboard técnico.
+      const filtroTecnico: string[] = [];
+      if (tecnicoTabelaId) filtroTecnico.push(`tecnico_id.eq.${tecnicoTabelaId}`);
+      if (tecnicoAuthId) filtroTecnico.push(`tecnico_id.eq.${tecnicoAuthId}`);
+      const orClause = filtroTecnico.length > 0 ? filtroTecnico.join(',') : '';
+
+      let comissoesPrevistas: ComissaoDetalhada[] = [];
+
+      if (orClause) {
+        const { data: ordensData, error: ordensError } = await supabase
+          .from('ordens_servico')
+          .select(`
+            id,
+            numero_os,
+            empresa_id,
+            cliente_id,
+            valor_faturado,
+            valor_servico,
+            valor_peca,
+            status,
+            status_tecnico,
+            tipo,
+            data_entrega,
+            created_at,
+            clientes:cliente_id ( nome ),
+            servico
+          `)
+          .eq('empresa_id', usuarioData.empresa_id)
+          .or(orClause)
+          .order('created_at', { ascending: false });
+
+        if (ordensError) {
+          console.warn('⚠️ Erro ao buscar OS para previsões de comissão:', ordensError);
+        } else if (ordensData && ordensData.length > 0) {
+          const normalizeStatus = (s: string | null | undefined) =>
+            (s || '').toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+
+          comissoesPrevistas = ordensData
+            // Filtrar: ainda não tem comissão registrada e tem algum valor
+            .filter((os: any) => {
+              if (osComComissao.has(os.id)) return false;
+
+              const valorTotal =
+                (os.valor_faturado as number | null) ??
+                (os.valor_servico as number | null) ??
+                0;
+              if (!valorTotal || valorTotal <= 0) return false;
+
+              const status = normalizeStatus(os.status);
+              const statusTec = normalizeStatus(os.status_tecnico);
+
+              // Já finalizadas/entregues vão gerar comissão real pelo backend; aqui queremos só "previstas"
+              const finalizada =
+                status === 'ENTREGUE' || statusTec === 'REPARO CONCLUIDO';
+              if (finalizada) return false;
+
+              return true;
+            })
+            .map((os: any) => {
+              const valorTotal =
+                (os.valor_faturado as number | null) ??
+                (os.valor_servico as number | null) ??
+                0;
+              const valorServico = (os.valor_servico as number | null) ?? valorTotal ?? 0;
+
+              let valorComissao = 0;
+              if (tipoComissao === 'fixo') {
+                valorComissao = valorBaseComissao;
+              } else {
+                // Comissão % sobre o valor do SERVIÇO (mesma base da coluna "VALOR SERVIÇO")
+                valorComissao = (valorServico * valorBaseComissao) / 100;
+              }
+
+              const dataEntregaBase =
+                os.data_entrega || os.created_at || new Date().toISOString();
+
+              return {
+                id: `prevista-${os.id}`,
+                tecnico_id: tecnicoTabelaId,
+                tecnico_nome: usuarioData.nome || 'Você',
+                ordem_servico_id: os.id,
+                numero_os: os.numero_os || 'N/A',
+                cliente_nome: os.clientes?.nome || 'Cliente não encontrado',
+                servico_nome: os.servico || 'Serviço não especificado',
+                valor_servico: valorServico,
+                valor_peca: os.valor_peca || 0,
+                valor_total: valorTotal || 0,
+                tipo_comissao: tipoComissao,
+                percentual_comissao: tipoComissao === 'porcentagem' ? valorBaseComissao : 0,
+                valor_comissao_fixa: tipoComissao === 'fixo' ? valorBaseComissao : null,
+                valor_comissao: valorComissao,
+                data_entrega: dataEntregaBase,
+                status: 'PREVISTA',
+                tipo_ordem: (os.tipo || 'normal').toLowerCase(),
+                created_at: dataEntregaBase,
+                ativa: true,
+                observacoes: null
+              } as ComissaoDetalhada;
+            });
+        }
+      }
+
+      // Mesclar comissões reais + previstas
+      setComissoes([...comissoesFormatadas, ...comissoesPrevistas]);
 
     } catch (error) {
       console.error('💥 Comissões - Erro geral:', error);
@@ -223,7 +382,8 @@ export default function ComissoesPage() {
   };
 
   const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
+    const s = (status || '').toLowerCase();
+    switch (s) {
       case 'calculada':
         return 'bg-blue-100 text-blue-800';
       case 'paga':
@@ -376,28 +536,32 @@ export default function ComissoesPage() {
             </div>
           )}
 
-          {/* Métricas */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {/* Métricas - apenas valores do técnico (comissões e quantidade de OSs) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-green-100 rounded-lg">
                   <FiDollarSign className="w-6 h-6 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Total Comissões</p>
-                  <p className="text-2xl font-bold text-gray-900">{formatCurrency(metricas.totalComissao)}</p>
+                  <p className="text-sm text-gray-600">Comissões recebidas (pagas)</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {formatCurrency(metricas.totalComissaoPaga)}
+                  </p>
                 </div>
               </div>
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <FiTrendingUp className="w-6 h-6 text-blue-600" />
+                <div className="p-2 bg-yellow-100 rounded-lg">
+                  <FiTrendingUp className="w-6 h-6 text-yellow-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Média por OS</p>
-                  <p className="text-2xl font-bold text-gray-900">{formatCurrency(metricas.mediaComissao)}</p>
+                  <p className="text-sm text-gray-600">Comissões previstas (a receber)</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {formatCurrency(metricas.totalComissaoPrevista)}
+                  </p>
                 </div>
               </div>
             </div>
@@ -410,18 +574,6 @@ export default function ComissoesPage() {
                 <div>
                   <p className="text-sm text-gray-600">Total OSs</p>
                   <p className="text-2xl font-bold text-gray-900">{metricas.totalOSs}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-orange-100 rounded-lg">
-                  <FiDollarSign className="w-6 h-6 text-orange-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Total Serviços</p>
-                  <p className="text-2xl font-bold text-gray-900">{formatCurrency(metricas.totalServicos)}</p>
                 </div>
               </div>
             </div>
@@ -511,6 +663,11 @@ export default function ComissoesPage() {
                           <div className="text-sm font-bold text-green-600">
                             {formatCurrency(comissao.valor_comissao)}
                           </div>
+                          {(comissao.status || '').toUpperCase() !== 'PAGA' && (
+                            <span className="text-[11px] text-orange-600 font-medium">
+                              Prevista (cliente ainda não pagou)
+                            </span>
+                          )}
                           {comissao.observacoes && (
                             <span className="text-xs text-gray-500 italic" title={comissao.observacoes}>
                               {comissao.observacoes.length > 30 ? `${comissao.observacoes.substring(0, 30)}...` : comissao.observacoes}

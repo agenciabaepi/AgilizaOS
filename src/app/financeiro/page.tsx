@@ -44,7 +44,7 @@ export default function FinanceiroPage() {
   ];
 
   return (
-    <AuthGuard requiredPermission="financeiro">
+    <AuthGuard>
       <MenuLayout>
         <div className="p-6">
         <h1 className="text-2xl font-bold text-gray-800 mb-6">Financeiro</h1>

@@ -286,26 +286,25 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
       throw new Error('EMPRESA_DESATIVADA');
     }
 
-    // Buscar em paralelo: catálogo e recursos do plano (para o menu carregar de uma vez)
-    const [configRes, assinaturaRes] = await Promise.all([
-      supabase
-        .from('configuracoes_empresa')
-        .select('catalogo_habilitado')
-        .eq('empresa_id', data.empresa_id)
-        .maybeSingle(),
-      supabase
-        .from('assinaturas')
-        .select('*, planos!inner(recursos_disponiveis)')
-        .eq('empresa_id', data.empresa_id)
-        .order('created_at', { ascending: false })
-        .limit(1)
+    // Buscar catálogo e recursos com timeout curto (não bloquear por muito tempo)
+    const configTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Config timeout')), 2000));
+    const assinaturaTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Assinatura timeout')), 2000));
+
+    const [configRes, assinaturaRes] = await Promise.allSettled([
+      Promise.race([
+        supabase.from('configuracoes_empresa').select('catalogo_habilitado').eq('empresa_id', data.empresa_id).maybeSingle(),
+        configTimeout
+      ]),
+      Promise.race([
+        supabase.from('assinaturas').select('*, planos!inner(recursos_disponiveis)').eq('empresa_id', data.empresa_id).order('created_at', { ascending: false }).limit(1),
+        assinaturaTimeout
+      ])
     ]);
 
-    // Se não houver configuração, assume catálogo habilitado (igual ao comportamento anterior do MenuLayout)
-    const catalogoHabilitado = configRes.data?.catalogo_habilitado !== false;
-    const recursosPlano = (assinaturaRes.data as any)?.[0]?.planos?.recursos_disponiveis || {};
+    const catalogoHabilitado = configRes.status === 'fulfilled' ? ((configRes.value as any)?.data?.catalogo_habilitado !== false) : true;
+    const recursosPlano = assinaturaRes.status === 'fulfilled' ? ((assinaturaRes.value as any)?.data?.[0]?.planos?.recursos_disponiveis || {}) : {};
 
-    const result = {
+    return {
       userData: {
         id: data.id,
         empresa_id: data.empresa_id,
@@ -325,13 +324,11 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
         email: empresaData.email || '',
         logo_url: empresaData.logo_url || '',
         plano: empresaData.plano || 'trial',
-        ativo: empresaData.ativo ?? true // Incluir campo ativo
+        ativo: empresaData.ativo ?? true
       },
       catalogoHabilitado,
-      recursosPlano: recursosPlano || {}
+      recursosPlano
     };
-    
-    return result;
     
   } catch (error) {
     // ⚠️ IMPORTANTE: Se erro for de empresa desativada, relançar sem logar (será tratado no AuthContext)

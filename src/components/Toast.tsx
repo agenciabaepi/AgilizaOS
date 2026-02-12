@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { playNotificationSound, createAudioActivationButton } from '@/utils/audioPlayer';
-import { useAuth } from '@/context/AuthContext';
+import { AuthContext } from '@/context/AuthContext';
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
 interface ToastMessage {
@@ -22,7 +22,8 @@ let toastCount = 0;
 export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [modal, setModal] = useState<{ title: string; message?: string; messageNode?: ReactNode; confirmLabel?: string; onConfirm?: () => void; onClose?: () => void; type?: 'warning' | 'error' | 'info' | 'success' } | null>(null);
-  const { usuarioData } = useAuth();
+  const authContext = useContext(AuthContext);
+  const usuarioData = authContext?.usuarioData ?? null;
 
   // Reproduzir som quando modal de orçamento for exibida - APENAS para atendentes
   useEffect(() => {

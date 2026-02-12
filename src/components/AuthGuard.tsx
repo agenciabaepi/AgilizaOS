@@ -4,60 +4,30 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
-import { getRequiredResource } from '@/config/pageResources';
-import { useSubscription } from '@/hooks/useSubscription';
-import UpgradeRequiredModal from '@/components/UpgradeRequiredModal';
 
 interface AuthGuardProps {
   children: React.ReactNode;
-  /**
-   * Permissão necessária para acessar a página
-   * Se não fornecida, apenas verifica se está autenticado
-   */
+  /** @deprecated Plano único - não utilizado */
   requiredPermission?: string;
-  /**
-   * Caminho para redirecionar caso não tenha permissão
-   * Padrão: '/dashboard'
-   */
   fallbackPath?: string;
-  /**
-   * Se true, mostra loading enquanto verifica autenticação
-   * Padrão: true
-   */
   showLoading?: boolean;
 }
 
 /**
- * AuthGuard - Componente de proteção de rotas
- * 
- * Uso:
- * ```tsx
- * <AuthGuard requiredPermission="ordens">
- *   <ConteudoDaPagina />
- * </AuthGuard>
- * ```
- * 
- * Features:
- * - ✅ Verifica autenticação do Supabase
- * - ✅ Verifica permissões do usuário
- * - ✅ Loading states durante verificação
- * - ✅ Redirecionamento automático
- * - ✅ Previne flash de conteúdo não autorizado
+ * AuthGuard - Proteção por autenticação (sessão + empresa ativa).
+ * Plano único R$119,90 - todos os usuários logados têm acesso total.
  */
 export default function AuthGuard({
   children,
-  requiredPermission,
   fallbackPath = '/dashboard',
   showLoading = true,
 }: AuthGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, usuarioData, empresaData, loading: authLoading } = useAuth();
-  const { temRecurso, loading: subscriptionLoading } = useSubscription();
+  const { usuarioData, empresaData, loading: authLoading, userDataReady } = useAuth();
   
   const [isChecking, setIsChecking] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
-  const [missingResource, setMissingResource] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -77,64 +47,27 @@ export default function AuthGuard({
           return;
         }
 
-        // Passo 2: Aguardar dados do usuário do contexto com timeout
+        // Passo 2: Se ainda carregando dados do usuário, rechecar em 100ms (máx ~2.5s depois liberar com sessão)
         if (authLoading) {
           timeoutId = setTimeout(() => checkAuth(), 100);
           return;
         }
 
-        // Passo 3: Verificar se há dados do usuário com timeout de segurança
-        if (!usuarioData || !empresaData) {
-          console.log('⏳ AuthGuard: Aguardando dados do usuário...');
-          timeoutId = setTimeout(() => checkAuth(), 100);
-          return;
-        }
-
-        // ⚠️ BLOQUEAR ACESSO: Verificar se empresa está ativa
+        // Se temos empresaData, verificar se está ativa
         if (empresaData && empresaData.ativo === false) {
-          console.log('🚫 AuthGuard: Empresa desativada, redirecionando para login');
+          console.log('🚫 AuthGuard: Empresa desativada, redirecionando');
           try {
             await supabase.auth.signOut();
           } catch (e) {
             console.error('Erro ao fazer logout:', e);
           }
-          router.replace('/login?error=empresa_desativada');
+          router.replace('/empresa-desativada');
           return;
         }
 
-        // Passo 4: Verificar permissão se necessário
-        if (requiredPermission) {
-          const hasPermission = checkPermission(usuarioData, requiredPermission);
-          
-          if (!hasPermission) {
-            console.log(`🚫 AuthGuard: Usuário não tem permissão '${requiredPermission}'`);
-            router.replace(fallbackPath);
-            return;
-          }
-        }
+        // Plano único - sem verificação de permissão ou recurso
 
-        // Passo 5: Verificar recurso do plano se necessário
-        const requiredResource = getRequiredResource(pathname);
-        if (requiredResource) {
-          // Aguardar carregamento da assinatura
-          if (subscriptionLoading) {
-            timeoutId = setTimeout(() => checkAuth(), 100);
-            return;
-          }
-
-          const hasResource = temRecurso(requiredResource);
-          
-          if (!hasResource) {
-            console.log(`🚫 AuthGuard: Plano não tem acesso ao recurso '${requiredResource}'`);
-            if (isMounted) {
-              setMissingResource(requiredResource);
-              setIsChecking(false);
-            }
-            return;
-          }
-        }
-
-        // Passo 6: Tudo OK, autorizar acesso
+        // Tudo OK, autorizar acesso
         if (isMounted) {
           setIsAuthorized(true);
           setIsChecking(false);
@@ -148,13 +81,19 @@ export default function AuthGuard({
       }
     };
 
-    // Timeout de segurança para evitar loading infinito
-    const safetyTimeout = setTimeout(() => {
-      if (isMounted && isChecking) {
-        console.log('⚠️ AuthGuard: Timeout de segurança - redirecionando para login');
+    // Timeout de segurança: após 3s, se ainda verificando, tentar obter sessão uma vez e liberar ou ir para login
+    const safetyTimeout = setTimeout(async () => {
+      if (!isMounted || !isChecking) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        if (isMounted) {
+          setIsAuthorized(true);
+          setIsChecking(false);
+        }
+      } else {
         router.replace('/login');
       }
-    }, 5000); // 5 segundos de timeout
+    }, 3000);
 
     checkAuth();
 
@@ -163,35 +102,7 @@ export default function AuthGuard({
       clearTimeout(timeoutId);
       clearTimeout(safetyTimeout);
     };
-  }, [user, usuarioData, empresaData, authLoading, requiredPermission, fallbackPath, pathname, router, temRecurso, subscriptionLoading]);
-
-  /**
-   * Verifica se o usuário tem a permissão necessária
-   */
-  const checkPermission = (userData: any, permission: string): boolean => {
-    // Usuários de teste têm acesso total
-    if (userData.nivel === 'usuarioteste') {
-      return true;
-    }
-    
-    // Administradores têm acesso total
-    if (userData.nivel === 'admin') {
-      return true;
-    }
-    
-    // Técnicos sempre têm acesso ao dashboard
-    if (permission === 'dashboard' && userData.nivel === 'tecnico') {
-      return true;
-    }
-
-    // Atendentes sempre têm acesso ao dashboard
-    if (permission === 'dashboard' && userData.nivel === 'atendente') {
-      return true;
-    }
-    
-    // Verifica se a permissão está na lista de permissões do usuário
-    return userData.permissoes && userData.permissoes.includes(permission);
-  };
+  }, [usuarioData, empresaData, authLoading, userDataReady, fallbackPath, pathname, router]);
 
   // Enquanto está verificando, mostra loading ou nada
   if (isChecking) {
@@ -216,11 +127,6 @@ export default function AuthGuard({
         </div>
       </div>
     );
-  }
-
-  // Se não tem recurso necessário, mostra modal de upgrade
-  if (missingResource) {
-    return <UpgradeRequiredModal resource={missingResource} onClose={() => router.push(fallbackPath)} />;
   }
 
   // Se não está autorizado, não mostra nada (já está redirecionando)

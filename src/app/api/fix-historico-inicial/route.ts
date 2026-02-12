@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
         console.log(`🔧 Processando OS #${os.numero_os} (${os.id})...`);
         
         // Determinar status inicial baseado na data de criação e status atual
-        let statusInicial = 'ABERTA'; // Status padrão
+        let statusInicial = 'ORÇAMENTO'; // Status padrão atual
         let statusTecnicoInicial = null;
         let motivo = 'OS criada';
         
@@ -70,8 +70,8 @@ export async function POST(request: NextRequest) {
           motivo = `OS criada com status técnico: ${os.status_tecnico}`;
         }
         
-        // Se a OS tem status diferente de ABERTA, usar ele
-        if (os.status && os.status !== 'ABERTA') {
+        // Se a OS já tem status definido, usar ele
+        if (os.status && os.status !== 'ORÇAMENTO') {
           statusInicial = os.status;
           motivo = `OS criada com status: ${os.status}`;
         }

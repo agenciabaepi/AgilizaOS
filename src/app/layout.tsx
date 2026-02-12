@@ -12,13 +12,17 @@ import '@/utils/supabaseGlobalInterceptor';
 import { useRealtimeNotificacoes } from '@/hooks/useRealtimeNotificacoes';
 import { ToastProvider } from '@/components/Toast';
 import { ConfirmProvider } from '@/components/ConfirmDialog';
-import { initializeAudioContext } from '@/utils/audioPlayer';
+// Áudio: contexto só é criado/retomado após gesto do usuário (evita erro de autoplay)
 // Removido TrialExpiredGuard (assinatura)
 
-import { Toaster } from 'react-hot-toast';
+import dynamic from 'next/dynamic';
 import StickyOrcamentoPopup from '@/components/StickyOrcamentoPopup';
+
+const DynamicToaster = dynamic(() => import('@/components/ClientToaster'), { ssr: false });
 import { Analytics } from '@vercel/analytics/react';
 import RedirectToLoginIfUnauth from '@/components/RedirectToLoginIfUnauth';
+import SubscriptionVencidaGuard from '@/components/SubscriptionVencidaGuard';
+import { ThemeProvider } from '@/context/ThemeContext';
 
 // Metadata removida conforme exigência do Next.js para arquivos com "use client"
 
@@ -26,11 +30,6 @@ function AuthContent({ children }: { children: React.ReactNode }) {
   const { isLoggingOut, session, empresaData } = useAuth();
   // Ativar notificações realtime em toda a app quando empresa for conhecida
   useRealtimeNotificacoes(empresaData?.id);
-  
-  // Inicializar contexto de áudio automaticamente (como WhatsApp Web)
-  useEffect(() => {
-    initializeAudioContext();
-  }, []);
   
   // Banner simples de aviso de vencimento (frontend)
   const [banner, setBanner] = useState<{ texto: string } | null>(null);
@@ -95,9 +94,13 @@ function AuthContent({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Rotas do painel admin - layout mínimo, sem AuthProvider nem RedirectToLoginIfUnauth */
+function isAdminRoute(pathname: string | null): boolean {
+  return pathname?.startsWith('/admin-login') === true || pathname?.startsWith('/admin-saas') === true;
+}
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const bypassTrialGuard = true; // Sempre bypass (sem bloqueio por assinatura)
   
   // Suprimir logs e erros de rede em produção
   useEffect(() => {
@@ -109,27 +112,59 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       // Silenciar erros de verificação de tabelas
     });
   }, []);
+
+  // Admin: layout mínimo - AuthProvider sem RedirectToLoginIfUnauth (acesso independente)
+  if (isAdminRoute(pathname)) {
+    return (
+      <html lang="pt-BR" suppressHydrationWarning>
+        <head>
+          <script src="/theme-init.js" />
+          <script src="/suppress-errors.js?v=2"></script>
+          <script src="/aggressive-suppressor.js?v=2"></script>
+          <script src="/notification.js" defer></script>
+        </head>
+        <body suppressHydrationWarning>
+          <ThemeProvider>
+            <AuthProvider>
+              <ToastProvider>
+                <ConfirmProvider>
+                  {children}
+                </ConfirmProvider>
+              </ToastProvider>
+            </AuthProvider>
+          </ThemeProvider>
+          <Analytics />
+        </body>
+      </html>
+    );
+  }
+
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
+        <script src="/theme-init.js" />
         <script src="/suppress-errors.js?v=2"></script>
         <script src="/aggressive-suppressor.js?v=2"></script>
         <script src="/notification.js" defer></script>
       </head>
       <body suppressHydrationWarning>
+        <ThemeProvider>
         <AuthProvider>
           <RedirectToLoginIfUnauth>
-            <ToastProvider>
-              <ConfirmProvider>
-                <AuthContent>
-                  <StickyOrcamentoPopup />
-                  <>{children}</>
-                </AuthContent>
-                <Toaster position="top-right" />
-              </ConfirmProvider>
-            </ToastProvider>
+            <SubscriptionVencidaGuard>
+              <ToastProvider>
+                <ConfirmProvider>
+                  <AuthContent>
+                    <StickyOrcamentoPopup />
+                    <>{children}</>
+                  </AuthContent>
+                  <DynamicToaster />
+                </ConfirmProvider>
+              </ToastProvider>
+            </SubscriptionVencidaGuard>
           </RedirectToLoginIfUnauth>
         </AuthProvider>
+        </ThemeProvider>
         <Analytics />
       </body>
     </html>

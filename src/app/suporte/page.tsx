@@ -7,6 +7,8 @@ import { Input } from '@/components/Input';
 import { useToast } from '@/components/Toast';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
+import { MODULOS_TUTORIAL, getEmbedUrl } from '@/lib/tutoriais-data';
+import type { ModuloTutorial, VideoTutorial } from '@/lib/tutoriais-data';
 import { 
   FiPlus, 
   FiAlertCircle, 
@@ -16,7 +18,12 @@ import {
   FiSearch,
   FiFilter,
   FiFileText,
-  FiX
+  FiX,
+  FiPlay,
+  FiBookOpen,
+  FiVideo,
+  FiChevronDown,
+  FiChevronRight
 } from 'react-icons/fi';
 
 type Ticket = {
@@ -45,6 +52,13 @@ export default function SuportePage() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+
+  // Aba da página: tutoriais ou tickets
+  const [activeTab, setActiveTab] = useState<'tutoriais' | 'tickets'>('tutoriais');
+  // Módulo expandido na lista de tutoriais (accordion)
+  const [expandedModuloId, setExpandedModuloId] = useState<string | null>(MODULOS_TUTORIAL[0]?.id ?? null);
+  // Vídeo selecionado para assistir
+  const [selectedVideo, setSelectedVideo] = useState<{ modulo: ModuloTutorial; video: VideoTutorial } | null>(null);
 
   useEffect(() => {
     if (user && session) {
@@ -279,20 +293,156 @@ export default function SuportePage() {
     <MenuLayout>
       <div className="p-6 space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Suporte</h1>
-            <p className="text-sm text-gray-500 mt-1">Gerencie seus tickets de suporte</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Suporte</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              {activeTab === 'tutoriais' ? 'Tutoriais em vídeo do sistema' : 'Gerencie seus tickets de suporte'}
+            </p>
           </div>
-          <Button
-            onClick={() => setShowForm(!showForm)}
-            className="bg-black hover:bg-gray-800 text-white"
-          >
-            <FiPlus className="mr-2" />
-            Novo Ticket
-          </Button>
+          {activeTab === 'tickets' && (
+            <Button
+              onClick={() => setShowForm(!showForm)}
+              className="bg-black hover:bg-gray-800 text-white"
+            >
+              <FiPlus className="mr-2" />
+              Novo Ticket
+            </Button>
+          )}
         </div>
 
+        {/* Abas: Tutoriais | Meus Tickets */}
+        <div className="border-b border-gray-200 dark:border-zinc-700">
+          <nav className="flex gap-1" aria-label="Abas">
+            <button
+              type="button"
+              onClick={() => setActiveTab('tutoriais')}
+              className={`px-4 py-3 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${
+                activeTab === 'tutoriais'
+                  ? 'bg-gray-100 dark:bg-zinc-800 text-gray-900 dark:text-white border-b-2 border-black dark:border-white -mb-px'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-zinc-800/50'
+              }`}
+            >
+              <FiVideo size={18} />
+              Tutoriais do Sistema
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('tickets')}
+              className={`px-4 py-3 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${
+                activeTab === 'tickets'
+                  ? 'bg-gray-100 dark:bg-zinc-800 text-gray-900 dark:text-white border-b-2 border-black dark:border-white -mb-px'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-zinc-800/50'
+              }`}
+            >
+              <FiMessageSquare size={18} />
+              Meus Tickets
+            </button>
+          </nav>
+        </div>
+
+        {/* Conteúdo da aba Tutoriais */}
+        {activeTab === 'tutoriais' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Lista de módulos (sidebar) */}
+            <div className="lg:col-span-1 space-y-2">
+              <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                <FiBookOpen size={18} />
+                Módulos
+              </h2>
+              {MODULOS_TUTORIAL.sort((a, b) => a.ordem - b.ordem).map((modulo) => {
+                const isExpanded = expandedModuloId === modulo.id;
+                return (
+                  <div
+                    key={modulo.id}
+                    className="rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 overflow-hidden"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setExpandedModuloId(isExpanded ? null : modulo.id)}
+                      className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      <span className="font-medium text-gray-900 dark:text-white">{modulo.titulo}</span>
+                      {isExpanded ? <FiChevronDown size={20} /> : <FiChevronRight size={20} />}
+                    </button>
+                    {isExpanded && (
+                      <div className="border-t border-gray-200 dark:border-zinc-700 bg-gray-50/50 dark:bg-zinc-800/30 p-2 space-y-1">
+                        {modulo.videos.map((video) => {
+                          const isSelected = selectedVideo?.video.id === video.id && selectedVideo?.modulo.id === modulo.id;
+                          return (
+                            <button
+                              key={video.id}
+                              type="button"
+                              onClick={() => setSelectedVideo({ modulo, video })}
+                              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${
+                                isSelected
+                                  ? 'bg-black dark:bg-white text-white dark:text-black'
+                                  : 'hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-700 dark:text-gray-300'
+                              }`}
+                            >
+                              <FiPlay size={16} className="flex-shrink-0" />
+                              <span className="text-sm truncate">{video.titulo}</span>
+                              {video.duracao && (
+                                <span className="text-xs opacity-80 ml-auto">{video.duracao}</span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Player de vídeo */}
+            <div className="lg:col-span-2">
+              <div className="rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 overflow-hidden sticky top-4">
+                {selectedVideo && selectedVideo.video.url ? (
+                  <>
+                    <div className="aspect-video bg-black">
+                      <iframe
+                        title={selectedVideo.video.titulo}
+                        src={getEmbedUrl(selectedVideo.video.url)}
+                        className="w-full h-full"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    </div>
+                    <div className="p-4 border-t border-gray-200 dark:border-zinc-700">
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        {selectedVideo.modulo.titulo}
+                      </p>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mt-1">
+                        {selectedVideo.video.titulo}
+                      </h3>
+                    </div>
+                  </>
+                ) : selectedVideo ? (
+                  <div className="aspect-video flex flex-col items-center justify-center bg-gray-100 dark:bg-zinc-800 p-8 text-center">
+                    <FiVideo className="text-gray-400 dark:text-gray-500 mb-4" size={48} />
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{selectedVideo.video.titulo}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                      Vídeo em breve. Em caso de dúvida, abra um ticket na aba &quot;Meus Tickets&quot;.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="aspect-video flex flex-col items-center justify-center bg-gray-100 dark:bg-zinc-800 p-8 text-center">
+                    <FiPlay className="text-gray-400 dark:text-gray-500 mb-4" size={48} />
+                    <p className="text-gray-600 dark:text-gray-400 font-medium">Selecione um vídeo ao lado</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
+                      Escolha um módulo e depois um vídeo para assistir ao tutorial.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Conteúdo da aba Meus Tickets */}
+        {activeTab === 'tickets' && (
+          <>
         {/* Formulário de Novo Ticket */}
         {showForm && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -499,6 +649,8 @@ export default function SuportePage() {
               </div>
             ))}
           </div>
+        )}
+          </>
         )}
       </div>
     </MenuLayout>

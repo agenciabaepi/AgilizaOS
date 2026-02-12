@@ -120,7 +120,8 @@ export const PAGE_PERMISSIONS = {
   '/cadastro/sucesso': null,
   '/planos': null,
   '/planos/pagar/[plano]': null,
-  '/pagamentos/sucesso': null,
+  '/planos/renovar': 'dashboard',
+  '/assinatura': 'dashboard',
   '/pagamentos/pendente': null,
   '/pagamentos/falha': null,
   

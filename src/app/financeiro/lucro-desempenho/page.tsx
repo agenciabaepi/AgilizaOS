@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/Toast';
@@ -9,6 +9,7 @@ import AuthGuard from '@/components/AuthGuard';
 import DashboardCard from '@/components/ui/DashboardCard';
 import { InvestimentoModal } from '@/components/InvestimentoModal';
 import { Button } from '@/components/Button';
+import { useLucroDesempenho } from '@/hooks/useLucroDesempenho';
 import { 
   FiTrendingUp, 
   FiTrendingDown, 
@@ -125,86 +126,31 @@ interface AnaliseTecnico {
 }
 
 export default function LucroDesempenhoPage() {
-  const { empresaData, user, loading: authLoading } = useAuth();
+  const { empresaData, user } = useAuth();
   const { addToast } = useToast();
-  
-  // Estados principais
-  const [ordens, setOrdens] = useState<OrdemServico[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [modalInvestimentoAberto, setModalInvestimentoAberto] = useState(false);
-
-  // Debug: Log inicial
-  debugLog('🔍 LucroDesempenhoPage inicializado:', {
-    user: user?.id,
-    empresaData: empresaData?.id,
-    authLoading,
-    loading
-  });
-  const [metricas, setMetricas] = useState<Metricas>({
-    totalReceita: 0,
-    totalCustos: 0,
-    despesasOperacionais: 0,
-    custosFixos: 0,
-    saldoNaConta: 0,
-    lucroTotal: 0,
-    margemMedia: 0,
-    totalOS: 0,
-    osLucrativas: 0,
-    osPrejuizo: 0
-  });
-  const [analiseTecnicos, setAnaliseTecnicos] = useState<AnaliseTecnico[]>([]);
-  const [metricasPrevistas, setMetricasPrevistas] = useState({
-    receitaPrevista: 0,
-    custosPrevistos: 0,
-    contasAPagarPrevistas: 0,
-    despesasOperacionaisPrevistas: 0,
-    custosFixosPrevistos: 0,
-    lucroPrevisto: 0,
-    margemPrevista: 0,
-    saldoNaContaPrevisto: 0
-  });
-  
-  // Estados de navegação por mês
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [modalInvestimentoAberto, setModalInvestimentoAberto] = useState(false);
   const [visualizacaoAtiva, setVisualizacaoAtiva] = useState<'dashboard' | 'os' | 'tecnicos' | 'dre'>('dashboard');
-  
-  // Estados para dados diários
-  const [dadosDiarios, setDadosDiarios] = useState<Array<{
-    dia: number;
-    receita: number;
-    custos: number;
-    lucro: number;
-  }>>([]);
-  
-  // Estados de filtros
   const [filtroTecnico, setFiltroTecnico] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('');
   const [filtroLucratividade, setFiltroLucratividade] = useState('');
-  
-  // Estados para tabela anual
   const [fluxoCaixaMensal, setFluxoCaixaMensal] = useState<FluxoCaixaMensal[]>([]);
   const [loadingFluxoCaixa, setLoadingFluxoCaixa] = useState(false);
   const [anoSelecionado, setAnoSelecionado] = useState<string>(new Date().getFullYear().toString());
-  
-  // Estados para DRE - custos da empresa
-  const [custosEmpresa, setCustosEmpresa] = useState({
-    contasPagas: 0,
-    contasPendentes: 0,
-    totalContas: 0,
-    despesasOperacionais: 0,
-    custosFixos: 0,
-    custosTotais: 0,
-    custosPecas: 0,
-    custosGerais: 0,
-    categoriasDetalhadas: []
-  });
-  
-  // Estado para investimentos do mês
-  const [investimentosMes, setInvestimentosMes] = useState(0);
 
-  // Estado para vendas (igual à página de vendas!)
-  const [vendas, setVendas] = useState<Venda[]>([]);
-  const [vendasFiltradas, setVendasFiltradas] = useState<Venda[]>([]);
+  const {
+    loading,
+    error,
+    ordens,
+    vendasFiltradas,
+    metricas,
+    metricasPrevistas,
+    custosEmpresa,
+    analiseTecnicos,
+    dadosDiarios,
+    investimentosMes,
+    refetch
+  } = useLucroDesempenho(empresaData?.id, currentMonth);
 
   // Navegação por mês
   const navegarMes = (direcao: 'anterior' | 'proximo') => {
@@ -242,388 +188,6 @@ export default function LucroDesempenhoPage() {
     return { dataInicio, dataFim, inicioMes, fimMes };
   };
 
-  // Filtrar vendas por período (igual à página de vendas!)
-  const filtrarVendas = () => {
-    const { dataInicio, dataFim, inicioMes, fimMes } = calcularPeriodo();
-    
-    // Garantir que as datas estão corretas
-    const inicio = new Date(inicioMes);
-    inicio.setHours(0, 0, 0, 0);
-    const fim = new Date(fimMes);
-    fim.setHours(23, 59, 59, 999);
-    
-    // Mês atual para comparação por substring
-    const mesAtualISO = currentMonth.toISOString().slice(0, 7); // YYYY-MM
-
-    const filtradas = vendas.filter(venda => {
-      const dataVenda = new Date(venda.data_venda);
-      
-      // Critério 1: Comparação por substring (mais confiável)
-      const vendaMes = venda.data_venda.substring(0, 7); // YYYY-MM
-      const vendaNoMesISO = vendaMes === mesAtualISO;
-      
-      // Critério 2: Comparação por data
-      const vendaNoMesData = dataVenda >= inicio && dataVenda <= fim;
-      
-      // Só incluir se AMBOS os critérios indicarem o mesmo mês
-      if (vendaNoMesISO && vendaNoMesData) {
-        return true;
-      }
-      
-      // Log para debug se houver inconsistência
-      if (vendaNoMesISO && !vendaNoMesData) {
-        console.warn('⚠️ Venda com inconsistência de mês:', {
-          dataVenda: venda.data_venda,
-          vendaMes,
-          mesAtualISO,
-          inicio: inicio.toISOString(),
-          fim: fim.toISOString()
-        });
-      }
-      
-      return false;
-    });
-
-    debugLog('📊 Vendas filtradas:', {
-      periodo: `${dataInicio} a ${dataFim}`,
-      mesAtualISO,
-      totalVendas: vendas.length,
-      vendasFiltradas: filtradas.length,
-      amostra: filtradas.slice(0, 3).map(v => ({
-        data: v.data_venda,
-        total: v.total
-      }))
-    });
-
-    setVendasFiltradas(filtradas);
-  };
-
-  // Carregar dados
-  const loadData = async () => {
-    if (!empresaData?.id) {
-      debugLog('❌ empresaData.id não está disponível:', empresaData);
-      return;
-    }
-    
-    setLoading(true);
-    
-    try {
-      const { dataInicio, dataFim } = calcularPeriodo();
-      
-      debugLog('📊 Carregando dados de lucro e desempenho...', {
-        empresaId: empresaData.id,
-        mes: formatarMesAno(currentMonth),
-        periodo: `${dataInicio} a ${dataFim}`
-      });
-
-        // Buscar TODAS as ordens de serviço da empresa (sem filtro de data)
-        const { data: ordensData, error: ordensError } = await supabase
-          .from('ordens_servico')
-          .select(`
-            id,
-            numero_os,
-            cliente_id,
-            tecnico_id,
-            tecnico,
-            valor_faturado,
-            valor_total,
-            valor_peca,
-            valor_servico,
-            qtd_peca,
-            qtd_servico,
-            status,
-            created_at
-          `)
-          .eq('empresa_id', empresaData.id)
-          .order('created_at', { ascending: false })
-          .limit(200);
-
-      debugLog('📊 Resultado query completa:', {
-        empresaId: empresaData.id,
-        periodo: `${dataInicio} a ${dataFim}`,
-        ordensCount: ordensData?.length || 0,
-        hasError: !!ordensError,
-        error: ordensError,
-        sampleData: ordensData?.[0]
-      });
-
-      if (ordensError) {
-        console.error('❌ Erro na query:', ordensError);
-        addToast('error', `Erro ao carregar ordens de serviço: ${ordensError.message}`);
-        return;
-      }
-
-      if (!ordensData || ordensData.length === 0) {
-        debugLog('⚠️ Nenhuma ordem encontrada para este período');
-        setOrdens([]);
-        setLoading(false);
-        return;
-      }
-
-      // Buscar dados relacionados separadamente
-      const ordensIds = ordensData?.map(o => o.id) || [];
-      const ordensNumeros = ordensData?.map(o => o.numero_os) || [];
-      const clienteIds = [...new Set(ordensData?.map(o => o.cliente_id) || [])];
-
-      debugLog('🔍 Buscando dados relacionados:', {
-        ordensIds: ordensIds.slice(0, 3),
-        ordensNumeros: ordensNumeros.slice(0, 3),
-        clienteIds: clienteIds.slice(0, 3)
-      });
-
-      // Buscar clientes
-      const { data: clientes } = await supabase
-        .from('clientes')
-        .select('id, nome')
-        .in('id', clienteIds);
-
-        // Buscar TODAS as vendas da empresa (sem filtro de período)
-        const { data: todasVendas, error: errorVendas } = await supabase
-          .from('vendas')
-          .select('id, total, data_venda, status, empresa_id, observacoes')
-          .eq('empresa_id', empresaData.id)
-          .eq('status', 'finalizada')
-          .order('data_venda', { ascending: false });
-
-        debugLog('🔍 EMPRESA ATUAL:', empresaData.id);
-        debugLog('🔍 TOTAL VENDAS ENCONTRADAS:', todasVendas?.length || 0);
-        debugLog('🔍 ERRO VENDAS:', errorVendas);
-        debugLog('🔍 NUMEROS DAS OS:', ordensNumeros.slice(0, 5));
-        
-        if (todasVendas && todasVendas.length > 0) {
-          debugLog('🔍 PRIMEIRAS VENDAS:');
-          todasVendas.slice(0, 3).forEach((venda, i) => {
-            debugLog(`  ${i+1}. Total: R$ ${venda.total}, Pago: R$ ${venda.total} - "${venda.observacoes}"`);
-          });
-        }
-
-        // Se não encontrou vendas para esta empresa, buscar em todas as empresas para debug
-        if (!todasVendas || todasVendas.length === 0) {
-          debugLog('⚠️ NENHUMA VENDA ENCONTRADA PARA ESTA EMPRESA');
-          const { data: todasVendasGeral } = await supabase
-            .from('vendas')
-            .select('id, valor_total, total, data_venda, observacoes, empresa_id')
-            .eq('status', 'finalizada')
-            .limit(10);
-          
-          debugLog('🔍 TOTAL VENDAS GERAL (todas empresas):', todasVendasGeral?.length || 0);
-          if (todasVendasGeral && todasVendasGeral.length > 0) {
-            debugLog('🔍 PRIMEIRAS VENDAS GERAL:');
-            todasVendasGeral.slice(0, 3).forEach((venda, i) => {
-              debugLog(`  ${i+1}. Empresa: ${venda.empresa_id} - Total: R$ ${venda.valor_total}, Pago: R$ ${venda.total} - "${venda.observacoes}"`);
-            });
-          }
-        }
-
-        // Buscar TODAS as contas de peças da empresa (não apenas as vinculadas a OS)
-        const { data: todosCustos } = await supabase
-          .from('contas_pagar')
-          .select('id, descricao, valor, tipo, data_vencimento, os_id, status, data_pagamento')
-          .eq('empresa_id', empresaData.id)
-          .eq('tipo', 'pecas');
-
-        debugLog('💰 Dados encontrados:', {
-          vendasCount: todasVendas?.length || 0,
-          custosCount: todosCustos?.length || 0,
-          sampleVenda: todasVendas?.[0],
-          sampleCusto: todosCustos?.[0],
-          todasVendas: todasVendas
-        });
-
-      // Log dos dados das OS para debug
-      debugLog('📋 Dados das OS:', {
-        primeiraOS: ordensData?.[0],
-        todasOS: ordensData?.map(os => ({
-          id: os.id,
-          numero: os.numero_os,
-          valor_faturado: os.valor_faturado,
-          valor_total: os.valor_total,
-          tecnico: os.tecnico
-        }))
-      });
-
-      // Criar mapas para lookup rápido
-      const clientesMap = new Map(clientes?.map(c => [c.id, c]) || []);
-
-        // Mapear os dados relacionados
-        const ordensCompletas = (ordensData || []).map(ordem => {
-          const vendas = todasVendas?.filter(venda => {
-            const obs = venda.observacoes || '';
-            return obs.includes(`O.S. #${ordem.numero_os}`) || 
-                   obs.includes(`OS #${ordem.numero_os}`) ||
-                   obs.includes(`#${ordem.numero_os}`);
-          }) || [];
-          
-          const custos = todosCustos?.filter(custo => 
-            custo.os_id === ordem.id
-          ) || [];
-
-          return {
-            ...ordem,
-            clientes: clientesMap.get(ordem.cliente_id),
-            tecnico_nome: ordem.tecnico || 'N/A',
-            vendas,
-            custos
-          };
-        });
-
-        // Filtrar vendas por período (igual à página de vendas)
-        const vendasDoPeriodo = todasVendas?.filter(venda => {
-          const dataVenda = new Date(venda.data_venda);
-          const inicio = new Date(dataInicio);
-          const fim = new Date(dataFim);
-          fim.setHours(23, 59, 59, 999);
-          return dataVenda >= inicio && dataVenda <= fim;
-        }) || [];
-
-        // Filtrar apenas OS que tiveram vendas no período
-        const ordensComVendasNoPeriodo = ordensCompletas.filter(ordem => {
-          // Verificar se alguma venda desta OS está no período
-          return ordem.vendas.some(venda => 
-            vendasDoPeriodo.some(vendaPeriodo => vendaPeriodo.id === venda.id)
-          );
-        });
-
-        // ====== PREVISÃO (Receita e Custos) para o mês selecionado ======
-        const mesAtual = currentMonth.toISOString().slice(0, 7); // YYYY-MM
-        // Receita Prevista: OS sem venda no período e não entregues/finalizadas
-        const ordensSemVendaNoPeriodo = (ordensCompletas || []).filter(o => {
-          const createdMes = (o.created_at || '').toString().slice(0, 7);
-          const entregue = (o.status || '').toUpperCase() === 'ENTREGUE' || ((o as any).status_tecnico || '').toUpperCase() === 'FINALIZADA';
-          const temVendaNoPeriodo = (o.vendas || []).some(v => vendasDoPeriodo.some(vp => vp.id === v.id));
-          return createdMes === mesAtual && !entregue && !temVendaNoPeriodo;
-        });
-
-        const calcularValorFinalOS = (o: any) => {
-          const valorServico = Number(o.valor_servico || 0);
-          const qtdServico = Number(o.qtd_servico || 1);
-          const valorPeca = Number(o.valor_peca || 0);
-          const qtdPeca = Number(o.qtd_peca || 1);
-          const desconto = Number(o.desconto || 0);
-          const subtotal = (valorServico * qtdServico) + (valorPeca * qtdPeca);
-          return Math.max(0, subtotal - desconto);
-        };
-
-        // Apenas O.S do mês com valor previsto > 0
-        const ordensPrevistasComValor = ordensSemVendaNoPeriodo.filter(o => calcularValorFinalOS(o) > 0);
-        const receitaPrevista = ordensPrevistasComValor.reduce((acc, o) => acc + calcularValorFinalOS(o), 0);
-
-        // Buscar TODAS as contas da empresa para calcular previstos (não apenas peças)
-        const { data: todasContasParaPrevistos } = await supabase
-          .from('contas_pagar')
-          .select('id, descricao, valor, tipo, data_vencimento, os_id, status, data_pagamento')
-          .eq('empresa_id', empresaData.id);
-
-        // Custos previstos: contas vinculadas ao mês selecionado e pendentes
-        // IMPORTANTE: Usar TODAS as contas (pecas, fixa, variavel) que estão cadastradas mas não foram pagas
-        // Usar a mesma lógica de filtro de data da função fetchCustosEmpresa
-        const { dataInicio: dataInicioPrevisto, dataFim: dataFimPrevisto, inicioMes: inicioMesPrevisto, fimMes: fimMesPrevisto } = calcularPeriodo();
-        const mesAtualISO = currentMonth.toISOString().slice(0, 7); // YYYY-MM
-        
-        const inicioPeriodoFiltroPrevisto = new Date(inicioMesPrevisto);
-        inicioPeriodoFiltroPrevisto.setHours(0, 0, 0, 0);
-        const fimPeriodoFiltroPrevisto = new Date(fimMesPrevisto);
-        fimPeriodoFiltroPrevisto.setHours(23, 59, 59, 999);
-        
-        const contasMes = (todasContasParaPrevistos || []).filter(conta => {
-          // Verificar pelo mês usando substring (mais confiável para evitar problemas de timezone)
-          const vencMes = (conta.data_vencimento || '').toString().slice(0, 7); // YYYY-MM
-          const venceNoMesISO = vencMes === mesAtualISO;
-          
-          // Verificar também com comparação de datas para garantir
-          const dataVencimento = new Date(conta.data_vencimento + 'T00:00:00');
-          const venceNoMesData = dataVencimento >= inicioPeriodoFiltroPrevisto && dataVencimento <= fimPeriodoFiltroPrevisto;
-          
-          // Só incluir se AMBOS os critérios indicarem que vence no mês
-          return venceNoMesISO && venceNoMesData;
-        });
-        
-        // Filtrar apenas contas que estão cadastradas mas NÃO foram pagas ainda
-        const contasPendentes = contasMes.filter(c => 
-          c.status === 'pendente' || c.status === 'pending' || c.status === 'Pendente' || c.status === 'vencido'
-        );
-        
-        debugLog('📊 Contas previstas calculadas:', {
-          totalContasMes: contasMes.length,
-          totalContasPendentes: contasPendentes.length,
-          contasPorTipo: {
-            pecas: contasPendentes.filter(c => (c.tipo || '').toLowerCase() === 'pecas').length,
-            variavel: contasPendentes.filter(c => (c.tipo || '').toLowerCase() === 'variavel').length,
-            fixa: contasPendentes.filter(c => (c.tipo || '').toLowerCase() === 'fixa').length
-          }
-        });
-        
-        // Separar contas pendentes por tipo
-        const contasPendentesPecas = contasPendentes.filter(c => {
-          const tipo = (c.tipo || '').toLowerCase();
-          return tipo === 'pecas';
-        });
-        const contasPendentesVariaveis = contasPendentes.filter(c => {
-          const tipo = (c.tipo || '').toLowerCase();
-          return tipo === 'variavel';
-        });
-        const contasPendentesFixas = contasPendentes.filter(c => {
-          const tipo = (c.tipo || '').toLowerCase();
-          return tipo === 'fixa';
-        });
-        
-        const custosPrevistos = contasPendentesPecas.reduce((acc, c: any) => acc + Number(c.valor || 0), 0);
-        const contasAPagarPrevistas = contasPendentes.reduce((acc, c: any) => acc + Number(c.valor || 0), 0);
-        const despesasOperacionaisPrevistas = contasPendentesVariaveis.reduce((acc, c: any) => acc + Number(c.valor || 0), 0);
-        const custosFixosPrevistos = contasPendentesFixas.reduce((acc, c: any) => acc + Number(c.valor || 0), 0);
-
-        const lucroPrevisto = receitaPrevista - custosPrevistos;
-        const margemPrevista = receitaPrevista > 0 ? (lucroPrevisto / receitaPrevista) * 100 : 0;
-        
-        // Calcular Previsão de Saldo na Conta
-        // Calcular aqui também para ter um valor inicial, mas será recalculado pelo useEffect quando metricas.saldoNaConta estiver pronto
-        const saldoAtualInicial = Number(metricas.saldoNaConta) || 0;
-        const saldoNaContaPrevistoInicial = saldoAtualInicial + receitaPrevista - contasAPagarPrevistas;
-        
-        debugLog('💰 Calculando previsão inicial ao carregar dados:', {
-          saldoAtualInicial,
-          receitaPrevista,
-          contasAPagarPrevistas,
-          saldoNaContaPrevistoInicial
-        });
-        
-        setMetricasPrevistas({
-          receitaPrevista,
-          custosPrevistos,
-          contasAPagarPrevistas,
-          despesasOperacionaisPrevistas,
-          custosFixosPrevistos,
-          lucroPrevisto,
-          margemPrevista,
-          saldoNaContaPrevisto: isNaN(saldoNaContaPrevistoInicial) || !isFinite(saldoNaContaPrevistoInicial) ? 0 : saldoNaContaPrevistoInicial
-        });
-
-        // Incluir também as OS sem venda (pendentes) na listagem Por OS
-        const ordensCombinadas = [...ordensComVendasNoPeriodo, ...ordensPrevistasComValor];
-        // Ordenar por data de criação mais recente
-        ordensCombinadas.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        setOrdens(ordensCombinadas);
-      
-        // Definir vendas no estado (igual à página de vendas!)
-        setVendas(todasVendas || []);
-
-        debugLog('✅ Dados carregados:', {
-          totalOrdensEncontradas: ordensCompletas.length,
-          totalVendasEncontradas: todasVendas?.length || 0,
-          vendasDoPeriodo: vendasDoPeriodo.length,
-          ordensComVendasNoPeriodo: ordensComVendasNoPeriodo.length,
-          mes: formatarMesAno(currentMonth)
-        });
-
-    } catch (error) {
-      console.error('❌ Erro ao carregar dados:', error);
-      addToast('error', 'Erro ao carregar dados');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Função para buscar fluxo de caixa mensal
   const fetchFluxoCaixaMensal = async () => {
     if (!empresaData?.id || !anoSelecionado) return;
 
@@ -665,42 +229,49 @@ export default function LucroDesempenhoPage() {
       
       const fluxoCaixa: FluxoCaixaMensal[] = [];
       
+      const hoje = new Date();
+      
       // Processar dados em memória
       for (let mes = 0; mes < 12; mes++) {
         const inicioMes = new Date(parseInt(anoSelecionado), mes, 1);
         const fimMes = new Date(parseInt(anoSelecionado), mes + 1, 0);
+        fimMes.setHours(23, 59, 59, 999);
         
-        // Filtrar vendas do mês
+        const isMesPassado = parseInt(anoSelecionado) < hoje.getFullYear() || 
+          (parseInt(anoSelecionado) === hoje.getFullYear() && mes < hoje.getMonth());
+        const mesStr = `${inicioMes.getFullYear()}-${String(inicioMes.getMonth() + 1).padStart(2, '0')}`;
+        
+        // Filtrar vendas do mês (entradas = quando o dinheiro entrou)
         const vendasMes = vendasData?.filter(venda => {
           const dataVenda = new Date(venda.data_venda);
           return dataVenda >= inicioMes && dataVenda <= fimMes;
         }) || [];
         
-        // Filtrar contas do mês (baseado na data de vencimento)
-        const contasMes = contasData?.filter(conta => {
-          // Usar substring para evitar problemas de timezone
-          const dataVencimento = conta.data_vencimento.substring(0, 7); // YYYY-MM
-          const mesVencimento = `${inicioMes.getFullYear()}-${String(inicioMes.getMonth() + 1).padStart(2, '0')}`;
-          return dataVencimento === mesVencimento;
+        // Saídas: meses realizados = contas PAGAS no mês (data_pagamento); meses previstos = contas que VENCEM no mês
+        const contasSaidas = contasData?.filter(conta => {
+          if (isMesPassado) {
+            if ((conta.status || '').toLowerCase() !== 'pago' || !conta.data_pagamento) return false;
+            const pagMes = conta.data_pagamento.substring(0, 7);
+            return pagMes === mesStr;
+          } else {
+            // Previsto: contas que vencem no mês (pagas ou pendentes)
+            const vencMes = (conta.data_vencimento || '').substring(0, 7);
+            return vencMes === mesStr;
+          }
         }) || [];
         
         // Calcular totais
         const entradas = vendasMes.reduce((total, venda) => total + (venda.total || 0), 0);
-        const saidas = contasMes.reduce((total, conta) => total + (conta.valor || 0), 0);
+        const saidas = contasSaidas.reduce((total, conta) => total + (conta.valor || 0), 0);
         const saldoPeriodo = entradas - saidas;
         
-        // Calcular saldo final acumulado
+        // Calcular saldo final acumulado (soma dos saldos período dos meses anteriores + atual)
         let saldoFinal = saldoPeriodo;
         for (let i = 0; i < mes; i++) {
           if (fluxoCaixa[i]) {
             saldoFinal += fluxoCaixa[i].saldo_periodo;
           }
         }
-        
-        // Determinar se é realizado ou previsto
-        const hoje = new Date();
-        const isMesPassado = parseInt(anoSelecionado) < hoje.getFullYear() || 
-          (parseInt(anoSelecionado) === hoje.getFullYear() && mes < hoje.getMonth());
         
         fluxoCaixa.push({
           mes: inicioMes.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }),
@@ -723,622 +294,11 @@ export default function LucroDesempenhoPage() {
     }
   };
 
-  // Não precisa gerar contas virtuais - todas as parcelas já são criadas como contas reais no banco
-  // Quando uma conta fixa é criada, todas as parcelas são salvas no banco de dados
-
-  // Função para buscar investimentos do mês
-  const fetchInvestimentosMes = async () => {
-    if (!empresaData?.id) return;
-
-    try {
-      const { dataInicio, dataFim } = calcularPeriodo();
-      
-      // Buscar investimentos do mês selecionado
-      const { data: investimentos, error } = await supabase
-        .from('movimentacoes_caixa')
-        .select('valor, data_movimentacao')
-        .eq('empresa_id', empresaData.id)
-        .eq('tipo', 'investimento')
-        .gte('data_movimentacao', `${dataInicio}T00:00:00`)
-        .lte('data_movimentacao', `${dataFim}T23:59:59`);
-
-      if (error) {
-        console.error('Erro ao buscar investimentos:', error);
-        return;
-      }
-
-      const totalInvestimentos = investimentos?.reduce((acc, inv) => acc + (inv.valor || 0), 0) || 0;
-      setInvestimentosMes(totalInvestimentos);
-
-      debugLog('💰 Investimentos do mês:', {
-        mes: formatarMesAno(currentMonth),
-        totalInvestimentos,
-        quantidade: investimentos?.length || 0
-      });
-
-    } catch (error) {
-      console.error('Erro ao buscar investimentos:', error);
+  useEffect(() => {
+    if (empresaData?.id && anoSelecionado) {
+      fetchFluxoCaixaMensal();
     }
-  };
-
-  // Função para buscar custos da empresa para DRE
-  const fetchCustosEmpresa = async () => {
-    if (!empresaData?.id) return;
-
-    try {
-      // Buscar TODAS as contas da empresa (como a página Contas a Pagar faz)
-      debugLog('🔍 Buscando TODAS as contas da empresa...');
-      const { data: todasContas, error: contasError } = await supabase
-        .from('contas_pagar')
-        .select('*') // Buscar todos os campos para incluir conta_fixa, parcelas_totais, etc.
-        .eq('empresa_id', empresaData.id)
-        .order('data_vencimento', { ascending: false });
-
-      if (contasError) {
-        console.error('❌ Erro ao buscar contas a pagar:', contasError);
-        return;
-      }
-
-      debugLog('📊 Contas originais encontradas:', todasContas?.length || 0);
-      
-      // Não gerar contas virtuais - todas as parcelas já são criadas como contas reais no banco
-      // Usar apenas as contas reais do banco
-      const mesAtual = currentMonth.toISOString().slice(0, 7); // YYYY-MM
-      debugLog('📅 Filtrando contas do mês:', mesAtual);
-      
-      // Filtrar contas pelo mês selecionado (apenas contas reais do banco)
-      // Para DRE: considerar contas com vencimento no mês OU contas pagas no mês
-      const { dataInicio, dataFim, inicioMes, fimMes } = calcularPeriodo();
-      
-      // Garantir que estamos usando o mês correto
-      const mesAtualFormatado = formatarMesAno(currentMonth);
-      const mesAtualISO = currentMonth.toISOString().slice(0, 7); // YYYY-MM
-      
-      debugLog('💰 Buscando custos da empresa para DRE...', {
-        empresaId: empresaData.id,
-        periodo: `${dataInicio} a ${dataFim}`,
-        mesSelecionado: mesAtualFormatado,
-        mesAtualISO: mesAtualISO,
-        currentMonth: currentMonth.toISOString(),
-        inicioMes: inicioMes.toISOString(),
-        fimMes: fimMes.toISOString()
-      });
-      
-      const inicioPeriodoFiltro = new Date(inicioMes);
-      inicioPeriodoFiltro.setHours(0, 0, 0, 0);
-      const fimPeriodoFiltro = new Date(fimMes);
-      fimPeriodoFiltro.setHours(23, 59, 59, 999);
-      
-      debugLog('📅 Período de filtro:', {
-        inicioPeriodoFiltro: inicioPeriodoFiltro.toISOString(),
-        fimPeriodoFiltro: fimPeriodoFiltro.toISOString(),
-        mesEsperado: mesAtualISO
-      });
-      
-      // Filtrar contas do mês: apenas contas que VENCEM no mês selecionado
-      // IMPORTANTE: Para DRE, consideramos contas que VENCEM no mês, independente de quando foram pagas
-      const contasDoMes = (todasContas || []).filter(conta => {
-        // Verificar pelo mês usando substring (mais confiável para evitar problemas de timezone)
-        const vencMes = conta.data_vencimento.substring(0, 7); // YYYY-MM
-        const venceNoMesISO = vencMes === mesAtualISO;
-        
-        // Verificar também com comparação de datas para garantir
-        const dataVencimento = new Date(conta.data_vencimento + 'T00:00:00');
-        const venceNoMesData = dataVencimento >= inicioPeriodoFiltro && dataVencimento <= fimPeriodoFiltro;
-        
-        // Só incluir se AMBOS os critérios indicarem que vence no mês
-        return venceNoMesISO && venceNoMesData;
-      });
-      
-      debugLog('📊 Contas do mês selecionado:', contasDoMes.length);
-      
-      // Log detalhado das contas do mês
-      if (contasDoMes && contasDoMes.length > 0) {
-        debugLog('📋 DETALHAMENTO DAS CONTAS DO MÊS:');
-        contasDoMes.forEach((conta, i) => {
-          debugLog(`  ${i+1}. R$ ${conta.valor} - ${conta.status} - ${conta.tipo} - "${conta.descricao}" - ${conta.data_vencimento}`);
-        });
-        
-        const totalGeral = contasDoMes.reduce((acc, conta) => acc + (conta.valor || 0), 0);
-        // Usar mesma lógica de filtro das contas pagas (verificar data_pagamento)
-        const contasPagasLog = contasDoMes.filter(c => {
-          const statusPago = c.status === 'pago';
-          if (!statusPago) return false;
-          if (c.data_pagamento) {
-            const dataPagamento = new Date(c.data_pagamento);
-            return dataPagamento >= inicioPeriodoFiltro && dataPagamento <= fimPeriodoFiltro;
-          }
-          // Conta paga sem data de pagamento - considerar como paga se vence no mês
-          const dataVencimento = new Date(c.data_vencimento);
-          return dataVencimento >= inicioPeriodoFiltro && dataVencimento <= fimPeriodoFiltro;
-        });
-        const contasPendentesLog = contasDoMes.filter(c => 
-          c.status === 'pendente' || c.status === 'vencido'
-        );
-        const totalPagas = contasPagasLog.reduce((acc, conta) => acc + (conta.valor || 0), 0);
-        const totalPendentes = contasPendentesLog.reduce((acc, conta) => acc + (conta.valor || 0), 0);
-        
-        debugLog('💰 RESUMO DO MÊS:');
-        debugLog(`  Total Geral: R$ ${totalGeral.toFixed(2)}`);
-        debugLog(`  Contas Pagas: R$ ${totalPagas.toFixed(2)} (${contasPagasLog.length} contas)`);
-        debugLog(`  Contas Pendentes: R$ ${totalPendentes.toFixed(2)} (${contasPendentesLog.length} contas)`);
-      }
-
-      // Calcular custos por categoria usando as contas do mês
-      debugLog('📊 Status únicos encontrados:', [...new Set(contasDoMes?.map(c => c.status) || [])]);
-      
-      // Filtrar contas pagas: verificar se foram pagas no mês selecionado (data_pagamento)
-      // IMPORTANTE: Usar as mesmas datas do filtro de contasDoMes
-      const inicioPeriodo = new Date(inicioPeriodoFiltro);
-      const fimPeriodo = new Date(fimPeriodoFiltro);
-      
-      debugLog('📊 Filtrando contas pagas no período:', {
-        inicioPeriodo: inicioPeriodo.toISOString(),
-        fimPeriodo: fimPeriodo.toISOString(),
-        totalContasDoMes: contasDoMes?.length || 0
-      });
-      
-      // Filtrar contas PAGAS no mês: apenas contas que foram EFETIVAMENTE PAGAS no mês selecionado
-      // IMPORTANTE: Para DRE, despesas operacionais = contas fixas/variáveis PAGAS no mês
-      // Isso significa que só conta se foi efetivamente paga (saiu dinheiro do caixa) no mês
-      const contasPagas = contasDoMes?.filter(conta => {
-        // Verificar status
-        if (conta.status !== 'pago') return false;
-        
-        // Se tem data_pagamento, verificar se foi paga no mês selecionado
-        if (conta.data_pagamento) {
-          // Critério 1: Comparação por substring (mais confiável)
-          const pagMes = conta.data_pagamento.substring(0, 7); // YYYY-MM
-          const foiPagaNoMesISO = pagMes === mesAtualISO;
-          
-          // Critério 2: Comparação por data
-          const dataPagamento = new Date(conta.data_pagamento + 'T00:00:00');
-          const foiPagaNoMesData = dataPagamento >= inicioPeriodo && dataPagamento <= fimPeriodo;
-          
-          // Só considerar como paga se AMBOS os critérios indicarem que foi paga no mês
-          return foiPagaNoMesISO && foiPagaNoMesData;
-        }
-        
-        // Se não tem data_pagamento mas status é pago, não considerar como paga no mês
-        // (porque não sabemos quando foi paga)
-        return false;
-      }) || [];
-      
-      const contasPendentes = contasDoMes?.filter(conta => 
-        conta.status === 'pendente' || conta.status === 'vencido'
-      ) || [];
-      
-      debugLog('📊 Contas pagas encontradas:', contasPagas.length);
-      debugLog('📊 Contas pendentes encontradas:', contasPendentes.length);
-      
-      // Separar custos por tipo usando as contas do mês
-      // Custos de peças: todas as contas de peças do mês (vencimento no mês)
-      const custosPecas = contasDoMes?.filter(conta => conta.tipo === 'pecas') || [];
-      
-      // Custos Totais: peças e serviços PAGAS no mês
-      const custosTotaisPagas = contasPagas.filter(conta => {
-        const tipo = (conta.tipo || '').toLowerCase();
-        return tipo === 'pecas';
-      }) || [];
-      
-      // Despesas Operacionais: variáveis PAGAS no mês
-      const despesasOperacionais = contasPagas.filter(conta => {
-        const tipo = (conta.tipo || '').toLowerCase();
-        return tipo === 'variavel';
-      }) || [];
-      
-      // Custos Fixos: contas fixas PAGAS no mês
-      const custosFixosPagas = contasPagas.filter(conta => {
-        const tipo = (conta.tipo || '').toLowerCase();
-        return tipo === 'fixa';
-      }) || [];
-      
-      // Custos gerais: todas as contas fixas e variáveis do mês (independente de status - pagas + pendentes)
-      // Este é o total de contas fixas e variáveis que vencem no mês
-      const custosGerais = contasDoMes?.filter(conta => {
-        const tipo = (conta.tipo || '').toLowerCase();
-        return tipo === 'fixa' || tipo === 'variavel';
-      }) || [];
-      
-      debugLog('📊 Filtro de Despesas Operacionais:', {
-        totalContasPagas: contasPagas.length,
-        contasPagasDetalhes: contasPagas.map(c => ({
-          descricao: c.descricao,
-          tipo: c.tipo,
-          valor: c.valor,
-          status: c.status,
-          data_pagamento: c.data_pagamento
-        })),
-        despesasOperacionaisFiltradas: despesasOperacionais.map(c => ({
-          descricao: c.descricao,
-          tipo: c.tipo,
-          valor: c.valor
-        }))
-      });
-
-      debugLog('💰 Cálculo de Despesas Operacionais:', {
-        totalContasDoMes: contasDoMes?.length || 0,
-        totalContasPagas: contasPagas.length,
-        despesasOperacionaisCount: despesasOperacionais.length,
-        despesasOperacionaisDetalhes: despesasOperacionais.map(c => ({
-          descricao: c.descricao,
-          tipo: c.tipo,
-          valor: c.valor,
-          status: c.status,
-          data_pagamento: c.data_pagamento,
-          data_vencimento: c.data_vencimento
-        })),
-        tiposEncontrados: [...new Set(contasPagas.map(c => c.tipo))]
-      });
-
-      const totalContasPagas = contasPagas.reduce((acc, conta) => acc + (conta.valor || 0), 0);
-      const totalContasPendentes = contasPendentes.reduce((acc, conta) => acc + (conta.valor || 0), 0);
-      
-      // Calcular totais separados para os cards
-      const totalCustosTotais = custosTotaisPagas.reduce((acc, conta) => acc + (conta.valor || 0), 0);
-      const totalDespesasOperacionais = despesasOperacionais.reduce((acc, conta) => acc + (conta.valor || 0), 0);
-      const totalCustosFixos = custosFixosPagas.reduce((acc, conta) => acc + (conta.valor || 0), 0);
-      
-      // Custos de peças: todas as contas de peças do mês (independente de status) - mantido para compatibilidade
-      const totalCustosPecas = custosPecas.reduce((acc, conta) => acc + (conta.valor || 0), 0);
-      // Custos gerais: todas as contas fixas e variáveis do mês (independente de status)
-      const totalCustosGerais = custosGerais.reduce((acc, conta) => acc + (conta.valor || 0), 0);
-      
-      debugLog('💰 Totais calculados:', {
-        totalContasPagas,
-        totalContasPendentes,
-        totalCustosTotais,
-        totalDespesasOperacionais,
-        totalCustosFixos,
-        totalCustosPecas
-      });
-
-      // Calcular categorias detalhadas usando as contas do mês
-      const categoriasMap = new Map<string, CategoriaDetalhada>();
-      
-      // Log para debug - verificar contas fixas
-      const contasFixasDoMes = contasDoMes?.filter(c => c.conta_fixa || c.tipo === 'fixa') || [];
-      debugLog('📊 Contas fixas do mês:', {
-        total: contasFixasDoMes.length,
-        detalhes: contasFixasDoMes.map(c => ({
-          id: c.id,
-          descricao: c.descricao,
-          valor: c.valor,
-          data_vencimento: c.data_vencimento,
-          status: c.status,
-          conta_fixa: c.conta_fixa,
-          parcela_atual: c.parcela_atual,
-          parcelas_totais: c.parcelas_totais,
-          isVirtual: c.id?.includes('_virtual_')
-        }))
-      });
-      
-      contasDoMes?.forEach(conta => {
-        // Usar tipo da conta para categorizar
-        const categoria = conta.tipo || 'Outros';
-        
-        // Verificar se é uma conta virtual duplicada
-        const isVirtual = conta.id?.includes('_virtual_');
-        const contaOriginalId = isVirtual ? conta.id.split('_virtual_')[0] : conta.id;
-        
-        if (!categoriasMap.has(categoria)) {
-          categoriasMap.set(categoria, {
-            categoria,
-            total: 0,
-            contasPagas: 0,
-            contasPendentes: 0,
-            quantidade: 0,
-            contas: []
-          });
-        }
-        
-        const categoriaData = categoriasMap.get(categoria)!;
-        categoriaData.total += conta.valor || 0;
-        categoriaData.quantidade += 1;
-        
-        // Adicionar à lista de contas (evitar duplicatas)
-        const contaJaExiste = categoriaData.contas.some(c => c.descricao === conta.descricao && 
-          c.data_vencimento === conta.data_vencimento && 
-          c.valor === conta.valor);
-        
-        if (!contaJaExiste) {
-        categoriaData.contas.push({
-          descricao: conta.descricao || '',
-          valor: conta.valor || 0,
-          status: conta.status || '',
-          data_vencimento: conta.data_vencimento || ''
-        });
-        }
-        
-        // Classificar contas pagas vs pendentes
-        const isPaga = conta.status === 'pago';
-        if (isPaga && conta.data_pagamento) {
-          const dataPagamento = new Date(conta.data_pagamento);
-          // Só conta como paga se foi paga no período do mês selecionado
-          if (dataPagamento >= inicioPeriodo && dataPagamento <= fimPeriodo) {
-          categoriaData.contasPagas += conta.valor || 0;
-          } else {
-            // Conta paga mas em outro mês - não contar como paga neste mês
-            categoriaData.contasPendentes += conta.valor || 0;
-          }
-        } else if (isPaga && !conta.data_pagamento) {
-          // Conta paga mas sem data de pagamento - considerar como paga no mês se vence no mês
-          const dataVencimento = new Date(conta.data_vencimento);
-          if (dataVencimento >= inicioPeriodo && dataVencimento <= fimPeriodo) {
-            categoriaData.contasPagas += conta.valor || 0;
-          } else {
-            categoriaData.contasPendentes += conta.valor || 0;
-          }
-        } else {
-          categoriaData.contasPendentes += conta.valor || 0;
-        }
-      });
-      
-      // Log final das categorias
-      debugLog('📊 Categorias calculadas:', Array.from(categoriasMap.entries()).map(([cat, data]) => ({
-        categoria: cat,
-        total: data.total,
-        quantidade: data.quantidade,
-        contasPagas: data.contasPagas,
-        contasPendentes: data.contasPendentes
-      })));
-      
-      const categoriasDetalhadas = Array.from(categoriasMap.values())
-        .sort((a, b) => b.total - a.total);
-
-      setCustosEmpresa({
-        contasPagas: totalContasPagas,
-        contasPendentes: totalContasPendentes,
-        totalContas: totalContasPagas + totalContasPendentes,
-        despesasOperacionais: totalDespesasOperacionais,
-        custosFixos: totalCustosFixos,
-        custosTotais: totalCustosTotais,
-        custosPecas: totalCustosPecas,
-        custosGerais: totalCustosGerais,
-        categoriasDetalhadas
-      });
-
-      debugLog('✅ Custos da empresa calculados:', {
-        contasPagas: totalContasPagas,
-        contasPendentes: totalContasPendentes,
-        totalContas: totalContasPagas + totalContasPendentes,
-        custosTotais: totalCustosTotais,
-        despesasOperacionais: totalDespesasOperacionais,
-        custosFixos: totalCustosFixos,
-        custosPecas: custosPecas.length,
-        custosPecasTotal: totalCustosPecas,
-        despesasOperacionaisCount: despesasOperacionais.length
-      });
-
-    } catch (error) {
-      console.error('❌ Erro ao buscar custos da empresa:', error);
-    }
-  };
-
-  // Calcular métricas
-  const calcularMetricas = () => {
-    // Receita total = soma de todas as vendas filtradas (igual à página de vendas!)
-    const totalReceita = vendasFiltradas.reduce((acc, venda) => acc + venda.total, 0);
-
-    // Calcular custos igual à página de contas a pagar
-    const mesAtual = currentMonth.toISOString().slice(0, 7); // YYYY-MM
-    
-    // Usar custosEmpresa que já foi calculado
-    const totalCustos = Number(custosEmpresa.custosTotais) || 0; // Peças e serviços pagas
-    const despesasOperacionais = Number(custosEmpresa.despesasOperacionais) || 0; // Variáveis pagas
-    const custosFixos = Number(custosEmpresa.custosFixos) || 0; // Fixas pagas
-    const investimentos = Number(investimentosMes) || 0;
-    
-    // Saldo na Conta = Receita + Investimentos - (Custos Totais + Despesas Operacionais + Custos Fixos)
-    const saldoNaConta = totalReceita + investimentos - (totalCustos + despesasOperacionais + custosFixos);
-    
-    // Lucro Total = Receita - Custos Totais (mantido para compatibilidade)
-    const lucroTotal = totalReceita - totalCustos;
-    const margemMedia = totalReceita > 0 ? (lucroTotal / totalReceita) * 100 : 0;
-
-    const ordensComLucro = ordens.map(ordem => {
-      const receita = ordem.vendas?.reduce((acc, venda) => acc + venda.total, 0) || 0;
-      
-      // Filtrar custos pelo período selecionado (igual à página de contas a pagar)
-      const custosDoPeriodo = ordem.custos?.filter(custo => {
-        if (!custo.data_vencimento) return false;
-        
-        // Usar mesma lógica da página de contas a pagar
-        const custoMes = new Date(custo.data_vencimento).toISOString().slice(0, 7); // YYYY-MM
-        return custoMes === mesAtual;
-      }) || [];
-      
-      const custos = custosDoPeriodo.reduce((acc, custo) => acc + custo.valor, 0);
-      return { ...ordem, receita, custos, lucro: receita - custos };
-    });
-
-    const osLucrativas = ordensComLucro.filter(o => o.lucro > 0).length;
-    const osPrejuizo = ordensComLucro.filter(o => o.lucro < 0).length;
-
-    setMetricas({
-      totalReceita,
-      totalCustos,
-      despesasOperacionais,
-      custosFixos,
-      saldoNaConta,
-      lucroTotal,
-      margemMedia,
-      totalOS: ordens.length,
-      osLucrativas,
-      osPrejuizo
-    });
-    
-    // Recalcular previsão de saldo imediatamente após atualizar metricas
-    // Usar setTimeout para garantir que o estado foi atualizado
-    setTimeout(() => {
-      setMetricasPrevistas(prev => {
-        const saldoAtual = saldoNaConta;
-        const receitaPrevista = Number(prev.receitaPrevista) || 0;
-        const contasAPagarPrevistas = Number(prev.contasAPagarPrevistas) || 0;
-        const saldoNaContaPrevisto = saldoAtual + receitaPrevista - contasAPagarPrevistas;
-        
-        debugLog('💰 Recalculando previsão após calcularMetricas:', {
-          saldoAtual,
-          receitaPrevista,
-          contasAPagarPrevistas,
-          saldoNaContaPrevisto
-        });
-        
-        if (isNaN(saldoNaContaPrevisto) || !isFinite(saldoNaContaPrevisto)) {
-          return prev;
-        }
-        
-        if (Math.abs(prev.saldoNaContaPrevisto - saldoNaContaPrevisto) < 0.01) {
-          return prev;
-        }
-        
-        return {
-          ...prev,
-          saldoNaContaPrevisto
-        };
-      });
-    }, 0);
-  };
-
-  // Calcular dados diários do mês
-  const calcularDadosDiarios = () => {
-    // Criar mapa de dados por data do pagamento (não da OS)
-    const dadosPorData = new Map();
-    
-    const mesAtual = currentMonth.toISOString().slice(0, 7); // YYYY-MM
-    
-    ordens.forEach(ordem => {
-      // Filtrar custos pelo período selecionado (igual à página de contas a pagar)
-      const custosDoPeriodo = ordem.custos?.filter(custo => {
-        if (!custo.data_vencimento) return false;
-        
-        // Usar mesma lógica da página de contas a pagar
-        const custoMes = new Date(custo.data_vencimento).toISOString().slice(0, 7); // YYYY-MM
-        return custoMes === mesAtual;
-      }) || [];
-      
-      const custosContas = custosDoPeriodo.reduce((acc, custo) => acc + custo.valor, 0);
-      
-      // Se há custos no período, adicionar na data de vencimento
-      if (custosContas > 0) {
-        // Usar a data de vencimento para agrupar no gráfico
-        const primeiraConta = custosDoPeriodo[0];
-        const dia = parseInt(primeiraConta.data_vencimento.split('-')[2]); // Extrair dia diretamente da string
-        
-        if (!dadosPorData.has(dia)) {
-          dadosPorData.set(dia, {
-            dia,
-            receita: 0,
-            custos: 0,
-            lucro: 0
-          });
-        }
-        
-        const dadosDia = dadosPorData.get(dia);
-        dadosDia.custos += custosContas;
-      }
-      
-      // Calcular receita baseada na data do pagamento
-      if (ordem.vendas && ordem.vendas.length > 0) {
-        ordem.vendas.forEach(venda => {
-          const dataPagamento = venda.data_venda.split('T')[0];
-          const diaPagamento = parseInt(dataPagamento.split('-')[2]); // Extrair dia diretamente da string
-          
-          if (!dadosPorData.has(diaPagamento)) {
-            dadosPorData.set(diaPagamento, {
-              dia: diaPagamento,
-              receita: 0,
-              custos: 0,
-              lucro: 0
-            });
-          }
-          
-          const dadosDia = dadosPorData.get(diaPagamento);
-          dadosDia.receita += venda.total;
-        });
-      }
-      // Removido: não considerar receita de OS sem pagamento efetivo
-    });
-    
-    // Calcular lucro para cada dia
-    dadosPorData.forEach(dadosDia => {
-      dadosDia.lucro = dadosDia.receita - dadosDia.custos;
-    });
-    
-    // Converter para array e ordenar por dia
-    const dadosDiariosArray = Array.from(dadosPorData.values())
-      .filter(d => d.receita > 0 || d.custos > 0)
-      .sort((a, b) => a.dia - b.dia);
-    
-    debugLog('📊 Dados diários corrigidos:', {
-      mes: formatarMesAno(currentMonth),
-      totalOS: ordens.length,
-      diasComDados: dadosDiariosArray.length,
-      amostra: dadosDiariosArray.slice(0, 5)
-    });
-    
-    setDadosDiarios(dadosDiariosArray);
-  };
-
-  // Calcular análise de técnicos
-  const calcularAnaliseTecnicos = () => {
-    const tecnicosMap = new Map<string, AnaliseTecnico>();
-    const mesAtual = currentMonth.toISOString().slice(0, 7); // YYYY-MM
-
-    ordens.forEach(ordem => {
-      if (!ordem.tecnico_nome || ordem.tecnico_nome === 'N/A') return;
-
-      const receita = ordem.vendas?.reduce((acc, venda) => acc + venda.total, 0) || 0;
-      
-      // Filtrar custos pelo período selecionado (igual à página de contas a pagar)
-      const custosDoPeriodo = ordem.custos?.filter(custo => {
-        if (!custo.data_vencimento) return false;
-        
-        // Usar mesma lógica da página de contas a pagar
-        const custoMes = new Date(custo.data_vencimento).toISOString().slice(0, 7); // YYYY-MM
-        return custoMes === mesAtual;
-      }) || [];
-      
-      const custos = custosDoPeriodo.reduce((acc, custo) => acc + custo.valor, 0);
-      let lucro = receita - custos;
-
-      // Incluir previsão para OS sem venda: usar valor final da OS como receita prevista
-      if (receita === 0) {
-        const valorServico = Number((ordem as any).valor_servico || 0);
-        const qtdServico = Number((ordem as any).qtd_servico || 1);
-        const valorPeca = Number((ordem as any).valor_peca || 0);
-        const qtdPeca = Number((ordem as any).qtd_peca || 1);
-        const desconto = Number((ordem as any).desconto || 0);
-        const subtotal = (valorServico * qtdServico) + (valorPeca * qtdPeca);
-        const receitaPrevista = Math.max(0, subtotal - desconto);
-        lucro = receitaPrevista - custos;
-      }
-
-      if (tecnicosMap.has(ordem.tecnico_nome)) {
-        const tecnico = tecnicosMap.get(ordem.tecnico_nome)!;
-        tecnico.totalOS += 1;
-        tecnico.receitaTotal += receita;
-        tecnico.custosTotal += custos;
-        tecnico.lucroTotal += lucro;
-        tecnico.margemMedia = tecnico.receitaTotal > 0 ? (tecnico.lucroTotal / tecnico.receitaTotal) * 100 : 0;
-      } else {
-        tecnicosMap.set(ordem.tecnico_nome, {
-          tecnico_id: ordem.tecnico_nome,
-          nome: ordem.tecnico_nome,
-          totalOS: 1,
-          receitaTotal: receita,
-          custosTotal: custos,
-          lucroTotal: lucro,
-          margemMedia: receita > 0 ? (lucro / receita) * 100 : 0
-        });
-      }
-    });
-
-    const tecnicosArray = Array.from(tecnicosMap.values())
-      .sort((a, b) => b.lucroTotal - a.lucroTotal);
-    
-    setAnaliseTecnicos(tecnicosArray);
-  };
+  }, [empresaData?.id, anoSelecionado]);
 
   // Renderizar DRE (Demonstração do Resultado do Exercício)
   const renderDRE = () => (
@@ -1364,11 +324,11 @@ export default function LucroDesempenhoPage() {
           
           <DashboardCard
             title="Custos Totais"
-            value={<span className="text-red-600">{formatarMoeda(custosEmpresa.custosPecas)}</span>}
+            value={<span className="text-red-600">{formatarMoeda(custosEmpresa.custosTotais)}</span>}
             icon={<FiTarget className="w-5 h-5" />}
             colorClass="text-black"
             bgClass="bg-white"
-            description="Peças e serviços"
+            description="Peças pagas no período"
             descriptionColorClass="text-red-500"
             svgPolyline={{ color: '#ef4444', points: '0,6 10,8 20,10 30,12 40,14 50,16 60,18 70,20' }}
           />
@@ -1467,11 +427,11 @@ export default function LucroDesempenhoPage() {
 
           {/* Custos */}
             <div className="flex justify-between items-center py-2 border-b border-gray-200">
-              <div>
-                <p className="font-medium text-gray-900">(-) Custos dos Produtos/Serviços</p>
-                <p className="text-sm text-gray-600">Peças, mão de obra e materiais</p>
-              </div>
-              <p className="font-semibold text-red-600">{formatarMoeda(custosEmpresa.custosPecas)}</p>
+            <div>
+              <p className="font-medium text-gray-900">(-) Custos dos Produtos/Serviços</p>
+              <p className="text-sm text-gray-600">Peças pagas no período (realizado)</p>
+            </div>
+            <p className="font-semibold text-red-600">{formatarMoeda(custosEmpresa.custosTotais)}</p>
             </div>
 
           {/* Custos Previsto */}
@@ -1488,7 +448,7 @@ export default function LucroDesempenhoPage() {
             <div>
               <p className="font-semibold text-gray-900">Custos Totais (Real + Previsto)</p>
             </div>
-            <p className="font-bold text-yellow-700">{formatarMoeda(custosEmpresa.custosPecas + metricasPrevistas.custosPrevistos)}</p>
+            <p className="font-bold text-yellow-700">{formatarMoeda(custosEmpresa.custosTotais + metricasPrevistas.custosPrevistos)}</p>
           </div>
 
           {/* Lucro Bruto */}
@@ -1728,109 +688,6 @@ export default function LucroDesempenhoPage() {
     </div>
   );
 
-  // Efeitos
-  useEffect(() => {
-    debugLog('🔄 useEffect empresaData mudou:', {
-      empresaId: empresaData?.id,
-      currentMonth: formatarMesAno(currentMonth),
-      willCallLoadData: !!empresaData?.id
-    });
-    
-    if (empresaData?.id) {
-      debugLog('✅ Chamando loadData...');
-      loadData();
-      fetchFluxoCaixaMensal();
-      fetchCustosEmpresa();
-      fetchInvestimentosMes();
-    } else {
-      debugLog('❌ empresaData.id não disponível, não chamando loadData');
-    }
-  }, [empresaData?.id, currentMonth, anoSelecionado]);
-
-  // Recalcular quando o mês mudar ou quando investimentos forem registrados
-  useEffect(() => {
-    if (empresaData?.id) {
-      fetchInvestimentosMes();
-    }
-  }, [empresaData?.id, currentMonth]);
-
-  useEffect(() => {
-    if (vendas.length > 0) {
-      filtrarVendas();
-    }
-  }, [vendas, currentMonth]);
-
-  useEffect(() => {
-    if (ordens.length > 0 && vendasFiltradas.length >= 0) { // vendasFiltradas pode ser 0
-      calcularMetricas();
-      calcularAnaliseTecnicos();
-      calcularDadosDiarios();
-    }
-  }, [ordens, vendasFiltradas]);
-
-  // Recalcular métricas quando custosEmpresa ou investimentosMes mudar (pois o saldo depende dos custos e investimentos)
-  useEffect(() => {
-    if (vendasFiltradas.length >= 0 && custosEmpresa.custosTotais !== undefined) {
-      calcularMetricas();
-    }
-  }, [custosEmpresa.custosTotais, custosEmpresa.despesasOperacionais, custosEmpresa.custosFixos, investimentosMes]);
-
-  // Recalcular previsão de saldo quando as métricas atuais ou previstas mudarem
-  useEffect(() => {
-    // Só recalcular se não estiver carregando
-    if (loading) {
-      return;
-    }
-    
-    // Verificar se os dados foram realmente carregados
-    const dadosCarregados = ordens.length >= 0 && // ordens pode ser array vazio, mas foi processado
-                            custosEmpresa.custosTotais !== undefined && // custos foram calculados
-                            (metricasPrevistas.receitaPrevista !== undefined || metricasPrevistas.contasAPagarPrevistas !== undefined); // previstos foram calculados
-    
-    if (!dadosCarregados) {
-      debugLog('⏳ Aguardando carregamento completo dos dados', {
-        ordensLength: ordens.length,
-        custosTotais: custosEmpresa.custosTotais,
-        receitaPrevista: metricasPrevistas.receitaPrevista,
-        contasAPagarPrevistas: metricasPrevistas.contasAPagarPrevistas
-      });
-      return;
-    }
-    
-    // Calcular diretamente aqui para sempre usar os valores mais recentes
-    // Previsão de Saldo na Conta = Saldo Atual (Real) + Valores Previstos a Receber - Contas a Pagar Previstas
-    const saldoAtual = Number(metricas.saldoNaConta) || 0;
-    const receitaPrevista = Number(metricasPrevistas.receitaPrevista) || 0;
-    const contasAPagarPrevistas = Number(metricasPrevistas.contasAPagarPrevistas) || 0;
-    
-    const saldoNaContaPrevisto = saldoAtual + receitaPrevista - contasAPagarPrevistas;
-    
-    debugLog('💰 Recalculando Previsão de Saldo na Conta (useEffect):', {
-      saldoAtual,
-      receitaPrevista,
-      contasAPagarPrevistas,
-      saldoNaContaPrevisto,
-      atualSaldoPrevisto: metricasPrevistas.saldoNaContaPrevisto,
-      timestamp: new Date().toISOString()
-    });
-    
-    // Só atualizar se o valor for válido (não NaN ou Infinity)
-    if (isNaN(saldoNaContaPrevisto) || !isFinite(saldoNaContaPrevisto)) {
-      console.warn('⚠️ Previsão de saldo inválida, mantendo valor anterior');
-      return;
-    }
-    
-    // Só atualizar se o valor mudou significativamente (mais de 0.01 para evitar flutuações de ponto flutuante)
-    if (Math.abs(metricasPrevistas.saldoNaContaPrevisto - saldoNaContaPrevisto) < 0.01) {
-      return;
-      }
-    
-    setMetricasPrevistas(prev => ({
-        ...prev,
-        saldoNaContaPrevisto
-    }));
-  }, [metricas.saldoNaConta, ordens.length, custosEmpresa.custosTotais, metricasPrevistas.receitaPrevista, metricasPrevistas.contasAPagarPrevistas, loading]);
-
   // Formatação de valores
   const formatarMoeda = (valor: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -1917,11 +774,7 @@ export default function LucroDesempenhoPage() {
 
       addToast('success', `Investimento de ${formatarMoeda(valor)} registrado com sucesso!`);
       setModalInvestimentoAberto(false);
-      
-      // Recarregar investimentos para atualizar o saldo
-      await fetchInvestimentosMes();
-      // Recalcular métricas para atualizar o saldo na conta
-      calcularMetricas();
+      await refetch();
     } catch (error: any) {
       console.error('Erro inesperado ao registrar investimento:', error);
       addToast('error', `Erro inesperado: ${error?.message || 'Erro desconhecido'}`);
@@ -1961,7 +814,7 @@ export default function LucroDesempenhoPage() {
           icon={<FiTarget className="text-red-600" />}
           colorClass="text-black"
           bgClass="bg-white"
-          description="Peças e serviços pagas"
+          description="Peças pagas no período"
           descriptionColorClass="text-red-500"
           svgPolyline={{ color: '#ef4444', points: '0,6 10,8 20,10 30,12 40,14 50,16 60,18 70,20' }}
         />
@@ -2422,9 +1275,12 @@ export default function LucroDesempenhoPage() {
 
   // Renderizar tabela de OS
   const renderTabelaOS = () => {
+    const mesAtual = currentMonth.toISOString().slice(0, 7);
     const ordensComLucro = ordens.map(ordem => {
       const receitaReal = ordem.vendas?.reduce((acc, venda) => acc + venda.total, 0) || 0;
-      const custos = ordem.custos?.reduce((acc, custo) => acc + custo.valor, 0) || 0;
+      const custos = (ordem.custos || [])
+        .filter(c => ((c.data_vencimento || '').toString().substring(0, 7)) === mesAtual)
+        .reduce((acc, custo) => acc + custo.valor, 0);
       if (receitaReal > 0) {
         return { ...ordem, receita: receitaReal, custos, lucro: receitaReal - custos, previsto: false };
       }
@@ -2571,7 +1427,7 @@ export default function LucroDesempenhoPage() {
   );
 
   return (
-    <AuthGuard requiredPermission="lucro-desempenho">
+    <AuthGuard>
       <MenuLayout>
         <style jsx>{`
         @keyframes slideUpParallax {
@@ -2682,6 +1538,23 @@ export default function LucroDesempenhoPage() {
                 </div>
               </div>
             </div>
+
+            {/* Erro ao carregar */}
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-800">{error}</p>
+              </div>
+            )}
+
+            {/* Aviso quando mês selecionado não tem dados */}
+            {!loading && !error && metricas.totalReceita === 0 && metricas.totalCustos === 0 && metricas.totalOS === 0 && (
+              <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-amber-800">
+                  Nenhum dado para <strong>{formatarMesAno(currentMonth)}</strong>. 
+                  Use as setas para navegar entre os meses ou verifique se há vendas e contas lançadas no período.
+                </p>
+              </div>
+            )}
 
             {/* Tabs de Visualização */}
             <div className="mb-6">

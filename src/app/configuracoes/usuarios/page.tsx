@@ -23,8 +23,10 @@ import { FiAlertTriangle } from 'react-icons/fi';
 import { ToastProvider, useToast } from '@/components/Toast';
 import { ConfirmProvider, useConfirm } from '@/components/ConfirmDialog';
 import { mask as masker } from 'remask';
+import MenuLayout from '@/components/MenuLayout';
+import { TECNICO_DEFAULT_PERMISSIONS } from '@/config/tecnicoAllowedPaths';
 
-function UsuariosPageInner() {
+function UsuariosPageInner({ embedded = false }: { embedded?: boolean }) {
   const { session, usuarioData } = useAuth()
   const router = useRouter();
   const { carregarLimites, limites, podeCriar, assinatura, isTrialExpired } = useSubscription();
@@ -355,9 +357,10 @@ function UsuariosPageInner() {
     }
   }, [session])
 
-  // Se não tem permissão, mostrar mensagem
+  // Se não tem permissão, mostrar mensagem (com menu para não “sumir” a navegação)
   if (!podeAcessar) {
-    return <AcessoNegadoComponent />;
+    const content = <div className="p-8"><AcessoNegadoComponent /></div>;
+    return embedded ? content : <MenuLayout>{content}</MenuLayout>;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -388,16 +391,19 @@ function UsuariosPageInner() {
     
     try {
       const usuarioPadronizado = usuario.trim().toLowerCase();
-      const payload = {
+      const payload: Record<string, unknown> = {
         nome,
         email,
         senha,
-        cpf: cpf.trim() || null, // Enviar null se CPF estiver vazio
+        cpf: cpf.trim() || null,
         whatsapp,
         nivel,
         empresa_id: empresaId,
         usuario: usuarioPadronizado,
       };
+      if (nivel === 'tecnico') {
+        payload.permissoes = TECNICO_DEFAULT_PERMISSIONS;
+      }
       
       const response = await fetch('/api/usuarios/cadastrar', {
         method: 'POST',
@@ -446,7 +452,7 @@ function UsuariosPageInner() {
   const isTrial = assinatura?.status === 'trial' && !isTrialExpired();
   const cannotCreateUsers = isTrial && limites && !podeCriar('usuarios');
 
-  return (
+  const content = (
     <main className="p-8">
         <Card className="border-0 shadow-lg">
           <CardHeader className="bg-gradient-to-r from-gray-50 to-white border-b">
@@ -488,13 +494,13 @@ function UsuariosPageInner() {
                   </span>
                 </div>
                 <p className="text-amber-700 text-sm mb-4">
-                  Para criar mais usuários, escolha um plano adequado às suas necessidades.
+                  Para criar mais usuários, renove ou regularize sua assinatura.
                 </p>
                 <button 
-                  onClick={() => window.location.href = '/planos'}
+                  onClick={() => window.location.href = '/assinatura'}
                   className="bg-amber-600 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-amber-700 transition-colors shadow-md"
                 >
-                  Ver planos disponíveis
+                  Ir para Assinatura
                 </button>
               </div>
             )}
@@ -824,14 +830,15 @@ function UsuariosPageInner() {
           </CardContent>
         </Card>
       </main>
-  )
+  );
+  return embedded ? content : <MenuLayout>{content}</MenuLayout>;
 }
 
-export default function UsuariosPage() {
+export default function UsuariosPage(props?: { embedded?: boolean }) {
   return (
     <ConfirmProvider>
       <ToastProvider>
-        <UsuariosPageInner />
+        <UsuariosPageInner embedded={props?.embedded} />
       </ToastProvider>
     </ConfirmProvider>
   );

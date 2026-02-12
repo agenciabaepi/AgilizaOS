@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import MenuLayout from '@/components/MenuLayout';
 import AuthGuard from '@/components/AuthGuard';
 import { useToast } from '@/components/Toast';
-import { FiDollarSign, FiUsers, FiTrendingUp, FiCalendar, FiFilter, FiDownload, FiX, FiUser, FiEye, FiEdit, FiSave, FiPower, FiToggleLeft, FiToggleRight, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { FiDollarSign, FiUsers, FiTrendingUp, FiCalendar, FiFilter, FiDownload, FiX, FiUser, FiEye, FiEdit, FiSave, FiPower, FiToggleLeft, FiToggleRight, FiChevronLeft, FiChevronRight, FiCheckCircle, FiRotateCcw } from 'react-icons/fi';
 import { useConfirm } from '@/components/ConfirmDialog';
 
 interface ComissaoDetalhada {
@@ -43,6 +44,7 @@ interface TecnicoResumo {
   status_paga: number;
   status_calculada: number;
   status_pendente: number;
+  status_prevista: number;
 }
 
 interface Filtros {
@@ -54,6 +56,7 @@ interface Filtros {
 }
 
 export default function ComissoesTecnicosPage() {
+  const router = useRouter();
   const { usuarioData, session } = useAuth();
   const { addToast } = useToast();
   const confirm = useConfirm();
@@ -356,7 +359,25 @@ export default function ComissoesTecnicosPage() {
   const resumoPorTecnico = useMemo(() => {
     const resumo = new Map<string, TecnicoResumo>();
     
-    // Usar comissões do mês selecionado
+    // PRIMEIRO: Adicionar todos os técnicos cadastrados (mesmo sem comissões)
+    tecnicos.forEach(tec => {
+      if (!resumo.has(tec.id)) {
+        resumo.set(tec.id, {
+          tecnico_id: tec.id,
+          nome: tec.nome,
+          total_comissoes: 0,
+          total_comissao_valor: 0,
+          quantidade_os: 0,
+          media_comissao: 0,
+          status_paga: 0,
+          status_calculada: 0,
+          status_pendente: 0,
+          status_prevista: 0
+        });
+      }
+    });
+    
+    // DEPOIS: Processar comissões do mês selecionado
     comissoesDoMes.forEach(comissao => {
       if (!resumo.has(comissao.tecnico_id)) {
         resumo.set(comissao.tecnico_id, {
@@ -368,7 +389,8 @@ export default function ComissoesTecnicosPage() {
           media_comissao: 0,
           status_paga: 0,
           status_calculada: 0,
-          status_pendente: 0
+          status_pendente: 0,
+          status_prevista: 0
         });
       }
       
@@ -377,8 +399,10 @@ export default function ComissoesTecnicosPage() {
       tecnico.total_comissao_valor += comissao.valor_comissao;
       tecnico.total_comissoes += 1;
       
-      if (comissao.status === 'PAGA') tecnico.status_paga += 1;
-      else if (comissao.status === 'CALCULADA') tecnico.status_calculada += 1;
+      const statusUpper = (comissao.status || '').toUpperCase();
+      if (statusUpper === 'PAGA') tecnico.status_paga += 1;
+      else if (statusUpper === 'CALCULADA') tecnico.status_calculada += 1;
+      else if (statusUpper === 'PREVISTA') tecnico.status_prevista += 1;
       else tecnico.status_pendente += 1;
     });
     
@@ -389,8 +413,15 @@ export default function ComissoesTecnicosPage() {
         : 0;
     });
     
-    return Array.from(resumo.values()).sort((a, b) => b.total_comissao_valor - a.total_comissao_valor);
-  }, [comissoesDoMes]);
+    // Ordenar: técnicos com comissões primeiro, depois por valor
+    return Array.from(resumo.values()).sort((a, b) => {
+      // Se um tem comissões e outro não, o com comissões vem primeiro
+      if (a.quantidade_os > 0 && b.quantidade_os === 0) return -1;
+      if (a.quantidade_os === 0 && b.quantidade_os > 0) return 1;
+      // Se ambos têm ou não têm, ordenar por valor
+      return b.total_comissao_valor - a.total_comissao_valor;
+    });
+  }, [comissoesDoMes, tecnicos]);
 
   // Métricas gerais do mês selecionado (considerando apenas comissões ativas E técnicos com comissão ativa)
   const metricas = useMemo(() => {
@@ -437,10 +468,10 @@ export default function ComissoesTecnicosPage() {
     
     setLoading(true);
     try {
-      // Buscar técnicos da empresa
+      // Buscar técnicos da empresa (incluindo auth_user_id para mapeamento)
       const { data: tecnicosData, error: tecnicosError } = await supabase
         .from('usuarios')
-        .select('id, nome')
+        .select('id, nome, auth_user_id')
         .eq('empresa_id', usuarioData.empresa_id)
         .eq('nivel', 'tecnico')
         .order('nome');
@@ -449,8 +480,19 @@ export default function ComissoesTecnicosPage() {
         console.error('Erro ao buscar técnicos:', tecnicosError);
         addToast('error', 'Erro ao carregar técnicos');
       } else {
+        console.log('👥 Técnicos encontrados:', tecnicosData?.length, tecnicosData?.map((t: any) => ({ id: t.id, nome: t.nome, auth_user_id: t.auth_user_id })));
         setTecnicos(tecnicosData || []);
       }
+      
+      // Criar mapa de auth_user_id -> técnico para resolver IDs inconsistentes
+      const authIdToTecnico = new Map<string, { id: string; nome: string }>();
+      const tecnicoIdToTecnico = new Map<string, { id: string; nome: string }>();
+      (tecnicosData || []).forEach((t: any) => {
+        tecnicoIdToTecnico.set(t.id, { id: t.id, nome: t.nome });
+        if (t.auth_user_id) {
+          authIdToTecnico.set(t.auth_user_id, { id: t.id, nome: t.nome });
+        }
+      });
 
       // Buscar comissões de todos os técnicos da empresa
       // Tentar buscar com o campo ativa primeiro
@@ -474,6 +516,7 @@ export default function ComissoesTecnicosPage() {
           observacoes,
           ativa,
           tecnico:tecnico_id (
+            id,
             nome,
             comissao_ativa
           ),
@@ -559,10 +602,30 @@ export default function ComissoesTecnicosPage() {
       }
 
       // Formatar os dados
-      const comissoesFormatadas = (comissoesData || []).map((comissao: any) => ({
+      const comissoesFormatadas = (comissoesData || []).map((comissao: any) => {
+        // Resolver o técnico: pode vir do join ou do mapeamento (se tecnico_id for auth_user_id)
+        let tecnicoResolvido = comissao.tecnico;
+        let tecnicoIdFinal = comissao.tecnico?.id || comissao.tecnico_id;
+        
+        // Se o join não retornou técnico, tentar resolver pelo mapeamento
+        if (!tecnicoResolvido || !tecnicoResolvido.nome) {
+          // Tentar primeiro pelo ID direto
+          if (tecnicoIdToTecnico.has(comissao.tecnico_id)) {
+            tecnicoResolvido = tecnicoIdToTecnico.get(comissao.tecnico_id);
+            tecnicoIdFinal = tecnicoResolvido!.id;
+          }
+          // Tentar pelo auth_user_id
+          else if (authIdToTecnico.has(comissao.tecnico_id)) {
+            tecnicoResolvido = authIdToTecnico.get(comissao.tecnico_id);
+            tecnicoIdFinal = tecnicoResolvido!.id;
+          }
+        }
+        
+        return {
         id: comissao.id,
-        tecnico_id: comissao.tecnico_id,
-        tecnico_nome: comissao.tecnico?.nome || 'Técnico não encontrado',
+        // Usar o ID normalizado (sempre usuarios.id)
+        tecnico_id: tecnicoIdFinal,
+        tecnico_nome: tecnicoResolvido?.nome || 'Técnico não encontrado',
         ordem_servico_id: comissao.ordem_servico_id,
         numero_os: comissao.ordens_servico?.numero_os || 'N/A',
         cliente_nome: comissao.clientes?.nome || 'Cliente não encontrado',
@@ -585,15 +648,174 @@ export default function ComissoesTecnicosPage() {
           ? comissao.tecnico.comissao_ativa 
           : true,
         observacoes: comissao.observacoes || null
-      }));
+      };
+      });
 
-      setComissoes(comissoesFormatadas);
+      // ==================== COMISSÕES PREVISTAS ====================
+      // Buscar OS que ainda não têm comissão registrada mas têm técnico atribuído
+      let comissoesPrevistas: ComissaoDetalhada[] = [];
+      const osComComissao = new Set((comissoesFormatadas || []).map((c: ComissaoDetalhada) => c.ordem_servico_id));
+      
+      // Buscar configurações de comissão por técnico e da empresa
+      const tecnicoIds = (tecnicosData || []).map((t: any) => t.id);
+      
+      if (tecnicoIds.length > 0) {
+        // Buscar configurações de comissão dos técnicos
+        const { data: tecnicosConfigData } = await supabase
+          .from('usuarios')
+          .select('id, nome, tipo_comissao, comissao_fixa, comissao_percentual, comissao_ativa')
+          .in('id', tecnicoIds);
+        
+        // Buscar configuração padrão da empresa
+        const { data: configEmpresa } = await supabase
+          .from('configuracoes_comissao')
+          .select('tipo_comissao, comissao_fixa_padrao, comissao_padrao')
+          .eq('empresa_id', usuarioData.empresa_id)
+          .single();
+        
+        // Buscar OS que têm técnico mas ainda não finalizadas
+        const { data: ordensData, error: ordensError } = await supabase
+          .from('ordens_servico')
+          .select(`
+            id,
+            numero_os,
+            empresa_id,
+            cliente_id,
+            tecnico_id,
+            valor_faturado,
+            valor_servico,
+            valor_peca,
+            status,
+            status_tecnico,
+            tipo,
+            data_entrega,
+            created_at,
+            clientes:cliente_id ( nome ),
+            servico,
+            tecnico:tecnico_id ( id, nome, tipo_comissao, comissao_fixa, comissao_percentual, comissao_ativa )
+          `)
+          .eq('empresa_id', usuarioData.empresa_id)
+          .not('tecnico_id', 'is', null)
+          .order('created_at', { ascending: false });
+        
+        if (!ordensError && ordensData && ordensData.length > 0) {
+          const normalizeStatus = (s: string | null | undefined) =>
+            (s || '').toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+          
+          comissoesPrevistas = ordensData
+            .filter((os: any) => {
+              // Ignorar se já tem comissão registrada
+              if (osComComissao.has(os.id)) return false;
+              
+              // Ignorar se não tem valor
+              const valorServico = (os.valor_servico as number | null) ?? 0;
+              if (!valorServico || valorServico <= 0) return false;
+              
+              // Ignorar se já finalizadas (essas devem ter comissão real)
+              const status = normalizeStatus(os.status);
+              const statusTec = normalizeStatus(os.status_tecnico);
+              const finalizada = status === 'ENTREGUE' || statusTec === 'FINALIZADA';
+              if (finalizada) return false;
+              
+              return true;
+            })
+            .map((os: any) => {
+              const valorServico = (os.valor_servico as number | null) ?? 0;
+              let tecnicoConfig = os.tecnico;
+              
+              // Se o join não retornou técnico, tentar resolver pelo mapeamento
+              let tecnicoIdFinal = tecnicoConfig?.id || os.tecnico_id;
+              let tecnicoNome = tecnicoConfig?.nome;
+              
+              if (!tecnicoConfig || !tecnicoConfig.nome) {
+                // Tentar pelo ID direto
+                if (tecnicoIdToTecnico.has(os.tecnico_id)) {
+                  const tecnicoResolvidoMap = tecnicoIdToTecnico.get(os.tecnico_id)!;
+                  tecnicoIdFinal = tecnicoResolvidoMap.id;
+                  tecnicoNome = tecnicoResolvidoMap.nome;
+                  // Buscar configuração do técnico se disponível
+                  const configFromData = (tecnicosConfigData || []).find((t: any) => t.id === tecnicoIdFinal);
+                  if (configFromData) tecnicoConfig = configFromData;
+                }
+                // Tentar pelo auth_user_id
+                else if (authIdToTecnico.has(os.tecnico_id)) {
+                  const tecnicoResolvidoMap = authIdToTecnico.get(os.tecnico_id)!;
+                  tecnicoIdFinal = tecnicoResolvidoMap.id;
+                  tecnicoNome = tecnicoResolvidoMap.nome;
+                  // Buscar configuração do técnico se disponível
+                  const configFromData = (tecnicosConfigData || []).find((t: any) => t.id === tecnicoIdFinal);
+                  if (configFromData) tecnicoConfig = configFromData;
+                }
+              }
+              
+              // Determinar tipo e valor da comissão (prioridade: técnico > empresa > padrão)
+              let tipoComissao: 'porcentagem' | 'fixo' = 'porcentagem';
+              let valorBaseComissao = 10; // padrão 10%
+              
+              if (tecnicoConfig?.tipo_comissao) {
+                tipoComissao = tecnicoConfig.tipo_comissao as 'porcentagem' | 'fixo';
+                if (tipoComissao === 'fixo') {
+                  valorBaseComissao = tecnicoConfig.comissao_fixa || 0;
+                } else {
+                  valorBaseComissao = tecnicoConfig.comissao_percentual || 10;
+                }
+              } else if (configEmpresa?.tipo_comissao) {
+                tipoComissao = configEmpresa.tipo_comissao as 'porcentagem' | 'fixo';
+                if (tipoComissao === 'fixo') {
+                  valorBaseComissao = configEmpresa.comissao_fixa_padrao || 0;
+                } else {
+                  valorBaseComissao = configEmpresa.comissao_padrao || 10;
+                }
+              }
+              
+              // Calcular comissão
+              let valorComissao = 0;
+              if (tipoComissao === 'fixo') {
+                valorComissao = valorBaseComissao;
+              } else {
+                valorComissao = (valorServico * valorBaseComissao) / 100;
+              }
+              
+              const dataEntregaBase = os.data_entrega || os.created_at || new Date().toISOString();
+              
+              return {
+                id: `prevista-${os.id}`,
+                // Usar o ID normalizado (sempre usuarios.id)
+                tecnico_id: tecnicoIdFinal,
+                tecnico_nome: tecnicoNome || 'Técnico não encontrado',
+                ordem_servico_id: os.id,
+                numero_os: os.numero_os || 'N/A',
+                cliente_nome: os.clientes?.nome || 'Cliente não encontrado',
+                servico_nome: os.servico || 'Serviço não especificado',
+                valor_servico: valorServico,
+                valor_peca: os.valor_peca || 0,
+                valor_total: (os.valor_faturado as number | null) ?? valorServico ?? 0,
+                tipo_comissao: tipoComissao,
+                percentual_comissao: tipoComissao === 'porcentagem' ? valorBaseComissao : 0,
+                valor_comissao_fixa: tipoComissao === 'fixo' ? valorBaseComissao : null,
+                valor_comissao: valorComissao,
+                data_entrega: dataEntregaBase,
+                status: 'PREVISTA',
+                tipo_ordem: (os.tipo || 'normal').toLowerCase(),
+                created_at: dataEntregaBase,
+                ativa: true,
+                tecnico_comissao_ativa: tecnicoConfig?.comissao_ativa !== false,
+                observacoes: null
+              } as ComissaoDetalhada;
+            });
+        }
+      }
+      
+      // Mesclar comissões reais + previstas
+      setComissoes([...comissoesFormatadas, ...comissoesPrevistas]);
       
       // Debug: Log das comissões carregadas
+      const todasComissoes = [...comissoesFormatadas, ...comissoesPrevistas];
       console.log('📊 Comissões carregadas:', {
-        total: comissoesFormatadas.length,
-        comissoes: comissoesFormatadas.slice(0, 5), // Primeiras 5 para debug
-        meses: [...new Set(comissoesFormatadas.map(c => {
+        total: todasComissoes.length,
+        reais: comissoesFormatadas.length,
+        previstas: comissoesPrevistas.length,
+        meses: [...new Set(todasComissoes.map(c => {
           try {
             const data = new Date(c.data_entrega);
             if (isNaN(data.getTime())) {
@@ -606,7 +828,7 @@ export default function ComissoesTecnicosPage() {
             return null;
           }
         }).filter(Boolean))],
-        comissoesComTecnicoAtivo: comissoesFormatadas.filter(c => 
+        comissoesComTecnicoAtivo: todasComissoes.filter(c => 
           c.ativa !== false && c.tecnico_comissao_ativa !== false
         ).length
       });
@@ -654,6 +876,8 @@ export default function ComissoesTecnicosPage() {
         return 'bg-blue-100 text-blue-800';
       case 'PENDENTE':
         return 'bg-yellow-100 text-yellow-800';
+      case 'PREVISTA':
+        return 'bg-gray-100 text-gray-700';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -858,6 +1082,52 @@ export default function ComissoesTecnicosPage() {
     setComissaoDetalhes(comissao);
   };
 
+  const atualizarStatusComissao = async (comissao: ComissaoDetalhada, novoStatus: 'PAGA' | 'CALCULADA' | 'PENDENTE') => {
+    if (comissao.id.startsWith('prevista-')) {
+      addToast('error', 'Comissões previstas só podem ser pagas após a OS ser finalizada.');
+      return;
+    }
+    setSalvando(true);
+    try {
+      const response = await fetch('/api/comissoes/atualizar', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comissaoId: comissao.id, status: novoStatus }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        addToast('error', result?.error || 'Erro ao atualizar status');
+        return;
+      }
+      addToast('success', novoStatus === 'PAGA' ? 'Comissão marcada como paga.' : 'Status revertido.');
+      await fetchData();
+    } catch (e) {
+      addToast('error', 'Erro ao atualizar status da comissão');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const handleMarcarComoPaga = async (comissao: ComissaoDetalhada) => {
+    const confirmado = await confirm({
+      title: 'Marcar como paga',
+      message: `Confirmar pagamento da comissão de ${formatCurrency(comissao.valor_comissao)} ao técnico ${comissao.tecnico_nome} (OS #${comissao.numero_os})?`,
+      confirmText: 'Marcar como paga',
+      cancelText: 'Cancelar',
+    });
+    if (confirmado) await atualizarStatusComissao(comissao, 'PAGA');
+  };
+
+  const handleReverterParaCalculada = async (comissao: ComissaoDetalhada) => {
+    const confirmado = await confirm({
+      title: 'Reverter status',
+      message: `Reverter esta comissão para "Calculada"? O técnico voltará a vê-la como pendente.`,
+      confirmText: 'Reverter',
+      cancelText: 'Cancelar',
+    });
+    if (confirmado) await atualizarStatusComissao(comissao, 'CALCULADA');
+  };
+
   const exportarCSV = () => {
     const headers = ['Técnico', 'OS', 'Cliente', 'Serviço', 'Data Entrega', 'Valor Total', 'Tipo', 'Percentual/Fixo', 'Comissão', 'Status'];
     const csvContent = [
@@ -901,7 +1171,7 @@ export default function ComissoesTecnicosPage() {
   }
 
   return (
-    <AuthGuard requiredPermission="lucro-desempenho">
+    <AuthGuard>
       <MenuLayout>
       <div className="p-3 md:-m-8 md:p-4 lg:p-6 space-y-4 md:space-y-6 w-full">
         {/* Header */}
@@ -1181,12 +1451,17 @@ export default function ComissoesTecnicosPage() {
           {/* Versão Mobile - Cards */}
           <div className="md:hidden divide-y divide-gray-200">
             {resumoPorTecnico.map((tecnico) => (
-              <div key={tecnico.tecnico_id} className="p-3 md:p-4 space-y-3">
+              <div 
+                key={tecnico.tecnico_id} 
+                className="p-3 md:p-4 space-y-3 cursor-pointer hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                onClick={() => router.push(`/financeiro/comissoes-tecnicos/${tecnico.tecnico_id}`)}
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <FiUser className="text-gray-400 flex-shrink-0" size={18} />
                     <div className="text-sm font-semibold text-gray-900">{tecnico.nome}</div>
                   </div>
+                  <FiChevronRight className="text-gray-400" size={18} />
                 </div>
                 
                 <div className="grid grid-cols-2 gap-3">
@@ -1214,6 +1489,11 @@ export default function ComissoesTecnicosPage() {
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                         Pe: {tecnico.status_pendente}
                       </span>
+                      {tecnico.status_prevista > 0 && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                          Prev: {tecnico.status_prevista}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1254,15 +1534,24 @@ export default function ComissoesTecnicosPage() {
                   <th className="px-3 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell whitespace-nowrap">
                     Pendente
                   </th>
+                  <th className="px-3 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell whitespace-nowrap">
+                    Prevista
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {resumoPorTecnico.map((tecnico) => (
-                  <tr key={tecnico.tecnico_id} className="hover:bg-gray-50">
+                  <tr 
+                    key={tecnico.tecnico_id} 
+                    className="hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => router.push(`/financeiro/comissoes-tecnicos/${tecnico.tecnico_id}`)}
+                    title="Clique para ver detalhes e realizar saques"
+                  >
                     <td className="px-3 md:px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <FiUser className="text-gray-400 mr-2 flex-shrink-0" size={16} />
                         <div className="text-sm font-medium text-gray-900 truncate">{tecnico.nome}</div>
+                        <FiChevronRight className="ml-2 text-gray-400" size={14} />
                       </div>
                     </td>
                     <td className="px-3 md:px-6 py-4 whitespace-nowrap text-center">
@@ -1291,6 +1580,11 @@ export default function ComissoesTecnicosPage() {
                     <td className="px-3 md:px-6 py-4 whitespace-nowrap text-center hidden md:table-cell">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                         {tecnico.status_pendente}
+                      </span>
+                    </td>
+                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-center hidden lg:table-cell">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                        {tecnico.status_prevista}
                       </span>
                     </td>
                   </tr>
@@ -1332,7 +1626,7 @@ export default function ComissoesTecnicosPage() {
                     <div className="text-xs text-gray-600 mt-1">{comissao.cliente_nome}</div>
                   </div>
                   {isAdmin && (
-                    <div className="flex items-center gap-1 ml-2">
+                    <div className="flex items-center gap-1 ml-2 flex-wrap">
                       <button
                         onClick={() => handleVerDetalhes(comissao)}
                         className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -1347,6 +1641,26 @@ export default function ComissoesTecnicosPage() {
                       >
                         <FiEdit size={16} />
                       </button>
+                      {!comissao.id.startsWith('prevista-') && (comissao.status || '').toUpperCase() !== 'PAGA' && (
+                        <button
+                          onClick={() => handleMarcarComoPaga(comissao)}
+                          className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          title="Marcar como paga"
+                          disabled={salvando}
+                        >
+                          <FiCheckCircle size={16} />
+                        </button>
+                      )}
+                      {!comissao.id.startsWith('prevista-') && (comissao.status || '').toUpperCase() === 'PAGA' && (
+                        <button
+                          onClick={() => handleReverterParaCalculada(comissao)}
+                          className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                          title="Reverter para calculada"
+                          disabled={salvando}
+                        >
+                          <FiRotateCcw size={16} />
+                        </button>
+                      )}
                       <button
                         onClick={() => handleToggleAtiva(comissao)}
                         className={`p-1.5 rounded-lg transition-colors ${
@@ -1516,6 +1830,26 @@ export default function ComissoesTecnicosPage() {
                           >
                             <FiEdit size={14} className="md:w-4 md:h-4" />
                           </button>
+                          {!comissao.id.startsWith('prevista-') && (comissao.status || '').toUpperCase() !== 'PAGA' && (
+                            <button
+                              onClick={() => handleMarcarComoPaga(comissao)}
+                              className="p-1.5 md:p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors flex-shrink-0"
+                              title="Marcar como paga"
+                              disabled={salvando}
+                            >
+                              <FiCheckCircle size={14} className="md:w-4 md:h-4" />
+                            </button>
+                          )}
+                          {!comissao.id.startsWith('prevista-') && (comissao.status || '').toUpperCase() === 'PAGA' && (
+                            <button
+                              onClick={() => handleReverterParaCalculada(comissao)}
+                              className="p-1.5 md:p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors flex-shrink-0"
+                              title="Reverter para calculada"
+                              disabled={salvando}
+                            >
+                              <FiRotateCcw size={14} className="md:w-4 md:h-4" />
+                            </button>
+                          )}
                           <button
                             onClick={() => handleToggleAtiva(comissao)}
                             className={`p-1.5 md:p-2 rounded-lg transition-colors flex-shrink-0 ${

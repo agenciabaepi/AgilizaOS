@@ -623,7 +623,7 @@ function NovaOS2Content() {
       
       // Buscar o status selecionado para obter o nome
       const statusSelecionadoObj = statusOS.find(s => s.id === statusSelecionado);
-      const nomeStatus = statusSelecionadoObj?.nome || 'ABERTA';
+      const nomeStatus = statusSelecionadoObj?.nome || 'ORÇAMENTO';
 
       // Preparar dados da OS para salvar no banco
       const dadosOS = {
