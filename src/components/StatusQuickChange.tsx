@@ -124,15 +124,15 @@ export default function StatusQuickChange({
         updateData.status_tecnico = newStatusTecnico;
       }
 
+      // API faz espelhamento bidirecional (técnico→OS, atendente→técnico)
       if (Object.keys(updateData).length > 0) {
-        // Usar nossa API que envia notificações WhatsApp
         const response = await fetch('/api/ordens/update-status', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             osId: ordemId,
+            newStatus: updateData.status,
+            newStatusTecnico: updateData.status_tecnico,
             ...updateData
           }),
         });
@@ -143,10 +143,11 @@ export default function StatusQuickChange({
           console.error('Erro ao atualizar status:', result);
           alert('Erro ao atualizar status: ' + (result.error || 'Erro desconhecido'));
         } else {
-          onStatusChange(newStatus, newStatusTecnico);
+          onStatusChange(updateData.status ?? currentStatus, updateData.status_tecnico ?? currentStatusTecnico);
           setShowDropdown(false);
-          
-          // Mostrar debug info se disponível
+          if (result.comissaoErro) {
+            console.warn('Comissão não registrada:', result.comissaoErro);
+          }
           if (result.debug) {
             console.log('Debug da atualização:', result.debug);
           }

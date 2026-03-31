@@ -178,7 +178,7 @@ export default function AssinaturaPage() {
         setTotal(lista.length);
         return;
       }
-      // Se Asaas falhar (ex: ASAAS_API_KEY não configurado), tentar só nossa tabela
+      // Se Asaas falhar, tentar só nossa tabela
       const resDb = await fetch(`/api/assinatura/pagamentos?page=1&pageSize=100${filtroStatus ? `&status=${filtroStatus}` : ''}`, opts);
       const jsonDb = await resDb.json();
       if (!resDb.ok) throw new Error(jsonDb?.error || 'Erro ao carregar pagamentos');

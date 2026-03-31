@@ -32,6 +32,8 @@ interface ComissaoDetalhada {
   ativa?: boolean;
   tecnico_comissao_ativa?: boolean; // Indica se o técnico tem comissão ativa nas configurações
   observacoes?: string | null;
+  status_os?: string | null;
+  status_tecnico_os?: string | null;
 }
 
 interface TecnicoResumo {
@@ -72,11 +74,8 @@ export default function ComissoesTecnicosPage() {
   const [observacoesEditadas, setObservacoesEditadas] = useState<string>('');
   
   // Estado para mês selecionado (formato: YYYY-MM ou 'todos')
-  const [mesSelecionado, setMesSelecionado] = useState<string>(() => {
-    // Começar com o mês atual
-    const hoje = new Date();
-    return hoje.toISOString().slice(0, 7); // YYYY-MM
-  });
+  // Padrão 'todos' para a lista bater com o detalhe do técnico (que usa todos os meses) e evitar valores diferentes
+  const [mesSelecionado, setMesSelecionado] = useState<string>('todos');
   
   // Estados para filtros
   const [filtros, setFiltros] = useState<Filtros>({
@@ -292,25 +291,7 @@ export default function ComissoesTecnicosPage() {
     return mesesOrdenados;
   }, [comissoes]);
   
-  // Quando as comissões forem carregadas pela primeira vez, garantir que está no mês atual
-  // Este useEffect só roda uma vez após o carregamento inicial das comissões
-  const [comissoesCarregadas, setComissoesCarregadas] = useState(false);
-  
-  useEffect(() => {
-    if (!comissoesCarregadas && comissoes.length >= 0) {
-      // Primeira vez que as comissões são carregadas (pode ser array vazio)
-      const hoje = new Date();
-      const mesAtual = hoje.toISOString().slice(0, 7);
-      
-      // Se ainda não está no mês atual, mudar para o mês atual
-      if (mesSelecionado !== mesAtual) {
-        console.log('🔄 Primeira carga - Ajustando para mês atual:', mesAtual);
-        setMesSelecionado(mesAtual);
-      }
-      
-      setComissoesCarregadas(true);
-    }
-  }, [comissoes.length, mesSelecionado, comissoesCarregadas]);
+  // Lista e detalhe do técnico usam a mesma base; padrão "Todos os meses" evita valores diferentes entre lista e detalhe
 
   // Filtrar comissões por mês selecionado e técnicos ativos
   const comissoesDoMes = useMemo(() => {
@@ -454,417 +435,36 @@ export default function ComissoesTecnicosPage() {
     });
   }, [comissoesDoMes, filtros]);
 
+  const empresaId = usuarioData?.empresa_id ?? null;
+  const accessToken = session?.access_token ?? null;
   useEffect(() => {
-    if (usuarioData?.empresa_id) {
+    if (empresaId) {
       fetchData();
     }
-  }, [usuarioData]);
+  }, [empresaId, accessToken]);
 
   const fetchData = async () => {
     if (!usuarioData?.empresa_id) {
       setLoading(false);
       return;
     }
-    
     setLoading(true);
     try {
-      // Buscar técnicos da empresa (incluindo auth_user_id para mapeamento)
-      const { data: tecnicosData, error: tecnicosError } = await supabase
-        .from('usuarios')
-        .select('id, nome, auth_user_id')
-        .eq('empresa_id', usuarioData.empresa_id)
-        .eq('nivel', 'tecnico')
-        .order('nome');
-
-      if (tecnicosError) {
-        console.error('Erro ao buscar técnicos:', tecnicosError);
-        addToast('error', 'Erro ao carregar técnicos');
-      } else {
-        console.log('👥 Técnicos encontrados:', tecnicosData?.length, tecnicosData?.map((t: any) => ({ id: t.id, nome: t.nome, auth_user_id: t.auth_user_id })));
-        setTecnicos(tecnicosData || []);
-      }
-      
-      // Criar mapa de auth_user_id -> técnico para resolver IDs inconsistentes
-      const authIdToTecnico = new Map<string, { id: string; nome: string }>();
-      const tecnicoIdToTecnico = new Map<string, { id: string; nome: string }>();
-      (tecnicosData || []).forEach((t: any) => {
-        tecnicoIdToTecnico.set(t.id, { id: t.id, nome: t.nome });
-        if (t.auth_user_id) {
-          authIdToTecnico.set(t.auth_user_id, { id: t.id, nome: t.nome });
-        }
-      });
-      
-      console.log('🗺️ Mapas de técnicos criados:', {
-        porId: Array.from(tecnicoIdToTecnico.entries()),
-        porAuthId: Array.from(authIdToTecnico.entries())
-      });
-
-      // Buscar comissões de todos os técnicos da empresa
-      // Tentar buscar com o campo ativa primeiro
-      let query = supabase
-        .from('comissoes_historico')
-        .select(`
-          id,
-          tecnico_id,
-          ordem_servico_id,
-          valor_servico,
-          valor_peca,
-          valor_total,
-          tipo_comissao,
-          percentual_comissao,
-          valor_comissao_fixa,
-          valor_comissao,
-          data_entrega,
-          status,
-          tipo_ordem,
-          created_at,
-          observacoes,
-          ativa,
-          tecnico:tecnico_id (
-            id,
-            nome,
-            comissao_ativa
-          ),
-          ordens_servico:ordem_servico_id (
-            numero_os,
-            servico
-          ),
-          clientes:cliente_id (
-            nome
-          )
-        `)
-        .eq('empresa_id', usuarioData.empresa_id)
-        .order('data_entrega', { ascending: false })
-        .order('created_at', { ascending: false });
-
-      let { data: comissoesData, error } = await query;
-
-      // Se der erro por campo não existir, tentar sem o campo ativa
-      if (error && (error.message?.includes('column') || error.code === '42703')) {
-        console.log('⚠️ Campo ativa não existe, buscando sem ele...');
-        const { data: dataRetry, error: errorRetry } = await supabase
-          .from('comissoes_historico')
-          .select(`
-            id,
-            tecnico_id,
-            ordem_servico_id,
-            valor_servico,
-            valor_peca,
-            valor_total,
-            tipo_comissao,
-            percentual_comissao,
-            valor_comissao_fixa,
-            valor_comissao,
-            data_entrega,
-            status,
-            tipo_ordem,
-            created_at,
-            observacoes,
-            ativa,
-            tecnico:tecnico_id (
-              nome,
-              comissao_ativa
-            ),
-            ordens_servico:ordem_servico_id (
-              numero_os,
-              servico
-            ),
-            clientes:cliente_id (
-              nome
-            )
-          `)
-          .eq('empresa_id', usuarioData.empresa_id)
-          .order('data_entrega', { ascending: false })
-          .order('created_at', { ascending: false });
-
-        if (errorRetry) {
-          console.error('❌ Erro ao buscar comissões:', errorRetry);
-          addToast('error', 'Erro ao carregar comissões: ' + (errorRetry.message || 'Erro desconhecido'));
-          setComissoes([]);
-          return;
-        }
-
-        // Garantir que dataRetry tenha as propriedades ativa e tecnico_comissao_ativa mesmo se as colunas não existirem no banco
-        comissoesData = (dataRetry || []).map((item: any) => ({
-          ...item,
-          ativa: item.ativa !== undefined ? item.ativa : true,
-          // Garantir que o técnico tenha a propriedade comissao_ativa
-          tecnico: {
-            ...item.tecnico,
-            comissao_ativa: item.tecnico?.comissao_ativa !== undefined && item.tecnico?.comissao_ativa !== null
-              ? item.tecnico.comissao_ativa
-              : true
-          }
-        }));
-        error = null;
-      }
-
-      if (error) {
-        console.error('❌ Erro ao buscar comissões:', error);
-        addToast('error', 'Erro ao carregar comissões: ' + (error.message || 'Erro desconhecido'));
+      const headers: HeadersInit = {};
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+      const res = await fetch('/api/comissoes/lista', { headers });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        addToast('error', data.error || 'Erro ao carregar comissões');
         setComissoes([]);
+        setTecnicos([]);
         return;
       }
-
-      // Debug: Log das comissões brutas (antes do mapeamento)
-      console.log('📦 Comissões brutas do banco:', (comissoesData || []).map((c: any) => ({
-        id: c.id,
-        tecnico_id: c.tecnico_id,
-        tecnico_nome_join: c.tecnico?.nome,
-        tecnico_id_join: c.tecnico?.id,
-        valor: c.valor_comissao,
-        status: c.status
-      })));
-      
-      // Formatar os dados
-      const comissoesFormatadas = (comissoesData || []).map((comissao: any) => {
-        // Resolver o técnico: pode vir do join ou do mapeamento (se tecnico_id for auth_user_id)
-        let tecnicoResolvido = comissao.tecnico;
-        let tecnicoIdFinal = comissao.tecnico?.id || comissao.tecnico_id;
-        
-        // Se o join não retornou técnico, tentar resolver pelo mapeamento
-        if (!tecnicoResolvido || !tecnicoResolvido.nome) {
-          // Tentar primeiro pelo ID direto
-          if (tecnicoIdToTecnico.has(comissao.tecnico_id)) {
-            tecnicoResolvido = tecnicoIdToTecnico.get(comissao.tecnico_id);
-            tecnicoIdFinal = tecnicoResolvido!.id;
-          }
-          // Tentar pelo auth_user_id
-          else if (authIdToTecnico.has(comissao.tecnico_id)) {
-            tecnicoResolvido = authIdToTecnico.get(comissao.tecnico_id);
-            tecnicoIdFinal = tecnicoResolvido!.id;
-          }
-        }
-        
-        return {
-        id: comissao.id,
-        // Usar o ID normalizado (sempre usuarios.id)
-        tecnico_id: tecnicoIdFinal,
-        tecnico_nome: tecnicoResolvido?.nome || 'Técnico não encontrado',
-        ordem_servico_id: comissao.ordem_servico_id,
-        numero_os: comissao.ordens_servico?.numero_os || 'N/A',
-        cliente_nome: comissao.clientes?.nome || 'Cliente não encontrado',
-        servico_nome: comissao.ordens_servico?.servico || 'Serviço não especificado',
-        valor_servico: comissao.valor_servico || 0,
-        valor_peca: comissao.valor_peca || 0,
-        valor_total: comissao.valor_total || 0,
-        tipo_comissao: comissao.tipo_comissao || 'porcentagem',
-        percentual_comissao: comissao.percentual_comissao,
-        valor_comissao_fixa: comissao.valor_comissao_fixa,
-        valor_comissao: comissao.valor_comissao || 0,
-        data_entrega: comissao.data_entrega,
-        status: comissao.status || 'CALCULADA',
-        tipo_ordem: comissao.tipo_ordem || 'normal',
-        created_at: comissao.created_at,
-        // Campo ativa pode não existir ainda - usar true como padrão
-        ativa: comissao.ativa !== undefined && comissao.ativa !== null ? comissao.ativa : true,
-        // Verificar se o técnico tem comissão ativa (se NULL, considera true para compatibilidade)
-        tecnico_comissao_ativa: comissao.tecnico?.comissao_ativa !== undefined && comissao.tecnico?.comissao_ativa !== null 
-          ? comissao.tecnico.comissao_ativa 
-          : true,
-        observacoes: comissao.observacoes || null
-      };
-      });
-
-      // ==================== COMISSÕES PREVISTAS ====================
-      // Buscar OS que ainda não têm comissão registrada mas têm técnico atribuído
-      let comissoesPrevistas: ComissaoDetalhada[] = [];
-      const osComComissao = new Set((comissoesFormatadas || []).map((c: ComissaoDetalhada) => c.ordem_servico_id));
-      
-      // Buscar configurações de comissão por técnico e da empresa
-      const tecnicoIds = (tecnicosData || []).map((t: any) => t.id);
-      
-      if (tecnicoIds.length > 0) {
-        // Buscar configurações de comissão dos técnicos
-        const { data: tecnicosConfigData } = await supabase
-          .from('usuarios')
-          .select('id, nome, tipo_comissao, comissao_fixa, comissao_percentual, comissao_ativa')
-          .in('id', tecnicoIds);
-        
-        // Buscar configuração padrão da empresa
-        const { data: configEmpresa } = await supabase
-          .from('configuracoes_comissao')
-          .select('tipo_comissao, comissao_fixa_padrao, comissao_padrao')
-          .eq('empresa_id', usuarioData.empresa_id)
-          .single();
-        
-        // Buscar OS que têm técnico mas ainda não finalizadas
-        const { data: ordensData, error: ordensError } = await supabase
-          .from('ordens_servico')
-          .select(`
-            id,
-            numero_os,
-            empresa_id,
-            cliente_id,
-            tecnico_id,
-            valor_faturado,
-            valor_servico,
-            valor_peca,
-            status,
-            status_tecnico,
-            tipo,
-            data_entrega,
-            created_at,
-            clientes:cliente_id ( nome ),
-            servico,
-            tecnico:tecnico_id ( id, nome, tipo_comissao, comissao_fixa, comissao_percentual, comissao_ativa )
-          `)
-          .eq('empresa_id', usuarioData.empresa_id)
-          .not('tecnico_id', 'is', null)
-          .order('created_at', { ascending: false });
-        
-        if (!ordensError && ordensData && ordensData.length > 0) {
-          const normalizeStatus = (s: string | null | undefined) =>
-            (s || '').toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
-          
-          comissoesPrevistas = ordensData
-            .filter((os: any) => {
-              // Ignorar se já tem comissão registrada
-              if (osComComissao.has(os.id)) return false;
-              
-              // Ignorar se não tem valor
-              const valorServico = (os.valor_servico as number | null) ?? 0;
-              if (!valorServico || valorServico <= 0) return false;
-              
-              // Ignorar se já finalizadas (essas devem ter comissão real)
-              const status = normalizeStatus(os.status);
-              const statusTec = normalizeStatus(os.status_tecnico);
-              const finalizada = status === 'ENTREGUE' || statusTec === 'FINALIZADA';
-              if (finalizada) return false;
-              
-              return true;
-            })
-            .map((os: any) => {
-              const valorServico = (os.valor_servico as number | null) ?? 0;
-              let tecnicoConfig = os.tecnico;
-              
-              // Se o join não retornou técnico, tentar resolver pelo mapeamento
-              let tecnicoIdFinal = tecnicoConfig?.id || os.tecnico_id;
-              let tecnicoNome = tecnicoConfig?.nome;
-              
-              if (!tecnicoConfig || !tecnicoConfig.nome) {
-                // Tentar pelo ID direto
-                if (tecnicoIdToTecnico.has(os.tecnico_id)) {
-                  const tecnicoResolvidoMap = tecnicoIdToTecnico.get(os.tecnico_id)!;
-                  tecnicoIdFinal = tecnicoResolvidoMap.id;
-                  tecnicoNome = tecnicoResolvidoMap.nome;
-                  // Buscar configuração do técnico se disponível
-                  const configFromData = (tecnicosConfigData || []).find((t: any) => t.id === tecnicoIdFinal);
-                  if (configFromData) tecnicoConfig = configFromData;
-                }
-                // Tentar pelo auth_user_id
-                else if (authIdToTecnico.has(os.tecnico_id)) {
-                  const tecnicoResolvidoMap = authIdToTecnico.get(os.tecnico_id)!;
-                  tecnicoIdFinal = tecnicoResolvidoMap.id;
-                  tecnicoNome = tecnicoResolvidoMap.nome;
-                  // Buscar configuração do técnico se disponível
-                  const configFromData = (tecnicosConfigData || []).find((t: any) => t.id === tecnicoIdFinal);
-                  if (configFromData) tecnicoConfig = configFromData;
-                }
-              }
-              
-              // Determinar tipo e valor da comissão (prioridade: técnico > empresa > padrão)
-              let tipoComissao: 'porcentagem' | 'fixo' = 'porcentagem';
-              let valorBaseComissao = 10; // padrão 10%
-              
-              if (tecnicoConfig?.tipo_comissao) {
-                tipoComissao = tecnicoConfig.tipo_comissao as 'porcentagem' | 'fixo';
-                if (tipoComissao === 'fixo') {
-                  valorBaseComissao = tecnicoConfig.comissao_fixa || 0;
-                } else {
-                  valorBaseComissao = tecnicoConfig.comissao_percentual || 10;
-                }
-              } else if (configEmpresa?.tipo_comissao) {
-                tipoComissao = configEmpresa.tipo_comissao as 'porcentagem' | 'fixo';
-                if (tipoComissao === 'fixo') {
-                  valorBaseComissao = configEmpresa.comissao_fixa_padrao || 0;
-                } else {
-                  valorBaseComissao = configEmpresa.comissao_padrao || 10;
-                }
-              }
-              
-              // Calcular comissão
-              let valorComissao = 0;
-              if (tipoComissao === 'fixo') {
-                valorComissao = valorBaseComissao;
-              } else {
-                valorComissao = (valorServico * valorBaseComissao) / 100;
-              }
-              
-              const dataEntregaBase = os.data_entrega || os.created_at || new Date().toISOString();
-              
-              return {
-                id: `prevista-${os.id}`,
-                // Usar o ID normalizado (sempre usuarios.id)
-                tecnico_id: tecnicoIdFinal,
-                tecnico_nome: tecnicoNome || 'Técnico não encontrado',
-                ordem_servico_id: os.id,
-                numero_os: os.numero_os || 'N/A',
-                cliente_nome: os.clientes?.nome || 'Cliente não encontrado',
-                servico_nome: os.servico || 'Serviço não especificado',
-                valor_servico: valorServico,
-                valor_peca: os.valor_peca || 0,
-                valor_total: (os.valor_faturado as number | null) ?? valorServico ?? 0,
-                tipo_comissao: tipoComissao,
-                percentual_comissao: tipoComissao === 'porcentagem' ? valorBaseComissao : 0,
-                valor_comissao_fixa: tipoComissao === 'fixo' ? valorBaseComissao : null,
-                valor_comissao: valorComissao,
-                data_entrega: dataEntregaBase,
-                status: 'PREVISTA',
-                tipo_ordem: (os.tipo || 'normal').toLowerCase(),
-                created_at: dataEntregaBase,
-                ativa: true,
-                tecnico_comissao_ativa: tecnicoConfig?.comissao_ativa !== false,
-                observacoes: null
-              } as ComissaoDetalhada;
-            });
-        }
-      }
-      
-      // Mesclar comissões reais + previstas
-      setComissoes([...comissoesFormatadas, ...comissoesPrevistas]);
-      
-      // Debug: Log das comissões carregadas
-      const todasComissoes = [...comissoesFormatadas, ...comissoesPrevistas];
-      console.log('📊 Comissões carregadas:', {
-        total: todasComissoes.length,
-        reais: comissoesFormatadas.length,
-        previstas: comissoesPrevistas.length,
-        meses: [...new Set(todasComissoes.map(c => {
-          try {
-            const data = new Date(c.data_entrega);
-            if (isNaN(data.getTime())) {
-              console.warn('⚠️ Data inválida:', c.data_entrega);
-              return null;
-            }
-            return data.toISOString().slice(0, 7);
-          } catch (e) {
-            console.error('❌ Erro ao processar data:', c.data_entrega, e);
-            return null;
-          }
-        }).filter(Boolean))],
-        comissoesComTecnicoAtivo: todasComissoes.filter(c => 
-          c.ativa !== false && c.tecnico_comissao_ativa !== false
-        ).length
-      });
-
-      // Verificar se o campo ativa existe fazendo uma query de teste
-      // Se a query com o campo ativa funcionar, o campo existe
-      if (comissoesFormatadas.length > 0) {
-        const { error: testError } = await supabase
-          .from('comissoes_historico')
-          .select('ativa')
-          .eq('id', comissoesFormatadas[0].id)
-          .limit(1);
-        
-        setCampoAtivaExiste(!testError || !testError.message?.includes('column'));
-      } else {
-        // Se não há comissões, assumir que o campo não existe (será verificado na próxima vez)
-        setCampoAtivaExiste(false);
-      }
-
+      setTecnicos(data.tecnicos || []);
+      setComissoes(data.comissoes || []);
+      setCampoAtivaExiste(true);
     } catch (error) {
-      console.error('💥 Erro geral:', error);
+      console.error('Erro ao carregar comissões:', error);
       addToast('error', 'Erro ao carregar dados: ' + (error as Error).message);
       setComissoes([]);
     } finally {
@@ -1144,7 +744,7 @@ export default function ComissoesTecnicosPage() {
   };
 
   const exportarCSV = () => {
-    const headers = ['Técnico', 'OS', 'Cliente', 'Serviço', 'Data Entrega', 'Valor Total', 'Tipo', 'Percentual/Fixo', 'Comissão', 'Status'];
+    const headers = ['Técnico', 'OS', 'Cliente', 'Serviço', 'Data Entrega', 'Valor Total', 'Tipo', 'Percentual/Fixo', 'Comissão', 'Status', 'Status OS'];
     const csvContent = [
       headers.join(','),
       ...comissoesFiltradas.map(c => [
@@ -1159,7 +759,8 @@ export default function ComissoesTecnicosPage() {
           ? `R$ ${c.valor_comissao_fixa?.toFixed(2) || '0,00'}` 
           : `${c.percentual_comissao || 0}%`,
         c.valor_comissao.toFixed(2),
-        c.status
+        c.status,
+        c.status_os || '—'
       ].join(','))
     ].join('\n');
 
@@ -1202,7 +803,7 @@ export default function ComissoesTecnicosPage() {
             </div>
           </div>
           
-          <div className="flex gap-2 flex-shrink-0">
+          <div className="flex gap-2 flex-shrink-0 flex-wrap">
             <button
               onClick={() => setMostrarFiltros(!mostrarFiltros)}
               className="flex items-center gap-2 px-3 md:px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm md:text-base"
@@ -1613,293 +1214,6 @@ export default function ComissoesTecnicosPage() {
               <FiUsers className="mx-auto h-12 w-12 text-gray-400 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum técnico encontrado</h3>
               <p className="text-gray-500">Não há comissões registradas para o período selecionado.</p>
-            </div>
-          )}
-        </div>
-
-        {/* Tabela Detalhada */}
-        <div className="bg-white rounded-lg md:rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="p-3 md:p-6 border-b border-gray-200">
-            <h3 className="text-base md:text-lg font-semibold text-gray-900">
-              Histórico Detalhado ({comissoesFiltradas.length} registros)
-            </h3>
-          </div>
-
-          {/* Versão Mobile - Cards */}
-          <div className="md:hidden divide-y divide-gray-200">
-            {comissoesFiltradas.map((comissao) => (
-              <div key={comissao.id} className={`p-3 md:p-4 space-y-3 ${!comissao.ativa ? 'opacity-60' : ''}`}>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="text-sm font-semibold text-gray-900">#{comissao.numero_os || 'N/A'}</div>
-                      <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusColor(comissao.status)}`}>
-                        {comissao.status}
-                      </span>
-                    </div>
-                    <div className="text-xs text-gray-500">{comissao.tecnico_nome}</div>
-                    <div className="text-xs text-gray-600 mt-1">{comissao.cliente_nome}</div>
-                  </div>
-                  {isAdmin && (
-                    <div className="flex items-center gap-1 ml-2 flex-wrap">
-                      <button
-                        onClick={() => handleVerDetalhes(comissao)}
-                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Ver detalhes"
-                      >
-                        <FiEye size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleEditarComissao(comissao)}
-                        className="p-1.5 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
-                        title="Editar valor"
-                      >
-                        <FiEdit size={16} />
-                      </button>
-                      {!comissao.id.startsWith('prevista-') && (comissao.status || '').toUpperCase() !== 'PAGA' && (
-                        <button
-                          onClick={() => handleMarcarComoPaga(comissao)}
-                          className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                          title="Marcar como paga"
-                          disabled={salvando}
-                        >
-                          <FiCheckCircle size={16} />
-                        </button>
-                      )}
-                      {!comissao.id.startsWith('prevista-') && (comissao.status || '').toUpperCase() === 'PAGA' && (
-                        <button
-                          onClick={() => handleReverterParaCalculada(comissao)}
-                          className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                          title="Reverter para calculada"
-                          disabled={salvando}
-                        >
-                          <FiRotateCcw size={16} />
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleToggleAtiva(comissao)}
-                        className={`p-1.5 rounded-lg transition-colors ${
-                          comissao.ativa
-                            ? 'text-green-600 hover:bg-green-50'
-                            : 'text-orange-600 hover:bg-orange-50'
-                        } ${!campoAtivaExiste ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        title={comissao.ativa ? 'Desativar comissão' : 'Ativar comissão'}
-                        disabled={salvando || !campoAtivaExiste}
-                      >
-                        {comissao.ativa ? <FiToggleRight size={16} /> : <FiToggleLeft size={16} />}
-                      </button>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100">
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Serviço</p>
-                    <p className="text-xs text-gray-900 line-clamp-2">{comissao.servico_nome}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Data</p>
-                    <p className="text-xs text-gray-900">{formatDate(comissao.data_entrega)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Valor Total</p>
-                    <p className="text-sm font-medium text-gray-900">{formatCurrency(comissao.valor_total)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Comissão</p>
-                    <p className="text-sm font-bold text-green-600">{formatCurrency(comissao.valor_comissao)}</p>
-                  </div>
-                  {comissao.tipo_comissao && (
-                    <div className="col-span-2">
-                      <p className="text-xs text-gray-500 mb-1">Tipo / Valor</p>
-                      <p className="text-xs text-blue-600">
-                        {comissao.tipo_comissao === 'fixo' 
-                          ? `R$ ${comissao.valor_comissao_fixa?.toFixed(2) || '0,00'} (fixo)`
-                          : `${comissao.percentual_comissao || 0}%`
-                        }
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-            {comissoesFiltradas.length === 0 && (
-              <div className="text-center py-12">
-                <FiDollarSign className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma comissão encontrada</h3>
-                <p className="text-gray-500 text-sm">
-                  {comissoes.length === 0 
-                    ? 'Não há comissões registradas.'
-                    : 'Tente ajustar os filtros para ver mais resultados.'
-                  }
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Versão Desktop - Tabela */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                    Técnico
-                  </th>
-                  <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                    OS
-                  </th>
-                  <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell whitespace-nowrap">
-                    Cliente
-                  </th>
-                  <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell whitespace-nowrap">
-                    Serviço
-                  </th>
-                  <th className="px-3 md:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                    Valor Total
-                  </th>
-                  <th className="px-3 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell whitespace-nowrap">
-                    Tipo / Valor
-                  </th>
-                  <th className="px-3 md:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                    Comissão
-                  </th>
-                  <th className="px-3 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                    Status
-                  </th>
-                  <th className="px-3 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell whitespace-nowrap">
-                    Data
-                  </th>
-                  {isAdmin && (
-                    <th className="px-3 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider sticky right-0 bg-gray-50 z-10 whitespace-nowrap">
-                      Ações
-                    </th>
-                  )}
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {comissoesFiltradas.map((comissao) => (
-                  <tr key={comissao.id} className={`hover:bg-gray-50 ${!comissao.ativa ? 'opacity-60' : ''}`}>
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900 truncate max-w-[120px]">{comissao.tecnico_nome}</div>
-                    </td>
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        #{comissao.numero_os || 'N/A'}
-                      </div>
-                    </td>
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap hidden sm:table-cell">
-                      <div className="text-sm text-gray-900 truncate max-w-[150px]">{comissao.cliente_nome}</div>
-                    </td>
-                    <td className="px-3 md:px-6 py-4 hidden lg:table-cell">
-                      <div className="text-sm text-gray-900 max-w-xs truncate">
-                        {comissao.servico_nome}
-                      </div>
-                    </td>
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-right">
-                      <div className="text-sm text-gray-900">
-                        {formatCurrency(comissao.valor_total)}
-                      </div>
-                    </td>
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-center hidden md:table-cell">
-                      <div className="text-sm font-medium text-gray-900">
-                        {comissao.tipo_comissao === 'fixo' ? (
-                          <span className="text-blue-600">
-                            R$ {comissao.valor_comissao_fixa?.toFixed(2) || '0,00'} (fixo)
-                          </span>
-                        ) : (
-                          <span>
-                            {comissao.percentual_comissao || 0}%
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-right">
-                      <div className="text-sm font-bold text-green-600">
-                        {formatCurrency(comissao.valor_comissao)}
-                      </div>
-                    </td>
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-center">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(comissao.status)}`}>
-                        {comissao.status}
-                      </span>
-                    </td>
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-center hidden lg:table-cell">
-                      <div className="text-sm text-gray-900">
-                        {formatDate(comissao.data_entrega)}
-                      </div>
-                    </td>
-                    {isAdmin && (
-                      <td className="px-3 md:px-6 py-4 whitespace-nowrap text-center sticky right-0 bg-white z-10">
-                        <div className="flex items-center justify-center gap-1 md:gap-2">
-                          <button
-                            onClick={() => handleVerDetalhes(comissao)}
-                            className="p-1.5 md:p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0"
-                            title="Ver detalhes"
-                          >
-                            <FiEye size={14} className="md:w-4 md:h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleEditarComissao(comissao)}
-                            className="p-1.5 md:p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors flex-shrink-0"
-                            title="Editar valor"
-                          >
-                            <FiEdit size={14} className="md:w-4 md:h-4" />
-                          </button>
-                          {!comissao.id.startsWith('prevista-') && (comissao.status || '').toUpperCase() !== 'PAGA' && (
-                            <button
-                              onClick={() => handleMarcarComoPaga(comissao)}
-                              className="p-1.5 md:p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors flex-shrink-0"
-                              title="Marcar como paga"
-                              disabled={salvando}
-                            >
-                              <FiCheckCircle size={14} className="md:w-4 md:h-4" />
-                            </button>
-                          )}
-                          {!comissao.id.startsWith('prevista-') && (comissao.status || '').toUpperCase() === 'PAGA' && (
-                            <button
-                              onClick={() => handleReverterParaCalculada(comissao)}
-                              className="p-1.5 md:p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors flex-shrink-0"
-                              title="Reverter para calculada"
-                              disabled={salvando}
-                            >
-                              <FiRotateCcw size={14} className="md:w-4 md:h-4" />
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleToggleAtiva(comissao)}
-                            className={`p-1.5 md:p-2 rounded-lg transition-colors flex-shrink-0 ${
-                              comissao.ativa
-                                ? 'text-green-600 hover:bg-green-50'
-                                : 'text-orange-600 hover:bg-orange-50'
-                            } ${!campoAtivaExiste ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            title={
-                              !campoAtivaExiste 
-                                ? 'Execute o SQL database/adicionar-campo-ativa-comissoes.sql para habilitar esta funcionalidade'
-                                : comissao.ativa ? 'Desativar comissão' : 'Ativar comissão'
-                            }
-                            disabled={salvando || !campoAtivaExiste}
-                          >
-                            {comissao.ativa ? <FiToggleRight size={14} className="md:w-4 md:h-4" /> : <FiToggleLeft size={14} className="md:w-4 md:h-4" />}
-                          </button>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {comissoesFiltradas.length === 0 && (
-            <div className="hidden md:block text-center py-12">
-              <FiDollarSign className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma comissão encontrada</h3>
-              <p className="text-gray-500">
-                {comissoes.length === 0 
-                  ? 'Não há comissões registradas.'
-                  : 'Tente ajustar os filtros para ver mais resultados.'
-                }
-              </p>
             </div>
           )}
         </div>

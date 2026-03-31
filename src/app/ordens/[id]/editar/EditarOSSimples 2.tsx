@@ -1,0 +1,1534 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabaseClient';
+import MenuLayout from '@/components/MenuLayout';
+
+import ProdutoServicoManager from '@/components/ProdutoServicoManager';
+import EquipamentoSelector from '@/components/EquipamentoSelector';
+import DynamicChecklist from '@/components/DynamicChecklist';
+import ImageEditor from '@/components/ImageEditor';
+import LaudoEditor from '@/components/LaudoEditor';
+import { useToast } from '@/components/Toast';
+import { useConfirm } from '@/components/ConfirmDialog';
+import { useAuth } from '@/context/AuthContext';
+import { useStatusHistorico } from '@/hooks/useStatusHistorico';
+import { useSubscription } from '@/hooks/useSubscription';
+import { FiArrowLeft, FiSave, FiUser, FiCheckCircle, FiTool, FiFileText, FiEdit3 } from 'react-icons/fi';
+
+interface Item {
+  id?: string;
+  nome: string;
+  preco: number;
+  quantidade: number;
+  total: number;
+}
+
+interface Ordem {
+  id: string;
+  numero_os: string;
+  cliente_id: string;
+  status: string;
+  status_tecnico: string;
+  marca?: string;
+  modelo?: string;
+  cor?: string;
+  numero_serie?: string;
+  equipamento?: string;
+  relato?: string;
+  observacoes?: string;
+  problema_relatado?: string;
+  problema_diagnosticado?: string;
+  servicos_realizados?: string;
+  pecas_trocadas?: string;
+  data_entrada?: string;
+  data_saida?: string;
+  prazo_entrega?: string;
+  imagens?: string;
+  acessorios?: string;
+  condicoes_equipamento?: string;
+  termo_garantia_id?: string;
+  tecnico_id?: string;
+  clientes?: {
+    nome: string;
+    telefone?: string;
+    email?: string;
+  };
+}
+
+interface Status {
+  id: string;
+  nome: string;
+  cor: string;
+}
+
+interface Tecnico {
+  id: string;
+  nome: string;
+  tecnico_id?: string;
+  auth_user_id: string;
+}
+
+export default function EditarOSSimples() {
+  const router = useRouter();
+  const params = useParams();
+  const id = params?.id as string;
+  const { addToast } = useToast();
+  const confirm = useConfirm();
+  const { usuarioData, empresaData } = useAuth();
+  const { registrarMudancaStatus, historico, buscarHistorico } = useStatusHistorico(id);
+  const { temRecurso } = useSubscription();
+
+  const [ordem, setOrdem] = useState<Ordem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  
+  // Estados dos formulários
+  const [statusSelecionado, setStatusSelecionado] = useState<Status | null>(null);
+  const [tecnicoSelecionado, setTecnicoSelecionado] = useState<Tecnico | null>(null);
+  const [observacoesInternas, setObservacoesInternas] = useState(''); // Para campo observacao da tabela
+  
+  // Estados dos dados do equipamento
+  const [marca, setMarca] = useState('');
+  const [modelo, setModelo] = useState('');
+  const [cor, setCor] = useState('');
+  const [numeroSerie, setNumeroSerie] = useState('');
+  const [acessorios, setAcessorios] = useState('');
+  const [condicoesEquipamento, setCondicoesEquipamento] = useState('');
+  const [equipamento, setEquipamento] = useState('');
+  
+  // Estados dos relatos (campos da tabela)
+  const [relato, setRelato] = useState('');
+  const [observacao, setObservacao] = useState('');
+  const [laudo, setLaudo] = useState('');
+  
+  // Estados de datas e termo
+  const [dataEntrada, setDataEntrada] = useState('');
+  const [dataSaida, setDataSaida] = useState('');
+  const [prazoEntrega, setPrazoEntrega] = useState('');
+  const [termoGarantiaId, setTermoGarantiaId] = useState('');
+  
+  // Estados de anexos
+  const [imagens, setImagens] = useState<string[]>([]);
+  const [novasImagens, setNovasImagens] = useState<File[]>([]);
+  const [uploadingImagens, setUploadingImagens] = useState(false);
+  
+  // Estado do editor de imagem
+  const [editingImageUrl, setEditingImageUrl] = useState<string | null>(null);
+  const [editingImageIndex, setEditingImageIndex] = useState<number | null>(null);
+  const [editingNewImage, setEditingNewImage] = useState<boolean>(false);
+
+  // Checklist de entrada (opcional na criação, recomendado antes do técnico)
+  const [checklistEntrada, setChecklistEntrada] = useState<Record<string, boolean>>({});
+
+  // Listas
+  const [status, setStatus] = useState<Status[]>([]);
+  const [tecnicos, setTecnicos] = useState<Tecnico[]>([]);
+  
+  // Produtos e Serviços
+  const [servicos, setServicos] = useState<Item[]>([]);
+  const [produtos, setProdutos] = useState<Item[]>([]);
+
+  useEffect(() => {
+    if (id) {
+      fetchOrdem();
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchStatus();
+  }, []);
+
+  useEffect(() => {
+    if (usuarioData?.empresa_id) {
+      fetchTecnicos();
+    }
+  }, [usuarioData?.empresa_id]);
+
+  // Atualizar status selecionado quando a ordem for carregada
+  useEffect(() => {
+    if (ordem && status.length > 0) {
+      const statusEncontrado = status.find(s => s.nome === ordem.status);
+      if (statusEncontrado) {
+        setStatusSelecionado(statusEncontrado);
+        }
+    }
+  }, [ordem, status]);
+
+  // Atualizar técnico selecionado quando a ordem for carregada
+  useEffect(() => {
+    if (ordem && tecnicos.length > 0) {
+      // Buscar por tecnico_id primeiro, depois por auth_user_id como fallback
+      let tecnicoEncontrado = tecnicos.find(t => t.tecnico_id === ordem.tecnico_id);
+      if (!tecnicoEncontrado) {
+        tecnicoEncontrado = tecnicos.find(t => t.auth_user_id === ordem.tecnico_id);
+      }
+      if (tecnicoEncontrado) {
+        setTecnicoSelecionado(tecnicoEncontrado);
+        }
+    }
+  }, [ordem, tecnicos]);
+
+  const fetchOrdem = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('ordens_servico')
+        .select(`
+          *,
+          clientes:cliente_id(nome, telefone, email)
+        `)
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        addToast('error', 'Erro ao carregar OS');
+        return;
+      }
+
+      setOrdem(data);
+      
+      // Buscar histórico de status para verificar se cliente recusou
+      if (id && buscarHistorico) {
+        await buscarHistorico(id);
+      }
+      
+      // Preencher todos os campos (usando campos reais da tabela)
+      setObservacoesInternas(data.observacao || ''); // Campo observacao (singular) da tabela
+      setMarca(data.marca || '');
+      setModelo(data.modelo || '');
+      setCor(data.cor || '');
+      setNumeroSerie(data.numero_serie || '');
+      setAcessorios(data.acessorios || '');
+      setCondicoesEquipamento(data.condicoes_equipamento || '');
+      setEquipamento(data.equipamento || '');
+      setRelato(data.problema_relatado || '');
+      setObservacao(data.observacao || '');
+      setLaudo(data.laudo || '');
+      // setDataEntrada(data.data_entrada ? data.data_entrada.split('T')[0] : '');
+      // setDataSaida(data.data_saida ? data.data_saida.split('T')[0] : '');
+      // setPrazoEntrega(data.prazo_entrega ? data.prazo_entrega.split('T')[0] : '');
+      setTermoGarantiaId(data.termo_garantia_id || '');
+      // Carregar checklist de entrada se existir na OS
+      try {
+        if (data.checklist_entrada) {
+          const parsed = typeof data.checklist_entrada === 'string' ? JSON.parse(data.checklist_entrada) : data.checklist_entrada;
+          if (parsed && typeof parsed === 'object') {
+            setChecklistEntrada((prev) => ({ ...prev, ...parsed }));
+          }
+        }
+      } catch (_) {}
+      
+      // Processar imagens
+      if (data.imagens) {
+        const imagensArray = data.imagens.split(',').filter((img: string) => img.trim());
+        setImagens(imagensArray);
+      }
+      
+      // Carregar produtos e serviços dos campos de texto
+      if (data.peca) {
+        let produtosParsed = parseTextToItems(data.peca, 'produto');
+        
+        // Se não parseou mas há valor_peca, usar o valor da coluna
+        if (produtosParsed.length === 0 && data.valor_peca) {
+          const valorTotal = parseFloat(String(data.valor_peca || 0));
+          if (valorTotal > 0) {
+            const linhas = data.peca.split(/[,\n]/).filter(l => l.trim() && l.trim().length > 0);
+            if (linhas.length > 0) {
+              const valorPorItem = valorTotal / linhas.length;
+              
+              produtosParsed = linhas.map((linha, index) => {
+                const nome = linha.trim();
+                const nomeLimpo = nome.replace(/[-–]/g, '').trim();
+                return {
+                  id: `temp-${Date.now()}-${index}`,
+                  nome: nomeLimpo || 'Produto',
+                  preco: valorPorItem,
+                  quantidade: 1,
+                  total: valorPorItem
+                };
+              });
+            }
+          }
+        }
+        
+        setProdutos(produtosParsed);
+      } else {
+        setProdutos([]);
+      }
+
+      if (data.servico) {
+        let servicosParsed = parseTextToItems(data.servico, 'servico');
+        
+        // Se não parseou mas há valor_servico, usar o valor da coluna
+        if (servicosParsed.length === 0 && data.valor_servico) {
+          const valorTotal = parseFloat(String(data.valor_servico || 0));
+          if (valorTotal > 0) {
+            const linhas = data.servico.split(/[,\n]/).filter(l => l.trim() && l.trim().length > 0);
+            if (linhas.length > 0) {
+              const valorPorItem = valorTotal / linhas.length;
+              
+              servicosParsed = linhas.map((linha, index) => {
+                const nome = linha.trim();
+                const nomeLimpo = nome.replace(/[-–]/g, '').trim();
+                return {
+                  id: `temp-${Date.now()}-${index}`,
+                  nome: nomeLimpo || 'Serviço',
+                  preco: valorPorItem,
+                  quantidade: 1,
+                  total: valorPorItem
+                };
+              });
+            }
+          }
+        }
+        
+        setServicos(servicosParsed);
+      } else {
+        setServicos([]);
+      }
+
+    } catch (error) {
+      addToast('error', 'Erro ao carregar dados');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStatus = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('status_fixo')
+        .select('*')
+        .eq('tipo', 'os')
+        .order('ordem');
+      
+      if (data) {
+        setStatus(data);
+      }
+    } catch (error) {
+      // Erro ao carregar status
+    }
+  };
+
+  const fetchTecnicos = async () => {
+    try {
+      if (!usuarioData?.empresa_id) {
+
+        addToast('error', 'Erro: dados do usuário não carregados. Tente fazer login novamente.');
+        return;
+      }
+      
+      // Adicionar timeout para evitar travamento
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout ao buscar técnicos')), 10000);
+      });
+      
+      const fetchPromise = supabase
+        .from('usuarios')
+        .select('id, nome, tecnico_id, auth_user_id')
+        .eq('nivel', 'tecnico')
+        .eq('empresa_id', usuarioData.empresa_id) // Filtrar por empresa do usuário logado
+        .order('nome');
+      
+      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
+      
+      if (error) {
+        addToast('error', 'Erro ao carregar lista de técnicos');
+        return;
+      }
+      
+      if (data) {
+        setTecnicos(data);
+      }
+    } catch (error) {
+      addToast('error', 'Erro inesperado ao carregar técnicos');
+    }
+  };
+
+  const calcularTotais = () => {
+    const totalServicos = servicos.reduce((acc, s) => {
+      const preco = typeof s.preco === 'string' ? parseFloat(s.preco) : s.preco;
+      const quantidade = s.quantidade ?? 1;
+      const totalItem = (isNaN(preco) ? 0 : preco) * quantidade;
+      return acc + totalItem;
+    }, 0);
+    
+    const totalProdutos = produtos.reduce((acc, p) => {
+      const quantidade = typeof p.quantidade === 'string' ? parseInt(p.quantidade) : (p.quantidade ?? 0);
+      const preco = typeof p.preco === 'string' ? parseFloat(p.preco) : (p.preco ?? 0);
+      const valor = (isNaN(quantidade) ? 0 : quantidade) * (isNaN(preco) ? 0 : preco);
+      return acc + valor;
+    }, 0);
+    
+    return {
+      totalServicos,
+      totalProdutos,
+      totalGeral: totalServicos + totalProdutos
+    };
+  };
+
+  const handleSalvar = async () => {
+    const confirmed = await confirm({
+      title: 'Salvar Alterações',
+      message: 'Deseja salvar as alterações na ordem de serviço?',
+      confirmText: 'Salvar',
+      cancelText: 'Cancelar'
+    });
+    
+    if (!confirmed) return;
+
+    // Se for avançar para técnico (há técnico selecionado), exigir checklist preenchido (ao menos 1 item marcado)
+    const algumItemChecklistMarcado = Object.values(checklistEntrada).some(Boolean);
+    if (tecnicoSelecionado && !algumItemChecklistMarcado) {
+      addToast('error', 'Preencha o Checklist de entrada antes de encaminhar ao técnico.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      // Fazer upload das novas imagens primeiro
+      let novasUrls: string[] = [];
+      if (novasImagens.length > 0) {
+        novasUrls = await uploadImagens();
+        if (novasUrls.length === 0) {
+          setSaving(false);
+          return;
+        }
+      }
+
+      // Combinar imagens existentes com novas
+      const todasImagens = [...imagens, ...novasUrls];
+
+      const totais = calcularTotais();
+      
+      // Determinar status técnico automático
+      let novoStatusTecnico = ordem?.status_tecnico || '';
+      const normalize = (s: string) => (s || '').toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ').trim();
+      const sel = normalize(statusSelecionado?.nome || '');
+      if (sel === 'APROVADO') {
+        novoStatusTecnico = 'APROVADO';
+      } else if (sel === 'ENTREGUE') {
+        novoStatusTecnico = 'FINALIZADA';
+      } else if (sel === 'AGUARDANDO APROVACAO') {
+        novoStatusTecnico = 'AGUARDANDO APROVAÇÃO';
+      }
+
+      // ✅ HISTÓRICO DE RECUSAS: Registrar automaticamente quando cliente recusa
+      let observacoesAtualizadas = observacoesInternas;
+      const statusRecusado = sel.includes('RECUS') || sel.includes('NEGOU') || sel.includes('NAO APROVOU');
+      
+      if (statusRecusado) {
+        const dataRecusa = new Date().toLocaleString('pt-BR');
+        const registroRecusa = `🚫 CLIENTE RECUSOU ORÇAMENTO - ${dataRecusa}`;
+        
+        // Verificar se já não existe esse registro para evitar duplicatas
+        if (!observacoesAtualizadas?.includes('🚫 CLIENTE RECUSOU ORÇAMENTO')) {
+          observacoesAtualizadas = observacoesAtualizadas 
+            ? `${observacoesAtualizadas}\n\n${registroRecusa}`
+            : registroRecusa;
+        }
+      }
+
+      // ✅ CORREÇÃO: Só enviar campos que realmente mudaram
+      const updateData: any = {};
+      
+      // Status sempre é enviado se mudou
+      const novoStatus = statusSelecionado?.nome || ordem?.status;
+      if (novoStatus !== ordem?.status) {
+        updateData.status = novoStatus;
+      }
+      
+      // Status técnico se mudou
+      if (novoStatusTecnico !== ordem?.status_tecnico) {
+        updateData.status_tecnico = novoStatusTecnico;
+      }
+      
+      // Verificar mudanças nos dados do equipamento (comparar com valores originais)
+      if (marca !== ordem?.marca) updateData.marca = marca;
+      if (modelo !== ordem?.modelo) updateData.modelo = modelo;
+      if (cor !== ordem?.cor) updateData.cor = cor;
+      if (numeroSerie !== ordem?.numero_serie) updateData.numero_serie = numeroSerie;
+      if (equipamento !== ordem?.equipamento) updateData.equipamento = equipamento;
+      if (acessorios !== ordem?.acessorios) updateData.acessorios = acessorios;
+      if (condicoesEquipamento !== ordem?.condicoes_equipamento) updateData.condicoes_equipamento = condicoesEquipamento;
+      
+      // Verificar mudanças nos relatos
+      if (relato !== ordem?.problema_relatado) updateData.problema_relatado = relato;
+      if (laudo !== (ordem as any)?.laudo) updateData.laudo = laudo;
+      
+      // Observações (só se mudaram)
+      if (observacoesAtualizadas !== (ordem as any)?.observacao) updateData.observacao = observacoesAtualizadas;
+      
+      // Produtos e serviços (sempre incluir valores atualizados se mudaram)
+      const produtosText = produtos.map(p => {
+        const preco = typeof p.preco === 'number' ? p.preco : parseFloat(String(p.preco || 0));
+        const quantidade = typeof p.quantidade === 'number' ? p.quantidade : parseInt(String(p.quantidade || 1));
+        const valorTotal = (isNaN(preco) ? 0 : preco) * (isNaN(quantidade) ? 1 : quantidade);
+        const qtd = (isNaN(quantidade) ? 1 : quantidade);
+        return `${p.nome} - Qtd: ${qtd} - Valor: R$ ${valorTotal.toFixed(2).replace('.', ',')}`;
+      }).join('\n');
+      
+      const servicosText = servicos.map(s => {
+        const preco = typeof s.preco === 'number' ? s.preco : parseFloat(String(s.preco || 0));
+        const valor = (isNaN(preco) ? 0 : preco);
+        return `${s.nome} - Valor: R$ ${valor.toFixed(2).replace('.', ',')}`;
+      }).join('\n');
+      
+      // Só incluir produtos/serviços se mudaram
+      if (produtosText !== ((ordem as any)?.peca || '')) {
+        updateData.peca = produtosText;
+        updateData.valor_peca = totais.totalProdutos;
+      }
+      if (servicosText !== ((ordem as any)?.servico || '')) {
+        updateData.servico = servicosText;
+        updateData.valor_servico = totais.totalServicos;
+      }
+      
+      // Valor total só se produtos ou serviços mudaram
+      if (updateData.peca !== undefined || updateData.servico !== undefined) {
+        updateData.valor_faturado = totais.totalGeral;
+      }
+      
+      // Imagens (só se mudaram)
+      const imagensText = todasImagens.join(',');
+      if (imagensText !== ((ordem as any)?.imagens || '')) updateData.imagens = imagensText;
+      
+      // Termo de garantia (só se mudou)
+      if (termoGarantiaId !== ordem?.termo_garantia_id) updateData.termo_garantia_id = termoGarantiaId || null;
+
+      // Se não há mudanças, não enviar nada
+      if (Object.keys(updateData).length === 0) {
+        addToast('info', 'Nenhuma alteração foi feita');
+        setLoading(false);
+        return;
+      }
+
+      // Persistência do checklist de entrada como JSON (string) - SEMPRE incluir
+      updateData.checklist_entrada = JSON.stringify(checklistEntrada || {});
+
+      // Adicionar técnico se selecionado
+      if (tecnicoSelecionado?.tecnico_id || tecnicoSelecionado?.auth_user_id) {
+        updateData.tecnico_id = tecnicoSelecionado.tecnico_id || tecnicoSelecionado.auth_user_id;
+      }
+
+      // Se ENTREGUE, adiciona datas (tipo date)
+      if (sel === 'ENTREGUE') {
+        const hoje = new Date();
+        const dataStr = new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())).toISOString().slice(0,10);
+        const garantia = new Date(hoje);
+        garantia.setDate(garantia.getDate() + 90);
+        const garantiaStr = new Date(Date.UTC(garantia.getFullYear(), garantia.getMonth(), garantia.getDate())).toISOString().slice(0,10);
+        updateData.data_entrega = dataStr;
+        updateData.vencimento_garantia = garantiaStr;
+      }
+
+      // Verificar se temos numero_os ou id
+      const osIdParaEnviar = ordem?.numero_os || ordem?.id;
+      
+      if (!osIdParaEnviar) {
+        addToast('error', 'Erro: ID da OS não encontrado. Recarregue a página.');
+        return;
+      }
+
+      // Usar nosso endpoint que envia notificações WhatsApp
+      const response = await fetch('/api/ordens/update-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          osId: osIdParaEnviar, // Usar numero_os se disponível, senão usar UUID
+          empresa_id: usuarioData?.empresa_id, // Incluir empresa_id para filtrar corretamente
+          newStatus: statusSelecionado?.nome,
+          newStatusTecnico: novoStatusTecnico,
+          ...updateData // Incluir todos os dados de atualização
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        addToast('error', 'Erro ao salvar: ' + (errorData.error || 'Erro desconhecido'));
+        return;
+      }
+
+      const result = await response.json();
+      
+      // Se a notificação foi enviada, mostrar feedback
+      if (result.notificationSent) {
+        addToast('success', '✅ Status atualizado e técnico notificado via WhatsApp!');
+      } else {
+        addToast('success', '✅ Status atualizado com sucesso!');
+      }
+
+      // ✅ REGISTRAR MUDANÇA DE STATUS NO HISTÓRICO (opcional - não bloqueia salvamento)
+      try {
+        const statusAnterior = ordem?.status || null;
+        const statusTecnicoAnterior = ordem?.status_tecnico || null;
+        const statusNovo = statusSelecionado?.nome || ordem?.status || '';
+        
+        if (statusAnterior !== statusNovo || statusTecnicoAnterior !== novoStatusTecnico) {
+          const motivo = statusRecusado ? 'Cliente recusou o orçamento' : 
+                       sel === 'ENTREGUE' ? 'OS finalizada e entregue ao cliente' :
+                       sel === 'APROVADO' ? 'Orçamento aprovado pelo cliente' :
+                       'Mudança de status via sistema';
+          
+          const historicoSucesso = await registrarMudancaStatus(
+            id,
+            statusAnterior,
+            statusNovo,
+            statusTecnicoAnterior,
+            novoStatusTecnico,
+            motivo,
+            observacoesAtualizadas !== observacoesInternas ? 'Observações atualizadas automaticamente' : undefined
+          );
+          
+          // Histórico registrado (opcional)
+        }
+      } catch (error) {
+        // Erro ao registrar histórico (não crítico)
+        // Não interrompe o fluxo - histórico é opcional
+      }
+
+      router.push(`/ordens/${id}`);
+
+    } catch (error) {
+      addToast('error', 'Erro ao salvar dados');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEquipamentoSelecionado = (equipamento: any) => {
+    if (equipamento) {
+      setEquipamento(equipamento.nome);
+    } else {
+      setEquipamento('');
+    }
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
+  };
+
+  // Função para fazer upload de imagens
+  const uploadImagens = async () => {
+    if (novasImagens.length === 0) return [];
+    
+    setUploadingImagens(true);
+    const uploadedUrls: string[] = [];
+    
+    try {
+      const formData = new FormData();
+      formData.append('osId', id);
+      
+      novasImagens.forEach((file) => {
+        formData.append('files', file);
+      });
+
+      const uploadResponse = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      const uploadResult = await uploadResponse.json();
+
+      if (!uploadResponse.ok) {
+        addToast('error', 'Erro ao fazer upload das imagens: ' + uploadResult.error);
+        return [];
+      }
+
+      uploadedUrls.push(...uploadResult.files.map((file: any) => file.url));
+      addToast('success', `✅ ${uploadedUrls.length} anexo(s) enviado(s) com sucesso!`);
+      
+      // Limpar arquivos selecionados após upload bem-sucedido
+      setNovasImagens([]);
+      
+    } catch (error) {
+      addToast('error', 'Erro inesperado no upload das imagens');
+    } finally {
+      setUploadingImagens(false);
+    }
+    
+    return uploadedUrls;
+  };
+
+  // Função para abrir editor de imagem
+  const abrirEditorImagem = (imageUrl: string, index: number, isNew: boolean = false) => {
+    // Verificar se tem o recurso editor_foto
+    if (!temRecurso('editor_foto')) {
+      addToast('error', 'Editor de imagens disponível apenas no plano Ultra. Faça upgrade para acessar.');
+      return;
+    }
+    
+    setEditingImageUrl(imageUrl);
+    setEditingImageIndex(index);
+    setEditingNewImage(isNew);
+  };
+
+  // Função para salvar imagem editada
+  const salvarImagemEditada = async (editedImageUrl: string) => {
+    if (editingImageIndex === null) return;
+
+    try {
+      if (editingNewImage) {
+        // Se for uma imagem nova, converter URL editada para File
+        const response = await fetch(editedImageUrl);
+        const blob = await response.blob();
+        const file = new File([blob], `imagem-editada-${Date.now()}.png`, { type: 'image/png' });
+        
+        // Substituir na lista de novas imagens
+        const novasImagensList = [...novasImagens];
+        novasImagensList[editingImageIndex] = file;
+        setNovasImagens(novasImagensList);
+        
+        // Atualizar preview se houver URL temporária
+        // (a URL será recriada automaticamente no próximo render)
+      } else {
+        // Substituir a imagem na lista existente
+        const novasImagensList = [...imagens];
+        novasImagensList[editingImageIndex] = editedImageUrl;
+        setImagens(novasImagensList);
+
+        // Atualizar no banco de dados
+        const imagensString = novasImagensList.join(',');
+        const { error: updateError } = await supabase
+          .from('ordens_servico')
+          .update({ imagens: imagensString })
+          .eq('id', id);
+
+        if (updateError) {
+          addToast('error', 'Erro ao atualizar imagem editada');
+          return;
+        }
+      }
+
+      addToast('success', 'Imagem editada salva com sucesso!');
+    } catch (error) {
+      addToast('error', 'Erro ao salvar imagem editada');
+    }
+  };
+
+  // Função para remover anexo
+  const removerAnexo = async (index: number) => {
+    const confirmed = await confirm({
+      title: 'Remover Anexo',
+      message: 'Tem certeza que deseja remover este anexo?',
+      confirmText: 'Remover',
+      cancelText: 'Cancelar'
+    });
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const novasImagensList = [...imagens];
+      const imagemRemover = novasImagensList[index];
+      
+      // Extrair o nome do arquivo da URL
+      const imagemUrl = new URL(imagemRemover);
+      const pathParts = imagemUrl.pathname.split('/');
+      const fileName = pathParts[pathParts.length - 1];
+      const filePath = `anexos-os/${id}/${fileName}`;
+      
+      // Remover do Supabase Storage
+      const { error: storageError } = await supabase.storage
+        .from('os-anexos')
+        .remove([filePath]);
+        
+      if (storageError) {
+        // Continua mesmo com erro no storage para não bloquear
+      }
+      
+      // Remover da lista local
+      novasImagensList.splice(index, 1);
+      setImagens(novasImagensList);
+      
+      // Atualizar no banco de dados
+      const imagensString = novasImagensList.join(',');
+      const { error: updateError } = await supabase
+        .from('ordens_servico')
+        .update({ imagens: imagensString })
+        .eq('id', id);
+        
+      if (updateError) {
+        addToast('error', 'Erro ao atualizar o banco de dados');
+        return;
+      }
+      
+      addToast('success', 'Anexo removido com sucesso!');
+      
+    } catch (error) {
+      addToast('error', 'Erro ao remover anexo');
+    }
+  };
+
+  // Função auxiliar para converter string de preço brasileiro para número
+  const parsePrecoBrasileiro = (precoStr: string): number => {
+    if (!precoStr) return 0;
+    
+    // Remover espaços
+    let str = precoStr.trim();
+    
+    // Se tem vírgula, assume formato brasileiro: "1.234,56" ou "1234,56"
+    if (str.includes(',')) {
+      // Remover pontos (separadores de milhar) e substituir vírgula por ponto
+      str = str.replace(/\./g, '').replace(',', '.');
+    } else if (str.includes('.')) {
+      // Se só tem ponto, pode ser formato internacional "1234.56" ou brasileiro "1.234"
+      // Verificar se tem mais de um ponto (formato brasileiro com milhar)
+      const partes = str.split('.');
+      if (partes.length > 2) {
+        // Formato brasileiro: "1.234.567" - remover todos os pontos
+        str = str.replace(/\./g, '');
+      }
+    }
+    
+    const valor = parseFloat(str);
+    return isNaN(valor) ? 0 : valor;
+  };
+
+  // Função para converter texto em itens estruturados
+  const parseTextToItems = (texto: string, tipo: 'produto' | 'servico') => {
+    if (!texto || texto.trim() === '') return [];
+    
+    const itens = [];
+    
+    // Tentar primeiro formato com vírgulas (formato da bancada)
+    const itensComVirgula = texto.split(',').filter(item => item.trim());
+    if (itensComVirgula.length > 0) {
+      for (const itemTexto of itensComVirgula) {
+        if (tipo === 'produto') {
+          // Formato: "Nome (2x) - R$ 100,00"
+          let match = itemTexto.match(/^(.+?)\s*\(\s*(\d+)\s*x\s*\)\s*-\s*R\$\s*([\d.,]+)\s*$/);
+          if (match) {
+            const precoTotal = parsePrecoBrasileiro(match[3]);
+            const quantidade = parseInt(match[2]) || 1;
+            const precoUnitario = quantidade > 0 && !isNaN(precoTotal) ? precoTotal / quantidade : 0;
+            if (precoUnitario > 0) {
+              itens.push({
+                id: `temp-${Date.now()}-${Math.random()}`,
+                nome: match[1].trim(),
+                quantidade,
+                preco: precoUnitario,
+                total: precoTotal
+              });
+              continue;
+            }
+          }
+        } else {
+          // Formato: "Nome - R$ 100,00" ou "Nome - R$ 1.234,56"
+          let match = itemTexto.match(/^(.+?)\s*-\s*R\$\s*([\d.,\s]+)\s*$/);
+          if (match) {
+            const preco = parsePrecoBrasileiro(match[2]);
+            if (preco > 0) {
+              itens.push({
+                id: `temp-${Date.now()}-${Math.random()}`,
+                nome: match[1].trim(),
+                preco: preco,
+                quantidade: 1,
+                total: preco
+              });
+              continue;
+            }
+          }
+          // Tentar formato sem R$: "Nome - 380,00"
+          match = itemTexto.match(/^(.+?)\s*-\s*([\d.,\s]+)\s*$/);
+          if (match && !match[2].includes('R$')) {
+            const preco = parsePrecoBrasileiro(match[2]);
+            if (preco > 0) {
+              itens.push({
+                id: `temp-${Date.now()}-${Math.random()}`,
+                nome: match[1].trim(),
+                preco: preco,
+                quantidade: 1,
+                total: preco
+              });
+              continue;
+            }
+          }
+        }
+      }
+      if (itens.length > 0) return itens;
+    }
+    
+    // Tentar formato com quebras de linha (formato do atendente)
+    const linhas = texto.split('\n').filter(linha => linha.trim());
+    
+    for (const linha of linhas) {
+      if (tipo === 'produto') {
+        // Formato: "Nome - Qtd: X - Valor: R$ Y.YY"
+        let match = linha.match(/^(.+?)\s*-\s*Qtd:\s*(\d+)\s*-\s*Valor:\s*R\$\s*([\d,]+\.?\d*)$/);
+        if (match) {
+          const precoTotal = parsePrecoBrasileiro(match[3]);
+          const quantidade = parseInt(match[2]) || 1;
+          const precoUnitario = quantidade > 0 && !isNaN(precoTotal) ? precoTotal / quantidade : 0;
+          if (precoUnitario > 0) {
+            itens.push({
+              id: `temp-${Date.now()}-${Math.random()}`,
+              nome: match[1].trim(),
+              quantidade,
+              preco: precoUnitario,
+              total: precoTotal
+            });
+            continue;
+          }
+        }
+      } else {
+        // Formato: "Nome - Valor: R$ Y,YY" (formato do atendente - PRIORIDADE)
+        // Regex mais flexível para capturar espaços opcionais
+        let match = linha.match(/^(.+?)\s*-\s*Valor:\s*R\$\s*([\d.,\s]+)$/i);
+        if (match) {
+          const preco = parsePrecoBrasileiro(match[2].trim());
+          if (preco > 0) {
+            itens.push({
+              id: `temp-${Date.now()}-${Math.random()}`,
+              nome: match[1].trim(),
+              preco: preco,
+              quantidade: 1,
+              total: preco
+            });
+            continue;
+          }
+        }
+        // Tentar formato simples: "Nome - R$ Y.YY"
+        match = linha.match(/^(.+?)\s*-\s*R\$\s*([\d.,\s]+)$/);
+        if (match) {
+          const preco = parsePrecoBrasileiro(match[2]);
+          if (preco > 0) {
+            itens.push({
+              id: `temp-${Date.now()}-${Math.random()}`,
+              nome: match[1].trim(),
+              preco: preco,
+              quantidade: 1,
+              total: preco
+            });
+            continue;
+          }
+        }
+        // Tentar outros formatos possíveis: "Nome - 160,00" ou "Nome - 160.00"
+        match = linha.match(/^(.+?)\s*-\s*([\d.,\s]+)$/);
+        if (match && !match[2].includes('R$') && !match[2].includes('Valor:')) {
+          const preco = parsePrecoBrasileiro(match[2]);
+          if (preco > 0) {
+            itens.push({
+              id: `temp-${Date.now()}-${Math.random()}`,
+              nome: match[1].trim(),
+              preco: preco,
+              quantidade: 1,
+              total: preco
+            });
+            continue;
+          }
+        }
+        // Tentar formato com "Valor:" sem R$
+        match = linha.match(/^(.+?)\s*-\s*Valor:\s*([\d,]+\.?\d*)$/);
+        if (match) {
+          const preco = parsePrecoBrasileiro(match[2]);
+          if (preco > 0) {
+            itens.push({
+              id: `temp-${Date.now()}-${Math.random()}`,
+              nome: match[1].trim(),
+              preco: preco,
+              quantidade: 1,
+              total: preco
+            });
+            continue;
+          }
+        }
+      }
+    }
+    
+    return itens;
+  };
+
+  if (loading) {
+    return (
+      
+        <MenuLayout>
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Carregando ordem de serviço...</p>
+            </div>
+          </div>
+        </MenuLayout>
+      
+    );
+  }
+
+  const totais = calcularTotais();
+
+  return (
+    
+      <MenuLayout>
+        <div className="p-6 space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => router.back()}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <FiArrowLeft size={20} />
+              </button>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  Editar OS #{ordem?.numero_os}
+                </h1>
+                <p className="text-gray-600">
+                  Cliente: {ordem?.clientes?.nome || 'N/A'}
+                </p>
+              </div>
+            </div>
+            
+            <button
+              onClick={handleSalvar}
+              disabled={saving}
+              className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              <FiSave size={16} />
+              {saving ? 'Salvando...' : 'Salvar'}
+            </button>
+          </div>
+
+          {/* Informações do Cliente e OS */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <FiUser className="w-5 h-5 text-blue-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Informações</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">Cliente</h4>
+                <p className="text-gray-600">{ordem?.clientes?.nome || 'N/A'}</p>
+                {ordem?.clientes?.telefone && (
+                  <p className="text-sm text-gray-500">{ordem.clientes.telefone}</p>
+                )}
+                {ordem?.clientes?.email && (
+                  <p className="text-sm text-gray-500">{ordem.clientes.email}</p>
+                )}
+              </div>
+              
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">Ordem de Serviço</h4>
+                <p className="text-gray-600">#{ordem?.numero_os}</p>
+                <p className="text-sm text-gray-500">
+                  Status: <span className="font-medium">{ordem?.status || 'N/A'}</span>
+                </p>
+                <p className="text-sm text-gray-500">
+                  Status Técnico: <span className="font-medium">{ordem?.status_tecnico || 'N/A'}</span>
+                </p>
+              </div>
+              
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">Equipamento</h4>
+                <p className="text-gray-600">{marca || 'N/A'} {modelo || ''}</p>
+                <p className="text-sm text-gray-500">Cor: {cor || 'N/A'}</p>
+                <p className="text-sm text-gray-500">Série: {numeroSerie || 'N/A'}</p>
+                {acessorios && <p className="text-sm text-gray-500">Acessórios: {acessorios}</p>}
+              </div>
+            </div>
+          </div>
+
+          {/* Informações Básicas */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Status */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <FiCheckCircle className="w-5 h-5 text-purple-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900">Status</h3>
+              </div>
+              <select
+                value={statusSelecionado?.id || ''}
+                onChange={(e) => {
+                  const statusEncontrado = status.find(s => s.id === e.target.value);
+                  setStatusSelecionado(statusEncontrado || null);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Selecione...</option>
+                {status.length === 0 && <option disabled>Carregando status...</option>}
+                {status
+                  .filter((s) => {
+                    // ✅ FILTRAR: Remover status "ENTREGUE" da lista (deve ser feito apenas pelo modal de entrega)
+                    // Agora a entrega deve ser feita apenas pelo modal de entrega na página de visualização
+                    const nomeNormalizado = (s.nome || '').toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+                    return nomeNormalizado !== 'ENTREGUE';
+                  })
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.nome}
+                    </option>
+                  ))}
+              </select>
+              <div className="text-xs text-gray-500 mt-1">
+                {status.length === 0 ? 'Nenhum status carregado' : `${status.length} status disponíveis`}
+              </div>
+            </div>
+
+            {/* Técnico */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <FiTool className="w-5 h-5 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900">Técnico</h3>
+              </div>
+              <select
+                value={tecnicoSelecionado?.id || ''}
+                onChange={(e) => {
+                  const tecnico = tecnicos.find(t => t.id === e.target.value);
+                  setTecnicoSelecionado(tecnico || null);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Selecione...</option>
+                {tecnicos.length === 0 && <option disabled>Carregando técnicos...</option>}
+                {tecnicos.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nome}
+                  </option>
+                ))}
+              </select>
+              <div className="text-xs text-gray-500 mt-1">
+                {tecnicos.length === 0 ? 'Nenhum técnico carregado' : `${tecnicos.length} técnicos disponíveis`}
+              </div>
+            </div>
+
+            {/* Total Geral */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <FiFileText className="w-5 h-5 text-green-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900">Total</h3>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Serviços:</span>
+                  <span>{formatCurrency(totais.totalServicos)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Produtos:</span>
+                  <span>{formatCurrency(totais.totalProdutos)}</span>
+                </div>
+                <div className="border-t pt-2 flex justify-between font-bold">
+                  <span>Total:</span>
+                  <span className="text-green-600">{formatCurrency(totais.totalGeral)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Dados do Equipamento */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-orange-100 rounded-lg">
+                <FiTool className="w-5 h-5 text-orange-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Dados do Equipamento</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="md:col-span-2 lg:col-span-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Equipamento</label>
+                <EquipamentoSelector
+                  empresaId={empresaData?.id || ''}
+                  value={equipamento}
+                  onChange={handleEquipamentoSelecionado}
+                  placeholder="Selecione o tipo de equipamento (ex: CELULAR, NOTEBOOK)"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Marca</label>
+                <input
+                  type="text"
+                  value={marca}
+                  onChange={(e) => setMarca(e.target.value.toUpperCase())}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase"
+                  placeholder="Marca do equipamento"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Modelo</label>
+                <input
+                  type="text"
+                  value={modelo}
+                  onChange={(e) => setModelo(e.target.value.toUpperCase())}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase"
+                  placeholder="Modelo do equipamento"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Cor</label>
+                <input
+                  type="text"
+                  value={cor}
+                  onChange={(e) => setCor(e.target.value.toUpperCase())}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase"
+                  placeholder="Cor do equipamento"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Número de Série</label>
+                <input
+                  type="text"
+                  value={numeroSerie}
+                  onChange={(e) => setNumeroSerie(e.target.value.toUpperCase())}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase"
+                  placeholder="Número de série"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Acessórios</label>
+                <input
+                  type="text"
+                  value={acessorios}
+                  onChange={(e) => setAcessorios(e.target.value.toUpperCase())}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase"
+                  placeholder="Acessórios entregues"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Condições</label>
+                <input
+                  type="text"
+                  value={condicoesEquipamento}
+                  onChange={(e) => setCondicoesEquipamento(e.target.value.toUpperCase())}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase"
+                  placeholder="Condições do equipamento"
+                />
+              </div>
+            </div>
+            
+            {/* Campos de Relato e Observações */}
+            <div className="mt-6 space-y-4">
+                            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Relato do Cliente</label>
+                <textarea
+                  value={relato}
+                  onChange={(e) => setRelato(e.target.value.toUpperCase())}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase"
+                  rows={3}
+                  placeholder="O que o cliente relatou sobre o problema..."
+                />
+
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Observações Internas do Atendente</label>
+                <textarea
+                  value={observacoesInternas}
+                  onChange={(e) => setObservacoesInternas(e.target.value.toUpperCase())}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase"
+                  rows={3}
+                  placeholder="Observações internas sobre a ordem de serviço (visível apenas para equipe)..."
+                />
+
+              </div>
+            </div>
+          </div>
+
+          {/* Checklist de entrada */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <FiCheckCircle className="w-5 h-5 text-green-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900">Checklist de entrada</h3>
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <span>(Opcional na criação; recomendado antes de enviar ao técnico)</span>
+                  {equipamento && (
+                    <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                      Categoria: {equipamento}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <DynamicChecklist
+              value={checklistEntrada}
+              onChange={setChecklistEntrada}
+              showAparelhoNaoLiga={true}
+              equipamentoCategoria={equipamento || undefined}
+            />
+          </div>
+
+          {/* Relatos do Técnico */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <FiFileText className="w-5 h-5 text-purple-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Relatos do Técnico</h3>
+              <span className="text-sm text-gray-500">(Preenchido pelo técnico)</span>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Laudo Técnico</label>
+              <LaudoEditor
+                value={laudo}
+                onChange={setLaudo}
+                placeholder="Diagnóstico detalhado e procedimentos realizados..."
+                minHeight="160px"
+              />
+            </div>
+          </div>
+
+          {/* Datas e Prazos - TEMPORARIAMENTE OCULTO (colunas não existem) */}
+          {false && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <FiUser className="w-5 h-5 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900">Datas e Prazos</h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Data de Entrada</label>
+                  <input
+                    type="date"
+                    value={dataEntrada}
+                    onChange={(e) => setDataEntrada(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Data de Saída</label>
+                  <input
+                    type="date"
+                    value={dataSaida}
+                    onChange={(e) => setDataSaida(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Prazo de Entrega</label>
+                  <input
+                    type="date"
+                    value={prazoEntrega}
+                    onChange={(e) => setPrazoEntrega(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Gerenciadores de Produtos e Serviços */}
+          <div className="space-y-6">
+            <ProdutoServicoManager
+              tipo="servico"
+              itens={servicos}
+              onItensChange={setServicos}
+            />
+            
+            <ProdutoServicoManager
+              tipo="produto"
+              itens={produtos}
+              onItensChange={setProdutos}
+            />
+          </div>
+
+          {/* Upload de Anexos */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <FiFileText className="w-5 h-5 text-green-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Anexos</h3>
+            </div>
+            
+            <div className="space-y-4">
+              {/* Upload de novas imagens */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Adicionar Fotos/Documentos
+                </label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*,.pdf"
+                    className="hidden"
+                    id="file-upload"
+                    disabled={uploadingImagens}
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      setNovasImagens(prev => [...prev, ...files]);
+                      addToast('success', `${files.length} arquivo(s) selecionado(s)`);
+                    }}
+                  />
+                  <label
+                    htmlFor="file-upload"
+                    className="cursor-pointer flex flex-col items-center"
+                  >
+                    <FiFileText className="w-8 h-8 text-gray-400 mb-2" />
+                    <span className="text-sm text-gray-600">
+                      {uploadingImagens ? 'Fazendo upload...' : 'Clique para adicionar fotos ou documentos'}
+                    </span>
+                    <span className="text-xs text-gray-400 mt-1">
+                      Formatos: JPG, PNG, PDF
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Novas imagens selecionadas */}
+              {novasImagens.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">
+                    Novos Anexos Selecionados ({novasImagens.length})
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {novasImagens.map((file, index) => {
+                      const isImage = file.type.startsWith('image/');
+                      const imageUrl = isImage ? URL.createObjectURL(file) : null;
+                      
+                      return (
+                        <div key={`new-${index}`} className="relative group">
+                          {isImage && imageUrl ? (
+                            <>
+                              <img
+                                src={imageUrl}
+                                alt={file.name}
+                                className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                              />
+                              <div className="absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="flex flex-col gap-2">
+                                  <button
+                                    onClick={() => abrirEditorImagem(imageUrl, index, true)}
+                                    className="text-white text-sm font-medium px-3 py-1 bg-purple-600 rounded hover:bg-purple-700 flex items-center gap-1"
+                                  >
+                                    <FiEdit3 size={14} />
+                                    Editar
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setNovasImagens(prev => prev.filter((_, i) => i !== index));
+                                      URL.revokeObjectURL(imageUrl);
+                                      addToast('success', 'Arquivo removido da seleção');
+                                    }}
+                                    className="text-white text-sm font-medium px-3 py-1 bg-red-600 rounded hover:bg-red-700"
+                                  >
+                                    Remover
+                                  </button>
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="w-full h-32 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
+                                <div className="text-center">
+                                  <FiFileText className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                                  <p className="text-xs text-gray-600 truncate px-2">
+                                    {file.name}
+                                  </p>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setNovasImagens(prev => prev.filter((_, i) => i !== index));
+                                  addToast('success', 'Arquivo removido da seleção');
+                                }}
+                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
+                                title="Remover arquivo"
+                              >
+                                ×
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Imagens existentes */}
+              {imagens.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">
+                    Anexos Existentes ({imagens.length})
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {imagens.map((img, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={img}
+                          alt={`Anexo ${index + 1}`}
+                          className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex flex-col gap-2">
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => window.open(img, '_blank')}
+                                className="text-white text-sm font-medium px-3 py-1 bg-blue-600 rounded hover:bg-blue-700"
+                              >
+                                Ver
+                              </button>
+                              <button
+                                onClick={() => abrirEditorImagem(img, index)}
+                                className="text-white text-sm font-medium px-3 py-1 bg-purple-600 rounded hover:bg-purple-700 flex items-center gap-1"
+                              >
+                                <FiEdit3 size={14} />
+                                Editar
+                              </button>
+                            </div>
+                            <button
+                              onClick={() => removerAnexo(index)}
+                              className="text-white text-sm font-medium px-3 py-1 bg-red-600 rounded hover:bg-red-700"
+                            >
+                              Remover
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+        </div>
+
+        {/* Editor de Imagem */}
+        {editingImageUrl && (
+          <ImageEditor
+            isOpen={!!editingImageUrl}
+            onClose={() => {
+              setEditingImageUrl(null);
+              setEditingImageIndex(null);
+              setEditingNewImage(false);
+            }}
+            imageUrl={editingImageUrl}
+            onSave={salvarImagemEditada}
+            osId={id}
+          />
+        )}
+      </MenuLayout>
+    
+  );
+}

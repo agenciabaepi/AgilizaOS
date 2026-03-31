@@ -1,3 +1,5 @@
+require('./scripts/node-localstorage-shim.cjs');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   typescript: { ignoreBuildErrors: true },

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
-import { canTecnicoAccessPath, TECNICO_DEFAULT_PERMISSIONS } from '@/config/tecnicoAllowedPaths';
+// Import dinâmico para evitar travar "Compiling middleware" no Turbopack (carrega só em rotas privadas)
 
 /**
  * Middleware de autenticação - Primeira linha de defesa
@@ -151,6 +151,9 @@ export async function middleware(request: NextRequest) {
     const nivel = usuarioData.nivel?.toLowerCase();
     const rawPermissoes = Array.isArray(usuarioData.permissoes) ? usuarioData.permissoes : [];
     const isAdminOuTeste = nivel === 'admin' || nivel === 'usuarioteste';
+
+    // Carregar permissões só quando necessário (evita travar compilação do middleware no Turbopack)
+    const { canTecnicoAccessPath, TECNICO_DEFAULT_PERMISSIONS } = await import('@/config/tecnicoAllowedPaths');
 
     // Admin e usuarioteste têm acesso total; demais níveis podem ter permissões restritas
     let permissoes: string[] = [];

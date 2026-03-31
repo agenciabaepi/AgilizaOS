@@ -7,57 +7,35 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
 import { useAppleParallax } from '@/hooks/useParallax';
-import { SplineScene } from '@/components/SplineScene';
+import { useValorAssinatura } from '@/hooks/useValorAssinatura';
 import dashboardImage from '@/assets/imagens/dashboard.png';
 import caixaImage from '@/assets/imagens/caixa.png';
 import financeiroImage from '@/assets/imagens/financeiro.png';
 import produtosImage from '@/assets/imagens/produtos.png';
 import contasPagarImage from '@/assets/imagens/contas a pagar.png';
 
-// URL da cena Spline - Cena do robô
-// Nova animação usando spline-viewer web component
-const SPLINE_SCENE_URL = process.env.NEXT_PUBLIC_SPLINE_SCENE_URL || 'https://prod.spline.design/vXPQae32tyIY4szz/scene.splinecode';
+function PrecoAssinatura({ isDarkMode }: { isDarkMode: boolean }) {
+  const { valor } = useValorAssinatura();
+  return (
+    <div className="mb-8">
+      <div className="flex items-baseline">
+        <span className={`text-3xl md:text-4xl font-light ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+          R$ {valor.toFixed(2).replace('.', ',')}
+        </span>
+        <span className={`text-sm ml-2 ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>/mês</span>
+      </div>
+    </div>
+  );
+}
 
 export default function Home() {
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true); // Padrão: modo escuro
-  const [splineReady, setSplineReady] = useState(false);
   
   // Hook para animações de scroll reveal
   const { isAnimated } = useScrollReveal();
-  
-  // Aguardar o Spline estar pronto antes de mostrar o texto
-  useEffect(() => {
-    console.log('useEffect do spline-ready inicializado')
-    
-    const handleSplineReady = () => {
-      console.log('✅ Evento spline-ready recebido - mostrando texto')
-      setSplineReady(true)
-    }
-    
-    // Escutar o evento
-    window.addEventListener('spline-ready', handleSplineReady)
-    console.log('👂 Ouvindo evento spline-ready...')
-    
-    // Fallback: mostrar texto após 4 segundos mesmo se o evento não disparar
-    const fallbackTimeout = setTimeout(() => {
-      console.log('⏰ Fallback timeout - mostrando texto após 4s (forçando)')
-      setSplineReady(true)
-      window.dispatchEvent(new CustomEvent('spline-ready'))
-    }, 4000)
-    
-    return () => {
-      window.removeEventListener('spline-ready', handleSplineReady)
-      clearTimeout(fallbackTimeout)
-    }
-  }, [])
-  
-  // Debug: logar quando splineReady mudar
-  useEffect(() => {
-    console.log('🔄 splineReady mudou para:', splineReady)
-  }, [splineReady])
   
   // Hook para efeitos parallax estilo Apple
   const { getHeroTransform, getBackgroundTransform, getSectionTransform } = useAppleParallax();
@@ -66,17 +44,28 @@ export default function Home() {
   // ✅ ACESSO TOTALMENTE LIVRE: Sem verificações de autenticação
   // Usuário pode acessar qualquer página sem redirecionamentos
 
-  // Persistir tema no localStorage
+  // Persistir tema no localStorage (apenas com API de storage válida no browser)
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme) {
-      setIsDarkMode(savedTheme === 'dark');
+    try {
+      const ls = typeof window !== 'undefined' ? window.localStorage : null;
+      if (!ls || typeof ls.getItem !== 'function') return;
+      const savedTheme = ls.getItem('theme');
+      if (savedTheme) {
+        setIsDarkMode(savedTheme === 'dark');
+      }
+    } catch {
+      // ignore
     }
   }, []);
 
-  // Salvar tema quando mudar
   useEffect(() => {
-    localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+    try {
+      const ls = typeof window !== 'undefined' ? window.localStorage : null;
+      if (!ls || typeof ls.setItem !== 'function') return;
+      ls.setItem('theme', isDarkMode ? 'dark' : 'light');
+    } catch {
+      // ignore
+    }
   }, [isDarkMode]);
 
   // Inicializa a posição do mouse com valores negativos para que o efeito não apareça inicialmente
@@ -465,256 +454,107 @@ export default function Home() {
         )}
       </nav>
 
-      {/* Hero Section com Parallax */}
+      {/* Hero Section - sem animação pesada */}
       <div 
-        className="relative z-10 py-4 sm:py-6 md:py-8 lg:py-10" 
-        style={{ 
-          overflow: 'visible',
-          paddingLeft: '0',
-          paddingRight: '0'
-        }}
+        className="relative z-10 py-12 sm:py-16 md:py-24 lg:py-32" 
+        style={{ overflow: 'visible' }}
       >
-        <div 
-          className="mx-auto max-w-7xl px-4 sm:px-6 md:px-8 lg:px-12"
-          style={{ 
-            overflow: 'visible',
-            position: 'relative',
-            transform: 'translateZ(0)' // Remover parallax que causa bugs
-          }}
-        >
-          {/* Layout: robô centralizado com texto overlay na parte inferior */}
-          <div 
-            className="relative w-full min-h-[65vh] flex items-center justify-center" 
-            style={{ 
-              overflow: 'visible',
-              position: 'relative',
-              isolation: 'isolate' // Criar novo contexto de empilhamento para evitar bugs
-            }}
-          >
-            {/* Animação Spline - Centralizada */}
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 md:px-8 lg:px-12">
+          <div className="relative w-full min-h-[50vh] flex flex-col items-center justify-center text-center">
+            {/* Glow de fundo - leve e performático */}
             <div 
-              data-reveal="spline"
-              className={`relative w-full max-w-6xl mx-auto scroll-reveal-slide-up delay-300 ${
-                isAnimated('spline') ? 'animated' : ''
-              }`}
+              className="absolute inset-0 blur-3xl opacity-20 pointer-events-none -z-10"
               style={{
-                width: '100%',
-                maxWidth: '1200px',
-                height: '65vh',
-                minHeight: '550px',
-                maxHeight: '800px',
-                margin: '0 auto',
-                marginBottom: '-3rem',
-                padding: '4rem',
-                paddingBottom: '5rem',
-                overflow: 'visible',
-                position: 'relative',
-                clipPath: 'none',
-                isolation: 'isolate',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transform: 'translateZ(0)', // Forçar aceleração de hardware
-                willChange: 'transform', // Otimizar animações
-                backfaceVisibility: 'hidden' // Evitar bugs visuais no scroll
+                background: isDarkMode
+                  ? 'radial-gradient(circle at 50% 40%, rgba(209, 254, 110, 0.25) 0%, rgba(209, 254, 110, 0.08) 40%, transparent 70%)'
+                  : 'radial-gradient(circle at 50% 40%, rgba(209, 254, 110, 0.2) 0%, rgba(184, 229, 90, 0.06) 40%, transparent 70%)'
               }}
-            >
-              {/* Luz de fundo com blur - efeito glow suave integrado */}
+            />
+
+            <div className="w-full max-w-4xl flex flex-col items-center gap-5 md:gap-6 animate-fade-in">
+              {/* Social Proof Badge */}
               <div 
-                className={`absolute inset-0 blur-3xl opacity-20 transition-opacity duration-500 pointer-events-none z-0 ${
+                data-reveal="badge"
+                className={`inline-flex items-center px-6 py-3 backdrop-blur-xl border rounded-full ${
                   isDarkMode 
-                    ? 'bg-gradient-radial from-[#D1FE6E]/30 via-[#D1FE6E]/10 to-transparent' 
-                    : 'bg-gradient-radial from-[#D1FE6E]/20 via-[#B8E55A]/10 to-transparent'
+                    ? 'bg-black/40 border-white/20' 
+                    : 'bg-white/90 border-gray-300 shadow-lg'
                 }`}
                 style={{
-                  background: isDarkMode
-                    ? 'radial-gradient(circle at center, rgba(209, 254, 110, 0.3) 0%, rgba(209, 254, 110, 0.1) 40%, transparent 70%)'
-                    : 'radial-gradient(circle at center, rgba(209, 254, 110, 0.2) 0%, rgba(184, 229, 90, 0.1) 40%, transparent 70%)'
+                  boxShadow: isDarkMode 
+                    ? '0 8px 32px rgba(209, 254, 110, 0.1)' 
+                    : '0 8px 32px rgba(0,0,0,0.15), 0 4px 16px rgba(0,0,0,0.1)'
                 }}
-              />
-              
-              {/* Spline integrado - sem containers visíveis */}
-              {SPLINE_SCENE_URL ? (
-                <>
-                  <SplineScene
-                    scene={SPLINE_SCENE_URL}
-                    className="absolute inset-0 w-full h-full"
-                    shadows={true}
-                    showOverlay={true}
-                    overlayGradient={true}
-                  />
-                  
-                  {/* Área para textos e elementos customizados sobre o Spline */}
-                  <div 
-                    className="absolute inset-0 pointer-events-none"
-                    style={{
-                      zIndex: 10,
-                      overflow: 'visible',
-                      padding: '2rem'
-                    }}
-                  >
-                    {/* Exemplo de texto customizado - você pode adicionar mais aqui */}
-                    {/* 
-                    <div 
-                      className="absolute top-1/4 left-1/4 transform -translate-x-1/2 -translate-y-1/2"
-                      style={{
-                        color: '#D1FE6E',
-                        fontSize: '2rem',
-                        fontWeight: 'bold',
-                        textShadow: '0 0 20px rgba(209, 254, 110, 0.5)',
-                        mixBlendMode: 'screen'
-                      }}
-                    >
-                      Texto Customizado
-                    </div>
-                    */}
-                  </div>
-                </>
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-transparent">
-                  <div className="text-center p-4">
-                    <div className="text-gray-400 text-sm mb-2">
-                      Configure a URL do Spline no arquivo page.tsx
-                    </div>
-                    <div className="text-gray-500 text-xs">
-                      Edite a constante SPLINE_SCENE_URL
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+              >
+                <div className="w-2.5 h-2.5 bg-[#D1FE6E] rounded-full mr-3 animate-pulse" />
+                <span className={`text-xs sm:text-sm font-light tracking-wide ${
+                  isDarkMode ? 'text-white/90' : 'text-gray-700'
+                }`}>
+                  +500 assistências confiam no Consert
+                </span>
+              </div>
 
-            {/* Conteúdo do Hero - Overlay na parte inferior sobre o robô */}
-            <div 
-              className="absolute left-0 right-0 z-20 flex flex-col items-center justify-center px-4 sm:px-6 md:px-8 lg:px-12"
-              style={{
-                bottom: '10%', // Posicionar mais embaixo, na altura do quadril do robô
-                opacity: splineReady ? 1 : 0,
-                transition: splineReady ? 'opacity 0.7s ease-in-out 0.3s, visibility 0s' : 'opacity 0s, visibility 0s 0.3s',
-                visibility: splineReady ? 'visible' : 'hidden',
-                pointerEvents: splineReady ? 'auto' : 'none',
-                zIndex: 20,
-                position: 'absolute',
-                transform: 'translateZ(0)', // Forçar aceleração de hardware para evitar bugs no scroll
-                willChange: 'opacity', // Otimizar animações
-                backfaceVisibility: 'hidden', // Evitar bugs visuais no scroll
-                perspective: '1000px' // Melhorar performance
-              }}
-            >
-              <div className="w-full max-w-4xl flex flex-col items-center gap-4 md:gap-6 text-center">
-          {/* Social Proof Badge */}
-          <div 
-            data-reveal="badge"
-                  className={`inline-flex items-center px-6 py-3 backdrop-blur-xl border rounded-full pointer-events-auto transition-all duration-700 ${
-              isDarkMode 
-                      ? 'bg-black/40 border-white/20' 
-                      : 'bg-white/90 border-gray-300 shadow-lg'
-            }`}
-            style={{
-                    transitionDelay: splineReady ? '0.3s' : '0s',
-                    opacity: splineReady ? 1 : 0,
-                    transform: splineReady ? 'translateY(0)' : 'translateY(1rem)',
-                    backdropFilter: 'blur(10px)',
-                    visibility: splineReady ? 'visible' : 'hidden',
-              boxShadow: isDarkMode 
-                ? '0 8px 32px rgba(209, 254, 110, 0.1)' 
-                      : '0 8px 32px rgba(0,0,0,0.15), 0 4px 16px rgba(0,0,0,0.1)'
-            }}
-          >
-                  <div className="w-2.5 h-2.5 bg-[#D1FE6E] rounded-full mr-3 animate-pulse"></div>
-                  <span className={`text-xs sm:text-sm font-light tracking-wide ${
-              isDarkMode ? 'text-white/90' : 'text-gray-700'
-            }`}>+500 assistências confiam no Consert</span>
-          </div>
-
-                {/* Main Headline */}
-                <div 
-                  data-reveal="headline" 
-                  className="transition-all duration-700"
-                  style={{
-                    transitionDelay: splineReady ? '0.5s' : '0s',
-                    opacity: splineReady ? 1 : 0,
-                    transform: splineReady ? 'translateY(0)' : 'translateY(1rem)',
-                    visibility: splineReady ? 'visible' : 'hidden'
-                  }}
-                >
-                  <h1 className={`text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-light mb-2 md:mb-3 leading-tight tracking-tight ${
+              {/* Main Headline */}
+              <div data-reveal="headline">
+                <h1 
+                  className={`text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-light mb-2 md:mb-3 leading-tight tracking-tight ${
                     isDarkMode ? 'text-white' : 'text-gray-800'
                   }`}
                   style={{
-                    textShadow: isDarkMode ? '0 0 30px rgba(209, 254, 110, 0.6), 0 0 60px rgba(209, 254, 110, 0.3)' : 'none'
-                  }}>
-                    Sua assistência digital começa aqui
-                  </h1>
-                  <p className={`block font-medium mt-1 text-lg sm:text-xl md:text-2xl ${
-                    isDarkMode ? 'text-white/90' : 'text-gray-700'
-                  }`} style={{
-                    textShadow: isDarkMode ? '0 0 15px rgba(209, 254, 110, 0.4)' : 'none'
-                  }}>
-                    simples de usar
-                  </p>
-          </div>
-
-          {/* Sub-headline */}
-          <div 
-            data-reveal="subheadline"
-                  className={`text-sm sm:text-base md:text-lg max-w-2xl mx-auto leading-relaxed font-light transition-all duration-700 ${
-                    isDarkMode ? 'text-white/70' : 'text-gray-600'
-                  }`}
-                  style={{
-                    transitionDelay: splineReady ? '0.7s' : '0s',
-                    opacity: splineReady ? 1 : 0,
-                    transform: splineReady ? 'translateY(0)' : 'translateY(1rem)',
-                    textShadow: isDarkMode ? '0 2px 10px rgba(0, 0, 0, 0.5)' : 'none',
-                    visibility: splineReady ? 'visible' : 'hidden'
+                    textShadow: isDarkMode ? '0 0 30px rgba(209, 254, 110, 0.4), 0 0 60px rgba(209, 254, 110, 0.2)' : 'none'
                   }}
                 >
-                  <p>
-                    Ferramentas inteligentes que fazem o trabalho pesado - para que você não precise. 
-                    Transforme seu fluxo de trabalho com automação inteligente.
-                  </p>
-          </div>
+                  Sua assistência digital começa aqui
+                </h1>
+                <p 
+                  className={`block font-medium mt-1 text-lg sm:text-xl md:text-2xl ${
+                    isDarkMode ? 'text-white/90' : 'text-gray-700'
+                  }`}
+                  style={{ textShadow: isDarkMode ? '0 0 15px rgba(209, 254, 110, 0.3)' : 'none' }}
+                >
+                  simples de usar
+                </p>
+              </div>
 
-          {/* CTA Buttons */}
-          <div 
-            data-reveal="cta"
-                  className="flex flex-col sm:flex-row gap-3 pointer-events-auto transition-all duration-700"
+              {/* Sub-headline */}
+              <p 
+                data-reveal="subheadline"
+                className={`text-sm sm:text-base md:text-lg max-w-2xl mx-auto leading-relaxed font-light ${
+                  isDarkMode ? 'text-white/70' : 'text-gray-600'
+                }`}
+                style={{ textShadow: isDarkMode ? '0 2px 10px rgba(0, 0, 0, 0.5)' : 'none' }}
+              >
+                Ferramentas inteligentes que fazem o trabalho pesado — para que você não precise.
+                Transforme seu fluxo de trabalho com automação inteligente.
+              </p>
+
+              {/* CTA Buttons */}
+              <div data-reveal="cta" className="flex flex-col sm:flex-row gap-3">
+                <button 
+                  onClick={() => router.push('/cadastro')}
+                  className={`px-6 py-3 rounded-full font-medium text-sm sm:text-base transition-all duration-300 ${
+                    isDarkMode
+                      ? 'bg-[#D1FE6E] text-black hover:bg-[#B8E55A] hover:shadow-lg hover:shadow-[#D1FE6E]/50'
+                      : 'bg-[#D1FE6E] text-black hover:bg-[#B8E55A] hover:shadow-lg'
+                  }`}
                   style={{
-                    transitionDelay: splineReady ? '0.9s' : '0s',
-                    opacity: splineReady ? 1 : 0,
-                    transform: splineReady ? 'translateY(0)' : 'translateY(1rem)',
-                    visibility: splineReady ? 'visible' : 'hidden'
+                    boxShadow: isDarkMode 
+                      ? '0 4px 20px rgba(209, 254, 110, 0.4)' 
+                      : '0 4px 20px rgba(209, 254, 110, 0.5)'
                   }}
-          >
-            <button 
-              onClick={() => router.push('/login')}
-                    className={`px-6 py-3 rounded-full font-medium text-sm sm:text-base transition-all duration-300 ${
-                      isDarkMode
-                        ? 'bg-[#D1FE6E] text-black hover:bg-[#B8E55A] hover:shadow-lg hover:shadow-[#D1FE6E]/50'
-                        : 'bg-[#D1FE6E] text-black hover:bg-[#B8E55A] hover:shadow-lg'
-                    }`}
-              style={{
-                      boxShadow: isDarkMode 
-                        ? '0 4px 20px rgba(209, 254, 110, 0.4)' 
-                        : '0 4px 20px rgba(209, 254, 110, 0.5)'
-              }}
-            >
-                    Começar Agora
-            </button>
-            <button 
-                    onClick={() => scrollToSection('funcionalidades')}
-                    className={`px-6 py-3 rounded-full font-medium text-sm sm:text-base transition-all duration-300 border backdrop-blur-sm ${
-                isDarkMode 
-                        ? 'border-white/30 text-white bg-black/40 hover:bg-black/60 hover:border-white/50'
-                        : 'border-gray-300 text-gray-700 bg-white/90 hover:bg-gray-50'
-              }`}
-              style={{
-                      backdropFilter: 'blur(10px)'
-                    }}
-                  >
-                    Ver Funcionalidades
-            </button>
-                </div>
+                >
+                  Começar Agora
+                </button>
+                <button 
+                  onClick={() => scrollToSection('solucoes')}
+                  className={`px-6 py-3 rounded-full font-medium text-sm sm:text-base transition-all duration-300 border backdrop-blur-sm ${
+                    isDarkMode 
+                      ? 'border-white/30 text-white bg-black/40 hover:bg-black/60 hover:border-white/50'
+                      : 'border-gray-300 text-gray-700 bg-white/90 hover:bg-gray-50'
+                  }`}
+                >
+                  Ver Funcionalidades
+                </button>
               </div>
             </div>
           </div>
@@ -752,7 +592,7 @@ export default function Home() {
           </div>
 
           {/* Sistema de Abas */}
-          <div className="bg-transparent rounded-3xl border border-white/20 p-8 md:p-12">
+          <div className={`bg-transparent rounded-3xl border p-8 md:p-12 ${isDarkMode ? 'border-white/20' : 'border-gray-300'}`}>
             {/* Navegação das Abas */}
             <div className="flex flex-wrap justify-center gap-2 mb-12">
               {[
@@ -838,7 +678,7 @@ export default function Home() {
                     }`}>
                       Gestão de Caixa Completa
                     </h3>
-                    <p className="text-white/70 text-lg max-w-2xl mx-auto">
+                    <p className={`text-lg max-w-2xl mx-auto ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                       Controle total do fluxo de caixa, vendas e movimentações financeiras
                     </p>
                   </div>
@@ -867,7 +707,7 @@ export default function Home() {
                     }`}>
                       Contas a Pagar
                     </h3>
-                    <p className="text-white/70 text-lg max-w-2xl mx-auto">
+                    <p className={`text-lg max-w-2xl mx-auto ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                       Gerencie todas as contas da empresa com controle total de pagamentos e vencimentos
                     </p>
                   </div>
@@ -896,7 +736,7 @@ export default function Home() {
                     }`}>
                       Análise Financeira e Lucro
                     </h3>
-                    <p className="text-white/70 text-lg max-w-2xl mx-auto">
+                    <p className={`text-lg max-w-2xl mx-auto ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                       Visualize lucros, despesas e desempenho financeiro com gráficos e métricas em tempo real
                     </p>
                   </div>
@@ -925,7 +765,7 @@ export default function Home() {
                     }`}>
                       Gestão de Produtos
                     </h3>
-                    <p className="text-white/70 text-lg max-w-2xl mx-auto">
+                    <p className={`text-lg max-w-2xl mx-auto ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                       Cadastre e gerencie produtos, serviços e estoque de forma organizada
                     </p>
                   </div>
@@ -954,7 +794,7 @@ export default function Home() {
                     }`}>
                       Muito Mais Funcionalidades
                     </h3>
-                    <p className="text-white/70 text-lg max-w-2xl mx-auto">
+                    <p className={`text-lg max-w-2xl mx-auto ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                       Sistema completo com recursos avançados para sua assistência
                     </p>
                   </div>
@@ -1016,13 +856,15 @@ export default function Home() {
               }`}
             >
               <div 
-                className="h-full rounded-3xl p-6 md:p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col"
-                style={{
+                className={`h-full rounded-3xl p-6 md:p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col ${
+                  isDarkMode ? '' : 'bg-gray-50/90 border-gray-200 shadow-lg'
+                }`}
+                style={isDarkMode ? {
                   background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)',
                   border: '1px solid rgba(255,255,255,0.15)',
                   backdropFilter: 'blur(20px)',
                   boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-                }}
+                } : undefined}
               >
                 <div 
                   className="w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-3xl flex items-center justify-center mb-4 md:mb-6 shadow-2xl transition-all duration-500 group-hover:scale-110"
@@ -1034,8 +876,8 @@ export default function Home() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
-                <h3 className="text-white font-light text-lg md:text-xl mb-3 md:mb-4 tracking-wide">Ordens de Serviço</h3>
-                <p className="text-white/80 leading-relaxed text-sm md:text-base font-light flex-grow">
+                <h3 className={`font-light text-lg md:text-xl mb-3 md:mb-4 tracking-wide ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Ordens de Serviço</h3>
+                <p className={`leading-relaxed text-sm md:text-base font-light flex-grow ${isDarkMode ? 'text-white/80' : 'text-gray-600'}`}>
                   Crie e gerencie ordens de serviço de forma simples e organizada. 
                   Acompanhe o progresso em tempo real.
                 </p>
@@ -1050,26 +892,24 @@ export default function Home() {
               }`}
             >
               <div 
-                className="h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col"
-                style={{
+                className={`h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col ${isDarkMode ? '' : 'bg-gray-50/90 border-gray-200 shadow-lg'}`}
+                style={isDarkMode ? {
                   background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)',
                   border: '1px solid rgba(255,255,255,0.15)',
                   backdropFilter: 'blur(20px)',
                   boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-                }}
+                } : undefined}
               >
                 <div 
                   className="w-20 h-20 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-3xl flex items-center justify-center mb-6 shadow-2xl transition-all duration-500 group-hover:scale-110"
-                  style={{
-                    boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)'
-                  }}
+                  style={{ boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)' }}
                 >
                   <svg className="w-10 h-10 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
                 </div>
-                <h3 className="text-white font-light text-xl mb-4 tracking-wide">Gestão de Clientes</h3>
-                <p className="text-white/80 leading-relaxed text-base font-light flex-grow">
+                <h3 className={`font-light text-xl mb-4 tracking-wide ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Gestão de Clientes</h3>
+                <p className={`leading-relaxed text-base font-light flex-grow ${isDarkMode ? 'text-white/80' : 'text-gray-600'}`}>
                   Cadastre e acompanhe seus clientes com histórico completo. 
                   Histórico de serviços e veículos.
                 </p>
@@ -1084,26 +924,24 @@ export default function Home() {
               }`}
             >
               <div 
-                className="h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col"
-                style={{
+                className={`h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col ${isDarkMode ? '' : 'bg-gray-50/90 border-gray-200 shadow-lg'}`}
+                style={isDarkMode ? {
                   background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)',
                   border: '1px solid rgba(255,255,255,0.15)',
                   backdropFilter: 'blur(20px)',
                   boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-                }}
+                } : undefined}
               >
                 <div 
                   className="w-20 h-20 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-3xl flex items-center justify-center mb-6 shadow-2xl transition-all duration-500 group-hover:scale-110"
-                  style={{
-                    boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)'
-                  }}
+                  style={{ boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)' }}
                 >
                   <svg className="w-10 h-10 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <h3 className="text-white font-light text-xl mb-4 tracking-wide">Controle Financeiro</h3>
-                <p className="text-white/80 leading-relaxed text-base font-light flex-grow">
+                <h3 className={`font-light text-xl mb-4 tracking-wide ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Controle Financeiro</h3>
+                <p className={`leading-relaxed text-base font-light flex-grow ${isDarkMode ? 'text-white/80' : 'text-gray-600'}`}>
                   Acompanhe receitas, despesas e lucros em tempo real. 
                   Relatórios financeiros detalhados.
                 </p>
@@ -1118,26 +956,24 @@ export default function Home() {
               }`}
             >
               <div 
-                className="h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col"
-                style={{
+                className={`h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col ${isDarkMode ? '' : 'bg-gray-50/90 border-gray-200 shadow-lg'}`}
+                style={isDarkMode ? {
                   background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)',
                   border: '1px solid rgba(255,255,255,0.15)',
                   backdropFilter: 'blur(20px)',
                   boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-                }}
+                } : undefined}
               >
                 <div 
                   className="w-20 h-20 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-3xl flex items-center justify-center mb-6 shadow-2xl transition-all duration-500 group-hover:scale-110"
-                  style={{
-                    boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)'
-                  }}
+                  style={{ boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)' }}
                 >
                   <svg className="w-10 h-10 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                 </div>
-                <h3 className="text-white font-light text-xl mb-4 tracking-wide">Relatórios Avançados</h3>
-                <p className="text-white/80 leading-relaxed text-base font-light flex-grow">
+                <h3 className={`font-light text-xl mb-4 tracking-wide ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Relatórios Avançados</h3>
+                <p className={`leading-relaxed text-base font-light flex-grow ${isDarkMode ? 'text-white/80' : 'text-gray-600'}`}>
                   Relatórios detalhados para tomar decisões estratégicas. 
                   Dashboards personalizáveis.
                 </p>
@@ -1152,26 +988,24 @@ export default function Home() {
               }`}
             >
               <div 
-                className="h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col"
-                style={{
+                className={`h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col ${isDarkMode ? '' : 'bg-gray-50/90 border-gray-200 shadow-lg'}`}
+                style={isDarkMode ? {
                   background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)',
                   border: '1px solid rgba(255,255,255,0.15)',
                   backdropFilter: 'blur(20px)',
                   boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-                }}
+                } : undefined}
               >
                 <div 
                   className="w-20 h-20 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-3xl flex items-center justify-center mb-6 shadow-2xl transition-all duration-500 group-hover:scale-110"
-                  style={{
-                    boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)'
-                  }}
+                  style={{ boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)' }}
                 >
                   <svg className="w-10 h-10 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
                   </svg>
                 </div>
-                <h3 className="text-white font-light text-xl mb-4 tracking-wide">Acesso Mobile</h3>
-                <p className="text-white/80 leading-relaxed text-base font-light flex-grow">
+                <h3 className={`font-light text-xl mb-4 tracking-wide ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Acesso Mobile</h3>
+                <p className={`leading-relaxed text-base font-light flex-grow ${isDarkMode ? 'text-white/80' : 'text-gray-600'}`}>
                   Acesse o sistema de qualquer dispositivo, a qualquer hora. 
                   Interface responsiva e otimizada.
                 </p>
@@ -1186,26 +1020,24 @@ export default function Home() {
               }`}
             >
               <div 
-                className="h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col"
-                style={{
+                className={`h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col ${isDarkMode ? '' : 'bg-gray-50/90 border-gray-200 shadow-lg'}`}
+                style={isDarkMode ? {
                   background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)',
                   border: '1px solid rgba(255,255,255,0.15)',
                   backdropFilter: 'blur(20px)',
                   boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-                }}
+                } : undefined}
               >
                 <div 
                   className="w-20 h-20 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-3xl flex items-center justify-center mb-6 shadow-2xl transition-all duration-500 group-hover:scale-110"
-                  style={{
-                    boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)'
-                  }}
+                  style={{ boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)' }}
                 >
                   <svg className="w-10 h-10 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
                 </div>
-                <h3 className="text-white font-light text-xl mb-4 tracking-wide">Segurança Total</h3>
-                <p className="text-white/80 leading-relaxed text-base font-light flex-grow">
+                <h3 className={`font-light text-xl mb-4 tracking-wide ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Segurança Total</h3>
+                <p className={`leading-relaxed text-base font-light flex-grow ${isDarkMode ? 'text-white/80' : 'text-gray-600'}`}>
                   Seus dados protegidos com a mais alta segurança. 
                   Backup automático e criptografia.
                 </p>
@@ -1229,7 +1061,7 @@ export default function Home() {
           {/* Section Header */}
           <div 
             data-reveal="pricing-header"
-            className={`text-center mb-20 hero-reveal ${
+            className={`text-center mb-12 md:mb-16 hero-reveal ${
               isAnimated('pricing-header') ? 'revealed' : ''
             }`}
           >
@@ -1245,362 +1077,83 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Pricing Cards */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 max-w-6xl mx-auto">
-            {/* Plano Básico */}
+          {/* Card único - valor fixo */}
+          <div 
+            data-reveal="pricing-basic"
+            className={`group relative card-reveal max-w-xl mx-auto ${
+              isAnimated('pricing-basic') ? 'revealed' : ''
+            }`}
+          >
             <div 
-              data-reveal="pricing-basic"
-              className={`group relative card-reveal ${
-                isAnimated('pricing-basic') ? 'revealed' : ''
+              className={`rounded-3xl p-6 md:p-8 border transition-all duration-500 ease-out hover:shadow-2xl flex flex-col relative overflow-hidden ${
+                isDarkMode ? '' : 'bg-white border-gray-200 shadow-xl'
               }`}
+              style={isDarkMode ? {
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.12)',
+                backdropFilter: 'blur(10px)'
+              } : undefined}
             >
-              <div 
-                className="h-full rounded-3xl p-6 md:p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col relative overflow-hidden"
-                style={{
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.12)',
-                  backdropFilter: 'blur(10px)'
-                }}
-              >
-                
-                {/* Icon */}
-                <div className="relative z-10 mb-4 md:mb-6">
-                  <div 
-                    className="w-14 h-14 md:w-16 md:h-16 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-2xl flex items-center justify-center shadow-2xl"
-                    style={{
-                      boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)'
-                    }}
-                  >
-                    <svg className="w-7 h-7 md:w-8 md:h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                  </div>
+              {/* Ícone */}
+              <div className="relative z-10 mb-4 md:mb-6">
+                <div 
+                  className="w-14 h-14 md:w-16 md:h-16 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-2xl flex items-center justify-center shadow-2xl"
+                  style={{ boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)' }}
+                >
+                  <svg className="w-7 h-7 md:w-8 md:h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+              </div>
+
+              <div className="relative z-10 flex-grow">
+                <div className="mb-4">
+                  <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded mb-3 ${
+                    isDarkMode ? 'bg-white/5 text-white/80' : 'bg-gray-100 text-gray-700'
+                  }`}>
+                    Acesso completo ao sistema
+                  </span>
+                  <p className={`text-sm mb-4 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>Tudo que sua assistência precisa em uma única assinatura</p>
                 </div>
 
-                {/* Plan Info */}
-                <div className="relative z-10 flex-grow">
-                  <div className="mb-4">
-                    <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded mb-3 ${
-                      isDarkMode 
-                        ? 'bg-white/5 text-white/80' 
-                        : 'bg-gray-100 text-gray-700'
-                    }`}>
-                      Acesso completo ao sistema
-                    </span>
-                    <h3 className="text-xl md:text-2xl font-light text-white mb-2">Básico</h3>
-                    <p className="text-white/70 text-xs md:text-sm mb-4 md:mb-6">1 usuário, 1 técnico, sistema de OS completo</p>
-                  </div>
+                {/* Preço fixo - valor dinâmico da config */}
+                <PrecoAssinatura isDarkMode={isDarkMode} />
 
-                  {/* Price */}
-                  <div className="mb-8">
-                    <div className="flex items-baseline">
-                      <span className="text-3xl md:text-4xl font-light text-white">R$ 1,00</span>
-                      <span className="text-white/60 text-xs md:text-sm ml-2">/mês</span>
-                    </div>
-                  </div>
-
-                  {/* Features */}
-                  <div className="space-y-4 mb-8">
-                    <div className="flex items-center">
-                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
+                {/* Principais serviços do sistema */}
+                <p className={`text-xs font-medium uppercase tracking-wider mb-4 ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>Incluído no sistema</p>
+                <div className="space-y-3 mb-8">
+                  {[
+                    'Ordens de serviço (OS completo)',
+                    'Gestão de clientes e histórico',
+                    'Caixa e controle financeiro',
+                    'Contas a pagar',
+                    'Produtos, serviços e catálogo',
+                    'Dashboard e relatórios em tempo real',
+                    'Acesso mobile e responsivo',
+                    'Dados na nuvem com segurança'
+                  ].map((item) => (
+                    <div key={item} className="flex items-center">
+                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3 flex-shrink-0">
                         <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
                       </div>
-                      <span className="text-white/80 text-sm">Cadastro de clientes</span>
+                      <span className={`text-sm ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>{item}</span>
                     </div>
-                    <div className="flex items-center">
-                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
-                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <span className="text-white/80 text-sm">Cadastro de produtos e serviços</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
-                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <span className="text-white/80 text-sm">Sistema de OS completo</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
-                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <span className="text-white/80 text-sm">Relatórios simples de atendimento</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
-                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <span className="text-white/80 text-sm">Segurança de dados na nuvem</span>
-                    </div>
-                  </div>
+                  ))}
                 </div>
+              </div>
 
-                {/* CTA Button */}
-                <div className="relative z-10 mt-auto">
-                  <button 
-                    onClick={() => router.push('/cadastro?plano=basico')}
-                    className="w-full py-3 md:py-4 bg-[#D1FE6E] text-black rounded-2xl font-medium hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105 text-sm md:text-base"
-                    style={{
-                      boxShadow: '0 4px 20px rgba(209, 254, 110, 0.3)'
-                    }}
-                  >
-                    Selecionado
-                  </button>
-                </div>
+              <div className="relative z-10 mt-auto">
+                <button 
+                  onClick={() => router.push('/cadastro')}
+                  className="w-full py-3 md:py-4 bg-[#D1FE6E] text-black rounded-2xl font-medium hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-[1.02] text-sm md:text-base"
+                  style={{ boxShadow: '0 4px 20px rgba(209, 254, 110, 0.3)' }}
+                >
+                  Começar agora
+                </button>
               </div>
             </div>
-
-            {false && (
-            <div 
-              data-reveal="pricing-pro"
-              className={`group relative card-reveal scroll-reveal-delay-100 ${
-                isAnimated('pricing-pro') ? 'revealed' : ''
-              }`}
-            >
-              {/* Popular Badge */}
-              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 z-20">
-                <div className={`px-4 py-2 rounded-full text-xs font-medium ${
-                  isDarkMode 
-                    ? 'bg-gray-800 text-white' 
-                    : 'bg-gray-100 text-gray-800'
-                }`}>
-                  POPULAR
-                </div>
-              </div>
-
-              <div 
-                className="h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col relative overflow-hidden"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.05) 100%)',
-                  border: '2px solid rgba(209, 254, 110, 0.3)',
-                  backdropFilter: 'blur(20px)',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-                }}
-              >
-                {/* Enhanced gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-br from-[#D1FE6E]/10 to-transparent opacity-60"></div>
-                
-                {/* Icon */}
-                <div className="relative z-10 mb-6">
-                  <div 
-                    className="w-16 h-16 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-2xl flex items-center justify-center shadow-2xl"
-                    style={{
-                      boxShadow: '0 8px 32px rgba(209, 254, 110, 0.3)'
-                    }}
-                  >
-                    <svg className="w-8 h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0V6a2 2 0 012 2v6a2 2 0 01-2 2H8a2 2 0 01-2-2V8a2 2 0 012-2h4a2 2 0 012 2v2m-8 0v2a2 2 0 002 2h4a2 2 0 002-2v-2" />
-                    </svg>
-                  </div>
-                </div>
-
-                {/* Plan Info */}
-                <div className="relative z-10 flex-grow">
-                  <div className="mb-4">
-                    <span className="inline-block px-3 py-1 bg-[#D1FE6E]/20 text-[#D1FE6E] text-xs font-medium rounded-full mb-3">
-                      Plano completo para equipes
-                    </span>
-                    <h3 className="text-2xl font-light text-white mb-2">Pro</h3>
-                    <p className="text-white/70 text-sm mb-6">5 usuários, 5 técnicos e muito mais</p>
-                  </div>
-
-                  {/* Price */}
-                  <div className="mb-8">
-                    <div className="flex items-baseline">
-                      <span className="text-4xl font-light text-white">R$ 2,00</span>
-                      <span className="text-white/60 text-sm ml-2">/mês</span>
-                    </div>
-                  </div>
-
-                  {/* Features */}
-                  <div className="space-y-4 mb-8">
-                    <div className="flex items-center">
-                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
-                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <span className="text-white/80 text-sm">Controle financeiro</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
-                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <span className="text-white/80 text-sm">Comissão por técnico</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
-                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <span className="text-white/80 text-sm">Emissão de nota fiscal</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
-                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <span className="text-white/80 text-sm">Controle de permissões</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
-                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <span className="text-white/80 text-sm">Controle de estoque detalhado</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
-                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <span className="text-white/80 text-sm">Gestão de equipe por permissões</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* CTA Button */}
-                <div className="relative z-10 mt-auto">
-                  <button 
-                    onClick={() => router.push('/cadastro')}
-                    className="w-full py-4 bg-[#D1FE6E] text-black rounded-2xl font-medium hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105"
-                    style={{
-                      boxShadow: '0 4px 20px rgba(209, 254, 110, 0.3)'
-                    }}
-                  >
-                    Escolher Pro
-                  </button>
-                </div>
-              </div>
-            </div>
-            )}
-
-            {false && (
-            <div 
-              data-reveal="pricing-advanced"
-              className={`group relative card-reveal scroll-reveal-delay-200 ${
-                isAnimated('pricing-advanced') ? 'revealed' : ''
-              }`}
-            >
-              <div 
-                className="h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col relative overflow-hidden"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  backdropFilter: 'blur(20px)',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-                }}
-              >
-                {/* Subtle gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-br from-[#D1FE6E]/5 to-transparent opacity-50"></div>
-                
-                {/* Icon */}
-                <div className="relative z-10 mb-6">
-                  <div 
-                    className="w-16 h-16 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-2xl flex items-center justify-center shadow-2xl"
-                    style={{
-                      boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)'
-                    }}
-                  >
-                    <svg className="w-8 h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                  </div>
-                </div>
-
-                {/* Plan Info */}
-                <div className="relative z-10 flex-grow">
-                  <div className="mb-4">
-                    <span className="inline-block px-3 py-1 bg-[#D1FE6E]/20 text-[#D1FE6E] text-xs font-medium rounded-full mb-3">
-                      Experiência completa + automações
-                    </span>
-                    <h3 className="text-2xl font-light text-white mb-2">Avançado</h3>
-                    <p className="text-white/70 text-sm mb-6">10 usuários, 10 técnicos, app e automações</p>
-                  </div>
-
-                  {/* Price */}
-                  <div className="mb-8">
-                    <div className="flex items-baseline">
-                      <span className="text-4xl font-light text-white">R$ 3,00</span>
-                      <span className="text-white/60 text-sm ml-2">/mês</span>
-                    </div>
-                  </div>
-
-                  {/* Features */}
-                  <div className="space-y-4 mb-8">
-                    <div className="flex items-center">
-                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
-                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <span className="text-white/80 text-sm">Kanban para OS</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
-                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <span className="text-white/80 text-sm">App do técnico com notificações</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
-                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <span className="text-white/80 text-sm">Integração WhatsApp</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
-                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <span className="text-white/80 text-sm">Dashboard de performance</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3">
-                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <span className="text-white/80 text-sm">Geração de relatórios personalizados</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* CTA Button */}
-                <div className="relative z-10 mt-auto">
-                  <button 
-                    onClick={() => router.push('/cadastro')}
-                    className="w-full py-4 bg-[#D1FE6E] text-black rounded-2xl font-medium hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105"
-                    style={{
-                      boxShadow: '0 4px 20px rgba(209, 254, 110, 0.3)'
-                    }}
-                  >
-                    Escolher Avançado
-                  </button>
-                </div>
-              </div>
-            </div>
-            )}
           </div>
 
           {/* Additional Info */}
@@ -1610,9 +1163,8 @@ export default function Home() {
               isAnimated('pricing-info') ? 'revealed' : ''
             }`}
           >
-            <p className="text-white/60 text-sm max-w-2xl mx-auto">
-              Todos os planos incluem suporte por email e chat. Cancelamento a qualquer momento. 
-              Teste grátis por 14 dias em todos os planos.
+            <p className={`text-sm max-w-2xl mx-auto ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>
+              Suporte por email e chat. Cancelamento a qualquer momento.
             </p>
           </div>
         </div>
@@ -1621,11 +1173,17 @@ export default function Home() {
       {/* CTA Section */}
       <div className="relative z-10 px-8 py-32 lg:px-12">
         <div className="mx-auto max-w-5xl text-center">
-          <div className="bg-white/5 backdrop-blur-sm rounded-3xl p-16 border border-white/10">
-            <h2 className="text-6xl md:text-7xl font-light text-white mb-8 leading-none tracking-tight">
+          <div className={`backdrop-blur-sm rounded-3xl p-16 border ${
+            isDarkMode ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-gray-200 shadow-lg'
+          }`}>
+            <h2 className={`text-6xl md:text-7xl font-light mb-8 leading-none tracking-tight ${
+              isDarkMode ? 'text-white' : 'text-gray-900'
+            }`}>
               Pronto para transformar sua assistência?
             </h2>
-            <p className="text-white/70 text-xl md:text-2xl mb-12 leading-relaxed font-light max-w-4xl mx-auto">
+            <p className={`text-xl md:text-2xl mb-12 leading-relaxed font-light max-w-4xl mx-auto ${
+              isDarkMode ? 'text-white/70' : 'text-gray-600'
+            }`}>
               Junte-se a centenas de assistências que já confiam no Consert para 
               gerenciar seus negócios de forma mais eficiente e lucrativa!
             </p>
@@ -1652,7 +1210,9 @@ export default function Home() {
       </div>
 
       {/* Footer - Novo Design */}
-      <footer className="relative z-10 px-8 py-16 lg:px-12 border-t border-white/10 bg-gradient-to-b from-transparent to-black/30 backdrop-blur-sm">
+      <footer className={`relative z-10 px-8 py-16 lg:px-12 border-t backdrop-blur-sm ${
+        isDarkMode ? 'border-white/10 bg-gradient-to-b from-transparent to-black/30' : 'border-gray-200 bg-gray-50'
+      }`}>
         <div className="mx-auto max-w-7xl">
           {/* Grid de 4 colunas */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
@@ -1665,28 +1225,28 @@ export default function Home() {
                 height={180}
                 className="transition-all duration-500 ease-out hover:scale-105 hover:brightness-110 mb-6"
               />
-              <p className="text-white/60 text-sm leading-relaxed mt-4 max-w-xs">
+              <p className={`text-sm leading-relaxed mt-4 max-w-xs ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
                 Sistema completo para gestão de assistências técnicas. Simplifique processos, aumente a produtividade e encante seus clientes.
               </p>
               
               {/* Redes Sociais */}
               <div className="flex space-x-4 mt-6">
-                <a href="#" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-[#D1FE6E] hover:text-black transition-all duration-300">
+                <a href="#" className={`w-10 h-10 rounded-full flex items-center justify-center hover:bg-[#D1FE6E] hover:text-black transition-all duration-300 ${isDarkMode ? 'bg-white/10 text-white' : 'bg-gray-200 text-gray-700'}`}>
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path fillRule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" clipRule="evenodd" />
                   </svg>
                 </a>
-                <a href="#" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-[#D1FE6E] hover:text-black transition-all duration-300">
+                <a href="#" className={`w-10 h-10 rounded-full flex items-center justify-center hover:bg-[#D1FE6E] hover:text-black transition-all duration-300 ${isDarkMode ? 'bg-white/10 text-white' : 'bg-gray-200 text-gray-700'}`}>
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84" />
                   </svg>
                 </a>
-                <a href="#" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-[#D1FE6E] hover:text-black transition-all duration-300">
+                <a href="#" className={`w-10 h-10 rounded-full flex items-center justify-center hover:bg-[#D1FE6E] hover:text-black transition-all duration-300 ${isDarkMode ? 'bg-white/10 text-white' : 'bg-gray-200 text-gray-700'}`}>
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path fillRule="evenodd" d="M12.315 2c2.43 0 2.784.013 3.808.06 1.064.049 1.791.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.636.416 1.363.465 2.427.048 1.067.06 1.407.06 4.123v.08c0 2.643-.012 2.987-.06 4.043-.049 1.064-.218 1.791-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.636.247-1.363.416-2.427.465-1.067.048-1.407.06-4.123.06h-.08c-2.643 0-2.987-.012-4.043-.06-1.064-.049-1.791-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.636-.416-1.363-.465-2.427-.047-1.024-.06-1.379-.06-3.808v-.63c0-2.43.013-2.784.06-3.808.049-1.064.218-1.791.465-2.427a4.902 4.902 0 011.153-1.772A4.902 4.902 0 015.45 2.525c.636-.247 1.363-.416 2.427-.465C8.901 2.013 9.256 2 11.685 2h.63zm-.081 1.802h-.468c-2.456 0-2.784.011-3.807.058-.975.045-1.504.207-1.857.344-.467.182-.8.398-1.15.748-.35.35-.566.683-.748 1.15-.137.353-.3.882-.344 1.857-.047 1.023-.058 1.351-.058 3.807v.468c0 2.456.011 2.784.058 3.807.045.975.207 1.504.344 1.857.182.466.399.8.748 1.15.35.35.683.566 1.15.748.353.137.882.3 1.857.344 1.054.048 1.37.058 4.041.058h.08c2.597 0 2.917-.01 3.96-.058.976-.045 1.505-.207 1.858-.344.466-.182.8-.398 1.15-.748.35-.35.566-.683.748-1.15.137-.353.3-.882.344-1.857.048-1.055.058-1.37.058-4.041v-.08c0-2.597-.01-2.917-.058-3.96-.045-.976-.207-1.505-.344-1.858a3.097 3.097 0 00-.748-1.15 3.098 3.098 0 00-1.15-.748c-.353-.137-.882-.3-1.857-.344-1.023-.047-1.351-.058-3.807-.058zM12 6.865a5.135 5.135 0 110 10.27 5.135 5.135 0 010-10.27zm0 1.802a3.333 3.333 0 100 6.666 3.333 3.333 0 000-6.666zm5.338-3.205a1.2 1.2 0 110 2.4 1.2 1.2 0 010-2.4z" clipRule="evenodd" />
                   </svg>
                 </a>
-                <a href="#" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-[#D1FE6E] hover:text-black transition-all duration-300">
+                <a href="#" className={`w-10 h-10 rounded-full flex items-center justify-center hover:bg-[#D1FE6E] hover:text-black transition-all duration-300 ${isDarkMode ? 'bg-white/10 text-white' : 'bg-gray-200 text-gray-700'}`}>
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path fillRule="evenodd" d="M19.812 5.418c.861.23 1.538.907 1.768 1.768C21.998 8.746 22 12 22 12s0 3.255-.418 4.814a2.504 2.504 0 0 1-1.768 1.768c-1.56.419-7.814.419-7.814.419s-6.255 0-7.814-.419a2.505 2.505 0 0 1-1.768-1.768C2 15.255 2 12 2 12s0-3.255.417-4.814a2.507 2.507 0 0 1 1.768-1.768C5.744 5 11.998 5 11.998 5s6.255 0 7.814.418ZM15.194 12 10 15V9l5.194 3Z" clipRule="evenodd" />
                   </svg>
@@ -1696,10 +1256,10 @@ export default function Home() {
             
             {/* Coluna 2 - Links Rápidos */}
             <div>
-              <h3 className="text-white font-medium text-lg mb-6">Links Rápidos</h3>
+              <h3 className={`font-medium text-lg mb-6 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Links Rápidos</h3>
               <ul className="space-y-4">
                 <li>
-                  <Link href="#recursos" className={`hover:text-[#D1FE6E] transition-colors duration-300 flex items-center ${
+                  <Link href="#recursos" className={`hover:text-[#B8E55A] transition-colors duration-300 flex items-center ${
                     isDarkMode ? 'text-white/70' : 'text-gray-600'
                   }`}>
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1709,7 +1269,7 @@ export default function Home() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="#planos" className="text-white/70 hover:text-[#D1FE6E] transition-colors duration-300 flex items-center">
+                  <Link href="#planos" className={`${isDarkMode ? 'text-white/70' : 'text-gray-600'} hover:text-[#B8E55A] transition-colors duration-300 flex items-center`}>
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                     </svg>
@@ -1717,7 +1277,7 @@ export default function Home() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="#depoimentos" className="text-white/70 hover:text-[#D1FE6E] transition-colors duration-300 flex items-center">
+                  <Link href="#depoimentos" className={`${isDarkMode ? 'text-white/70' : 'text-gray-600'} hover:text-[#B8E55A] transition-colors duration-300 flex items-center`}>
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                     </svg>
@@ -1725,7 +1285,7 @@ export default function Home() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="#faq" className="text-white/70 hover:text-[#D1FE6E] transition-colors duration-300 flex items-center">
+                  <Link href="#faq" className={`${isDarkMode ? 'text-white/70' : 'text-gray-600'} hover:text-[#B8E55A] transition-colors duration-300 flex items-center`}>
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                     </svg>
@@ -1733,7 +1293,7 @@ export default function Home() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="#blog" className="text-white/70 hover:text-[#D1FE6E] transition-colors duration-300 flex items-center">
+                  <Link href="#blog" className={`${isDarkMode ? 'text-white/70' : 'text-gray-600'} hover:text-[#B8E55A] transition-colors duration-300 flex items-center`}>
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                     </svg>
@@ -1745,10 +1305,10 @@ export default function Home() {
             
             {/* Coluna 3 - Legal */}
             <div>
-              <h3 className="text-white font-medium text-lg mb-6">Legal</h3>
+              <h3 className={`font-medium text-lg mb-6 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Legal</h3>
               <ul className="space-y-4">
                 <li>
-                  <Link href="/termos" className="text-white/70 hover:text-[#D1FE6E] transition-colors duration-300 flex items-center">
+                  <Link href="/termos" className={`${isDarkMode ? 'text-white/70' : 'text-gray-600'} hover:text-[#B8E55A] transition-colors duration-300 flex items-center`}>
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                     </svg>
@@ -1756,7 +1316,7 @@ export default function Home() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/politicas-privacidade" className="text-white/70 hover:text-[#D1FE6E] transition-colors duration-300 flex items-center">
+                  <Link href="/politicas-privacidade" className={`${isDarkMode ? 'text-white/70' : 'text-gray-600'} hover:text-[#B8E55A] transition-colors duration-300 flex items-center`}>
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                     </svg>
@@ -1764,7 +1324,7 @@ export default function Home() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/sobre" className="text-white/70 hover:text-[#D1FE6E] transition-colors duration-300 flex items-center">
+                  <Link href="/sobre" className={`${isDarkMode ? 'text-white/70' : 'text-gray-600'} hover:text-[#B8E55A] transition-colors duration-300 flex items-center`}>
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                     </svg>
@@ -1772,7 +1332,7 @@ export default function Home() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="#cookies" className="text-white/70 hover:text-[#D1FE6E] transition-colors duration-300 flex items-center">
+                  <Link href="#cookies" className={`${isDarkMode ? 'text-white/70' : 'text-gray-600'} hover:text-[#B8E55A] transition-colors duration-300 flex items-center`}>
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                     </svg>
@@ -1780,7 +1340,7 @@ export default function Home() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="#lgpd" className="text-white/70 hover:text-[#D1FE6E] transition-colors duration-300 flex items-center">
+                  <Link href="#lgpd" className={`${isDarkMode ? 'text-white/70' : 'text-gray-600'} hover:text-[#B8E55A] transition-colors duration-300 flex items-center`}>
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                     </svg>
@@ -1792,32 +1352,32 @@ export default function Home() {
             
             {/* Coluna 4 - Contato */}
             <div>
-              <h3 className="text-white font-medium text-lg mb-6">Contato</h3>
+              <h3 className={`font-medium text-lg mb-6 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Contato</h3>
               <ul className="space-y-4">
                 <li className="flex items-start">
-                  <svg className="w-5 h-5 text-[#D1FE6E] mr-3 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-[#B8E55A] mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                   </svg>
-                  <span className="text-white/70">(11) 4002-8922</span>
+                  <span className={isDarkMode ? 'text-white/70' : 'text-gray-600'}>(11) 4002-8922</span>
                 </li>
                 <li className="flex items-start">
-                  <svg className="w-5 h-5 text-[#D1FE6E] mr-3 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-[#B8E55A] mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
-                  <span className="text-white/70">contato@consert.com.br</span>
+                  <span className={isDarkMode ? 'text-white/70' : 'text-gray-600'}>contato@consert.com.br</span>
                 </li>
                 <li className="flex items-start">
-                  <svg className="w-5 h-5 text-[#D1FE6E] mr-3 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-[#B8E55A] mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
-                  <span className="text-white/70">Av. Paulista, 1000<br />São Paulo, SP</span>
+                  <span className={isDarkMode ? 'text-white/70' : 'text-gray-600'}>Av. Paulista, 1000<br />São Paulo, SP</span>
                 </li>
               </ul>
               
               {/* Newsletter */}
               <div className="mt-8">
-                <h4 className="text-white text-sm font-medium mb-3">Assine nossa newsletter</h4>
+                <h4 className={`text-sm font-medium mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Assine nossa newsletter</h4>
                 <div className="flex">
                   <input 
                     type="email" 
@@ -1839,22 +1399,22 @@ export default function Home() {
           </div>
           
           {/* Linha divisória */}
-          <div className="border-t border-white/10 pt-8 pb-4">
+          <div className={`border-t pt-8 pb-4 ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`}>
             <div className="flex flex-col md:flex-row justify-between items-center">
-              <p className="text-white/50 text-sm font-light mb-4 md:mb-0">
+              <p className={`text-sm font-light mb-4 md:mb-0 ${isDarkMode ? 'text-white/50' : 'text-gray-500'}`}>
                  © 2024 CONSERT. Todos os direitos reservados.
                </p>
               
               <div className="flex items-center space-x-6">
-                <Link href="/termos" className="text-white/50 hover:text-white text-sm transition-colors duration-300">Termos</Link>
-                <Link href="/politicas-privacidade" className="text-white/50 hover:text-white text-sm transition-colors duration-300">Privacidade</Link>
-                <Link href="/sobre" className="text-white/50 hover:text-white text-sm transition-colors duration-300">Sobre</Link>
+                <Link href="/termos" className={`text-sm transition-colors duration-300 ${isDarkMode ? 'text-white/50 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}>Termos</Link>
+                <Link href="/politicas-privacidade" className={`text-sm transition-colors duration-300 ${isDarkMode ? 'text-white/50 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}>Privacidade</Link>
+                <Link href="/sobre" className={`text-sm transition-colors duration-300 ${isDarkMode ? 'text-white/50 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}>Sobre</Link>
               </div>
             </div>
             
             <div className="mt-6 text-center">
-              <p className="text-white/40 text-xs">
-                 <span className="text-[#D1FE6E]">CONSERT</span> - Transformando assistências técnicas em negócios de sucesso desde 2022.
+              <p className={`text-xs ${isDarkMode ? 'text-white/40' : 'text-gray-500'}`}>
+                 <span className="text-[#B8E55A]">CONSERT</span> - Transformando assistências técnicas em negócios de sucesso desde 2022.
                </p>
             </div>
           </div>

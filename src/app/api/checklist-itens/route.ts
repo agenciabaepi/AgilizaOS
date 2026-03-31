@@ -56,9 +56,11 @@ export async function GET(request: NextRequest) {
       query = query.eq('categoria', categoria);
     }
 
-    // ✅ NOVO: Filtrar por categoria de equipamento
-    if (equipamentoCategoria && equipamentoCategoria !== '') {
-      query = query.eq('equipamento_categoria', equipamentoCategoria);
+    // ✅ Filtrar por categoria de equipamento (case-insensitive: TELEVISÃO = Televisão)
+    if (equipamentoCategoria && equipamentoCategoria.trim() !== '') {
+      const valor = equipamentoCategoria.trim();
+      const pattern = valor.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+      query = query.ilike('equipamento_categoria', pattern);
     }
 
     console.log('🔍 Executando query...');

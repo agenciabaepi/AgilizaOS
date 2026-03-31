@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabaseClient';
 import { sendOSApprovedNotification, sendOSStatusNotification } from '@/lib/whatsapp-notifications';
+import { sendPushToTecnico, buildNovaOSPushMessage } from '@/lib/push-notification-tecnico';
 
 // Função auxiliar para normalizar status
 function normalizeStatus(status: string): string {
@@ -11,6 +12,55 @@ function normalizeStatus(status: string): string {
 function isStatusTecnicoFinal(status: string): boolean {
   const normalized = normalizeStatus(status);
   return normalized === 'REPARO CONCLUÍDO' || normalized === 'REPARO CONCLUIDO';
+}
+
+function isStatusSemReparo(status: string): boolean {
+  const normalized = normalizeStatus(status)
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return normalized === 'SEM REPARO' || normalized === 'SEMREPARO';
+}
+
+/** Mapeia status do técnico para status da O.S. (espelhamento técnico → atendente) */
+function mapTecnicoParaOS(statusTec: string): string {
+  const n = (normalizeStatus(statusTec) || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/_/g, ' ');
+  if (/AGUARDANDO\s*INICIO/.test(n)) return 'ORÇAMENTO';
+  if (/EM\s*ANALISE|EM_ANALISE/.test(n)) return 'EM_ANALISE';
+  if (/ORCAMENTO\s*CONCLUIDO/.test(n)) return 'ORÇAMENTO CONCLUÍDO';
+  if (/AGUARDANDO\s*PECA|AGUARDANDO_PECA/.test(n)) return 'AGUARDANDO PEÇA';
+  if (/EM\s*EXECUCAO|EM_EXECUCAO/.test(n)) return 'APROVADO';
+  if (/REPARO\s*CONCLUIDO|CONCLUIDO/.test(n)) return 'CONCLUIDO';
+  if (/SEM\s*REPARO|SEM_REPARO/.test(n)) return 'SEM REPARO';
+  if (/APROVADO|AGUARDANDO\s*APROVACAO|AGUARDANDO\s*RETIRADA|CLIENTE\s*RECUSOU/.test(n)) return (statusTec || '').trim();
+  return (statusTec || '').trim() || '';
+}
+
+/** Mapeia status da O.S. para status do técnico (espelhamento atendente → técnico) */
+function mapOSTecnico(statusOS: string): string {
+  const n = (normalizeStatus(statusOS) || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/_/g, ' ');
+  if (/(^| )ORCAMENTO($| )/.test(n) && !/CONCLUIDO/.test(n)) return 'AGUARDANDO INÍCIO';
+  if (/EM\s*ANALISE|EM_ANALISE/.test(n)) return 'EM ANÁLISE';
+  if (/ORCAMENTO\s*CONCLUIDO/.test(n)) return 'ORÇAMENTO CONCLUÍDO';
+  if (/AGUARDANDO\s*PECA|AGUARDANDO_PECA/.test(n)) return 'AGUARDANDO PEÇA';
+  if (/APROVADO|EM\s*EXECUCAO/.test(n)) return 'APROVADO';
+  if (/CONCLUIDO|REPARO/.test(n) && !/SEM/.test(n)) return 'REPARO CONCLUÍDO';
+  if (/SEM\s*REPARO|SEM_REPARO/.test(n)) return 'SEM REPARO';
+  if (/ENTREGUE/.test(n)) return 'REPARO CONCLUÍDO';
+  if (/AGUARDANDO\s*APROVACAO|AGUARDANDO\s*RETIRADA|CLIENTE\s*RECUSOU/.test(n)) return (statusOS || '').trim();
+  return (statusOS || '').trim() || '';
+}
+
+function extractStatusText(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'object' && value !== null && 'nome' in value) {
+    const nome = (value as { nome?: unknown }).nome;
+    return typeof nome === 'string' ? nome.trim() : '';
+  }
+  return String(value).trim();
 }
 
 function extractMissingColumn(message: string): string | null {
@@ -182,20 +232,53 @@ export async function POST(request: NextRequest) {
       console.log('📅 Data de entrega definida automaticamente:', dataStr);
     }
 
-    // Sempre aplicar status e status_tecnico quando enviados (garantir que o salvamento não seja ignorado)
-    if (body.newStatus !== undefined) {
-      dadosAtualizacao.status = body.newStatus;
-    } else if (newStatus) {
-      dadosAtualizacao.status = newStatus;
+    // ========== ESPELHAMENTO BIDIRECIONAL ==========
+    // Regra: técnico seleciona status → espelha na O.S. | atendente seleciona status → espelha no técnico
+    // Exceção: SEM REPARO do técnico fica FIXO (mesmo ao entregar, não vira REPARO CONCLUÍDO)
+    const osAnteriorStatus = extractStatusText((osAnterior as any).status);
+    const osAnteriorStatusTecnico = extractStatusText((osAnterior as any).status_tecnico);
+    const novoStatusRaw = body.newStatus !== undefined ? String(body.newStatus).trim() : (newStatus ? String(newStatus).trim() : '');
+    const novoStatusTecnicoRaw = body.newStatusTecnico !== undefined ? String(body.newStatusTecnico).trim() : (newStatusTecnico ? String(newStatusTecnico).trim() : '');
+
+    const tecnicoAlterou = !!novoStatusTecnicoRaw && novoStatusTecnicoRaw !== osAnteriorStatusTecnico;
+    const atendenteAlterou = !!novoStatusRaw && novoStatusRaw !== osAnteriorStatus;
+
+    // Técnico alterou → espelhar para O.S.
+    if (tecnicoAlterou) {
+      dadosAtualizacao.status_tecnico = novoStatusTecnicoRaw;
+      dadosAtualizacao.status = mapTecnicoParaOS(novoStatusTecnicoRaw) || novoStatusRaw || osAnteriorStatus;
     }
-    if (body.newStatusTecnico !== undefined) {
-      dadosAtualizacao.status_tecnico = String(body.newStatusTecnico).trim() || '';
-    } else if (newStatusTecnico) {
-      dadosAtualizacao.status_tecnico = String(newStatusTecnico).trim() || '';
+    // Atendente alterou → espelhar para técnico (exceto se técnico tinha SEM REPARO)
+    else if (atendenteAlterou) {
+      dadosAtualizacao.status = novoStatusRaw;
+      if (isStatusSemReparo(osAnteriorStatusTecnico)) {
+        dadosAtualizacao.status_tecnico = 'SEM REPARO'; // FIXO: não sobrescreve
+      } else {
+        dadosAtualizacao.status_tecnico = mapOSTecnico(novoStatusRaw) || novoStatusTecnicoRaw || osAnteriorStatusTecnico;
+      }
+    }
+    // Apenas updateData (ex.: bancada com outros campos) – aplicar espelhamento do que veio
+    else if (novoStatusTecnicoRaw) {
+      dadosAtualizacao.status_tecnico = novoStatusTecnicoRaw;
+      dadosAtualizacao.status = mapTecnicoParaOS(novoStatusTecnicoRaw) || dadosAtualizacao.status || osAnteriorStatus;
+    } else if (novoStatusRaw) {
+      dadosAtualizacao.status = novoStatusRaw;
+      dadosAtualizacao.status_tecnico = isStatusSemReparo(osAnteriorStatusTecnico) ? 'SEM REPARO' : (mapOSTecnico(novoStatusRaw) || osAnteriorStatusTecnico);
+    }
+
+    // Exceção SEM REPARO: ao entregar (ENTREGUE), status_tecnico permanece SEM REPARO se já era
+    const statusFinal = normalizeStatus(String(dadosAtualizacao.status || ''));
+    if (statusFinal === 'ENTREGUE' && isStatusSemReparo(osAnteriorStatusTecnico)) {
+      dadosAtualizacao.status_tecnico = 'SEM REPARO';
+    }
+    // Persistir cliente_recusou para que essa OS não entre em comissões (gerar-pendentes, listas)
+    if (cliente_recusou === true) {
+      dadosAtualizacao.cliente_recusou = true;
     }
 
     // Atualizar a OS usando o ID UUID (com fallback para colunas opcionais ausentes)
     let payloadAtualizacao: Record<string, any> = { ...dadosAtualizacao };
+
     let ordemAtualizada: any = null;
     let updateError: any = null;
     for (let attempt = 0; attempt < 4; attempt++) {
@@ -225,6 +308,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Garantia: se status_tecnico é SEM REPARO e status não é ENTREGUE, espelhar SEM REPARO na OS
+    const statusTecnicoPersistido = extractStatusText(ordemAtualizada?.status_tecnico);
+    const statusOSPersistido = (normalizeStatus(extractStatusText(ordemAtualizada?.status)) || '').replace(/_/g, ' ').trim();
+    if (isStatusSemReparo(statusTecnicoPersistido) && statusOSPersistido !== 'SEM REPARO' && statusOSPersistido !== 'ENTREGUE') {
+      const { data: corrigida } = await supabase
+        .from('ordens_servico')
+        .update({ status: 'SEM REPARO', updated_at: new Date().toISOString() })
+        .eq('id', osAnterior.id)
+        .select()
+        .single();
+      if (corrigida) ordemAtualizada = corrigida;
+    }
+
+    // Enviar push ao técnico quando ele é atribuído ou alterado na O.S.
+    const novoTecnicoId = ordemAtualizada?.tecnico_id ?? null;
+    const tecnicoAnteriorId = (osAnterior as any)?.tecnico_id ?? null;
+    if (novoTecnicoId && novoTecnicoId !== tecnicoAnteriorId) {
+      try {
+        const osParaMensagem = { ...(osAnterior as any), ...ordemAtualizada };
+        const { title, body } = buildNovaOSPushMessage(osParaMensagem);
+        const { sent } = await sendPushToTecnico(supabase, novoTecnicoId, {
+          title,
+          body,
+          data: { os_id: osAnterior.id },
+        });
+        if (sent > 0) {
+          console.log('✅ Push enviada ao técnico (atribuição/alteracao), O.S.', osAnterior.id, 'dispositivos:', sent);
+        }
+      } catch (pushError) {
+        console.warn('⚠️ Erro ao enviar push ao técnico (não crítico):', pushError);
+      }
+    }
+
     // Registrar histórico de mudança de status em tabela dedicada, se houver mudança
     const statusNovoParaHistorico = dadosAtualizacao.status ?? osAnterior.status;
     const statusTecnicoNovoParaHistorico = dadosAtualizacao.status_tecnico ?? osAnterior.status_tecnico;
@@ -252,6 +368,8 @@ export async function POST(request: NextRequest) {
     }
 
     // ✅ REGISTRAR COMISSÃO SE A OS FOI CONCLUÍDA E CLIENTE NÃO RECUSOU
+    let comissaoRegistrada = false;
+    let comissaoErro: string | null = null;
     // Buscar OS atualizada para verificar status final
     const { data: osAtualizada } = await supabase
       .from('ordens_servico')
@@ -292,6 +410,25 @@ export async function POST(request: NextRequest) {
         
         if (comissaoExistente) {
           console.log('⚠️ Comissão já existe para esta OS');
+          // Notificar só se a OS acabou de ser finalizada nesta requisição (evita duplicata ao reabrir/editar)
+          const statusEraFinalAntes = normalizeStatus(String((osAnterior as any).status || '')) === 'ENTREGUE' ||
+            isStatusTecnicoFinal(String((osAnterior as any).status_tecnico || ''));
+          if (!statusEraFinalAntes) {
+            const tecnicoIdNotif = osAtualizada?.tecnico_id || (osAnterior as any)?.tecnico_id;
+            if (tecnicoIdNotif) {
+              try {
+                const numeroOs = osAtualizada?.numero_os ?? (osAnterior as any)?.numero_os ?? osAnterior?.id ?? '';
+                const { sent } = await sendPushToTecnico(supabase, tecnicoIdNotif, {
+                  title: `✅ O.S. #${numeroOs} entregue e faturada`,
+                  body: 'Sua comissão já foi calculada 🤑💰',
+                  data: { os_id: osAnterior.id },
+                });
+                if (sent > 0) console.log('✅ Push "entregue e faturada" enviada (comissão já existia), O.S.', osAnterior.id);
+              } catch (e) {
+                console.warn('⚠️ Erro push comissão (comissão existente):', e);
+              }
+            }
+          }
         } else {
           // Buscar dados do técnico
           // IMPORTANTE: tecnico_id na OS pode ser o auth_user_id, não o id da tabela usuarios
@@ -393,19 +530,23 @@ export async function POST(request: NextRequest) {
               }
             }
             
-            // Calcular valor da comissão
-            const valorFaturado = osAtualizada.valor_faturado || 0;
+            // Calcular valor da comissão (usar valor_servico se valor_faturado for 0)
+            const valorFaturado = osAtualizada.valor_faturado ?? 0;
+            const valorServico = osAtualizada.valor_servico ?? 0;
+            const valorBase = valorFaturado > 0 ? valorFaturado : valorServico;
             let valorComissaoCalculado = 0;
             if (tipoComissao === 'fixo') {
               valorComissaoCalculado = valorComissao;
             } else {
-              valorComissaoCalculado = valorFaturado * valorComissao / 100;
+              valorComissaoCalculado = valorBase * valorComissao / 100;
             }
             
             console.log('💰 CÁLCULO DA COMISSÃO:', {
               tipoComissao,
               valorComissao,
               valorFaturado,
+              valorServico,
+              valorBase,
               valorComissaoCalculado
             });
             
@@ -418,9 +559,9 @@ export async function POST(request: NextRequest) {
               ordem_servico_id: osAnterior.id,
               empresa_id: osAtualizada.empresa_id || osAnterior.empresa_id,
               cliente_id: osAtualizada.cliente_id || osAnterior.cliente_id,
-              valor_servico: osAtualizada.valor_servico || 0,
-              valor_peca: osAtualizada.valor_peca || 0,
-              valor_total: valorFaturado,
+              valor_servico: valorServico,
+              valor_peca: osAtualizada.valor_peca ?? 0,
+              valor_total: valorBase,
               tipo_comissao: tipoComissao,
               valor_comissao: valorComissaoCalculado,
               data_entrega: osAtualizada.data_entrega,
@@ -447,6 +588,7 @@ export async function POST(request: NextRequest) {
               .select();
             
             if (comissaoError) {
+              comissaoErro = comissaoError.message || 'Erro ao inserir comissão no banco';
               console.error('❌ ERRO AO REGISTRAR COMISSÃO:', {
                 error: comissaoError,
                 message: comissaoError.message,
@@ -455,16 +597,32 @@ export async function POST(request: NextRequest) {
                 hint: comissaoError.hint
               });
             } else {
+              comissaoRegistrada = true;
               console.log('✅✅✅ COMISSÃO REGISTRADA COM SUCESSO!', {
                 id: comissaoInserida?.[0]?.id,
                 valor: valorComissaoCalculado,
                 tipo: tipoComissao
               });
+              // Notificar técnico: O.S. entregue e faturada, comissão calculada
+              try {
+                const numeroOs = osAtualizada?.numero_os ?? osAnterior?.numero_os ?? osAnterior?.id ?? '';
+                const { sent } = await sendPushToTecnico(supabase, tecnicoIdParaBuscar, {
+                  title: `✅ O.S. #${numeroOs} entregue e faturada`,
+                  body: 'Sua comissão já foi calculada 🤑💰',
+                  data: { os_id: osAnterior.id },
+                });
+                if (sent > 0) {
+                  console.log('✅ Push "entregue e faturada" enviada ao técnico, O.S.', osAnterior.id);
+                }
+              } catch (pushError) {
+                console.warn('⚠️ Erro ao enviar push de comissão ao técnico (não crítico):', pushError);
+              }
             }
           }
         }
-      } catch (comissaoError) {
-        console.error('❌ ERRO GERAL AO PROCESSAR COMISSÃO:', comissaoError);
+      } catch (comissaoErr: any) {
+        comissaoErro = comissaoErr?.message || 'Erro ao processar comissão';
+        console.error('❌ ERRO GERAL AO PROCESSAR COMISSÃO:', comissaoErr);
         // Não falha a atualização da OS por causa da comissão
       }
     } else {
@@ -656,7 +814,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: ordemAtualizada,
-      message: 'OS atualizada com sucesso'
+      message: 'OS atualizada com sucesso',
+      comissaoRegistrada: comissaoRegistrada || undefined,
+      comissaoErro: comissaoErro || undefined
     });
 
   } catch (error: any) {

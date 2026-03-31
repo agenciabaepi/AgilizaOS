@@ -1356,8 +1356,8 @@ export default function ListaOrdensPage() {
                   className="w-48"
                 >
                   <option value="">Todos os Técnicos</option>
-                  {tecnicos.map(tecnico => (
-                    <option key={tecnico} value={tecnico}>{tecnico}</option>
+                  {tecnicos.map((tecnico, index) => (
+                    <option key={`tecnico-${index}-${tecnico}`} value={tecnico}>{tecnico}</option>
                   ))}
                 </Select>
 

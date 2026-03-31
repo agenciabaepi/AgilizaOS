@@ -154,9 +154,30 @@ export interface AsaasPaymentsResponse {
   data: AsaasPayment[];
 }
 
+/** Parâmetros para listar cobranças */
+export interface ListPaymentsParams {
+  offset?: number;
+  limit?: number;
+  status?: string;
+  customer?: string;
+  billingType?: string;
+}
+
+/** Listar cobranças (diretamente da API Asaas) */
+export async function listPayments(params: ListPaymentsParams = {}): Promise<AsaasPaymentsResponse> {
+  const search = new URLSearchParams();
+  if (params.offset != null) search.set('offset', String(params.offset));
+  if (params.limit != null) search.set('limit', String(Math.min(params.limit, 100)));
+  if (params.status) search.set('status', params.status);
+  if (params.customer) search.set('customer', params.customer);
+  if (params.billingType) search.set('billingType', params.billingType);
+  const qs = search.toString();
+  return asaasFetch<AsaasPaymentsResponse>(`/v3/payments${qs ? `?${qs}` : ''}`);
+}
+
 /** Listar cobranças de um cliente */
 export async function listPaymentsByCustomer(customerId: string): Promise<AsaasPayment[]> {
-  const res = await asaasFetch<AsaasPaymentsResponse>(`/v3/payments?customer=${encodeURIComponent(customerId)}`);
+  const res = await listPayments({ customer: customerId, limit: 100 });
   return res?.data ?? [];
 }
 

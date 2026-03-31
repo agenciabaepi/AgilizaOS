@@ -136,79 +136,88 @@ function processChecklistItems(checklist: any, checklistItens: ChecklistItem[]) 
   return { itensAprovados, itensReprovados };
 }
 
+/** Em modo PDF: exibe itens em 2 colunas para otimizar espaço */
 function renderChecklistItems(itensAprovados: ChecklistItem[], itensReprovados: ChecklistItem[], styles: any, mode: string) {
-  const fontSize = mode === 'simple' ? 8 : 9;
-  const titleFontSize = mode === 'simple' ? 9 : 10;
-  
+  const isPdf = mode === 'pdf';
+  const fontSize = isPdf ? 8 : (mode === 'simple' ? 8 : 9);
+  const titleFontSize = isPdf ? 9 : (mode === 'simple' ? 9 : 10);
+  const itemMargin = isPdf ? 0 : 1;
+  const blockPadding = isPdf ? 4 : 6;
+  const titleMarginBottom = isPdf ? 2 : 3;
+
+  const wrapInColumns = (items: { nome: string }[], prefix: string, perRow: number) => {
+    if (!isPdf || perRow < 2) {
+      return items.map((item, index) => (
+        <Text key={index} style={[styles.paragraph, { fontSize, color: '#374151', marginBottom: itemMargin, paddingLeft: isPdf ? 4 : 8 }]}>
+          {prefix}{item.nome}
+        </Text>
+      ));
+    }
+    const rows: { left: typeof items; right: typeof items }[] = [];
+    for (let i = 0; i < items.length; i += perRow) {
+      rows.push({
+        left: items.slice(i, i + 1),
+        right: items.slice(i + 1, i + 2)
+      });
+    }
+    return rows.map((row, rowIndex) => (
+      <View key={rowIndex} style={{ flexDirection: 'row', marginBottom: 1 }}>
+        <View style={{ flex: 1 }}>
+          {row.left.map((item, idx) => (
+            <Text key={idx} style={[styles.paragraph, { fontSize, color: '#374151', marginBottom: 0, paddingLeft: 4 }]}>
+              {prefix}{item.nome}
+            </Text>
+          ))}
+        </View>
+        <View style={{ flex: 1 }}>
+          {row.right.map((item, idx) => (
+            <Text key={idx} style={[styles.paragraph, { fontSize, color: '#374151', marginBottom: 0, paddingLeft: 4 }]}>
+              {prefix}{item.nome}
+            </Text>
+          ))}
+        </View>
+      </View>
+    ));
+  };
+
   return (
-    <View style={styles.block}>
-      <Text style={[styles.sectionTitle, { marginBottom: 4 }]}>Checklist de Entrada</Text>
+    <View style={[styles.block, isPdf && { marginBottom: 4 }]}>
+      <Text style={[styles.sectionTitle, { marginBottom: 2, fontSize: isPdf ? 10 : undefined }]}>Checklist de Entrada</Text>
 
       <View style={{
         borderWidth: 1,
         borderColor: '#d1d5db',
         borderRadius: 2,
-        padding: 6,
+        padding: blockPadding,
         backgroundColor: '#ffffff'
       }}>
         
         {/* Itens Aprovados */}
         {itensAprovados.length > 0 && (
-          <View style={{ marginBottom: itensReprovados.length > 0 ? 6 : 0 }}>
-            <Text style={[styles.paragraph, { 
-              fontSize: titleFontSize, 
-              fontWeight: 'bold', 
-              color: '#059669',
-              marginBottom: 3
-            }]}>
+          <View style={{ marginBottom: itensReprovados.length > 0 ? (isPdf ? 3 : 6) : 0 }}>
+            <Text style={[styles.paragraph, { fontSize: titleFontSize, fontWeight: 'bold', color: '#059669', marginBottom: titleMarginBottom }]}>
               ✓ Funcionalidades Operacionais ({itensAprovados.length})
             </Text>
-            
-            {itensAprovados.map((item, index) => (
-              <Text key={index} style={[styles.paragraph, { 
-                fontSize, 
-                color: '#374151', 
-                marginBottom: index < itensAprovados.length - 1 ? 1 : 0,
-                paddingLeft: 8
-              }]}>
-                • {item.nome}
-              </Text>
-            ))}
+            {wrapInColumns(itensAprovados, '• ', isPdf ? 2 : 1)}
           </View>
         )}
 
-        {/* Itens Reprovados */}
+        {/* Itens Reprovados — com "x" na frente */}
         {itensReprovados.length > 0 && (
           <View>
             {itensAprovados.length > 0 && (
               <View style={{
                 borderTopWidth: 1,
                 borderTopColor: '#e5e7eb',
-                marginTop: 4,
-                marginBottom: 4,
-                paddingTop: 4
+                marginTop: isPdf ? 2 : 4,
+                marginBottom: isPdf ? 2 : 4,
+                paddingTop: isPdf ? 2 : 4
               }} />
             )}
-            
-            <Text style={[styles.paragraph, { 
-              fontSize: titleFontSize, 
-              fontWeight: 'bold', 
-              color: '#dc2626',
-              marginBottom: 3
-            }]}>
+            <Text style={[styles.paragraph, { fontSize: titleFontSize, fontWeight: 'bold', color: '#dc2626', marginBottom: titleMarginBottom }]}>
               ✗ Funcionalidades com Problemas ({itensReprovados.length})
             </Text>
-            
-            {itensReprovados.map((item, index) => (
-              <Text key={index} style={[styles.paragraph, { 
-                fontSize, 
-                color: '#374151', 
-                marginBottom: index < itensReprovados.length - 1 ? 1 : 0,
-                paddingLeft: 8
-              }]}>
-                • {item.nome}
-              </Text>
-            ))}
+            {wrapInColumns(itensReprovados, 'x ', isPdf ? 2 : 1)}
           </View>
         )}
 

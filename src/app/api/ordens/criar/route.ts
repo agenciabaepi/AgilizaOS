@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabaseClient';
 import { sendNewOSNotification } from '@/lib/whatsapp-notifications';
+import { sendPushToTecnico, buildNovaOSPushMessage } from '@/lib/push-notification-tecnico';
 
 function normalizeStatusText(value: unknown): string {
   return String(value || '')
@@ -107,6 +108,24 @@ export async function POST(request: NextRequest) {
       await sendNewOSNotification(ordemCriada.id);
     } catch (notifError) {
       console.warn('⚠️ Erro ao enviar notificação WhatsApp (não crítico):', notifError);
+    }
+
+    // Enviar push para o técnico quando a O.S. é criada já com técnico atribuído
+    const tecnicoId = ordemCriada?.tecnico_id ?? null;
+    if (tecnicoId) {
+      try {
+        const { title, body } = buildNovaOSPushMessage(ordemCriada);
+        const { sent } = await sendPushToTecnico(supabase, tecnicoId, {
+          title,
+          body,
+          data: { os_id: ordemCriada.id },
+        });
+        if (sent > 0) {
+          console.log('✅ Push enviada ao técnico, O.S.', ordemCriada.id, 'dispositivos:', sent);
+        }
+      } catch (pushError) {
+        console.warn('⚠️ Erro ao enviar push ao técnico (não crítico):', pushError);
+      }
     }
 
     return NextResponse.json({

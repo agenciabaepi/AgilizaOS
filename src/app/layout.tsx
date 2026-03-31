@@ -23,6 +23,7 @@ import { Analytics } from '@vercel/analytics/react';
 import RedirectToLoginIfUnauth from '@/components/RedirectToLoginIfUnauth';
 import SubscriptionVencidaGuard from '@/components/SubscriptionVencidaGuard';
 import { ThemeProvider } from '@/context/ThemeContext';
+import SupabaseStatusBanner from '@/components/SupabaseStatusBanner';
 
 // Metadata removida conforme exigência do Next.js para arquivos com "use client"
 
@@ -125,6 +126,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </head>
         <body suppressHydrationWarning>
           <ThemeProvider>
+            <SupabaseStatusBanner />
             <AuthProvider>
               <ToastProvider>
                 <ConfirmProvider>
@@ -142,6 +144,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" />
         <script src="/theme-init.js" />
         <script src="/suppress-errors.js?v=2"></script>
         <script src="/aggressive-suppressor.js?v=2"></script>
@@ -149,6 +152,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body suppressHydrationWarning>
         <ThemeProvider>
+        <SupabaseStatusBanner />
         <AuthProvider>
           <RedirectToLoginIfUnauth>
             <SubscriptionVencidaGuard>

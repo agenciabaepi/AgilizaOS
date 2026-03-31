@@ -37,10 +37,10 @@ export default function PagamentoStatusChecker() {
 
   return (
     <div className="p-4 border rounded-lg bg-white">
-      <h2 className="text-lg font-semibold mb-2">Consultar status no Mercado Pago</h2>
+      <h2 className="text-lg font-semibold mb-2">Consultar status no Asaas</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-gray-600">payment_id (Mercado Pago)</label>
+          <label className="text-xs text-gray-600">payment_id (Asaas)</label>
           <input className="mt-1 w-full border rounded px-3 py-2 text-sm" value={paymentId} onChange={e => setPaymentId(e.target.value)} placeholder="ex: 1234567890" />
         </div>
         <div>

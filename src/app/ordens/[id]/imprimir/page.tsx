@@ -176,6 +176,22 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
     return `R$ ${Number(val).toFixed(2)}`;
   }
 
+  function formatFormaPagamento(fp: string | null | undefined): string {
+    if (!fp || typeof fp !== 'string') return '—';
+    const t = fp.trim().toLowerCase().replace(/_/g, ' ');
+    const map: Record<string, string> = {
+      dinheiro: 'Dinheiro',
+      'cartao credito': 'Cartão de crédito',
+      'cartao debito': 'Cartão de débito',
+      pix: 'PIX',
+      boleto: 'Boleto',
+      'cartao': 'Cartão',
+      credito: 'Crédito',
+      debito: 'Débito',
+    };
+    return map[t] || t.replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
   function extractTimestampMsFromUrl(rawUrl: string): number | null {
     const s = String(rawUrl || '').trim();
     if (!s) return null;
@@ -296,92 +312,57 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
 
   function renderTermoClean(htmlContent: string) {
     if (!htmlContent) return null;
-    
-    // Limpeza simples do HTML
+
+    // Remove tags HTML mas preserva quebras (br e fechamento de block viram \n)
     let cleanContent = htmlContent
-      .replace(/<[^>]*>/g, '') // Remove todas as tags HTML
-      .replace(/&nbsp;/g, ' ') // Remove espaços HTML
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n')
+      .replace(/<\/div>/gi, '\n')
+      .replace(/<[^>]*>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
       .trim();
-    
-    // Encontra todas as seções numeradas
+
+    // Encontra todas as cláusulas no formato "1 - TÍTULO:" (obrigatório dois-pontos para garantir corte correto)
     const sectionMatches = [...cleanContent.matchAll(/(\d+)\s*-\s*([^:]+):/g)];
     const sections: any[] = [];
-    
-    // Processa cada seção encontrada
+
     sectionMatches.forEach((match, index) => {
       const sectionNumber = match[1];
-      const sectionTitle = match[2];
+      const sectionTitle = (match[2] || '').trim();
       const startPos = match.index!;
-      
-      // Encontra o início da próxima seção ou o fim do texto
       let endPos = cleanContent.length;
       if (index + 1 < sectionMatches.length) {
         endPos = sectionMatches[index + 1].index!;
       }
-      
-      // Extrai o conteúdo da seção
-      const content = cleanContent.substring(startPos + match[0].length, endPos).trim();
-      
+      const rawContent = cleanContent.substring(startPos + match[0].length, endPos).trim();
+      // Quebra em linhas/parágrafos; linhas vazias viram separação de parágrafo
+      const content = rawContent.split(/\n/).map((l) => l.trim()).filter(Boolean);
+
       sections.push({
-        number: parseInt(sectionNumber),
+        number: parseInt(sectionNumber, 10),
         title: `${sectionNumber} - ${sectionTitle}:`,
-        content: content.split('\n').filter(line => line.trim().length > 0),
-        key: `section-${index}`
+        content,
+        key: `section-${sectionNumber}-${index}`,
       });
     });
-    
-    // Ordena por número da seção
+
     sections.sort((a, b) => a.number - b.number);
-    
-    // Distribui em 2 colunas
-    const leftColumn: any[] = [];
-    const rightColumn: any[] = [];
-    
-    sections.forEach((section, index) => {
-      if (index % 2 === 0) {
-        leftColumn.push(section);
-      } else {
-        rightColumn.push(section);
-      }
-    });
-    
-    // Debug: verifica se todas as seções foram capturadas
-    console.log('Seções capturadas:', leftColumn.length + rightColumn.length);
-    
-    // Renderiza layout em 2 colunas otimizado para uma folha
+
     return (
-      <View style={{ flexDirection: 'row' }}>
-        {/* Coluna Esquerda */}
-        <View style={{ flex: 1, marginRight: 16 }}>
-          {leftColumn.map((section) => (
-            <View key={section.key} style={{ marginBottom: 8 }}>
-              <Text style={[styles.paragraph, { fontSize: 8, fontWeight: 'bold', color: '#000', marginBottom: 2 }]}>
-                {section.title}
+      <View>
+        {sections.map((section) => (
+          <View key={section.key} style={{ marginBottom: 6 }}>
+            <Text style={[styles.paragraph, { fontSize: 8, fontWeight: 'bold', color: '#000', marginBottom: 2 }]}>
+              {section.title}
+            </Text>
+            {section.content.map((contentLine: string, contentIndex: number) => (
+              <Text key={`${section.key}-c-${contentIndex}`} style={[styles.paragraph, { fontSize: 7, lineHeight: 1.3, color: '#333', marginBottom: 1 }]}>
+                {contentLine}
               </Text>
-              {section.content.map((contentLine: string, contentIndex: number) => (
-                <Text key={`${section.key}-content-${contentIndex}`} style={[styles.paragraph, { fontSize: 7, lineHeight: 1.2, color: '#333', marginBottom: 1 }]}>
-                  {contentLine}
-                </Text>
-              ))}
-            </View>
-          ))}
-        </View>
-        
-        {/* Coluna Direita */}
-        <View style={{ flex: 1 }}>
-          {rightColumn.map((section) => (
-            <View key={section.key} style={{ marginBottom: 8 }}>
-              <Text style={[styles.paragraph, { fontSize: 8, fontWeight: 'bold', color: '#000', marginBottom: 2 }]}>
-                {section.title}
-              </Text>
-              {section.content.map((contentLine: string, contentIndex: number) => (
-                <Text key={`${section.key}-content-${contentIndex}`} style={[styles.paragraph, { fontSize: 7, lineHeight: 1.2, color: '#333', marginBottom: 1 }]}>
-                  {contentLine}
-                </Text>
-              ))}
-            </View>
-          ))}
-        </View>
+            ))}
+          </View>
+        ))}
       </View>
     );
   }
@@ -409,6 +390,9 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
               </>
             )}
             <Text style={styles.osText}>Status: {ordem.status}</Text>
+            {String(ordem.status || '').toUpperCase() === 'ENTREGUE' && (
+              <Text style={styles.osText}>Forma de pagamento: {formatFormaPagamento(ordem.forma_pagamento)}</Text>
+            )}
           </View>
         </View>
         <View style={styles.divider} />
@@ -517,13 +501,17 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
           <Text style={styles.paragraph}><Text style={styles.bold}>Técnico:</Text> {ordem.tecnico?.nome || 'N/A'}</Text>
         </View>
 
-        {/* Laudo Técnico */}
-        {ordem.laudo && (
-          <View style={styles.block}>
-            <Text style={styles.sectionTitle}>Laudo Técnico</Text>
-            <Text style={styles.paragraph}>{stripHTML(ordem.laudo)}</Text>
-          </View>
-        )}
+        {/* Laudo Técnico - só exibe se houver texto real após remover HTML */}
+        {(() => {
+          const laudoTexto = ordem.laudo != null ? stripHTML(String(ordem.laudo)).trim() : '';
+          if (!laudoTexto) return null;
+          return (
+            <View style={styles.block}>
+              <Text style={styles.sectionTitle}>Laudo Técnico</Text>
+              <Text style={styles.paragraph}>{laudoTexto}</Text>
+            </View>
+          );
+        })()}
 
         {/* Serviços e Peças (por último) */}
         <View style={styles.block}>
@@ -567,6 +555,12 @@ function OrdemPDF({ ordem, checklistItens }: { ordem: any; checklistItens: any[]
               <View style={styles.tableRow}>
                 <Text style={[styles.tableCell, { flex: 8, borderRightWidth: 0, textAlign: 'right', fontWeight: 'bold' }]}>Valor Faturado:</Text>
                 <Text style={[styles.tableCell, { flex: 2, textAlign: 'right', fontWeight: 'bold' }]}>{formatMoney(ordem.valor_faturado)}</Text>
+              </View>
+            )}
+            {String(ordem.status || '').toUpperCase() === 'ENTREGUE' && (
+              <View style={styles.tableRow}>
+                <Text style={[styles.tableCell, { flex: 8, borderRightWidth: 0, textAlign: 'right', fontWeight: 'bold' }]}>Forma de pagamento:</Text>
+                <Text style={[styles.tableCell, { flex: 2, textAlign: 'right' }]}>{formatFormaPagamento(ordem.forma_pagamento)}</Text>
               </View>
             )}
           </View>
@@ -692,7 +686,7 @@ export default function ImprimirOrdemPage() {
     if (imagens_pdf === ordemFromApi.imagens_pdf && imagens_tecnico_pdf === ordemFromApi.imagens_tecnico_pdf) {
       return ordemFromApi;
     }
-    return { ...ordemFromApi, imagens_pdf, imagens_tecnico_pdf };
+    return { ...ordemFromApi, imagens_pdf, imagens_tecnico_pdf, laudo: ordemFromApi.laudo };
   }
 
   /** Tamanho máximo do lado maior da imagem no PDF (evita payload gigante e bugs do react-pdf). */

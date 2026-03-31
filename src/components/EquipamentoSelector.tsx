@@ -69,28 +69,25 @@ export default function EquipamentoSelector({
     fetchEquipamentos();
   }, [empresaId]);
 
-  // 🔍 DEBUG: Processar valor inicial quando fornecido
+  // Processar valor inicial quando fornecido (match case-insensitive e trim para reconhecer valor vindo da OS)
   useEffect(() => {
-    if (value && equipamentos.length > 0) {
-      console.log('🔍 DEBUG EquipamentoSelector - Processando valor inicial:', value);
-      const equipamentoEncontrado = equipamentos.find(eq => eq.nome === value);
+    const valueNorm = (value || '').trim();
+    if (valueNorm && equipamentos.length > 0) {
+      const valueUpper = valueNorm.toUpperCase();
+      const equipamentoEncontrado = equipamentos.find(
+        eq => (eq.nome || '').trim().toUpperCase() === valueUpper || (eq.categoria || '').trim().toUpperCase() === valueUpper
+      );
       if (equipamentoEncontrado) {
-        console.log('✅ Equipamento encontrado:', equipamentoEncontrado);
         setSelectedEquipamento(equipamentoEncontrado);
         setSearchTerm(equipamentoEncontrado.nome);
       } else {
-        console.log('⚠️ Equipamento não encontrado na lista:', value);
-        // Se não encontrar na lista, usar o valor como texto livre
-        setSearchTerm(value);
+        setSearchTerm(valueNorm);
         setSelectedEquipamento(null);
       }
-    } else if (value && equipamentos.length === 0) {
-      // Se há valor mas equipamentos ainda não carregaram, usar como texto livre
-      console.log('🔍 Valor fornecido mas equipamentos ainda não carregaram:', value);
-      setSearchTerm(value);
+    } else if (valueNorm && equipamentos.length === 0) {
+      setSearchTerm(valueNorm);
       setSelectedEquipamento(null);
-    } else if (!value) {
-      // Se não há valor, limpar tudo
+    } else if (!valueNorm) {
       setSearchTerm('');
       setSelectedEquipamento(null);
     }

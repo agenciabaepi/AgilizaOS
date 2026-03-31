@@ -236,6 +236,7 @@ export async function GET(
       ...data,
       relato: data.problema_relatado,
       tecnico: { nome: tecnicoNome },
+      laudo: data.laudo ?? null,
     };
 
     const [imagensPdf, imagensTecnicoPdf] = await Promise.all([
@@ -244,6 +245,44 @@ export async function GET(
     ]);
     ordem.imagens_pdf = imagensPdf || null;
     ordem.imagens_tecnico_pdf = imagensTecnicoPdf || null;
+
+    // Quando a OS foi entregue, buscar forma de pagamento da venda vinculada
+    const statusNormalizado = String(data.status || '').toUpperCase().trim();
+    if (statusNormalizado === 'ENTREGUE' && data.empresa_id) {
+      const numeroOs = String(data.numero_os ?? data.id ?? '').trim();
+      const valorFaturado = Number(data.valor_faturado ?? 0);
+      const clienteId = data.cliente_id;
+      let lista: any[] = [];
+      if (clienteId) {
+        const { data: vendasCliente } = await supabase
+          .from('vendas')
+          .select('forma_pagamento, total, observacoes, cliente_id')
+          .eq('empresa_id', data.empresa_id)
+          .eq('cliente_id', clienteId)
+          .order('data_venda', { ascending: false })
+          .limit(50);
+        lista = vendasCliente || [];
+      }
+      if (lista.length === 0) {
+        const { data: vendasEmpresa } = await supabase
+          .from('vendas')
+          .select('forma_pagamento, total, observacoes, cliente_id')
+          .eq('empresa_id', data.empresa_id)
+          .order('data_venda', { ascending: false })
+          .limit(100);
+        lista = vendasEmpresa || [];
+      }
+      const vendaOS = lista.find((v: any) => {
+        const obs = String(v.observacoes || '');
+        const matchOS = numeroOs && (obs.includes(`O.S. #${numeroOs}`) || obs.includes(`OS #${numeroOs}`) || obs.includes(`#${numeroOs}`));
+        const totalVenda = Number(v.total ?? 0);
+        const matchValor = valorFaturado > 0 && Math.abs(totalVenda - valorFaturado) <= 1;
+        return matchOS || matchValor;
+      });
+      if (vendaOS?.forma_pagamento) {
+        ordem.forma_pagamento = String(vendaOS.forma_pagamento).trim();
+      }
+    }
 
     let checklistItens: any[] = [];
     if (data.empresa_id && data.equipamento) {

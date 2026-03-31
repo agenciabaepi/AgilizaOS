@@ -1,12 +1,12 @@
 export const dynamic = 'force-dynamic';
 
+import ConfigClient from './ConfigClient';
+
 export default function ConfigPage() {
   return (
     <div>
-      <h1 className="text-xl font-semibold mb-2">Configurações</h1>
-      <p className="text-sm text-gray-600">Página em construção. Em breve: admins autorizados, tokens internos e preferências do painel.</p>
+      <h1 className="text-xl font-semibold mb-6">Configurações</h1>
+      <ConfigClient />
     </div>
   );
 }
-
-

@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { FiCheckCircle, FiMail, FiMessageCircle } from 'react-icons/fi';
 import Image from 'next/image';
+import { useValorAssinatura } from '@/hooks/useValorAssinatura';
 
 export default function PlanosPage() {
   const router = useRouter();
   const { usuarioData } = useAuth();
+  const { valor } = useValorAssinatura();
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [loading, setLoading] = useState<string | null>(null);
 
@@ -28,8 +30,8 @@ export default function PlanosPage() {
     {
       id: 'unico',
       nome: 'Assinatura',
-      preco: 'R$ 1,00',
-      valor: 1.0,
+      preco: `R$ ${valor.toFixed(2).replace('.', ',')}`,
+      valor,
       periodo: '/mês',
       descricao: 'Todos os recursos do sistema liberados',
       badge: 'Assinatura única',

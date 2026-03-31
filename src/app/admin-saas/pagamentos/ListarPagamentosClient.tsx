@@ -7,14 +7,22 @@ type Row = {
   id: string;
   empresa_id: string | null;
   empresa: { id: string; nome: string; email: string | null } | null;
-  mercadopago_payment_id: string | null;
+  mercadopago_payment_id: string | null; // ID do pagamento (Asaas)
   status: string | null;
-  status_detail?: string | null;
   valor: number | null;
   created_at: string | null;
   updated_at?: string | null;
   paid_at: string | null;
-  external_reference?: string | null;
+  asaas?: {
+    status: string | null;
+    value?: number | null;
+    paymentDate?: string | null;
+    date_created?: string | null;
+    date_approved?: string | null;
+    date_last_updated?: string | null;
+    external_reference?: string | null;
+    transaction_amount?: number | null;
+  } | null;
 }
 
 type ListResponse = { ok: boolean; items: Row[]; total: number; page: number; pageSize: number };
@@ -35,7 +43,7 @@ export default function ListarPagamentosClient() {
     setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams({ page: String(opts?.keepPage ? page : 1), pageSize: String(pageSize), expand: 'mp' });
+      const params = new URLSearchParams({ page: String(opts?.keepPage ? page : 1), pageSize: String(pageSize) });
       if (status) params.set('status', status);
       if (search) params.set('search', search);
       const res = await fetch(`/api/admin-saas/pagamentos?${params.toString()}`, { cache: 'no-store' });
@@ -56,7 +64,7 @@ export default function ListarPagamentosClient() {
     const res = await fetch(`${baseUrl}/api/admin-saas/pagamentos/aprovar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pagamento_id: row.id }),
+      body: JSON.stringify({ payment_id: row.mercadopago_payment_id }),
     });
     const json = await res.json();
     if (!res.ok || !json.ok) throw new Error('Falha ao aprovar');
@@ -71,13 +79,15 @@ export default function ListarPagamentosClient() {
   return (
     <div className="p-4 border rounded-lg bg-white">
       <div className="flex items-center gap-2 mb-3">
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por payment_id ou id" className="border rounded px-3 py-2 text-sm w-full max-w-xs" />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por ID Asaas ou id interno" className="border rounded px-3 py-2 text-sm w-full max-w-xs" />
         <select value={status} onChange={e => setStatus(e.target.value)} className="border rounded px-2 py-2 text-sm">
           <option value="">Todos status</option>
-          <option value="pending">pending</option>
-          <option value="approved">approved</option>
-          <option value="rejected">rejected</option>
-          <option value="cancelled">cancelled</option>
+          <option value="PENDING">PENDING</option>
+          <option value="CONFIRMED">CONFIRMED</option>
+          <option value="RECEIVED">RECEIVED</option>
+          <option value="OVERDUE">OVERDUE</option>
+          <option value="CANCELLED">CANCELLED</option>
+          <option value="REFUNDED">REFUNDED</option>
         </select>
         <Button onClick={() => fetchList()}>Filtrar</Button>
       </div>
@@ -89,7 +99,7 @@ export default function ListarPagamentosClient() {
           <thead className="bg-gray-100">
             <tr>
               <th className="px-3 py-2 text-left">Empresa</th>
-              <th className="px-3 py-2 text-left">Payment ID</th>
+              <th className="px-3 py-2 text-left">ID Asaas</th>
               <th className="px-3 py-2 text-left">Status</th>
               <th className="px-3 py-2 text-left">Ref.</th>
               <th className="px-3 py-2 text-left">Valor</th>
@@ -107,16 +117,16 @@ export default function ListarPagamentosClient() {
                   <div className="text-gray-500 text-xs">{r.empresa?.email || '-'}</div>
                 </td>
                 <td className="px-3 py-2 font-mono text-xs">{r.mercadopago_payment_id || '-'}</td>
-                <td className="px-3 py-2">{(r as any).mp?.status || r.status || '-'}</td>
-                <td className="px-3 py-2 text-xs">{(r as any).mp?.external_reference || r.external_reference || '-'}</td>
-                <td className="px-3 py-2">{typeof r.valor === 'number' ? r.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '-'}</td>
-                <td className="px-3 py-2">{(r as any).mp?.date_created ? new Date((r as any).mp?.date_created).toLocaleString('pt-BR') : (r.created_at ? new Date(r.created_at).toLocaleString('pt-BR') : '-')}</td>
-                <td className="px-3 py-2">{(r as any).mp?.date_last_updated ? new Date((r as any).mp?.date_last_updated).toLocaleString('pt-BR') : (r.updated_at ? new Date(r.updated_at).toLocaleString('pt-BR') : '-')}</td>
-                <td className="px-3 py-2">{(r as any).mp?.date_approved ? new Date((r as any).mp?.date_approved).toLocaleString('pt-BR') : (r.paid_at ? new Date(r.paid_at).toLocaleString('pt-BR') : '-')}</td>
+                <td className="px-3 py-2">{r.asaas?.status || r.status || '-'}</td>
+                <td className="px-3 py-2 text-xs">{r.asaas?.external_reference || '-'}</td>
+                <td className="px-3 py-2">{typeof (r.asaas?.transaction_amount ?? r.valor) === 'number' ? (r.asaas?.transaction_amount ?? r.valor)!.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '-'}</td>
+                <td className="px-3 py-2">{r.asaas?.date_created ? new Date(r.asaas.date_created).toLocaleString('pt-BR') : (r.created_at ? new Date(r.created_at).toLocaleString('pt-BR') : '-')}</td>
+                <td className="px-3 py-2">{r.asaas?.date_last_updated ? new Date(r.asaas.date_last_updated).toLocaleString('pt-BR') : (r.updated_at ? new Date(r.updated_at).toLocaleString('pt-BR') : '-')}</td>
+                <td className="px-3 py-2">{r.asaas?.date_approved ? new Date(r.asaas.date_approved).toLocaleString('pt-BR') : (r.paid_at ? new Date(r.paid_at).toLocaleString('pt-BR') : '-')}</td>
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-2">
-                    <Button size="sm" onClick={() => window.open(`/api/admin-saas/pagamentos/status?${new URLSearchParams({ payment_id: r.mercadopago_payment_id || '' }).toString()}`, '_blank')}>Ver status</Button>
-                    {r.status !== 'approved' && (
+                    <Button size="sm" onClick={() => window.open(`/api/admin-saas/pagamentos/status?${new URLSearchParams({ payment_id: r.mercadopago_payment_id || '' }).toString()}`, '_blank')}>Ver status Asaas</Button>
+                    {(r.asaas?.status || r.status) !== 'approved' && (r.asaas?.status || r.status) !== 'CONFIRMED' && (r.asaas?.status || r.status) !== 'RECEIVED' && (
                       <Button size="sm" variant="outline" onClick={() => manualApprove(r)}>Aprovar manual</Button>
                     )}
                   </div>
@@ -125,7 +135,7 @@ export default function ListarPagamentosClient() {
             ))}
             {items.length === 0 && !loading && (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-gray-500">Nenhum pagamento encontrado</td>
+                <td colSpan={9} className="px-3 py-6 text-center text-gray-500">Nenhum pagamento encontrado</td>
               </tr>
             )}
           </tbody>

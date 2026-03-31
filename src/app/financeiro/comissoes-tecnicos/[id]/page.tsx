@@ -17,7 +17,11 @@ import {
   FiClock,
   FiAlertCircle,
   FiTrendingUp,
-  FiFileText
+  FiFileText,
+  FiEye,
+  FiEdit,
+  FiX,
+  FiSave
 } from 'react-icons/fi';
 
 interface Comissao {
@@ -27,6 +31,8 @@ interface Comissao {
   cliente_nome: string;
   servico_nome: string;
   valor_servico: number;
+  valor_peca?: number;
+  valor_total?: number;
   valor_comissao: number;
   tipo_comissao: 'porcentagem' | 'fixo';
   percentual_comissao?: number | null;
@@ -34,6 +40,11 @@ interface Comissao {
   data_entrega: string;
   status: string;
   created_at: string;
+  status_os?: string | null;
+  status_tecnico_os?: string | null;
+  tipo_ordem?: string;
+  ativa?: boolean;
+  observacoes?: string | null;
 }
 
 interface TecnicoInfo {
@@ -52,7 +63,7 @@ export default function TecnicoComissoesDetalhesPage() {
   const router = useRouter();
   const tecnicoId = params.id as string;
   
-  const { usuarioData } = useAuth();
+  const { usuarioData, session } = useAuth();
   const { addToast } = useToast();
   const confirm = useConfirm();
   
@@ -65,18 +76,22 @@ export default function TecnicoComissoesDetalhesPage() {
   const [valorSaque, setValorSaque] = useState<string>('');
   const [mostrarSaqueParcial, setMostrarSaqueParcial] = useState(false);
   
-  // Filtros
-  const [mesSelecionado, setMesSelecionado] = useState<string>(() => {
-    const hoje = new Date();
-    return hoje.toISOString().slice(0, 7);
-  });
+  // Filtros: padrão "todos" para exibir todas as comissões independente da data
+  const [mesSelecionado, setMesSelecionado] = useState<string>('todos');
+
+  // Modal Ver detalhes / Editar
+  const [comissaoDetalhes, setComissaoDetalhes] = useState<Comissao | null>(null);
+  const [comissaoEditando, setComissaoEditando] = useState<Comissao | null>(null);
+  const [valorEditado, setValorEditado] = useState<number>(0);
+  const [observacoesEditadas, setObservacoesEditadas] = useState<string>('');
+  const [salvandoEdicao, setSalvandoEdicao] = useState(false);
 
   // Buscar dados
   useEffect(() => {
     if (usuarioData?.empresa_id && tecnicoId) {
       fetchData();
     }
-  }, [usuarioData?.empresa_id, tecnicoId, mesSelecionado]);
+  }, [usuarioData?.empresa_id, tecnicoId]);
 
   const fetchData = async () => {
     if (!usuarioData?.empresa_id) return;
@@ -99,152 +114,18 @@ export default function TecnicoComissoesDetalhesPage() {
 
       setTecnico(tecnicoData);
 
-      // Buscar comissões do técnico (reais)
-      // IMPORTANTE: Buscar por tecnico_id OU auth_user_id pois alguns registros podem usar um ou outro
-      const authUserId = tecnicoData.auth_user_id;
-      let comissoesQuery = supabase
-        .from('comissoes_historico')
-        .select(`
-          id,
-          ordem_servico_id,
-          valor_servico,
-          valor_comissao,
-          tipo_comissao,
-          percentual_comissao,
-          valor_comissao_fixa,
-          data_entrega,
-          status,
-          created_at,
-          ordens_servico:ordem_servico_id ( numero_os, servico ),
-          clientes:cliente_id ( nome )
-        `)
-        .eq('empresa_id', usuarioData.empresa_id)
-        .order('data_entrega', { ascending: false });
-      
-      // Filtrar por tecnico_id ou auth_user_id
-      if (authUserId && authUserId !== tecnicoId) {
-        comissoesQuery = comissoesQuery.or(`tecnico_id.eq.${tecnicoId},tecnico_id.eq.${authUserId}`);
-      } else {
-        comissoesQuery = comissoesQuery.eq('tecnico_id', tecnicoId);
+      // Usar API (mesma lógica que Minhas Comissões). cache: 'no-store' + _t evita ver dados antigos após saque
+      const headers: HeadersInit = {};
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+      const url = `/api/comissoes/tecnicos/${tecnicoId}?_t=${Date.now()}`;
+      const res = await fetch(url, { headers, cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        addToast('error', data.error || 'Erro ao carregar comissões');
+        setComissoes([]);
+        return;
       }
-
-      const { data: comissoesData, error: comissoesError } = await comissoesQuery;
-
-      if (comissoesError) {
-        console.error('Erro ao buscar comissões:', comissoesError);
-      }
-
-      const comissoesFormatadas: Comissao[] = (comissoesData || []).map((c: any) => ({
-        id: c.id,
-        ordem_servico_id: c.ordem_servico_id,
-        numero_os: c.ordens_servico?.numero_os || 'N/A',
-        cliente_nome: c.clientes?.nome || 'Cliente não encontrado',
-        servico_nome: c.ordens_servico?.servico || 'Serviço não especificado',
-        valor_servico: c.valor_servico || 0,
-        valor_comissao: c.valor_comissao || 0,
-        tipo_comissao: c.tipo_comissao || 'porcentagem',
-        percentual_comissao: c.percentual_comissao,
-        valor_comissao_fixa: c.valor_comissao_fixa,
-        data_entrega: c.data_entrega,
-        status: c.status || 'CALCULADA',
-        created_at: c.created_at
-      }));
-
-      // Buscar comissões previstas (OS não finalizadas)
-      const osComComissao = new Set(comissoesFormatadas.map(c => c.ordem_servico_id));
-      
-      // Construir filtro para buscar OS por tecnico_id ou auth_user_id
-      let orFilter = `tecnico_id.eq.${tecnicoId}`;
-      if (authUserId && authUserId !== tecnicoId) {
-        orFilter += `,tecnico_id.eq.${authUserId}`;
-      }
-      
-      const { data: ordensData, error: ordensError } = await supabase
-        .from('ordens_servico')
-        .select(`
-          id,
-          numero_os,
-          valor_servico,
-          valor_faturado,
-          status,
-          status_tecnico,
-          servico,
-          data_entrega,
-          created_at,
-          clientes:cliente_id ( nome ),
-          tecnico:tecnico_id ( id, tipo_comissao, comissao_fixa, comissao_percentual )
-        `)
-        .eq('empresa_id', usuarioData.empresa_id)
-        .or(orFilter)
-        .not('tecnico_id', 'is', null);
-
-      console.log('🔍 Busca de OS para comissões previstas:', {
-        tecnicoId,
-        authUserId,
-        orFilter,
-        totalOS: ordensData?.length || 0,
-        osComComissao: Array.from(osComComissao),
-        ordensError
-      });
-
-      const normalizeStatus = (s: string | null | undefined) =>
-        (s || '').toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
-
-      const comissoesPrevistas: Comissao[] = (ordensData || [])
-        .filter((os: any) => {
-          // Ignorar se já tem comissão registrada
-          if (osComComissao.has(os.id)) return false;
-          
-          // A query já filtra por tecnico_id, então todas as OS retornadas são deste técnico
-          // Só precisamos verificar se tem valor de serviço e se não está finalizada
-          
-          const valorServico = os.valor_servico ?? 0;
-          if (!valorServico || valorServico <= 0) return false;
-          
-          const status = normalizeStatus(os.status);
-          const statusTec = normalizeStatus(os.status_tecnico);
-          const finalizada = status === 'ENTREGUE' || statusTec === 'FINALIZADA';
-          if (finalizada) return false;
-          
-          return true;
-        })
-        .map((os: any) => {
-          const valorServico = os.valor_servico ?? 0;
-          const tecConfig = os.tecnico || tecnicoData;
-          
-          let tipoComissao: 'porcentagem' | 'fixo' = tecConfig?.tipo_comissao || 'porcentagem';
-          let valorBaseComissao = tipoComissao === 'fixo' 
-            ? (tecConfig?.comissao_fixa || 0) 
-            : (tecConfig?.comissao_percentual || 10);
-          
-          let valorComissao = tipoComissao === 'fixo' 
-            ? valorBaseComissao 
-            : (valorServico * valorBaseComissao) / 100;
-
-          return {
-            id: `prevista-${os.id}`,
-            ordem_servico_id: os.id,
-            numero_os: os.numero_os || 'N/A',
-            cliente_nome: os.clientes?.nome || 'Cliente não encontrado',
-            servico_nome: os.servico || 'Serviço não especificado',
-            valor_servico: valorServico,
-            valor_comissao: valorComissao,
-            tipo_comissao: tipoComissao,
-            percentual_comissao: tipoComissao === 'porcentagem' ? valorBaseComissao : null,
-            valor_comissao_fixa: tipoComissao === 'fixo' ? valorBaseComissao : null,
-            data_entrega: os.data_entrega || os.created_at,
-            status: 'PREVISTA',
-            created_at: os.created_at
-          };
-        });
-
-      console.log('📊 Comissões encontradas:', {
-        reais: comissoesFormatadas.length,
-        previstas: comissoesPrevistas.length,
-        total: comissoesFormatadas.length + comissoesPrevistas.length
-      });
-
-      setComissoes([...comissoesFormatadas, ...comissoesPrevistas]);
+      setComissoes((data.comissoes || []) as Comissao[]);
       
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
@@ -455,6 +336,41 @@ export default function TecnicoComissoesDetalhesPage() {
     }
   };
 
+  // Marcar comissão como paga
+  const handleMarcarComoPaga = async (comissao: Comissao) => {
+    if (comissao.id.startsWith('prevista-')) {
+      addToast('error', 'Comissões previstas só podem ser pagas após a OS ser finalizada.');
+      return;
+    }
+    const confirmado = await confirm({
+      title: 'Marcar como paga',
+      message: `Confirmar pagamento da comissão de ${formatCurrency(comissao.valor_comissao)} (OS #${comissao.numero_os})?`,
+      confirmText: 'Marcar como paga',
+      cancelText: 'Cancelar',
+      variant: 'success'
+    });
+    if (!confirmado) return;
+    setProcessando(true);
+    try {
+      const response = await fetch('/api/comissoes/atualizar', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comissaoId: comissao.id, status: 'PAGA' })
+      });
+      if (response.ok) {
+        addToast('success', 'Comissão marcada como paga.');
+        fetchData();
+      } else {
+        const result = await response.json().catch(() => ({}));
+        addToast('error', result?.error || 'Erro ao atualizar comissão.');
+      }
+    } catch {
+      addToast('error', 'Erro ao atualizar comissão.');
+    } finally {
+      setProcessando(false);
+    }
+  };
+
   // Reverter comissão para calculada
   const handleReverterComissao = async (comissao: Comissao) => {
     const confirmado = await confirm({
@@ -485,6 +401,44 @@ export default function TecnicoComissoesDetalhesPage() {
       }
     } catch (error) {
       addToast('error', 'Erro ao reverter comissão.');
+    }
+  };
+
+  const handleVerDetalhes = (comissao: Comissao) => {
+    setComissaoDetalhes(comissao);
+  };
+
+  const handleEditarComissao = (comissao: Comissao) => {
+    setComissaoEditando(comissao);
+    setValorEditado(comissao.valor_comissao);
+    setObservacoesEditadas(comissao.observacoes || '');
+  };
+
+  const handleSalvarEdicao = async () => {
+    if (!comissaoEditando) return;
+    setSalvandoEdicao(true);
+    try {
+      const response = await fetch('/api/comissoes/atualizar', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          comissaoId: comissaoEditando.id,
+          valorComissao: valorEditado,
+          observacoes: observacoesEditadas
+        })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (response.ok) {
+        addToast('success', 'Comissão atualizada com sucesso.');
+        setComissaoEditando(null);
+        fetchData();
+      } else {
+        addToast('error', result?.error || 'Erro ao atualizar comissão.');
+      }
+    } catch {
+      addToast('error', 'Erro ao atualizar comissão.');
+    } finally {
+      setSalvandoEdicao(false);
     }
   };
 
@@ -525,8 +479,8 @@ export default function TecnicoComissoesDetalhesPage() {
   return (
     <AuthGuard>
       <MenuLayout>
-        <div className="min-h-screen bg-gray-50 py-4 md:py-8 px-3 md:px-6">
-          <div className="max-w-6xl mx-auto space-y-6">
+        <div className="min-h-screen bg-gray-50 py-4 md:py-8 px-3 md:px-4 lg:px-6 w-full max-w-full">
+          <div className="w-full max-w-full space-y-6">
             
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -696,7 +650,7 @@ export default function TecnicoComissoesDetalhesPage() {
             )}
 
             {/* Lista de Comissões */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden w-full">
               <div className="p-4 md:p-6 border-b border-gray-200">
                 <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                   <FiFileText className="text-gray-400" />
@@ -704,9 +658,9 @@ export default function TecnicoComissoesDetalhesPage() {
                 </h2>
               </div>
 
-              {/* Tabela Desktop */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
+              {/* Tabela Desktop - usa largura total e scroll horizontal se necessário */}
+              <div className="hidden md:block overflow-x-auto w-full">
+                <table className="w-full min-w-[800px] divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">OS</th>
@@ -715,8 +669,9 @@ export default function TecnicoComissoesDetalhesPage() {
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valor Serv.</th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Comissão</th>
                       <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Data</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status OS</th>
                       <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Ações</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase w-[180px] min-w-[180px]">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -744,19 +699,56 @@ export default function TecnicoComissoesDetalhesPage() {
                           <span className="text-sm text-gray-500">{formatDate(comissao.data_entrega)}</span>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-center">
+                          <span className="text-sm text-gray-700" title={comissao.status_tecnico_os ? `Técnico: ${comissao.status_tecnico_os}` : undefined}>
+                            {comissao.status_os || '—'}
+                            {comissao.status_tecnico_os && comissao.status_tecnico_os !== comissao.status_os && (
+                              <span className="block text-xs text-gray-500">{comissao.status_tecnico_os}</span>
+                            )}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-center">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(comissao.status)}`}>
                             {comissao.status || 'PENDENTE'}
                           </span>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-center">
-                          {comissao.status?.toUpperCase() === 'PAGA' && !comissao.id.startsWith('prevista-') && (
+                        <td className="px-4 py-3 whitespace-nowrap text-center w-[180px] min-w-[180px]">
+                          <div className="flex flex-wrap items-center justify-center gap-1">
                             <button
-                              onClick={() => handleReverterComissao(comissao)}
-                              className="text-xs text-orange-600 hover:text-orange-800 hover:underline"
+                              onClick={(e) => { e.stopPropagation(); handleVerDetalhes(comissao); }}
+                              className="p-1.5 rounded text-gray-600 hover:bg-gray-100"
+                              title="Ver detalhes"
                             >
-                              Reverter
+                              <FiEye size={16} />
                             </button>
-                          )}
+                            {!comissao.id.startsWith('prevista-') && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleEditarComissao(comissao); }}
+                                className="p-1.5 rounded text-blue-600 hover:bg-blue-50"
+                                title="Editar"
+                              >
+                                <FiEdit size={16} />
+                              </button>
+                            )}
+                            {comissao.status?.toUpperCase() === 'CALCULADA' && !comissao.id.startsWith('prevista-') && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleMarcarComoPaga(comissao); }}
+                                className="text-xs px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 whitespace-nowrap"
+                              >
+                                Marcar paga
+                              </button>
+                            )}
+                            {comissao.status?.toUpperCase() === 'PAGA' && !comissao.id.startsWith('prevista-') && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleReverterComissao(comissao); }}
+                                className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-700 hover:bg-orange-200 whitespace-nowrap"
+                              >
+                                Reverter
+                              </button>
+                            )}
+                            {comissao.status?.toUpperCase() === 'PREVISTA' && (
+                              <span className="text-xs text-gray-400">—</span>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -774,19 +766,46 @@ export default function TecnicoComissoesDetalhesPage() {
                         {comissao.status || 'PENDENTE'}
                       </span>
                     </div>
+                    {comissao.status_os && (
+                      <p className="text-xs text-gray-500">Status OS: {comissao.status_os}{comissao.status_tecnico_os && comissao.status_tecnico_os !== comissao.status_os ? ` / ${comissao.status_tecnico_os}` : ''}</p>
+                    )}
                     <p className="text-sm text-gray-500 truncate">{comissao.cliente_nome}</p>
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-gray-400">{formatDate(comissao.data_entrega)}</span>
                       <span className="text-sm font-bold text-green-600">{formatCurrency(comissao.valor_comissao)}</span>
                     </div>
-                    {comissao.status?.toUpperCase() === 'PAGA' && !comissao.id.startsWith('prevista-') && (
+                    <div className="flex flex-wrap gap-2 pt-1">
                       <button
-                        onClick={() => handleReverterComissao(comissao)}
-                        className="text-xs text-orange-600 hover:text-orange-800"
+                        onClick={() => handleVerDetalhes(comissao)}
+                        className="text-xs px-2 py-1.5 rounded bg-gray-100 text-gray-700 hover:bg-gray-200 flex items-center gap-1"
                       >
-                        Reverter pagamento
+                        <FiEye size={12} /> Ver detalhes
                       </button>
-                    )}
+                      {!comissao.id.startsWith('prevista-') && (
+                        <button
+                          onClick={() => handleEditarComissao(comissao)}
+                          className="text-xs px-2 py-1.5 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 flex items-center gap-1"
+                        >
+                          <FiEdit size={12} /> Editar
+                        </button>
+                      )}
+                      {comissao.status?.toUpperCase() === 'CALCULADA' && !comissao.id.startsWith('prevista-') && (
+                        <button
+                          onClick={() => handleMarcarComoPaga(comissao)}
+                          className="text-xs px-2 py-1.5 rounded bg-green-600 text-white hover:bg-green-700"
+                        >
+                          Marcar como paga
+                        </button>
+                      )}
+                      {comissao.status?.toUpperCase() === 'PAGA' && !comissao.id.startsWith('prevista-') && (
+                        <button
+                          onClick={() => handleReverterComissao(comissao)}
+                          className="text-xs px-2 py-1.5 rounded bg-orange-100 text-orange-700 hover:bg-orange-200"
+                        >
+                          Reverter pagamento
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -799,6 +818,66 @@ export default function TecnicoComissoesDetalhesPage() {
                 </div>
               )}
             </div>
+
+            {/* Modal Ver detalhes */}
+            {comissaoDetalhes && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setComissaoDetalhes(null)}>
+                <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                  <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+                    <h3 className="text-lg font-semibold text-gray-900">Detalhes da Comissão</h3>
+                    <button onClick={() => setComissaoDetalhes(null)} className="p-1 text-gray-400 hover:text-gray-600"><FiX size={20} /></button>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    <div><span className="text-xs text-gray-500">Técnico</span><p className="font-medium">{tecnico?.nome}</p></div>
+                    <div><span className="text-xs text-gray-500">OS</span><p className="font-medium">#{comissaoDetalhes.numero_os}</p></div>
+                    <div><span className="text-xs text-gray-500">Cliente</span><p className="font-medium">{comissaoDetalhes.cliente_nome}</p></div>
+                    <div><span className="text-xs text-gray-500">Serviço</span><p className="font-medium">{comissaoDetalhes.servico_nome}</p></div>
+                    <div><span className="text-xs text-gray-500">Data entrega</span><p className="font-medium">{formatDate(comissaoDetalhes.data_entrega)}</p></div>
+                    <div className="grid grid-cols-2 gap-3 pt-2 border-t">
+                      <div><span className="text-xs text-gray-500">Valor serviço</span><p className="font-medium">{formatCurrency(comissaoDetalhes.valor_servico)}</p></div>
+                      <div><span className="text-xs text-gray-500">Valor peças</span><p className="font-medium">{formatCurrency(comissaoDetalhes.valor_peca ?? 0)}</p></div>
+                      <div><span className="text-xs text-gray-500">Valor total</span><p className="font-bold">{formatCurrency(comissaoDetalhes.valor_total ?? comissaoDetalhes.valor_servico)}</p></div>
+                      <div><span className="text-xs text-gray-500">Comissão</span><p className="font-bold text-green-600">{formatCurrency(comissaoDetalhes.valor_comissao)}</p></div>
+                    </div>
+                    <div><span className="text-xs text-gray-500">Status</span><p><span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${getStatusColor(comissaoDetalhes.status)}`}>{comissaoDetalhes.status}</span></p></div>
+                    {comissaoDetalhes.observacoes && <div><span className="text-xs text-gray-500">Observações</span><p className="text-sm text-gray-700 whitespace-pre-wrap">{comissaoDetalhes.observacoes}</p></div>}
+                  </div>
+                  <div className="p-4 border-t flex justify-end">
+                    <button onClick={() => setComissaoDetalhes(null)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">Fechar</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Modal Editar */}
+            {comissaoEditando && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setComissaoEditando(null)}>
+                <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                  <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+                    <h3 className="text-lg font-semibold text-gray-900">Editar Comissão</h3>
+                    <button onClick={() => setComissaoEditando(null)} className="p-1 text-gray-400 hover:text-gray-600"><FiX size={20} /></button>
+                  </div>
+                  <div className="p-4 space-y-4">
+                    <div><label className="block text-sm text-gray-600 mb-1">OS</label><p className="font-medium">#{comissaoEditando.numero_os}</p></div>
+                    <div><label className="block text-sm text-gray-600 mb-1">Valor total da OS</label><p className="font-medium">{formatCurrency(comissaoEditando.valor_total ?? comissaoEditando.valor_servico)}</p></div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Valor da comissão *</label>
+                      <input type="number" step="0.01" min={0} value={valorEditado} onChange={e => setValorEditado(parseFloat(e.target.value) || 0)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Observações</label>
+                      <textarea value={observacoesEditadas} onChange={e => setObservacoesEditadas(e.target.value)} rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Observações sobre esta comissão..." />
+                    </div>
+                  </div>
+                  <div className="p-4 border-t flex justify-end gap-2">
+                    <button onClick={() => setComissaoEditando(null)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">Cancelar</button>
+                    <button onClick={handleSalvarEdicao} disabled={salvandoEdicao} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2">
+                      {salvandoEdicao ? <span>Salvando...</span> : <><FiSave size={16} /> Salvar</>}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </MenuLayout>

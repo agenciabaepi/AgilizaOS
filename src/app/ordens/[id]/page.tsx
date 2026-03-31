@@ -188,19 +188,45 @@ const VisualizarOrdemServicoPage = () => {
   };
 
   const getStatusColor = (status: string) => {
-    const statusLower = status?.toLowerCase();
-    switch (statusLower) {
-      case 'concluido':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'pendente':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'orcamento':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'analise':
-        return 'bg-purple-100 text-purple-800 border-purple-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+    const normalized = String(status || '')
+      .trim()
+      .toUpperCase()
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .replace(/_/g, ' ');
+
+    if (normalized.includes('SEM REPARO') || normalized.includes('SEM_REPARO') || normalized.includes('CLIENTE RECUSOU')) {
+      return 'bg-red-100 text-red-800 border-red-200';
     }
+    if (normalized.includes('ENTREGUE') || normalized.includes('CONCLUIDO')) {
+      return 'bg-green-100 text-green-800 border-green-200';
+    }
+    if (normalized.includes('ORCAMENTO') || normalized.includes('AGUARDANDO')) {
+      return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+    }
+    if (normalized.includes('EM ANALISE')) {
+      return 'bg-purple-100 text-purple-800 border-purple-200';
+    }
+    if (normalized.includes('APROVADO') || normalized.includes('EM EXECUCAO')) {
+      return 'bg-blue-100 text-blue-800 border-blue-200';
+    }
+
+    return 'bg-gray-100 text-gray-800 border-gray-200';
+  };
+
+  const getStatusTecnicoColor = (statusTecnico: string) => {
+    const normalized = String(statusTecnico || '')
+      .trim()
+      .toUpperCase()
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .replace(/_/g, ' ');
+
+    if (normalized.includes('SEM REPARO') || normalized.includes('SEM_REPARO')) {
+      return 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200 border-red-200 dark:border-red-700';
+    }
+
+    return 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-700';
   };
 
   const isRetorno = (ordem: any) => {
@@ -301,6 +327,10 @@ const VisualizarOrdemServicoPage = () => {
     setProcessandoEntrega(true);
 
     try {
+      const statusTecnicoAtual = String(ordem?.status_tecnico || '').toUpperCase().trim();
+      const tecnicoJaMarcouSemReparo =
+        statusTecnicoAtual === 'SEM REPARO' || statusTecnicoAtual === 'SEM_REPARO';
+
       // 1. Atualizar O.S. para ENTREGUE usando nosso endpoint
       // Passar flags clienteRecusou e aparelhoSemConserto para a API não registrar comissão
       const response = await fetch('/api/ordens/update-status', {
@@ -311,7 +341,7 @@ const VisualizarOrdemServicoPage = () => {
         body: JSON.stringify({
           osId: id,
           newStatus: 'ENTREGUE',
-          newStatusTecnico: 'REPARO CONCLUÍDO',
+          newStatusTecnico: tecnicoJaMarcouSemReparo ? 'SEM REPARO' : 'REPARO CONCLUÍDO',
           termo_garantia_id: termoGarantiaSelecionado.id,
           data_entrega: new Date().toISOString().split('T')[0],
           vencimento_garantia: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -471,6 +501,36 @@ const VisualizarOrdemServicoPage = () => {
     window.open(`https://wa.me/${numero}`, '_blank');
   };
 
+  const enviarOSPorWhatsApp = () => {
+    const raw = (ordem?.cliente?.telefone || '').replace(/\D/g, '');
+    if (raw.length < 10) {
+      addToast('Telefone do cliente não informado ou inválido', 'error');
+      return;
+    }
+    const numero = !raw.startsWith('55') ? '55' + raw : raw;
+    const origem = typeof window !== 'undefined' ? window.location.origin : '';
+    const linkAcompanhar = `${origem}/os/${ordem?.id}/status`;
+    const senha = ordem?.senha_acesso ? String(ordem.senha_acesso).trim() : '';
+    const clienteNome = ordem?.cliente?.nome || 'Cliente';
+    const equipamento = [ordem?.equipamento, ordem?.marca, ordem?.modelo].filter(Boolean).join(' ') || '—';
+    const statusLabel = getStatusTecnicoLabel(ordem?.status, ordem?.status_tecnico) || ordem?.status || '—';
+    const texto = [
+      `*Resumo da OS #${ordem?.numero_os ?? ordem?.id}*`,
+      '',
+      `Olá, ${clienteNome}!`,
+      '',
+      `*Equipamento:* ${equipamento}`,
+      ordem?.problema_relatado ? `*Problema relatado:* ${String(ordem.problema_relatado).slice(0, 200)}${String(ordem.problema_relatado).length > 200 ? '...' : ''}` : '',
+      `*Status:* ${statusLabel}`,
+      ordem?.prazo_entrega ? `*Previsão de entrega:* ${formatDate(ordem.prazo_entrega)}` : '',
+      '',
+      '*Acompanhe sua OS pelo link abaixo (use a senha do recibo para acessar):*',
+      linkAcompanhar,
+      senha ? `*Senha de acesso:* ${senha}` : '',
+    ].filter(Boolean).join('\n');
+    window.open(`https://wa.me/${numero}?text=${encodeURIComponent(texto)}`, '_blank');
+  };
+
   if (loading) {
     return (
       <MenuLayout>
@@ -584,7 +644,7 @@ const VisualizarOrdemServicoPage = () => {
                 </div>
               </div>
 
-              {/* WhatsApp: Conversar */}
+              {/* WhatsApp: Conversar + Enviar OS */}
               <button
                 onClick={abrirWhatsApp}
                 className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
@@ -592,6 +652,14 @@ const VisualizarOrdemServicoPage = () => {
               >
                 <FaWhatsapp className="w-4 h-4 shrink-0" />
                 Conversar
+              </button>
+              <button
+                onClick={enviarOSPorWhatsApp}
+                className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium bg-green-700 text-white rounded-lg hover:bg-green-800 transition-colors border border-green-600"
+                title="Enviar resumo da OS + link e senha para o cliente no WhatsApp"
+              >
+                <FaWhatsapp className="w-4 h-4 shrink-0" />
+                Enviar OS
               </button>
 
               {/* Ver Status + Entregar */}
@@ -635,7 +703,7 @@ const VisualizarOrdemServicoPage = () => {
                 {getStatusTecnicoLabel(ordem.status, null) || 'Status não definido'}
               </span>
               {ordem.status_tecnico && (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700">
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusTecnicoColor(ordem.status_tecnico)}`}>
                   <FiTool className="w-4 h-4 mr-2" />
                   {getStatusTecnicoLabel(ordem.status, ordem.status_tecnico)}
                 </span>

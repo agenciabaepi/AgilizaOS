@@ -419,10 +419,11 @@ export default function DetalheBancadaPage() {
       // Normalizar para o nome exato de uma opção (evitar diferença de acento/caixa entre select e DB)
       const opcaoCorrespondente = statusTecnicoOptions.find(s => (s.nome || '').toUpperCase() === statusTecnicoParaSalvar.toUpperCase());
       if (opcaoCorrespondente?.nome) statusTecnicoParaSalvar = opcaoCorrespondente.nome;
+      const tecnicoSelecionouSemReparo = /SEM\s*REPARO|SEM_REPARO/.test((statusTecnicoParaSalvar || '').toUpperCase());
       // Se o técnico preencheu o laudo e o status ainda não é de orçamento concluído, marcar como ORÇAMENTO CONCLUÍDO
       const laudoPreenchido = typeof laudo === 'string' && laudo.trim().length > 0;
       const jaOrcamentoEnviado = (statusTecnicoParaSalvar || '').toUpperCase().includes('ORÇAMENTO CONCLUÍDO');
-      if (laudoPreenchido && !jaOrcamentoEnviado) {
+      if (laudoPreenchido && !jaOrcamentoEnviado && !tecnicoSelecionouSemReparo) {
         const opcaoConcluido = statusTecnicoOptions.find(s => (s.nome || '').toUpperCase() === 'ORÇAMENTO CONCLUÍDO');
         statusTecnicoParaSalvar = opcaoConcluido?.nome ?? 'ORÇAMENTO CONCLUÍDO';
       }
@@ -444,6 +445,12 @@ export default function DetalheBancadaPage() {
       } else if (/EM\s*EXECU[ÇC][ÃA]O|EM_EXECUCAO/.test(stUpper)) {
         // Em execução não deve cair em status de concluído na OS.
         novoStatus = 'APROVADO';
+      }
+
+      // Regra de espelhamento: SEM REPARO do técnico deve espelhar na O.S.
+      if (/SEM\s*REPARO|SEM_REPARO/.test((statusTecnicoParaSalvar || '').toUpperCase())) {
+        statusTecnicoParaSalvar = 'SEM REPARO';
+        novoStatus = 'SEM REPARO';
       }
 
       // Preparar dados dos produtos e serviços
@@ -1217,10 +1224,11 @@ export default function DetalheBancadaPage() {
                 os.status === 'ORÇAMENTO' ? 'bg-yellow-100 text-yellow-800' :
                 os.status === 'EM_ANALISE' ? 'bg-blue-100 text-blue-800' :
                 os.status === 'AGUARDANDO_PECA' ? 'bg-orange-100 text-orange-800' :
+                os.status === 'SEM REPARO' || os.status === 'SEM_REPARO' ? 'bg-red-100 text-red-800' :
                 os.status === 'CONCLUIDO' ? 'bg-green-100 text-green-800' :
                 'bg-gray-100 text-gray-800'
               }`}>
-                {os.status === 'ORÇAMENTO' ? 'Orçamento' : os.status === 'EM_ANALISE' ? 'Em Análise' : os.status === 'AGUARDANDO_PECA' ? 'Aguardando Peça' : os.status === 'CONCLUIDO' ? 'Concluído' : os.status}
+                {os.status === 'ORÇAMENTO' ? 'Orçamento' : os.status === 'EM_ANALISE' ? 'Em Análise' : os.status === 'AGUARDANDO_PECA' ? 'Aguardando Peça' : os.status === 'SEM REPARO' || os.status === 'SEM_REPARO' ? 'Sem Reparo' : os.status === 'CONCLUIDO' ? 'Concluído' : os.status}
               </span>
             </div>
             {/* Barra de progresso por etapa */}

@@ -132,6 +132,7 @@ export const PAGE_PERMISSIONS = {
   '/admin-saas/assinaturas': 'admin-saas',
   '/admin-saas/config': 'admin-saas',
   '/admin-saas/pagamentos': 'admin-saas',
+  '/admin-saas/notificacoes': 'admin-saas',
   '/admin/criar-assinaturas': 'admin-saas',
   
   // Páginas de debug/desenvolvimento (sem proteção em desenvolvimento)

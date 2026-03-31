@@ -184,6 +184,8 @@ export default function EditarOSSimples() {
         .from('ordens_servico')
         .select(`
           *,
+          equipamento,
+          checklist_entrada,
           clientes:cliente_id(nome, telefone, email)
         `)
         .eq('id', id)
@@ -217,15 +219,21 @@ export default function EditarOSSimples() {
       // setDataSaida(data.data_saida ? data.data_saida.split('T')[0] : '');
       // setPrazoEntrega(data.prazo_entrega ? data.prazo_entrega.split('T')[0] : '');
       setTermoGarantiaId(data.termo_garantia_id || '');
-      // Carregar checklist de entrada se existir na OS
+      // Carregar checklist de entrada se existir na OS (substituir estado para refletir dados da OS)
       try {
-        if (data.checklist_entrada) {
+        if (data.checklist_entrada != null && data.checklist_entrada !== '') {
           const parsed = typeof data.checklist_entrada === 'string' ? JSON.parse(data.checklist_entrada) : data.checklist_entrada;
-          if (parsed && typeof parsed === 'object') {
-            setChecklistEntrada((prev) => ({ ...prev, ...parsed }));
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            setChecklistEntrada({ ...parsed });
+          } else {
+            setChecklistEntrada({});
           }
+        } else {
+          setChecklistEntrada({});
         }
-      } catch (_) {}
+      } catch (_) {
+        setChecklistEntrada({});
+      }
       
       // Processar imagens
       if (data.imagens) {
@@ -576,6 +584,12 @@ export default function EditarOSSimples() {
         addToast('success', '✅ Status atualizado e técnico notificado via WhatsApp!');
       } else {
         addToast('success', '✅ Status atualizado com sucesso!');
+      }
+      // Avisar se a comissão não foi registrada no banco
+      if (result.comissaoErro) {
+        addToast('error', 'Comissão não registrada: ' + result.comissaoErro);
+      } else if (result.comissaoRegistrada) {
+        addToast('success', 'Comissão do técnico registrada.');
       }
 
       // ✅ REGISTRAR MUDANÇA DE STATUS NO HISTÓRICO (opcional - não bloqueia salvamento)

@@ -15,6 +15,7 @@ import {
   FiSearch,
   FiBell,
   FiChevronDown,
+  FiChevronRight,
   FiMenu,
   FiX,
   FiGrid,
@@ -43,6 +44,56 @@ import { getMenuAccentColor, MENU_ACCENT_DEFAULT } from '@/lib/menuTheme';
 
 type MenuTheme = { accentColor: string; inverted: boolean };
 const MenuAccentContext = createContext<MenuTheme>({ accentColor: MENU_ACCENT_DEFAULT, inverted: false });
+const SidebarMobileCloseContext = createContext<(() => void) | null>(null);
+
+function SidebarSubmenuPanel({ children }: { children: ReactNode }) {
+  const { inverted } = useContext(MenuAccentContext);
+  return (
+    <div
+      className={`mt-1 min-w-0 rounded-lg border p-1.5 flex flex-col gap-0.5 ${
+        inverted ? 'border-gray-200 bg-gray-50/90' : 'border-white/10 bg-white/[0.04]'
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
+function SidebarSectionHeader({
+  icon,
+  label,
+  expanded,
+  onToggle,
+}: {
+  icon: ReactNode;
+  label: string;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const { inverted } = useContext(MenuAccentContext);
+  return (
+    <button
+      type="button"
+      className={`flex items-center justify-between w-full px-3 py-2.5 rounded-lg cursor-pointer transition font-medium text-[15px] min-h-[48px] text-left ${
+        inverted ? 'text-gray-900 hover:bg-gray-100' : 'text-white hover:bg-white/10'
+      }`}
+      onClick={onToggle}
+      title={label}
+    >
+      <span className="flex items-center gap-3 min-w-0">
+        <span className="shrink-0 flex size-[22px] items-center justify-center text-current [&_svg]:size-[22px] [&_svg]:shrink-0">
+          {icon}
+        </span>
+        <span className="truncate">{label}</span>
+      </span>
+      {expanded ? (
+        <FiChevronDown size={18} className="shrink-0 opacity-65 text-current" aria-hidden />
+      ) : (
+        <FiChevronRight size={18} className="shrink-0 opacity-65 text-current" aria-hidden />
+      )}
+    </button>
+  );
+}
 
 // Funções locais como fallback
 const isUsuarioTesteLocal = (usuario: any) => {
@@ -282,7 +333,7 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
           />
         </div>
         {/* Menu */}
-        <nav className="flex flex-col gap-2 flex-1">
+        <nav className="flex flex-col gap-1.5 flex-1">
           {!isMounted || !userDataReady ? (
             <>
               {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -293,223 +344,158 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
             <>
           {/* Dashboard - técnico vai para dashboard-tecnico */}
           {(podeVer('dashboard') || usuarioData?.nivel === 'atendente') && matchesSearch('Dashboard') && (
-            <SidebarButton path={isTecnico ? '/dashboard-tecnico' : '/dashboard'} icon={<FiHome size={20} />} label="Dashboard" isActive={isTecnico ? pathname === '/dashboard-tecnico' : pathname === '/dashboard'} menuRecolhido={false} />
+            <SidebarButton path={isTecnico ? '/dashboard-tecnico' : '/dashboard'} icon={<FiHome size={22} strokeWidth={1.75} />} label="Dashboard" isActive={isTecnico ? pathname === '/dashboard-tecnico' : pathname === '/dashboard'} menuRecolhido={false} />
           )}
                   {/* Lembretes */}
                   {podeVer('lembretes') && matchesSearch('Lembretes') && (
-                    <SidebarButton path="/lembretes" icon={<FiBell size={20} />} label="Lembretes" isActive={pathname === '/lembretes'} menuRecolhido={false} />
+                    <SidebarButton path="/lembretes" icon={<FiBell size={22} strokeWidth={1.75} />} label="Lembretes" isActive={pathname === '/lembretes'} menuRecolhido={false} />
                   )}
           {podeVer('ordens') && matchesSearch('Ordens de Serviço') && (
-            <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} menuRecolhido={false} />
+            <SidebarButton path="/ordens" icon={<FiFileText size={22} strokeWidth={1.75} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} menuRecolhido={false} />
           )}
           {podeVer('caixa') && (matchesSearch('Caixa') || matchesSearch('Fluxo de Caixa')) && (
             <>
-              <div 
-                className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base ${isTecnico ? 'text-gray-900 hover:bg-gray-100' : 'text-white hover:bg-white/10'}`}
-                onClick={() => setCaixaExpanded(!caixaExpanded)}
-                style={{ minHeight: 48 }}
-                title="Caixa"
-              >
-                <div className="flex items-center">
-                  <FiDollarSign size={20} />
-                  <span className="ml-3">Caixa</span>
-                </div>
-                <FiChevronDown 
-                  size={16} 
-                  className={`transition-transform ${caixaExpanded ? 'rotate-180' : ''}`} 
-                />
-              </div>
-              
+              <SidebarSectionHeader
+                icon={<FiDollarSign size={22} strokeWidth={1.75} />}
+                label="Caixa"
+                expanded={caixaExpanded}
+                onToggle={() => setCaixaExpanded(!caixaExpanded)}
+              />
               {caixaExpanded && (
-                <div className="ml-6 flex flex-col gap-1 mt-1 min-w-0">
+                <SidebarSubmenuPanel>
                   {podeVerModulo('movimentacao-caixa', 'financeiro') && (
-                    <SidebarButton path="/fluxo-caixa" icon={<FiTrendingUp size={18} />} label="Fluxo de Caixa" isActive={pathname === '/fluxo-caixa'} menuRecolhido={false} />
+                    <SidebarButton
+                      path="/fluxo-caixa"
+                      label="Fluxo de Caixa"
+                      isActive={pathname === '/fluxo-caixa'}
+                      menuRecolhido={false}
+                      isSubmenu
+                    />
                   )}
-                </div>
+                </SidebarSubmenuPanel>
               )}
             </>
           )}
           {podeVer('clientes') && (matchesSearch('Contatos') || matchesSearch('Clientes') || matchesSearch('Fornecedores')) && (
             <>
-              <div 
-                className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base ${isTecnico ? 'text-gray-900 hover:bg-gray-100' : 'text-white hover:bg-white/10'}`}
-                onClick={() => setContatosExpanded(!contatosExpanded)}
-                style={{ minHeight: 48 }}
-                title="Contatos"
-              >
-                <div className="flex items-center">
-                  <FiUsers size={20} />
-                  <span className="ml-3">Contatos</span>
-                </div>
-                <FiChevronDown 
-                  size={16} 
-                  className={`transition-transform ${contatosExpanded ? 'rotate-180' : ''}`} 
-                />
-              </div>
-              
+              <SidebarSectionHeader
+                icon={<FiUsers size={22} strokeWidth={1.75} />}
+                label="Contatos"
+                expanded={contatosExpanded}
+                onToggle={() => setContatosExpanded(!contatosExpanded)}
+              />
               {contatosExpanded && (
-                <div className="ml-6 flex flex-col gap-1 mt-1 min-w-0">
-                  <SidebarButton path="/clientes" icon={<FiUsers size={18} />} label="Clientes" isActive={pathname === '/clientes'} menuRecolhido={false} />
+                <SidebarSubmenuPanel>
+                  <SidebarButton path="/clientes" label="Clientes" isActive={pathname === '/clientes'} menuRecolhido={false} isSubmenu />
                   {podeVer('fornecedores') && (
-                    <SidebarButton path="/fornecedores" icon={<FiTruck size={18} />} label="Fornecedores" isActive={pathname === '/fornecedores'} menuRecolhido={false} />
+                    <SidebarButton path="/fornecedores" label="Fornecedores" isActive={pathname === '/fornecedores'} menuRecolhido={false} isSubmenu />
                   )}
-                </div>
+                </SidebarSubmenuPanel>
               )}
             </>
           )}
           {podeVer('equipamentos') && (matchesSearch('Produtos/Serviços') || matchesSearch('Produtos') || matchesSearch('Categorias') || matchesSearch('Catálogo')) && (
             <>
-              <div 
-                className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base ${isTecnico ? 'text-gray-900 hover:bg-gray-100' : 'text-white hover:bg-white/10'}`}
-                onClick={() => setEquipamentosExpanded(!equipamentosExpanded)}
-                style={{ minHeight: 48 }}
-                title="Produtos/Serviços"
-              >
-                <div className="flex items-center">
-                  <FiBox size={20} />
-                  <span className="ml-3">Produtos/Serviços</span>
-                </div>
-                <FiChevronDown 
-                  size={16} 
-                  className={`transition-transform ${equipamentosExpanded ? 'rotate-180' : ''}`} 
-                />
-              </div>
-              
+              <SidebarSectionHeader
+                icon={<FiBox size={22} strokeWidth={1.75} />}
+                label="Produtos/Serviços"
+                expanded={equipamentosExpanded}
+                onToggle={() => setEquipamentosExpanded(!equipamentosExpanded)}
+              />
               {equipamentosExpanded && (
-                <div className="ml-6 flex flex-col gap-1 mt-1 min-w-0">
-                  <SidebarButton path="/equipamentos" icon={<FiBox size={18} />} label="Produtos" isActive={pathname === '/equipamentos'} menuRecolhido={false} />
-                  <SidebarButton path="/equipamentos/categorias" icon={<FiGrid size={18} />} label="Categorias" isActive={pathname === '/equipamentos/categorias'} menuRecolhido={false} />
+                <SidebarSubmenuPanel>
+                  <SidebarButton path="/equipamentos" label="Produtos" isActive={pathname === '/equipamentos'} menuRecolhido={false} isSubmenu />
+                  <SidebarButton path="/equipamentos/categorias" label="Categorias" isActive={pathname === '/equipamentos/categorias'} menuRecolhido={false} isSubmenu />
                   {catalogoHabilitado && podeVer('catalogo') && (
-                    <SidebarButton path="/catalogo" icon={<FiStar size={18} />} label="Catálogo" isActive={pathname === '/catalogo'} menuRecolhido={false} />
+                    <SidebarButton path="/catalogo" label="Catálogo" isActive={pathname === '/catalogo'} menuRecolhido={false} isSubmenu />
                   )}
-                </div>
+                </SidebarSubmenuPanel>
               )}
             </>
           )}
           {/* Catálogo independente - se usuário tem permissão de catálogo mas não de equipamentos */}
           {!podeVer('equipamentos') && podeVer('catalogo') && catalogoHabilitado && matchesSearch('Catálogo') && (
-            <SidebarButton path="/catalogo" icon={<FiStar size={20} />} label="Catálogo" isActive={pathname === '/catalogo'} menuRecolhido={false} />
+            <SidebarButton path="/catalogo" icon={<FiStar size={22} strokeWidth={1.75} />} label="Catálogo" isActive={pathname === '/catalogo'} menuRecolhido={false} />
           )}
           {podeVerModulo('financeiro', 'financeiro') && (matchesSearch('Financeiro') || matchesSearch('Lucro & Desempenho') || matchesSearch('Vendas') || matchesSearch('Movimentações Caixa') || matchesSearch('Contas a Pagar') || matchesSearch('Comissões dos Técnicos')) && (
             <>
-              <div 
-                className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base ${isTecnico ? 'text-gray-900 hover:bg-gray-100' : 'text-white hover:bg-white/10'}`}
-                onClick={() => setFinanceiroExpanded(!financeiroExpanded)}
-                style={{ minHeight: 48 }}
-                title="Financeiro"
-              >
-                <div className="flex items-center">
-                  <FiDollarSign size={20} />
-                  <span className="ml-3">Financeiro</span>
-                </div>
-                <FiChevronDown 
-                  size={16} 
-                  className={`transition-transform ${financeiroExpanded ? 'rotate-180' : ''}`} 
-                />
-              </div>
-              
+              <SidebarSectionHeader
+                icon={<FiBarChart size={22} strokeWidth={1.75} />}
+                label="Financeiro"
+                expanded={financeiroExpanded}
+                onToggle={() => setFinanceiroExpanded(!financeiroExpanded)}
+              />
               {financeiroExpanded && (
-                <div className="ml-6 flex flex-col gap-1 mt-1 min-w-0">
+                <SidebarSubmenuPanel>
                   {podeVerModulo('lucro-desempenho', 'financeiro') && (
-                    <SidebarButton 
-                      path="/financeiro/lucro-desempenho" 
-                      icon={
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
-                          <polyline points="17 6 23 6 23 12"></polyline>
-                        </svg>
-                      } 
-                      label="Lucro & Desempenho" 
-                      isActive={pathname === '/financeiro/lucro-desempenho'} 
-                      menuRecolhido={false} 
+                    <SidebarButton
+                      path="/financeiro/lucro-desempenho"
+                      label="Lucro & Desempenho"
+                      isActive={pathname === '/financeiro/lucro-desempenho'}
+                      menuRecolhido={false}
+                      isSubmenu
                     />
                   )}
                   {podeVerModulo('vendas', 'financeiro') && (
-                    <SidebarButton 
-                      path="/financeiro/vendas" 
-                      icon={
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                          <polyline points="14,2 14,8 20,8"></polyline>
-                          <line x1="16" y1="13" x2="8" y2="13"></line>
-                          <line x1="16" y1="17" x2="8" y2="17"></line>
-                          <polyline points="10,9 9,9 8,9"></polyline>
-                        </svg>
-                      } 
-                      label="Vendas" 
-                      isActive={pathname === '/financeiro/vendas'} 
-                      menuRecolhido={false} 
+                    <SidebarButton
+                      path="/financeiro/vendas"
+                      label="Vendas"
+                      isActive={pathname === '/financeiro/vendas'}
+                      menuRecolhido={false}
+                      isSubmenu
                     />
                   )}
                   {podeVerModulo('movimentacao-caixa', 'financeiro') && (
-                    <SidebarButton 
-                      path="/financeiro/movimentacoes-caixa" 
-                      icon={
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <line x1="12" y1="1" x2="12" y2="23"></line>
-                          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                        </svg>
-                      } 
-                      label="Movimentações Caixa" 
-                      isActive={pathname === '/financeiro/movimentacoes-caixa'} 
-                      menuRecolhido={false} 
+                    <SidebarButton
+                      path="/financeiro/movimentacoes-caixa"
+                      label="Movimentações Caixa"
+                      isActive={pathname === '/financeiro/movimentacoes-caixa'}
+                      menuRecolhido={false}
+                      isSubmenu
                     />
                   )}
                   {podeVerModulo('contas-a-pagar', 'financeiro') && (
-                    <SidebarButton 
-                      path="/financeiro/contas-a-pagar" 
-                      icon={
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                          <line x1="8" y1="21" x2="16" y2="21"></line>
-                          <line x1="12" y1="17" x2="12" y2="21"></line>
-                        </svg>
-                      } 
-                      label="Contas a Pagar" 
-                      isActive={pathname === '/financeiro/contas-a-pagar'} 
-                      menuRecolhido={false} 
+                    <SidebarButton
+                      path="/financeiro/contas-a-pagar"
+                      label="Contas a Pagar"
+                      isActive={pathname === '/financeiro/contas-a-pagar'}
+                      menuRecolhido={false}
+                      isSubmenu
                     />
                   )}
                   {!isTecnico && podeVerModulo('lucro-desempenho', 'financeiro') && (
-                    <SidebarButton 
-                      path="/financeiro/comissoes-tecnicos" 
-                      icon={
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                          <circle cx="9" cy="7" r="4"></circle>
-                          <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                        </svg>
-                      } 
-                      label="Comissões dos Técnicos" 
-                      isActive={pathname === '/financeiro/comissoes-tecnicos'} 
-                      menuRecolhido={false} 
+                    <SidebarButton
+                      path="/financeiro/comissoes-tecnicos"
+                      label="Comissões dos Técnicos"
+                      isActive={pathname === '/financeiro/comissoes-tecnicos'}
+                      menuRecolhido={false}
+                      isSubmenu
                     />
                   )}
-                </div>
+                </SidebarSubmenuPanel>
               )}
             </>
           )}
           {podeVer('bancada') && matchesSearch('Bancada') && (
-            <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" isActive={pathname === '/bancada'} menuRecolhido={false} />
+            <SidebarButton path="/bancada" icon={<FiTool size={22} strokeWidth={1.75} />} label="Bancada" isActive={pathname === '/bancada'} menuRecolhido={false} />
           )}
           {isTecnico && podeVer('comissoes') && matchesSearch('Comissões') && (
-            <SidebarButton path="/comissoes" icon={<FiDollarSign size={20} />} label="Comissões" isActive={pathname === '/comissoes'} menuRecolhido={false} />
+            <SidebarButton path="/comissoes" icon={<FiDollarSign size={22} strokeWidth={1.75} />} label="Comissões" isActive={pathname === '/comissoes'} menuRecolhido={false} />
           )}
           {matchesSearch('Suporte') && (
-            <SidebarButton path="/suporte" icon={<FiMessageSquare size={20} />} label="Suporte" isActive={pathname === '/suporte'} menuRecolhido={false} />
+            <SidebarButton path="/suporte" icon={<FiMessageSquare size={22} strokeWidth={1.75} />} label="Suporte" isActive={pathname === '/suporte'} menuRecolhido={false} />
           )}
           {!isTecnico && matchesSearch('Assinatura') && (
-            <SidebarButton path="/assinatura" icon={<FiCreditCard size={20} />} label="Assinatura" isActive={pathname === '/assinatura'} menuRecolhido={false} />
+            <SidebarButton path="/assinatura" icon={<FiCreditCard size={22} strokeWidth={1.75} />} label="Assinatura" isActive={pathname === '/assinatura'} menuRecolhido={false} />
           )}
           {matchesSearch('Meu Perfil') && (
-            <SidebarButton path="/perfil" icon={<FiUsers size={20} />} label="Meu Perfil" isActive={pathname === '/perfil'} menuRecolhido={false} />
+            <SidebarButton path="/perfil" icon={<FiUsers size={22} strokeWidth={1.75} />} label="Meu Perfil" isActive={pathname === '/perfil'} menuRecolhido={false} />
           )}
           {podeVer('configuracoes') && matchesSearch('Configurações') && (
-            <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" isActive={pathname === '/configuracoes' || pathname.startsWith('/configuracoes/')} menuRecolhido={false} />
+            <SidebarButton path="/configuracoes" icon={<FiTool size={22} strokeWidth={1.75} />} label="Configurações" isActive={pathname === '/configuracoes' || pathname.startsWith('/configuracoes/')} menuRecolhido={false} />
           )}
           {matchesSearch('Sair') && (
-            <SidebarButton path="#logout" icon={<FiLogOut size={20} />} label="Sair" isActive={false} menuRecolhido={false} onClick={logout} />
+            <SidebarButton path="#logout" icon={<FiLogOut size={22} strokeWidth={1.75} />} label="Sair" isActive={false} menuRecolhido={false} onClick={logout} />
           )}
             </>
           )}
@@ -533,11 +519,12 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
       
       {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 flex no-print">
+        <div className="fixed inset-0 z-50 flex no-print md:hidden">
           {/* Overlay */}
           <div className="absolute inset-0 bg-black/40" onClick={() => setMobileMenuOpen(false)} />
           {/* Drawer */}
-          <aside className={`relative w-64 flex flex-col py-8 px-4 min-h-screen animate-slide-in ${isTecnico ? 'bg-white border-r border-gray-200' : 'bg-black border-r border-white/20'}`} style={{ ['--menu-accent' as string]: menuAccentColor }}>
+          <aside className={`relative flex h-screen min-h-0 w-64 flex-col py-8 px-4 animate-slide-in ${isTecnico ? 'bg-white border-r border-gray-200' : 'bg-black border-r border-white/20'}`} style={{ ['--menu-accent' as string]: menuAccentColor }}>
+            <SidebarMobileCloseContext.Provider value={() => setMobileMenuOpen(false)}>
             <button className={`absolute top-4 right-4 ${isTecnico ? 'text-gray-900' : 'text-white'}`} onClick={() => setMobileMenuOpen(false)}>
               <FiX size={28} />
             </button>
@@ -551,7 +538,7 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
                 className={`w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--menu-accent)] focus:border-[color:var(--menu-accent)] transition ${isTecnico ? 'bg-gray-100 border border-gray-300 text-gray-900 placeholder-gray-500' : 'bg-white/10 border border-white/20 text-white placeholder-white/50'}`}
               />
             </div>
-            <nav className="flex flex-col gap-1">
+            <nav className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto">
               {!isMounted || !userDataReady ? (
                 <>
                   {[1, 2, 3, 4, 5].map((i) => (
@@ -562,220 +549,166 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
                 <>
               {/* Dashboard - técnico vai para dashboard-tecnico */}
               {(podeVer('dashboard') || usuarioData?.nivel === 'atendente') && (
-                <SidebarButton path={isTecnico ? '/dashboard-tecnico' : '/dashboard'} icon={<FiHome size={20} />} label="Dashboard" isActive={isTecnico ? pathname === '/dashboard-tecnico' : pathname === '/dashboard'} menuRecolhido={false} />
+                <SidebarButton path={isTecnico ? '/dashboard-tecnico' : '/dashboard'} icon={<FiHome size={22} strokeWidth={1.75} />} label="Dashboard" isActive={isTecnico ? pathname === '/dashboard-tecnico' : pathname === '/dashboard'} menuRecolhido={false} />
               )}
               {/* Lembretes */}
               {podeVer('lembretes') && (
-                <SidebarButton path="/lembretes" icon={<FiBell size={20} />} label="Lembretes" isActive={pathname === '/lembretes'} menuRecolhido={false} />
+                <SidebarButton path="/lembretes" icon={<FiBell size={22} strokeWidth={1.75} />} label="Lembretes" isActive={pathname === '/lembretes'} menuRecolhido={false} />
               )}
               {podeVer('ordens') && (
-                <SidebarButton path="/ordens" icon={<FiFileText size={20} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} menuRecolhido={false} />
+                <SidebarButton path="/ordens" icon={<FiFileText size={22} strokeWidth={1.75} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} menuRecolhido={false} />
               )}
               {podeVer('caixa') && (
                 <>
-                  <div 
-                    className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base ${isTecnico ? 'text-gray-900 hover:bg-gray-100' : 'text-white hover:bg-white/10'}`}
-                    onClick={() => setCaixaExpanded(!caixaExpanded)}
-                    style={{ minHeight: 48 }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <FiDollarSign size={20} />
-                      <span>Caixa</span>
-                    </div>
-                    <FiChevronDown 
-                      size={16} 
-                      className={`transition-transform ${caixaExpanded ? 'rotate-180' : ''}`} 
-                    />
-                  </div>
-                  
+                  <SidebarSectionHeader
+                    icon={<FiDollarSign size={22} strokeWidth={1.75} />}
+                    label="Caixa"
+                    expanded={caixaExpanded}
+                    onToggle={() => setCaixaExpanded(!caixaExpanded)}
+                  />
                   {caixaExpanded && (
-                    <div className="ml-6 flex flex-col gap-1 mt-1 min-w-0">
+                    <SidebarSubmenuPanel>
                       {podeVerModulo('movimentacao-caixa', 'financeiro') && (
-                    <SidebarButton path="/fluxo-caixa" icon={<FiTrendingUp size={18} />} label="Fluxo de Caixa" isActive={pathname === '/fluxo-caixa'} menuRecolhido={false} />
-                  )}
-                    </div>
+                        <SidebarButton
+                          path="/fluxo-caixa"
+                          label="Fluxo de Caixa"
+                          isActive={pathname === '/fluxo-caixa'}
+                          menuRecolhido={false}
+                          isSubmenu
+                        />
+                      )}
+                    </SidebarSubmenuPanel>
                   )}
                 </>
               )}
               {podeVer('clientes') && (
                 <>
-                  <div 
-                    className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base ${isTecnico ? 'text-gray-900 hover:bg-gray-100' : 'text-white hover:bg-white/10'}`}
-                    onClick={() => setContatosExpanded(!contatosExpanded)}
-                    style={{ minHeight: 48 }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <FiUsers size={20} />
-                      <span>Contatos</span>
-                    </div>
-                    <FiChevronDown 
-                      size={16} 
-                      className={`transition-transform ${contatosExpanded ? 'rotate-180' : ''}`} 
-                    />
-                  </div>
-                  
+                  <SidebarSectionHeader
+                    icon={<FiUsers size={22} strokeWidth={1.75} />}
+                    label="Contatos"
+                    expanded={contatosExpanded}
+                    onToggle={() => setContatosExpanded(!contatosExpanded)}
+                  />
                   {contatosExpanded && (
-                    <div className="ml-6 flex flex-col gap-1 mt-1 min-w-0">
-                      <SidebarButton path="/clientes" icon={<FiUsers size={18} />} label="Clientes" isActive={pathname === '/clientes'} menuRecolhido={false} />
+                    <SidebarSubmenuPanel>
+                      <SidebarButton path="/clientes" label="Clientes" isActive={pathname === '/clientes'} menuRecolhido={false} isSubmenu />
                       {podeVer('fornecedores') && (
-                        <SidebarButton path="/fornecedores" icon={<FiTruck size={18} />} label="Fornecedores" isActive={pathname === '/fornecedores'} menuRecolhido={false} />
+                        <SidebarButton path="/fornecedores" label="Fornecedores" isActive={pathname === '/fornecedores'} menuRecolhido={false} isSubmenu />
                       )}
-                    </div>
+                    </SidebarSubmenuPanel>
                   )}
                 </>
               )}
-                            {podeVer('equipamentos') && (
+              {podeVer('equipamentos') && (
                 <>
-                  <div 
-                    className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base ${isTecnico ? 'text-gray-900 hover:bg-gray-100' : 'text-white hover:bg-white/10'}`}
-                    onClick={() => setEquipamentosExpanded(!equipamentosExpanded)}
-                    style={{ minHeight: 48 }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <FiBox size={20} />
-                      <span>Produtos/Serviços</span>
-                    </div>
-                    <FiChevronDown 
-                      size={16} 
-                      className={`transition-transform ${equipamentosExpanded ? 'rotate-180' : ''}`} 
-                    />
-                  </div>
-                  
+                  <SidebarSectionHeader
+                    icon={<FiBox size={22} strokeWidth={1.75} />}
+                    label="Produtos/Serviços"
+                    expanded={equipamentosExpanded}
+                    onToggle={() => setEquipamentosExpanded(!equipamentosExpanded)}
+                  />
                   {equipamentosExpanded && (
-                    <div className="ml-6 flex flex-col gap-1 mt-1 min-w-0">
-                      <SidebarButton path="/equipamentos" icon={<FiBox size={18} />} label="Produtos" isActive={pathname === '/equipamentos'} menuRecolhido={false} />
-                      <SidebarButton path="/equipamentos/categorias" icon={<FiGrid size={18} />} label="Categorias" isActive={pathname === '/equipamentos/categorias'} menuRecolhido={false} />
-                  {catalogoHabilitado && podeVer('catalogo') && (
-                    <SidebarButton path="/catalogo" icon={<FiStar size={18} />} label="Catálogo" isActive={pathname === '/catalogo'} menuRecolhido={false} />
-                  )}
-                    </div>
+                    <SidebarSubmenuPanel>
+                      <SidebarButton path="/equipamentos" label="Produtos" isActive={pathname === '/equipamentos'} menuRecolhido={false} isSubmenu />
+                      <SidebarButton path="/equipamentos/categorias" label="Categorias" isActive={pathname === '/equipamentos/categorias'} menuRecolhido={false} isSubmenu />
+                      {catalogoHabilitado && podeVer('catalogo') && (
+                        <SidebarButton path="/catalogo" label="Catálogo" isActive={pathname === '/catalogo'} menuRecolhido={false} isSubmenu />
+                      )}
+                    </SidebarSubmenuPanel>
                   )}
                 </>
+              )}
+              {!podeVer('equipamentos') && podeVer('catalogo') && catalogoHabilitado && matchesSearch('Catálogo') && (
+                <SidebarButton path="/catalogo" icon={<FiStar size={22} strokeWidth={1.75} />} label="Catálogo" isActive={pathname === '/catalogo'} menuRecolhido={false} />
               )}
               {podeVerModulo('financeiro', 'financeiro') && (
                 <>
-                  <div 
-                    className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition font-medium text-base ${isTecnico ? 'text-gray-900 hover:bg-gray-100' : 'text-white hover:bg-white/10'}`}
-                    onClick={() => setFinanceiroExpanded(!financeiroExpanded)}
-                    style={{ minHeight: 48 }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <FiDollarSign size={20} />
-                      <span>Financeiro</span>
-                    </div>
-                    <FiChevronDown 
-                      size={16} 
-                      className={`transition-transform ${financeiroExpanded ? 'rotate-180' : ''}`} 
-                    />
-                  </div>
-                  
+                  <SidebarSectionHeader
+                    icon={<FiBarChart size={22} strokeWidth={1.75} />}
+                    label="Financeiro"
+                    expanded={financeiroExpanded}
+                    onToggle={() => setFinanceiroExpanded(!financeiroExpanded)}
+                  />
                   {financeiroExpanded && (
-                    <div className="ml-6 flex flex-col gap-1 mt-1 min-w-0">
+                    <SidebarSubmenuPanel>
                       {podeVerModulo('lucro-desempenho', 'financeiro') && (
-                        <SidebarButton 
-                          path="/financeiro/lucro-desempenho" 
-                          icon={
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
-                              <polyline points="17 6 23 6 23 12"></polyline>
-                            </svg>
-                          } 
-                          label="Lucro & Desempenho" 
-                          isActive={pathname === '/financeiro/lucro-desempenho'} 
-                          menuRecolhido={false} 
+                        <SidebarButton
+                          path="/financeiro/lucro-desempenho"
+                          label="Lucro & Desempenho"
+                          isActive={pathname === '/financeiro/lucro-desempenho'}
+                          menuRecolhido={false}
+                          isSubmenu
                         />
                       )}
                       {podeVerModulo('vendas', 'financeiro') && (
-                        <SidebarButton 
-                          path="/financeiro/vendas" 
-                          icon={
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                              <polyline points="14,2 14,8 20,8"></polyline>
-                              <line x1="16" y1="13" x2="8" y2="13"></line>
-                              <line x1="16" y1="17" x2="8" y2="17"></line>
-                              <polyline points="10,9 9,9 8,9"></polyline>
-                            </svg>
-                          } 
-                          label="Vendas" 
-                          isActive={pathname === '/financeiro/vendas'} 
-                          menuRecolhido={false} 
+                        <SidebarButton
+                          path="/financeiro/vendas"
+                          label="Vendas"
+                          isActive={pathname === '/financeiro/vendas'}
+                          menuRecolhido={false}
+                          isSubmenu
                         />
                       )}
                       {podeVerModulo('movimentacao-caixa', 'financeiro') && (
-                        <SidebarButton 
-                          path="/financeiro/movimentacoes-caixa" 
-                          icon={
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <line x1="12" y1="1" x2="12" y2="23"></line>
-                              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                            </svg>
-                          } 
-                          label="Movimentações Caixa" 
-                          isActive={pathname === '/financeiro/movimentacoes-caixa'} 
-                          menuRecolhido={false} 
+                        <SidebarButton
+                          path="/financeiro/movimentacoes-caixa"
+                          label="Movimentações Caixa"
+                          isActive={pathname === '/financeiro/movimentacoes-caixa'}
+                          menuRecolhido={false}
+                          isSubmenu
                         />
                       )}
                       {podeVerModulo('contas-a-pagar', 'financeiro') && (
-                        <SidebarButton 
-                          path="/financeiro/contas-a-pagar" 
-                          icon={
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                              <line x1="8" y1="21" x2="16" y2="21"></line>
-                              <line x1="12" y1="17" x2="12" y2="21"></line>
-                            </svg>
-                          } 
-                          label="Contas a Pagar" 
-                          isActive={pathname === '/financeiro/contas-a-pagar'} 
-                          menuRecolhido={false} 
+                        <SidebarButton
+                          path="/financeiro/contas-a-pagar"
+                          label="Contas a Pagar"
+                          isActive={pathname === '/financeiro/contas-a-pagar'}
+                          menuRecolhido={false}
+                          isSubmenu
                         />
                       )}
                       {!isTecnico && podeVerModulo('lucro-desempenho', 'financeiro') && (
-                        <SidebarButton 
-                          path="/financeiro/comissoes-tecnicos" 
-                          icon={
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                              <circle cx="9" cy="7" r="4"></circle>
-                              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                            </svg>
-                          } 
-                          label="Comissões dos Técnicos" 
-                          isActive={pathname === '/financeiro/comissoes-tecnicos'} 
-                          menuRecolhido={false} 
+                        <SidebarButton
+                          path="/financeiro/comissoes-tecnicos"
+                          label="Comissões dos Técnicos"
+                          isActive={pathname === '/financeiro/comissoes-tecnicos'}
+                          menuRecolhido={false}
+                          isSubmenu
                         />
                       )}
-                    </div>
+                    </SidebarSubmenuPanel>
                   )}
                 </>
               )}
               {podeVer('bancada') && (
-                <SidebarButton path="/bancada" icon={<FiTool size={20} />} label="Bancada" isActive={pathname === '/bancada'} menuRecolhido={false} />
+                <SidebarButton path="/bancada" icon={<FiTool size={22} strokeWidth={1.75} />} label="Bancada" isActive={pathname === '/bancada'} menuRecolhido={false} />
               )}
               {isTecnico && podeVer('comissoes') && (
-                <SidebarButton path="/comissoes" icon={<FiDollarSign size={20} />} label="Comissões" isActive={pathname === '/comissoes'} menuRecolhido={false} />
+                <SidebarButton path="/comissoes" icon={<FiDollarSign size={22} strokeWidth={1.75} />} label="Comissões" isActive={pathname === '/comissoes'} menuRecolhido={false} />
               )}
-              <SidebarButton path="/perfil" icon={<FiUsers size={20} />} label="Meu Perfil" isActive={pathname === '/perfil'} menuRecolhido={false} />
-                        {podeVer('configuracoes') && (
-            <SidebarButton path="/configuracoes" icon={<FiTool size={20} />} label="Configurações" isActive={pathname === '/configuracoes' || pathname.startsWith('/configuracoes/')} menuRecolhido={false} />
-          )}
-          
-          <SidebarButton 
-            path="#logout" 
-            icon={<FiLogOut size={20} />} 
-            label="Sair" 
-            isActive={false} 
-            menuRecolhido={false}
-            onClick={logout} 
-          />
+              <SidebarButton path="/suporte" icon={<FiMessageSquare size={22} strokeWidth={1.75} />} label="Suporte" isActive={pathname === '/suporte'} menuRecolhido={false} />
+              {!isTecnico && (
+                <SidebarButton path="/assinatura" icon={<FiCreditCard size={22} strokeWidth={1.75} />} label="Assinatura" isActive={pathname === '/assinatura'} menuRecolhido={false} />
+              )}
+              <SidebarButton path="/perfil" icon={<FiUsers size={22} strokeWidth={1.75} />} label="Meu Perfil" isActive={pathname === '/perfil'} menuRecolhido={false} />
+              {podeVer('configuracoes') && (
+                <SidebarButton path="/configuracoes" icon={<FiTool size={22} strokeWidth={1.75} />} label="Configurações" isActive={pathname === '/configuracoes' || pathname.startsWith('/configuracoes/')} menuRecolhido={false} />
+              )}
+              <SidebarButton
+                path="#logout"
+                icon={<FiLogOut size={22} strokeWidth={1.75} />}
+                label="Sair"
+                isActive={false}
+                menuRecolhido={false}
+                onClick={logout}
+              />
                 </>
               )}
             </nav>
             <div className={`mt-auto text-center text-xs pb-4 ${isTecnico ? 'text-black' : ''}`} style={!isTecnico ? { color: menuAccentColor } : undefined}>
               v2.7.9
             </div>
+            </SidebarMobileCloseContext.Provider>
           </aside>
         </div>
       )}
@@ -941,327 +874,6 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
         </main>
       </div>
       
-      {/* Menu Mobile Overlay */}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 md:hidden">
-          {/* Backdrop */}
-          <div 
-            className="absolute inset-0 bg-black bg-opacity-50"
-            onClick={() => setMobileMenuOpen(false)}
-          />
-          
-          {/* Menu Mobile */}
-          <div className="absolute left-0 top-0 h-full w-80 bg-gray-900 shadow-xl transform transition-transform duration-300 flex flex-col">
-            {/* Header do menu mobile */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-700">
-              <div className="flex items-center gap-3">
-                <span className="text-white font-semibold">Menu</span>
-              </div>
-              <button 
-                onClick={() => setMobileMenuOpen(false)}
-                className="text-white p-2 hover:bg-gray-800 rounded-lg"
-              >
-                <FiX size={24} />
-              </button>
-            </div>
-            
-            {/* Busca mobile */}
-            <div className="p-4 border-b border-gray-700">
-              <div className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-2">
-                <FiSearch className="text-gray-400" size={18} />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  placeholder="Buscar no menu..."
-                  className="w-full bg-transparent text-white placeholder-gray-400 text-sm focus:outline-none"
-                />
-              </div>
-            </div>
-            
-            {/* Navegação mobile */}
-            <nav className="flex flex-col p-4 space-y-2 overflow-y-auto flex-1 min-h-0">
-              {!isMounted || !userDataReady ? (
-                <>
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <div key={i} className="h-12 rounded-lg bg-gray-700 animate-pulse" />
-                  ))}
-                </>
-              ) : (
-                <>
-              {/* Dashboard - técnico vai para dashboard-tecnico */}
-              {(podeVer('dashboard') || usuarioData?.nivel === 'atendente') && (
-                <MobileMenuItem
-                  path={isTecnico ? '/dashboard-tecnico' : '/dashboard'}
-                  icon={<FiHome size={20} />}
-                  label="Dashboard"
-                  isActive={isTecnico ? pathname === '/dashboard-tecnico' : pathname === '/dashboard'}
-                  onNavigate={() => setMobileMenuOpen(false)}
-                />
-              )}
-              
-              {/* Lembretes */}
-              {podeVer('lembretes') && (
-                <MobileMenuItem
-                  path="/lembretes"
-                  icon={<FiBell size={20} />}
-                  label="Lembretes"
-                  isActive={pathname === '/lembretes'}
-                  onNavigate={() => setMobileMenuOpen(false)}
-                />
-              )}
-              
-              {/* Ordens de Serviço */}
-              {podeVer('ordens') && (
-                <MobileMenuItem
-                  path="/ordens"
-                  icon={<FiFileText size={20} />}
-                  label="Ordens de Serviço"
-                  isActive={pathname === '/ordens'}
-                  onNavigate={() => setMobileMenuOpen(false)}
-                />
-              )}
-              
-              {/* Caixa */}
-              {podeVer('caixa') && (
-                <MobileMenuItem
-                  path="/fluxo-caixa"
-                  icon={<FiTrendingUp size={20} />}
-                  label="Fluxo de Caixa"
-                  isActive={pathname === '/fluxo-caixa'}
-                  onNavigate={() => setMobileMenuOpen(false)}
-                />
-              )}
-              
-              {/* Contatos */}
-              {podeVer('clientes') && (
-                <>
-                  <MobileMenuItem
-                    path="/clientes"
-                    icon={<FiUsers size={20} />}
-                    label="Clientes"
-                    isActive={pathname === '/clientes'}
-                    onNavigate={() => setMobileMenuOpen(false)}
-                  />
-                  {podeVer('fornecedores') && (
-                    <MobileMenuItem
-                      path="/fornecedores"
-                      icon={<FiTruck size={20} />}
-                      label="Fornecedores"
-                      isActive={pathname === '/fornecedores'}
-                      onNavigate={() => setMobileMenuOpen(false)}
-                    />
-                  )}
-                </>
-              )}
-              
-              {/* Produtos/Serviços */}
-              {podeVer('equipamentos') && (
-                <>
-                  <MobileMenuItem
-                    path="/equipamentos"
-                    icon={<FiBox size={20} />}
-                    label="Produtos"
-                    isActive={pathname === '/equipamentos'}
-                    onNavigate={() => setMobileMenuOpen(false)}
-                  />
-                                      <MobileMenuItem
-                      path="/equipamentos/categorias"
-                      icon={<FiGrid size={20} />}
-                      label="Categorias"
-                      isActive={pathname === '/equipamentos/categorias'}
-                      onNavigate={() => setMobileMenuOpen(false)}
-                    />
-                  {catalogoHabilitado && podeVer('catalogo') && (
-                    <MobileMenuItem
-                      path="/catalogo"
-                      icon={<FiStar size={20} />}
-                      label="Catálogo"
-                      isActive={pathname === '/catalogo'}
-                      onNavigate={() => setMobileMenuOpen(false)}
-                    />
-                  )}
-                </>
-              )}
-              
-              {/* Catálogo independente no mobile - se usuário tem permissão de catálogo mas não de equipamentos */}
-              {!podeVer('equipamentos') && podeVer('catalogo') && catalogoHabilitado && (
-                <MobileMenuItem
-                  path="/catalogo"
-                  icon={<FiStar size={20} />}
-                  label="Catálogo"
-                  isActive={pathname === '/catalogo'}
-                  onNavigate={() => setMobileMenuOpen(false)}
-                />
-              )}
-              
-              {/* Financeiro */}
-              {podeVer('financeiro') && (
-                <>
-                  <MobileMenuItem
-                    path="/financeiro/lucro-desempenho"
-                    icon={
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
-                        <polyline points="17 6 23 6 23 12"></polyline>
-                      </svg>
-                    }
-                    label="Lucro & Desempenho"
-                    isActive={pathname === '/financeiro/lucro-desempenho'}
-                    onNavigate={() => setMobileMenuOpen(false)}
-                  />
-                  <MobileMenuItem
-                    path="/financeiro/vendas"
-                    icon={
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                        <polyline points="14,2 14,8 20,8"></polyline>
-                        <line x1="16" y1="13" x2="8" y2="13"></line>
-                        <line x1="16" y1="17" x2="8" y2="17"></line>
-                        <polyline points="10,9 9,9 8,9"></polyline>
-                      </svg>
-                    }
-                    label="Vendas"
-                    isActive={pathname === '/financeiro/vendas'}
-                    onNavigate={() => setMobileMenuOpen(false)}
-                  />
-                  <MobileMenuItem
-                    path="/financeiro/movimentacoes-caixa"
-                    icon={
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="12" y1="1" x2="12" y2="23"></line>
-                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                      </svg>
-                    }
-                    label="Movimentações Caixa"
-                    isActive={pathname === '/financeiro/movimentacoes-caixa'}
-                    onNavigate={() => setMobileMenuOpen(false)}
-                  />
-                  <MobileMenuItem
-                    path="/financeiro/contas-a-pagar"
-                    icon={
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                        <line x1="8" y1="21" x2="16" y2="21"></line>
-                        <line x1="12" y1="17" x2="12" y2="21"></line>
-                      </svg>
-                    }
-                    label="Contas a Pagar"
-                    isActive={pathname === '/financeiro/contas-a-pagar'}
-                    onNavigate={() => setMobileMenuOpen(false)}
-                  />
-                  {!isTecnico && podeVer('lucro-desempenho') && (
-                    <MobileMenuItem
-                      path="/financeiro/comissoes-tecnicos"
-                      icon={
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                          <circle cx="9" cy="7" r="4"></circle>
-                          <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                        </svg>
-                      }
-                      label="Comissões dos Técnicos"
-                      isActive={pathname === '/financeiro/comissoes-tecnicos'}
-                      onNavigate={() => setMobileMenuOpen(false)}
-                    />
-                  )}
-                </>
-              )}
-              
-              {/* Bancada */}
-              {podeVer('bancada') && (
-                <MobileMenuItem
-                  path="/bancada"
-                  icon={<FiTool size={20} />}
-                  label="Bancada"
-                  isActive={pathname === '/bancada'}
-                  onNavigate={() => setMobileMenuOpen(false)}
-                />
-              )}
-              
-              {/* Comissões - apenas técnico (Minhas Comissões) */}
-              {isTecnico && podeVer('comissoes') && (
-                <MobileMenuItem
-                  path="/comissoes"
-                  icon={<FiDollarSign size={20} />}
-                  label="Comissões"
-                  isActive={pathname === '/comissoes'}
-                  onNavigate={() => setMobileMenuOpen(false)}
-                />
-              )}
-              
-              
-              {/* Meu Perfil */}
-              <MobileMenuItem
-                path="/perfil"
-                icon={<FiUsers size={20} />}
-                label="Meu Perfil"
-                isActive={pathname === '/perfil'}
-                onNavigate={() => setMobileMenuOpen(false)}
-              />
-              
-              {/* Suporte */}
-              <MobileMenuItem
-                path="/suporte"
-                icon={<FiMessageSquare size={20} />}
-                label="Suporte"
-                isActive={pathname === '/suporte'}
-                onNavigate={() => setMobileMenuOpen(false)}
-              />
-              {/* Assinatura - não exibir para técnico */}
-              {!isTecnico && (
-                <MobileMenuItem
-                  path="/assinatura"
-                  icon={<FiCreditCard size={20} />}
-                  label="Assinatura"
-                  isActive={pathname === '/assinatura'}
-                  onNavigate={() => setMobileMenuOpen(false)}
-                />
-              )}
-              {/* Configurações */}
-              {(
-                <MobileMenuItem
-                  path="/configuracoes"
-                  icon={<FiTool size={20} />}
-                  label="Configurações"
-                  isActive={pathname === '/configuracoes' || pathname.startsWith('/configuracoes/')}
-                  onNavigate={() => setMobileMenuOpen(false)}
-                />
-              )}
-              {/* Sair */}
-              <MobileMenuItem
-                path="#logout"
-                icon={<FiLogOut size={20} />}
-                label="Sair"
-                isActive={false}
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  logout();
-                }}
-              />
-                </>
-              )}
-            </nav>
-            
-            {/* Footer mobile */}
-            <div className="absolute bottom-4 left-4 right-4 flex flex-col items-center gap-2">
-              <Image
-                src="/assets/imagens/logobranco.png"
-                alt="Consert Logo"
-                width={140}
-                height={40}
-                className="h-10 w-auto object-contain"
-                priority
-              />
-              <div className="text-center text-xs text-gray-400">
-                v2.7.9
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
       {/* Tela de Logout */}
       {isLoggingOut && <LogoutScreen />}
       
@@ -1271,93 +883,84 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
   );
 }
 
-function SidebarButton({ 
-  path, 
-  icon, 
-  label, 
-  isActive, 
-  onClick, 
-  menuRecolhido 
-}: { 
-  path: string; 
-  icon: ReactNode; 
-  label: string; 
-  isActive: boolean; 
-  onClick?: () => void; 
-  menuRecolhido: boolean; 
-}) {
-  const router = useRouter();
-  const { accentColor, inverted } = useContext(MenuAccentContext);
-  
-  const handleClick = () => {
-    if (onClick) {
-      onClick();
-    } else if (path && path !== '#' && !path.startsWith('#')) {
-      router.push(path); // ✅ Agora usa navegação SPA
-    }
-  };
-  
-  const inactiveClass = inverted ? 'text-gray-900 hover:bg-gray-100' : 'text-white hover:bg-white/10';
-  return (
-    <button
-      onClick={handleClick}
-      className={`flex items-center justify-start w-full min-w-0 px-3 py-2 rounded-lg transition font-medium text-base
-        ${isActive ? 'text-black' : inactiveClass}`}
-      style={{ minHeight: 48, ...(isActive ? { backgroundColor: accentColor } : {}) }}
-      title={label}
-    >
-      <span className="shrink-0 flex size-5 items-center justify-center [&_svg]:size-full [&_svg]:shrink-0" aria-hidden>
-        {icon}
-      </span>
-      <span className="ml-3 min-w-0 truncate">{label}</span>
-    </button>
-  );
-}
-
-// Componente para itens do menu mobile
-function MobileMenuItem({ 
-  path, 
-  icon, 
-  label, 
-  isActive, 
+function SidebarButton({
+  path,
+  icon,
+  label,
+  isActive,
   onClick,
-  onNavigate
-}: { 
-  path: string; 
-  icon: ReactNode; 
-  label: string; 
-  isActive: boolean; 
-  onClick?: () => void; 
-  onNavigate?: () => void;
+  menuRecolhido,
+  isSubmenu = false,
+}: {
+  path: string;
+  icon?: ReactNode;
+  label: string;
+  isActive: boolean;
+  onClick?: () => void;
+  menuRecolhido: boolean;
+  isSubmenu?: boolean;
 }) {
   const router = useRouter();
   const { accentColor, inverted } = useContext(MenuAccentContext);
-  
-  const handleClick = () => {
+  const closeMobileDrawer = useContext(SidebarMobileCloseContext);
 
+  const handleClick = () => {
     if (onClick) {
       onClick();
+      closeMobileDrawer?.();
     } else if (path && path !== '#' && !path.startsWith('#')) {
-      // Fechar menu mobile antes de navegar
-      if (onNavigate) {
-        onNavigate();
-      }
       router.push(path);
+      closeMobileDrawer?.();
     }
   };
-  
-  const inactiveClass = inverted ? 'text-gray-900 hover:bg-gray-200' : 'hover:bg-gray-800 text-white';
+
+  const inactiveMain = inverted ? 'text-gray-900 hover:bg-gray-100' : 'text-white hover:bg-white/10';
+  const inactiveSub = inverted
+    ? 'text-gray-500 hover:bg-gray-100/80 hover:text-gray-900'
+    : 'text-white/65 hover:bg-white/[0.06] hover:text-white/95';
+
+  const activeBg = inverted ? 'bg-gray-100' : 'bg-white/[0.12]';
+  const activeText = inverted ? 'text-gray-900' : 'text-white';
+
+  const rowClass = [
+    'relative flex items-center justify-start w-full min-w-0 rounded-lg transition font-medium text-left min-h-[48px]',
+    isSubmenu ? 'text-sm py-2.5 px-3' : 'text-[15px] py-2.5 px-3',
+    isActive ? `${activeBg} ${activeText}` : isSubmenu ? inactiveSub : inactiveMain,
+  ].join(' ');
+
   return (
-    <button
-      onClick={handleClick}
-      className={`flex items-center w-full px-4 py-3 rounded-lg transition font-medium text-base
-        ${isActive ? 'text-black' : inactiveClass}`}
-      style={{ minHeight: 48, ...(isActive ? { backgroundColor: accentColor } : {}) }}
-    >
-      <div className="flex items-center gap-3">
-        {icon}
-        <span className="whitespace-nowrap">{label}</span>
-      </div>
+    <button onClick={handleClick} className={rowClass} title={label} type="button">
+      {isActive && (
+        <span
+          className="absolute left-2 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full pointer-events-none"
+          style={{ backgroundColor: accentColor }}
+          aria-hidden
+        />
+      )}
+      <span className={`flex min-w-0 flex-1 items-center gap-3 ${menuRecolhido ? 'justify-center' : ''} ${isActive ? 'pl-2' : ''}`}>
+        {isSubmenu ? (
+          <span
+            className={`shrink-0 rounded-full w-1.5 h-1.5 ${
+              isActive
+                ? inverted
+                  ? 'bg-gray-900'
+                  : 'bg-white'
+                : inverted
+                  ? 'bg-gray-400'
+                  : 'bg-white/45'
+            }`}
+            aria-hidden
+          />
+        ) : (
+          <span
+            className="shrink-0 flex size-[22px] items-center justify-center text-current [&_svg]:size-[22px] [&_svg]:shrink-0"
+            aria-hidden
+          >
+            {icon}
+          </span>
+        )}
+        {!menuRecolhido && <span className="min-w-0 truncate">{label}</span>}
+      </span>
     </button>
   );
 }

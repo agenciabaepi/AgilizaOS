@@ -1,13 +1,23 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { supabaseConfig } from './supabase-config';
 
+function hasWorkingBrowserStorage(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const ls = window.localStorage;
+    return typeof ls?.getItem === 'function' && typeof ls?.setItem === 'function';
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Cria o cliente do Supabase apenas no browser.
  * Evita erro "supabaseUrl is required" durante o build/prerender no servidor.
  * Usa supabaseConfig com fallbacks para evitar "Invalid API key"
  */
 export const supabase: SupabaseClient =
-  typeof window !== 'undefined'
+  hasWorkingBrowserStorage()
     ? createClient(
         supabaseConfig.url,
         supabaseConfig.anonKey,
@@ -175,8 +185,9 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
       .eq('auth_user_id', userId)
       .single();
 
+    const USER_QUERY_TIMEOUT_MS = 35000; // 35s para redes/Supabase lentos
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Query timeout - Supabase demorou mais de 15 segundos')), 15000)
+      setTimeout(() => reject(new Error('Query timeout - Supabase demorou mais de 35 segundos')), USER_QUERY_TIMEOUT_MS)
     );
 
     let { data, error } = await Promise.race([
@@ -248,8 +259,9 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
       .eq('id', data.empresa_id)
       .single();
 
+    const EMPRESA_QUERY_TIMEOUT_MS = 35000;
     const empresaTimeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Empresa query timeout - Supabase demorou mais de 15 segundos')), 15000)
+      setTimeout(() => reject(new Error('Empresa query timeout - Supabase demorou mais de 35 segundos')), EMPRESA_QUERY_TIMEOUT_MS)
     );
 
     const { data: empresaData, error: empresaError } = await Promise.race([

@@ -6,11 +6,11 @@ import AuthGuardFinal from '@/components/AuthGuardFinal';
 import PixQRCode from '@/components/PixQRCode';
 import { Button } from '@/components/Button';
 import { FiArrowLeft } from 'react-icons/fi';
-
-const VALOR_PLANO = 5; // R$ 5,00 para testes (produção: 119.9)
+import { useValorAssinatura } from '@/hooks/useValorAssinatura';
 
 export default function RenovarAssinaturaPage() {
   const router = useRouter();
+  const { valor } = useValorAssinatura();
 
   return (
     <AuthGuardFinal>
@@ -37,14 +37,14 @@ export default function RenovarAssinaturaPage() {
             <div className="flex justify-between items-center">
               <span className="text-gray-700 font-medium">Assinatura</span>
               <span className="text-xl font-bold text-gray-900">
-                R$ {VALOR_PLANO.toFixed(2).replace('.', ',')}
+                R$ {valor.toFixed(2).replace('.', ',')}
               </span>
             </div>
             <p className="text-sm text-gray-500 mt-1">/mês</p>
           </div>
 
           <PixQRCode
-            valor={VALOR_PLANO}
+            valor={valor}
             descricao="Renovação mensalidade Gestão Consert"
             onSuccess={() => {
               router.push('/dashboard');

@@ -8,6 +8,22 @@ export const dynamic = 'force-dynamic';
 /** 1 mês de acesso após pagamento confirmado */
 const DIAS_ACESSO_PAGAMENTO = 30;
 
+/**
+ * Datas no formato YYYY-MM-DD (Asaas) são interpretadas em UTC e podem
+ * "voltar um dia" no fuso local. Usamos meio-dia UTC para estabilidade.
+ */
+function parseBillingDate(dateStr?: string): Date | null {
+  if (!dateStr) return null;
+  const raw = String(dateStr).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [y, m, d] = raw.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  }
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
 async function ativarAssinaturaPorEmpresa(
   supabase: ReturnType<typeof getSupabaseAdmin>,
   empresaId: string,
@@ -172,11 +188,10 @@ export async function GET(req: NextRequest) {
     }
 
     // Calcular data de início/fim com base na data de pagamento (ou dueDate como fallback)
-    const dataPagamentoStr = ultimoPago.paymentDate || ultimoPago.dueDate || new Date().toISOString();
-    let dataInicio = new Date(dataPagamentoStr);
-    if (isNaN(dataInicio.getTime())) {
-      dataInicio = new Date();
-    }
+    const dataInicio =
+      parseBillingDate(ultimoPago.paymentDate) ??
+      parseBillingDate(ultimoPago.dueDate) ??
+      new Date();
     const dataFim = new Date(dataInicio);
     dataFim.setDate(dataFim.getDate() + DIAS_ACESSO_PAGAMENTO);
 

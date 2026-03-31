@@ -33,7 +33,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const root = document.documentElement;
     // Modo escuro desativado temporariamente - sempre forçar claro
     root.classList.remove('dark');
-    if (theme === 'light') localStorage.setItem(STORAGE_KEY, theme);
+    try {
+      const ls = typeof window !== 'undefined' ? window.localStorage : null;
+      if (ls && typeof ls.setItem === 'function' && theme === 'light') {
+        ls.setItem(STORAGE_KEY, theme);
+      }
+    } catch {
+      // localStorage indisponível ou inválido (ex.: Node experimental)
+    }
   }, [theme, mounted]);
 
   const setTheme = (newTheme: Theme) => setThemeState(newTheme);

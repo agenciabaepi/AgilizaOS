@@ -9,7 +9,8 @@ import {
   FiDollarSign, 
   FiUsers, 
   FiSettings,
-  FiMessageSquare
+  FiMessageSquare,
+  FiBell
 } from 'react-icons/fi';
 
 const links = [
@@ -18,6 +19,7 @@ const links = [
   { href: '/admin-saas/assinaturas', label: 'Assinaturas', icon: FiFileText },
   { href: '/admin-saas/pagamentos', label: 'Pagamentos', icon: FiDollarSign },
   { href: '/admin-saas/tickets', label: 'Tickets', icon: FiMessageSquare },
+  { href: '/admin-saas/notificacoes', label: 'Notificações', icon: FiBell },
   { href: '/admin-saas/usuarios', label: 'Usuários', icon: FiUsers },
   { href: '/admin-saas/config', label: 'Configurações', icon: FiSettings },
 ];

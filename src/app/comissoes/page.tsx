@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import MenuLayout from '@/components/MenuLayout';
 // Removido ProtectedArea - agora é responsabilidade do MenuLayout
@@ -27,6 +26,8 @@ interface ComissaoDetalhada {
   created_at: string;
   ativa?: boolean;
   observacoes?: string | null;
+  status_os?: string | null;
+  status_tecnico_os?: string | null;
 }
 
 interface FiltrosPeriodo {
@@ -37,35 +38,53 @@ interface FiltrosPeriodo {
 }
 
 export default function ComissoesPage() {
-  const { user, usuarioData } = useAuth();
+  const { usuarioData, session } = useAuth();
   const { addToast } = useToast();
   
   const [comissoes, setComissoes] = useState<ComissaoDetalhada[]>([]);
   const [loading, setLoading] = useState(true);
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   
-  // Estados para filtros
+  // Padrão: "Mês atual e pendentes" = mês atual (todas) + de outros meses só as não calculadas (PREVISTA/PENDENTE)
+  const [exibirModo, setExibirModo] = useState<'padrao' | 'todas'>('padrao');
   const [filtros, setFiltros] = useState<FiltrosPeriodo>({
-    dataInicio: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
-    dataFim: new Date().toISOString().split('T')[0],
+    dataInicio: '',
+    dataFim: '',
     status: '',
     tipoOrdem: ''
   });
 
-// Filtrar comissões
+  const isCurrentMonth = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const now = new Date();
+    return !isNaN(d.getTime()) && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  };
+
+  // Filtrar: padrão = mês atual + não calculadas de outros meses (PREVISTA/PENDENTE); depois aplica filtros manuais
   const comissoesFiltradas = useMemo(() => {
-    return comissoes.filter(comissao => {
-      const dataEntrega = new Date(comissao.data_entrega);
-      const dataInicio = new Date(filtros.dataInicio);
-      const dataFim = new Date(filtros.dataFim);
-      
-      const dentroPerido = dataEntrega >= dataInicio && dataEntrega <= dataFim;
+    let base = comissoes;
+    if (exibirModo === 'padrao') {
+      base = comissoes.filter(c => {
+        const noMesAtual = isCurrentMonth(c.data_entrega);
+        const naoCalculadaOuPendente =
+          (c.status || '').toUpperCase() === 'PREVISTA' || (c.status || '').toUpperCase() === 'PENDENTE';
+        return noMesAtual || naoCalculadaOuPendente;
+      });
+    }
+    return base.filter(comissao => {
+      const filtroPorData = filtros.dataInicio && filtros.dataFim;
+      let dentroPeriodo = true;
+      if (filtroPorData) {
+        const dataEntrega = new Date(comissao.data_entrega);
+        const dataInicio = new Date(filtros.dataInicio);
+        const dataFim = new Date(filtros.dataFim);
+        dentroPeriodo = !isNaN(dataEntrega.getTime()) && dataEntrega >= dataInicio && dataEntrega <= dataFim;
+      }
       const statusMatch = !filtros.status || comissao.status === filtros.status;
       const tipoMatch = !filtros.tipoOrdem || comissao.tipo_ordem === filtros.tipoOrdem;
-      
-      return dentroPerido && statusMatch && tipoMatch;
+      return dentroPeriodo && statusMatch && tipoMatch;
     });
-  }, [comissoes, filtros]);
+  }, [comissoes, filtros, exibirModo]);
 
 // Métricas calculadas (apenas comissões ativas) COM OS MESMOS FILTROS da tabela
 const metricas = useMemo(() => {
@@ -91,276 +110,33 @@ const metricas = useMemo(() => {
 
   useEffect(() => {
     fetchComissoes();
-  }, [usuarioData]);
+  }, [usuarioData, session]);
 
   const fetchComissoes = async () => {
     if (!usuarioData?.id || !usuarioData?.empresa_id) {
-      console.log('⚠️ Comissões - dados do técnico/empresa não disponíveis:', usuarioData);
       setLoading(false);
       return;
     }
-    
+    // Só chama a API quando tiver token (evita 401 por sessão não estar nos cookies)
+    if (!session?.access_token) {
+      setLoading(true);
+      return;
+    }
+
     setLoading(true);
     try {
-      const tecnicoTabelaId = usuarioData.id;
-      const tecnicoAuthId = user?.id;
+      const res = await fetch('/api/comissoes/minhas', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = await res.json().catch(() => ({}));
 
-      // Buscar comissões já registradas diretamente da tabela comissoes_historico usando o id do técnico
-      // Tentar buscar com o campo 'ativa' primeiro, se não existir, buscar sem ele
-      let comissoesData, error;
-      
-      try {
-        const result = await supabase
-          .from('comissoes_historico')
-          .select(`
-            id,
-            ordem_servico_id,
-            valor_servico,
-            valor_peca,
-            valor_total,
-            tipo_comissao,
-            percentual_comissao,
-            valor_comissao_fixa,
-            valor_comissao,
-            data_entrega,
-            status,
-            tipo_ordem,
-            created_at,
-            ativa,
-            observacoes,
-            ordens_servico:ordem_servico_id (
-              numero_os,
-              servico
-            ),
-            clientes:cliente_id (
-              nome
-            )
-          `)
-          .eq('tecnico_id', tecnicoTabelaId)
-          .order('data_entrega', { ascending: false })
-          .order('created_at', { ascending: false });
-        
-        comissoesData = result.data;
-        error = result.error;
-      } catch (err: any) {
-        // Se o campo 'ativa' não existir, buscar sem ele
-        if (err.message?.includes('column "ativa" does not exist')) {
-          const result = await supabase
-            .from('comissoes_historico')
-            .select(`
-              id,
-              ordem_servico_id,
-              valor_servico,
-              valor_peca,
-              valor_total,
-              tipo_comissao,
-              percentual_comissao,
-              valor_comissao_fixa,
-              valor_comissao,
-              data_entrega,
-              status,
-              tipo_ordem,
-              created_at,
-              ordens_servico:ordem_servico_id (
-                numero_os,
-                servico
-              ),
-              clientes:cliente_id (
-                nome
-              )
-            `)
-            .eq('tecnico_id', tecnicoTabelaId)
-            .order('data_entrega', { ascending: false })
-            .order('created_at', { ascending: false });
-          
-          comissoesData = result.data;
-          error = result.error;
-        } else {
-          throw err;
-        }
-      }
-
-      if (error) {
-        console.error('❌ Erro ao buscar comissões:', error);
-        addToast('error', 'Erro ao carregar comissões: ' + error.message);
+      if (!res.ok) {
+        addToast('error', data.error || 'Erro ao carregar comissões');
         setComissoes([]);
         return;
       }
 
-      // Formatar os dados para o formato esperado
-      const comissoesFormatadas: ComissaoDetalhada[] = (comissoesData || []).map((comissao: any) => ({
-        id: comissao.id,
-        ordem_servico_id: comissao.ordem_servico_id,
-        numero_os: comissao.ordens_servico?.numero_os || 'N/A',
-        valor_servico: comissao.valor_servico || 0,
-        valor_peca: comissao.valor_peca || 0,
-        valor_total: comissao.valor_total || 0,
-        tipo_comissao: comissao.tipo_comissao,
-        percentual_comissao: comissao.percentual_comissao,
-        valor_comissao_fixa: comissao.valor_comissao_fixa,
-        valor_comissao: comissao.valor_comissao || 0,
-        data_entrega: comissao.data_entrega,
-        status: comissao.status || 'CALCULADA',
-        tipo_ordem: comissao.tipo_ordem || 'normal',
-        created_at: comissao.created_at,
-        cliente_nome: comissao.clientes?.nome || 'Cliente não encontrado',
-        servico_nome: comissao.ordens_servico?.servico || 'Serviço não especificado',
-        ativa: comissao.ativa !== undefined ? comissao.ativa : true, // Default true se não existir o campo
-        observacoes: comissao.observacoes || null
-      }));
-
-      // Criar um set com OS que já possuem comissão registrada para não duplicar nas previstas
-      const osComComissao = new Set<string>(
-        comissoesFormatadas
-          .map((c) => c.ordem_servico_id)
-          .filter((id): id is string => Boolean(id))
-      );
-
-      // ============================
-      //  PREVISÃO DE COMISSÕES
-      // ============================
-      // 1) Buscar configuração de comissão do técnico / empresa
-      let tipoComissao: 'porcentagem' | 'fixo' = 'porcentagem';
-      let valorBaseComissao = 10; // fallback padrão (10%)
-
-      try {
-        const { data: tecnicoConfig } = await supabase
-          .from('usuarios')
-          .select('id, tipo_comissao, comissao_fixa, comissao_percentual, empresa_id, comissao_ativa')
-          .eq('id', tecnicoTabelaId)
-          .maybeSingle();
-
-        const { data: configEmpresa } = await supabase
-          .from('configuracoes_comissao')
-          .select('tipo_comissao, comissao_fixa_padrao, comissao_padrao')
-          .eq('empresa_id', usuarioData.empresa_id)
-          .maybeSingle();
-
-        if (tecnicoConfig?.tipo_comissao) {
-          tipoComissao = tecnicoConfig.tipo_comissao as 'porcentagem' | 'fixo';
-          if (tipoComissao === 'fixo') {
-            valorBaseComissao = tecnicoConfig.comissao_fixa || 0;
-          } else {
-            valorBaseComissao = tecnicoConfig.comissao_percentual || 10;
-          }
-        } else if (configEmpresa?.tipo_comissao) {
-          tipoComissao = configEmpresa.tipo_comissao as 'porcentagem' | 'fixo';
-          if (tipoComissao === 'fixo') {
-            valorBaseComissao = configEmpresa.comissao_fixa_padrao || 0;
-          } else {
-            valorBaseComissao = configEmpresa.comissao_padrao || 10;
-          }
-        }
-      } catch (e) {
-        console.warn('⚠️ Não foi possível carregar configuração de comissão, usando padrão.', e);
-      }
-
-      // 2) Buscar OS do técnico que ainda não geraram comissões_historico (para prever)
-      //    Considera tanto o id da tabela usuarios quanto o auth_user_id, como no dashboard técnico.
-      const filtroTecnico: string[] = [];
-      if (tecnicoTabelaId) filtroTecnico.push(`tecnico_id.eq.${tecnicoTabelaId}`);
-      if (tecnicoAuthId) filtroTecnico.push(`tecnico_id.eq.${tecnicoAuthId}`);
-      const orClause = filtroTecnico.length > 0 ? filtroTecnico.join(',') : '';
-
-      let comissoesPrevistas: ComissaoDetalhada[] = [];
-
-      if (orClause) {
-        const { data: ordensData, error: ordensError } = await supabase
-          .from('ordens_servico')
-          .select(`
-            id,
-            numero_os,
-            empresa_id,
-            cliente_id,
-            valor_faturado,
-            valor_servico,
-            valor_peca,
-            status,
-            status_tecnico,
-            tipo,
-            data_entrega,
-            created_at,
-            clientes:cliente_id ( nome ),
-            servico
-          `)
-          .eq('empresa_id', usuarioData.empresa_id)
-          .or(orClause)
-          .order('created_at', { ascending: false });
-
-        if (ordensError) {
-          console.warn('⚠️ Erro ao buscar OS para previsões de comissão:', ordensError);
-        } else if (ordensData && ordensData.length > 0) {
-          const normalizeStatus = (s: string | null | undefined) =>
-            (s || '').toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
-
-          comissoesPrevistas = ordensData
-            // Filtrar: ainda não tem comissão registrada e tem algum valor
-            .filter((os: any) => {
-              if (osComComissao.has(os.id)) return false;
-
-              const valorTotal =
-                (os.valor_faturado as number | null) ??
-                (os.valor_servico as number | null) ??
-                0;
-              if (!valorTotal || valorTotal <= 0) return false;
-
-              const status = normalizeStatus(os.status);
-              const statusTec = normalizeStatus(os.status_tecnico);
-
-              // Já finalizadas/entregues vão gerar comissão real pelo backend; aqui queremos só "previstas"
-              const finalizada =
-                status === 'ENTREGUE' || statusTec === 'REPARO CONCLUIDO';
-              if (finalizada) return false;
-
-              return true;
-            })
-            .map((os: any) => {
-              const valorTotal =
-                (os.valor_faturado as number | null) ??
-                (os.valor_servico as number | null) ??
-                0;
-              const valorServico = (os.valor_servico as number | null) ?? valorTotal ?? 0;
-
-              let valorComissao = 0;
-              if (tipoComissao === 'fixo') {
-                valorComissao = valorBaseComissao;
-              } else {
-                // Comissão % sobre o valor do SERVIÇO (mesma base da coluna "VALOR SERVIÇO")
-                valorComissao = (valorServico * valorBaseComissao) / 100;
-              }
-
-              const dataEntregaBase =
-                os.data_entrega || os.created_at || new Date().toISOString();
-
-              return {
-                id: `prevista-${os.id}`,
-                tecnico_id: tecnicoTabelaId,
-                tecnico_nome: usuarioData.nome || 'Você',
-                ordem_servico_id: os.id,
-                numero_os: os.numero_os || 'N/A',
-                cliente_nome: os.clientes?.nome || 'Cliente não encontrado',
-                servico_nome: os.servico || 'Serviço não especificado',
-                valor_servico: valorServico,
-                valor_peca: os.valor_peca || 0,
-                valor_total: valorTotal || 0,
-                tipo_comissao: tipoComissao,
-                percentual_comissao: tipoComissao === 'porcentagem' ? valorBaseComissao : 0,
-                valor_comissao_fixa: tipoComissao === 'fixo' ? valorBaseComissao : null,
-                valor_comissao: valorComissao,
-                data_entrega: dataEntregaBase,
-                status: 'PREVISTA',
-                tipo_ordem: (os.tipo || 'normal').toLowerCase(),
-                created_at: dataEntregaBase,
-                ativa: true,
-                observacoes: null
-              } as ComissaoDetalhada;
-            });
-        }
-      }
-
-      // Mesclar comissões reais + previstas
-      setComissoes([...comissoesFormatadas, ...comissoesPrevistas]);
-
+      setComissoes(data.comissoes || []);
     } catch (error) {
       console.error('💥 Comissões - Erro geral:', error);
       addToast('error', 'Erro ao carregar dados: ' + (error as Error).message);
@@ -390,13 +166,15 @@ const metricas = useMemo(() => {
         return 'bg-green-100 text-green-800';
       case 'pendente':
         return 'bg-yellow-100 text-yellow-800';
+      case 'prevista':
+        return 'bg-gray-100 text-gray-700';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   };
 
   const exportarCSV = () => {
-    const headers = ['OS', 'Cliente', 'Serviço', 'Data Entrega', 'Valor Serviço', 'Tipo', 'Percentual/Fixo', 'Comissão', 'Status'];
+    const headers = ['OS', 'Cliente', 'Serviço', 'Data Entrega', 'Valor Serviço', 'Tipo', 'Percentual/Fixo', 'Comissão', 'Status OS', 'Status'];
     const csvContent = [
       headers.join(','),
       ...comissoesFiltradas.map(c => [
@@ -410,6 +188,7 @@ const metricas = useMemo(() => {
           ? `R$ ${c.valor_comissao_fixa?.toFixed(2) || '0,00'}` 
           : `${c.percentual_comissao || 0}%`,
         c.valor_comissao.toFixed(2),
+        c.status_os || '—',
         c.status
       ].join(','))
     ].join('\n');
@@ -452,7 +231,16 @@ const metricas = useMemo(() => {
               </div>
             </div>
             
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm text-gray-600">Exibir:</span>
+              <select
+                value={exibirModo}
+                onChange={(e) => setExibirModo(e.target.value as 'padrao' | 'todas')}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              >
+                <option value="padrao">Mês atual e pendentes</option>
+                <option value="todas">Todas</option>
+              </select>
               <button
                 onClick={() => setMostrarFiltros(!mostrarFiltros)}
                 className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
@@ -516,6 +304,7 @@ const metricas = useMemo(() => {
                     <option value="CALCULADA">Calculada</option>
                     <option value="PAGA">Paga</option>
                     <option value="PENDENTE">Pendente</option>
+                    <option value="PREVISTA">Prevista</option>
                   </select>
                 </div>
                 
@@ -610,6 +399,9 @@ const metricas = useMemo(() => {
                       Comissão
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status OS
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -672,6 +464,14 @@ const metricas = useMemo(() => {
                             <span className="text-xs text-gray-500 italic" title={comissao.observacoes}>
                               {comissao.observacoes.length > 30 ? `${comissao.observacoes.substring(0, 30)}...` : comissao.observacoes}
                             </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <div className="text-sm text-gray-700" title={comissao.status_tecnico_os ? `Técnico: ${comissao.status_tecnico_os}` : undefined}>
+                          {comissao.status_os || '—'}
+                          {comissao.status_tecnico_os && comissao.status_tecnico_os !== comissao.status_os && (
+                            <span className="block text-xs text-gray-500">{comissao.status_tecnico_os}</span>
                           )}
                         </div>
                       </td>
