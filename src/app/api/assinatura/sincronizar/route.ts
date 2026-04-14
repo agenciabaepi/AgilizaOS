@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import { listCustomersByEmail, listPaymentsByCustomer, isPaymentConfirmed } from '@/lib/asaas';
+import {
+  listCustomersByEmail,
+  listPaymentsByCustomer,
+  pickLatestConfirmedAsaasPayment,
+  parseAsaasBillingDate,
+  type AsaasPayment,
+} from '@/lib/asaas';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -139,25 +145,14 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Buscar TODOS os pagamentos do cliente no Asaas e pegar o último confirmado (CONFIRMED/RECEIVED)
-    let ultimoPago: { id: string; paymentDate?: string; dueDate?: string; value?: number } | null = null;
-
+    // Todas as cobranças dos clientes com esse e-mail (pode haver mais de um customer id no Asaas)
+    const todasCobrancas: AsaasPayment[] = [];
     for (const customer of customers) {
-      const payments = await listPaymentsByEmail(email);
-      for (const p of payments) {
-        if (isPaymentConfirmed(p.status || '')) {
-          const dataPagamento = p.paymentDate || p.dueDate || '';
-          if (!ultimoPago || (dataPagamento && dataPagamento > (ultimoPago.paymentDate || ultimoPago.dueDate || ''))) {
-            ultimoPago = {
-              id: p.id,
-              paymentDate: p.paymentDate,
-              dueDate: p.dueDate,
-              value: p.value,
-            };
-          }
-        }
-      }
+      const payments = await listPaymentsByCustomer(customer.id);
+      todasCobrancas.push(...payments);
     }
+
+    const ultimoPago = pickLatestConfirmedAsaasPayment(todasCobrancas);
 
     if (!ultimoPago) {
       return NextResponse.json(
@@ -166,12 +161,11 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Calcular data de início/fim com base na data de pagamento (ou dueDate como fallback)
-    const dataPagamentoStr = ultimoPago.paymentDate || ultimoPago.dueDate || new Date().toISOString();
-    let dataInicio = new Date(dataPagamentoStr);
-    if (isNaN(dataInicio.getTime())) {
-      dataInicio = new Date();
-    }
+    // 30 dias a partir da data de pagamento (Asaas); se ainda não veio paymentDate, usa vencimento da cobrança
+    const dataInicio =
+      parseAsaasBillingDate(ultimoPago.paymentDate) ??
+      parseAsaasBillingDate(ultimoPago.dueDate) ??
+      new Date();
     const dataFim = new Date(dataInicio);
     dataFim.setDate(dataFim.getDate() + DIAS_ACESSO_PAGAMENTO);
     const now = dataInicio.toISOString();

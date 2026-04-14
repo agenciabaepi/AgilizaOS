@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { MS_TRIAL_GRATIS } from '@/config/trial';
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -131,9 +132,8 @@ export async function POST(request: Request) {
         .single();
 
       if (planoTrial) {
-        // Calcular data fim do trial (15 dias exatos)
         const dataInicio = new Date();
-        const dataTrialFim = new Date(dataInicio.getTime() + (15 * 24 * 60 * 60 * 1000)); // 15 dias em milissegundos
+        const dataTrialFim = new Date(dataInicio.getTime() + MS_TRIAL_GRATIS);
 
         const { error: assinaturaError } = await supabaseAdmin
           .from('assinaturas')

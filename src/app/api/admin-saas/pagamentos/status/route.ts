@@ -1,28 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import { getPayment, getCustomer, isPaymentConfirmed, listPaymentsByCustomer } from '@/lib/asaas';
+import {
+  getPayment,
+  getCustomer,
+  isPaymentConfirmed,
+  listPaymentsByCustomer,
+  pickLatestConfirmedAsaasPayment,
+  parseAsaasBillingDate,
+  type AsaasPayment,
+} from '@/lib/asaas';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /** 1 mês de acesso após pagamento confirmado */
 const DIAS_ACESSO_PAGAMENTO = 30;
-
-/**
- * Datas no formato YYYY-MM-DD (Asaas) são interpretadas em UTC e podem
- * "voltar um dia" no fuso local. Usamos meio-dia UTC para estabilidade.
- */
-function parseBillingDate(dateStr?: string): Date | null {
-  if (!dateStr) return null;
-  const raw = String(dateStr).trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-    const [y, m, d] = raw.split('-').map(Number);
-    return new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
-  }
-  const parsed = new Date(raw);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return parsed;
-}
 
 async function ativarAssinaturaPorEmpresa(
   supabase: ReturnType<typeof getSupabaseAdmin>,
@@ -148,37 +140,18 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ status: statusFront });
     }
 
-    // Buscar TODOS os pagamentos do cliente no Asaas e pegar o último confirmado (CONFIRMED/RECEIVED)
-    let ultimoPago: { id: string; paymentDate?: string; dueDate?: string; value?: number } | null = null;
+    let ultimoPago: AsaasPayment | null = null;
     if (customerId) {
       try {
         const payments = await listPaymentsByCustomer(customerId);
-        for (const p of payments) {
-          if (isPaymentConfirmed(p.status || '')) {
-            const dataPagamento = p.paymentDate || p.dueDate || '';
-            if (!ultimoPago || (dataPagamento && dataPagamento > (ultimoPago.paymentDate || ultimoPago.dueDate || ''))) {
-              ultimoPago = {
-                id: p.id,
-                paymentDate: p.paymentDate,
-                dueDate: p.dueDate,
-                value: p.value,
-              };
-            }
-          }
-        }
+        ultimoPago = pickLatestConfirmedAsaasPayment(payments);
       } catch (e) {
         console.warn('pagamentos/status: erro ao listar pagamentos do cliente Asaas:', e);
       }
     }
 
-    // Se não encontramos outro, mas este payment específico já está aprovado, usamos ele
-    if (!ultimoPago && approvedThisPayment) {
-      ultimoPago = {
-        id: paymentId,
-        paymentDate: payment?.paymentDate,
-        dueDate: payment?.dueDate,
-        value: typeof payment?.value === 'number' ? payment.value : undefined,
-      };
+    if (!ultimoPago && approvedThisPayment && payment) {
+      ultimoPago = payment;
     }
 
     // Se ainda assim não houver pagamento confirmado, apenas retorna o status atual
@@ -187,10 +160,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ status: statusFront });
     }
 
-    // Calcular data de início/fim com base na data de pagamento (ou dueDate como fallback)
     const dataInicio =
-      parseBillingDate(ultimoPago.paymentDate) ??
-      parseBillingDate(ultimoPago.dueDate) ??
+      parseAsaasBillingDate(ultimoPago.paymentDate) ??
+      parseAsaasBillingDate(ultimoPago.dueDate) ??
       new Date();
     const dataFim = new Date(dataInicio);
     dataFim.setDate(dataFim.getDate() + DIAS_ACESSO_PAGAMENTO);

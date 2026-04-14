@@ -474,13 +474,13 @@ export default function FinanceiroAlertsBanner() {
   }
 
   return (
-    <div className="w-full space-y-2.5">
+    <div className="w-full space-y-1.5">
       {alertCards.map((card) => {
-        const gradient = `linear-gradient(120deg, rgba(255,255,255,0.95) 0%, ${hexToRgba(card.corFundo, 0.85)} 100%)`;
-        const borderColor = hexToRgba(card.corTexto, 0.16);
-        const shadowColor = hexToRgba(card.corTexto, 0.28);
-        const mutedColor = hexToRgba(card.corTexto, 0.68);
-        const chipBackground = hexToRgba(card.corTexto, 0.12);
+        const fundoSolido = hexToRgba(card.corFundo, 0.38);
+        const borderColor = hexToRgba(card.corTexto, 0.14);
+        const shadowColor = hexToRgba(card.corTexto, 0.18);
+        const mutedColor = hexToRgba(card.corTexto, 0.65);
+        const chipBackground = hexToRgba(card.corTexto, 0.1);
 
         const handleContaClick = (contaId: string, dataISO?: string | null) => {
           const params = new URLSearchParams();
@@ -494,41 +494,35 @@ export default function FinanceiroAlertsBanner() {
         return (
           <div
             key={card.id}
-            className="relative flex w-full flex-col gap-4 overflow-hidden rounded-2xl border backdrop-blur-md shadow-lg animate-fade-in md:flex-row md:items-center md:justify-between"
+            className="relative flex w-full flex-col gap-1.5 overflow-hidden rounded-lg border px-2.5 py-2 shadow-sm animate-fade-in sm:flex-row sm:items-center sm:gap-2 sm:py-1.5 sm:pr-2"
             style={{
-              background: gradient,
+              backgroundColor: fundoSolido,
               borderColor,
-              boxShadow: `0 22px 36px -22px ${shadowColor}`,
+              boxShadow: `0 4px 14px -6px ${shadowColor}`,
               color: card.corTexto,
             }}
           >
-            <span
-              className="pointer-events-none absolute inset-y-[-45%] right-[-30%] w-1/2 rounded-full opacity-60 blur-3xl"
-              style={{
-                background: `radial-gradient(circle at center, ${hexToRgba(card.corTexto, 0.3)} 0%, transparent 70%)`,
-              }}
-            />
-
-            <div className="relative flex flex-1 items-center gap-3 px-4 py-4 md:px-5">
+            <div className="relative flex min-w-0 flex-1 items-center gap-2">
               <div
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/70 text-lg font-semibold shadow-inner ring-1 ring-white/70"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/65 ring-1 ring-white/50"
                 style={{ color: card.corTexto }}
               >
                 {isValidElement(card.icon)
-                  ? cloneElement(card.icon as ReactElement<any>, { className: 'h-5 w-5' } as any)
+                  ? cloneElement(card.icon as ReactElement<any>, { className: 'h-3.5 w-3.5' } as any)
                   : card.icon}
               </div>
-              <div className="min-w-0 space-y-0.5">
-                <div className="flex flex-wrap items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0">
                   <span
-                    className="text-[10px] font-semibold uppercase tracking-[0.28em]"
+                    className="text-[9px] font-semibold uppercase tracking-wider"
                     style={{ color: mutedColor }}
                   >
-                    Alerta financeiro
+                    Financeiro
                   </span>
+                  <h4 className="text-xs font-semibold leading-snug sm:text-[13px]">{card.titulo}</h4>
                   {card.restante && (
                     <span
-                      className="rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider"
+                      className="rounded px-1 py-0.5 text-[9px] font-medium"
                       style={{
                         backgroundColor: chipBackground,
                         color: card.corTexto,
@@ -538,15 +532,18 @@ export default function FinanceiroAlertsBanner() {
                     </span>
                   )}
                 </div>
-                <h4 className="text-base font-semibold leading-tight tracking-tight">{card.titulo}</h4>
-                <p className="text-xs leading-relaxed md:text-sm" style={{ color: mutedColor }}>
+                <p
+                  className="line-clamp-1 text-[10px] leading-tight"
+                  style={{ color: mutedColor }}
+                  title={card.descricao}
+                >
                   {card.descricao}
                 </p>
               </div>
             </div>
 
             <div
-              className="relative flex w-full flex-1 gap-2 overflow-x-auto border-t border-white/40 px-4 pb-4 scrollbar-thin scrollbar-thumb-white/60 scrollbar-track-transparent hover:scrollbar-thumb-white/80 md:border-l md:border-t-0 md:px-5 md:py-4"
+              className="flex gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] sm:max-w-[min(100%,52%)] sm:flex-nowrap sm:justify-end sm:pb-0 [&::-webkit-scrollbar]:hidden"
               style={{ WebkitOverflowScrolling: 'touch' }}
             >
               {card.itens.map((item, index) => (
@@ -554,34 +551,29 @@ export default function FinanceiroAlertsBanner() {
                   key={item.id}
                   type="button"
                   onClick={() => handleContaClick(item.id, item.dataISO)}
-                  className="group flex min-w-[220px] shrink-0 items-center justify-between gap-3 rounded-xl border bg-white/70 px-4 py-2.5 text-left shadow-sm backdrop-blur-[4px] transition-transform hover:-translate-y-[2px] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                  className="group flex max-w-[min(100%,240px)] shrink-0 items-center gap-1.5 rounded-md border bg-white/55 px-2 py-1 text-left text-[11px] leading-tight ring-white/30 transition-colors hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
                   style={{
-                    borderColor: hexToRgba(card.corTexto, 0.12),
-                    boxShadow: `0 12px 20px -16px ${shadowColor}`,
+                    borderColor: hexToRgba(card.corTexto, 0.1),
                   }}
+                  title={`${item.titulo} · ${item.dataFormatada} · ${item.descricaoDias}`}
                 >
-                  <div className="flex items-center gap-3">
-                    <span
-                      className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-colors group-hover:scale-105"
-                      style={{
-                        backgroundColor: chipBackground,
-                        color: card.corTexto,
-                      }}
-                    >
-                      {String(index + 1).padStart(2, '0')}
-                    </span>
-                    <span className="truncate text-sm font-semibold leading-snug" style={{ color: card.corTexto }}>
-                      {item.titulo}
-                    </span>
-                  </div>
-                  <div className="flex flex-col text-right">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: card.corTexto }}>
-                      {item.dataFormatada}
-                    </span>
-                    <span className="text-xs font-medium" style={{ color: mutedColor }}>
-                      {item.descricaoDias}
-                    </span>
-                  </div>
+                  <span
+                    className="flex h-4 min-w-[1.1rem] items-center justify-center rounded text-[9px] font-bold tabular-nums"
+                    style={{
+                      backgroundColor: chipBackground,
+                      color: card.corTexto,
+                    }}
+                  >
+                    {index + 1}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate font-medium" style={{ color: card.corTexto }}>
+                    {item.titulo}
+                  </span>
+                  <span className="shrink-0 whitespace-nowrap text-[10px] opacity-90" style={{ color: card.corTexto }}>
+                    {item.dataFormatada}
+                    <span className="mx-0.5 opacity-50">·</span>
+                    <span style={{ color: mutedColor }}>{item.descricaoDias}</span>
+                  </span>
                 </button>
               ))}
             </div>

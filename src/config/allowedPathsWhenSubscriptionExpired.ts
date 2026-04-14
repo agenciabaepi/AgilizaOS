@@ -4,6 +4,7 @@
  */
 const ALLOWED_WHEN_VENCIDA = [
   '/assinatura',
+  '/teste-expirado',
   '/planos',
   '/planos/renovar',
   '/pagamentos/falha',

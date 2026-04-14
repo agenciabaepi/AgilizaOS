@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { isAdminAuthorized } from '@/lib/admin-auth';
+import { MS_TRIAL_GRATIS } from '@/config/trial';
 
 export async function POST(req: NextRequest) {
   try {
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
         plano_id,
         status: 'trial',
         data_inicio: new Date().toISOString(),
-        data_trial_fim: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        data_trial_fim: new Date(Date.now() + MS_TRIAL_GRATIS).toISOString(),
         valor: 0,
       });
     }

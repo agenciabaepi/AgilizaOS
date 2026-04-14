@@ -420,10 +420,17 @@ export default function DetalheBancadaPage() {
       const opcaoCorrespondente = statusTecnicoOptions.find(s => (s.nome || '').toUpperCase() === statusTecnicoParaSalvar.toUpperCase());
       if (opcaoCorrespondente?.nome) statusTecnicoParaSalvar = opcaoCorrespondente.nome;
       const tecnicoSelecionouSemReparo = /SEM\s*REPARO|SEM_REPARO/.test((statusTecnicoParaSalvar || '').toUpperCase());
+      const stParaLaudoUpper = (statusTecnicoParaSalvar || '').toUpperCase();
+      // Reparo concluído é etapa depois do orçamento: nunca sobrescrever com ORÇAMENTO CONCLUÍDO por causa do laudo
+      const tecnicoSelecionouReparoConcluido =
+        stParaLaudoUpper.includes('REPARO CONCLUÍDO') ||
+        stParaLaudoUpper.includes('REPARO CONCLUIDO') ||
+        /REPARO\s*CONCLU[IÍ]DO/.test(stParaLaudoUpper);
       // Se o técnico preencheu o laudo e o status ainda não é de orçamento concluído, marcar como ORÇAMENTO CONCLUÍDO
+      // (só faz sentido enquanto a OS ainda está na fase de orçamento; não quando já marcou reparo concluído)
       const laudoPreenchido = typeof laudo === 'string' && laudo.trim().length > 0;
-      const jaOrcamentoEnviado = (statusTecnicoParaSalvar || '').toUpperCase().includes('ORÇAMENTO CONCLUÍDO');
-      if (laudoPreenchido && !jaOrcamentoEnviado && !tecnicoSelecionouSemReparo) {
+      const jaOrcamentoEnviado = stParaLaudoUpper.includes('ORÇAMENTO CONCLUÍDO') || stParaLaudoUpper.includes('ORCAMENTO CONCLUIDO');
+      if (laudoPreenchido && !jaOrcamentoEnviado && !tecnicoSelecionouSemReparo && !tecnicoSelecionouReparoConcluido) {
         const opcaoConcluido = statusTecnicoOptions.find(s => (s.nome || '').toUpperCase() === 'ORÇAMENTO CONCLUÍDO');
         statusTecnicoParaSalvar = opcaoConcluido?.nome ?? 'ORÇAMENTO CONCLUÍDO';
       }

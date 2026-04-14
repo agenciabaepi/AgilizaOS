@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
+import { diffDiasCalendario } from '@/lib/assinaturaCalendario';
 
 /** Disparar após pagamento aprovado para o guard atualizar e liberar o acesso */
 export function dispatchAssinaturaUpdated() {
@@ -157,19 +158,25 @@ export const useSubscription = () => {
   };
 
   // Funções de verificação reais
+  /** Trial expirado após o último dia civil de `data_trial_fim` (igual período pago). */
   const isTrialExpired = (): boolean => {
     if (!assinatura || assinatura.status !== 'trial') return false;
     if (!assinatura.data_trial_fim) return false;
-    
-    const agora = new Date();
-    const fimTrial = new Date(assinatura.data_trial_fim);
-    return fimTrial < agora;
+    const d = diffDiasCalendario(assinatura.data_trial_fim);
+    return d !== null && d < 0;
   };
 
   const isSubscriptionActive = (): boolean => {
     if (!assinatura) return false;
     if (assinatura.status === 'cancelled' || assinatura.status === 'expired') return false;
-    if (assinatura.data_fim && new Date(assinatura.data_fim) < new Date()) return false;
+    if (assinatura.status === 'trial' && assinatura.data_trial_fim) {
+      const d = diffDiasCalendario(assinatura.data_trial_fim);
+      if (d !== null && d < 0) return false;
+    }
+    if (assinatura.data_fim) {
+      const d = diffDiasCalendario(assinatura.data_fim);
+      if (d !== null && d < 0) return false;
+    }
     return true;
   };
 
@@ -179,10 +186,12 @@ export const useSubscription = () => {
     if (!assinatura) return false;
     if (['cancelled', 'expired', 'suspended', 'pending_payment'].includes(assinatura.status)) return true;
     if (assinatura.status === 'active' && assinatura.proxima_cobranca) {
-      if (new Date(assinatura.proxima_cobranca) < new Date()) return true;
+      const d = diffDiasCalendario(assinatura.proxima_cobranca);
+      if (d !== null && d < 0) return true;
     }
     if (assinatura.status === 'trial' && assinatura.data_trial_fim) {
-      if (new Date(assinatura.data_trial_fim) < new Date()) return true;
+      const d = diffDiasCalendario(assinatura.data_trial_fim);
+      if (d !== null && d < 0) return true;
     }
     return false;
   };
@@ -194,14 +203,9 @@ export const useSubscription = () => {
 
   const diasRestantesTrial = (): number => {
     if (!assinatura || assinatura.status !== 'trial' || !assinatura.data_trial_fim) return 0;
-    
-    const hoje = new Date();
-    const fimTrial = new Date(assinatura.data_trial_fim);
-    const diffTime = fimTrial.getTime() - hoje.getTime();
-    
-    if (diffTime <= 0) return 0;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return Math.max(0, diffDays);
+    const d = diffDiasCalendario(assinatura.data_trial_fim);
+    if (d === null) return 0;
+    return Math.max(0, d);
   };
 
   // Plano único R$119,90 - todos têm acesso a todos os recursos

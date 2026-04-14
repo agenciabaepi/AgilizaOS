@@ -9,7 +9,7 @@ import { FiCreditCard, FiCheckCircle, FiClock, FiRefreshCw, FiArrowRight, FiX } 
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import PixQRCode from '@/components/PixQRCode';
-import { useSubscription } from '@/hooks/useSubscription';
+import { useSubscription, dispatchAssinaturaUpdated } from '@/hooks/useSubscription';
 
 /** Cobrança vinda do Asaas (API cobrancas-asaas) */
 interface CobrancaAsaas {
@@ -44,22 +44,79 @@ function getValor(item: ItemAssinatura): number {
 function getStatus(item: ItemAssinatura): string {
   return item.status || 'PENDING';
 }
-function getDataCriacao(item: ItemAssinatura): string | null {
-  if (isAsaas(item)) return item.dueDate || null;
-  return item.created_at || null;
+/** Igual ao backend: período de acesso após confirmação do pagamento */
+const DIAS_ACESSO_APOS_PAGAMENTO = 30;
+
+function parseFirstCalendarDate(iso: string): Date | null {
+  const s = String(iso).trim();
+  const head = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (head) {
+    const [y, m, d] = head[1].split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    return Number.isNaN(dt.getTime()) ? null : dt;
+  }
+  const dt = new Date(s);
+  return Number.isNaN(dt.getTime()) ? null : dt;
 }
+
+/** Retorna YYYY-MM-DD (dia civil local) após somar `dias`. */
+function addCalendarDaysFromIso(iso: string, dias: number): string | null {
+  const base = parseFirstCalendarDate(iso);
+  if (!base) return null;
+  const out = new Date(base);
+  out.setDate(out.getDate() + dias);
+  const y = out.getFullYear();
+  const mo = String(out.getMonth() + 1).padStart(2, '0');
+  const da = String(out.getDate()).padStart(2, '0');
+  return `${y}-${mo}-${da}`;
+}
+
 function getDataPagamento(item: ItemAssinatura): string | null {
   if (isAsaas(item)) return item.paymentDate || null;
   return item.paid_at || null;
 }
-/** ID da cobrança no Asaas (para obter QR PIX de cobrança existente) */
-function getPaymentId(item: ItemAssinatura): string {
-  return isAsaas(item) ? item.id : (item as Pagamento).mercadopago_payment_id;
-}
+
 function isPendente(item: ItemAssinatura): boolean {
   const s = (getStatus(item) || '').toUpperCase();
   const pagavel = s === 'PENDING' || s === 'OVERDUE';
   return !!pagavel && !getDataPagamento(item);
+}
+
+function cobrancaFoiPaga(item: ItemAssinatura): boolean {
+  if (isPendente(item)) return false;
+  if (getDataPagamento(item)) return true;
+  const s = (getStatus(item) || '').toLowerCase();
+  return ['confirmed', 'received', 'approved', 'pago'].includes(s);
+}
+
+/**
+ * Data mostrada na 1ª coluna: pendente = vencimento da cobrança (Asaas);
+ * pago = último dia do período de 30 dias após o pagamento (igual `proxima_cobranca` no sistema).
+ */
+function getDataVencimentoLista(item: ItemAssinatura): string | null {
+  const pago = cobrancaFoiPaga(item);
+  if (isAsaas(item)) {
+    if (pago) {
+      const base = item.paymentDate || item.dueDate;
+      if (!base) return item.dueDate || null;
+      return (
+        addCalendarDaysFromIso(base, DIAS_ACESSO_APOS_PAGAMENTO) ||
+        item.dueDate ||
+        null
+      );
+    }
+    return item.dueDate || null;
+  }
+  const pg = item as Pagamento & { _from?: 'db' };
+  if (pago && pg.paid_at) {
+    return addCalendarDaysFromIso(pg.paid_at, DIAS_ACESSO_APOS_PAGAMENTO) || null;
+  }
+  return pg.created_at || null;
+}
+
+/** ID da cobrança no Asaas (para obter QR PIX de cobrança existente) */
+function getPaymentId(item: ItemAssinatura): string {
+  return isAsaas(item) ? item.id : (item as Pagamento).mercadopago_payment_id;
 }
 
 function formatarMoeda(valor: number) {
@@ -199,6 +256,29 @@ export default function AssinaturaPage() {
     if (empresaData?.id) carregar();
   }, [empresaData?.id, carregar]);
 
+  /** Uma vez por empresa: alinha vencimento no Supabase com o último PIX pago no Asaas (rota antes quebrada). */
+  useEffect(() => {
+    if (!empresaData?.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const authHeader = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+        const res = await fetch('/api/assinatura/sincronizar', {
+          cache: 'no-store',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json', ...authHeader },
+        });
+        if (!cancelled && res.ok) dispatchAssinaturaUpdated();
+      } catch {
+        /* silencioso */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [empresaData?.id]);
+
   const pendentes = itens.filter((p) => {
     const s = (getStatus(p) || '').toLowerCase();
     return s === 'pending' || !getDataPagamento(p);
@@ -298,7 +378,27 @@ export default function AssinaturaPage() {
               <option value="CONFIRMED">Confirmados</option>
               <option value="RECEIVED">Recebidos</option>
             </select>
-            <Button variant="outline" size="sm" onClick={carregar} disabled={loading} className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                try {
+                  const { data: { session } } = await supabase.auth.getSession();
+                  const authHeader = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+                  const res = await fetch('/api/assinatura/sincronizar', {
+                    cache: 'no-store',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json', ...authHeader },
+                  });
+                  if (res.ok) dispatchAssinaturaUpdated();
+                } catch {
+                  /* segue para recarregar lista */
+                }
+                carregar();
+              }}
+              disabled={loading}
+              className="flex items-center gap-2"
+            >
               <FiRefreshCw size={14} className={loading ? 'animate-spin' : ''} />
               Atualizar
             </Button>
@@ -330,7 +430,12 @@ export default function AssinaturaPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 dark:bg-zinc-700/50">
                     <tr>
-                      <th className="text-left px-4 py-3 font-medium text-gray-700 dark:text-gray-300">Data vencimento</th>
+                      <th
+                        className="text-left px-4 py-3 font-medium text-gray-700 dark:text-gray-300"
+                        title="Pendente: vencimento da cobrança. Pago: último dia do período de 30 dias após o pagamento (mesma regra do sistema)."
+                      >
+                        Vencimento
+                      </th>
                       <th className="text-left px-4 py-3 font-medium text-gray-700 dark:text-gray-300">Valor</th>
                       <th className="text-left px-4 py-3 font-medium text-gray-700 dark:text-gray-300">Status</th>
                       <th className="text-left px-4 py-3 font-medium text-gray-700 dark:text-gray-300">Data pagamento</th>
@@ -341,7 +446,7 @@ export default function AssinaturaPage() {
                     {itens.map((p) => (
                       <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-zinc-700/30">
                         <td className="px-4 py-3 text-gray-900 dark:text-white whitespace-nowrap">
-                          {formatarDataShort(getDataCriacao(p))}
+                          {formatarDataShort(getDataVencimentoLista(p))}
                         </td>
                         <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
                           {formatarMoeda(getValor(p))}

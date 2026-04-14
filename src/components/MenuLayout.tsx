@@ -861,7 +861,7 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
         )}
         {/* Banner de Avisos - oculto na tela cheia de Nova OS para mais espaço */}
         {!isNovaOSFullScreen && (
-          <div className="w-full sticky top-16 z-20 space-y-2 no-print">
+          <div className="w-full sticky top-16 z-20 space-y-1.5 no-print">
             <AvisosBanner />
             <FinanceiroAlertsBanner />
           </div>

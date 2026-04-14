@@ -69,15 +69,7 @@ const SubscriptionStatusContent = () => {
 
   if (!assinatura) return null;
 
-  // Verificar se teste grátis expirou de forma mais robusta
-  const verificarTesteGratisExpirado = () => {
-    if (!assinatura || assinatura.status !== 'trial' || !assinatura.data_trial_fim) return false;
-    const agora = new Date();
-    const fimTrial = new Date(assinatura.data_trial_fim);
-    return fimTrial < agora;
-  };
-
-  const testeGratisExpirado = verificarTesteGratisExpirado();
+  const testeGratisExpirado = isTrialExpired();
 
   // Se teste grátis expirou ou assinatura inativa
   if (testeGratisExpirado || !isSubscriptionActive()) {

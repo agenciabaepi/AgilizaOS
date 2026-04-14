@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { diffDiasCalendario } from '@/lib/assinaturaCalendario';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 
@@ -83,12 +84,9 @@ export function useAssinatura() {
   }, [user]);
 
   const isTrialExpired = () => {
-    if (!assinatura || assinatura.status !== 'trial') return false;
-    
-    const trialEnd = new Date(assinatura.data_trial_fim || '');
-    const now = new Date();
-    
-    return trialEnd < now;
+    if (!assinatura || assinatura.status !== 'trial' || !assinatura.data_trial_fim) return false;
+    const d = diffDiasCalendario(assinatura.data_trial_fim);
+    return d !== null && d < 0;
   };
 
   const isActive = () => {

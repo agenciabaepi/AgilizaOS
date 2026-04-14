@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { MS_TRIAL_GRATIS } from '@/config/trial';
 
 export async function POST() {
   try {
@@ -54,7 +55,7 @@ export async function POST() {
       plano_id: plano.id,
       status: 'trial',
       data_inicio: new Date().toISOString(),
-      data_trial_fim: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(), // 15 dias
+      data_trial_fim: new Date(Date.now() + MS_TRIAL_GRATIS).toISOString(),
       valor: 0.00,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()

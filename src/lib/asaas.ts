@@ -190,3 +190,44 @@ export async function getPixQrCode(paymentId: string): Promise<AsaasPixQrCode> {
 export function isPaymentConfirmed(status: string): boolean {
   return status === 'CONFIRMED' || status === 'RECEIVED';
 }
+
+/**
+ * Datas YYYY-MM-DD do Asaas: meio-dia UTC evita o dia “voltar” no fuso local.
+ * ISO com horário é interpretado normalmente.
+ */
+export function parseAsaasBillingDate(dateStr?: string): Date | null {
+  if (!dateStr) return null;
+  const raw = String(dateStr).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [y, m, d] = raw.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  }
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
+/** Ordenação do “último pago”: data de pagamento, ou vencimento se ainda não veio paymentDate. */
+function effectiveSortTimeMs(p: AsaasPayment): number {
+  const fromPay = parseAsaasBillingDate(p.paymentDate);
+  const fromDue = parseAsaasBillingDate(p.dueDate);
+  const ref = fromPay ?? fromDue;
+  return ref ? ref.getTime() : 0;
+}
+
+/** Entre cobranças CONFIRMED/RECEIVED, escolhe a mais recente (para renovar 30 dias a partir dela). */
+export function pickLatestConfirmedAsaasPayment(payments: AsaasPayment[]): AsaasPayment | null {
+  let best: AsaasPayment | null = null;
+  let bestT = -Infinity;
+  for (const p of payments) {
+    if (!isPaymentConfirmed(p.status || '')) continue;
+    const t = effectiveSortTimeMs(p);
+    if (t > bestT) {
+      bestT = t;
+      best = p;
+    } else if (best && t === bestT && t > 0) {
+      if (p.paymentDate && !best.paymentDate) best = p;
+    }
+  }
+  return best;
+}
