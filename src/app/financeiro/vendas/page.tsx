@@ -10,6 +10,7 @@ import DashboardCard from '@/components/ui/DashboardCard';
 import { useAuth } from '@/context/AuthContext';
 import { FiPrinter, FiDollarSign, FiShoppingCart, FiTrendingUp, FiUsers, FiCalendar } from 'react-icons/fi';
 import { useSnapshotFinanceiro } from '@/hooks/useSnapshotFinanceiro';
+import { extrairNumeroOSDaObservacao } from '@/utils/extrairNumeroOSDaObservacao';
 
 interface VendaItem {
   id: string;
@@ -75,13 +76,6 @@ export default function ListaVendasPage() {
   });
   const { empresaData } = useAuth();
 
-  const extrairNumeroOS = (observacoes?: string | null) => {
-    if (!observacoes) return null;
-
-    const match = observacoes.match(/(?:O\.?S\.?|OS)\s*#\s*(\d+)/i) || observacoes.match(/#\s*(\d+)/);
-    return match?.[1] || null;
-  };
-
   // Calcular datas para lucro do dia e da semana usando useMemo
   const { dataInicioDia, dataFimDia, dataInicioSemana, dataFimSemana } = useMemo(() => {
     const hoje = new Date();
@@ -143,7 +137,7 @@ export default function ListaVendasPage() {
         setVendas(data.map((v: any) => ({
           ...v,
           cliente_nome: v.cliente?.nome || '---',
-          numero_os: extrairNumeroOS(v.observacoes),
+          numero_os: extrairNumeroOSDaObservacao(v.observacoes),
         })));
       }
       setLoading(false);

@@ -266,6 +266,19 @@ export async function POST(request: NextRequest) {
       dadosAtualizacao.status_tecnico = isStatusSemReparo(osAnteriorStatusTecnico) ? 'SEM REPARO' : (mapOSTecnico(novoStatusRaw) || osAnteriorStatusTecnico);
     }
 
+    // Entrega explícita: newStatus ENTREGUE deve prevalecer sobre o espelhamento técnico → OS.
+    // Caso contrário, se técnico e OS mudam no mesmo POST (ex.: modal de entrega com REPARO CONCLUÍDO),
+    // o ramo `tecnicoAlterou` usa mapTecnicoParaOS → CONCLUIDO e ignora ENTREGUE.
+    if (normalizeStatus(novoStatusRaw) === 'ENTREGUE') {
+      dadosAtualizacao.status = 'ENTREGUE';
+      if (isStatusSemReparo(osAnteriorStatusTecnico)) {
+        dadosAtualizacao.status_tecnico = 'SEM REPARO';
+      } else {
+        dadosAtualizacao.status_tecnico =
+          novoStatusTecnicoRaw || mapOSTecnico('ENTREGUE') || osAnteriorStatusTecnico;
+      }
+    }
+
     // Exceção SEM REPARO: ao entregar (ENTREGUE), status_tecnico permanece SEM REPARO se já era
     const statusFinal = normalizeStatus(String(dadosAtualizacao.status || ''));
     if (statusFinal === 'ENTREGUE' && isStatusSemReparo(osAnteriorStatusTecnico)) {

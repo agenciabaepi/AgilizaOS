@@ -2,6 +2,7 @@
 'use client';
 
 import { getStatusTecnicoLabel } from '@/utils/statusLabels';
+import { extrairNumeroOSDaObservacao } from '@/utils/extrairNumeroOSDaObservacao';
 
 /** Extrai string do status/status_tecnico (Supabase pode retornar objeto da relação com .nome). */
 function normStatusVal(v: unknown): string {
@@ -11,6 +12,82 @@ function normStatusVal(v: unknown): string {
     return (v as { nome: string }).nome.trim();
   }
   return String(v).trim();
+}
+
+/** Valor monetário vindo do Supabase (number ou string pt-BR / decimal). */
+function parseValorMonetarioBR(v: unknown): number {
+  if (v == null || v === '') return 0;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+  const s = String(v).trim();
+  if (!s) return 0;
+  if (/^\d+(\.\d+)?$/.test(s)) return parseFloat(s);
+  const normalized = s.replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '');
+  const n = parseFloat(normalized);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function statusOsConsideradaFechada(os: { status?: unknown; status_tecnico?: unknown }): boolean {
+  const s = normStatusVal(os.status)
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '');
+  const st = normStatusVal(os.status_tecnico)
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '');
+  return (
+    s === 'ENTREGUE' ||
+    s === 'CONCLUIDO' ||
+    s === 'FATURADO' ||
+    st === 'REPARO CONCLUIDO' ||
+    st.includes('REPARO CONCLUIDO')
+  );
+}
+
+function statusOsEntregueOuConcluido(os: { status?: unknown }): boolean {
+  const s = normStatusVal(os.status)
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '');
+  return s === 'ENTREGUE' || s === 'CONCLUIDO' || s === 'FATURADO';
+}
+
+/** Mesma ideia do dados-impressao: observações da venda ou total + cliente. */
+function observacoesReferenciamOS(observacoes: unknown, numeroOs: unknown): boolean {
+  const n = String(numeroOs ?? '').trim();
+  if (!n) return false;
+  const up = String(observacoes ?? '')
+    .replace(/\s+/g, ' ')
+    .toUpperCase();
+  if (!up) return false;
+  const sn = n.toUpperCase();
+  const patterns = [`O.S. #${sn}`, `OS #${sn}`, `O.S #${sn}`, `O.S.#${sn}`, `OS#${sn}`];
+  return patterns.some((p) => up.includes(p));
+}
+
+function findVendaParaOS(os: { id?: string; numero_os?: unknown; cliente_id?: string; valor_faturado?: unknown }, todasVendas: any[]): any | undefined {
+  if (!Array.isArray(todasVendas) || todasVendas.length === 0) return undefined;
+  const num = String(os.numero_os ?? '').trim();
+  if (num) {
+    const candidatos = todasVendas.filter(
+      (v: any) => extrairNumeroOSDaObservacao(v.observacoes) === num
+    );
+    if (candidatos.length > 0) {
+      const comCliente = os.cliente_id
+        ? candidatos.find((v: any) => v.cliente_id === os.cliente_id)
+        : undefined;
+      if (comCliente) return comCliente;
+      return candidatos[0];
+    }
+  }
+  const porObs = todasVendas.find((v: any) => observacoesReferenciamOS(v.observacoes, os.numero_os));
+  if (porObs) return porObs;
+  const vf = parseValorMonetarioBR(os.valor_faturado);
+  if (vf <= 0 || !os.cliente_id) return undefined;
+  return todasVendas.find((v: any) => {
+    if (v.cliente_id !== os.cliente_id) return false;
+    return Math.abs(parseValorMonetarioBR(v.total) - vf) <= 5;
+  });
 }
 
 interface OrdemTransformada {
@@ -39,6 +116,8 @@ interface OrdemTransformada {
   valorFaturado: number;
   tipo: string;
   foiFaturada: boolean;
+  /** OS encerrada com valor, mas não encontramos linha em `vendas` ligada a ela. */
+  faturamentoSemVendaVinculada: boolean;
   formaPagamento: string;
   clienteRecusou: boolean;
   aparelhoSemConserto: boolean;
@@ -512,27 +591,23 @@ export default function ListaOrdensPage() {
         const vendasDict: Record<string, any> = {};
         const custosPorOS: Record<string, number> = {};
         
-        // Filtrar apenas OSs entregues/finalizadas que precisam de venda
         const osIds = data.map((d: any) => d.id);
-        const osEntregues = data.filter((os: any) => {
-          const valorFaturado = os.valor_faturado || 0;
-          return valorFaturado > 0 && 
-                 !os.cliente_recusou && 
-                (os.status === 'ENTREGUE' || os.status_tecnico === 'REPARO CONCLUÍDO');
-        });
-        
-        // ✅ Buscar vendas e contas_pagar apenas se houver OSs entregues (reduz carga)
-        if (osEntregues.length > 0) {
+        // Buscar vendas para qualquer OS da lista (não só as com valor_faturado > 0 no registro —
+        // muitas OS entregues têm venda no caixa mas valor_faturado ainda 0 ou desatualizado no banco).
+        const precisaBuscarVendas = data.some(
+          (os: any) => !os.cliente_recusou && !os.aparelho_sem_conserto
+        );
+
+        if (precisaBuscarVendas) {
           try {
             // Buscar vendas e contas em paralelo
             const [vendasResult, contasResult] = await Promise.allSettled([
               supabase
                 .from('vendas')
-                .select('id, cliente_id, forma_pagamento, total, status, observacoes')
+                .select('id, cliente_id, forma_pagamento, total, status, observacoes, data_venda')
                 .eq('empresa_id', empresaId)
-                .in('cliente_id', [...new Set(osEntregues.map((os: any) => os.cliente_id))])
                 .order('data_venda', { ascending: false })
-                .limit(200), // ✅ Reduzido de 500 para 200
+                .limit(5000),
               supabase
                 .from('contas_pagar')
                 .select('id, os_id, valor, status, tipo')
@@ -541,29 +616,13 @@ export default function ListaOrdensPage() {
                 .in('tipo', ['pecas', 'servicos'])
             ]);
 
-            // Processar vendas
+            // Processar vendas — vincular por nº da OS nas observações (prioridade) para todas as linhas
             if (vendasResult.status === 'fulfilled' && vendasResult.value.data) {
               const todasVendas = vendasResult.value.data;
-              osEntregues.forEach((os: any) => {
-                const vendaOS = todasVendas.find((v: any) => 
-                  v.observacoes?.includes(`O.S. #${os.numero_os}`) || 
-                  v.observacoes?.includes(`OS #${os.numero_os}`)
-                );
-                
-                if (!vendaOS) {
-                  const vendaCliente = todasVendas
-                    .filter((v: any) => v.cliente_id === os.cliente_id)
-                    .find((v: any) => Math.abs(v.total - (os.valor_faturado || 0)) <= 5);
-                  
-                  if (vendaCliente) {
-                    vendasDict[os.id] = {
-                      id: vendaCliente.id,
-                      forma_pagamento: vendaCliente.forma_pagamento,
-                      total: vendaCliente.total,
-                      status: vendaCliente.status
-                    };
-                  }
-                } else {
+              data.forEach((os: any) => {
+                if (os.cliente_recusou || os.aparelho_sem_conserto) return;
+                const vendaOS = findVendaParaOS(os, todasVendas);
+                if (vendaOS) {
                   vendasDict[os.id] = {
                     id: vendaOS.id,
                     forma_pagamento: vendaOS.forma_pagamento,
@@ -601,7 +660,7 @@ export default function ListaOrdensPage() {
               ? addDaysDateOnly(item.data_entrega, 90)
               : '');
           
-          const valorFaturado = item.valor_faturado || 0;
+          const valorFaturado = parseValorMonetarioBR(item.valor_faturado);
           const vendaOS = vendasDict[item.id];
           // Buscar atendente_id separadamente se necessário
           const atendenteId = item.atendente_id || null;
@@ -653,11 +712,19 @@ export default function ListaOrdensPage() {
             tipo: item.tipo || 'Nova',
             clienteRecusou: item.cliente_recusou || false, // Campo para marcar se cliente recusou
             aparelhoSemConserto: item.aparelho_sem_conserto || false, // Campo para marcar se aparelho não teve conserto
-            // Verificar se foi faturada: precisa ter valor > 0, status ENTREGUE/REPARO CONCLUÍDO, ter venda relacionada E cliente não recusou/sem conserto
-            foiFaturada: !item.cliente_recusou && !item.aparelho_sem_conserto && // Cliente não recusou e aparelho teve conserto
-                        valorFaturado > 0 && 
-                        (item.status === 'ENTREGUE' || item.status_tecnico === 'REPARO CONCLUÍDO') &&
-                        !!vendaOS, // Precisa ter venda relacionada
+            // Faturado: OS fechada + venda encontrada + (valor na OS ou total na venda > 0)
+            foiFaturada:
+              !item.cliente_recusou &&
+              !item.aparelho_sem_conserto &&
+              statusOsConsideradaFechada(item) &&
+              !!vendaOS &&
+              (valorFaturado > 0 || parseValorMonetarioBR(vendaOS?.total) > 0),
+            faturamentoSemVendaVinculada:
+              !item.cliente_recusou &&
+              !item.aparelho_sem_conserto &&
+              statusOsConsideradaFechada(item) &&
+              !vendaOS &&
+              (valorFaturado > 0 || statusOsEntregueOuConcluido(item)),
             formaPagamento: getFormaPagamento(item, vendaOS),
             observacao: item.observacao || null,
             problema_relatado: item.problema_relatado || null,
@@ -1617,6 +1684,15 @@ export default function ListaOrdensPage() {
                               {formatFormaPagamento(os.formaPagamento)}
                             </div>
                           </>
+                        ) : os.faturamentoSemVendaVinculada ? (
+                          <>
+                            <div className="font-bold text-amber-700 dark:text-amber-400">
+                              Entregue
+                            </div>
+                            <div className="text-xs text-amber-600 dark:text-amber-500 font-medium mt-1 leading-snug">
+                              Sem venda no caixa
+                            </div>
+                          </>
                         ) : (
                           <>
                             <div className="text-gray-500 dark:text-zinc-400 font-medium">
@@ -1723,9 +1799,19 @@ export default function ListaOrdensPage() {
                     <div className={`font-medium ${
                       os.clienteRecusou ? 'text-red-600 dark:text-red-400' :
                       os.aparelhoSemConserto ? 'text-orange-600 dark:text-orange-400' :
-                      os.foiFaturada ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-zinc-400'
+                      os.foiFaturada ? 'text-green-600 dark:text-green-400' :
+                      os.faturamentoSemVendaVinculada ? 'text-amber-700 dark:text-amber-400' :
+                      'text-gray-500 dark:text-zinc-400'
                     }`}>
-                      {os.clienteRecusou ? 'Recusado' : os.aparelhoSemConserto ? 'Sem conserto' : os.foiFaturada ? 'Faturado' : 'Aguardando'}
+                      {os.clienteRecusou
+                        ? 'Recusado'
+                        : os.aparelhoSemConserto
+                          ? 'Sem conserto'
+                          : os.foiFaturada
+                            ? 'Faturado'
+                            : os.faturamentoSemVendaVinculada
+                              ? 'Entregue (sem venda)'
+                              : 'Aguardando'}
                     </div>
                   </div>
                 </div>
