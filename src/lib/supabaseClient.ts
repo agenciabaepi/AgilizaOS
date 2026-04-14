@@ -308,7 +308,7 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
         configTimeout
       ]),
       Promise.race([
-        supabase.from('assinaturas').select('*, planos!inner(recursos_disponiveis)').eq('empresa_id', data.empresa_id).order('created_at', { ascending: false }).limit(1),
+        supabase.from('assinaturas').select('*, planos(recursos_disponiveis)').eq('empresa_id', data.empresa_id).order('created_at', { ascending: false }).limit(1),
         assinaturaTimeout
       ])
     ]);
@@ -336,7 +336,8 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
         email: empresaData.email || '',
         logo_url: empresaData.logo_url || '',
         plano: empresaData.plano || 'trial',
-        ativo: empresaData.ativo ?? true
+        ativo: empresaData.ativo ?? true,
+        created_at: empresaData.created_at ?? null,
       },
       catalogoHabilitado,
       recursosPlano

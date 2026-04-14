@@ -3,7 +3,22 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/Button';
-import { Input } from '@/components/Input';
+import { DIAS_TRIAL_GRATIS } from '@/config/trial';
+import { FiInfo } from 'react-icons/fi';
+
+const TRIAL_IMPLICITO_HINT = `Trial implícito: ${DIAS_TRIAL_GRATIS} dias a partir da criação da empresa. Sem registro na tabela assinaturas.`;
+
+function formatarDataCurta(iso: string | null | undefined) {
+  if (!iso) return '—';
+  const s = String(iso).trim();
+  const head = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (head) {
+    const [y, m, d] = head[1].split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('pt-BR');
+  }
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR');
+}
 
 type Empresa = {
   id: string;
@@ -32,6 +47,9 @@ type Empresa = {
     ultimoPagamentoStatus: string | null;
     ultimoPagamentoPagoEm: string | null;
     ultimoPagamentoValor: number | null;
+    dataTrialFim?: string | null;
+    diasTrialRestantes?: number | null;
+    trialImplicito?: boolean;
   };
 }
 
@@ -322,24 +340,23 @@ export default function EmpresasClient() {
         <table className="min-w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Empresa</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Ativa</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Criada em</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Plano</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Cobrança</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Usuários</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Produtos</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Serviços</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">OS</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Storage (MB)</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Ações</th>
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Empresa</th>
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Estado</th>
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Criada em</th>
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Plano</th>
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Cobrança / teste</th>
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Usuários</th>
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Produtos</th>
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Serviços</th>
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">OS</th>
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">MB</th>
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Ações</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {loading ? (
               <tr>
-                <td colSpan={12} className="px-6 py-12 text-center text-gray-500">
+                <td colSpan={11} className="px-6 py-12 text-center text-gray-500">
                   <div className="flex items-center justify-center gap-2">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-900"></div>
                     <span>Carregando...</span>
@@ -348,7 +365,7 @@ export default function EmpresasClient() {
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={12} className="px-6 py-12 text-center text-gray-500">
+                <td colSpan={11} className="px-6 py-12 text-center text-gray-500">
                   Nenhuma empresa encontrada
                 </td>
               </tr>
@@ -359,7 +376,7 @@ export default function EmpresasClient() {
                   className="hover:bg-gray-50 transition-colors cursor-pointer"
                   onClick={() => window.location.href = `/admin-saas/empresas/${e.id}`}
                 >
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center gap-3">
                       {e.logo_url ? (
                         <img 
@@ -383,58 +400,96 @@ export default function EmpresasClient() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {e.status ? (
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                        ${e.status === 'aprovada' ? 'bg-green-100 text-green-800' : ''}
-                        ${e.status === 'pendente' ? 'bg-yellow-100 text-yellow-800' : ''}
-                        ${e.status === 'reprovada' ? 'bg-red-100 text-red-800' : ''}
-                      `}>
-                        {e.status}
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="flex flex-wrap items-center gap-1">
+                      {e.status ? (
+                        <span
+                          className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-medium leading-none
+                          ${e.status === 'aprovada' ? 'bg-green-100 text-green-800' : ''}
+                          ${e.status === 'pendente' ? 'bg-yellow-100 text-yellow-800' : ''}
+                          ${e.status === 'reprovada' ? 'bg-red-100 text-red-800' : ''}
+                        `}
+                        >
+                          {e.status}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-[11px]">—</span>
+                      )}
+                      <span
+                        className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-medium leading-none
+                        ${e.ativo ? 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200/80' : 'bg-gray-100 text-gray-600 ring-1 ring-gray-200/80'}
+                      `}
+                      >
+                        {e.ativo ? 'Ativa' : 'Inativa'}
                       </span>
-                    ) : (
-                      <span className="text-gray-400">—</span>
-                    )}
+                    </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                      ${e.ativo ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'}
-                    `}>
-                      {e.ativo ? 'Ativa' : 'Inativa'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-gray-600">
+                  <td className="px-4 py-3 whitespace-nowrap text-gray-600 tabular-nums text-[13px]">
                     {e.created_at ? new Date(e.created_at).toLocaleDateString('pt-BR') : '-'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-4 py-3 whitespace-nowrap">
                     {e.billing?.plano?.nome ? (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      <span className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-medium bg-blue-100 text-blue-800">
                         {e.billing.plano.nome}
                       </span>
                     ) : (
                       <span className="text-gray-400">—</span>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-4 py-3 align-middle max-w-[11rem]">
                     {e.billing?.cobrancaStatus ? (
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        e.billing.cobrancaStatus === 'Em dia' ? 'bg-green-100 text-green-800' :
-                        e.billing.cobrancaStatus === 'Trial' ? 'bg-yellow-100 text-yellow-800' :
-                        e.billing.cobrancaStatus === 'Vencido' ? 'bg-red-100 text-red-800' :
-                        'bg-gray-100 text-gray-700'
-                      }`}>
-                        {e.billing.cobrancaStatus}
-                      </span>
+                      <div className="flex flex-col gap-0.5 min-w-0">
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <span
+                            className={`inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-[11px] font-medium leading-none ${
+                              e.billing.cobrancaStatus === 'Em dia'
+                                ? 'bg-green-100 text-green-800'
+                                : e.billing.cobrancaStatus === 'Trial'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : e.billing.cobrancaStatus === 'Trial encerrado'
+                                    ? 'bg-amber-100 text-amber-900'
+                                    : e.billing.cobrancaStatus === 'Vencido'
+                                      ? 'bg-red-100 text-red-800'
+                                      : 'bg-gray-100 text-gray-700'
+                            }`}
+                          >
+                            {e.billing.cobrancaStatus}
+                          </span>
+                          {e.billing.trialImplicito && (
+                            <span
+                              className="inline-flex text-amber-700 hover:text-amber-900"
+                              title={TRIAL_IMPLICITO_HINT}
+                            >
+                              <FiInfo className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                              <span className="sr-only">{TRIAL_IMPLICITO_HINT}</span>
+                            </span>
+                          )}
+                        </div>
+                        {e.billing.dataTrialFim &&
+                          (e.billing.cobrancaStatus === 'Trial' ||
+                            e.billing.cobrancaStatus === 'Trial encerrado') && (
+                          <p className="text-[11px] text-gray-600 leading-tight tabular-nums">
+                            Até {formatarDataCurta(e.billing.dataTrialFim)}
+                            {e.billing.cobrancaStatus === 'Trial' &&
+                              e.billing.diasTrialRestantes != null && (
+                                <>
+                                  {' '}
+                                  · {e.billing.diasTrialRestantes}d rest.
+                                </>
+                              )}
+                          </p>
+                        )}
+                      </div>
                     ) : (
                       <span className="text-gray-400">—</span>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-gray-600">{e.metrics?.usuarios ?? 0}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-gray-600">{e.metrics?.produtos ?? 0}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-gray-600">{e.metrics?.servicos ?? 0}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-gray-600">{e.metrics?.ordens ?? 0}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-gray-600">{e.metrics?.usoMb ?? 0}</td>
-                  <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                  <td className="px-4 py-3 whitespace-nowrap text-gray-600 tabular-nums text-[13px]">{e.metrics?.usuarios ?? 0}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-gray-600 tabular-nums text-[13px]">{e.metrics?.produtos ?? 0}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-gray-600 tabular-nums text-[13px]">{e.metrics?.servicos ?? 0}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-gray-600 tabular-nums text-[13px]">{e.metrics?.ordens ?? 0}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-gray-600 tabular-nums text-[13px]">{e.metrics?.usoMb ?? 0}</td>
+                  <td className="px-4 py-3 whitespace-nowrap" onClick={(ev) => ev.stopPropagation()}>
                     <Button 
                       size="sm" 
                       onClick={() => window.location.href = `/admin-saas/empresas/${e.id}`}

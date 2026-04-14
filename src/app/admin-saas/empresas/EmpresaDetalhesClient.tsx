@@ -5,6 +5,19 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/Button';
 import { FiArrowLeft, FiDollarSign, FiUsers, FiBox, FiFileText, FiTrendingUp, FiCheck, FiX, FiToggleLeft, FiToggleRight, FiSlash } from 'react-icons/fi';
 import { BuildingOfficeIcon as FiBuilding } from '@heroicons/react/24/outline';
+import { DIAS_TRIAL_GRATIS } from '@/config/trial';
+
+function formatarDataCurta(iso: string | null | undefined) {
+  if (!iso) return '—';
+  const s = String(iso).trim();
+  const head = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (head) {
+    const [y, m, d] = head[1].split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('pt-BR');
+  }
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR');
+}
 
 type EmpresaDetalhes = {
   id: string;
@@ -39,6 +52,9 @@ type EmpresaDetalhes = {
     ultimoPagamentoStatus: string | null;
     ultimoPagamentoPagoEm: string | null;
     ultimoPagamentoValor: number | null;
+    dataTrialFim?: string | null;
+    diasTrialRestantes?: number | null;
+    trialImplicito?: boolean;
   };
   recursos_customizados?: Record<string, boolean> | null;
 };
@@ -567,6 +583,7 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                 empresa.billing.cobrancaStatus === 'Em dia' ? 'bg-green-100 text-green-800' :
                 empresa.billing.cobrancaStatus === 'Trial' ? 'bg-yellow-100 text-yellow-800' :
+                empresa.billing.cobrancaStatus === 'Trial encerrado' ? 'bg-amber-100 text-amber-900' :
                 empresa.billing.cobrancaStatus === 'Vencido' ? 'bg-red-100 text-red-800' :
                 'bg-gray-100 text-gray-700'
               }`}>
@@ -578,6 +595,29 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
           <div className="text-2xl font-bold text-gray-900">
             {empresa.billing?.plano?.nome || 'Assinatura'}
           </div>
+          {empresa.billing?.dataTrialFim &&
+            (empresa.billing.cobrancaStatus === 'Trial' ||
+              empresa.billing.cobrancaStatus === 'Trial encerrado') && (
+            <div className="mt-3 text-sm text-gray-600 space-y-1 border-t border-gray-100 pt-3">
+              <div>
+                <span className="text-gray-500">Fim do período de teste ({DIAS_TRIAL_GRATIS} dias):</span>{' '}
+                <span className="font-semibold text-gray-900">{formatarDataCurta(empresa.billing.dataTrialFim)}</span>
+              </div>
+              {empresa.billing.cobrancaStatus === 'Trial' && empresa.billing.diasTrialRestantes != null && (
+                <div className="text-gray-700">
+                  Restam{' '}
+                  <span className="font-semibold text-gray-900">{empresa.billing.diasTrialRestantes}</span> dia
+                  {empresa.billing.diasTrialRestantes === 1 ? '' : 's'} (contagem em dias corridos, igual ao app).
+                </div>
+              )}
+              {empresa.billing.trialImplicito && (
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  Trial implícito: não há linha em <code className="text-[11px] bg-amber-50 px-1 rounded">assinaturas</code>
+                  ; o prazo segue a data de criação da empresa.
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Usuários */}

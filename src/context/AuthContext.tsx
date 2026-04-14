@@ -27,6 +27,8 @@ interface EmpresaData {
   email?: string;
   ativo?: boolean; // Campo para verificar se empresa está ativa
   recursos_customizados?: Record<string, boolean> | null; // Recursos customizados pelo admin
+  /** Data de criação da empresa (trial implícito quando não há linha em `assinaturas`). */
+  created_at?: string | null;
 }
 
 interface AuthContextType {

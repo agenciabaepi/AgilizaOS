@@ -122,7 +122,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <script src="/theme-init.js" />
           <script src="/suppress-errors.js?v=2"></script>
           <script src="/aggressive-suppressor.js?v=2"></script>
-          <script src="/notification.js" defer></script>
         </head>
         <body suppressHydrationWarning>
           <ThemeProvider>
@@ -148,7 +147,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script src="/theme-init.js" />
         <script src="/suppress-errors.js?v=2"></script>
         <script src="/aggressive-suppressor.js?v=2"></script>
-        <script src="/notification.js" defer></script>
       </head>
       <body suppressHydrationWarning>
         <ThemeProvider>

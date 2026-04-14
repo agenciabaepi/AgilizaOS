@@ -1,4 +1,6 @@
 import { useSubscription } from '@/hooks/useSubscription';
+import { useAuth } from '@/context/AuthContext';
+import { DIAS_TRIAL_GRATIS } from '@/config/trial';
 import { FiStar, FiClock, FiAlertTriangle } from 'react-icons/fi';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -8,7 +10,8 @@ export const SubscriptionStatus = () => {
 };
 
 const SubscriptionStatusContent = () => {
-  const { assinatura, diasRestantesTrial, isTrialExpired, isSubscriptionActive } = useSubscription();
+  const { user } = useAuth();
+  const { assinatura, diasRestantesTrial, isTrialExpired, isSubscriptionActive, loading } = useSubscription();
   const [tempoRestante, setTempoRestante] = useState<string>('');
   const router = useRouter();
 
@@ -67,6 +70,16 @@ const SubscriptionStatusContent = () => {
     }
   };
 
+  if (loading && user) {
+    return (
+      <div
+        className="h-8 min-w-[7rem] rounded-lg border border-zinc-200 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 animate-pulse"
+        aria-busy="true"
+        aria-label="Carregando status da assinatura"
+      />
+    );
+  }
+
   if (!assinatura) return null;
 
   const testeGratisExpirado = isTrialExpired();
@@ -109,15 +122,17 @@ const SubscriptionStatusContent = () => {
             ? 'bg-red-50 border-red-200 animate-pulse' 
             : 'bg-orange-50 border-orange-200'
         }`}
-        title={`Teste Grátis expira em ${tempoRestante || `${diasRestantes} dias`}. Clique para ver assinatura.`}
+        title={`Teste gratuito de ${DIAS_TRIAL_GRATIS} dias. Restam ${diasRestantes} dia(s) (${tempoRestante || '—'}). Clique para ver assinatura.`}
       >
-        <FiClock className={`w-4 h-4 ${
+        <FiClock className={`w-4 h-4 shrink-0 ${
           isProximoDoFim ? 'text-red-500' : 'text-orange-500'
         }`} />
-        <span className={`text-xs font-medium ${
+        <span className={`text-[10px] sm:text-xs font-medium leading-tight text-left ${
           isProximoDoFim ? 'text-red-700' : 'text-orange-700'
         }`}>
-          Teste Grátis • {tempoRestante || `${diasRestantes} dias`}
+          <span className="hidden sm:inline">Teste {DIAS_TRIAL_GRATIS} dias · </span>
+          <span className="sm:hidden">{DIAS_TRIAL_GRATIS}d · </span>
+          {diasRestantes}d rest. · {tempoRestante || '—'}
         </span>
       </div>
     );

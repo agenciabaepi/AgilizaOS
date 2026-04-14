@@ -57,8 +57,8 @@ export function useAssinatura() {
           .from('assinaturas')
           .select(`
             *,
-            planos!inner(nome, valor),
-            empresas!inner(nome, email_contato)
+            planos(nome, valor),
+            empresas(nome, email_contato)
           `)
           .eq('empresa_id', usuario.empresa_id)
           .order('created_at', { ascending: false })

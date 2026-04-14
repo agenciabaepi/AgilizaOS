@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { isAdminAuthorized } from '@/lib/admin-auth';
+import { computeAdminEmpresaTrialFields } from '@/lib/adminEmpresaTrialBilling';
 
 /**
  * Busca detalhes completos de uma empresa
@@ -196,13 +197,15 @@ export async function GET(
     try {
       const { data } = await supabase
         .from('assinaturas')
-        .select('id,status,proxima_cobranca,plano_id,created_at')
+        .select('id,status,proxima_cobranca,plano_id,created_at,data_trial_fim')
         .eq('empresa_id', empresaId)
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
       assinatura = data || null;
     } catch {}
+
+    const tf = computeAdminEmpresaTrialFields(assinatura, empresa.created_at);
 
     let planoNome = 'Assinatura';
     if (assinatura?.plano_id) {
@@ -215,6 +218,9 @@ export async function GET(
           .single();
         if (plano?.nome) planoNome = plano.nome;
       } catch {}
+    }
+    if (tf.trialImplicito && tf.dataTrialFim) {
+      planoNome = 'Trial';
     }
 
     let ultimoPagamento: any = null;
@@ -229,12 +235,15 @@ export async function GET(
       ultimoPagamento = data || null;
     } catch {}
 
-    // Cálculo de vencimento
+    // Cálculo de vencimento (trial na assinatura ou implícito pela data da empresa)
     let vencido = false;
     let cobrancaStatus = '—';
     const hoje = new Date();
-    if (assinatura?.status === 'trial') {
+    if (tf.emTrialAtivo) {
       cobrancaStatus = 'Trial';
+    } else if ((assinatura?.status === 'trial' || tf.trialImplicito) && tf.trialExpirado) {
+      cobrancaStatus = 'Trial encerrado';
+      vencido = true;
     } else if (assinatura?.status === 'active' || assinatura?.status === 'ativa') {
       cobrancaStatus = 'Em dia';
       if (assinatura?.proxima_cobranca) {
@@ -257,6 +266,9 @@ export async function GET(
       ultimoPagamentoStatus: ultimoPagamento?.status || null,
       ultimoPagamentoPagoEm: ultimoPagamento?.paid_at || null,
       ultimoPagamentoValor: ultimoPagamento?.valor || null,
+      dataTrialFim: tf.dataTrialFim,
+      diasTrialRestantes: tf.diasTrialRestantes,
+      trialImplicito: tf.trialImplicito,
     };
 
     const empresaCompleta = {

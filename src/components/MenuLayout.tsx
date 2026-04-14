@@ -761,8 +761,8 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
             >
               {theme === 'dark' ? <FiSun size={20} /> : <FiMoon size={20} />}
             </button> */}
-            {/* Status da assinatura - oculto em mobile */}
-            <div className="hidden md:block">
+            {/* Status da assinatura — não usar shrink/min-w-0 aqui (encolhia o badge a zero) */}
+            <div className="flex-shrink-0 max-w-[min(92vw,20rem)] sm:max-w-[22rem]">
               <SubscriptionStatus />
             </div>
             

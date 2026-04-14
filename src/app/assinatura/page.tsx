@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import PixQRCode from '@/components/PixQRCode';
 import { useSubscription, dispatchAssinaturaUpdated } from '@/hooks/useSubscription';
+import { DIAS_TRIAL_GRATIS } from '@/config/trial';
 
 /** Cobrança vinda do Asaas (API cobrancas-asaas) */
 interface CobrancaAsaas {
@@ -204,7 +205,7 @@ function diasRestantes(proximaCobranca: string | null): number | null {
 
 export default function AssinaturaPage() {
   const { empresaData } = useAuth();
-  const { assinatura } = useSubscription();
+  const { assinatura, diasRestantesTrial, isTrialExpired } = useSubscription();
   const [loading, setLoading] = useState(true);
   const [itens, setItens] = useState<ItemAssinatura[]>([]);
   const [total, setTotal] = useState(0);
@@ -285,9 +286,14 @@ export default function AssinaturaPage() {
   });
 
   const statusCanceladoOuInativo = assinatura?.status && ['cancelled', 'expired', 'suspended'].includes(assinatura.status);
-  const diasRest = !statusCanceladoOuInativo && assinatura?.proxima_cobranca
-    ? diasRestantes(assinatura.proxima_cobranca)
-    : null;
+  const emTesteGratis =
+    assinatura?.status === 'trial' && assinatura.data_trial_fim && !isTrialExpired();
+  const trialEncerrado = assinatura?.status === 'trial' && isTrialExpired();
+  const diasRest = emTesteGratis
+    ? diasRestantesTrial()
+    : !statusCanceladoOuInativo && assinatura?.proxima_cobranca
+      ? diasRestantes(assinatura.proxima_cobranca)
+      : null;
 
   const labelStatus = assinatura?.status === 'active'
     ? 'Ativa'
@@ -306,7 +312,7 @@ export default function AssinaturaPage() {
       <MenuLayout>
         <div className="max-w-4xl mx-auto py-6 px-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <div>
+            <div className="min-w-0">
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 <FiCreditCard className="text-gray-600 dark:text-gray-400" />
                 Assinatura
@@ -314,6 +320,29 @@ export default function AssinaturaPage() {
               <p className="text-gray-600 dark:text-gray-400 mt-1">
                 Histórico de pagamentos da sua assinatura
               </p>
+              {emTesteGratis && (
+                <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-100">
+                  <FiClock className="shrink-0 text-amber-600 dark:text-amber-400" size={18} />
+                  <span>
+                    <strong>Teste gratuito de {DIAS_TRIAL_GRATIS} dias</strong>
+                    {' · '}
+                    <span className="whitespace-nowrap">
+                      {diasRestantesTrial()} dia{diasRestantesTrial() === 1 ? '' : 's'} restante{diasRestantesTrial() === 1 ? '' : 's'}
+                    </span>
+                    {assinatura.data_trial_fim && (
+                      <>
+                        {' · '}
+                        até {formatarDataShort(assinatura.data_trial_fim)}
+                      </>
+                    )}
+                  </span>
+                </div>
+              )}
+              {trialEncerrado && (
+                <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-100">
+                  O período de teste de {DIAS_TRIAL_GRATIS} dias terminou. Escolha um plano para voltar a usar o sistema.
+                </div>
+              )}
             </div>
             <Link href="/planos/renovar">
               <Button className="flex items-center gap-2">
@@ -326,10 +355,23 @@ export default function AssinaturaPage() {
           {/* Resumo da assinatura (vencimento e dias restantes) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             <div className="bg-white dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700 p-4">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Próximo vencimento</p>
-              <p className="text-xl font-bold text-gray-900 dark:text-white mt-1">
-                {statusCanceladoOuInativo ? '—' : (assinatura?.proxima_cobranca ? formatarDataShort(assinatura.proxima_cobranca) : '—')}
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {emTesteGratis ? 'Fim do período de teste' : 'Próximo vencimento'}
               </p>
+              <p className="text-xl font-bold text-gray-900 dark:text-white mt-1">
+                {statusCanceladoOuInativo
+                  ? '—'
+                  : emTesteGratis && assinatura.data_trial_fim
+                    ? formatarDataShort(assinatura.data_trial_fim)
+                    : assinatura?.proxima_cobranca
+                      ? formatarDataShort(assinatura.proxima_cobranca)
+                      : '—'}
+              </p>
+              {emTesteGratis && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Prazo total: {DIAS_TRIAL_GRATIS} dias gratuitos
+                </p>
+              )}
             </div>
             <div className="bg-white dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700 p-4">
               <p className="text-sm text-gray-500 dark:text-gray-400">Dias restantes</p>
@@ -339,16 +381,28 @@ export default function AssinaturaPage() {
               }`}>
                 {statusCanceladoOuInativo
                   ? (assinatura?.status === 'cancelled' ? 'Cancelada' : '—')
-                  : (diasRest != null
-                    ? (diasRest >= 0 ? `${diasRest} dias` : 'Vencida')
-                    : '—')}
+                  : emTesteGratis
+                    ? `${diasRestantesTrial()} dia${diasRestantesTrial() === 1 ? '' : 's'}`
+                    : (diasRest != null
+                      ? (diasRest >= 0 ? `${diasRest} dias` : 'Vencida')
+                      : '—')}
               </p>
+              {emTesteGratis && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Contagem em dias corridos até o fim do teste
+                </p>
+              )}
             </div>
             <div className="bg-white dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700 p-4">
               <p className="text-sm text-gray-500 dark:text-gray-400">Status da assinatura</p>
               <p className="text-xl font-bold text-gray-900 dark:text-white mt-1">
                 {labelStatus}
               </p>
+              {emTesteGratis && (
+                <p className="text-xs text-amber-700 dark:text-amber-300 mt-1 font-medium">
+                  Teste gratuito ({DIAS_TRIAL_GRATIS} dias)
+                </p>
+              )}
             </div>
           </div>
 

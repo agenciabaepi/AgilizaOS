@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import { diffDiasCalendario } from '@/lib/assinaturaCalendario';
+import { dataFimTrialAPartirDe } from '@/config/trial';
 
 /** Disparar após pagamento aprovado para o guard atualizar e liberar o acesso */
 export function dispatchAssinaturaUpdated() {
@@ -45,6 +46,65 @@ interface Limites {
   fornecedores: { atual: number; limite: number };
 }
 
+const LIMITES_PADRAO = {
+  limite_usuarios: 5,
+  limite_produtos: 50,
+  limite_clientes: 100,
+  limite_fornecedores: 10,
+};
+
+/** `planos!inner` omitia a assinatura se o join com planos falhasse (RLS, FK, plano removido). */
+function planoFromAssinaturaRow(row: Record<string, unknown>): Plano {
+  const raw = row.planos;
+  const p = (Array.isArray(raw) ? raw[0] : raw) as Record<string, unknown> | null | undefined;
+  const id = (typeof row.plano_id === 'string' ? row.plano_id : p?.id) || '';
+  const nome = (typeof p?.nome === 'string' ? p.nome : null) || (row.status === 'trial' ? 'Trial' : 'Plano');
+  return {
+    id: typeof id === 'string' ? id : '',
+    nome,
+    descricao: typeof p?.descricao === 'string' ? p.descricao : '',
+    preco: typeof p?.preco === 'number' ? p.preco : 0,
+    limite_usuarios: typeof p?.limite_usuarios === 'number' ? p.limite_usuarios : LIMITES_PADRAO.limite_usuarios,
+    limite_produtos: typeof p?.limite_produtos === 'number' ? p.limite_produtos : LIMITES_PADRAO.limite_produtos,
+    limite_clientes: typeof p?.limite_clientes === 'number' ? p.limite_clientes : LIMITES_PADRAO.limite_clientes,
+    limite_fornecedores: typeof p?.limite_fornecedores === 'number' ? p.limite_fornecedores : LIMITES_PADRAO.limite_fornecedores,
+    limite_ordens: 100,
+    recursos_disponiveis: (p?.recursos_disponiveis as Record<string, unknown>) || {},
+  };
+}
+
+/** Sem linha em `assinaturas`: trial derivado de `empresas.created_at` (igual `MS_TRIAL_GRATIS` no cadastro). */
+const ID_ASSINATURA_TRIAL_IMPLICITA = '__trial_implicito__';
+
+function buildAssinaturaTrialImplicita(empresaId: string, empresaCreatedAt: string | null | undefined): Assinatura | null {
+  const dataTrialFim = dataFimTrialAPartirDe(empresaCreatedAt);
+  if (!empresaCreatedAt || !dataTrialFim) return null;
+  const fakeRow: Record<string, unknown> = {
+    id: ID_ASSINATURA_TRIAL_IMPLICITA,
+    empresa_id: empresaId,
+    plano_id: '',
+    status: 'trial',
+    data_inicio: empresaCreatedAt,
+    data_fim: null,
+    data_trial_fim: dataTrialFim,
+    proxima_cobranca: null,
+    valor: 0,
+    planos: null,
+  };
+  return {
+    id: ID_ASSINATURA_TRIAL_IMPLICITA,
+    empresa_id: empresaId,
+    plano_id: '',
+    status: 'trial',
+    data_inicio: empresaCreatedAt,
+    data_fim: null,
+    data_trial_fim: dataTrialFim,
+    proxima_cobranca: null,
+    valor: 0,
+    plano: planoFromAssinaturaRow(fakeRow),
+  };
+}
+
 export const useSubscription = () => {
   const { user, usuarioData, empresaData } = useAuth();
   const [assinatura, setAssinatura] = useState<Assinatura | null>(null);
@@ -52,58 +112,95 @@ export const useSubscription = () => {
   const [loading, setLoading] = useState(true);
 
   const fetchAssinatura = useCallback(async () => {
-    if (!usuarioData?.empresa_id) return;
+    if (!usuarioData?.empresa_id) {
+      setAssinatura(null);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
-      const { data: assinaturaData, error: assinaturaError } = await supabase
-        .from('assinaturas')
-        .select(`
-          *,
-          planos!inner(nome, descricao, preco, limite_usuarios, limite_produtos, limite_clientes, limite_fornecedores, recursos_disponiveis)
-        `)
-        .eq('empresa_id', usuarioData.empresa_id)
-        .order('created_at', { ascending: false })
-        .limit(1);
 
-      if (!assinaturaError && assinaturaData && assinaturaData.length > 0) {
-        const primeiraAssinatura = assinaturaData[0];
-        const assinaturaMapeada: Assinatura = {
-          id: primeiraAssinatura.id,
-          empresa_id: primeiraAssinatura.empresa_id,
-          plano_id: primeiraAssinatura.plano_id,
-          status: primeiraAssinatura.status,
-          data_inicio: primeiraAssinatura.data_inicio || primeiraAssinatura.created_at,
-          data_fim: primeiraAssinatura.data_fim,
-          data_trial_fim: primeiraAssinatura.data_trial_fim,
-          proxima_cobranca: primeiraAssinatura.proxima_cobranca,
-          valor: primeiraAssinatura.valor || 0,
-          plano: {
-            id: primeiraAssinatura.planos.id,
-            nome: primeiraAssinatura.planos.nome,
-            descricao: primeiraAssinatura.planos.descricao,
-            preco: primeiraAssinatura.planos.preco,
-            limite_usuarios: primeiraAssinatura.planos.limite_usuarios,
-            limite_produtos: primeiraAssinatura.planos.limite_produtos,
-            limite_clientes: primeiraAssinatura.planos.limite_clientes,
-            limite_fornecedores: primeiraAssinatura.planos.limite_fornecedores,
-            limite_ordens: 100,
-            recursos_disponiveis: primeiraAssinatura.planos.recursos_disponiveis || {}
+      let primeiraAssinatura: Record<string, unknown> | null = null;
+      let empresaCriadaEm: string | null = null;
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers: HeadersInit = { cache: 'no-store' };
+        if (session?.access_token) {
+          (headers as Record<string, string>).Authorization = `Bearer ${session.access_token}`;
+        }
+        const res = await fetch('/api/assinatura/minha', {
+          credentials: 'include',
+          headers,
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json?.assinatura) primeiraAssinatura = json.assinatura as Record<string, unknown>;
+          if (typeof json?.empresa_created_at === 'string' && json.empresa_created_at) {
+            empresaCriadaEm = json.empresa_created_at;
           }
+        }
+      } catch {
+        /* fallback abaixo */
+      }
+
+      if (!primeiraAssinatura) {
+        const { data: assinaturaData, error: assinaturaError } = await supabase
+          .from('assinaturas')
+          .select(`
+            *,
+            planos(nome, descricao, preco, limite_usuarios, limite_produtos, limite_clientes, limite_fornecedores, recursos_disponiveis)
+          `)
+          .eq('empresa_id', usuarioData.empresa_id)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (!assinaturaError && assinaturaData && assinaturaData.length > 0) {
+          primeiraAssinatura = assinaturaData[0] as Record<string, unknown>;
+        } else if (assinaturaError && assinaturaError.code !== 'PGRST116') {
+          console.error('Erro ao buscar assinatura (fallback):', assinaturaError);
+        }
+      }
+
+      const empresaCriadaEmFinal =
+        empresaCriadaEm ||
+        (typeof empresaData?.created_at === 'string' && empresaData.created_at.trim()
+          ? empresaData.created_at
+          : null);
+
+      if (primeiraAssinatura) {
+        const assinaturaMapeada: Assinatura = {
+          id: primeiraAssinatura.id as string,
+          empresa_id: primeiraAssinatura.empresa_id as string,
+          plano_id: (primeiraAssinatura.plano_id as string) || '',
+          status: primeiraAssinatura.status as Assinatura['status'],
+          data_inicio: (primeiraAssinatura.data_inicio || primeiraAssinatura.created_at) as string,
+          data_fim: primeiraAssinatura.data_fim as string | null,
+          data_trial_fim: primeiraAssinatura.data_trial_fim as string | null,
+          proxima_cobranca: primeiraAssinatura.proxima_cobranca as string | null,
+          valor: (primeiraAssinatura.valor as number) || 0,
+          plano: planoFromAssinaturaRow(primeiraAssinatura),
         };
         setAssinatura(assinaturaMapeada);
-        await fetchLimites(usuarioData.empresa_id);
+        await fetchLimites(usuarioData.empresa_id, assinaturaMapeada.plano);
+      } else if (empresaCriadaEmFinal) {
+        const implicit = buildAssinaturaTrialImplicita(usuarioData.empresa_id, empresaCriadaEmFinal);
+        if (implicit) {
+          setAssinatura(implicit);
+          await fetchLimites(usuarioData.empresa_id, implicit.plano);
+        } else {
+          setAssinatura(null);
+        }
       } else {
         setAssinatura(null);
-        if (assinaturaError && assinaturaError.code !== 'PGRST116') {
-          console.error('Erro ao buscar assinatura:', assinaturaError);
-        }
       }
     } catch (error) {
       console.error('Erro ao buscar assinatura:', error);
+      setAssinatura(null);
     } finally {
       setLoading(false);
     }
-  }, [usuarioData?.empresa_id]);
+  }, [usuarioData?.empresa_id, empresaData?.created_at]);
 
   useEffect(() => {
     if (!user || !usuarioData?.empresa_id) {
@@ -122,10 +219,10 @@ export const useSubscription = () => {
     return () => document.removeEventListener('assinatura-updated', handler);
   }, [usuarioData?.empresa_id, fetchAssinatura]);
 
-  // Buscar limites reais da empresa
-  const fetchLimites = async (empresaId: string) => {
+  // Buscar limites reais da empresa (`planoLimite` evita estado React atrasado logo após setAssinatura)
+  const fetchLimites = async (empresaId: string, planoLimite?: Plano) => {
     try {
-      // Buscar contadores reais
+      const lim = planoLimite ?? assinatura?.plano;
       const [
         { count: usuariosCount },
         { count: produtosCount },
@@ -143,12 +240,12 @@ export const useSubscription = () => {
       ]);
 
       const limitesReais: Limites = {
-        usuarios: { atual: usuariosCount || 0, limite: assinatura?.plano.limite_usuarios || 5 },
-        produtos: { atual: produtosCount || 0, limite: assinatura?.plano.limite_produtos || 50 },
-        servicos: { atual: servicosCount || 0, limite: 50 }, // Valor padrão
-        clientes: { atual: clientesCount || 0, limite: assinatura?.plano.limite_clientes || 100 },
-        ordens: { atual: ordensCount || 0, limite: 100 }, // Valor padrão
-        fornecedores: { atual: fornecedoresCount || 0, limite: assinatura?.plano.limite_fornecedores || 10 }
+        usuarios: { atual: usuariosCount || 0, limite: lim?.limite_usuarios || LIMITES_PADRAO.limite_usuarios },
+        produtos: { atual: produtosCount || 0, limite: lim?.limite_produtos || LIMITES_PADRAO.limite_produtos },
+        servicos: { atual: servicosCount || 0, limite: 50 },
+        clientes: { atual: clientesCount || 0, limite: lim?.limite_clientes || LIMITES_PADRAO.limite_clientes },
+        ordens: { atual: ordensCount || 0, limite: 100 },
+        fornecedores: { atual: fornecedoresCount || 0, limite: lim?.limite_fornecedores || LIMITES_PADRAO.limite_fornecedores }
       };
 
       setLimites(limitesReais);
@@ -213,9 +310,7 @@ export const useSubscription = () => {
 
   // Funções para recarregar dados
   const carregarAssinatura = async () => {
-    if (usuarioData?.empresa_id) {
-      await fetchLimites(usuarioData.empresa_id);
-    }
+    await fetchAssinatura();
   };
 
   const carregarLimites = async () => {

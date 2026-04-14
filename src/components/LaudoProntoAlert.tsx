@@ -5,6 +5,7 @@ import { FiFileText, FiBell, FiEye, FiArrowRight } from 'react-icons/fi';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
+import { playNotificationSound, unlockNotificationAudio } from '@/lib/playNotificationSound';
 
 interface OSLaudoPronto {
   id: string;
@@ -22,28 +23,13 @@ export default function LaudoProntoAlert() {
   const [showNotification, setShowNotification] = useState(false);
   const router = useRouter();
   const { empresaData, usuarioData } = useAuth();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const previousCountRef = useRef(0);
+  const initialSyncDoneRef = useRef(false);
+  const previousIdsRef = useRef<Set<string>>(new Set());
 
   // Verificar se o usuário tem permissão para ver esta notificação
   const podeVerNotificacao = () => {
     if (!usuarioData?.nivel) return false;
     return usuarioData.nivel === 'admin' || usuarioData.nivel === 'atendente';
-  };
-
-  // Função para tocar som de notificação
-  const playNotificationSound = () => {
-    try {
-      // Tentar usar Web Audio API se disponível
-      if (typeof window !== 'undefined' && (window as any).createNotificationSound) {
-        (window as any).createNotificationSound();
-      } else if (audioRef.current) {
-        // Fallback para arquivo de áudio
-        audioRef.current.play().catch(console.error);
-      }
-    } catch (error) {
-      console.error('Erro ao tocar som:', error);
-    }
   };
 
   // Função para buscar laudos prontos
@@ -77,21 +63,24 @@ export default function LaudoProntoAlert() {
           created_at: os.created_at
         }));
 
-      // Verificar se há novas OSs
-      const currentCount = laudos.length;
-      const previousCount = previousCountRef.current;
-      
-      if (currentCount > previousCount && previousCount > 0) {
-        // Nova OS adicionada - tocar som e mostrar notificação
-        playNotificationSound();
-        setShowNotification(true);
-        setTimeout(() => setShowNotification(false), 3000);
+      const currentIds = new Set(laudos.map((l) => l.id));
+
+      if (!initialSyncDoneRef.current) {
+        initialSyncDoneRef.current = true;
+        previousIdsRef.current = currentIds;
+      } else {
+        const novas = laudos.filter((os) => !previousIdsRef.current.has(os.id));
+        if (novas.length > 0) {
+          void playNotificationSound();
+          setShowNotification(true);
+          setTimeout(() => setShowNotification(false), 3000);
+        }
+        previousIdsRef.current = currentIds;
       }
 
       setLaudosProntos(laudos);
       setIsVisible(laudos.length > 0);
       setIsBlinking(laudos.length > 0);
-      previousCountRef.current = currentCount;
     } else if (error) {
       console.error('Erro ao buscar laudos:', error);
     }
@@ -99,6 +88,9 @@ export default function LaudoProntoAlert() {
 
   useEffect(() => {
     if (!empresaData?.id) return;
+
+    initialSyncDoneRef.current = false;
+    previousIdsRef.current = new Set();
 
     // Buscar dados iniciais
     fetchLaudosProntos();
@@ -141,6 +133,15 @@ export default function LaudoProntoAlert() {
     };
   }, [empresaData?.id]);
 
+  // Primeira interação do usuário desbloqueia AudioContext (política de autoplay)
+  useEffect(() => {
+    const unlock = () => {
+      void unlockNotificationAudio();
+    };
+    window.addEventListener('pointerdown', unlock, { once: true });
+    return () => window.removeEventListener('pointerdown', unlock);
+  }, []);
+
   useEffect(() => {
     if (isBlinking) {
       const blinkInterval = setInterval(() => {
@@ -157,12 +158,6 @@ export default function LaudoProntoAlert() {
 
   return (
     <>
-      {/* Audio element para som de notificação */}
-      <audio ref={audioRef} preload="auto">
-        <source src="/notification.mp3" type="audio/mpeg" />
-        <source src="/notification.wav" type="audio/wav" />
-      </audio>
-
       {/* Notificação toast */}
       {showNotification && (
         <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg animate-bounce">
