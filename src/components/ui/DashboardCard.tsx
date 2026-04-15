@@ -10,7 +10,11 @@ interface DashboardCardProps {
   description?: string;
   descriptionColorClass?: string; // ex: 'text-green-500'
   descriptionIcon?: React.ReactNode;
-  svgPolyline?: { color: string; points: string };
+  /**
+   * Sparkline: prefira `strokeClass` (currentColor) para bom contraste no escuro.
+   * `color` (hex) mantém compatibilidade com telas antigas.
+   */
+  svgPolyline?: { points: string; strokeClass?: string; color?: string };
   children?: React.ReactNode;
   className?: string;
 }
@@ -29,8 +33,8 @@ export function DashboardCard({
   className,
 }: DashboardCardProps) {
   return (
-    <div className={cn('bg-white dark:bg-zinc-800 rounded-xl shadow-md dark:shadow-none p-3 relative overflow-hidden flex flex-col gap-1 border border-transparent dark:border-zinc-600', bgClass, colorClass, className)}>
-      <h3 className="text-gray-500 dark:text-zinc-400 text-sm mb-0 font-medium flex items-center gap-2">
+    <div className={cn('bg-white dark:bg-zinc-900 rounded-xl shadow-md dark:shadow-none p-3 relative overflow-hidden flex flex-col gap-1 border border-gray-100 dark:border-zinc-600', bgClass, colorClass, className)}>
+      <h3 className="text-gray-600 dark:text-zinc-300 text-sm mb-0 font-medium flex items-center gap-2 [&_svg]:opacity-90 dark:[&_svg]:opacity-100">
         {icon}
         {title}
       </h3>
@@ -43,9 +47,24 @@ export function DashboardCard({
       )}
       {children}
       {svgPolyline && (
-        <div className="absolute bottom-2 right-2 opacity-40 pointer-events-none">
-          <svg width="80" height="24">
-            <polyline fill="none" stroke={svgPolyline.color} strokeWidth="2" points={svgPolyline.points} />
+        <div
+          className={cn(
+            'absolute bottom-2 right-2 pointer-events-none',
+            svgPolyline.strokeClass
+              ? cn('opacity-[0.55] dark:opacity-100', svgPolyline.strokeClass)
+              : 'opacity-[0.5] dark:opacity-100 dark:brightness-125'
+          )}
+          aria-hidden
+        >
+          <svg width="80" height="24" className="overflow-visible">
+            <polyline
+              fill="none"
+              stroke={svgPolyline.strokeClass ? 'currentColor' : svgPolyline.color ?? '#65a30d'}
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              points={svgPolyline.points}
+            />
           </svg>
         </div>
       )}

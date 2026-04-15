@@ -31,13 +31,14 @@ body {
     @apply border-gray-200;
   }
   body {
-    @apply bg-white text-gray-900;
+    @apply bg-white text-gray-900 antialiased;
   }
+  /* Fundo quase preto + texto bem claro (contraste alto com bordas visíveis) */
   .dark body {
-    @apply bg-zinc-900 text-zinc-100;
+    @apply bg-zinc-950 text-zinc-50;
   }
   .dark * {
-    @apply border-zinc-700;
+    @apply border-zinc-600;
   }
 }
 
@@ -45,45 +46,79 @@ body {
   --radius: 0.625rem;
 }
 
+/* Modo claro: variáveis para componentes que usarem token */
+:root:not(.dark) {
+  --background: oklch(0.99 0 0);
+  --foreground: oklch(0.2 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.2 0 0);
+  --muted-foreground: oklch(0.45 0 0);
+  --border: oklch(0.9 0 0);
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* zinc-950 ≈ 0.09 — canvas principal */
+  --background: oklch(0.09 0.006 285);
+  /* texto principal ~ zinc-50 */
+  --foreground: oklch(0.985 0.004 285);
+  /* cartões elevados zinc-900 */
+  --card: oklch(0.15 0.006 285);
+  --card-foreground: oklch(0.985 0.004 285);
+  --popover: oklch(0.17 0.006 285);
+  --popover-foreground: oklch(0.985 0.004 285);
+  --primary: oklch(0.92 0.15 125);
+  --primary-foreground: oklch(0.12 0.02 285);
+  --secondary: oklch(0.22 0.01 285);
+  --secondary-foreground: oklch(0.96 0.004 285);
+  --muted: oklch(0.24 0.01 285);
+  /* Secundário mais claro que antes (~zinc-400) para leitura */
+  --muted-foreground: oklch(0.78 0.012 285);
+  --accent: oklch(0.26 0.012 285);
+  --accent-foreground: oklch(0.98 0 0);
+  --destructive: oklch(0.65 0.2 25);
+  --border: oklch(1 0 0 / 18%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.72 0.12 125);
+  --chart-1: oklch(0.65 0.2 264);
+  --chart-2: oklch(0.72 0.14 162);
+  --chart-3: oklch(0.78 0.16 70);
+  --chart-4: oklch(0.7 0.22 304);
+  --chart-5: oklch(0.68 0.2 16);
+  --sidebar: oklch(0.11 0.006 285);
+  --sidebar-foreground: oklch(0.98 0.004 285);
+  --sidebar-primary: oklch(0.75 0.15 125);
+  --sidebar-primary-foreground: oklch(0.1 0.02 285);
+  --sidebar-accent: oklch(0.22 0.01 285);
+  --sidebar-accent-foreground: oklch(0.98 0 0);
+  --sidebar-border: oklch(1 0 0 / 14%);
+  --sidebar-ring: oklch(0.72 0.12 125);
 }
 
 /* Card/container no modo escuro - use em divs que precisam se adaptar */
 @layer utilities {
   .card-dark {
-    @apply bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-600 rounded-xl shadow-sm dark:shadow-none;
+    @apply bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-600 rounded-xl shadow-sm dark:shadow-none;
   }
+}
+
+/* Links e edição rica no escuro — contraste AA em relação ao fundo */
+.dark .ProseMirror a,
+.dark .prose a {
+  color: #7dd3fc;
+}
+.dark .ProseMirror a:hover,
+.dark .prose a:hover {
+  color: #bae6fd;
+}
+.dark .ProseMirror code {
+  @apply bg-zinc-800 text-zinc-100;
+}
+.dark .ProseMirror blockquote {
+  @apply border-zinc-600 text-zinc-300;
 }
 
 /* Gradientes de texto no estilo Apple */

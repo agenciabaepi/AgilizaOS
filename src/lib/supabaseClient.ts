@@ -50,6 +50,30 @@ export function createAdminClient(): SupabaseClient {
   return createClient(supabaseConfig.url, supabaseConfig.serviceRoleKey);
 }
 
+/**
+ * Access token válido para fetch em /api/* (evita 401: getSession() local pode estar expirado).
+ */
+export async function getAccessTokenForApi(): Promise<string | null> {
+  if (typeof window === 'undefined') return null;
+  try {
+    const client = supabase as SupabaseClient;
+    if (!client?.auth?.refreshSession) return null;
+
+    const { data: refreshed, error: refErr } = await client.auth.refreshSession();
+    if (!refErr && refreshed.session?.access_token) {
+      return refreshed.session.access_token;
+    }
+
+    const { error: userErr } = await client.auth.getUser();
+    if (userErr) return null;
+
+    const { data: { session } } = await client.auth.getSession();
+    return session?.access_token ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export const forceLogout = async () => {
   try {
     // 1. Limpar localStorage e sessionStorage

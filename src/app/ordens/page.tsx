@@ -274,74 +274,78 @@ export default function ListaOrdensPage() {
   }
 
   const getStatusColor = (status: string) => {
-    if (!status) return 'bg-gray-100 text-gray-800 border border-gray-200';
-    
+    if (!status) {
+      return 'bg-gray-100 text-gray-800 border border-gray-200 dark:bg-zinc-700 dark:text-zinc-100 dark:border-zinc-500';
+    }
+
     const statusLower = status.toLowerCase();
     switch (statusLower) {
       case 'concluido':
       case 'finalizado':
       case 'reparo concluído':
       case 'entregue':
-        return 'bg-green-100 text-green-800 border border-green-200';
+        return 'bg-green-100 text-green-800 border border-green-200 dark:bg-green-950 dark:text-green-200 dark:border-green-700';
       case 'orcamento':
       case 'orçamento':
       case 'orçamento enviado':
       case 'aprovado':
-        return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
+        return 'bg-yellow-100 text-yellow-900 border border-yellow-300 dark:bg-amber-950 dark:text-amber-100 dark:border-amber-600';
       case 'analise':
       case 'em analise':
       case 'em análise':
-        return 'bg-blue-100 text-blue-800 border border-blue-200';
+        return 'bg-blue-100 text-blue-900 border border-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:border-blue-600';
       case 'aguardando inicio':
       case 'aguardando início':
-        return 'bg-gray-100 text-gray-800 border border-gray-200';
+        return 'bg-gray-100 text-gray-800 border border-gray-200 dark:bg-zinc-700 dark:text-zinc-100 dark:border-zinc-500';
       case 'aguardando peca':
       case 'aguardando peça':
-        return 'bg-orange-100 text-orange-800 border border-orange-200';
+        return 'bg-orange-100 text-orange-900 border border-orange-200 dark:bg-orange-950 dark:text-orange-200 dark:border-orange-700';
       case 'em execucao':
       case 'em execução':
-        return 'bg-purple-100 text-purple-800 border border-purple-200';
+        return 'bg-purple-100 text-purple-900 border border-purple-200 dark:bg-purple-950 dark:text-purple-200 dark:border-purple-700';
       case 'sem reparo':
-        return 'bg-red-100 text-red-800 border border-red-200';
+        return 'bg-red-100 text-red-900 border border-red-200 dark:bg-red-950 dark:text-red-200 dark:border-red-700';
       case 'nao aprovado':
       case 'não aprovado':
-        return 'bg-red-100 text-red-800 border border-red-200';
+        return 'bg-red-100 text-red-900 border border-red-200 dark:bg-red-950 dark:text-red-200 dark:border-red-700';
       default:
-        return 'bg-gray-100 text-gray-800 border border-gray-200';
+        return 'bg-gray-100 text-gray-800 border border-gray-200 dark:bg-zinc-700 dark:text-zinc-100 dark:border-zinc-500';
     }
   };
 
   const getStatusTecnicoColor = (status: string) => {
-    if (!status) return 'bg-gray-100 text-gray-800 border border-gray-200';
-    
+    if (!status) {
+      return 'bg-gray-100 text-gray-800 border border-gray-200 dark:bg-zinc-700 dark:text-zinc-100 dark:border-zinc-500';
+    }
+
     const statusLower = status.toLowerCase();
     switch (statusLower) {
       case 'aguardando início':
       case 'aguardando inicio':
-        return 'bg-gray-100 text-gray-800 border border-gray-200';
+        return 'bg-gray-100 text-gray-800 border border-gray-200 dark:bg-zinc-700 dark:text-zinc-100 dark:border-zinc-500';
       case 'em análise':
       case 'em analise':
-        return 'bg-blue-100 text-blue-800 border border-blue-200';
+        return 'bg-blue-100 text-blue-900 border border-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:border-blue-600';
       case 'orçamento enviado':
       case 'orcamento enviado':
-        return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
+        return 'bg-yellow-100 text-yellow-900 border border-yellow-300 dark:bg-amber-950 dark:text-amber-100 dark:border-amber-600';
       case 'aguardando peça':
       case 'aguardando peca':
-        return 'bg-orange-100 text-orange-800 border border-orange-200';
+        return 'bg-orange-100 text-orange-900 border border-orange-200 dark:bg-orange-950 dark:text-orange-200 dark:border-orange-700';
       case 'em execução':
       case 'em execucao':
-        return 'bg-purple-100 text-purple-800 border border-purple-200';
+        return 'bg-purple-100 text-purple-900 border border-purple-200 dark:bg-purple-950 dark:text-purple-200 dark:border-purple-700';
       case 'sem reparo':
-        return 'bg-red-100 text-red-800 border border-red-200';
+        return 'bg-red-100 text-red-900 border border-red-200 dark:bg-red-950 dark:text-red-200 dark:border-red-700';
       case 'reparo concluído':
       case 'reparo concluido':
       case 'finalizada':
       case 'finalizado':
-        return 'bg-green-100 text-green-800 border border-green-200';
+        return 'bg-green-100 text-green-800 border border-green-200 dark:bg-green-950 dark:text-green-200 dark:border-green-700';
       case 'em atendimento':
-        return 'bg-slate-100 text-slate-800 border border-slate-200';
+        return 'bg-slate-100 text-slate-900 border border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600';
       default:
-        return 'bg-gray-100 text-gray-800 border border-gray-200';
+        return 'bg-gray-100 text-gray-800 border border-gray-200 dark:bg-zinc-700 dark:text-zinc-100 dark:border-zinc-500';
     }
   };
 
@@ -1174,7 +1178,7 @@ export default function ListaOrdensPage() {
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 md:mb-8 gap-4">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-zinc-100">Ordens de Serviço</h1>
-              <p className="text-gray-600 dark:text-zinc-400 mt-1 text-sm md:text-base">
+              <p className="text-gray-600 dark:text-zinc-300 mt-1 text-sm md:text-base">
                 Gerencie todas as ordens de serviço da sua empresa
               </p>
             </div>
@@ -1182,7 +1186,7 @@ export default function ListaOrdensPage() {
               <Button
                 onClick={() => router.push("/nova-os")}
                 size="lg"
-                className="bg-black text-white hover:bg-neutral-800 px-6 md:px-8 py-3 text-sm md:text-base font-semibold shadow-lg flex-1 md:flex-none"
+                className="bg-black text-white hover:bg-neutral-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white px-6 md:px-8 py-3 text-sm md:text-base font-semibold shadow-lg flex-1 md:flex-none"
               >
                 <FiPlus className="w-5 h-5 mr-2" />
                 Nova OS
@@ -1196,9 +1200,12 @@ export default function ListaOrdensPage() {
               title="OS do Dia"
               value={osHoje}
               description={`Total: ${totalOS}`}
-              descriptionColorClass="text-gray-600"
+              descriptionColorClass="text-gray-600 dark:text-zinc-300"
               icon={<FiFileText className="w-5 h-5" />}
-              svgPolyline={{ color: '#84cc16', points: '0,20 10,15 20,17 30,10 40,12 50,8 60,10 70,6' }}
+              svgPolyline={{
+                points: '0,20 10,15 20,17 30,10 40,12 50,8 60,10 70,6',
+                strokeClass: 'text-lime-500 dark:text-lime-300',
+              }}
             >
               <div className="mt-2">
                 <button 
@@ -1213,9 +1220,12 @@ export default function ListaOrdensPage() {
               title="Faturamento do Dia"
               value={formatCurrency(faturamentoHoje)}
               description={`Ticket médio: ${formatCurrency(ticketMedioHoje)}`}
-              descriptionColorClass="text-green-600"
+              descriptionColorClass="text-green-700 dark:text-green-300"
               icon={<FiDollarSign className="w-5 h-5" />}
-              svgPolyline={{ color: '#4ade80', points: '0,18 10,16 20,14 30,10 40,11 50,9 60,10 70,6' }}
+              svgPolyline={{
+                points: '0,18 10,16 20,14 30,10 40,11 50,9 60,10 70,6',
+                strokeClass: 'text-emerald-500 dark:text-emerald-300',
+              }}
             >
               <div className="mt-2">
                 <button 
@@ -1230,9 +1240,12 @@ export default function ListaOrdensPage() {
               title="Retornos do Dia"
               value={retornosHoje}
               description={`${percentualRetornos}% do total`}
-              descriptionColorClass="text-red-500"
+              descriptionColorClass="text-red-600 dark:text-red-300"
               icon={<FiRefreshCw className="w-5 h-5" />}
-              svgPolyline={{ color: '#f87171', points: '0,12 10,14 20,16 30,18 40,20 50,17 60,15 70,16' }}
+              svgPolyline={{
+                points: '0,12 10,14 20,16 30,18 40,20 50,17 60,15 70,16',
+                strokeClass: 'text-red-500 dark:text-red-300',
+              }}
             >
               <div className="mt-2">
                 <button 
@@ -1247,9 +1260,12 @@ export default function ListaOrdensPage() {
               title="Aprovados do Dia"
               value={aprovadosHoje}
               description={`OS aprovadas hoje`}
-              descriptionColorClass="text-purple-600"
+              descriptionColorClass="text-purple-700 dark:text-purple-300"
               icon={<FiCheckCircle className="w-5 h-5" />}
-              svgPolyline={{ color: '#a855f7', points: '0,15 10,18 20,16 30,19 40,17 50,20 60,18 70,20' }}
+              svgPolyline={{
+                points: '0,15 10,18 20,16 30,19 40,17 50,20 60,18 70,20',
+                strokeClass: 'text-violet-500 dark:text-violet-300',
+              }}
             >
               <div className="mt-2">
                 <button 
@@ -1263,7 +1279,7 @@ export default function ListaOrdensPage() {
           </div>
 
           {/* Abas */}
-          <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600 mb-6">
+          <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600 mb-6">
             <div className="flex overflow-x-auto border-b border-gray-200 dark:border-zinc-600">
               <div className="flex min-w-max">
               <button
@@ -1278,7 +1294,7 @@ export default function ListaOrdensPage() {
               >
                 Todas
                 <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-                  activeTab === 'todas' ? 'bg-blue-100 dark:bg-blue-800/60 text-blue-700 dark:text-blue-200' : 'bg-gray-100 dark:bg-zinc-600 text-gray-600 dark:text-zinc-300'
+                  activeTab === 'todas' ? 'bg-blue-100 dark:bg-blue-900/70 text-blue-800 dark:text-blue-100' : 'bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-200'
                 }`}>
                   {contadores.todas}
                 </span>
@@ -1293,7 +1309,7 @@ export default function ListaOrdensPage() {
               >
                 Reparo Concluído
                 <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-                  activeTab === 'reparo_concluido' ? 'bg-blue-100 dark:bg-blue-800/60 text-blue-700 dark:text-blue-200' : 'bg-gray-100 dark:bg-zinc-600 text-gray-600 dark:text-zinc-300'
+                  activeTab === 'reparo_concluido' ? 'bg-blue-100 dark:bg-blue-900/70 text-blue-800 dark:text-blue-100' : 'bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-200'
                 }`}>
                   {contadores.reparoConcluido}
                 </span>
@@ -1308,7 +1324,7 @@ export default function ListaOrdensPage() {
               >
                 Orçamentos
                 <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-                  activeTab === 'orcamentos' ? 'bg-blue-100 dark:bg-blue-800/60 text-blue-700 dark:text-blue-200' : 'bg-gray-100 dark:bg-zinc-600 text-gray-600 dark:text-zinc-300'
+                  activeTab === 'orcamentos' ? 'bg-blue-100 dark:bg-blue-900/70 text-blue-800 dark:text-blue-100' : 'bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-200'
                 }`}>
                   {contadores.orcamentos}
                 </span>
@@ -1323,7 +1339,7 @@ export default function ListaOrdensPage() {
               >
                 Aprovadas
                 <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-                  activeTab === 'aprovadas' ? 'bg-blue-100 dark:bg-blue-800/60 text-blue-700 dark:text-blue-200' : 'bg-gray-100 dark:bg-zinc-600 text-gray-600 dark:text-zinc-300'
+                  activeTab === 'aprovadas' ? 'bg-blue-100 dark:bg-blue-900/70 text-blue-800 dark:text-blue-100' : 'bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-200'
                 }`}>
                   {contadores.aprovadas}
                 </span>
@@ -1338,7 +1354,7 @@ export default function ListaOrdensPage() {
               >
                 Laudo Pronto
                 <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-                  activeTab === 'laudo_pronto' ? 'bg-blue-100 dark:bg-blue-800/60 text-blue-700 dark:text-blue-200' : 'bg-gray-100 dark:bg-zinc-600 text-gray-600 dark:text-zinc-300'
+                  activeTab === 'laudo_pronto' ? 'bg-blue-100 dark:bg-blue-900/70 text-blue-800 dark:text-blue-100' : 'bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-200'
                 }`}>
                   {contadores.laudoPronto}
                 </span>
@@ -1353,7 +1369,7 @@ export default function ListaOrdensPage() {
               >
                                  Aguardando Retirada
                 <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-                  activeTab === 'aguardando_retirada' ? 'bg-blue-100 dark:bg-blue-800/60 text-blue-700 dark:text-blue-200' : 'bg-gray-100 dark:bg-zinc-600 text-gray-600 dark:text-zinc-300'
+                  activeTab === 'aguardando_retirada' ? 'bg-blue-100 dark:bg-blue-900/70 text-blue-800 dark:text-blue-100' : 'bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-200'
                 }`}>
                   {contadores.aguardandoRetirada}
                 </span>
@@ -1368,7 +1384,7 @@ export default function ListaOrdensPage() {
               >
                                  Concluídas
                 <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-                  activeTab === 'concluidas' ? 'bg-blue-100 dark:bg-blue-800/60 text-blue-700 dark:text-blue-200' : 'bg-gray-100 dark:bg-zinc-600 text-gray-600 dark:text-zinc-300'
+                  activeTab === 'concluidas' ? 'bg-blue-100 dark:bg-blue-900/70 text-blue-800 dark:text-blue-100' : 'bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-200'
                 }`}>
                   {contadores.concluidas}
                 </span>
@@ -1378,7 +1394,7 @@ export default function ListaOrdensPage() {
           </div>
 
           {/* Filtros e busca */}
-          <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600 p-6 mb-6">
+          <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600 p-6 mb-6">
             <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
               {/* Busca */}
               <div className="flex-1 relative">
@@ -1463,7 +1479,7 @@ export default function ListaOrdensPage() {
         </div>
 
         {/* Tabela - Desktop */}
-        <div className="hidden md:block bg-white dark:bg-zinc-800 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600">
+        <div className="hidden md:block bg-white dark:bg-zinc-900 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600">
           <div className="w-full">
             <table className="w-full table-fixed divide-y divide-gray-200 dark:divide-zinc-600">
                 <colgroup>
@@ -1471,55 +1487,55 @@ export default function ListaOrdensPage() {
                 </colgroup>
               <thead className="bg-gray-50 dark:bg-zinc-700">
                 <tr>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
                     <div className="flex items-center gap-1">
                         <FiFileText className="w-3 h-3" />
                       <span className="hidden sm:inline">OS</span>
                     </div>
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
                     <div className="flex items-center gap-1">
                         <FiRefreshCw className="w-3 h-3" />
                       <span className="hidden sm:inline">Tipo</span>
                     </div>
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
                     <div className="flex items-center gap-1">
                         <FiSmartphone className="w-3 h-3" />
                       <span className="hidden sm:inline">Aparelho</span>
                     </div>
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
                       <span className="hidden sm:inline">Serviço</span>
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
                     <div className="flex items-center gap-1">
                         <FiClock className="w-3 h-3" />
                       <span className="hidden sm:inline">Prazo</span>
                     </div>
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
                       <span className="hidden sm:inline">Garantia</span>
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
                     <div className="flex items-center gap-1">
                       <FiDollarSign className="w-3 h-3" />
                         <span className="hidden sm:inline">Total</span>
                     </div>
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
                     <div className="flex items-center gap-1">
                       <FiUser className="w-3 h-3" />
                       <span className="hidden sm:inline">Técnico</span>
                     </div>
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
                     <span className="hidden sm:inline">Status</span>
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
                     <span className="hidden sm:inline">Status Técnico</span>
                   </th>
-                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 dark:text-zinc-300 uppercase tracking-wider">
                     <div className="flex items-center gap-1">
                       <FiDollarSign className="w-3 h-3" />
                       <span className="hidden sm:inline">Faturado</span>
@@ -1527,7 +1543,7 @@ export default function ListaOrdensPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-600">
+              <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-600">
                 {paginated.map((os) => (
                   <tr 
                     key={os.id} 
@@ -1553,11 +1569,11 @@ export default function ListaOrdensPage() {
                           <div className="text-[11px] text-gray-500 dark:text-zinc-400 font-medium truncate">
                             Criada por {os.responsavelNome || os.atendente || 'Usuário'}
                           </div>
-                          <div className="text-xs text-gray-600 dark:text-zinc-400 font-medium truncate min-w-0 group-hover:text-gray-900 dark:group-hover:text-zinc-100 transition-colors">
+                          <div className="text-xs text-gray-600 dark:text-zinc-300 font-medium truncate min-w-0 group-hover:text-gray-900 dark:group-hover:text-zinc-100 transition-colors">
                             {os.cliente || 'N/A'}
                           </div>
-                          <div className="text-xs text-gray-500 dark:text-zinc-500 truncate">{os.clienteTelefone || 'N/A'}</div>
-                          <div className="text-xs text-gray-400 dark:text-zinc-500 truncate">{formatDate(os.entrada) || 'N/A'}</div>
+                          <div className="text-xs text-gray-500 dark:text-zinc-400 truncate">{os.clienteTelefone || 'N/A'}</div>
+                          <div className="text-xs text-gray-400 dark:text-zinc-400 truncate">{formatDate(os.entrada) || 'N/A'}</div>
                         </div>
                       </div>
                       {/* Indicador de recusa - ponto vermelho no canto superior direito da célula */}
@@ -1581,7 +1597,7 @@ export default function ListaOrdensPage() {
                     <td className="px-1 py-2">
                       <div className="text-xs font-medium text-gray-900 dark:text-zinc-100 truncate min-w-0">{os.aparelho || 'N/A'}</div>
                       {(os.aparelhoCategoria || os.aparelhoMarca) && (
-                        <div className="text-xs text-gray-500 dark:text-zinc-500 truncate">
+                        <div className="text-xs text-gray-500 dark:text-zinc-400 truncate">
                           {[os.aparelhoCategoria, os.aparelhoMarca].filter(Boolean).join(' • ')}
                         </div>
                       )}
@@ -1621,7 +1637,7 @@ export default function ListaOrdensPage() {
                       }`}>
                         <div className="whitespace-nowrap">{formatDate(os.garantia) || 'Aguardando'}</div>
                         {os.garantia && (
-                          <div className="text-xs text-gray-500 dark:text-zinc-500 truncate">
+                          <div className="text-xs text-gray-500 dark:text-zinc-400 truncate">
                             {new Date(os.garantia).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)
                               ? 'Expirada'
                               : `${Math.max(0, Math.ceil((new Date(os.garantia).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / (1000 * 60 * 60 * 24)))} dias restantes`
@@ -1716,7 +1732,7 @@ export default function ListaOrdensPage() {
               return (
               <div 
                 key={os.id} 
-                className={`relative bg-white dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-600 p-4 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer ${
+                className={`relative bg-white dark:bg-zinc-900 rounded-lg border border-gray-200 dark:border-zinc-600 p-4 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer ${
                   os.tipo === 'Retorno' ? 'border-l-4 border-l-red-500 bg-red-50/60 dark:bg-red-900/20 hover:bg-red-100/60 dark:hover:bg-red-900/30' : ''
                 }`}
                 onClick={() => router.push(`/ordens/${os.id}`)}

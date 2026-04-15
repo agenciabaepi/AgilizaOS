@@ -14,8 +14,23 @@ export const ThemeContext = createContext<ThemeContextType | undefined>(undefine
 
 const STORAGE_KEY = 'gestaoconsert-theme';
 
+function readStoredTheme(): Theme | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const v = window.localStorage.getItem(STORAGE_KEY);
+    if (v === 'dark' || v === 'light') return v;
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
 function getInitialTheme(): Theme {
-  // Modo escuro desativado temporariamente - sempre modo claro
+  const stored = readStoredTheme();
+  if (stored) return stored;
+  if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    return 'dark';
+  }
   return 'light';
 }
 
@@ -31,22 +46,21 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!mounted) return;
     const root = document.documentElement;
-    // Modo escuro desativado temporariamente - sempre forçar claro
-    root.classList.remove('dark');
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
     try {
-      const ls = typeof window !== 'undefined' ? window.localStorage : null;
-      if (ls && typeof ls.setItem === 'function' && theme === 'light') {
-        ls.setItem(STORAGE_KEY, theme);
-      }
+      window.localStorage.setItem(STORAGE_KEY, theme);
     } catch {
-      // localStorage indisponível ou inválido (ex.: Node experimental)
+      /* ignore */
     }
   }, [theme, mounted]);
 
   const setTheme = (newTheme: Theme) => setThemeState(newTheme);
 
-  const toggleTheme = () =>
-    setThemeState((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  const toggleTheme = () => setThemeState((prev) => (prev === 'dark' ? 'light' : 'dark'));
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>

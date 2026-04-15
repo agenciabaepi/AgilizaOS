@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/Toast';
@@ -8,7 +8,7 @@ import MenuLayout from '@/components/MenuLayout';
 import AuthGuard from '@/components/AuthGuard';
 import DashboardCard from '@/components/ui/DashboardCard';
 import { InvestimentoModal } from '@/components/InvestimentoModal';
-import { Button } from '@/components/Button';
+import LucroDesempenhoDashboard from '@/components/financeiro/LucroDesempenhoDashboard';
 import { useLucroDesempenho } from '@/hooks/useLucroDesempenho';
 import { 
   FiTrendingUp, 
@@ -30,8 +30,7 @@ import {
   FiPercent,
   FiActivity,
   FiAward,
-  FiAlertCircle,
-  FiPlus
+  FiAlertCircle
 } from 'react-icons/fi';
 
 const debugLog = (...args: unknown[]) => {
@@ -151,6 +150,17 @@ export default function LucroDesempenhoPage() {
     investimentosMes,
     refetch
   } = useLucroDesempenho(empresaData?.id, currentMonth);
+
+  const mesAnteriorRef = useMemo(() => {
+    const d = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+    d.setMonth(d.getMonth() - 1);
+    return d;
+  }, [currentMonth]);
+
+  const { loading: loadingMesAnterior, metricas: metricasMesAnterior } = useLucroDesempenho(
+    empresaData?.id,
+    mesAnteriorRef
+  );
 
   // Navegação por mês
   const navegarMes = (direcao: 'anterior' | 'proximo') => {
@@ -783,495 +793,22 @@ export default function LucroDesempenhoPage() {
 
   // Renderizar dashboard
   const renderDashboard = () => (
-    <div className="space-y-6">
-      {/* Botão de Ação Rápida - Registrar Investimento */}
-      <div className="flex justify-end">
-        <Button
-          onClick={() => setModalInvestimentoAberto(true)}
-          className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
-        >
-          <FiPlus className="w-4 h-4" />
-          Registrar Investimento
-        </Button>
-      </div>
-
-      {/* Cards de Métricas Principais - 5 cards igual na DRE */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <DashboardCard
-          title="Receita Total"
-          value={<span className="text-green-600">{formatarMoeda(metricas.totalReceita)}</span>}
-          icon={<FiDollarSign className="text-green-600" />}
-          colorClass="text-black"
-          bgClass="bg-white"
-          description="Todo valor bruto do mês"
-          descriptionColorClass="text-green-600"
-          svgPolyline={{ color: '#22c55e', points: '0,20 10,18 20,16 30,14 40,12 50,10 60,8 70,6' }}
-        />
-        
-        <DashboardCard
-          title="Custos Totais"
-          value={<span className="text-red-600">{formatarMoeda(metricas.totalCustos)}</span>}
-          icon={<FiTarget className="text-red-600" />}
-          colorClass="text-black"
-          bgClass="bg-white"
-          description="Peças pagas no período"
-          descriptionColorClass="text-red-500"
-          svgPolyline={{ color: '#ef4444', points: '0,6 10,8 20,10 30,12 40,14 50,16 60,18 70,20' }}
-        />
-        
-        <DashboardCard
-          title="Despesas Operacionais"
-          value={<span className="text-orange-600">{formatarMoeda(metricas.despesasOperacionais)}</span>}
-          icon={<FiTrendingDown className="text-orange-600" />}
-          colorClass="text-black"
-          bgClass="bg-white"
-          description="Variáveis pagas"
-          descriptionColorClass="text-orange-600"
-          svgPolyline={{ color: '#f97316', points: '0,6 10,8 20,10 30,12 40,14 50,16 60,18 70,20' }}
-        />
-        
-        <DashboardCard
-          title="Custos Fixos"
-          value={<span className="text-purple-600">{formatarMoeda(metricas.custosFixos)}</span>}
-          icon={<FiActivity className="text-purple-600" />}
-          colorClass="text-black"
-          bgClass="bg-white"
-          description="Contas fixas pagas"
-          descriptionColorClass="text-purple-600"
-          svgPolyline={{ color: '#9333ea', points: '0,15 10,17 20,15 30,13 40,15 50,17 60,15 70,17' }}
-        />
-        
-        <DashboardCard
-          title="Saldo na Conta"
-          value={
-            <span className={metricas.saldoNaConta >= 0 ? 'text-green-600' : 'text-red-600'}>
-              {formatarMoeda(metricas.saldoNaConta)}
-            </span>
-          }
-          icon={metricas.saldoNaConta >= 0 ? <FiTrendingUp className="text-green-600" /> : <FiTrendingDown className="text-red-600" />}
-          colorClass="text-black"
-          bgClass="bg-white"
-          description={metricas.saldoNaConta >= 0 ? 'Resultado positivo' : 'Resultado negativo'}
-          descriptionColorClass={metricas.saldoNaConta >= 0 ? 'text-green-600' : 'text-red-500'}
-          svgPolyline={{ 
-            color: metricas.saldoNaConta >= 0 ? '#22c55e' : '#ef4444', 
-            points: '0,20 10,18 20,16 30,14 40,12 50,10 60,8 70,6' 
-          }}
-        />
-      </div>
-
-      {/* Cards de Previsão - 5 cards igual aos principais */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <DashboardCard
-          title="Valores a Receber Previstos"
-          value={<span className="text-yellow-600">{formatarMoeda(metricasPrevistas.receitaPrevista)}</span>}
-          icon={<FiDollarSign className="text-yellow-600" />}
-          colorClass="text-black"
-          bgClass="bg-white"
-          description="OS pendentes do mês"
-          descriptionColorClass="text-yellow-600"
-          svgPolyline={{ color: '#f59e0b', points: '0,18 10,16 20,14 30,12 40,10 50,12 60,10 70,8' }}
-        />
-
-        <DashboardCard
-          title="Contas a Pagar Previstas"
-          value={<span className="text-yellow-700">{formatarMoeda(metricasPrevistas.contasAPagarPrevistas)}</span>}
-          icon={<FiTarget className="text-yellow-700" />}
-          colorClass="text-black"
-          bgClass="bg-white"
-          description="Contas pendentes do mês"
-          descriptionColorClass="text-yellow-700"
-          svgPolyline={{ color: '#f59e0b', points: '0,8 10,10 20,12 30,14 40,16 50,18 60,16 70,14' }}
-        />
-        
-        <DashboardCard
-          title="Despesas Operacionais Previstas"
-          value={<span className="text-orange-500">{formatarMoeda(metricasPrevistas.despesasOperacionaisPrevistas)}</span>}
-          icon={<FiTrendingDown className="text-orange-500" />}
-          colorClass="text-black"
-          bgClass="bg-white"
-          description="Variáveis pendentes"
-          descriptionColorClass="text-orange-500"
-          svgPolyline={{ color: '#f97316', points: '0,6 10,8 20,10 30,12 40,14 50,16 60,18 70,20' }}
-        />
-
-        <DashboardCard
-          title="Custos Fixos Previstos"
-          value={<span className="text-purple-500">{formatarMoeda(metricasPrevistas.custosFixosPrevistos)}</span>}
-          icon={<FiActivity className="text-purple-500" />}
-          colorClass="text-black"
-          bgClass="bg-white"
-          description="Fixas pendentes"
-          descriptionColorClass="text-purple-500"
-          svgPolyline={{ color: '#9333ea', points: '0,15 10,17 20,15 30,13 40,15 50,17 60,15 70,17' }}
-        />
-        
-        <DashboardCard
-          title="Previsão de Saldo na Conta"
-          value={
-            <span className={metricasPrevistas.saldoNaContaPrevisto >= 0 ? 'text-green-600' : 'text-red-600'}>
-              {formatarMoeda(metricasPrevistas.saldoNaContaPrevisto)}
-            </span>
-          }
-          icon={metricasPrevistas.saldoNaContaPrevisto >= 0 ? <FiTrendingUp className="text-green-600" /> : <FiTrendingDown className="text-red-600" />}
-          colorClass="text-black"
-          bgClass="bg-white"
-          description={metricasPrevistas.saldoNaContaPrevisto >= 0 ? 'Previsão positiva' : 'Previsão negativa'}
-          descriptionColorClass={metricasPrevistas.saldoNaContaPrevisto >= 0 ? 'text-green-600' : 'text-red-500'}
-          svgPolyline={{ 
-            color: metricasPrevistas.saldoNaContaPrevisto >= 0 ? '#22c55e' : '#ef4444', 
-            points: '0,20 10,18 20,16 30,14 40,12 50,10 60,8 70,6' 
-          }}
-        />
-      </div>
-
-      {/* Cards de Análise */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <DashboardCard
-          title="OS Lucrativas"
-          value={<span className="text-green-600">{metricas.osLucrativas}</span>}
-          icon={<FiAward className="text-green-600" />}
-          colorClass="text-black"
-          bgClass="bg-white"
-          description={`${metricas.totalOS > 0 ? ((metricas.osLucrativas / metricas.totalOS) * 100).toFixed(1) : 0}% do total`}
-          descriptionColorClass="text-green-600"
-          svgPolyline={{ color: '#22c55e', points: '0,20 10,18 20,16 30,14 40,12 50,10 60,8 70,6' }}
-        />
-        
-        <DashboardCard
-          title="OS com Prejuízo"
-          value={<span className="text-red-600">{metricas.osPrejuizo}</span>}
-          icon={<FiAlertCircle className="text-red-600" />}
-          colorClass="text-black"
-          bgClass="bg-white"
-          description={`${metricas.totalOS > 0 ? ((metricas.osPrejuizo / metricas.totalOS) * 100).toFixed(1) : 0}% do total`}
-          descriptionColorClass="text-red-500"
-          svgPolyline={{ color: '#ef4444', points: '0,6 10,8 20,10 30,12 40,14 50,16 60,18 70,20' }}
-        />
-        
-        <DashboardCard
-          title="Total de OS"
-          value={<span className="text-gray-600">{metricas.totalOS}</span>}
-          icon={<FiActivity className="text-gray-600" />}
-          colorClass="text-black"
-          bgClass="bg-white"
-          description="Ordens processadas"
-          descriptionColorClass="text-gray-600"
-          svgPolyline={{ color: '#6b7280', points: '0,15 10,17 20,15 30,13 40,15 50,17 60,15 70,17' }}
-        />
-      </div>
-
-          {/* Layout Principal: Gráfico + Cards Laterais */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            {/* Gráfico Principal - 3 colunas */}
-            <div className="lg:col-span-3 bg-white rounded-xl shadow-md overflow-hidden chart-container">
-              <div className="p-6 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">Portfolio</h3>
-                <p className="text-sm text-gray-600 mt-1">{formatarMesAno(currentMonth)}</p>
-              </div>
-              
-              <div className="p-6">
-                <div className="relative">
-                  {/* Gráfico Lucro OS Diário - Estilo Dashboard Financeiro */}
-                  <div className="relative chart-container">
-                    <svg
-                      width="100%"
-                      height="300"
-                      viewBox="0 0 800 300"
-                      className="w-full h-auto"
-                    >
-                      {/* Definições */}
-                      <defs>
-                        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#f3f4f6" strokeWidth="1"/>
-                        </pattern>
-                        <linearGradient id="receitaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                          <stop offset="0%" stopColor="#10b981" stopOpacity="0.8"/>
-                          <stop offset="100%" stopColor="#10b981" stopOpacity="0.4"/>
-                        </linearGradient>
-                        <linearGradient id="custoGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                          <stop offset="0%" stopColor="#ef4444" stopOpacity="0.8"/>
-                          <stop offset="100%" stopColor="#ef4444" stopOpacity="0.4"/>
-                        </linearGradient>
-                      </defs>
-                      
-                      {/* Grid de fundo */}
-                      <rect width="100%" height="100%" fill="url(#grid)" />
-                      
-                      {/* Configurações do gráfico */}
-                      {(() => {
-                        const dadosComDados = dadosDiarios.filter(d => d.receita > 0 || d.custos > 0);
-                        if (dadosComDados.length === 0) return null;
-                        
-                        const width = 800;
-                        const height = 300;
-                        const padding = { top: 20, right: 40, bottom: 60, left: 80 };
-                        
-                        // Calcular escala incluindo receita (positiva) e custos (negativos)
-                        const maxReceita = Math.max(...dadosComDados.map(d => d.receita));
-                        const maxCusto = Math.max(...dadosComDados.map(d => d.custos));
-                        const maxValue = Math.max(maxReceita, maxCusto);
-                        const minValue = -maxCusto; // Custos vão para baixo (negativos)
-                        const valueRange = maxValue - minValue;
-                        
-                        // Função para converter valor para coordenada Y
-                        const getY = (value: number) => {
-                          if (valueRange === 0) return height / 2;
-                          return height - padding.bottom - ((value - minValue) / valueRange) * (height - padding.top - padding.bottom);
-                        };
-                        
-                        // Função para converter índice para coordenada X
-                        const getX = (index: number) => {
-                          const barWidth = (width - padding.left - padding.right) / dadosComDados.length;
-                          return padding.left + (index * barWidth) + (barWidth / 2);
-                        };
-                        
-                        // Função para obter largura da barra
-                        const getBarWidth = () => {
-                          return (width - padding.left - padding.right) / dadosComDados.length * 0.6;
-                        };
-                        
-                        // Gerar labels do eixo Y
-                        const generateYLabels = () => {
-                          const labels = [];
-                          const step = valueRange / 5;
-                          for (let i = 0; i <= 5; i++) {
-                            labels.push(minValue + (step * i));
-                          }
-                          return labels;
-                        };
-                        
-                        // Gerar path da linha do lucro acumulado
-                        const createLucroPath = () => {
-                          if (dadosComDados.length < 2) return '';
-                          
-                          let lucroAcumulado = 0;
-                          let path = `M ${getX(0)} ${getY(lucroAcumulado + dadosComDados[0].lucro)}`;
-                          lucroAcumulado += dadosComDados[0].lucro;
-                          
-                          for (let i = 1; i < dadosComDados.length; i++) {
-                            lucroAcumulado += dadosComDados[i].lucro;
-                            const x = getX(i);
-                            const y = getY(lucroAcumulado);
-                            path += ` L ${x} ${y}`;
-                          }
-                          
-                          return path;
-                        };
-                        
-                        // Função para obter altura da barra de receita (para cima)
-                        const getReceitaHeight = (receita: number) => {
-                          return Math.abs(getY(receita) - getY(0));
-                        };
-                        
-                        // Função para obter altura da barra de custo (para baixo)
-                        const getCustoHeight = (custo: number) => {
-                          return Math.abs(getY(0) - getY(-custo));
-                        };
-                        
-                        const yLabels = generateYLabels();
-                        
-                        return (
-                          <g>
-                            {/* Labels do eixo Y */}
-                            {yLabels.map((value, index) => (
-                              <text
-                                key={index}
-                                x={padding.left - 10}
-                                y={getY(value) + 5}
-                                textAnchor="end"
-                                className="text-xs fill-gray-600"
-                              >
-                                {formatarMoeda(value).replace('R$ ', '')}
-                              </text>
-                            ))}
-                            
-                            {/* Linhas de grid horizontais */}
-                            {yLabels.map((value, index) => (
-                              <line
-                                key={index}
-                                x1={padding.left}
-                                y1={getY(value)}
-                                x2={width - padding.right}
-                                y2={getY(value)}
-                                stroke="#e5e7eb"
-                                strokeWidth="1"
-                              />
-                            ))}
-                            
-                            {/* Linha de referência zero */}
-                            <line
-                              x1={padding.left}
-                              y1={getY(0)}
-                              x2={width - padding.right}
-                              y2={getY(0)}
-                              stroke="#6b7280"
-                              strokeWidth="2"
-                              strokeDasharray="5,5"
-                            />
-                            
-                            {/* Colunas Combinadas - Receita para cima + Custo para baixo */}
-                            {dadosComDados.map((dado, index) => {
-                              const x = getX(index);
-                              const barWidth = getBarWidth();
-                              const zeroY = getY(0);
-                              
-                              // Barra de Receita (para cima)
-                              const receitaHeight = getReceitaHeight(dado.receita);
-                              const receitaY = zeroY - receitaHeight;
-                              
-                              // Barra de Custo (para baixo)
-                              const custoHeight = getCustoHeight(dado.custos);
-                              const custoY = zeroY;
-                              
-                              return (
-                                <g key={`coluna-${index}`}>
-                                  {/* Receita (verde para cima) */}
-                                  {dado.receita > 0 && (
-                                    <rect
-                                      x={x - barWidth/2}
-                                      y={receitaY}
-                                      width={barWidth}
-                                      height={receitaHeight}
-                                      fill="url(#receitaGradient)"
-                                      className="cursor-pointer hover:opacity-80 transition-opacity"
-                                      style={{
-                                        animationDelay: `${index * 0.1}s`,
-                                        animation: 'slideUpParallax 0.8s ease-out forwards'
-                                      }}
-                                    />
-                                  )}
-                                  
-                                  {/* Custo (vermelho para baixo) */}
-                                  {dado.custos > 0 && (
-                                    <rect
-                                      x={x - barWidth/2}
-                                      y={custoY}
-                                      width={barWidth}
-                                      height={custoHeight}
-                                      fill="url(#custoGradient)"
-                                      className="cursor-pointer hover:opacity-80 transition-opacity"
-                                      style={{
-                                        animationDelay: `${index * 0.1 + 0.2}s`,
-                                        animation: 'slideDownParallax 0.8s ease-out forwards'
-                                      }}
-                                    />
-                                  )}
-                                </g>
-                              );
-                            })}
-                            
-                            
-                            {/* Labels dos dias */}
-                            {dadosComDados.map((dado, index) => {
-                              const x = getX(index);
-                              return (
-                                <text
-                                  key={`dia-${index}`}
-                                  x={x}
-                                  y={height - padding.bottom + 20}
-                                  textAnchor="middle"
-                                  className="text-xs fill-gray-500 font-medium"
-                                >
-                                  {dado.dia}
-                                </text>
-                              );
-                            })}
-                          </g>
-                        );
-                      })()}
-                    </svg>
-                  </div>
-                  
-                  {/* Legenda Simplificada - Só Receita e Custo */}
-                  <div className="flex justify-center mt-6 gap-4 text-xs">
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 bg-green-600 rounded"></div>
-                      <span>Receita</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 bg-red-600 rounded"></div>
-                      <span>Custos</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Cards de Resumo - 1 coluna */}
-            <div className="lg:col-span-1 space-y-4">
-              {/* Card Lucro Total */}
-              <div className="bg-white rounded-xl shadow-md p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-sm font-semibold text-gray-600">Lucro</h4>
-                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                    <FiTrendingUp className="w-4 h-4 text-green-600" />
-                  </div>
-                </div>
-                <div className="text-2xl font-bold text-gray-900 mb-2">
-                  {formatarMoeda(metricas.lucroTotal)}
-                </div>
-                <div className="flex items-center text-sm">
-                  <span className={`font-medium ${metricas.lucroTotal >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {metricas.lucroTotal >= 0 ? '+' : ''}{metricas.margemMedia.toFixed(1)}%
-                  </span>
-                  <span className="text-gray-500 ml-2">vs mês anterior</span>
-                </div>
-              </div>
-
-              {/* Card Receita */}
-              <div className="bg-white rounded-xl shadow-md p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-sm font-semibold text-gray-600">Receita</h4>
-                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                    <FiDollarSign className="w-4 h-4 text-green-600" />
-                  </div>
-                </div>
-                <div className="text-2xl font-bold text-gray-900 mb-2">
-                  {formatarMoeda(metricas.totalReceita)}
-                </div>
-                <div className="flex items-center text-sm">
-                  <span className="font-medium text-green-600">+{metricas.totalOS} OS</span>
-                  <span className="text-gray-500 ml-2">processadas</span>
-                </div>
-              </div>
-
-              {/* Card Custos */}
-              <div className="bg-white rounded-xl shadow-md p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-sm font-semibold text-gray-600">Custos</h4>
-                  <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                    <FiTarget className="w-4 h-4 text-red-600" />
-                  </div>
-                </div>
-                <div className="text-2xl font-bold text-gray-900 mb-2">
-                  {formatarMoeda(metricas.totalCustos)}
-                </div>
-                <div className="flex items-center text-sm">
-                  <span className="font-medium text-gray-600">Peças & Serviços</span>
-                </div>
-              </div>
-
-              {/* Card Margem */}
-              <div className="bg-white rounded-xl shadow-md p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-sm font-semibold text-gray-600">Margem</h4>
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                    <FiPercent className="w-4 h-4 text-blue-600" />
-                  </div>
-                </div>
-                <div className="text-2xl font-bold text-gray-900 mb-2">
-                  {formatarPercentual(metricas.margemMedia)}
-                </div>
-                <div className="flex items-center text-sm">
-                  <span className="font-medium text-blue-600">{metricas.osLucrativas} lucrativas</span>
-                  <span className="text-gray-500 ml-2">de {metricas.totalOS}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-    </div>
+    <LucroDesempenhoDashboard
+      currentMonth={currentMonth}
+      metricas={metricas}
+      metricasMesAnterior={metricasMesAnterior}
+      carregandoComparativo={loadingMesAnterior}
+      rotuloMesAtual={formatarMesAno(currentMonth)}
+      rotuloMesAnterior={formatarMesAno(mesAnteriorRef)}
+      nomeEmpresa={empresaData?.nome ?? '—'}
+      metricasPrevistas={metricasPrevistas}
+      dadosDiarios={dadosDiarios}
+      investimentosMes={investimentosMes}
+      onRegistrarInvestimento={() => setModalInvestimentoAberto(true)}
+      formatarMoeda={formatarMoeda}
+    />
   );
+
 
   // Renderizar tabela de OS
   const renderTabelaOS = () => {
@@ -1429,60 +966,6 @@ export default function LucroDesempenhoPage() {
   return (
     <AuthGuard>
       <MenuLayout>
-        <style jsx>{`
-        @keyframes slideUpParallax {
-          0% {
-            transform: translateY(100px);
-            opacity: 0;
-          }
-          50% {
-            opacity: 0.7;
-          }
-          100% {
-            transform: translateY(0);
-            opacity: 1;
-          }
-        }
-        
-        @keyframes slideDownParallax {
-          0% {
-            transform: translateY(-100px);
-            opacity: 0;
-          }
-          50% {
-            opacity: 0.7;
-          }
-          100% {
-            transform: translateY(0);
-            opacity: 1;
-          }
-        }
-        
-        @keyframes fadeInScale {
-          0% {
-            transform: scale(0.8);
-            opacity: 0;
-          }
-          100% {
-            transform: scale(1);
-            opacity: 1;
-          }
-        }
-        
-        .chart-container {
-          animation: fadeInScale 1s ease-out;
-        }
-        
-        .bar-hover {
-          transition: all 0.3s ease;
-        }
-        
-        .bar-hover:hover {
-          transform: scaleY(1.05);
-          filter: brightness(1.1) drop-shadow(0 4px 8px rgba(0,0,0,0.2));
-        }
-      `}</style>
-      
       {loading ? (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="text-center">
@@ -1500,7 +983,7 @@ export default function LucroDesempenhoPage() {
                 <div>
                   <h1 className="text-3xl font-bold text-gray-900">Lucro & Desempenho</h1>
                   <p className="mt-2 text-gray-600">
-                    Análise detalhada de lucratividade e performance por OS e técnico
+                    Receita menos despesas igual ao lucro do mês. Detalhes por OS e técnico nas abas.
                   </p>
                 </div>
                 
@@ -1518,7 +1001,14 @@ export default function LucroDesempenhoPage() {
                       {formatarMesAno(currentMonth)}
                     </div>
                     <div className="text-sm text-gray-500">
-                      {metricas.totalOS} OS • {formatarMoeda(metricas.lucroTotal)} lucro
+                      {metricas.totalOS} OS •{' '}
+                      {formatarMoeda(
+                        metricas.totalReceita -
+                          (metricas.totalCustos +
+                            metricas.despesasOperacionais +
+                            metricas.custosFixos)
+                      )}{' '}
+                      lucro operacional
                     </div>
                   </div>
                   
@@ -1547,7 +1037,14 @@ export default function LucroDesempenhoPage() {
             )}
 
             {/* Aviso quando mês selecionado não tem dados */}
-            {!loading && !error && metricas.totalReceita === 0 && metricas.totalCustos === 0 && metricas.totalOS === 0 && (
+            {!loading &&
+              !error &&
+              metricas.totalReceita === 0 &&
+              metricas.totalOS === 0 &&
+              metricas.totalCustos +
+                metricas.despesasOperacionais +
+                metricas.custosFixos ===
+                0 && (
               <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
                 <p className="text-amber-800">
                   Nenhum dado para <strong>{formatarMesAno(currentMonth)}</strong>. 

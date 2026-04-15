@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabaseClient';
+import { getAccessTokenForApi } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import MenuLayout from '@/components/MenuLayout';
 import AuthGuard from '@/components/AuthGuard';
 import { useToast } from '@/components/Toast';
-import { FiDollarSign, FiUsers, FiTrendingUp, FiCalendar, FiFilter, FiDownload, FiX, FiUser, FiEye, FiEdit, FiSave, FiPower, FiToggleLeft, FiToggleRight, FiChevronLeft, FiChevronRight, FiCheckCircle, FiRotateCcw } from 'react-icons/fi';
+import { FiDollarSign, FiUsers, FiTrendingUp, FiCalendar, FiFilter, FiDownload, FiFileText, FiX, FiUser, FiEye, FiEdit, FiSave, FiPower, FiToggleLeft, FiToggleRight, FiChevronLeft, FiChevronRight, FiCheckCircle, FiRotateCcw } from 'react-icons/fi';
+import { buildComissoesTecnicosPDFBlob } from '@/lib/pdfComissoesTecnicos';
 import { useConfirm } from '@/components/ConfirmDialog';
 
 interface ComissaoDetalhada {
@@ -59,7 +60,7 @@ interface Filtros {
 
 export default function ComissoesTecnicosPage() {
   const router = useRouter();
-  const { usuarioData, session } = useAuth();
+  const { usuarioData, session, empresaData } = useAuth();
   const { addToast } = useToast();
   const confirm = useConfirm();
   
@@ -73,10 +74,10 @@ export default function ComissoesTecnicosPage() {
   const [valorEditado, setValorEditado] = useState<number>(0);
   const [observacoesEditadas, setObservacoesEditadas] = useState<string>('');
   
-  // Estado para mês selecionado (formato: YYYY-MM ou 'todos')
-  // Padrão 'todos' para a lista bater com o detalhe do técnico (que usa todos os meses) e evitar valores diferentes
-  const [mesSelecionado, setMesSelecionado] = useState<string>('todos');
-  
+  // Estado para mês selecionado (formato: YYYY-MM ou 'todos'); padrão = mês corrente (mesmo critério UTC do filtro por data_entrega)
+  const [mesSelecionado, setMesSelecionado] = useState<string>(() => new Date().toISOString().slice(0, 7));
+  const [pdfListaAssinatura, setPdfListaAssinatura] = useState(false);
+
   // Estados para filtros
   const [filtros, setFiltros] = useState<Filtros>({
     dataInicio: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
@@ -291,8 +292,6 @@ export default function ComissoesTecnicosPage() {
     return mesesOrdenados;
   }, [comissoes]);
   
-  // Lista e detalhe do técnico usam a mesma base; padrão "Todos os meses" evita valores diferentes entre lista e detalhe
-
   // Filtrar comissões por mês selecionado e técnicos ativos
   const comissoesDoMes = useMemo(() => {
     const filtradas = comissoes.filter(comissao => {
@@ -450,9 +449,19 @@ export default function ComissoesTecnicosPage() {
     }
     setLoading(true);
     try {
-      const headers: HeadersInit = {};
-      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
-      const res = await fetch('/api/comissoes/lista', { headers });
+      const token = await getAccessTokenForApi();
+      if (!token) {
+        addToast('error', 'Sessão expirada ou indisponível. Faça login novamente.');
+        setComissoes([]);
+        setTecnicos([]);
+        return;
+      }
+      const headers: HeadersInit = { Authorization: `Bearer ${token}` };
+      const res = await fetch('/api/comissoes/lista', {
+        headers,
+        credentials: 'include',
+        cache: 'no-store',
+      });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         addToast('error', data.error || 'Erro ao carregar comissões');
@@ -773,6 +782,49 @@ export default function ComissoesTecnicosPage() {
     window.URL.revokeObjectURL(url);
   };
 
+  const exportarPDF = async () => {
+    if (comissoesFiltradas.length === 0) {
+      addToast('error', 'Não há comissões para exportar com os filtros atuais.');
+      return;
+    }
+    try {
+      const filtrosLinhas: string[] = [];
+      if (filtros.tecnicoId) {
+        const nomeTec = tecnicos.find((t) => t.id === filtros.tecnicoId)?.nome;
+        filtrosLinhas.push(`Técnico: ${nomeTec || filtros.tecnicoId}`);
+      }
+      if (filtros.status) filtrosLinhas.push(`Status da comissão: ${filtros.status}`);
+      if (filtros.tipoOrdem) filtrosLinhas.push(`Tipo de OS: ${filtros.tipoOrdem}`);
+      if (filtrosLinhas.length === 0) filtrosLinhas.push('Filtros adicionais: nenhum');
+
+      const nomeTecFiltro = filtros.tecnicoId
+        ? tecnicos.find((t) => t.id === filtros.tecnicoId)?.nome
+        : undefined;
+      const blob = await buildComissoesTecnicosPDFBlob({
+        periodoLabel: formatarMes(mesSelecionado),
+        filtrosLinhas,
+        comissoes: comissoesFiltradas,
+        formatCurrency,
+        formatDate,
+        empresaNome: empresaData?.nome,
+        logoUrl: empresaData?.logo_url,
+        cnpj: empresaData?.cnpj,
+        incluirAssinaturaTecnico: pdfListaAssinatura && Boolean(filtros.tecnicoId && nomeTecFiltro),
+        nomeParaAssinatura: nomeTecFiltro,
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `comissoes_tecnicos_${new Date().toISOString().split('T')[0]}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      addToast('success', 'PDF exportado com sucesso.');
+    } catch (e) {
+      console.error('Erro ao gerar PDF de comissões:', e);
+      addToast('error', 'Não foi possível gerar o PDF. Tente novamente.');
+    }
+  };
+
   if (loading) {
     return (
       <MenuLayout>
@@ -803,22 +855,46 @@ export default function ComissoesTecnicosPage() {
             </div>
           </div>
           
-          <div className="flex gap-2 flex-shrink-0 flex-wrap">
-            <button
-              onClick={() => setMostrarFiltros(!mostrarFiltros)}
-              className="flex items-center gap-2 px-3 md:px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm md:text-base"
-            >
-              <FiFilter size={16} />
-              <span className="hidden sm:inline">Filtros</span>
-            </button>
-            
-            <button
-              onClick={exportarCSV}
-              className="flex items-center gap-2 px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm md:text-base"
-            >
-              <FiDownload size={16} />
-              <span className="hidden sm:inline">Exportar</span>
-            </button>
+          <div className="flex flex-col items-end gap-2 flex-shrink-0">
+            <div className="flex gap-2 flex-wrap justify-end">
+              <button
+                onClick={() => setMostrarFiltros(!mostrarFiltros)}
+                className="flex items-center gap-2 px-3 md:px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm md:text-base"
+              >
+                <FiFilter size={16} />
+                <span className="hidden sm:inline">Filtros</span>
+              </button>
+
+              <button
+                type="button"
+                title="Exportar planilha CSV"
+                onClick={exportarCSV}
+                className="flex items-center gap-2 px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm md:text-base"
+              >
+                <FiDownload size={16} />
+                <span className="hidden sm:inline">CSV</span>
+              </button>
+              <button
+                type="button"
+                title="Exportar relatório em PDF"
+                onClick={exportarPDF}
+                className="flex items-center gap-2 px-3 md:px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors text-sm md:text-base"
+              >
+                <FiFileText size={16} />
+                <span className="hidden sm:inline">PDF</span>
+              </button>
+            </div>
+            {filtros.tecnicoId ? (
+              <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer select-none max-w-[280px] justify-end text-right sm:text-left sm:justify-start">
+                <input
+                  type="checkbox"
+                  checked={pdfListaAssinatura}
+                  onChange={(e) => setPdfListaAssinatura(e.target.checked)}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 flex-shrink-0"
+                />
+                <span>Incluir total e assinatura do técnico no PDF</span>
+              </label>
+            ) : null}
           </div>
         </div>
 

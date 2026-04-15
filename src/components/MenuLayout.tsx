@@ -51,7 +51,9 @@ function SidebarSubmenuPanel({ children }: { children: ReactNode }) {
   return (
     <div
       className={`mt-1 min-w-0 rounded-lg border p-1.5 flex flex-col gap-0.5 ${
-        inverted ? 'border-gray-200 bg-gray-50/90' : 'border-white/10 bg-white/[0.04]'
+        inverted
+          ? 'border-gray-200 bg-gray-50/90 dark:border-zinc-600 dark:bg-zinc-900/80'
+          : 'border-white/10 bg-white/[0.04]'
       }`}
     >
       {children}
@@ -75,7 +77,9 @@ function SidebarSectionHeader({
     <button
       type="button"
       className={`flex items-center justify-between w-full px-3 py-2.5 rounded-lg cursor-pointer transition font-medium text-[15px] min-h-[48px] text-left ${
-        inverted ? 'text-gray-900 hover:bg-gray-100' : 'text-white hover:bg-white/10'
+        inverted
+          ? 'text-gray-900 hover:bg-gray-100 dark:text-zinc-100 dark:hover:bg-zinc-800/80'
+          : 'text-white hover:bg-white/10'
       }`}
       onClick={onToggle}
       title={label}
@@ -315,21 +319,21 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
   
   return (
     <MenuAccentContext.Provider value={{ accentColor: menuAccentColor, inverted: isTecnico }}>
-    <div className="flex min-h-screen bg-white dark:bg-zinc-900">
-        {/* Sidebar Desktop - invertido (fundo claro) para técnico */}
+    <div className="flex min-h-screen bg-white dark:bg-zinc-950">
+        {/* Sidebar Desktop - invertido (fundo claro) para técnico; escuro com alto contraste */}
         <aside
-          className={`w-64 hidden md:flex flex-col py-8 px-4 h-screen fixed top-0 left-0 z-40 transition-all duration-300 overflow-y-auto no-print ${isNovaOSFullScreen ? '!hidden' : ''} ${isTecnico ? 'bg-white border-r border-gray-200' : 'bg-black border-r border-white/20'}`}
+          className={`w-64 hidden md:flex flex-col py-8 px-4 h-screen fixed top-0 left-0 z-40 transition-all duration-300 overflow-y-auto no-print ${isNovaOSFullScreen ? '!hidden' : ''} ${isTecnico ? 'bg-white border-r border-gray-200 dark:bg-zinc-950 dark:border-zinc-600' : 'bg-black border-r border-white/20 dark:bg-zinc-950 dark:border-zinc-600'}`}
           style={{ ['--menu-accent' as string]: menuAccentColor }}
         >
         {/* Busca */}
         <div className="flex items-center gap-2 mb-8">
-          <FiSearch className={isTecnico ? 'text-gray-500' : 'text-white/60'} size={18} />
+          <FiSearch className={isTecnico ? 'text-gray-500 dark:text-zinc-400' : 'text-white/60'} size={18} />
           <input
             type="text"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             placeholder="Buscar no menu..."
-            className={`w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--menu-accent)] focus:border-[color:var(--menu-accent)] transition ${isTecnico ? 'bg-gray-100 border border-gray-300 text-gray-900 placeholder-gray-500' : 'bg-white/10 border border-white/20 text-white placeholder-white/50'}`}
+            className={`w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--menu-accent)] focus:border-[color:var(--menu-accent)] transition ${isTecnico ? 'bg-gray-100 border border-gray-300 text-gray-900 placeholder-gray-500 dark:bg-zinc-900 dark:border-zinc-600 dark:text-zinc-100 dark:placeholder-zinc-500' : 'bg-white/10 border border-white/20 text-white placeholder-white/50'}`}
           />
         </div>
         {/* Menu */}
@@ -337,7 +341,7 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
           {!isMounted || !userDataReady ? (
             <>
               {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div key={i} className={`h-12 rounded-lg animate-pulse ${isTecnico ? 'bg-gray-200' : 'bg-white/10'}`} />
+                <div key={i} className={`h-12 rounded-lg animate-pulse ${isTecnico ? 'bg-gray-200 dark:bg-zinc-800' : 'bg-white/10'}`} />
               ))}
             </>
           ) : (
@@ -510,7 +514,7 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
             style={isTecnico ? { filter: 'invert(1)' } : undefined}
             priority
           />
-          <div className={`text-center text-xs ${isTecnico ? 'text-black' : ''}`} style={!isTecnico ? { color: menuAccentColor } : undefined}>
+          <div className={`text-center text-xs ${isTecnico ? 'text-black dark:text-zinc-400' : ''}`} style={!isTecnico ? { color: menuAccentColor } : undefined}>
             v2.7.9
           </div>
         </div>
@@ -523,26 +527,26 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
           {/* Overlay */}
           <div className="absolute inset-0 bg-black/40" onClick={() => setMobileMenuOpen(false)} />
           {/* Drawer */}
-          <aside className={`relative flex h-screen min-h-0 w-64 flex-col py-8 px-4 animate-slide-in ${isTecnico ? 'bg-white border-r border-gray-200' : 'bg-black border-r border-white/20'}`} style={{ ['--menu-accent' as string]: menuAccentColor }}>
+          <aside className={`relative flex h-screen min-h-0 w-64 flex-col py-8 px-4 animate-slide-in ${isTecnico ? 'bg-white border-r border-gray-200 dark:bg-zinc-950 dark:border-zinc-600' : 'bg-black border-r border-white/20 dark:bg-zinc-950 dark:border-zinc-600'}`} style={{ ['--menu-accent' as string]: menuAccentColor }}>
             <SidebarMobileCloseContext.Provider value={() => setMobileMenuOpen(false)}>
-            <button className={`absolute top-4 right-4 ${isTecnico ? 'text-gray-900' : 'text-white'}`} onClick={() => setMobileMenuOpen(false)}>
+            <button className={`absolute top-4 right-4 ${isTecnico ? 'text-gray-900 dark:text-zinc-100' : 'text-white'}`} onClick={() => setMobileMenuOpen(false)}>
               <FiX size={28} />
             </button>
             <div className="flex items-center gap-2 mb-6">
-              <FiSearch className={isTecnico ? 'text-gray-500' : 'text-white/60'} size={18} />
+              <FiSearch className={isTecnico ? 'text-gray-500 dark:text-zinc-400' : 'text-white/60'} size={18} />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
                 placeholder="Buscar no menu..."
-                className={`w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--menu-accent)] focus:border-[color:var(--menu-accent)] transition ${isTecnico ? 'bg-gray-100 border border-gray-300 text-gray-900 placeholder-gray-500' : 'bg-white/10 border border-white/20 text-white placeholder-white/50'}`}
+                className={`w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--menu-accent)] focus:border-[color:var(--menu-accent)] transition ${isTecnico ? 'bg-gray-100 border border-gray-300 text-gray-900 placeholder-gray-500 dark:bg-zinc-900 dark:border-zinc-600 dark:text-zinc-100 dark:placeholder-zinc-500' : 'bg-white/10 border border-white/20 text-white placeholder-white/50'}`}
               />
             </div>
             <nav className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto">
               {!isMounted || !userDataReady ? (
                 <>
                   {[1, 2, 3, 4, 5].map((i) => (
-                    <div key={i} className={`h-12 rounded-lg animate-pulse ${isTecnico ? 'bg-gray-200' : 'bg-white/10'}`} />
+                    <div key={i} className={`h-12 rounded-lg animate-pulse ${isTecnico ? 'bg-gray-200 dark:bg-zinc-800' : 'bg-white/10'}`} />
                   ))}
                 </>
               ) : (
@@ -705,7 +709,7 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
                 </>
               )}
             </nav>
-            <div className={`mt-auto text-center text-xs pb-4 ${isTecnico ? 'text-black' : ''}`} style={!isTecnico ? { color: menuAccentColor } : undefined}>
+            <div className={`mt-auto text-center text-xs pb-4 ${isTecnico ? 'text-black dark:text-zinc-400' : ''}`} style={!isTecnico ? { color: menuAccentColor } : undefined}>
               v2.7.9
             </div>
             </SidebarMobileCloseContext.Provider>
@@ -713,18 +717,18 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
         </div>
       )}
       {/* Main area - largura limitada para não cortar à direita (sidebar 16rem = 256px) */}
-      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 min-w-0 bg-white dark:bg-zinc-900 ${isNovaOSFullScreen ? 'md:ml-0 w-full md:max-w-full' : 'ml-0 w-full md:ml-64 md:max-w-[calc(100vw-16rem)]'}`}>
+      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 min-w-0 bg-white dark:bg-zinc-950 ${isNovaOSFullScreen ? 'md:ml-0 w-full md:max-w-full' : 'ml-0 w-full md:ml-64 md:max-w-[calc(100vw-16rem)]'}`}>
         {/* TopHeader - oculto na tela cheia de Nova OS (só fica o botão Voltar na própria página) */}
         {!isNovaOSFullScreen && (
-        <header className="w-full h-16 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between px-4 md:px-6 sticky top-0 z-30 no-print">
+        <header className="w-full h-16 bg-white dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-600 flex items-center justify-between px-4 md:px-6 sticky top-0 z-30 no-print">
           {/* Esquerda: botão menu mobile + logo da empresa */}
           <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
-            <button onClick={() => setMobileMenuOpen(true)} className="md:hidden text-zinc-700 dark:text-zinc-300 p-2 -ml-2">
+            <button onClick={() => setMobileMenuOpen(true)} className="md:hidden text-zinc-700 dark:text-zinc-100 p-2 -ml-2">
               <FiMenu size={24} />
             </button>
             <div className="h-9 flex items-center shrink-0" style={{ minWidth: 0 }}>
               {!userDataReady ? (
-                <div className="h-9 w-24 rounded bg-zinc-200 animate-pulse" aria-hidden />
+                <div className="h-9 w-24 rounded bg-zinc-200 dark:bg-zinc-700 animate-pulse" aria-hidden />
               ) : empresaLogoUrl ? (
                 <img
                   src={empresaLogoUrl}
@@ -743,7 +747,7 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
               )}
             </div>
             {isTecnico && (
-              <span className="text-lg font-semibold text-zinc-700 dark:text-zinc-300 hidden sm:block ml-2 truncate">
+              <span className="text-lg font-semibold text-zinc-700 dark:text-zinc-100 hidden sm:block ml-2 truncate">
                 Área do técnico
               </span>
             )}
@@ -751,16 +755,15 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
           
           {/* Área direita - Usuário e notificações */}
           <div className="flex items-center gap-2 md:gap-4">
-            {/* Toggle modo escuro - desativado temporariamente */}
-            {/* <button
+            <button
               type="button"
               onClick={toggleTheme}
-              className="p-2 rounded-lg text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              className="p-2 rounded-xl text-zinc-700 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-600 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors shrink-0"
               title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
               aria-label={theme === 'dark' ? 'Ativar modo claro' : 'Ativar modo escuro'}
             >
               {theme === 'dark' ? <FiSun size={20} /> : <FiMoon size={20} />}
-            </button> */}
+            </button>
             {/* Status da assinatura — não usar shrink/min-w-0 aqui (encolhia o badge a zero) */}
             <div className="flex-shrink-0 max-w-[min(92vw,20rem)] sm:max-w-[22rem]">
               <SubscriptionStatus />
@@ -781,7 +784,7 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
                   </span>
                 </div>
               )}
-              <span className="text-zinc-700 dark:text-zinc-300 text-sm font-medium hidden sm:block">{usuarioData?.nome || 'Usuário'}</span>
+              <span className="text-zinc-700 dark:text-zinc-100 text-sm font-medium hidden sm:block">{usuarioData?.nome || 'Usuário'}</span>
             </div>
             
             {/* Notificações */}
@@ -914,13 +917,15 @@ function SidebarButton({
     }
   };
 
-  const inactiveMain = inverted ? 'text-gray-900 hover:bg-gray-100' : 'text-white hover:bg-white/10';
+  const inactiveMain = inverted
+    ? 'text-gray-900 hover:bg-gray-100 dark:text-zinc-100 dark:hover:bg-zinc-800/90'
+    : 'text-white hover:bg-white/10';
   const inactiveSub = inverted
-    ? 'text-gray-500 hover:bg-gray-100/80 hover:text-gray-900'
+    ? 'text-gray-500 hover:bg-gray-100/80 hover:text-gray-900 dark:text-zinc-400 dark:hover:bg-zinc-800/70 dark:hover:text-zinc-100'
     : 'text-white/65 hover:bg-white/[0.06] hover:text-white/95';
 
-  const activeBg = inverted ? 'bg-gray-100' : 'bg-white/[0.12]';
-  const activeText = inverted ? 'text-gray-900' : 'text-white';
+  const activeBg = inverted ? 'bg-gray-100 dark:bg-zinc-800' : 'bg-white/[0.12]';
+  const activeText = inverted ? 'text-gray-900 dark:text-white' : 'text-white';
 
   const rowClass = [
     'relative flex items-center justify-start w-full min-w-0 rounded-lg transition font-medium text-left min-h-[48px]',
@@ -943,10 +948,10 @@ function SidebarButton({
             className={`shrink-0 rounded-full w-1.5 h-1.5 ${
               isActive
                 ? inverted
-                  ? 'bg-gray-900'
+                  ? 'bg-gray-900 dark:bg-lime-400'
                   : 'bg-white'
                 : inverted
-                  ? 'bg-gray-400'
+                  ? 'bg-gray-400 dark:bg-zinc-500'
                   : 'bg-white/45'
             }`}
             aria-hidden

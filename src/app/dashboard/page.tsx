@@ -7,8 +7,6 @@ import { useRouter } from 'next/navigation';
 import MenuLayout from '@/components/MenuLayout';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import DashboardCard from '@/components/ui/DashboardCard';
-import { FiFileText, FiCheckCircle, FiClock, FiAlertCircle } from 'react-icons/fi';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import {
@@ -33,7 +31,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import { v4 as uuidv4 } from 'uuid';
 import AuthGuardFinal from '@/components/AuthGuardFinal';
-import ModernPieChart from '@/components/ModernPieChart';
+import DashboardOverview from '@/components/dashboard/DashboardOverview';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { getDashboardPath, canAccessRoute } from '@/lib/dashboardRouting';
@@ -777,102 +775,8 @@ export default function LembretesPage() {
     <AuthGuardFinal>
       <MenuLayout>
               {/* Componentes de sessão removidos temporariamente */}
-        {/* Cards principais - Dados do Calendário */}
-        <div className="px-2 md:px-0">
-          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4 lg:gap-6 mb-3 md:mb-6 lg:mb-8">
-          <DashboardCard
-            title="O.S. da Semana"
-            value={eventosCalendario.filter(e => {
-              const hoje = new Date();
-              const inicioSemana = new Date(hoje.setDate(hoje.getDate() - hoje.getDay()));
-              const prazo = new Date(e.data_inicio);
-              return prazo >= inicioSemana;
-            }).length}
-            description={`Total: ${eventosCalendario.length}`}
-            descriptionColorClass="text-gray-600"
-            icon={<FiFileText className="w-5 h-5" />}
-            svgPolyline={{ color: '#84cc16', points: '0,20 10,15 20,17 30,10 40,12 50,8 60,10 70,6' }}
-          >
-            <div className="mt-2">
-              <button 
-                onClick={() => router.push('/ordens')}
-                className="text-xs text-blue-600 hover:text-blue-800 font-medium"
-              >
-                Ver todas as O.S. →
-              </button>
-            </div>
-          </DashboardCard>
-          <DashboardCard
-            title="Aprovadas da Semana"
-            value={eventosCalendario.filter(e => {
-              const hoje = new Date();
-              const inicioSemana = new Date(hoje.setDate(hoje.getDate() - hoje.getDay()));
-              const prazo = new Date(e.data_inicio);
-              return prazo >= inicioSemana && e.status?.toLowerCase().includes('aprovado');
-            }).length}
-            description="O.S. aprovadas esta semana"
-            descriptionColorClass="text-green-600"
-            icon={<FiCheckCircle className="w-5 h-5" />}
-            svgPolyline={{ color: '#4ade80', points: '0,18 10,16 20,14 30,10 40,11 50,9 60,10 70,6' }}
-          >
-            <div className="mt-2">
-              <button 
-                onClick={() => router.push('/ordens')}
-                className="text-xs text-green-600 hover:text-green-800 font-medium"
-              >
-                Ver todas as O.S. →
-              </button>
-            </div>
-          </DashboardCard>
-          <DashboardCard
-            title="Atrasadas"
-            value={eventosCalendario.filter(e => {
-              const hoje = new Date();
-              const prazo = new Date(e.data_inicio);
-              return prazo < hoje;
-            }).length}
-            description="O.S. com prazo vencido"
-            descriptionColorClass="text-red-500"
-            icon={<FiAlertCircle className="w-5 h-5" />}
-            svgPolyline={{ color: '#f87171', points: '0,12 10,14 20,16 30,18 40,20 50,17 60,15 70,16' }}
-          >
-            <div className="mt-2">
-              <button 
-                onClick={() => router.push('/ordens')}
-                className="text-xs text-red-600 hover:text-red-800 font-medium"
-              >
-                Ver todas as O.S. →
-              </button>
-            </div>
-          </DashboardCard>
-          <DashboardCard
-            title="A Vencer"
-            value={eventosCalendario.filter(e => {
-              const hoje = new Date();
-              const prazo = new Date(e.data_inicio);
-              const diffDias = Math.ceil((prazo.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
-              return diffDias <= 7 && diffDias > 0;
-            }).length}
-            description="Vencem em 7 dias"
-            descriptionColorClass="text-yellow-600"
-            icon={<FiClock className="w-5 h-5" />}
-            svgPolyline={{ color: '#fbbf24', points: '0,12 10,14 20,16 30,18 40,20 50,17 60,15 70,16' }}
-          >
-            <div className="mt-2">
-              <button 
-                onClick={() => router.push('/ordens')}
-                className="text-xs text-yellow-600 hover:text-yellow-800 font-medium"
-              >
-                Ver todas as O.S. →
-              </button>
-            </div>
-          </DashboardCard>
-          </div>
-        </div>
-
-        {/* Gráfico de Pizza Moderno */}
-        <div className="px-2 md:px-0 mb-6 md:mb-8">
-          <ModernPieChart className="w-full" />
+        <div className="mb-6 md:mb-10">
+          <DashboardOverview />
         </div>
 
         {/* Sistema de Calendário */}

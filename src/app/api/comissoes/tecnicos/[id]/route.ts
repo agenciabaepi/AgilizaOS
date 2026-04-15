@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getAuthUserIdFromRequest } from '@/lib/supabase/authFromRequest';
 import { createAdminClient } from '@/lib/supabaseClient';
 
 /**
@@ -20,18 +20,7 @@ export async function GET(
       return NextResponse.json({ error: 'ID do técnico é obrigatório' }, { status: 400 });
     }
 
-    const supabaseSession = await createServerSupabaseClient();
-    let authUserId: string | null = null;
-    const { data: { session } } = await supabaseSession.auth.getSession();
-    if (session?.user?.id) authUserId = session.user.id;
-    if (!authUserId) {
-      const authHeader = request.headers.get('Authorization');
-      const token = authHeader?.replace(/^Bearer\s+/i, '').trim();
-      if (token) {
-        const { data: { user }, error } = await supabaseSession.auth.getUser(token);
-        if (!error && user?.id) authUserId = user.id;
-      }
-    }
+    const authUserId = await getAuthUserIdFromRequest(request);
     if (!authUserId) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }

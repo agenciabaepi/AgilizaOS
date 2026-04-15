@@ -5,7 +5,7 @@ import MenuLayout from '@/components/MenuLayout';
 
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
-import { FiArrowLeft, FiEdit, FiPrinter, FiChevronDown, FiDollarSign, FiMessageCircle, FiUser, FiSmartphone, FiFileText, FiCalendar, FiShield, FiTool, FiPackage, FiCheckCircle, FiClock, FiRefreshCw, FiExternalLink, FiAlertTriangle } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit, FiPrinter, FiChevronDown, FiChevronRight, FiDollarSign, FiMessageCircle, FiUser, FiSmartphone, FiFileText, FiCalendar, FiShield, FiTool, FiPackage, FiCheckCircle, FiClock, FiRefreshCw, FiExternalLink, FiAlertTriangle, FiPlus, FiTrash2, FiPercent, FiCreditCard } from 'react-icons/fi';
 import { FaWhatsapp } from 'react-icons/fa';
 import ImagensOS from '@/components/ImagensOS';
 import VideosOS from '@/components/VideosOS';
@@ -16,6 +16,31 @@ import { useHistoricoOS } from '@/hooks/useHistoricoOS';
 import HistoricoOSTimeline from '@/components/HistoricoOSTimeline';
 import LaudoRenderer from '@/components/LaudoRenderer';
 import { getStatusTecnicoLabel } from '@/utils/statusLabels';
+
+type LinhaPagamentoEntrega = { id: string; forma: string; valor: string };
+
+const FORMAS_PAGAMENTO_OS = [
+  { value: 'dinheiro', label: 'Dinheiro' },
+  { value: 'pix', label: 'PIX' },
+  { value: 'cartao_debito', label: 'Cartão de débito' },
+  { value: 'cartao_credito', label: 'Cartão de crédito' },
+  { value: 'transferencia', label: 'Transferência' },
+] as const;
+
+function novoIdLinhaPagamento() {
+  return typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `pg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+/** Parse valor em pt-BR ou simples (ex.: "1.234,56" ou "100.50") */
+function parseValorMontario(input: string): number {
+  const s = String(input ?? '').trim();
+  if (!s) return 0;
+  const normalized = s.replace(/\./g, '').replace(',', '.');
+  const n = parseFloat(normalized);
+  return Number.isFinite(n) ? n : 0;
+}
 
 const VisualizarOrdemServicoPage = () => {
   const router = useRouter();
@@ -36,24 +61,36 @@ const VisualizarOrdemServicoPage = () => {
   // Estados para sistema de entrega
   const [modalEntrega, setModalEntrega] = useState(false);
   const [termoGarantiaSelecionado, setTermoGarantiaSelecionado] = useState<any>(null);
-  const [formaPagamento, setFormaPagamento] = useState('');
-  const [valorRecebido, setValorRecebido] = useState('');
+  const [linhasPagamento, setLinhasPagamento] = useState<LinhaPagamentoEntrega[]>([
+    { id: novoIdLinhaPagamento(), forma: '', valor: '' },
+  ]);
+  const [descontoEntregaStr, setDescontoEntregaStr] = useState('');
   const [processandoEntrega, setProcessandoEntrega] = useState(false);
   const [termosGarantia, setTermosGarantia] = useState<any[]>([]);
   const [clienteRecusou, setClienteRecusou] = useState(false); // Nova opção
   const [aparelhoSemConserto, setAparelhoSemConserto] = useState(false); // Aparelho não teve conserto
-  const [imprimirMenuOpen, setImprimirMenuOpen] = useState(false);
-  const imprimirMenuRef = useRef<HTMLDivElement>(null);
+  const [acoesMenuOpen, setAcoesMenuOpen] = useState(false);
+  const [imprimirSubOpen, setImprimirSubOpen] = useState(false);
+  const acoesMenuRef = useRef<HTMLDivElement>(null);
   const [linkPublicoAtivo, setLinkPublicoAtivo] = useState<boolean>(true);
 
   useEffect(() => {
-    if (!imprimirMenuOpen) return;
+    if (!acoesMenuOpen) return;
     const h = (e: MouseEvent) => {
-      if (imprimirMenuRef.current && !imprimirMenuRef.current.contains(e.target as Node)) setImprimirMenuOpen(false);
+      if (acoesMenuRef.current && !acoesMenuRef.current.contains(e.target as Node)) {
+        setAcoesMenuOpen(false);
+        setImprimirSubOpen(false);
+      }
     };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
-  }, [imprimirMenuOpen]);
+  }, [acoesMenuOpen]);
+
+  useEffect(() => {
+    if (!modalEntrega) return;
+    setLinhasPagamento([{ id: novoIdLinhaPagamento(), forma: '', valor: '' }]);
+    setDescontoEntregaStr('');
+  }, [modalEntrega]);
 
   useEffect(() => {
     const fetchOrdem = async () => {
@@ -302,26 +339,38 @@ const VisualizarOrdemServicoPage = () => {
       return;
     }
 
-    // Se cliente não recusou e aparelho tem conserto, validar forma de pagamento e valor
-    // Mas só validar valores se realmente houver valores na OS
     if (!clienteRecusou && !aparelhoSemConserto) {
       const valorOS = calcularValores().valorFinal;
-      
-      // Se há valores na OS, validar forma de pagamento e valor recebido
-      if (valorOS > 0) {
-        if (!formaPagamento) {
-          addToast('Selecione a forma de pagamento', 'error');
+      const descontoExtra = parseValorMontario(descontoEntregaStr);
+      if (descontoExtra > valorOS + 0.001) {
+        addToast('O desconto na entrega não pode ser maior que o total da O.S.', 'error');
+        return;
+      }
+      const totalLiquido = Math.max(0, valorOS - descontoExtra);
+
+      if (totalLiquido > 0) {
+        const linhasAtivas = linhasPagamento.filter(
+          (l) => l.forma || parseValorMontario(l.valor) > 0
+        );
+        if (linhasAtivas.length === 0) {
+          addToast('Informe ao menos uma forma de pagamento com valor.', 'error');
           return;
         }
-
-        const valorRecebidoNum = parseFloat(valorRecebido.replace(',', '.'));
-
-        if (isNaN(valorRecebidoNum) || valorRecebidoNum < valorOS) {
-          addToast(`Valor recebido deve ser pelo menos R$ ${valorOS.toFixed(2)}`, 'error');
+        for (const l of linhasAtivas) {
+          if (!l.forma || parseValorMontario(l.valor) <= 0) {
+            addToast('Preencha forma e valor em cada linha de pagamento utilizada.', 'error');
+            return;
+          }
+        }
+        const soma = linhasAtivas.reduce((acc, l) => acc + parseValorMontario(l.valor), 0);
+        if (soma + 0.009 < totalLiquido) {
+          addToast(
+            `A soma dos pagamentos (R$ ${soma.toFixed(2)}) deve cobrir o total a receber (R$ ${totalLiquido.toFixed(2)}).`,
+            'error'
+          );
           return;
         }
       }
-      // Se não há valores (valorOS === 0), permitir entrega sem validar pagamento
     }
 
     setProcessandoEntrega(true);
@@ -358,16 +407,20 @@ const VisualizarOrdemServicoPage = () => {
 
       const result = await response.json();
 
-      // 2. Se houver valor E cliente não recusou E aparelho teve conserto, criar venda
+      // 2. Se houver valor líquido E cliente não recusou E aparelho teve conserto, criar venda
       if (!clienteRecusou && !aparelhoSemConserto) {
         const valorOS = calcularValores().valorFinal;
-        if (valorOS > 0) {
+        const descExtra = parseValorMontario(descontoEntregaStr);
+        const totalVendaLiquido = Math.max(0, valorOS - descExtra);
+        if (valorOS > 0 && totalVendaLiquido > 0) {
           const numeroVenda = await criarVenda();
           if (!numeroVenda) {
             addToast('Erro ao criar venda', 'error');
             return;
           }
           addToast(`✅ Venda #${numeroVenda} criada com sucesso!`, 'success');
+        } else if (valorOS > 0 && totalVendaLiquido <= 0) {
+          addToast('✅ O.S. entregue — total zerado pelo desconto (nenhuma venda registrada).', 'success');
         } else {
           addToast('✅ O.S. entregue sem valores (desistência ou sem serviços)', 'success');
         }
@@ -393,6 +446,14 @@ const VisualizarOrdemServicoPage = () => {
   const criarVenda = async () => {
     try {
       const valores = calcularValores();
+      const descontoExtra = parseValorMontario(descontoEntregaStr);
+      const totalVenda = Math.max(0, valores.valorFinal - descontoExtra);
+      const labelForma = (v: string) =>
+        FORMAS_PAGAMENTO_OS.find((f) => f.value === v)?.label ?? v;
+      const formaPagamentoStr = linhasPagamento
+        .filter((l) => l.forma && parseValorMontario(l.valor) > 0)
+        .map((l) => `${labelForma(l.forma)} ${formatCurrency(parseValorMontario(l.valor))}`)
+        .join(' · ');
       
       // Buscar próximo número de venda
       const { data: ultimaVenda, error: errorUltimaVenda } = await supabase
@@ -414,10 +475,10 @@ const VisualizarOrdemServicoPage = () => {
         numero_venda: proximoNumero,
         data_venda: new Date().toISOString(),
         cliente_id: ordem?.cliente_id,
-        total: valores.valorFinal,
-        forma_pagamento: formaPagamento,
+        total: totalVenda,
+        forma_pagamento: formaPagamentoStr || '—',
         status: 'finalizada',
-        desconto: 0,
+        desconto: descontoExtra,
         acrescimo: 0,
         tipo_pedido: 'Ordem de Serviço',
         observacoes: `O.S. #${ordem?.numero_os} - ${ordem?.clientes?.nome}`,
@@ -491,6 +552,16 @@ const VisualizarOrdemServicoPage = () => {
     return { valorPrevisto: valorFinal, custoPrevisto, lucroPrevisto, margemPrevista };
   };
 
+  const atualizarLinhaPagamento = (id: string, patch: Partial<LinhaPagamentoEntrega>) => {
+    setLinhasPagamento((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+  };
+  const adicionarLinhaPagamento = () => {
+    setLinhasPagamento((prev) => [...prev, { id: novoIdLinhaPagamento(), forma: '', valor: '' }]);
+  };
+  const removerLinhaPagamento = (id: string) => {
+    setLinhasPagamento((prev) => (prev.length <= 1 ? prev : prev.filter((l) => l.id !== id)));
+  };
+
   const abrirWhatsApp = () => {
     const raw = (ordem?.cliente?.telefone || '').replace(/\D/g, '');
     if (raw.length < 10) {
@@ -530,6 +601,26 @@ const VisualizarOrdemServicoPage = () => {
     ].filter(Boolean).join('\n');
     window.open(`https://wa.me/${numero}?text=${encodeURIComponent(texto)}`, '_blank');
   };
+
+  const entregaValorBruto = calcularValores().valorFinal;
+  const entregaDescontoExtra = parseValorMontario(descontoEntregaStr);
+  const entregaTotalLiquido = Math.max(0, entregaValorBruto - entregaDescontoExtra);
+  const entregaSomaPagamentos = linhasPagamento
+    .filter((l) => l.forma && parseValorMontario(l.valor) > 0)
+    .reduce((a, l) => a + parseValorMontario(l.valor), 0);
+  const entregaLinhasValidas = linhasPagamento.every((l) => {
+    const v = parseValorMontario(l.valor);
+    if (!(l.forma || v > 0)) return true;
+    return !!(l.forma && v > 0);
+  });
+  const entregaPrecisaPagamento =
+    !clienteRecusou && !aparelhoSemConserto && entregaTotalLiquido > 0;
+  const entregaPagamentoOk =
+    !entregaPrecisaPagamento ||
+    (entregaLinhasValidas &&
+      entregaSomaPagamentos + 0.009 >= entregaTotalLiquido &&
+      entregaSomaPagamentos > 0);
+  const entregaDescontoInvalido = entregaDescontoExtra > entregaValorBruto + 0.001;
 
   if (loading) {
     return (
@@ -598,90 +689,155 @@ const VisualizarOrdemServicoPage = () => {
               </div>
             </div>
 
-            {/* Botões de ação — direita */}
-            <div className="flex flex-wrap items-center justify-end gap-3 shrink-0">
-              {/* Editar / Imprimir (dropdown) */}
-              <div className="flex items-center gap-2">
+            {/* Ações — menu cascata */}
+            <div className="flex justify-end shrink-0" ref={acoesMenuRef}>
+              <div className="relative">
                 <button
-                  onClick={() => router.push(`/ordens/${id}/editar`)}
-                  disabled={ordem.status === 'ENTREGUE'}
-                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  type="button"
+                  onClick={() => {
+                    setAcoesMenuOpen((prev) => {
+                      const next = !prev;
+                      if (next) setImprimirSubOpen(false);
+                      return next;
+                    });
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-gray-900 text-white hover:bg-gray-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 transition-colors shadow-sm"
+                  aria-expanded={acoesMenuOpen}
+                  aria-haspopup="true"
                 >
-                  <FiEdit className="w-4 h-4 shrink-0" />
-                  Editar
+                  Ações
+                  <FiChevronDown className={`w-4 h-4 shrink-0 transition-transform ${acoesMenuOpen ? 'rotate-180' : ''}`} />
                 </button>
-                <div className="relative" ref={imprimirMenuRef}>
-                  <button
-                    onClick={() => setImprimirMenuOpen((o) => !o)}
-                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                  >
-                    <FiPrinter className="w-4 h-4 shrink-0" />
-                    Imprimir
-                    <FiChevronDown className={`w-4 h-4 shrink-0 transition-transform ${imprimirMenuOpen ? 'rotate-180' : ''}`} />
-                  </button>
-                  {imprimirMenuOpen && (
-                    <div className="absolute left-0 top-full z-50 mt-1 w-56 rounded-lg border border-gray-200 dark:border-zinc-600 bg-white dark:bg-zinc-800 py-1 shadow-lg">
-                      <button
-                        onClick={() => { window.open(`/ordens/${id}/imprimir`, '_blank'); setImprimirMenuOpen(false); }}
-                        className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-700"
-                      >
-                        Padrão (A4 completo)
-                      </button>
-                      <button
-                        onClick={() => { window.open(`/ordens/${id}/imprimir/cupom`, '_blank'); setImprimirMenuOpen(false); }}
-                        className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-700"
-                      >
-                        Cupom (receituário)
-                      </button>
-                      <button
-                        onClick={() => { window.open(`/ordens/${id}/imprimir/2vias`, '_blank'); setImprimirMenuOpen(false); }}
-                        className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-700"
-                      >
-                        2 Vias (meia folha A4)
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
+                {acoesMenuOpen && (
+                  <div className="absolute right-0 top-full z-50 mt-1.5 min-w-[14rem] w-max max-w-[calc(100vw-2rem)] rounded-xl border border-gray-200 dark:border-zinc-600 bg-white dark:bg-zinc-800 py-1 shadow-lg">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAcoesMenuOpen(false);
+                        if (ordem.status !== 'ENTREGUE') router.push(`/ordens/${id}/editar`);
+                      }}
+                      disabled={ordem.status === 'ENTREGUE'}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-gray-800 dark:text-zinc-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-45 disabled:cursor-not-allowed"
+                    >
+                      <FiEdit className="w-4 h-4 shrink-0 text-blue-600 dark:text-blue-400" />
+                      Editar
+                    </button>
 
-              {/* WhatsApp: Conversar + Enviar OS */}
-              <button
-                onClick={abrirWhatsApp}
-                className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                title="Abrir conversa com o cliente no WhatsApp"
-              >
-                <FaWhatsapp className="w-4 h-4 shrink-0" />
-                Conversar
-              </button>
-              <button
-                onClick={enviarOSPorWhatsApp}
-                className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium bg-green-700 text-white rounded-lg hover:bg-green-800 transition-colors border border-green-600"
-                title="Enviar resumo da OS + link e senha para o cliente no WhatsApp"
-              >
-                <FaWhatsapp className="w-4 h-4 shrink-0" />
-                Enviar OS
-              </button>
+                    <div className="border-t border-gray-100 dark:border-zinc-700 my-0.5" />
+                    <button
+                      type="button"
+                      onClick={() => setImprimirSubOpen((s) => !s)}
+                      className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm text-gray-800 dark:text-zinc-200 hover:bg-gray-50 dark:hover:bg-zinc-700/80"
+                    >
+                      <span className="flex items-center gap-2">
+                        <FiPrinter className="w-4 h-4 shrink-0 text-gray-600 dark:text-zinc-400" />
+                        Imprimir
+                      </span>
+                      <FiChevronRight className={`w-4 h-4 shrink-0 transition-transform text-gray-400 ${imprimirSubOpen ? 'rotate-90' : ''}`} />
+                    </button>
+                    {imprimirSubOpen && (
+                      <div className="border-t border-gray-100 dark:border-zinc-700 bg-gray-50/80 dark:bg-zinc-900/50 py-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            window.open(`/ordens/${id}/imprimir`, '_blank');
+                            setAcoesMenuOpen(false);
+                            setImprimirSubOpen(false);
+                          }}
+                          className="w-full px-3 py-2 pl-9 text-left text-sm text-gray-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-800"
+                        >
+                          Padrão (A4 completo)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            window.open(`/ordens/${id}/imprimir/cupom`, '_blank');
+                            setAcoesMenuOpen(false);
+                            setImprimirSubOpen(false);
+                          }}
+                          className="w-full px-3 py-2 pl-9 text-left text-sm text-gray-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-800"
+                        >
+                          Cupom (receituário)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            window.open(`/ordens/${id}/imprimir/2vias`, '_blank');
+                            setAcoesMenuOpen(false);
+                            setImprimirSubOpen(false);
+                          }}
+                          className="w-full px-3 py-2 pl-9 text-left text-sm text-gray-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-800"
+                        >
+                          2 Vias (meia folha A4)
+                        </button>
+                      </div>
+                    )}
 
-              {/* Ver Status + Entregar */}
-              <div className="flex items-center gap-2">
-                {linkPublicoAtivo && (
-                  <button
-                    onClick={() => window.open(`/os/${ordem?.id}/status`, '_blank')}
-                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                    title="Abrir página de acompanhamento para o cliente"
-                  >
-                    <FiExternalLink className="w-4 h-4 shrink-0" />
-                    Ver Status
-                  </button>
-                )}
-                {ordem.status !== 'ENTREGUE' && (
-                  <button
-                    onClick={() => setModalEntrega(true)}
-                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-                  >
-                    <FiPackage className="w-4 h-4 shrink-0" />
-                    Entregar O.S.
-                  </button>
+                    <div className="border-t border-gray-100 dark:border-zinc-700 my-0.5" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        abrirWhatsApp();
+                        setAcoesMenuOpen(false);
+                        setImprimirSubOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-gray-800 dark:text-zinc-200 hover:bg-green-50 dark:hover:bg-green-900/25"
+                      title="Abrir conversa com o cliente no WhatsApp"
+                    >
+                      <FaWhatsapp className="w-4 h-4 shrink-0 text-green-600" />
+                      Conversar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        enviarOSPorWhatsApp();
+                        setAcoesMenuOpen(false);
+                        setImprimirSubOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-gray-800 dark:text-zinc-200 hover:bg-green-50 dark:hover:bg-green-900/25"
+                      title="Enviar resumo da OS + link e senha para o cliente no WhatsApp"
+                    >
+                      <FaWhatsapp className="w-4 h-4 shrink-0 text-green-700 dark:text-green-500" />
+                      Enviar OS
+                    </button>
+
+                    {linkPublicoAtivo && (
+                      <>
+                        <div className="border-t border-gray-100 dark:border-zinc-700 my-0.5" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            window.open(`/os/${ordem?.id}/status`, '_blank');
+                            setAcoesMenuOpen(false);
+                            setImprimirSubOpen(false);
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-gray-800 dark:text-zinc-200 hover:bg-purple-50 dark:hover:bg-purple-900/25"
+                          title="Abrir página de acompanhamento para o cliente"
+                        >
+                          <FiExternalLink className="w-4 h-4 shrink-0 text-purple-600 dark:text-purple-400" />
+                          Ver Status
+                        </button>
+                      </>
+                    )}
+
+                    {ordem.status !== 'ENTREGUE' && (
+                      <>
+                        <div className="border-t border-gray-100 dark:border-zinc-700 my-0.5" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setModalEntrega(true);
+                            setAcoesMenuOpen(false);
+                            setImprimirSubOpen(false);
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-gray-800 dark:text-zinc-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/25"
+                        >
+                          <FiPackage className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                          Entregar O.S.
+                        </button>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -1292,28 +1448,47 @@ const VisualizarOrdemServicoPage = () => {
 
           {/* Modal de Entrega */}
           {modalEntrega && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-xl dark:shadow-none dark:border dark:border-zinc-600 max-w-md w-full p-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-lg">
-                    <FiPackage className="w-6 h-6 text-green-600 dark:text-green-300" />
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-[2px]">
+              <div
+                className="bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl dark:shadow-none border border-gray-200/90 dark:border-zinc-600 max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="modal-entrega-titulo"
+              >
+                <div className="shrink-0 px-5 sm:px-6 pt-5 pb-4 border-b border-gray-100 dark:border-zinc-700 bg-gradient-to-r from-emerald-50/95 via-white to-white dark:from-emerald-950/40 dark:via-zinc-800 dark:to-zinc-800">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2.5 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 shadow-sm">
+                      <FiPackage className="w-6 h-6 text-emerald-700 dark:text-emerald-300" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 id="modal-entrega-titulo" className="text-lg font-semibold text-gray-900 dark:text-zinc-100">
+                        Entregar O.S.
+                      </h3>
+                      <p className="text-sm text-gray-500 dark:text-zinc-400 mt-0.5">
+                        Termo de garantia, valores e formas de pagamento
+                      </p>
+                    </div>
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-zinc-100">Entregar O.S.</h3>
                 </div>
 
-                <div className="space-y-4">
-                  {/* Termo de Garantia */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Termo de Garantia *
+                <div className="flex-1 min-h-0 overflow-y-auto px-5 sm:px-6 py-4 space-y-4">
+                  {entregaDescontoInvalido && (
+                    <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-3 py-2.5 text-sm text-red-800 dark:text-red-200">
+                      O desconto não pode ser maior que o total da O.S. ({formatCurrency(entregaValorBruto)}).
+                    </div>
+                  )}
+
+                  <div className="rounded-xl border border-gray-200 dark:border-zinc-600 bg-gray-50/80 dark:bg-zinc-900/40 p-4">
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-zinc-400 mb-2">
+                      Termo de garantia *
                     </label>
                     <select
                       value={termoGarantiaSelecionado?.id || ''}
                       onChange={(e) => {
-                        const termo = termosGarantia.find(t => t.id === e.target.value);
+                        const termo = termosGarantia.find((t) => t.id === e.target.value);
                         setTermoGarantiaSelecionado(termo || null);
                       }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-zinc-600 rounded-xl bg-white dark:bg-zinc-800 text-gray-900 dark:text-zinc-100 focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500"
                     >
                       <option value="">Selecione um termo...</option>
                       {termosGarantia.map((termo) => (
@@ -1324,200 +1499,273 @@ const VisualizarOrdemServicoPage = () => {
                     </select>
                   </div>
 
-                  {/* Aviso se não há valores */}
-                  {calcularValores().valorFinal === 0 && (
-                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                  {entregaValorBruto === 0 && (
+                    <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/25 p-4">
                       <div className="flex items-start gap-3">
-                        <FiAlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5" />
-                        <div className="flex-1">
-                          <span className="text-sm font-medium text-yellow-900 dark:text-yellow-200 block">
+                        <FiAlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                        <div>
+                          <span className="text-sm font-medium text-amber-900 dark:text-amber-200">
                             OS sem valores lançados
                           </span>
-                          <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
-                            Esta OS não possui produtos ou serviços com valores. Você pode entregar mesmo assim, por exemplo, em caso de desistência do cliente.
+                          <p className="text-xs text-amber-800 dark:text-amber-300/90 mt-1 leading-relaxed">
+                            Você pode entregar mesmo assim (ex.: desistência). Não será gerada venda.
                           </p>
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {/* Opção: Cliente Recusou */}
-                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                    <label className="flex items-center gap-3 cursor-pointer">
+                  <div className="rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50/60 dark:bg-red-950/20 p-4">
+                    <label className="flex items-start gap-3 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={clienteRecusou}
                         onChange={(e) => {
                           setClienteRecusou(e.target.checked);
                           if (e.target.checked) {
-                            setAparelhoSemConserto(false); // Desmarcar a outra opção
-                            setFormaPagamento('');
-                            setValorRecebido('');
+                            setAparelhoSemConserto(false);
+                            setLinhasPagamento([{ id: novoIdLinhaPagamento(), forma: '', valor: '' }]);
+                            setDescontoEntregaStr('');
                           }
                         }}
-                        className="w-5 h-5 text-red-600 border-red-300 rounded focus:ring-red-500"
+                        className="w-5 h-5 mt-0.5 text-red-600 border-red-300 rounded focus:ring-red-500"
                       />
-                      <div className="flex-1">
+                      <div>
                         <span className="text-sm font-medium text-red-900 dark:text-red-200">
                           Cliente recusou o serviço
                         </span>
-                        <p className="text-xs text-red-700 dark:text-red-300 mt-1">
-                          Ao marcar esta opção, os valores da OS serão zerados e nenhuma venda/comissão será registrada.
+                        <p className="text-xs text-red-800/90 dark:text-red-300/90 mt-1 leading-relaxed">
+                          Valores da OS serão zerados; nenhuma venda ou comissão será registrada.
                         </p>
                       </div>
                     </label>
                   </div>
 
-                  {/* Opção: Aparelho Sem Conserto */}
-                  <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
-                    <label className="flex items-center gap-3 cursor-pointer">
+                  <div className="rounded-xl border border-orange-200 dark:border-orange-900/50 bg-orange-50/60 dark:bg-orange-950/20 p-4">
+                    <label className="flex items-start gap-3 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={aparelhoSemConserto}
                         onChange={(e) => {
                           setAparelhoSemConserto(e.target.checked);
                           if (e.target.checked) {
-                            setClienteRecusou(false); // Desmarcar a outra opção
-                            setFormaPagamento('');
-                            setValorRecebido('');
+                            setClienteRecusou(false);
+                            setLinhasPagamento([{ id: novoIdLinhaPagamento(), forma: '', valor: '' }]);
+                            setDescontoEntregaStr('');
                           }
                         }}
-                        className="w-5 h-5 text-orange-600 border-orange-300 rounded focus:ring-orange-500"
+                        className="w-5 h-5 mt-0.5 text-orange-600 border-orange-300 rounded focus:ring-orange-500"
                       />
-                      <div className="flex-1">
+                      <div>
                         <span className="text-sm font-medium text-orange-900 dark:text-orange-200">
                           Aparelho sem conserto
                         </span>
-                        <p className="text-xs text-orange-700 dark:text-orange-300 mt-1">
-                          Marque esta opção quando o aparelho não teve condições de reparo (sem conserto possível).
+                        <p className="text-xs text-orange-800/90 dark:text-orange-300/90 mt-1 leading-relaxed">
+                          Sem reparo possível. Não haverá cobrança nem venda.
                         </p>
                       </div>
                     </label>
                   </div>
 
-                  {/* Forma de Pagamento - Só mostrar se cliente não recusou, aparelho tem conserto E há valores */}
-                  {!clienteRecusou && !aparelhoSemConserto && calcularValores().valorFinal > 0 && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-2">
-                        Forma de Pagamento *
-                      </label>
-                      <select
-                        value={formaPagamento}
-                        onChange={(e) => setFormaPagamento(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="">Selecione...</option>
-                        <option value="dinheiro">Dinheiro</option>
-                        <option value="pix">PIX</option>
-                        <option value="cartao_debito">Cartão de Débito</option>
-                        <option value="cartao_credito">Cartão de Crédito</option>
-                        <option value="transferencia">Transferência</option>
-                      </select>
-                    </div>
+                  {!clienteRecusou && !aparelhoSemConserto && entregaValorBruto > 0 && (
+                    <>
+                      <div className="rounded-xl border border-gray-200 dark:border-zinc-600 p-4 space-y-3">
+                        <div className="flex items-center gap-2 text-gray-800 dark:text-zinc-200">
+                          <FiPercent className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                          <span className="text-sm font-semibold">Desconto na entrega</span>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-zinc-400">
+                          Opcional: desconto adicional (R$) sobre o total já calculado na OS. Será lançado na venda.
+                        </p>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={descontoEntregaStr}
+                          onChange={(e) => setDescontoEntregaStr(e.target.value)}
+                          placeholder="0,00"
+                          className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-zinc-600 rounded-xl bg-white dark:bg-zinc-800 text-gray-900 dark:text-zinc-100 focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500"
+                        />
+                      </div>
+
+                      {entregaTotalLiquido <= 0 && entregaValorBruto > 0 && (
+                        <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/25 px-3 py-2.5 text-sm text-emerald-900 dark:text-emerald-200">
+                          Total a receber zerado após desconto. Não é necessário informar pagamentos.
+                        </div>
+                      )}
+
+                      {entregaTotalLiquido > 0 && (
+                        <div className="rounded-xl border border-gray-200 dark:border-zinc-600 p-4 space-y-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 text-gray-800 dark:text-zinc-200">
+                              <FiCreditCard className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                              <span className="text-sm font-semibold">Formas de pagamento</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={adicionarLinhaPagamento}
+                              className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:underline"
+                            >
+                              <FiPlus className="w-4 h-4" />
+                              Adicionar
+                            </button>
+                          </div>
+                          <p className="text-xs text-gray-500 dark:text-zinc-400">
+                            Informe uma ou mais formas. A soma deve ser pelo menos{' '}
+                            <strong className="text-gray-700 dark:text-zinc-300">{formatCurrency(entregaTotalLiquido)}</strong>.
+                          </p>
+                          <div className="space-y-2">
+                            {linhasPagamento.map((linha, idx) => (
+                              <div
+                                key={linha.id}
+                                className="flex flex-col sm:flex-row gap-2 p-3 rounded-xl bg-gray-50 dark:bg-zinc-900/50 border border-gray-100 dark:border-zinc-700/80"
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <label className="sr-only">Forma {idx + 1}</label>
+                                  <select
+                                    value={linha.forma}
+                                    onChange={(e) => atualizarLinhaPagamento(linha.id, { forma: e.target.value })}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-gray-900 dark:text-zinc-100"
+                                  >
+                                    <option value="">Forma...</option>
+                                    {FORMAS_PAGAMENTO_OS.map((f) => (
+                                      <option key={f.value} value={f.value}>
+                                        {f.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="flex gap-2 flex-1 min-w-0">
+                                  <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={linha.valor}
+                                    onChange={(e) => atualizarLinhaPagamento(linha.id, { valor: e.target.value })}
+                                    placeholder="Valor R$"
+                                    className="flex-1 min-w-0 px-3 py-2 text-sm border border-gray-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-gray-900 dark:text-zinc-100"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => removerLinhaPagamento(linha.id)}
+                                    disabled={linhasPagamento.length <= 1}
+                                    className="shrink-0 p-2 rounded-lg border border-gray-200 dark:border-zinc-600 text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 disabled:opacity-40 disabled:pointer-events-none"
+                                    title="Remover linha"
+                                  >
+                                    <FiTrash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          {entregaSomaPagamentos > entregaTotalLiquido + 0.01 && (
+                            <p className="text-xs text-amber-700 dark:text-amber-300/90">
+                              Soma maior que o total: diferença pode ser tratada como troco no caixa.
+                            </p>
+                          )}
+                          {entregaPrecisaPagamento && entregaSomaPagamentos + 0.009 < entregaTotalLiquido && (
+                            <p className="text-xs text-red-600 dark:text-red-400">
+                              Faltam {formatCurrency(Math.max(0, entregaTotalLiquido - entregaSomaPagamentos))} para cobrir o total.
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </>
                   )}
 
-                  {/* Valor Recebido - Só mostrar se cliente não recusou, aparelho tem conserto E há valores */}
-                  {!clienteRecusou && !aparelhoSemConserto && calcularValores().valorFinal > 0 && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-2">
-                        Valor Recebido *
-                      </label>
-                      <input
-                        type="text"
-                        value={valorRecebido}
-                        onChange={(e) => setValorRecebido(e.target.value)}
-                        placeholder={`Mínimo: R$ ${calcularValores().valorFinal.toFixed(2)}`}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                      <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1">
-                        Valor da O.S.: R$ {calcularValores().valorFinal.toFixed(2)}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Resumo */}
-                  <div className={`rounded-lg p-4 ${clienteRecusou ? 'bg-red-50 border border-red-200' : aparelhoSemConserto ? 'bg-orange-50 border border-orange-200' : 'bg-gray-50'}`}>
-                    <h4 className="font-medium text-gray-900 mb-2">Resumo da Entrega</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span>Cliente:</span>
-                        <span className="font-medium">{ordem?.clientes?.nome}</span>
+                  <div
+                    className={`rounded-xl p-4 border ${
+                      clienteRecusou
+                        ? 'bg-red-50/90 border-red-200 dark:bg-red-950/25 dark:border-red-900/50'
+                        : aparelhoSemConserto
+                          ? 'bg-orange-50/90 border-orange-200 dark:bg-orange-950/25 dark:border-orange-900/50'
+                          : 'bg-gray-50 dark:bg-zinc-900/40 border-gray-200 dark:border-zinc-600'
+                    }`}
+                  >
+                    <h4 className="text-sm font-semibold text-gray-900 dark:text-zinc-100 mb-3">Resumo</h4>
+                    <div className="space-y-2 text-sm text-gray-700 dark:text-zinc-300">
+                      <div className="flex justify-between gap-2">
+                        <span className="text-gray-500 dark:text-zinc-400">Cliente</span>
+                        <span className="font-medium text-right truncate max-w-[60%]">{ordem?.cliente?.nome ?? '—'}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>O.S.:</span>
+                        <span className="text-gray-500 dark:text-zinc-400">O.S.</span>
                         <span className="font-medium">#{ordem?.numero_os}</span>
                       </div>
                       {clienteRecusou ? (
-                        <div className="flex justify-between">
-                          <span>Status:</span>
-                          <span className="font-medium text-red-600">
-                            Cliente recusou - Valores serão zerados
-                          </span>
-                        </div>
+                        <p className="text-red-700 dark:text-red-300 pt-1 text-xs leading-relaxed">
+                          Cliente recusou — sem venda registrada.
+                        </p>
                       ) : aparelhoSemConserto ? (
-                        <div className="flex justify-between">
-                          <span>Status:</span>
-                          <span className="font-medium text-orange-600">
-                            Aparelho sem conserto - Sem cobrança
-                          </span>
-                        </div>
-                      ) : calcularValores().valorFinal === 0 ? (
-                        <div className="flex justify-between">
-                          <span>Status:</span>
-                          <span className="font-medium text-yellow-600">
-                            Entrega sem valores
-                          </span>
-                        </div>
+                        <p className="text-orange-800 dark:text-orange-300 pt-1 text-xs leading-relaxed">
+                          Sem conserto — sem cobrança.
+                        </p>
+                      ) : entregaValorBruto === 0 ? (
+                        <p className="text-amber-800 dark:text-amber-300 pt-1 text-xs leading-relaxed">
+                          Entrega sem valores na OS.
+                        </p>
                       ) : (
-                        <div className="flex justify-between">
-                          <span>Total:</span>
-                          <span className="font-medium text-green-600">
-                            R$ {calcularValores().valorFinal.toFixed(2)}
-                          </span>
-                        </div>
+                        <>
+                          <div className="flex justify-between border-t border-gray-200/80 dark:border-zinc-600 pt-2 mt-2">
+                            <span>Total da OS</span>
+                            <span className="font-medium tabular-nums">{formatCurrency(entregaValorBruto)}</span>
+                          </div>
+                          {entregaDescontoExtra > 0 && (
+                            <div className="flex justify-between text-emerald-800 dark:text-emerald-300">
+                              <span>Desconto na entrega</span>
+                              <span className="tabular-nums">− {formatCurrency(entregaDescontoExtra)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between font-semibold text-gray-900 dark:text-zinc-100 pt-1">
+                            <span>A receber</span>
+                            <span className="tabular-nums text-emerald-700 dark:text-emerald-400">
+                              {formatCurrency(entregaTotalLiquido)}
+                            </span>
+                          </div>
+                        </>
                       )}
                     </div>
                   </div>
                 </div>
 
-                {/* Botões */}
-                <div className="flex gap-3 mt-6">
+                <div className="shrink-0 flex gap-3 px-5 sm:px-6 py-4 border-t border-gray-100 dark:border-zinc-700 bg-gray-50/80 dark:bg-zinc-900/50">
                   <button
+                    type="button"
                     onClick={() => {
                       setModalEntrega(false);
-                      setClienteRecusou(false); // Resetar ao fechar
-                      setAparelhoSemConserto(false); // Resetar ao fechar
-                      setFormaPagamento('');
-                      setValorRecebido('');
+                      setClienteRecusou(false);
+                      setAparelhoSemConserto(false);
+                      setLinhasPagamento([{ id: novoIdLinhaPagamento(), forma: '', valor: '' }]);
+                      setDescontoEntregaStr('');
                     }}
-                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-zinc-600 text-gray-700 dark:text-zinc-200 rounded-lg hover:bg-gray-50 dark:hover:bg-zinc-600 transition-colors"
+                    className="flex-1 px-4 py-2.5 text-sm font-medium border border-gray-300 dark:border-zinc-600 text-gray-700 dark:text-zinc-200 rounded-xl hover:bg-white dark:hover:bg-zinc-800 transition-colors"
                   >
                     Cancelar
                   </button>
                   <button
+                    type="button"
                     onClick={processarEntrega}
                     disabled={
-                      processandoEntrega || 
-                      !termoGarantiaSelecionado || 
-                      (!clienteRecusou && !aparelhoSemConserto && calcularValores().valorFinal > 0 && (!formaPagamento || !valorRecebido))
+                      processandoEntrega ||
+                      !termoGarantiaSelecionado ||
+                      entregaDescontoInvalido ||
+                      !entregaPagamentoOk
                     }
-                    className={`flex-1 px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                      clienteRecusou 
-                        ? 'bg-red-600 text-white hover:bg-red-700' 
+                    className={`flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      clienteRecusou
+                        ? 'bg-red-600 text-white hover:bg-red-700'
                         : aparelhoSemConserto
                           ? 'bg-orange-600 text-white hover:bg-orange-700'
-                          : 'bg-green-600 text-white hover:bg-green-700'
+                          : 'bg-emerald-600 text-white hover:bg-emerald-700'
                     }`}
                   >
-                    {processandoEntrega 
-                      ? 'Processando...' 
-                      : clienteRecusou 
-                        ? 'Finalizar (Cliente Recusou)' 
+                    {processandoEntrega
+                      ? 'Processando...'
+                      : clienteRecusou
+                        ? 'Finalizar (cliente recusou)'
                         : aparelhoSemConserto
-                          ? 'Finalizar (Sem Conserto)'
-                          : calcularValores().valorFinal === 0
-                            ? 'Confirmar Entrega (Sem Valores)'
-                            : 'Confirmar Entrega'}
+                          ? 'Finalizar (sem conserto)'
+                          : entregaValorBruto === 0
+                            ? 'Confirmar entrega (sem valores)'
+                            : 'Confirmar entrega'}
                   </button>
                 </div>
               </div>

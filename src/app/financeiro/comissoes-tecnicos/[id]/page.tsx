@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase, getAccessTokenForApi } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import MenuLayout from '@/components/MenuLayout';
 import AuthGuard from '@/components/AuthGuard';
@@ -23,6 +23,7 @@ import {
   FiX,
   FiSave
 } from 'react-icons/fi';
+import { buildComissoesTecnicosPDFBlob } from '@/lib/pdfComissoesTecnicos';
 
 interface Comissao {
   id: string;
@@ -63,7 +64,7 @@ export default function TecnicoComissoesDetalhesPage() {
   const router = useRouter();
   const tecnicoId = params.id as string;
   
-  const { usuarioData, session } = useAuth();
+  const { usuarioData, session, empresaData } = useAuth();
   const { addToast } = useToast();
   const confirm = useConfirm();
   
@@ -76,8 +77,10 @@ export default function TecnicoComissoesDetalhesPage() {
   const [valorSaque, setValorSaque] = useState<string>('');
   const [mostrarSaqueParcial, setMostrarSaqueParcial] = useState(false);
   
-  // Filtros: padrão "todos" para exibir todas as comissões independente da data
-  const [mesSelecionado, setMesSelecionado] = useState<string>('todos');
+  // Padrão: mês atual (YYYY-MM, alinhado ao filtro por data_entrega em UTC)
+  const [mesSelecionado, setMesSelecionado] = useState<string>(() => new Date().toISOString().slice(0, 7));
+  /** Incluir linha de total + área para assinatura manual no PDF */
+  const [pdfIncluirAssinatura, setPdfIncluirAssinatura] = useState(true);
 
   // Modal Ver detalhes / Editar
   const [comissaoDetalhes, setComissaoDetalhes] = useState<Comissao | null>(null);
@@ -115,10 +118,15 @@ export default function TecnicoComissoesDetalhesPage() {
       setTecnico(tecnicoData);
 
       // Usar API (mesma lógica que Minhas Comissões). cache: 'no-store' + _t evita ver dados antigos após saque
-      const headers: HeadersInit = {};
-      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+      const token = await getAccessTokenForApi();
+      if (!token) {
+        addToast('error', 'Sessão expirada ou indisponível. Faça login novamente.');
+        setComissoes([]);
+        return;
+      }
+      const headers: HeadersInit = { Authorization: `Bearer ${token}` };
       const url = `/api/comissoes/tecnicos/${tecnicoId}?_t=${Date.now()}`;
-      const res = await fetch(url, { headers, cache: 'no-store' });
+      const res = await fetch(url, { headers, cache: 'no-store', credentials: 'include' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         addToast('error', data.error || 'Erro ao carregar comissões');
@@ -149,6 +157,15 @@ export default function TecnicoComissoesDetalhesPage() {
       }
     });
   }, [comissoes, mesSelecionado]);
+
+  const periodoLabelPdf = useMemo(() => {
+    if (!mesSelecionado || mesSelecionado === 'todos') return 'Todos os meses';
+    const [ano, mes] = mesSelecionado.split('-');
+    if (!ano || !mes) return mesSelecionado;
+    const data = new Date(parseInt(ano, 10), parseInt(mes, 10) - 1, 1);
+    if (isNaN(data.getTime())) return mesSelecionado;
+    return data.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  }, [mesSelecionado]);
 
   // Calcular totais
   const totais = useMemo(() => {
@@ -452,6 +469,67 @@ export default function TecnicoComissoesDetalhesPage() {
     }
   };
 
+  const exportarPDF = async () => {
+    if (!tecnico) return;
+    if (comissoesDoMes.length === 0) {
+      addToast('error', 'Não há comissões para exportar neste período.');
+      return;
+    }
+    try {
+      const filtrosLinhas = [
+        `Configuração: ${
+          tecnico.tipo_comissao === 'fixo'
+            ? `${formatCurrency(tecnico.comissao_fixa)} por OS`
+            : `${tecnico.comissao_percentual}% do serviço`
+        }`,
+      ];
+      const rows = comissoesDoMes.map((c) => ({
+        tecnico_nome: tecnico.nome,
+        numero_os: c.numero_os,
+        cliente_nome: c.cliente_nome,
+        servico_nome: c.servico_nome,
+        data_entrega: c.data_entrega,
+        valor_total: c.valor_total ?? (Number(c.valor_servico) || 0) + (Number(c.valor_peca) || 0),
+        tipo_comissao: c.tipo_comissao,
+        percentual_comissao: c.percentual_comissao,
+        valor_comissao_fixa: c.valor_comissao_fixa,
+        valor_comissao: c.valor_comissao,
+        status: c.status,
+        status_os: c.status_os ?? null,
+      }));
+      const blob = await buildComissoesTecnicosPDFBlob({
+        periodoLabel: periodoLabelPdf,
+        filtrosLinhas,
+        comissoes: rows,
+        formatCurrency,
+        formatDate,
+        detalheTecnicoNome: tecnico.nome,
+        notaRodape: 'Valores conforme o período (mês) selecionado na tela.',
+        empresaNome: empresaData?.nome,
+        logoUrl: empresaData?.logo_url,
+        cnpj: empresaData?.cnpj,
+        incluirAssinaturaTecnico: pdfIncluirAssinatura,
+      });
+      const safeName = tecnico.nome
+        .normalize('NFD')
+        .replace(/\p{M}/gu, '')
+        .replace(/[^\w\d-]+/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_|_$/g, '')
+        .slice(0, 48) || 'tecnico';
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `comissoes_${safeName}_${new Date().toISOString().split('T')[0]}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      addToast('success', 'PDF exportado com sucesso.');
+    } catch (e) {
+      console.error('Erro ao gerar PDF de comissões:', e);
+      addToast('error', 'Não foi possível gerar o PDF. Tente novamente.');
+    }
+  };
+
   if (loading) {
     return (
       <AuthGuard>
@@ -507,19 +585,41 @@ export default function TecnicoComissoesDetalhesPage() {
                 </div>
               </div>
               
-              {/* Seletor de Mês */}
-              <div className="flex items-center gap-2">
-                <FiCalendar className="text-gray-400" />
-                <select
-                  value={mesSelecionado}
-                  onChange={(e) => setMesSelecionado(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="todos">Todos os meses</option>
-                  {mesesDisponiveis.map(mes => (
-                    <option key={mes} value={mes}>{formatMesLabel(mes)}</option>
-                  ))}
-                </select>
+              {/* Seletor de Mês + opções PDF */}
+              <div className="flex flex-col gap-2 w-full md:w-auto md:min-w-[280px]">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <FiCalendar className="text-gray-400 flex-shrink-0" />
+                    <select
+                      value={mesSelecionado}
+                      onChange={(e) => setMesSelecionado(e.target.value)}
+                      className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="todos">Todos os meses</option>
+                      {mesesDisponiveis.map(mes => (
+                        <option key={mes} value={mes}>{formatMesLabel(mes)}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    title="Exportar relatório em PDF"
+                    onClick={exportarPDF}
+                    className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors text-sm font-medium whitespace-nowrap"
+                  >
+                    <FiFileText size={16} />
+                    PDF
+                  </button>
+                </div>
+                <label className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={pdfIncluirAssinatura}
+                    onChange={(e) => setPdfIncluirAssinatura(e.target.checked)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  Incluir total do período e campo para assinatura do técnico
+                </label>
               </div>
             </div>
 
