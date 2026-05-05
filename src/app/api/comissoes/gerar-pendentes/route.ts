@@ -134,10 +134,16 @@ export async function POST(request: NextRequest) {
         valorComissaoCalculado = (valorBase * valorComissao) / 100;
       }
 
+      const empresaIdComissao = os.empresa_id || empresa_id || tecnicoData.empresa_id || null;
+      if (!empresaIdComissao) {
+        erros.push(`OS #${os.numero_os}: empresa_id ausente, comissão não registrada`);
+        continue;
+      }
+
       const dadosComissao: any = {
         tecnico_id: tecnicoData.id,
         ordem_servico_id: os.id,
-        empresa_id: os.empresa_id,
+        empresa_id: empresaIdComissao,
         cliente_id: os.cliente_id,
         valor_servico: valorServico,
         valor_peca: os.valor_peca ?? 0,

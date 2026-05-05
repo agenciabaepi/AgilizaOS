@@ -566,11 +566,16 @@ export async function POST(request: NextRequest) {
             // Usar o id real do técnico (não o auth_user_id) para inserir na comissão
             const tecnicoIdReal = tecnicoData.id;
             
+            const empresaIdComissao = osAtualizada?.empresa_id || osAnterior?.empresa_id || empresa_id || null;
+            if (!empresaIdComissao) {
+              throw new Error(`Empresa não identificada para registrar comissão da OS ${osAnterior.id}`);
+            }
+
             // Preparar dados para inserção
             const dadosComissao: any = {
               tecnico_id: tecnicoIdReal,
               ordem_servico_id: osAnterior.id,
-              empresa_id: osAtualizada.empresa_id || osAnterior.empresa_id,
+              empresa_id: empresaIdComissao,
               cliente_id: osAtualizada.cliente_id || osAnterior.cliente_id,
               valor_servico: valorServico,
               valor_peca: osAtualizada.valor_peca ?? 0,

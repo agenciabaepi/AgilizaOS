@@ -47,6 +47,7 @@ type Empresa = {
     ultimoPagamentoStatus: string | null;
     ultimoPagamentoPagoEm: string | null;
     ultimoPagamentoValor: number | null;
+    valorMensal?: number | null;
     dataTrialFim?: string | null;
     diasTrialRestantes?: number | null;
     trialImplicito?: boolean;
@@ -78,6 +79,7 @@ export default function EmpresasClient() {
   const [empresaSelecionada, setEmpresaSelecionada] = useState<Empresa | null>(null);
   const [planos, setPlanos] = useState<Array<{ id: string; nome: string; descricao: string; preco: number }>>([]);
   const [planoSelecionado, setPlanoSelecionado] = useState<string>('');
+  const [valorMensalManual, setValorMensalManual] = useState('');
   const [observacoes, setObservacoes] = useState('');
   const [alterandoPlano, setAlterandoPlano] = useState(false);
   
@@ -190,6 +192,8 @@ export default function EmpresasClient() {
     setEmpresaSelecionada(e);
     setShowAlterarPlano(true);
     setPlanoSelecionado(e.billing?.plano?.id || '');
+    const vm = e.billing?.valorMensal;
+    setValorMensalManual(vm != null && Number.isFinite(Number(vm)) ? String(Number(vm)) : '');
     setObservacoes('');
 
     // Buscar planos disponíveis
@@ -211,12 +215,19 @@ export default function EmpresasClient() {
     setAlterandoPlano(true);
     try {
       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
+      const trimmed = valorMensalManual.trim();
+      let valor_mensal: number | undefined;
+      if (trimmed) {
+        const n = parseFloat(trimmed.replace(/\./g, '').replace(',', '.'));
+        if (Number.isFinite(n) && n > 0) valor_mensal = n;
+      }
       const res = await fetch(`${baseUrl}/api/admin-saas/empresas/${empresaSelecionada.id}/alterar-plano`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           plano_id: planoSelecionado,
           observacoes: observacoes || undefined,
+          ...(valor_mensal != null ? { valor_mensal } : {}),
         }),
       });
       const json = await res.json();
@@ -226,6 +237,7 @@ export default function EmpresasClient() {
       setShowAlterarPlano(false);
       setEmpresaSelecionada(null);
       setPlanoSelecionado('');
+      setValorMensalManual('');
       setObservacoes('');
       await fetchItems({ keepPage: true });
     } catch (err: any) {
@@ -622,6 +634,26 @@ export default function EmpresasClient() {
                 )}
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Valor mensal (R$) — opcional
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={valorMensalManual}
+                  onChange={(e) => setValorMensalManual(e.target.value)}
+                  placeholder={
+                    planos.find((p) => p.id === planoSelecionado)
+                      ? `Padrão do plano: ${planos.find((p) => p.id === planoSelecionado)!.preco.toFixed(2)}`
+                      : 'Ex: 99,90'
+                  }
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Deixe em branco para usar o preço do plano. Preencha para um valor personalizado nesta empresa.
+                </p>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Observações (opcional)</label>
                 <textarea
                   value={observacoes}
@@ -638,6 +670,7 @@ export default function EmpresasClient() {
                     setShowAlterarPlano(false);
                     setEmpresaSelecionada(null);
                     setPlanoSelecionado('');
+                    setValorMensalManual('');
                     setObservacoes('');
                   }}
                   className="border-gray-300 hover:bg-gray-50"

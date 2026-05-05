@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { bearerAuthHeaders } from '@/lib/api/clientAuthHeaders';
 import { FiCheck, FiX } from 'react-icons/fi';
 
 interface ChecklistItem {
@@ -17,14 +19,27 @@ interface ChecklistPublicProps {
   checklistData: string | null;
   empresaId?: string;
   equipamentoCategoria?: string; // Nova prop para filtrar por categoria
+  /** Quando preenchido (ex.: página pública com dados já validados por senha), não chama /api/checklist-itens. */
+  catalogItens?: ChecklistItem[];
 }
 
-export default function ChecklistPublic({ checklistData, empresaId, equipamentoCategoria }: ChecklistPublicProps) {
+export default function ChecklistPublic({
+  checklistData,
+  empresaId,
+  equipamentoCategoria,
+  catalogItens,
+}: ChecklistPublicProps) {
+  const { session } = useAuth();
   const [itens, setItens] = useState<ChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Carregar itens de checklist da empresa
   useEffect(() => {
+    if (catalogItens !== undefined) {
+      setItens(catalogItens);
+      setLoading(false);
+      return;
+    }
+
     const fetchItens = async () => {
       if (!empresaId) {
         setLoading(false);
@@ -32,20 +47,19 @@ export default function ChecklistPublic({ checklistData, empresaId, equipamentoC
       }
 
       try {
-        // ✅ NOVO: Usar categoria de equipamento se fornecida, caso contrário usar todos
-        const url = equipamentoCategoria 
+        const url = equipamentoCategoria
           ? `/api/checklist-itens?empresa_id=${empresaId}&equipamento_categoria=${encodeURIComponent(equipamentoCategoria)}&ativo=true`
           : `/api/checklist-itens?empresa_id=${empresaId}&ativo=true`;
-          
+
         const response = await fetch(url, {
           method: 'GET',
-          headers: {
+          headers: bearerAuthHeaders(session, {
             'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0',
-            'Content-Type': 'application/json'
-          },
-          credentials: 'include'
+            Pragma: 'no-cache',
+            Expires: '0',
+            'Content-Type': 'application/json',
+          }),
+          credentials: 'include',
         });
 
         if (response.ok) {
@@ -62,7 +76,7 @@ export default function ChecklistPublic({ checklistData, empresaId, equipamentoC
     };
 
     fetchItens();
-  }, [empresaId, equipamentoCategoria]);
+  }, [empresaId, equipamentoCategoria, catalogItens, session?.access_token]);
 
   if (!checklistData) return null;
 

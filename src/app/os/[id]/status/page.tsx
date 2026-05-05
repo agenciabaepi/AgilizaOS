@@ -48,6 +48,15 @@ interface DadosOS {
   empresa_nome?: string;
   cliente?: { nome?: string; telefone?: string; email?: string; endereco?: string } | null;
   termo_garantia?: { nome?: string; conteudo?: string } | null;
+  checklist_itens?: Array<{
+    id: string;
+    nome: string;
+    descricao?: string | null;
+    categoria: string;
+    ativo: boolean;
+    ordem: number;
+    obrigatorio: boolean;
+  }>;
   peca?: string;
   qtd_servico?: number;
   qtd_peca?: number;
@@ -425,7 +434,12 @@ export default function OSStatusPublicoPage() {
                   {dados.equipamento && <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-200 rounded-full text-xs font-medium mt-1 inline-block">Categoria: {dados.equipamento}</span>}
                 </div>
               </div>
-              <ChecklistPublic checklistData={dados.checklist_entrada} empresaId={dados.empresa_id} equipamentoCategoria={dados.equipamento} />
+              <ChecklistPublic
+                checklistData={dados.checklist_entrada}
+                empresaId={dados.empresa_id}
+                equipamentoCategoria={dados.equipamento}
+                catalogItens={dados.checklist_itens}
+              />
             </div>
           )}
 

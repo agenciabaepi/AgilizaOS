@@ -28,6 +28,7 @@ import {
   FiSun,
   FiMoon,
   FiCreditCard,
+  FiClipboard,
 } from 'react-icons/fi';
 import { supabase, forceLogout } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
@@ -354,6 +355,9 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
                   {podeVer('lembretes') && matchesSearch('Lembretes') && (
                     <SidebarButton path="/lembretes" icon={<FiBell size={22} strokeWidth={1.75} />} label="Lembretes" isActive={pathname === '/lembretes'} menuRecolhido={false} />
                   )}
+          {podeVer('ordens') && matchesSearch('Orçamentos') && (
+            <SidebarButton path="/orcamentos" icon={<FiClipboard size={22} strokeWidth={1.75} />} label="Orçamentos" isActive={pathname === '/orcamentos' || pathname?.startsWith('/orcamentos/')} menuRecolhido={false} />
+          )}
           {podeVer('ordens') && matchesSearch('Ordens de Serviço') && (
             <SidebarButton path="/ordens" icon={<FiFileText size={22} strokeWidth={1.75} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} menuRecolhido={false} />
           )}
@@ -558,6 +562,9 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
               {/* Lembretes */}
               {podeVer('lembretes') && (
                 <SidebarButton path="/lembretes" icon={<FiBell size={22} strokeWidth={1.75} />} label="Lembretes" isActive={pathname === '/lembretes'} menuRecolhido={false} />
+              )}
+              {podeVer('ordens') && (
+                <SidebarButton path="/orcamentos" icon={<FiClipboard size={22} strokeWidth={1.75} />} label="Orçamentos" isActive={pathname === '/orcamentos' || pathname?.startsWith('/orcamentos/')} menuRecolhido={false} />
               )}
               {podeVer('ordens') && (
                 <SidebarButton path="/ordens" icon={<FiFileText size={22} strokeWidth={1.75} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} menuRecolhido={false} />

@@ -3,6 +3,8 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import { diffDiasCalendario } from '@/lib/assinaturaCalendario';
 import { dataFimTrialAPartirDe } from '@/config/trial';
+import { computeAssinaturaVencidaPorBilling } from '@/lib/billing/empresaSaasBilling';
+import { pickAssinaturaParaContexto } from '@/lib/billing/pickAssinatura';
 
 /** Disparar após pagamento aprovado para o guard atualizar e liberar o acesso */
 export function dispatchAssinaturaUpdated() {
@@ -144,6 +146,12 @@ export const useSubscription = () => {
         /* fallback abaixo */
       }
 
+      const empresaCriadaEmParaPick =
+        empresaCriadaEm ||
+        (typeof empresaData?.created_at === 'string' && empresaData.created_at.trim()
+          ? empresaData.created_at
+          : null);
+
       if (!primeiraAssinatura) {
         const { data: assinaturaData, error: assinaturaError } = await supabase
           .from('assinaturas')
@@ -153,20 +161,20 @@ export const useSubscription = () => {
           `)
           .eq('empresa_id', usuarioData.empresa_id)
           .order('created_at', { ascending: false })
-          .limit(1);
+          .limit(30);
 
         if (!assinaturaError && assinaturaData && assinaturaData.length > 0) {
-          primeiraAssinatura = assinaturaData[0] as Record<string, unknown>;
+          const picked = pickAssinaturaParaContexto(
+            assinaturaData as Record<string, unknown>[],
+            empresaCriadaEmParaPick
+          );
+          if (picked) primeiraAssinatura = picked;
         } else if (assinaturaError && assinaturaError.code !== 'PGRST116') {
           console.error('Erro ao buscar assinatura (fallback):', assinaturaError);
         }
       }
 
-      const empresaCriadaEmFinal =
-        empresaCriadaEm ||
-        (typeof empresaData?.created_at === 'string' && empresaData.created_at.trim()
-          ? empresaData.created_at
-          : null);
+      const empresaCriadaEmFinal = empresaCriadaEmParaPick;
 
       if (primeiraAssinatura) {
         const assinaturaMapeada: Assinatura = {
@@ -210,13 +218,20 @@ export const useSubscription = () => {
     fetchAssinatura();
   }, [user, usuarioData?.empresa_id, fetchAssinatura]);
 
-  // Refetch quando um pagamento for aprovado (PIX) para liberar o acesso na hora
+  // Refetch quando um pagamento for aprovado (PIX). Um segundo fetch cobre lag Asaas→Supabase.
   useEffect(() => {
+    let t1: ReturnType<typeof setTimeout> | null = null;
     const handler = () => {
-      if (usuarioData?.empresa_id) fetchAssinatura();
+      if (!usuarioData?.empresa_id) return;
+      void fetchAssinatura();
+      if (t1) clearTimeout(t1);
+      t1 = setTimeout(() => void fetchAssinatura(), 750);
     };
     document.addEventListener('assinatura-updated', handler);
-    return () => document.removeEventListener('assinatura-updated', handler);
+    return () => {
+      document.removeEventListener('assinatura-updated', handler);
+      if (t1) clearTimeout(t1);
+    };
   }, [usuarioData?.empresa_id, fetchAssinatura]);
 
   // Buscar limites reais da empresa (`planoLimite` evita estado React atrasado logo após setAssinatura)
@@ -258,17 +273,25 @@ export const useSubscription = () => {
   /** Trial expirado após o último dia civil de `data_trial_fim` (igual período pago). */
   const isTrialExpired = (): boolean => {
     if (!assinatura || assinatura.status !== 'trial') return false;
-    if (!assinatura.data_trial_fim) return false;
-    const d = diffDiasCalendario(assinatura.data_trial_fim);
+    if (assinatura.data_trial_fim) {
+      const d = diffDiasCalendario(assinatura.data_trial_fim);
+      return d !== null && d < 0;
+    }
+    const end = dataFimTrialAPartirDe(empresaData?.created_at);
+    if (!end) return false;
+    const d = diffDiasCalendario(end);
     return d !== null && d < 0;
   };
 
   const isSubscriptionActive = (): boolean => {
     if (!assinatura) return false;
     if (assinatura.status === 'cancelled' || assinatura.status === 'expired') return false;
-    if (assinatura.status === 'trial' && assinatura.data_trial_fim) {
-      const d = diffDiasCalendario(assinatura.data_trial_fim);
-      if (d !== null && d < 0) return false;
+    if (assinatura.status === 'trial') {
+      const ref = assinatura.data_trial_fim || dataFimTrialAPartirDe(empresaData?.created_at);
+      if (ref) {
+        const d = diffDiasCalendario(ref);
+        if (d !== null && d < 0) return false;
+      }
     }
     if (assinatura.data_fim) {
       const d = diffDiasCalendario(assinatura.data_fim);
@@ -278,20 +301,22 @@ export const useSubscription = () => {
   };
 
   /** Assinatura vencida: bloqueia acesso às páginas (usuário deve renovar) */
-  const isAssinaturaVencida = (): boolean => {
-    if (loading || !usuarioData?.empresa_id) return false;
-    if (!assinatura) return false;
-    if (['cancelled', 'expired', 'suspended', 'pending_payment'].includes(assinatura.status)) return true;
-    if (assinatura.status === 'active' && assinatura.proxima_cobranca) {
-      const d = diffDiasCalendario(assinatura.proxima_cobranca);
-      if (d !== null && d < 0) return true;
-    }
-    if (assinatura.status === 'trial' && assinatura.data_trial_fim) {
-      const d = diffDiasCalendario(assinatura.data_trial_fim);
-      if (d !== null && d < 0) return true;
-    }
-    return false;
-  };
+  const isAssinaturaVencida = (): boolean =>
+    computeAssinaturaVencidaPorBilling(
+      assinatura
+        ? {
+            status: assinatura.status,
+            data_trial_fim: assinatura.data_trial_fim,
+            proxima_cobranca: assinatura.proxima_cobranca,
+            data_fim: assinatura.data_fim,
+          }
+        : null,
+      empresaData?.created_at,
+      {
+        loading,
+        empresaIdPresent: !!usuarioData?.empresa_id,
+      }
+    );
 
   const podeCriar = (tipo: 'usuarios' | 'produtos' | 'servicos' | 'clientes' | 'ordens' | 'fornecedores'): boolean => {
     if (!limites) return true;
@@ -299,8 +324,10 @@ export const useSubscription = () => {
   };
 
   const diasRestantesTrial = (): number => {
-    if (!assinatura || assinatura.status !== 'trial' || !assinatura.data_trial_fim) return 0;
-    const d = diffDiasCalendario(assinatura.data_trial_fim);
+    if (!assinatura || assinatura.status !== 'trial') return 0;
+    const ref = assinatura.data_trial_fim || dataFimTrialAPartirDe(empresaData?.created_at);
+    if (!ref) return 0;
+    const d = diffDiasCalendario(ref);
     if (d === null) return 0;
     return Math.max(0, d);
   };

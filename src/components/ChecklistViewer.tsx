@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { bearerAuthHeaders } from '@/lib/api/clientAuthHeaders';
 import { FiCheck, FiX } from 'react-icons/fi';
 
 interface ChecklistItem {
@@ -20,7 +21,7 @@ interface ChecklistViewerProps {
 }
 
 export default function ChecklistViewer({ checklistData, equipamentoCategoria }: ChecklistViewerProps) {
-  const { empresaData } = useAuth();
+  const { empresaData, session } = useAuth();
   const [itens, setItens] = useState<ChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -40,13 +41,13 @@ export default function ChecklistViewer({ checklistData, equipamentoCategoria }:
           
         const response = await fetch(url, {
           method: 'GET',
-          headers: {
+          headers: bearerAuthHeaders(session, {
             'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0',
-            'Content-Type': 'application/json'
-          },
-          credentials: 'include'
+            Pragma: 'no-cache',
+            Expires: '0',
+            'Content-Type': 'application/json',
+          }),
+          credentials: 'include',
         });
 
         if (response.ok) {
@@ -63,7 +64,7 @@ export default function ChecklistViewer({ checklistData, equipamentoCategoria }:
     };
 
     fetchItens();
-  }, [empresaData?.id, equipamentoCategoria]);
+  }, [empresaData?.id, equipamentoCategoria, session?.access_token]);
 
   if (!checklistData) return null;
 

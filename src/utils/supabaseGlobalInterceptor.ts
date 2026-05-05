@@ -1,13 +1,34 @@
 // Interceptador global mais agressivo para Supabase
 import { supabase } from '@/lib/supabaseClient';
 
-// Lista de tabelas que sabemos que não existem (apenas as mais problemáticas)
-const BLOCKED_TABLES = [
-  'servicos',
-  'produtos', 
-  'produtos_servicos'
-  // Removemos 'assinaturas' e 'planos' pois podem existir em alguns casos
-];
+// Tabelas legadas que em alguns ambientes não existem.
+// Não incluir `produtos_servicos` (tabela real usada no catálogo / orçamentos / OS).
+const BLOCKED_TABLES = ['servicos', 'produtos'];
+
+function mockReadChain(): any {
+  const chain: any = {};
+  const next = () => chain;
+  chain.eq = next;
+  chain.neq = next;
+  chain.gt = next;
+  chain.gte = next;
+  chain.lt = next;
+  chain.lte = next;
+  chain.or = next;
+  chain.not = next;
+  chain.filter = next;
+  chain.in = next;
+  chain.is = next;
+  chain.match = next;
+  chain.ilike = next;
+  chain.like = next;
+  chain.order = next;
+  chain.range = next;
+  chain.limit = () => Promise.resolve({ data: [], error: null });
+  chain.maybeSingle = () => Promise.resolve({ data: null, error: null });
+  chain.single = () => Promise.resolve({ data: null, error: { code: 'PGRST116' } });
+  return chain;
+}
 
 // Função para interceptar todas as queries do Supabase
 export const initializeSupabaseInterceptor = () => {
@@ -18,27 +39,7 @@ export const initializeSupabaseInterceptor = () => {
     // Se a tabela está na lista de bloqueadas, retornar um mock
     if (BLOCKED_TABLES.includes(table)) {
       return {
-        select: () => ({
-          eq: () => ({
-            eq: () => ({
-              order: () => ({
-                limit: () => Promise.resolve({ data: [], error: null })
-              }),
-              limit: () => Promise.resolve({ data: [], error: null })
-            }),
-            order: () => ({
-              limit: () => Promise.resolve({ data: [], error: null })
-            }),
-            limit: () => Promise.resolve({ data: [], error: null })
-          }),
-          order: () => ({
-            limit: () => Promise.resolve({ data: [], error: null })
-          }),
-          limit: () => Promise.resolve({ data: [], error: null }),
-          or: () => ({
-            limit: () => Promise.resolve({ data: [], error: null })
-          })
-        }),
+        select: () => mockReadChain(),
         insert: () => Promise.resolve({ data: null, error: { message: 'Table blocked' } }),
         update: () => Promise.resolve({ data: null, error: { message: 'Table blocked' } }),
         delete: () => Promise.resolve({ data: null, error: { message: 'Table blocked' } }),

@@ -21,7 +21,7 @@ const links = [
   { href: '/admin-saas/tickets', label: 'Tickets', icon: FiMessageSquare },
   { href: '/admin-saas/notificacoes', label: 'Notificações', icon: FiBell },
   { href: '/admin-saas/usuarios', label: 'Usuários', icon: FiUsers },
-  { href: '/admin-saas/config', label: 'Configurações', icon: FiSettings },
+  { href: '/admin-saas/config', label: 'Config e preço', icon: FiSettings },
 ];
 
 export default function NavAdminSaaS() {

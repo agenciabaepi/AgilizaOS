@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/Button';
-import { FiArrowLeft, FiDollarSign, FiUsers, FiBox, FiFileText, FiTrendingUp, FiCheck, FiX, FiToggleLeft, FiToggleRight, FiSlash } from 'react-icons/fi';
+import { FiArrowLeft, FiDollarSign, FiUsers, FiBox, FiFileText, FiTrendingUp, FiCheck, FiX, FiToggleLeft, FiToggleRight, FiSlash, FiEdit2 } from 'react-icons/fi';
 import { BuildingOfficeIcon as FiBuilding } from '@heroicons/react/24/outline';
 import { DIAS_TRIAL_GRATIS } from '@/config/trial';
+import AdminEmpresaClientesSection from './AdminEmpresaClientesSection';
 
 function formatarDataCurta(iso: string | null | undefined) {
   if (!iso) return '—';
@@ -34,8 +35,6 @@ type EmpresaDetalhes = {
   plano?: string | null;
   logo_url?: string | null;
   website?: string | null;
-  estado?: string | null;
-  cep?: string | null;
   metrics?: {
     usuarios: number;
     produtos: number;
@@ -46,6 +45,8 @@ type EmpresaDetalhes = {
   billing?: {
     plano: { id: string | null; nome: string };
     assinaturaStatus: string | null;
+    /** Valor mensal gravado em `assinaturas.valor` (pode diferir do preço do plano) */
+    valorMensal?: number | null;
     proximaCobranca: string | null;
     vencido: boolean;
     cobrancaStatus: string;
@@ -63,8 +64,14 @@ type EmpresaDetalhes = {
 const ModalAlterarPlano = ({ empresa, onClose, onSuccess }: { empresa: EmpresaDetalhes; onClose: () => void; onSuccess: () => void }) => {
   const [planos, setPlanos] = useState<Array<{ id: string; nome: string; descricao: string; preco: number }>>([]);
   const [planoSelecionado, setPlanoSelecionado] = useState<string>(empresa.billing?.plano?.id || '');
+  const [valorMensalStr, setValorMensalStr] = useState('');
   const [observacoes, setObservacoes] = useState('');
   const [alterandoPlano, setAlterandoPlano] = useState(false);
+
+  useEffect(() => {
+    const v = empresa.billing?.valorMensal;
+    setValorMensalStr(v != null && Number.isFinite(Number(v)) ? String(Number(v)) : '');
+  }, [empresa.id, empresa.billing?.valorMensal]);
 
   useEffect(() => {
     async function fetchPlanos() {
@@ -88,6 +95,12 @@ const ModalAlterarPlano = ({ empresa, onClose, onSuccess }: { empresa: EmpresaDe
     setAlterandoPlano(true);
     try {
       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
+      const trimmed = valorMensalStr.trim();
+      let valor_mensal: number | undefined;
+      if (trimmed) {
+        const n = parseFloat(trimmed.replace(/\./g, '').replace(',', '.'));
+        if (Number.isFinite(n) && n > 0) valor_mensal = n;
+      }
       const res = await fetch(`${baseUrl}/api/admin-saas/empresas/${empresa.id}/alterar-plano`, {
         credentials: 'include',
         method: 'POST',
@@ -95,6 +108,7 @@ const ModalAlterarPlano = ({ empresa, onClose, onSuccess }: { empresa: EmpresaDe
         body: JSON.stringify({
           plano_id: planoSelecionado,
           observacoes: observacoes || undefined,
+          ...(valor_mensal != null ? { valor_mensal } : {}),
         }),
       });
       const json = await res.json();
@@ -142,6 +156,26 @@ const ModalAlterarPlano = ({ empresa, onClose, onSuccess }: { empresa: EmpresaDe
                 {planos.find(p => p.id === planoSelecionado)?.descricao}
               </div>
             )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Valor mensal (R$) — opcional
+            </label>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={valorMensalStr}
+              onChange={(e) => setValorMensalStr(e.target.value)}
+              placeholder={
+                planos.find((p) => p.id === planoSelecionado)
+                  ? `Padrão do plano: ${planos.find((p) => p.id === planoSelecionado)!.preco.toFixed(2)}`
+                  : 'Ex: 99,90'
+              }
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Deixe em branco para usar o preço cadastrado no plano. Preencha para cobrar um valor diferente desta empresa.
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Observações (opcional)</label>
@@ -375,6 +409,181 @@ const ModalGerenciarRecursos = ({ empresa, onClose, onSuccess }: { empresa: Empr
   );
 };
 
+const ModalEditarDadosEmpresa = ({
+  open,
+  onClose,
+  empresa,
+  empresaId,
+  onSuccess,
+}: {
+  open: boolean;
+  onClose: () => void;
+  empresa: EmpresaDetalhes;
+  empresaId: string;
+  onSuccess: () => Promise<void>;
+}) => {
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    nome: '',
+    email: '',
+    cnpj: '',
+    cpf: '',
+    telefone: '',
+    endereco: '',
+    cidade: '',
+    website: '',
+    logo_url: '',
+  });
+
+  useEffect(() => {
+    if (!open) return;
+    setForm({
+      nome: empresa.nome ?? '',
+      email: empresa.email ?? '',
+      cnpj: empresa.cnpj ?? '',
+      cpf: empresa.cpf ?? '',
+      telefone: empresa.telefone ?? '',
+      endereco: empresa.endereco ?? '',
+      cidade: empresa.cidade ?? '',
+      website: empresa.website ?? '',
+      logo_url: empresa.logo_url ?? '',
+    });
+  }, [open, empresa]);
+
+  async function salvar(e: React.FormEvent) {
+    e.preventDefault();
+    const nome = form.nome.trim();
+    if (!nome) {
+      alert('Informe o nome da empresa.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_SITE_URL || '');
+      const trim = (s: string) => s.trim();
+      const payload = {
+        nome,
+        email: trim(form.email),
+        cnpj: trim(form.cnpj),
+        cpf: trim(form.cpf),
+        telefone: trim(form.telefone),
+        endereco: trim(form.endereco),
+        cidade: trim(form.cidade),
+        website: trim(form.website),
+        logo_url: trim(form.logo_url) || null,
+      };
+      const res = await fetch(`${baseUrl}/api/admin-saas/empresas/${empresaId}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        throw new Error(json.message || 'Falha ao salvar');
+      }
+      await onSuccess();
+      onClose();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Erro ao salvar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!open) return null;
+
+  const inputClass =
+    'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-gray-900 focus:border-transparent';
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-editar-empresa-titulo"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !saving) onClose();
+      }}
+    >
+      <div
+        className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+          <h3 id="modal-editar-empresa-titulo" className="text-lg font-semibold text-gray-900">
+            Editar dados da empresa
+          </h3>
+          <button
+            type="button"
+            onClick={() => !saving && onClose()}
+            className="p-2 rounded-lg text-gray-500 hover:bg-gray-100"
+            aria-label="Fechar"
+          >
+            <FiX className="w-5 h-5" />
+          </button>
+        </div>
+        <form onSubmit={salvar} className="overflow-y-auto px-5 py-4 space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Nome *</label>
+            <input
+              className={inputClass}
+              value={form.nome}
+              onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">E-mail</label>
+            <input type="email" className={inputClass} value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">CNPJ</label>
+              <input className={inputClass} value={form.cnpj} onChange={(e) => setForm((f) => ({ ...f, cnpj: e.target.value }))} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">CPF</label>
+              <input className={inputClass} value={form.cpf} onChange={(e) => setForm((f) => ({ ...f, cpf: e.target.value }))} />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Telefone</label>
+            <input className={inputClass} value={form.telefone} onChange={(e) => setForm((f) => ({ ...f, telefone: e.target.value }))} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Endereço</label>
+            <textarea className={`${inputClass} min-h-[72px]`} value={form.endereco} onChange={(e) => setForm((f) => ({ ...f, endereco: e.target.value }))} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Cidade</label>
+            <input className={inputClass} value={form.cidade} onChange={(e) => setForm((f) => ({ ...f, cidade: e.target.value }))} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Website</label>
+            <input className={inputClass} value={form.website} onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))} placeholder="https://..." />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">URL do logo</label>
+            <input className={inputClass} value={form.logo_url} onChange={(e) => setForm((f) => ({ ...f, logo_url: e.target.value }))} />
+          </div>
+          <p className="text-xs text-gray-500">
+            Logo vazio remove a URL. Logos claro/escuro ficam em Configurações da empresa no app (se a migration existir na base).
+          </p>
+          <div className="flex justify-end gap-2 pt-4 border-t border-gray-200">
+            <Button type="button" variant="outline" onClick={onClose} className="border-gray-300" disabled={saving}>
+              Cancelar
+            </Button>
+            <Button type="submit" className="bg-gray-900 hover:bg-gray-800 text-white" disabled={saving}>
+              {saving ? 'Salvando...' : 'Salvar'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -382,13 +591,17 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
   const [empresa, setEmpresa] = useState<EmpresaDetalhes | null>(null);
   const [showAlterarPlano, setShowAlterarPlano] = useState(false);
   const [showGerenciarRecursos, setShowGerenciarRecursos] = useState(false);
+  const [showEditarDadosEmpresa, setShowEditarDadosEmpresa] = useState(false);
   const [salvandoAtivo, setSalvandoAtivo] = useState(false);
   const [cancelandoAssinatura, setCancelandoAssinatura] = useState(false);
+  const [valorAssinaturaInline, setValorAssinaturaInline] = useState('');
+  const [salvandoValorAssinatura, setSalvandoValorAssinatura] = useState(false);
 
-  // Função para recarregar dados da empresa
-  const recarregarEmpresa = async () => {
+  // Função para recarregar dados da empresa (`silent` evita spinner em atualizações após modais)
+  const recarregarEmpresa = async (opts?: { silent?: boolean }) => {
     if (!empresaId) return;
-    setLoading(true);
+    const silent = opts?.silent === true;
+    if (!silent) setLoading(true);
     try {
       const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_SITE_URL || '');
       const res = await fetch(`${baseUrl}/api/admin-saas/empresas/${empresaId}`, { cache: 'no-store', credentials: 'include' });
@@ -400,9 +613,10 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
       setEmpresa(json.empresa);
     } catch (e: any) {
       console.error(e);
-      setError(e.message || 'Não foi possível carregar os detalhes da empresa');
+      if (!silent) setError(e.message || 'Não foi possível carregar os detalhes da empresa');
+      else alert(e.message || 'Não foi possível atualizar os dados');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -412,6 +626,14 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
     recarregarEmpresa();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empresaId]);
+
+  useEffect(() => {
+    if (!empresa) return;
+    const v = empresa.billing?.valorMensal;
+    setValorAssinaturaInline(
+      v != null && Number.isFinite(Number(v)) ? String(Number(v)) : ''
+    );
+  }, [empresa?.id, empresa?.billing?.valorMensal]);
 
   async function patchEmpresa(payload: Record<string, unknown>) {
     const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_SITE_URL || '');
@@ -449,6 +671,37 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
 
   async function handleReject() {
     await patchEmpresa({ status: 'reprovada', ativo: false });
+  }
+
+  async function salvarValorAssinaturaInline() {
+    if (!empresa) return;
+    const trimmed = valorAssinaturaInline.trim();
+    const n = trimmed
+      ? parseFloat(trimmed.replace(/\./g, '').replace(',', '.'))
+      : NaN;
+    if (!Number.isFinite(n) || n <= 0) {
+      alert('Informe um valor válido maior que zero.');
+      return;
+    }
+    setSalvandoValorAssinatura(true);
+    try {
+      const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_SITE_URL || '');
+      const res = await fetch(`${baseUrl}/api/admin-saas/empresas/${empresaId}/assinatura-valor`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ valor: n }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        throw new Error(json.message || 'Falha ao salvar valor');
+      }
+      await recarregarEmpresa();
+    } catch (e: any) {
+      alert(e.message || 'Erro ao salvar valor da assinatura');
+    } finally {
+      setSalvandoValorAssinatura(false);
+    }
   }
 
   if (loading) {
@@ -595,6 +848,53 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
           <div className="text-2xl font-bold text-gray-900">
             {empresa.billing?.plano?.nome || 'Assinatura'}
           </div>
+          {empresa.billing?.valorMensal != null && Number.isFinite(Number(empresa.billing.valorMensal)) && (
+            <p className="mt-2 text-sm text-gray-600">
+              Valor mensal na base:{' '}
+              <span className="font-semibold text-gray-900">
+                {Number(empresa.billing.valorMensal).toLocaleString('pt-BR', {
+                  style: 'currency',
+                  currency: 'BRL',
+                })}
+              </span>
+            </p>
+          )}
+          {(empresa.billing?.assinaturaStatus === 'active' ||
+            empresa.billing?.assinaturaStatus === 'ativa' ||
+            empresa.billing?.assinaturaStatus === 'trial') && (
+            <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
+              <div className="text-xs font-medium text-gray-600">Valor mensal manual</div>
+              <div className="flex flex-wrap gap-2 items-end">
+                <div className="flex-1 min-w-[140px]">
+                  <label htmlFor="valor-assinatura-inline" className="sr-only">
+                    Valor mensal em reais
+                  </label>
+                  <input
+                    id="valor-assinatura-inline"
+                    type="text"
+                    inputMode="decimal"
+                    value={valorAssinaturaInline}
+                    onChange={(e) => setValorAssinaturaInline(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    placeholder="Ex: 149,90"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={salvandoValorAssinatura}
+                  onClick={salvarValorAssinaturaInline}
+                  className="bg-gray-900 hover:bg-gray-800 text-white"
+                >
+                  {salvandoValorAssinatura ? 'Salvando...' : 'Salvar valor'}
+                </Button>
+              </div>
+              <p className="text-[11px] text-gray-500 leading-snug">
+                Atualiza só o valor cobrado registrado na assinatura (sem trocar o plano). Se não existir linha em
+                assinaturas, use &quot;Alterar assinatura&quot;.
+              </p>
+            </div>
+          )}
           {empresa.billing?.dataTrialFim &&
             (empresa.billing.cobrancaStatus === 'Trial' ||
               empresa.billing.cobrancaStatus === 'Trial encerrado') && (
@@ -643,7 +943,19 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Informações da Empresa */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Informações da Empresa</h2>
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Informações da Empresa</h2>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="border-gray-300 shrink-0"
+              onClick={() => setShowEditarDadosEmpresa(true)}
+            >
+              <FiEdit2 className="mr-1.5 w-4 h-4" />
+              Editar
+            </Button>
+          </div>
           <div className="space-y-3">
             <div>
               <div className="text-xs font-medium text-gray-500 mb-1">Nome</div>
@@ -661,12 +973,12 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
                 {empresa.cnpj || 'Não informado'}
               </div>
             </div>
-            {empresa.cpf && (
-              <div>
-                <div className="text-xs font-medium text-gray-500 mb-1">CPF</div>
-                <div className="text-sm text-gray-900">{empresa.cpf}</div>
+            <div>
+              <div className="text-xs font-medium text-gray-500 mb-1">CPF</div>
+              <div className={`text-sm ${empresa.cpf ? 'text-gray-900' : 'text-gray-400 italic'}`}>
+                {empresa.cpf || 'Não informado'}
               </div>
-            )}
+            </div>
             <div>
               <div className="text-xs font-medium text-gray-500 mb-1">Telefone</div>
               <div className={`text-sm ${empresa.telefone ? 'text-gray-900' : 'text-gray-400 italic'}`}>
@@ -679,34 +991,24 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
                 {empresa.endereco || 'Não informado'}
               </div>
             </div>
-            {empresa.cidade && (
-              <div>
-                <div className="text-xs font-medium text-gray-500 mb-1">Cidade</div>
-                <div className="text-sm text-gray-900">{empresa.cidade}</div>
+            <div>
+              <div className="text-xs font-medium text-gray-500 mb-1">Cidade</div>
+              <div className={`text-sm ${empresa.cidade ? 'text-gray-900' : 'text-gray-400 italic'}`}>
+                {empresa.cidade || 'Não informado'}
               </div>
-            )}
-            {empresa.estado && (
-              <div>
-                <div className="text-xs font-medium text-gray-500 mb-1">Estado</div>
-                <div className="text-sm text-gray-900">{empresa.estado}</div>
-              </div>
-            )}
-            {empresa.cep && (
-              <div>
-                <div className="text-xs font-medium text-gray-500 mb-1">CEP</div>
-                <div className="text-sm text-gray-900">{empresa.cep}</div>
-              </div>
-            )}
-            {empresa.website && (
-              <div>
-                <div className="text-xs font-medium text-gray-500 mb-1">Website</div>
-                <div className="text-sm text-gray-900">
+            </div>
+            <div>
+              <div className="text-xs font-medium text-gray-500 mb-1">Website</div>
+              <div className={`text-sm ${empresa.website ? 'text-gray-900' : 'text-gray-400 italic'}`}>
+                {empresa.website ? (
                   <a href={empresa.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                     {empresa.website}
                   </a>
-                </div>
+                ) : (
+                  'Não informado'
+                )}
               </div>
-            )}
+            </div>
             <div>
               <div className="text-xs font-medium text-gray-500 mb-1">Logo</div>
               <div className={`text-sm ${empresa.logo_url ? 'text-gray-900' : 'text-gray-400 italic'}`}>
@@ -825,6 +1127,8 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
         </div>
       </div>
 
+      <AdminEmpresaClientesSection empresaId={empresaId} />
+
       {/* Ações Rápidas */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Ações Rápidas</h2>
@@ -900,6 +1204,16 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
             setShowGerenciarRecursos(false);
             await recarregarEmpresa();
           }} 
+        />
+      ) : null}
+
+      {showEditarDadosEmpresa && empresa ? (
+        <ModalEditarDadosEmpresa
+          open={showEditarDadosEmpresa}
+          onClose={() => setShowEditarDadosEmpresa(false)}
+          empresa={empresa}
+          empresaId={empresaId}
+          onSuccess={() => recarregarEmpresa({ silent: true })}
         />
       ) : null}
     </div>

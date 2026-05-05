@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { pickAssinaturaParaContexto } from '@/lib/billing/pickAssinatura';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -55,7 +56,7 @@ export async function GET(req: NextRequest) {
         .select('*')
         .eq('empresa_id', empresaId)
         .order('created_at', { ascending: false })
-        .limit(1),
+        .limit(30),
       admin.from('empresas').select('created_at').eq('id', empresaId).maybeSingle(),
     ]);
 
@@ -65,7 +66,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ assinatura: null, empresa_created_at: empresaCreatedAt });
     }
 
-    const row = rows[0] as Record<string, unknown>;
+    const row = pickAssinaturaParaContexto(rows as Record<string, unknown>[], empresaCreatedAt)!;
     let planos: Record<string, unknown> | null = null;
     const planoId = row.plano_id as string | undefined;
     if (planoId) {

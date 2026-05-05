@@ -1,6 +1,6 @@
 import { useSubscription } from '@/hooks/useSubscription';
 import { useAuth } from '@/context/AuthContext';
-import { DIAS_TRIAL_GRATIS } from '@/config/trial';
+import { DIAS_TRIAL_GRATIS, dataFimTrialAPartirDe } from '@/config/trial';
 import { FiStar, FiClock, FiAlertTriangle } from 'react-icons/fi';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -10,21 +10,27 @@ export const SubscriptionStatus = () => {
 };
 
 const SubscriptionStatusContent = () => {
-  const { user } = useAuth();
+  const { user, empresaData } = useAuth();
   const { assinatura, diasRestantesTrial, isTrialExpired, isSubscriptionActive, loading } = useSubscription();
   const [tempoRestante, setTempoRestante] = useState<string>('');
   const router = useRouter();
 
   // Calcular tempo restante em tempo real
   useEffect(() => {
-    if (!assinatura || assinatura.status !== 'trial' || !assinatura.data_trial_fim) {
+    if (!assinatura || assinatura.status !== 'trial') {
+      setTempoRestante('');
+      return;
+    }
+    const fimIso =
+      assinatura.data_trial_fim || dataFimTrialAPartirDe(empresaData?.created_at);
+    if (!fimIso) {
       setTempoRestante('');
       return;
     }
 
     const calcularTempoRestante = () => {
       const agora = new Date();
-      const fimTrial = new Date(assinatura.data_trial_fim!);
+      const fimTrial = new Date(fimIso);
       const diferenca = fimTrial.getTime() - agora.getTime();
 
       // Verificar se expirou - FORÇAR verificação
@@ -58,7 +64,7 @@ const SubscriptionStatusContent = () => {
     const interval = setInterval(calcularTempoRestante, 30000);
 
     return () => clearInterval(interval);
-  }, [assinatura]);
+  }, [assinatura, empresaData?.created_at]);
 
   const handleTrialClick = () => {
     if (assinatura?.status === 'trial') {
@@ -113,7 +119,17 @@ const SubscriptionStatusContent = () => {
     // log suprimido
     const diasRestantes = diasRestantesTrial();
     const isProximoDoFim = diasRestantes <= 3;
-    
+    const fimTrialTitle = assinatura.data_trial_fim || dataFimTrialAPartirDe(empresaData?.created_at);
+    const titleTrial =
+      `Teste gratuito de ${DIAS_TRIAL_GRATIS} dias. Restam ${diasRestantes} dia(s) (${tempoRestante || '—'}). ` +
+      (empresaData?.created_at
+        ? `Cadastro: ${new Date(empresaData.created_at).toLocaleDateString('pt-BR')}. `
+        : '') +
+      (fimTrialTitle
+        ? `Fim do trial: ${new Date(fimTrialTitle).toLocaleDateString('pt-BR')}. `
+        : '') +
+      'Clique para ver assinatura.';
+
     return (
       <div 
         onClick={handleTrialClick}
@@ -122,7 +138,7 @@ const SubscriptionStatusContent = () => {
             ? 'bg-red-50 border-red-200 animate-pulse' 
             : 'bg-orange-50 border-orange-200'
         }`}
-        title={`Teste gratuito de ${DIAS_TRIAL_GRATIS} dias. Restam ${diasRestantes} dia(s) (${tempoRestante || '—'}). Clique para ver assinatura.`}
+        title={titleTrial}
       >
         <FiClock className={`w-4 h-4 shrink-0 ${
           isProximoDoFim ? 'text-red-500' : 'text-orange-500'

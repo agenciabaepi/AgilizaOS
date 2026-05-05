@@ -2,6 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { isAdminAuthorized } from '@/lib/admin-auth';
 
+function parseValorMonetarioInput(v: unknown): number | null {
+  if (v == null || v === '') return null;
+  if (typeof v === 'number' && Number.isFinite(v) && v > 0) return v;
+  const s = String(v).trim();
+  if (!s) return null;
+  if (/^\d+(\.\d+)?$/.test(s)) {
+    const n = parseFloat(s);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+  const normalized = s.replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '');
+  const n = parseFloat(normalized);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 /**
  * Altera o plano de uma empresa
  * POST /api/admin-saas/empresas/[id]/alterar-plano
@@ -18,7 +32,7 @@ export async function POST(
 
     const { id: empresaId } = await params;
     const body = await req.json();
-    const { plano_id, observacoes } = body;
+    const { plano_id, observacoes, valor_mensal } = body;
 
     if (!plano_id) {
       return NextResponse.json(
@@ -43,6 +57,17 @@ export async function POST(
       );
     }
 
+    let valorCobranca = Number(plano.preco);
+    const manual = parseValorMonetarioInput(valor_mensal);
+    if (manual != null) {
+      valorCobranca = manual;
+    }
+
+    const obsExtra =
+      valorCobranca !== Number(plano.preco)
+        ? ` Valor mensal manual: R$ ${valorCobranca.toFixed(2)} (preço do plano: R$ ${Number(plano.preco).toFixed(2)}).`
+        : '';
+
     // Buscar assinatura atual da empresa
     const { data: assinaturaAtual, error: assinaturaError } = await supabase
       .from('assinaturas')
@@ -62,11 +87,12 @@ export async function POST(
         .from('assinaturas')
         .update({
           plano_id: plano_id,
-          valor: plano.preco,
+          valor: valorCobranca,
           status: 'active',
           data_fim: dataFim.toISOString(),
           proxima_cobranca: dataFim.toISOString(),
-          observacoes: observacoes || `Plano alterado para ${plano.nome} pelo admin`,
+          observacoes:
+            (observacoes || `Plano alterado para ${plano.nome} pelo admin`) + obsExtra,
           updated_at: new Date().toISOString(),
         })
         .eq('id', assinaturaAtual.id);
@@ -95,11 +121,11 @@ export async function POST(
       empresa_id: empresaId,
       plano_id: plano_id,
       status: 'active',
-      valor: plano.preco,
+      valor: valorCobranca,
       data_inicio: agora.toISOString(),
       data_fim: dataFim.toISOString(),
       proxima_cobranca: dataFim.toISOString(),
-      observacoes: observacoes || `Assinatura criada para ${plano.nome} pelo admin`,
+      observacoes: (observacoes || `Assinatura criada para ${plano.nome} pelo admin`) + obsExtra,
     });
 
     if (createError) {

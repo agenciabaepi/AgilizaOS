@@ -132,7 +132,10 @@ export async function POST(request: Request) {
         .single();
 
       if (planoTrial) {
-        const dataInicio = new Date();
+        // Alinhar ao trial implícito (empresa.created_at + 15 dias), não ao relógio do request
+        const dataInicio = empresa.created_at
+          ? new Date(empresa.created_at as string)
+          : new Date();
         const dataTrialFim = new Date(dataInicio.getTime() + MS_TRIAL_GRATIS);
 
         const { error: assinaturaError } = await supabaseAdmin

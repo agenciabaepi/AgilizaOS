@@ -34,7 +34,6 @@ function AuthContent({ children }: { children: React.ReactNode }) {
   
   // Banner simples de aviso de vencimento (frontend)
   const [banner, setBanner] = useState<{ texto: string } | null>(null);
-  const [debugInfo, setDebugInfo] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,10 +44,6 @@ function AuthContent({ children }: { children: React.ReactNode }) {
         const res = await fetch(`/api/admin-saas/minha-assinatura?${params.toString()}`, { cache: 'no-store' });
         if (!res.ok) return;
         const json = await res.json();
-        // Debug visível apenas em desenvolvimento
-        if (process.env.NODE_ENV !== 'production') {
-          setDebugInfo(JSON.stringify(json));
-        }
         const proxima = json?.assinatura?.proxima_cobranca ? new Date(json.assinatura.proxima_cobranca) : null;
         const status = json?.assinatura?.status || '';
         if (!proxima) return;
@@ -83,11 +78,6 @@ function AuthContent({ children }: { children: React.ReactNode }) {
           padding: '10px 16px', textAlign: 'center', fontSize: 14
         }}>
           {banner.texto}
-        </div>
-      )}
-      {debugInfo && process.env.NODE_ENV !== 'production' && (
-        <div style={{ position: 'fixed', bottom: 10, right: 10, zIndex: 70, maxWidth: 420, background: 'rgba(0,0,0,0.8)', color: 'white', padding: 8, borderRadius: 8, fontSize: 11, whiteSpace: 'pre-wrap' }}>
-          {debugInfo}
         </div>
       )}
       {children}

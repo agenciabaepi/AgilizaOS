@@ -197,7 +197,7 @@ export async function GET(
     try {
       const { data } = await supabase
         .from('assinaturas')
-        .select('id,status,proxima_cobranca,plano_id,created_at,data_trial_fim')
+        .select('id,status,proxima_cobranca,plano_id,created_at,data_trial_fim,valor')
         .eq('empresa_id', empresaId)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -257,9 +257,15 @@ export async function GET(
       cobrancaStatus = assinatura.status;
     }
 
+    const valorMensal =
+      assinatura?.valor != null && assinatura.valor !== ''
+        ? Number(assinatura.valor)
+        : null;
+
     const billing = {
       plano: { id: assinatura?.plano_id || null, nome: planoNome },
       assinaturaStatus: assinatura?.status || null,
+      valorMensal: Number.isFinite(valorMensal as number) ? (valorMensal as number) : null,
       proximaCobranca: assinatura?.proxima_cobranca || null,
       vencido,
       cobrancaStatus,
@@ -287,7 +293,7 @@ export async function GET(
 }
 
 /**
- * Atualiza uma empresa (ex.: ativo, status)
+ * Atualiza uma empresa (ativo, status aprovação, dados cadastrais).
  * PATCH /api/admin-saas/empresas/[id]
  */
 export async function PATCH(
@@ -301,12 +307,43 @@ export async function PATCH(
     }
 
     const { id: empresaId } = await params;
-    const body = await req.json();
+    const body = (await req.json()) as Record<string, unknown>;
 
     const updateData: Record<string, unknown> = {};
     if (typeof body.ativo === 'boolean') updateData.ativo = body.ativo;
     if (typeof body.status === 'string' && ['pendente', 'aprovada', 'reprovada'].includes(body.status)) {
       updateData.status = body.status;
+    }
+
+    // Colunas que existem no cadastro base de `empresas` no projeto (sem logos claro/escuro — dependem de migration opcional).
+    const stringFields = [
+      'nome',
+      'email',
+      'cnpj',
+      'cpf',
+      'telefone',
+      'endereco',
+      'cidade',
+      'website',
+      'logo_url',
+    ] as const;
+
+    for (const key of stringFields) {
+      if (!Object.prototype.hasOwnProperty.call(body, key)) continue;
+      const v = body[key];
+      if (v === null) {
+        updateData[key] = null;
+      } else if (typeof v === 'string') {
+        updateData[key] = v.trim();
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updateData, 'nome')) {
+      const n = String(updateData.nome ?? '').trim();
+      if (!n) {
+        return NextResponse.json({ ok: false, message: 'Nome da empresa não pode ficar vazio' }, { status: 400 });
+      }
+      updateData.nome = n;
     }
 
     if (Object.keys(updateData).length === 0) {

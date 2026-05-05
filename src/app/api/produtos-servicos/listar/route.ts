@@ -39,8 +39,8 @@ export async function GET(req: NextRequest) {
     const { data: usuario, error: usuarioError } = await admin
       .from('usuarios')
       .select('id, empresa_id')
-      .eq('auth_user_id', user.id)
-      .single();
+      .or(`auth_user_id.eq.${user.id},id.eq.${user.id}`)
+      .maybeSingle();
 
     if (usuarioError || !usuario?.empresa_id) {
       return NextResponse.json(

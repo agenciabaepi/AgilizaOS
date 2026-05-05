@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FiSave, FiCheck } from 'react-icons/fi';
+import { FiSave, FiCheck, FiAlertCircle } from 'react-icons/fi';
 
 export default function ConfigClient() {
   const [valor, setValor] = useState<string>('119.90');
@@ -23,7 +23,12 @@ export default function ConfigClient() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const numValor = parseFloat(valor.replace(',', '.'));
+    const trimmed = valor.trim().replace(/R\$\s?/gi, '');
+    const numValor = parseFloat(
+      /^\d+(\.\d+)?$/.test(trimmed)
+        ? trimmed
+        : trimmed.replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '')
+    );
     if (!Number.isFinite(numValor) || numValor <= 0) {
       setMessage({ type: 'error', text: 'Informe um valor válido (ex: 119.90)' });
       return;
@@ -37,10 +42,25 @@ export default function ConfigClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ valor: numValor }),
       });
-      const data = await res.json();
+      const raw = await res.text();
+      let data: { ok?: boolean; error?: string; hint?: string; code?: string; reason?: string } = {};
+      try {
+        data = raw ? (JSON.parse(raw) as typeof data) : {};
+      } catch {
+        const snippet = raw.replace(/\s+/g, ' ').trim().slice(0, 240);
+        setMessage({
+          type: 'error',
+          text: snippet || `Resposta inválida do servidor (${res.status})`,
+        });
+        return;
+      }
 
       if (!res.ok) {
-        setMessage({ type: 'error', text: data?.error || 'Erro ao salvar' });
+        const parts = [data?.error, data?.reason, data?.hint, data?.code].filter(Boolean);
+        setMessage({
+          type: 'error',
+          text: parts.length ? parts.join(' — ') : `Erro ao salvar (${res.status})`,
+        });
         return;
       }
 
@@ -65,9 +85,11 @@ export default function ConfigClient() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-1">Valor da Assinatura</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-1">Preço global da assinatura</h2>
         <p className="text-sm text-gray-500">
-          Valor mensal cobrado dos clientes. Este valor é exibido na landing, página de planos e no checkout.
+          Valor padrão mensal (checkout, landing e planos). Para cobrar um valor diferente em uma empresa
+          específica, use <strong>Empresas</strong> → empresa → <strong>Alterar assinatura</strong> (campo opcional)
+          ou o ajuste rápido na ficha da empresa.
         </p>
       </div>
 
@@ -114,7 +136,11 @@ export default function ConfigClient() {
             message.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
           }`}
         >
-          <FiCheck className="w-5 h-5 flex-shrink-0" />
+          {message.type === 'success' ? (
+            <FiCheck className="w-5 h-5 flex-shrink-0" />
+          ) : (
+            <FiAlertCircle className="w-5 h-5 flex-shrink-0" />
+          )}
           <span className="text-sm">{message.text}</span>
         </div>
       )}

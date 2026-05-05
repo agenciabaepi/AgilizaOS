@@ -131,6 +131,31 @@ export async function GET(
       termo_garantia = termo as typeof termo_garantia;
     }
 
+    let checklist_itens: Array<{
+      id: string;
+      nome: string;
+      descricao?: string | null;
+      categoria: string;
+      ativo: boolean;
+      ordem: number;
+      obrigatorio: boolean;
+    }> = [];
+
+    const empresaOsId = os.empresa_id as string | undefined;
+    const equipLabel = os.equipamento != null ? String(os.equipamento).trim() : '';
+    if (empresaOsId && equipLabel) {
+      const pattern = equipLabel.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+      const { data: chk } = await supabase
+        .from('checklist_itens')
+        .select('id, nome, descricao, categoria, ativo, ordem, obrigatorio')
+        .eq('empresa_id', empresaOsId)
+        .eq('ativo', true)
+        .ilike('equipamento_categoria', pattern)
+        .order('ordem', { ascending: true })
+        .order('nome', { ascending: true });
+      checklist_itens = (chk || []) as typeof checklist_itens;
+    }
+
     const { senha_acesso: _s, cliente_id: _c, termo_garantia_id: _tg, ...rest } = os;
     return NextResponse.json({
       ...rest,
@@ -139,6 +164,7 @@ export async function GET(
       cliente,
       historico,
       termo_garantia,
+      checklist_itens,
     });
   } catch (e) {
     console.error('[os-public dados]', e);

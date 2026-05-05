@@ -6,6 +6,7 @@ import { Button } from '@/components/Button';
 import { useToast } from '@/components/Toast';
 import { FiPlus, FiEdit, FiTrash2, FiSearch, FiRefreshCw, FiPackage, FiList, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import { useConfigPermission, AcessoNegadoComponent } from '@/hooks/useConfigPermission';
+import { bearerAuthHeaders } from '@/lib/api/clientAuthHeaders';
 
 interface ChecklistItem {
   id: string;
@@ -27,7 +28,7 @@ interface CategoriaEquipamento {
 }
 
 export default function ChecklistNovoPage() {
-  const { empresaData } = useAuth();
+  const { empresaData, session } = useAuth();
   const { addToast } = useToast();
   const { podeAcessar } = useConfigPermission('checklist');
   
@@ -56,7 +57,10 @@ export default function ChecklistNovoPage() {
     if (!empresaData?.id) return;
 
     try {
-      const response = await fetch(`/api/equipamentos-tipos/categorias?empresa_id=${empresaData.id}`);
+      const response = await fetch(`/api/equipamentos-tipos/categorias?empresa_id=${empresaData.id}`, {
+        headers: bearerAuthHeaders(session),
+        credentials: 'include',
+      });
       
       if (response.ok) {
         const data = await response.json();
@@ -77,7 +81,7 @@ export default function ChecklistNovoPage() {
     } finally {
       setLoading(false);
     }
-  }, [empresaData?.id, addToast, categoriaSelecionada]);
+  }, [empresaData?.id, addToast, categoriaSelecionada, session?.access_token]);
 
   // Buscar itens de checklist para a categoria selecionada
   const fetchItens = useCallback(async () => {
@@ -90,7 +94,11 @@ export default function ChecklistNovoPage() {
 
     try {
       const response = await fetch(
-        `/api/checklist-itens?empresa_id=${empresaData.id}&equipamento_categoria=${encodeURIComponent(categoriaSelecionada)}&ativo=true`
+        `/api/checklist-itens?empresa_id=${empresaData.id}&equipamento_categoria=${encodeURIComponent(categoriaSelecionada)}&ativo=true`,
+        {
+          headers: bearerAuthHeaders(session),
+          credentials: 'include',
+        }
       );
       
       if (response.ok) {
@@ -109,7 +117,7 @@ export default function ChecklistNovoPage() {
     } finally {
       setLoadingItens(false);
     }
-  }, [empresaData?.id, categoriaSelecionada, addToast]);
+  }, [empresaData?.id, categoriaSelecionada, addToast, session?.access_token]);
 
   // Carregar categorias na inicialização
   useEffect(() => {
@@ -195,9 +203,8 @@ export default function ChecklistNovoPage() {
 
       const response = await fetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: bearerAuthHeaders(session, { 'Content-Type': 'application/json' }),
+        credentials: 'include',
         body: JSON.stringify(body),
       });
 
@@ -231,6 +238,8 @@ export default function ChecklistNovoPage() {
     try {
       const response = await fetch(`/api/checklist-itens?id=${id}`, {
         method: 'DELETE',
+        headers: bearerAuthHeaders(session),
+        credentials: 'include',
       });
 
       if (response.ok) {

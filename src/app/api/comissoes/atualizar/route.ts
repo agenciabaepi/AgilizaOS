@@ -48,10 +48,15 @@ export async function PATCH(request: NextRequest) {
       const valorTotal = Number(os.valor_faturado ?? os.valor_servico ?? 0) || 0;
       const valorServico = Number(os.valor_servico ?? valorTotal) || valorTotal;
       const valorComissaoCalc = tipoComissao === 'fixo' ? valorBase : (valorServico * valorBase) / 100;
+      const empresaIdComissao = os.empresa_id || null;
+      if (!empresaIdComissao) {
+        return NextResponse.json({ error: 'Não foi possível identificar a empresa da OS para registrar comissão.' }, { status: 400 });
+      }
+
       const insertPayload: any = {
         tecnico_id: tecnicoData.id,
         ordem_servico_id: os.id,
-        empresa_id: os.empresa_id,
+        empresa_id: empresaIdComissao,
         cliente_id: os.cliente_id,
         valor_servico: valorServico,
         valor_peca: os.valor_peca ?? 0,

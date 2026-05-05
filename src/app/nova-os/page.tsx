@@ -10,11 +10,24 @@ import { handleSupabaseError } from '@/utils/supabaseErrorHandler';
 import { interceptSupabaseQuery } from '@/utils/supabaseInterceptor';
 import { useForm } from 'react-hook-form';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { Suspense } from 'react';
 import { useToast } from '@/components/Toast';
 import PatternLock from '@/components/PatternLock';
-import { FiSmartphone, FiCheckCircle, FiPackage, FiKey, FiList, FiEye, FiEyeOff } from 'react-icons/fi';
+import {
+  FiSmartphone,
+  FiCheckCircle,
+  FiPackage,
+  FiKey,
+  FiList,
+  FiEye,
+  FiEyeOff,
+  FiEdit2,
+  FiCheck,
+  FiX,
+  FiExternalLink,
+} from 'react-icons/fi';
 import EquipamentoSelector from '@/components/EquipamentoSelector';
 import DynamicChecklist from '@/components/DynamicChecklist';
 
@@ -27,8 +40,37 @@ interface Cliente {
   celular: string;
   email?: string;
   documento?: string;
-  numero_cliente: number;
+  numero_cliente?: number | null;
+  cidade?: string | null;
 }
+
+function contatosClienteResumo(c: Pick<Cliente, 'telefone' | 'celular'>) {
+  const parts = [c.telefone, c.celular].filter((x) => x && String(x).trim());
+  return parts.length ? parts.join(' · ') : null;
+}
+
+function linhaSecundariaOptionCliente(c: Cliente) {
+  const partes = [
+    c.numero_cliente != null && c.numero_cliente !== undefined ? `Cliente #${c.numero_cliente}` : null,
+    contatosClienteResumo(c),
+    c.email?.trim() || null,
+    c.cidade?.trim() || null,
+  ].filter(Boolean);
+  return partes.join(' · ');
+}
+
+function CampoResumoCliente({ label, valor }: { label: string; valor: string }) {
+  const v = valor?.trim();
+  return (
+    <div className="grid grid-cols-1 gap-0.5 py-2.5 text-sm sm:grid-cols-[9rem_1fr] sm:gap-x-4 sm:gap-y-0">
+      <div className="text-gray-500">{label}</div>
+      <div className={`min-w-0 break-words ${v ? 'text-gray-900' : 'text-gray-400'}`}>{v || '—'}</div>
+    </div>
+  );
+}
+
+const inputEdicaoRapidaClass =
+  'w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900';
 
 interface Usuario {
   id: string;
@@ -76,6 +118,16 @@ function NovaOS2Content() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clienteSelecionado, setClienteSelecionado] = useState<string | null>(null);
   const [loadingClientes, setLoadingClientes] = useState(false);
+  const [clienteEdicaoRapidaAberto, setClienteEdicaoRapidaAberto] = useState(false);
+  const [salvandoEdicaoCliente, setSalvandoEdicaoCliente] = useState(false);
+  const [formEdicaoCliente, setFormEdicaoCliente] = useState({
+    nome: '',
+    telefone: '',
+    celular: '',
+    email: '',
+    documento: '',
+    cidade: '',
+  });
   const [showCadastroCliente, setShowCadastroCliente] = useState(false);
   const [cadastrando, setCadastrando] = useState(false);
   const [hasTecnicos, setHasTecnicos] = useState(false);
@@ -225,7 +277,7 @@ function NovaOS2Content() {
       setLoadingClientes(true);
       const { data, error } = await supabase
         .from('clientes')
-        .select('id, nome, telefone, celular, email, documento, numero_cliente')
+        .select('id, nome, telefone, celular, email, documento, numero_cliente, cidade')
         .eq('empresa_id', empresaData.id);
       if (!error && data) {
         setClientes(data);
@@ -240,6 +292,10 @@ function NovaOS2Content() {
     }
     fetchClientes();
   }, [empresaData?.id, searchParams]);
+
+  useEffect(() => {
+    setClienteEdicaoRapidaAberto(false);
+  }, [clienteSelecionado]);
 
   useEffect(() => {
     async function fetchUsuarios() {
@@ -500,6 +556,47 @@ function NovaOS2Content() {
     setClienteSelecionado(novo.id);
     setShowCadastroCliente(false);
     reset();
+  }
+
+  function abrirEdicaoRapidaCliente() {
+    const c = clientes.find((x) => x.id === clienteSelecionado);
+    if (!c) return;
+    setFormEdicaoCliente({
+      nome: c.nome ?? '',
+      telefone: c.telefone ?? '',
+      celular: c.celular ?? '',
+      email: c.email ?? '',
+      documento: c.documento ?? '',
+      cidade: c.cidade ?? '',
+    });
+    setClienteEdicaoRapidaAberto(true);
+  }
+
+  async function salvarEdicaoRapidaCliente() {
+    if (!clienteSelecionado) return;
+    if (!formEdicaoCliente.nome.trim()) {
+      addToast('error', 'O nome do cliente é obrigatório.');
+      return;
+    }
+    setSalvandoEdicaoCliente(true);
+    const payload = {
+      nome: formEdicaoCliente.nome.trim(),
+      telefone: formEdicaoCliente.telefone.trim(),
+      celular: formEdicaoCliente.celular.trim(),
+      email: formEdicaoCliente.email.trim(),
+      documento: formEdicaoCliente.documento.trim(),
+      cidade: formEdicaoCliente.cidade.trim(),
+    };
+    const { error } = await supabase.from('clientes').update(payload).eq('id', clienteSelecionado);
+    setSalvandoEdicaoCliente(false);
+    if (error) {
+      handleSupabaseError(error, 'Edição rápida de cliente');
+      addToast('error', error.message || 'Não foi possível salvar as alterações.');
+      return;
+    }
+    setClientes((prev) => prev.map((row) => (row.id === clienteSelecionado ? { ...row, ...payload } : row)));
+    setClienteEdicaoRapidaAberto(false);
+    addToast('success', 'Dados do cliente atualizados.');
   }
 
   function proximaEtapa() {
@@ -987,27 +1084,76 @@ function NovaOS2Content() {
                   })()}
                   onChange={opt => setClienteSelecionado(opt?.value || null)}
                   isLoading={loadingClientes}
-                  placeholder={loadingClientes ? "Carregando clientes..." : "Buscar cliente..."}
-                  className="mb-4"
+                  placeholder={loadingClientes ? "Carregando clientes..." : "Busque por nome, telefone, e-mail, CPF ou nº do cliente..."}
+                  className="mb-2"
+                  formatOptionLabel={(option, meta) => {
+                    const c = (clientes || []).find((x) => x.id === option.value);
+                    if (!c) return <span>{option.label}</span>;
+                    const sub = linhaSecundariaOptionCliente(c);
+                    const isValueChip = meta.context === 'value';
+                    return (
+                      <div className="py-0.5 text-left">
+                        <div className="font-semibold leading-tight">{c.nome}</div>
+                        {sub ? (
+                          <div
+                            className={
+                              isValueChip
+                                ? 'text-xs text-gray-600 mt-0.5 leading-snug line-clamp-2'
+                                : 'text-xs mt-0.5 leading-snug line-clamp-2 opacity-90'
+                            }
+                            style={isValueChip ? undefined : { color: 'inherit' }}
+                          >
+                            {sub}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  }}
+                  filterOption={(option, rawInput) => {
+                    const q = rawInput.toLowerCase().trim();
+                    if (!q) return true;
+                    const c = (clientes || []).find((x) => x.id === option.value);
+                    if (!c) return String(option.label).toLowerCase().includes(q);
+                    const telefoneCelular = `${c.telefone || ''} ${c.celular || ''}`.toLowerCase();
+                    const docDigits = (c.documento || '').replace(/\D/g, '');
+                    const qDigits = q.replace(/\D/g, '');
+                    const matchDoc = docDigits && qDigits && docDigits.includes(qDigits);
+                    const haystack = [
+                      c.nome,
+                      c.telefone,
+                      c.celular,
+                      telefoneCelular,
+                      c.email,
+                      c.documento,
+                      c.cidade,
+                      c.numero_cliente != null ? String(c.numero_cliente) : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')
+                      .toLowerCase();
+                    return haystack.includes(q) || !!matchDoc;
+                  }}
                   styles={{
-                    control: (provided) => ({
+                    control: (provided, state) => ({
                       ...provided,
                       borderRadius: '0.5rem',
-                      borderColor: '#e5e7eb',
+                      borderColor: state.isFocused ? '#111827' : '#e5e7eb',
                       minHeight: '44px',
                       fontSize: '1rem',
                       boxShadow: 'none',
-                      ':hover': { borderColor: '#3b82f6' }
+                      ':hover': { borderColor: '#d1d5db' },
                     }),
+                    menu: (p) => ({ ...p, borderRadius: '0.5rem', boxShadow: '0 4px 16px rgba(0,0,0,0.08)', border: '1px solid #e5e7eb' }),
                     option: (provided, state) => ({
                       ...provided,
-                      backgroundColor: state.isSelected
-                        ? '#111827'
-                        : state.isFocused
-                        ? '#e0e7ef'
-                        : 'white',
-                      color: state.isSelected ? 'white' : '#111827',
-                      fontSize: '1rem',
+                      backgroundColor: state.isSelected ? '#111827' : state.isFocused ? '#f9fafb' : 'white',
+                      color: state.isSelected ? '#fff' : '#111827',
+                      fontSize: '0.875rem',
+                      cursor: 'pointer',
+                    }),
+                    singleValue: (provided, state) => ({
+                      ...provided,
+                      color: state.isDisabled ? provided.color : '#111827',
                     }),
                   }}
                   isDisabled={tipoEntrada === 'garantia' && !!osGarantiaSelecionada}
@@ -1017,6 +1163,163 @@ function NovaOS2Content() {
                     <span className="text-gray-400">Carregando...</span>
                   </div>
                 )}
+                {clienteSelecionado && (() => {
+                  const c = (clientes || []).find((x) => x.id === clienteSelecionado);
+                  if (!c) return null;
+                  return (
+                    <div className="mb-4 rounded-lg border border-gray-200 bg-white p-4 text-left sm:p-5">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
+                          <h3 className="text-base font-semibold text-gray-900">{c.nome}</h3>
+                          {c.numero_cliente != null && c.numero_cliente !== undefined ? (
+                            <p className="mt-0.5 text-xs text-gray-500">Código interno {c.numero_cliente}</p>
+                          ) : null}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+                          {!clienteEdicaoRapidaAberto ? (
+                            <>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 gap-1 px-2 text-gray-700 hover:bg-gray-50"
+                                onClick={abrirEdicaoRapidaCliente}
+                              >
+                                <FiEdit2 className="h-3.5 w-3.5" aria-hidden />
+                                Editar
+                              </Button>
+                              <span className="text-gray-300" aria-hidden>
+                                ·
+                              </span>
+                              <Button type="button" variant="ghost" size="sm" className="h-8 gap-1 px-2 text-gray-600 hover:bg-gray-50" asChild>
+                                <Link href={`/clientes/${c.id}`} target="_blank" rel="noopener noreferrer">
+                                  <FiExternalLink className="h-3.5 w-3.5" aria-hidden />
+                                  Ficha completa
+                                </Link>
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 gap-1 px-2 text-gray-600"
+                                onClick={() => setClienteEdicaoRapidaAberto(false)}
+                                disabled={salvandoEdicaoCliente}
+                              >
+                                <FiX className="h-3.5 w-3.5" aria-hidden />
+                                Cancelar
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="default"
+                                size="sm"
+                                className="h-8 gap-1 px-3"
+                                onClick={salvarEdicaoRapidaCliente}
+                                disabled={salvandoEdicaoCliente}
+                              >
+                                <FiCheck className="h-3.5 w-3.5" aria-hidden />
+                                {salvandoEdicaoCliente ? 'Salvando...' : 'Salvar'}
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <p className="mt-3 text-xs text-gray-500">
+                        Em caso de homônimos, confira telefone e documento antes de seguir.
+                      </p>
+                      {!clienteEdicaoRapidaAberto ? (
+                        <div className="mt-4 divide-y divide-gray-100 border-t border-gray-100">
+                          <CampoResumoCliente label="Telefone" valor={c.telefone || ''} />
+                          <CampoResumoCliente label="WhatsApp" valor={c.celular || ''} />
+                          <CampoResumoCliente label="E-mail" valor={c.email || ''} />
+                          <CampoResumoCliente label="CPF / CNPJ" valor={c.documento || ''} />
+                          <CampoResumoCliente label="Cidade" valor={c.cidade || ''} />
+                        </div>
+                      ) : (
+                        <div className="mt-4 grid gap-3 border-t border-gray-100 pt-4 sm:grid-cols-2">
+                          <div className="sm:col-span-2">
+                            <label htmlFor="edicao-rapida-nome" className="mb-1 block text-xs text-gray-600">
+                              Nome <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              id="edicao-rapida-nome"
+                              type="text"
+                              value={formEdicaoCliente.nome}
+                              onChange={(e) => setFormEdicaoCliente((p) => ({ ...p, nome: e.target.value }))}
+                              className={inputEdicaoRapidaClass}
+                              autoComplete="name"
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="edicao-rapida-tel" className="mb-1 block text-xs text-gray-600">
+                              Telefone
+                            </label>
+                            <input
+                              id="edicao-rapida-tel"
+                              type="text"
+                              value={formEdicaoCliente.telefone}
+                              onChange={(e) => setFormEdicaoCliente((p) => ({ ...p, telefone: e.target.value }))}
+                              className={inputEdicaoRapidaClass}
+                              autoComplete="tel-national"
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="edicao-rapida-cel" className="mb-1 block text-xs text-gray-600">
+                              WhatsApp
+                            </label>
+                            <input
+                              id="edicao-rapida-cel"
+                              type="text"
+                              value={formEdicaoCliente.celular}
+                              onChange={(e) => setFormEdicaoCliente((p) => ({ ...p, celular: e.target.value }))}
+                              className={inputEdicaoRapidaClass}
+                              inputMode="tel"
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="edicao-rapida-email" className="mb-1 block text-xs text-gray-600">
+                              E-mail
+                            </label>
+                            <input
+                              id="edicao-rapida-email"
+                              type="email"
+                              value={formEdicaoCliente.email}
+                              onChange={(e) => setFormEdicaoCliente((p) => ({ ...p, email: e.target.value }))}
+                              className={inputEdicaoRapidaClass}
+                              autoComplete="email"
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="edicao-rapida-doc" className="mb-1 block text-xs text-gray-600">
+                              CPF / CNPJ
+                            </label>
+                            <input
+                              id="edicao-rapida-doc"
+                              type="text"
+                              value={formEdicaoCliente.documento}
+                              onChange={(e) => setFormEdicaoCliente((p) => ({ ...p, documento: e.target.value }))}
+                              className={inputEdicaoRapidaClass}
+                            />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label htmlFor="edicao-rapida-cidade" className="mb-1 block text-xs text-gray-600">
+                              Cidade
+                            </label>
+                            <input
+                              id="edicao-rapida-cidade"
+                              type="text"
+                              value={formEdicaoCliente.cidade}
+                              onChange={(e) => setFormEdicaoCliente((p) => ({ ...p, cidade: e.target.value }))}
+                              className={inputEdicaoRapidaClass}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
                 <Button variant="secondary" className="w-full" onClick={() => setShowCadastroCliente(true)}>Cadastrar novo cliente</Button>
                 {showCadastroCliente && (
                   <form className="bg-gray-50 border border-gray-200 rounded-xl p-6 mt-4 flex flex-col gap-4 w-full" onSubmit={handleSubmit(onCadastrarCliente)}>

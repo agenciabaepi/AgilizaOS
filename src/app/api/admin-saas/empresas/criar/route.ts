@@ -22,13 +22,15 @@ export async function POST(req: NextRequest) {
     if (empErr) return NextResponse.json({ ok: false, error: empErr }, { status: 500 });
 
     if (plano_id) {
-      // cria assinatura em trial ativa para iniciar
+      const inicio = empresa.created_at
+        ? new Date(empresa.created_at as string)
+        : new Date();
       await supabase.from('assinaturas').insert({
         empresa_id: empresa.id,
         plano_id,
         status: 'trial',
-        data_inicio: new Date().toISOString(),
-        data_trial_fim: new Date(Date.now() + MS_TRIAL_GRATIS).toISOString(),
+        data_inicio: inicio.toISOString(),
+        data_trial_fim: new Date(inicio.getTime() + MS_TRIAL_GRATIS).toISOString(),
         valor: 0,
       });
     }

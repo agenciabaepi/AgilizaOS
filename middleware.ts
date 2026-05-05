@@ -220,6 +220,35 @@ export async function middleware(request: NextRequest) {
       }
     }
 
+    // 🔒 Cobrança / trial (SaaS): exige RPC `saas_auth_pode_usar_app` no Postgres (ver database/saas_billing_functions.sql)
+    if (process.env.SAAS_SKIP_BILLING_RPC !== '1') {
+      const { isAllowedWhenSubscriptionExpired } = await import('@/config/allowedPathsWhenSubscriptionExpired');
+      if (!isAllowedWhenSubscriptionExpired(pathname)) {
+        const { data: billingOk, error: billingErr } = await supabase.rpc('saas_auth_pode_usar_app');
+        if (billingErr) {
+          const msg = billingErr.message || '';
+          const missingFn =
+            (billingErr as { code?: string }).code === '42883' ||
+            msg.includes('saas_auth_pode_usar_app') ||
+            msg.includes('does not exist');
+          if (missingFn) {
+            if (process.env.NODE_ENV === 'development') {
+              console.warn(
+                '[middleware] RPC saas_auth_pode_usar_app ausente — aplique database/saas_billing_functions.sql ou defina SAAS_SKIP_BILLING_RPC=1'
+              );
+            }
+          } else {
+            console.error('[middleware] saas_auth_pode_usar_app:', billingErr);
+          }
+        }
+        if (billingOk === false) {
+          const u = new URL('/teste-expirado', request.url);
+          u.searchParams.set('billing', '1');
+          return NextResponse.redirect(u);
+        }
+      }
+    }
+
     // ✅ Passou pela verificação de sessão e permissões, permitir acesso
     return response;
 

@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/Button';
 import { useToast } from '@/components/Toast';
 import { useAutoSync } from '@/hooks/useAutoSync';
+import { bearerAuthHeaders } from '@/lib/api/clientAuthHeaders';
 import { FiPlus, FiEdit, FiTrash2, FiSearch, FiFilter, FiRefreshCw } from 'react-icons/fi';
 
 interface EquipamentoTipo {
@@ -19,7 +20,7 @@ interface EquipamentoTipo {
 }
 
 export default function EquipamentosConfigPage() {
-  const { empresaData } = useAuth();
+  const { empresaData, session } = useAuth();
   const { addToast } = useToast();
   
   // Sincronização automática a cada 5 minutos
@@ -73,13 +74,13 @@ export default function EquipamentosConfigPage() {
       
       const response = await fetch(`/api/equipamentos-tipos?${params}`, {
         method: 'GET',
-        headers: {
+        headers: bearerAuthHeaders(session, {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0',
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include'
+          Pragma: 'no-cache',
+          Expires: '0',
+          'Content-Type': 'application/json',
+        }),
+        credentials: 'include',
       });
       
       console.log('🔍 Response status:', response.status);
@@ -141,7 +142,7 @@ export default function EquipamentosConfigPage() {
       });
       fetchEquipamentos();
     }
-  }, [empresaData?.id, filterCategoria, filterAtivo]);
+  }, [empresaData?.id, filterCategoria, filterAtivo, session?.access_token]);
 
   // Filtrar equipamentos por busca
   const filteredEquipamentos = equipamentos.filter(equipamento =>
@@ -196,9 +197,8 @@ export default function EquipamentosConfigPage() {
 
       const response = await fetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: bearerAuthHeaders(session, { 'Content-Type': 'application/json' }),
+        credentials: 'include',
         body: JSON.stringify(body),
       });
 
@@ -231,6 +231,8 @@ export default function EquipamentosConfigPage() {
     try {
       const response = await fetch(`/api/equipamentos-tipos?id=${id}`, {
         method: 'DELETE',
+        headers: bearerAuthHeaders(session),
+        credentials: 'include',
       });
 
       if (response.ok) {

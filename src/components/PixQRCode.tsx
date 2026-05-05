@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { FiCheckCircle, FiAlertCircle, FiClock, FiShare2 } from 'react-icons/fi';
 import QRCode from 'qrcode';
@@ -32,6 +32,57 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, 
   const [expiresIn, setExpiresIn] = useState<number | null>(null);
   const [manualChecking, setManualChecking] = useState(false);
   const [celebrated, setCelebrated] = useState(false);
+  const approvalHandledRef = useRef(false);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    approvalHandledRef.current = false;
+    if (refreshTimerRef.current) {
+      clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
+  }, [qrCodeData?.pagamento_id, qrCodeData?.payment_id]);
+
+  function schedulePageRefresh() {
+    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    refreshTimerRef.current = setTimeout(() => {
+      refreshTimerRef.current = null;
+      window.location.reload();
+    }, 1600);
+  }
+
+  /** Alinha Supabase com o Asaas e força o guard/resumo a relerem (além do que a rota status já gravou). */
+  async function pushSubscriptionRefresh() {
+    try {
+      const { data: { session } } = await supabaseBrowser.auth.getSession();
+      const headers: HeadersInit = { cache: 'no-store' };
+      if (session?.access_token) {
+        (headers as Record<string, string>).Authorization = `Bearer ${session.access_token}`;
+      }
+      await fetch('/api/assinatura/sincronizar', { credentials: 'include', headers });
+    } catch {
+      /* silencioso: status já pode ter atualizado a assinatura */
+    }
+    dispatchAssinaturaUpdated();
+    setTimeout(() => dispatchAssinaturaUpdated(), 700);
+  }
+
+  function handlePaymentApproved() {
+    if (approvalHandledRef.current) return;
+    approvalHandledRef.current = true;
+    void triggerConfetti();
+    dispatchAssinaturaUpdated();
+    void pushSubscriptionRefresh();
+    if (onSuccess) {
+      onSuccess();
+      schedulePageRefresh();
+    } else {
+      refreshTimerRef.current = setTimeout(() => {
+        refreshTimerRef.current = null;
+        window.location.href = '/dashboard';
+      }, 2500);
+    }
+  }
 
   // Carrega canvas-confetti via CDN somente quando necessário
   async function loadConfetti(): Promise<void> {
@@ -221,13 +272,7 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, 
       if (res.ok && json?.status) {
         setQrCodeData(prev => prev ? { ...prev, status: json.status } : prev);
         if (json.status === 'approved') {
-          triggerConfetti();
-          dispatchAssinaturaUpdated();
-          if (onSuccess) {
-            onSuccess();
-          } else {
-            setTimeout(() => (window.location.href = '/dashboard'), 10000);
-          }
+          handlePaymentApproved();
         }
       }
     } catch (_) {
@@ -249,12 +294,7 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, 
       if (res.ok && json?.status) {
         setQrCodeData(prev => prev ? { ...prev, status: json.status } : prev);
         if (json.status === 'approved') {
-          dispatchAssinaturaUpdated();
-          if (onSuccess) {
-            onSuccess();
-          } else {
-            setTimeout(() => (window.location.href = '/dashboard'), 1200);
-          }
+          handlePaymentApproved();
         }
       }
     } catch (_) {}
@@ -284,15 +324,7 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, 
         if (res.ok && json?.status) {
           setQrCodeData(prev => prev ? { ...prev, status: json.status } : prev);
           if (json.status === 'approved') {
-            triggerConfetti();
-            dispatchAssinaturaUpdated();
-            if (onSuccess) {
-              if (!stopped) onSuccess();
-            } else {
-              setTimeout(() => {
-                if (!stopped) window.location.href = '/dashboard';
-              }, 2500);
-            }
+            if (!stopped) handlePaymentApproved();
           }
         } else if (res.status === 401) {
           // para evitar loop quando sessão não é reconhecida
@@ -300,7 +332,8 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, 
         }
       } catch (_) {}
     };
-    const id = setInterval(poll, 4000);
+    const POLL_MS = 1200;
+    const id = setInterval(poll, POLL_MS);
     poll();
     return () => { stopped = true; clearInterval(id); };
   }, [qrCodeData?.pagamento_id, qrCodeData?.payment_id]);
@@ -464,7 +497,7 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, 
             <ul className="mt-2 text-xs text-green-700 space-y-1">
               <li>✓ Recebendo confirmação…</li>
               <li>✓ Ativando assinatura…</li>
-              <li>✓ Redirecionando…</li>
+              <li>{onSuccess ? '✓ Atualizando a página…' : '✓ Redirecionando…'}</li>
             </ul>
           </div>
         )}

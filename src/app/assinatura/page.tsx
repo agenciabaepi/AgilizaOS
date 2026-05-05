@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import PixQRCode from '@/components/PixQRCode';
 import { useSubscription, dispatchAssinaturaUpdated } from '@/hooks/useSubscription';
-import { DIAS_TRIAL_GRATIS } from '@/config/trial';
+import { DIAS_TRIAL_GRATIS, dataFimTrialAPartirDe } from '@/config/trial';
 
 /** Cobrança vinda do Asaas (API cobrancas-asaas) */
 interface CobrancaAsaas {
@@ -286,9 +286,14 @@ export default function AssinaturaPage() {
   });
 
   const statusCanceladoOuInativo = assinatura?.status && ['cancelled', 'expired', 'suspended'].includes(assinatura.status);
-  const emTesteGratis =
-    assinatura?.status === 'trial' && assinatura.data_trial_fim && !isTrialExpired();
+  const emTesteGratis = assinatura?.status === 'trial' && !isTrialExpired();
   const trialEncerrado = assinatura?.status === 'trial' && isTrialExpired();
+  const dataCadastroEmpresa =
+    empresaData?.created_at?.trim() ||
+    (assinatura?.data_inicio ? String(assinatura.data_inicio).trim() : null);
+  const dataFimTrialIso =
+    (assinatura?.data_trial_fim && String(assinatura.data_trial_fim).trim()) ||
+    (dataCadastroEmpresa ? dataFimTrialAPartirDe(dataCadastroEmpresa) : null);
   const diasRest = emTesteGratis
     ? diasRestantesTrial()
     : !statusCanceladoOuInativo && assinatura?.proxima_cobranca
@@ -329,18 +334,57 @@ export default function AssinaturaPage() {
                     <span className="whitespace-nowrap">
                       {diasRestantesTrial()} dia{diasRestantesTrial() === 1 ? '' : 's'} restante{diasRestantesTrial() === 1 ? '' : 's'}
                     </span>
-                    {assinatura.data_trial_fim && (
+                    {dataFimTrialIso && (
                       <>
                         {' · '}
-                        até {formatarDataShort(assinatura.data_trial_fim)}
+                        até {formatarDataShort(dataFimTrialIso)}
                       </>
                     )}
                   </span>
                 </div>
               )}
-              {trialEncerrado && (
-                <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-100">
-                  O período de teste de {DIAS_TRIAL_GRATIS} dias terminou. Escolha um plano para voltar a usar o sistema.
+              {(emTesteGratis || trialEncerrado) && dataCadastroEmpresa && (
+                <div
+                  className={`mt-3 rounded-xl border px-3 py-2.5 text-sm ${
+                    trialEncerrado
+                      ? 'border-red-200/80 bg-red-50/90 text-red-950 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-100'
+                      : 'border-zinc-200 bg-zinc-50 text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800/80 dark:text-zinc-100'
+                  }`}
+                >
+                  <p
+                    className={`font-medium text-xs uppercase tracking-wide mb-1.5 ${
+                      trialEncerrado
+                        ? 'text-red-700 dark:text-red-300'
+                        : 'text-zinc-500 dark:text-zinc-400'
+                    }`}
+                  >
+                    Período de teste
+                  </p>
+                  <dl className="grid gap-1 sm:grid-cols-2 sm:gap-x-4">
+                    <div>
+                      <dt className={`text-xs ${trialEncerrado ? 'text-red-800/80 dark:text-red-200/80' : 'text-zinc-500 dark:text-zinc-400'}`}>
+                        Cadastro da empresa
+                      </dt>
+                      <dd className="font-medium tabular-nums">{formatarData(dataCadastroEmpresa)}</dd>
+                    </div>
+                    <div>
+                      <dt className={`text-xs ${trialEncerrado ? 'text-red-800/80 dark:text-red-200/80' : 'text-zinc-500 dark:text-zinc-400'}`}>
+                        Encerramento do trial
+                      </dt>
+                      <dd className="font-medium tabular-nums">
+                        {dataFimTrialIso ? formatarDataShort(dataFimTrialIso) : '—'}
+                      </dd>
+                    </div>
+                  </dl>
+                  <p
+                    className={`text-xs mt-2 ${
+                      trialEncerrado ? 'text-red-900/90 dark:text-red-100/90' : 'text-zinc-500 dark:text-zinc-400'
+                    }`}
+                  >
+                    {trialEncerrado
+                      ? `O período de teste de ${DIAS_TRIAL_GRATIS} dias terminou. Escolha um plano para voltar a usar o sistema.`
+                      : `São ${DIAS_TRIAL_GRATIS} dias corridos a partir do cadastro. Após essa data é necessário assinar um plano.`}
+                  </p>
                 </div>
               )}
             </div>
@@ -361,8 +405,8 @@ export default function AssinaturaPage() {
               <p className="text-xl font-bold text-gray-900 dark:text-white mt-1">
                 {statusCanceladoOuInativo
                   ? '—'
-                  : emTesteGratis && assinatura.data_trial_fim
-                    ? formatarDataShort(assinatura.data_trial_fim)
+                  : emTesteGratis && dataFimTrialIso
+                    ? formatarDataShort(dataFimTrialIso)
                     : assinatura?.proxima_cobranca
                       ? formatarDataShort(assinatura.proxima_cobranca)
                       : '—'}

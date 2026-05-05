@@ -179,6 +179,7 @@ export async function GET(req: NextRequest) {
       ultimoPagamentoStatus: null,
       ultimoPagamentoPagoEm: null,
       ultimoPagamentoValor: null,
+      valorMensal: null as number | null,
       dataTrialFim: null as string | null,
       diasTrialRestantes: null as number | null,
       trialImplicito: false,
@@ -200,7 +201,7 @@ export async function GET(req: NextRequest) {
         try {
           const { data } = await supabase
             .from('assinaturas')
-            .select('id,status,proxima_cobranca,plano_id,created_at,data_trial_fim')
+            .select('id,status,proxima_cobranca,plano_id,created_at,data_trial_fim,valor')
             .eq('empresa_id', e.id)
             .order('created_at', { ascending: false })
             .limit(1)
@@ -260,9 +261,15 @@ export async function GET(req: NextRequest) {
           cobrancaStatus = assinatura.status;
         }
 
+        const valorMensal =
+          assinatura?.valor != null && assinatura.valor !== ''
+            ? Number(assinatura.valor)
+            : null;
+
         const billing = {
           plano: { id: assinatura?.plano_id || null, nome: planoNome },
           assinaturaStatus: assinatura?.status || null,
+          valorMensal: Number.isFinite(valorMensal as number) ? (valorMensal as number) : null,
           proximaCobranca: assinatura?.proxima_cobranca || null,
           vencido,
           cobrancaStatus,

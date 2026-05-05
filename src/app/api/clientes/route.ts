@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { empresaBloqueadaParaUsoSaasAdmin } from '@/lib/billing/empresaSaasAdminGuard';
+
+const MSG_BILLING = 'Assinatura ou período de teste expirado. Renove para continuar.';
 
 export async function GET(request: Request) {
   try {
@@ -12,6 +15,10 @@ export async function GET(request: Request) {
 
     if (!empresaId) {
       return NextResponse.json({ error: 'Empresa ID é obrigatório' }, { status: 400 });
+    }
+
+    if (await empresaBloqueadaParaUsoSaasAdmin(supabase, empresaId)) {
+      return NextResponse.json({ error: MSG_BILLING }, { status: 403 });
     }
 
     let query = supabase
@@ -47,6 +54,10 @@ export async function POST(request: Request) {
 
     if (!empresaId || !nome) {
       return NextResponse.json({ error: 'empresaId e nome são obrigatórios' }, { status: 400 });
+    }
+
+    if (await empresaBloqueadaParaUsoSaasAdmin(supabase, empresaId)) {
+      return NextResponse.json({ error: MSG_BILLING }, { status: 403 });
     }
 
     // Gerar próximo numero_cliente sequencial por empresa (fallback simples)

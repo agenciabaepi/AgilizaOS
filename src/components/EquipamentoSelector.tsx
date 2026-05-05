@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { FiSearch, FiPlus, FiX } from 'react-icons/fi';
 import { useToast } from '@/hooks/useToast';
+import { useAuth } from '@/context/AuthContext';
+import { bearerAuthHeaders } from '@/lib/api/clientAuthHeaders';
 
 interface EquipamentoTipo {
   id: string;
@@ -42,6 +44,7 @@ export default function EquipamentoSelector({
   });
 
   const { addToast } = useToast();
+  const { session } = useAuth();
 
   // Buscar equipamentos
   const fetchEquipamentos = async () => {
@@ -49,7 +52,10 @@ export default function EquipamentoSelector({
     
     setLoading(true);
     try {
-      const response = await fetch(`/api/equipamentos-tipos?empresa_id=${empresaId}&ativo=true`);
+      const response = await fetch(`/api/equipamentos-tipos?empresa_id=${empresaId}&ativo=true`, {
+        headers: bearerAuthHeaders(session),
+        credentials: 'include',
+      });
       const data = await response.json();
       
       if (response.ok) {
@@ -67,7 +73,7 @@ export default function EquipamentoSelector({
 
   useEffect(() => {
     fetchEquipamentos();
-  }, [empresaId]);
+  }, [empresaId, session?.access_token]);
 
   // Processar valor inicial quando fornecido (match case-insensitive e trim para reconhecer valor vindo da OS)
   useEffect(() => {
@@ -117,9 +123,8 @@ export default function EquipamentoSelector({
     try {
       const response = await fetch('/api/equipamentos-tipos', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: bearerAuthHeaders(session, { 'Content-Type': 'application/json' }),
+        credentials: 'include',
         body: JSON.stringify({
           nome: newEquipamento.nome,
           categoria: newEquipamento.nome, // Usar nome como categoria

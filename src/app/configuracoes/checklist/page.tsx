@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/Button';
 import { useToast } from '@/components/Toast';
+import { bearerAuthHeaders } from '@/lib/api/clientAuthHeaders';
 import { FiPlus, FiEdit, FiTrash2, FiSearch, FiRefreshCw, FiEye, FiEyeOff, FiPackage, FiList, FiChevronDown } from 'react-icons/fi';
 
 interface ChecklistItem {
@@ -31,7 +32,7 @@ const categorias = [
 
 export default function ChecklistConfigPage() {
   // Todos os hooks primeiro, sem nenhum return condicional
-  const { empresaData } = useAuth();
+  const { empresaData, session } = useAuth();
   const { addToast } = useToast();
   
   const [itens, setItens] = useState<ChecklistItem[]>([]);
@@ -78,13 +79,13 @@ export default function ChecklistConfigPage() {
       
       const response = await fetch(`/api/checklist-itens?${params}`, {
         method: 'GET',
-        headers: {
+        headers: bearerAuthHeaders(session, {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0',
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include'
+          Pragma: 'no-cache',
+          Expires: '0',
+          'Content-Type': 'application/json',
+        }),
+        credentials: 'include',
       });
       
       if (!response.ok) {
@@ -101,7 +102,7 @@ export default function ChecklistConfigPage() {
     } finally {
       setLoading(false);
     }
-  }, [empresaData?.id, filterAtivo, filterCategoria, addToast]);
+  }, [empresaData?.id, filterAtivo, filterCategoria, addToast, session?.access_token]);
 
   // useEffect para carregar dados
   useEffect(() => {
@@ -174,9 +175,8 @@ export default function ChecklistConfigPage() {
 
       const response = await fetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: bearerAuthHeaders(session, { 'Content-Type': 'application/json' }),
+        credentials: 'include',
         body: JSON.stringify(body),
       });
 
@@ -209,6 +209,8 @@ export default function ChecklistConfigPage() {
     try {
       const response = await fetch(`/api/checklist-itens?id=${id}`, {
         method: 'DELETE',
+        headers: bearerAuthHeaders(session),
+        credentials: 'include',
       });
 
       if (response.ok) {
@@ -229,9 +231,8 @@ export default function ChecklistConfigPage() {
     try {
       const response = await fetch('/api/checklist-itens', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: bearerAuthHeaders(session, { 'Content-Type': 'application/json' }),
+        credentials: 'include',
         body: JSON.stringify({
           id: item.id,
           ativo: !item.ativo

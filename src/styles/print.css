@@ -496,4 +496,196 @@
     width: 100% !important;
     max-width: none !important;
   }
+
+  /* -------------------------------------------------------------------------
+   * Orçamento comercial (/orcamentos/novo e /orcamentos/[id])
+   * Evita caixa gigante vazia, borda pesada e colunas desbalanceadas na impressão
+   * ------------------------------------------------------------------------- */
+  /* Evita folha “vazia” por causa do min-height global do html/body neste fluxo */
+  html:has(#orcamento-doc.orcamento-print-doc),
+  body:has(#orcamento-doc.orcamento-print-doc) {
+    min-height: auto !important;
+    height: auto !important;
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  body:has(#orcamento-doc.orcamento-print-doc) .orcamento-page-root {
+    max-width: none !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  #orcamento-doc.orcamento-print-doc {
+    max-width: 100% !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    height: auto !important;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  #orcamento-doc.orcamento-print-doc .orcamento-print-inner {
+    padding: 0 !important;
+  }
+
+  #orcamento-doc.orcamento-print-doc .orcamento-doc-header {
+    display: grid !important;
+    grid-template-columns: 28mm minmax(0, 1fr) 34mm !important;
+    align-items: start !important;
+    column-gap: 4mm !important;
+    padding-bottom: 3mm !important;
+    margin-bottom: 4mm !important;
+    border-bottom: 1pt solid #000 !important;
+  }
+
+  #orcamento-doc.orcamento-print-doc .orcamento-doc-title {
+    font-size: 10pt !important;
+    font-weight: 700 !important;
+    letter-spacing: 0 !important;
+    color: #000 !important;
+  }
+
+  #orcamento-doc.orcamento-print-doc .orcamento-doc-meta {
+    font-size: 8.5pt !important;
+    line-height: 1.35 !important;
+    color: #000 !important;
+  }
+
+  /* Igual à OS: bloco cliente em parágrafos, sem “card” */
+  #orcamento-doc.orcamento-print-doc .orcamento-cliente-os {
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 0 4mm 0 !important;
+    background: transparent !important;
+    break-inside: avoid;
+    font-size: 10pt !important;
+    color: #000 !important;
+  }
+
+  #orcamento-doc.orcamento-print-doc .orcamento-cliente-os > div:first-child {
+    font-size: 11pt !important;
+    font-weight: 700 !important;
+    margin: 0 0 2mm 0 !important;
+    color: #000 !important;
+  }
+
+  #orcamento-doc.orcamento-print-doc .orcamento-cliente-os p {
+    margin: 0 0 1.5mm 0 !important;
+    line-height: 1.35 !important;
+  }
+
+  #orcamento-doc.orcamento-print-doc table.orcamento-items {
+    width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+    font-size: 9.5pt !important;
+    margin: 2mm 0 4mm 0 !important;
+  }
+
+  #orcamento-doc.orcamento-print-doc table.orcamento-items th,
+  #orcamento-doc.orcamento-print-doc table.orcamento-items td {
+    border: 0.5pt solid #bbb !important;
+    padding: 2mm 2.5mm !important;
+    vertical-align: middle !important;
+    word-wrap: break-word !important;
+  }
+
+  #orcamento-doc.orcamento-print-doc table.orcamento-items thead th {
+    background: #eee !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    font-weight: 700 !important;
+    font-size: 8.5pt !important;
+  }
+
+  #orcamento-doc.orcamento-print-doc table.orcamento-items .col-num {
+    width: 6% !important;
+    text-align: center !important;
+  }
+
+  #orcamento-doc.orcamento-print-doc table.orcamento-items .col-desc {
+    width: 44% !important;
+    text-align: left !important;
+  }
+
+  #orcamento-doc.orcamento-print-doc table.orcamento-items .col-tipo {
+    width: 14% !important;
+    text-align: left !important;
+  }
+
+  #orcamento-doc.orcamento-print-doc table.orcamento-items .col-qtd {
+    width: 10% !important;
+    text-align: center !important;
+  }
+
+  #orcamento-doc.orcamento-print-doc table.orcamento-items .col-unit {
+    width: 13% !important;
+    text-align: right !important;
+    font-variant-numeric: tabular-nums !important;
+  }
+
+  #orcamento-doc.orcamento-print-doc table.orcamento-items .col-total {
+    width: 13% !important;
+    text-align: right !important;
+    font-variant-numeric: tabular-nums !important;
+    font-weight: 600 !important;
+  }
+
+  #orcamento-doc.orcamento-print-doc table.orcamento-totais {
+    width: 72mm !important;
+    max-width: 100% !important;
+    margin-left: auto !important;
+    margin-top: 3mm !important;
+    border-collapse: collapse !important;
+    font-size: 9.5pt !important;
+    font-variant-numeric: tabular-nums !important;
+  }
+
+  #orcamento-doc.orcamento-print-doc table.orcamento-totais td {
+    border: none !important;
+    padding: 1.5mm 0 !important;
+    vertical-align: baseline !important;
+  }
+
+  #orcamento-doc.orcamento-print-doc table.orcamento-totais td:first-child {
+    text-align: left !important;
+    color: #333 !important;
+  }
+
+  #orcamento-doc.orcamento-print-doc table.orcamento-totais td:last-child {
+    text-align: right !important;
+    font-weight: 600 !important;
+    padding-left: 6mm !important;
+  }
+
+  #orcamento-doc.orcamento-print-doc table.orcamento-totais tr.orc-total-row td {
+    border-top: 1.5pt solid #111 !important;
+    padding-top: 2.5mm !important;
+    margin-top: 1mm !important;
+    font-size: 11pt !important;
+    font-weight: 800 !important;
+  }
+
+  #orcamento-doc.orcamento-print-doc .orcamento-pagamento-block {
+    margin-top: 4mm !important;
+    font-size: 9.5pt !important;
+    break-inside: avoid;
+  }
+
+  #orcamento-doc.orcamento-print-doc .orcamento-rodape-legal {
+    margin-top: 5mm !important;
+    padding-top: 2mm !important;
+    border-top: 0.5pt solid #ccc !important;
+    font-size: 7.5pt !important;
+    color: #666 !important;
+    text-align: center !important;
+  }
 }

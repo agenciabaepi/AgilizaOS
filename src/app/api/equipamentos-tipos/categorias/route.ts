@@ -1,14 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const getSupabaseClient = () => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error('Variáveis de ambiente do Supabase não encontradas');
-  }
-  return createClient(supabaseUrl, supabaseKey);
-};
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { getEmpresaIdForUser, getSessionUserId } from '@/lib/api/routeAuthEmpresa';
 
 /**
  * GET /api/equipamentos-tipos/categorias?empresa_id=xxx
@@ -16,6 +8,22 @@ const getSupabaseClient = () => {
  */
 export async function GET(request: NextRequest) {
   try {
+    const userId = await getSessionUserId(request);
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Não autenticado', categorias: [] },
+        { status: 401 }
+      );
+    }
+
+    const empresaDoUsuario = await getEmpresaIdForUser(userId);
+    if (!empresaDoUsuario) {
+      return NextResponse.json(
+        { error: 'Usuário ou empresa não encontrados', categorias: [] },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const empresaId = searchParams.get('empresa_id');
 
@@ -26,8 +34,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const client = getSupabaseClient();
-    const { data, error } = await client
+    if (empresaId !== empresaDoUsuario) {
+      return NextResponse.json(
+        { error: 'Acesso negado a dados de outra empresa', categorias: [] },
+        { status: 403 }
+      );
+    }
+
+    const admin = getSupabaseAdmin();
+    const { data, error } = await admin
       .from('equipamentos_tipos')
       .select('categoria')
       .eq('empresa_id', empresaId)
