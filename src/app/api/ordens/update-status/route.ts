@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabaseClient';
 import { sendOSApprovedNotification, sendOSStatusNotification } from '@/lib/whatsapp-notifications';
 import { sendPushToTecnico, buildNovaOSPushMessage } from '@/lib/push-notification-tecnico';
+import { deveBloquearComissaoRetornoGarantia } from '@/lib/comissaoRetornoGarantia';
 
 // Função auxiliar para normalizar status
 function normalizeStatus(status: string): string {
@@ -386,7 +387,7 @@ export async function POST(request: NextRequest) {
     // Buscar OS atualizada para verificar status final
     const { data: osAtualizada } = await supabase
       .from('ordens_servico')
-      .select('status, status_tecnico, data_entrega, tecnico_id, valor_faturado, valor_servico, valor_peca, tipo, empresa_id, cliente_id')
+      .select('status, status_tecnico, data_entrega, tecnico_id, valor_faturado, valor_servico, valor_peca, tipo, os_garantia_id, empresa_id, cliente_id')
       .eq('id', osAnterior.id)
       .single();
     
@@ -519,9 +520,24 @@ export async function POST(request: NextRequest) {
             // Buscar configuração padrão da empresa
             const { data: configData } = await supabase
               .from('configuracoes_comissao')
-              .select('tipo_comissao, comissao_fixa_padrao, comissao_padrao')
+              .select('tipo_comissao, comissao_fixa_padrao, comissao_padrao, comissao_retorno_ativo')
               .eq('empresa_id', tecnicoData.empresa_id)
               .maybeSingle();
+
+            if (
+              deveBloquearComissaoRetornoGarantia(
+                configData?.comissao_retorno_ativo,
+                osAtualizada.tipo,
+                osAtualizada.os_garantia_id
+              )
+            ) {
+              console.log('⏭️ COMISSÃO NÃO SERÁ REGISTRADA: retorno/garantia com cobrança desativada na config.', {
+                osId: osAnterior.id,
+                tipoOs: osAtualizada.tipo,
+                osGarantiaId: osAtualizada.os_garantia_id,
+                comissaoRetornoAtivo: configData?.comissao_retorno_ativo,
+              });
+            } else {
             
             // Determinar tipo e valor de comissão
             let tipoComissao = 'porcentagem';
@@ -635,6 +651,7 @@ export async function POST(request: NextRequest) {
               } catch (pushError) {
                 console.warn('⚠️ Erro ao enviar push de comissão ao técnico (não crítico):', pushError);
               }
+            }
             }
           }
         }

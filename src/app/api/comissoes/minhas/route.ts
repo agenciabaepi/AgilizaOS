@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserIdFromRequest } from '@/lib/supabase/authFromRequest';
 import { createAdminClient } from '@/lib/supabaseClient';
+import { deveBloquearComissaoRetornoGarantia } from '@/lib/comissaoRetornoGarantia';
 
 /**
  * GET /api/comissoes/minhas
@@ -139,6 +140,12 @@ export async function GET(request: Request) {
 
     const osComComissao = new Set(comissoesFormatadasFiltradas.map((c: any) => c.ordem_servico_id).filter(Boolean));
 
+    const { data: configRetornoRow } = await supabase
+      .from('configuracoes_comissao')
+      .select('comissao_retorno_ativo')
+      .eq('empresa_id', empresaId)
+      .maybeSingle();
+
     // 2) Config comissão
     let tipoComissao: 'porcentagem' | 'fixo' = 'porcentagem';
     let valorBaseComissao = 10;
@@ -174,6 +181,7 @@ export async function GET(request: Request) {
         status,
         status_tecnico,
         tipo,
+        os_garantia_id,
         data_entrega,
         created_at,
         cliente_recusou,
@@ -201,6 +209,15 @@ export async function GET(request: Request) {
         .filter((os: any) => {
           if (osComComissao.has(os.id)) return false;
           if (isClienteRecusouPrevista(os)) return false;
+          if (
+            deveBloquearComissaoRetornoGarantia(
+              configRetornoRow?.comissao_retorno_ativo,
+              os.tipo,
+              os.os_garantia_id
+            )
+          ) {
+            return false;
+          }
           const valorTotal = Number(os.valor_faturado ?? os.valor_servico ?? 0) || 0;
           if (valorTotal <= 0) return false;
           return true;

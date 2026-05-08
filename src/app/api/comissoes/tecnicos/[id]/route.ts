@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserIdFromRequest } from '@/lib/supabase/authFromRequest';
 import { createAdminClient } from '@/lib/supabaseClient';
+import { deveBloquearComissaoRetornoGarantia } from '@/lib/comissaoRetornoGarantia';
 
 /**
  * GET /api/comissoes/tecnicos/[id]
@@ -150,6 +151,12 @@ export async function GET(
 
     const osComComissao = new Set(comissoesFormatadasFiltradas.map((c: any) => c.ordem_servico_id).filter(Boolean));
 
+    const { data: configRetornoRow } = await supabase
+      .from('configuracoes_comissao')
+      .select('comissao_retorno_ativo')
+      .eq('empresa_id', empresaId)
+      .maybeSingle();
+
     // 2) Config comissão do técnico
     let tipoComissao: 'porcentagem' | 'fixo' = 'porcentagem';
     let valorBaseComissao = 10;
@@ -177,7 +184,7 @@ export async function GET(
       .from('ordens_servico')
       .select(`
         id, numero_os, valor_faturado, valor_servico, valor_peca,
-        status, status_tecnico, tipo, data_entrega, created_at,
+        status, status_tecnico, tipo, os_garantia_id, data_entrega, created_at,
         cliente_recusou,
         clientes:cliente_id ( nome ), servico
       `)
@@ -195,6 +202,15 @@ export async function GET(
         .filter((os: any) => {
           if (osComComissao.has(os.id)) return false;
           if (isClienteRecusouPrevista(os)) return false;
+          if (
+            deveBloquearComissaoRetornoGarantia(
+              configRetornoRow?.comissao_retorno_ativo,
+              os.tipo,
+              os.os_garantia_id
+            )
+          ) {
+            return false;
+          }
           const valorTotal = Number(os.valor_faturado ?? os.valor_servico ?? 0) || 0;
           if (valorTotal <= 0) return false;
           return true;

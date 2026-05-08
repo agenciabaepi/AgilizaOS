@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabaseClient';
+import { deveBloquearComissaoRetornoGarantia } from '@/lib/comissaoRetornoGarantia';
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -21,7 +22,7 @@ export async function PATCH(request: NextRequest) {
       const ordemServicoId = comissaoId.replace(/^prevista-/, '');
       const { data: os } = await supabase
         .from('ordens_servico')
-        .select('id, numero_os, tecnico_id, cliente_id, empresa_id, valor_faturado, valor_servico, valor_peca, data_entrega, tipo')
+        .select('id, numero_os, tecnico_id, cliente_id, empresa_id, valor_faturado, valor_servico, valor_peca, data_entrega, tipo, os_garantia_id')
         .eq('id', ordemServicoId)
         .single();
       if (!os) {
@@ -40,9 +41,24 @@ export async function PATCH(request: NextRequest) {
       }
       const { data: configEmpresa } = await supabase
         .from('configuracoes_comissao')
-        .select('tipo_comissao, comissao_fixa_padrao, comissao_padrao')
+        .select('tipo_comissao, comissao_fixa_padrao, comissao_padrao, comissao_retorno_ativo')
         .eq('empresa_id', os.empresa_id)
         .maybeSingle();
+      if (
+        deveBloquearComissaoRetornoGarantia(
+          configEmpresa?.comissao_retorno_ativo,
+          os.tipo,
+          os.os_garantia_id
+        )
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              'Comissão em retorno/garantia está desativada nas configurações da empresa.',
+          },
+          { status: 400 }
+        );
+      }
       let tipoComissao = (tecnicoData.tipo_comissao as string) || (configEmpresa?.tipo_comissao as string) || 'porcentagem';
       let valorBase = tipoComissao === 'fixo' ? (tecnicoData.comissao_fixa ?? configEmpresa?.comissao_fixa_padrao ?? 0) : (tecnicoData.comissao_percentual ?? configEmpresa?.comissao_padrao ?? 10);
       const valorTotal = Number(os.valor_faturado ?? os.valor_servico ?? 0) || 0;

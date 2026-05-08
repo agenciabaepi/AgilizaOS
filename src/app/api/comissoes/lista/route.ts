@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserIdFromRequest } from '@/lib/supabase/authFromRequest';
 import { createAdminClient } from '@/lib/supabaseClient';
+import { deveBloquearComissaoRetornoGarantia } from '@/lib/comissaoRetornoGarantia';
 
 /**
  * GET /api/comissoes/lista
@@ -133,7 +134,7 @@ export async function GET(request: Request) {
     // Config padrão empresa
     const { data: configEmpresa } = await supabase
       .from('configuracoes_comissao')
-      .select('tipo_comissao, comissao_fixa_padrao, comissao_padrao')
+      .select('tipo_comissao, comissao_fixa_padrao, comissao_padrao, comissao_retorno_ativo')
       .eq('empresa_id', empresaId)
       .maybeSingle();
 
@@ -142,7 +143,7 @@ export async function GET(request: Request) {
       .from('ordens_servico')
       .select(`
         id, numero_os, tecnico_id, valor_faturado, valor_servico, valor_peca,
-        status, status_tecnico, tipo, data_entrega, created_at,
+        status, status_tecnico, tipo, os_garantia_id, data_entrega, created_at,
         cliente_recusou,
         clientes:cliente_id ( nome ), servico
       `)
@@ -164,6 +165,15 @@ export async function GET(request: Request) {
         .filter((os: any) => {
           if (osComComissao.has(os.id)) return false;
           if (isClienteRecusouPrevista(os)) return false;
+          if (
+            deveBloquearComissaoRetornoGarantia(
+              configEmpresa?.comissao_retorno_ativo,
+              os.tipo,
+              os.os_garantia_id
+            )
+          ) {
+            return false;
+          }
           const valorTotal = Number(os.valor_faturado ?? os.valor_servico ?? 0) || 0;
           if (valorTotal <= 0) return false;
           return true;

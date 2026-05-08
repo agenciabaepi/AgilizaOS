@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabaseClient';
 import { sendPushToTecnico } from '@/lib/push-notification-tecnico';
+import { deveBloquearComissaoRetornoGarantia } from '@/lib/comissaoRetornoGarantia';
 
 function normalizeStatus(s: string | null | undefined): string {
   if (!s) return '';
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
     // 1) Buscar OS finalizadas (ENTREGUE ou Reparo Concluído) com técnico e data_entrega; excluir "cliente recusou"
     const { data: ordens, error: ordensError } = await supabase
       .from('ordens_servico')
-      .select('id, numero_os, status, status_tecnico, data_entrega, tecnico_id, cliente_id, valor_faturado, valor_servico, valor_peca, tipo, empresa_id, cliente_recusou')
+      .select('id, numero_os, status, status_tecnico, data_entrega, tecnico_id, cliente_id, valor_faturado, valor_servico, valor_peca, tipo, os_garantia_id, empresa_id, cliente_recusou')
       .eq('empresa_id', empresa_id)
       .not('tecnico_id', 'is', null)
       .not('data_entrega', 'is', null);
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
     // 3) Configuração padrão da empresa
     const { data: configEmpresa } = await supabase
       .from('configuracoes_comissao')
-      .select('tipo_comissao, comissao_fixa_padrao, comissao_padrao')
+      .select('tipo_comissao, comissao_fixa_padrao, comissao_padrao, comissao_retorno_ativo')
       .eq('empresa_id', empresa_id)
       .maybeSingle();
 
@@ -109,6 +110,16 @@ export async function POST(request: NextRequest) {
 
       if (!tecnicoData || tecnicoData.nivel !== 'tecnico' || tecnicoData.comissao_ativa === false) {
         erros.push(`OS #${os.numero_os}: técnico não encontrado ou sem comissão ativa`);
+        continue;
+      }
+
+      if (
+        deveBloquearComissaoRetornoGarantia(
+          configEmpresa?.comissao_retorno_ativo,
+          os.tipo,
+          os.os_garantia_id
+        )
+      ) {
         continue;
       }
 
