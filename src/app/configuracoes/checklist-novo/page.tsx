@@ -6,7 +6,7 @@ import { Button } from '@/components/Button';
 import { useToast } from '@/components/Toast';
 import { FiPlus, FiEdit, FiTrash2, FiSearch, FiRefreshCw, FiPackage, FiList, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import { useConfigPermission, AcessoNegadoComponent } from '@/hooks/useConfigPermission';
-import { bearerAuthHeaders } from '@/lib/api/clientAuthHeaders';
+import { bearerAuthHeadersForApi } from '@/lib/api/clientAuthHeaders';
 
 interface ChecklistItem {
   id: string;
@@ -58,7 +58,7 @@ export default function ChecklistNovoPage() {
 
     try {
       const response = await fetch(`/api/equipamentos-tipos/categorias?empresa_id=${empresaData.id}`, {
-        headers: bearerAuthHeaders(session),
+        headers: await bearerAuthHeadersForApi(session),
         credentials: 'include',
       });
       
@@ -96,7 +96,7 @@ export default function ChecklistNovoPage() {
       const response = await fetch(
         `/api/checklist-itens?empresa_id=${empresaData.id}&equipamento_categoria=${encodeURIComponent(categoriaSelecionada)}&ativo=true`,
         {
-          headers: bearerAuthHeaders(session),
+          headers: await bearerAuthHeadersForApi(session),
           credentials: 'include',
         }
       );
@@ -203,7 +203,7 @@ export default function ChecklistNovoPage() {
 
       const response = await fetch(url, {
         method,
-        headers: bearerAuthHeaders(session, { 'Content-Type': 'application/json' }),
+        headers: await bearerAuthHeadersForApi(session, { 'Content-Type': 'application/json' }),
         credentials: 'include',
         body: JSON.stringify(body),
       });
@@ -238,7 +238,7 @@ export default function ChecklistNovoPage() {
     try {
       const response = await fetch(`/api/checklist-itens?id=${id}`, {
         method: 'DELETE',
-        headers: bearerAuthHeaders(session),
+        headers: await bearerAuthHeadersForApi(session),
         credentials: 'include',
       });
 

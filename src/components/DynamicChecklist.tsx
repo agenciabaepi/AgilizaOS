@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { bearerAuthHeaders } from '@/lib/api/clientAuthHeaders';
+import { bearerAuthHeadersForApi } from '@/lib/api/clientAuthHeaders';
 import { FiCheck, FiX } from 'react-icons/fi';
 
 interface ChecklistItem {
@@ -64,7 +64,7 @@ export default function DynamicChecklist({
           
         const response = await fetch(url, {
           method: 'GET',
-          headers: bearerAuthHeaders(session, {
+          headers: await bearerAuthHeadersForApi(session, {
             'Cache-Control': 'no-cache, no-store, must-revalidate',
             Pragma: 'no-cache',
             Expires: '0',

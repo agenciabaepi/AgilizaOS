@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/Button';
 import { useToast } from '@/components/Toast';
-import { bearerAuthHeaders } from '@/lib/api/clientAuthHeaders';
+import { bearerAuthHeadersForApi } from '@/lib/api/clientAuthHeaders';
 import { FiPlus, FiEdit, FiTrash2, FiSearch, FiRefreshCw, FiEye, FiEyeOff, FiPackage, FiList, FiChevronDown } from 'react-icons/fi';
 
 interface ChecklistItem {
@@ -79,7 +79,7 @@ export default function ChecklistConfigPage() {
       
       const response = await fetch(`/api/checklist-itens?${params}`, {
         method: 'GET',
-        headers: bearerAuthHeaders(session, {
+        headers: await bearerAuthHeadersForApi(session, {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           Pragma: 'no-cache',
           Expires: '0',
@@ -175,7 +175,7 @@ export default function ChecklistConfigPage() {
 
       const response = await fetch(url, {
         method,
-        headers: bearerAuthHeaders(session, { 'Content-Type': 'application/json' }),
+        headers: await bearerAuthHeadersForApi(session, { 'Content-Type': 'application/json' }),
         credentials: 'include',
         body: JSON.stringify(body),
       });
@@ -209,7 +209,7 @@ export default function ChecklistConfigPage() {
     try {
       const response = await fetch(`/api/checklist-itens?id=${id}`, {
         method: 'DELETE',
-        headers: bearerAuthHeaders(session),
+        headers: await bearerAuthHeadersForApi(session),
         credentials: 'include',
       });
 
@@ -231,7 +231,7 @@ export default function ChecklistConfigPage() {
     try {
       const response = await fetch('/api/checklist-itens', {
         method: 'PUT',
-        headers: bearerAuthHeaders(session, { 'Content-Type': 'application/json' }),
+        headers: await bearerAuthHeadersForApi(session, { 'Content-Type': 'application/json' }),
         credentials: 'include',
         body: JSON.stringify({
           id: item.id,

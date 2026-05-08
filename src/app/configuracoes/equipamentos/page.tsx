@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/Button';
 import { useToast } from '@/components/Toast';
 import { useAutoSync } from '@/hooks/useAutoSync';
-import { bearerAuthHeaders } from '@/lib/api/clientAuthHeaders';
+import { bearerAuthHeadersForApi } from '@/lib/api/clientAuthHeaders';
 import { FiPlus, FiEdit, FiTrash2, FiSearch, FiFilter, FiRefreshCw } from 'react-icons/fi';
 
 interface EquipamentoTipo {
@@ -74,7 +74,7 @@ export default function EquipamentosConfigPage() {
       
       const response = await fetch(`/api/equipamentos-tipos?${params}`, {
         method: 'GET',
-        headers: bearerAuthHeaders(session, {
+        headers: await bearerAuthHeadersForApi(session, {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           Pragma: 'no-cache',
           Expires: '0',
@@ -197,7 +197,7 @@ export default function EquipamentosConfigPage() {
 
       const response = await fetch(url, {
         method,
-        headers: bearerAuthHeaders(session, { 'Content-Type': 'application/json' }),
+        headers: await bearerAuthHeadersForApi(session, { 'Content-Type': 'application/json' }),
         credentials: 'include',
         body: JSON.stringify(body),
       });
@@ -231,7 +231,7 @@ export default function EquipamentosConfigPage() {
     try {
       const response = await fetch(`/api/equipamentos-tipos?id=${id}`, {
         method: 'DELETE',
-        headers: bearerAuthHeaders(session),
+        headers: await bearerAuthHeadersForApi(session),
         credentials: 'include',
       });
 
