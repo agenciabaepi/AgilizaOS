@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 import { getAuthUserIdFromRequest } from '@/lib/supabase/authFromRequest';
 import { createAdminClient } from '@/lib/supabaseClient';
 import { deveBloquearComissaoRetornoGarantia, deveExcluirComissaoOs } from '@/lib/comissaoRetornoGarantia';
+import {
+  fetchComissoesHistoricoRows,
+  fetchOrdensPrevistasRows,
+  osRowFromComissao,
+} from '@/lib/comissoesQueryCompat';
 
 /**
  * GET /api/comissoes/lista
@@ -47,13 +52,9 @@ export async function GET(request: Request) {
     };
 
     const norm = (s: string | null | undefined) => (s || '').trim().toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
-    const isClienteRecusouOs = (statusOs?: string | null, statusTecOs?: string | null) =>
-      norm(statusOs) === 'CLIENTE RECUSOU' || norm(statusTecOs) === 'CLIENTE RECUSOU';
 
-    // 1) Todas as comissões reais da empresa
-    let queryReais = supabase
-      .from('comissoes_historico')
-      .select(`
+    const rawReais = await fetchComissoesHistoricoRows((osJoinFields, includeAtiva) => {
+      const baseFields = `
         id,
         tecnico_id,
         ordem_servico_id,
@@ -68,38 +69,21 @@ export async function GET(request: Request) {
         status,
         tipo_ordem,
         created_at,
-        ativa,
+        ${includeAtiva ? 'ativa,' : ''}
         observacoes,
-        ordens_servico:ordem_servico_id ( numero_os, servico, status, status_tecnico, aparelho_sem_conserto, cliente_recusou ),
+        ordens_servico:ordem_servico_id ( ${osJoinFields} ),
         clientes:cliente_id ( nome )
-      `)
-      .eq('empresa_id', empresaId)
-      .order('data_entrega', { ascending: false })
-      .order('created_at', { ascending: false });
-
-    let rawReais: any[] = [];
-    const { data: reaisData, error: reaisError } = await queryReais;
-    if (reaisError && (reaisError.message?.includes('ativa') || reaisError.code === '42703')) {
-      const retry = supabase
+      `;
+      return supabase
         .from('comissoes_historico')
-        .select(`
-          id, tecnico_id, ordem_servico_id, valor_servico, valor_peca, valor_total,
-          tipo_comissao, percentual_comissao, valor_comissao_fixa, valor_comissao,
-          data_entrega, status, tipo_ordem, created_at, observacoes,
-          ordens_servico:ordem_servico_id ( numero_os, servico, status, status_tecnico, aparelho_sem_conserto, cliente_recusou ),
-          clientes:cliente_id ( nome )
-        `)
+        .select(baseFields)
         .eq('empresa_id', empresaId)
         .order('data_entrega', { ascending: false })
         .order('created_at', { ascending: false });
-      const retryRes = await retry;
-      if (!retryRes.error) rawReais = retryRes.data || [];
-    } else if (!reaisError) rawReais = reaisData || [];
-
-    const osRow = (c: any) => (Array.isArray(c.ordens_servico) ? c.ordens_servico[0] : c.ordens_servico);
+    });
     const comissoesReais = rawReais
       .map((c: any) => {
-        const os = osRow(c);
+        const os = osRowFromComissao(c);
         const tec = resolveTecnico(c.tecnico_id);
         return {
           id: c.id,
@@ -124,13 +108,15 @@ export async function GET(request: Request) {
           tecnico_comissao_ativa: tec.comissao_ativa,
           observacoes: c.observacoes || null,
           status_os: os?.status || null,
-          status_tecnico_os: os?.status_tecnico || null
+          status_tecnico_os: os?.status_tecnico || null,
+          cliente_recusou_os: os?.cliente_recusou ?? null,
+          aparelho_sem_conserto_os: os?.aparelho_sem_conserto ?? null,
         };
       })
       .filter((c: any) =>
         !deveExcluirComissaoOs({
-          cliente_recusou: osRow(c)?.cliente_recusou,
-          aparelho_sem_conserto: osRow(c)?.aparelho_sem_conserto,
+          cliente_recusou: c.cliente_recusou_os,
+          aparelho_sem_conserto: c.aparelho_sem_conserto_os,
           status: c.status_os,
           status_tecnico: c.status_tecnico_os,
         })
@@ -146,20 +132,14 @@ export async function GET(request: Request) {
       .maybeSingle();
 
     // 2) Todas as OS com técnico e valor, que ainda não têm comissão (previstas)
-    const { data: ordensData, error: ordensError } = await supabase
-      .from('ordens_servico')
-      .select(`
-        id, numero_os, tecnico_id, valor_faturado, valor_servico, valor_peca,
-        status, status_tecnico, tipo, os_garantia_id, data_entrega, created_at,
-        cliente_recusou, aparelho_sem_conserto,
-        clientes:cliente_id ( nome ), servico
-      `)
-      .eq('empresa_id', empresaId)
-      .not('tecnico_id', 'is', null)
-      .order('created_at', { ascending: false });
-
-    const isClienteRecusouPrevista = (os: any) =>
-      !!os.cliente_recusou || norm(os.status) === 'CLIENTE RECUSOU' || norm(os.status_tecnico) === 'CLIENTE RECUSOU';
+    const { data: ordensData, error: ordensError } = await fetchOrdensPrevistasRows((selectFields) =>
+      supabase
+        .from('ordens_servico')
+        .select(selectFields)
+        .eq('empresa_id', empresaId)
+        .not('tecnico_id', 'is', null)
+        .order('created_at', { ascending: false })
+    );
     const isFinalizada = (status: string | null | undefined, statusTec: string | null | undefined) => {
       const s = norm(status);
       const t = norm(statusTec || '');
