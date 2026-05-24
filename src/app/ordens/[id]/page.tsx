@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import MenuLayout from '@/components/MenuLayout';
 
 import { useParams, useRouter } from 'next/navigation';
@@ -16,6 +16,15 @@ import { useHistoricoOS } from '@/hooks/useHistoricoOS';
 import HistoricoOSTimeline from '@/components/HistoricoOSTimeline';
 import LaudoRenderer from '@/components/LaudoRenderer';
 import { getStatusTecnicoLabel } from '@/utils/statusLabels';
+import { getStatusTecnicoOrdemExibicao } from '@/utils/osSemConserto';
+import {
+  ensureTermoGarantiaPadraoNoBanco,
+  isTermoGarantiaPadraoId,
+  mesclarTermosGarantia,
+  normalizarTermoGarantia,
+  resolverTermoPadraoEmpresa,
+  type TermoGarantia,
+} from '@/lib/termoGarantiaPadrao';
 
 type LinhaPagamentoEntrega = { id: string; forma: string; valor: string };
 
@@ -90,16 +99,24 @@ const VisualizarOrdemServicoPage = () => {
     if (!modalEntrega) return;
     setLinhasPagamento([{ id: novoIdLinhaPagamento(), forma: '', valor: '' }]);
     setDescontoEntregaStr('');
-  }, [modalEntrega]);
+
+    if (!empresaData?.id) return;
+
+    void (async () => {
+      const termos = await carregarTermosGarantiaLista();
+      if (termos.length === 0) return;
+
+      const idOs = ordem?.termo_garantia_id as string | undefined;
+      const preSelecionado = idOs ? termos.find((t) => t.id === idOs) : null;
+      setTermoGarantiaSelecionado(preSelecionado ?? termos[0]);
+    })();
+  }, [modalEntrega, empresaData?.id, ordem?.termo_garantia_id]);
 
   useEffect(() => {
     const fetchOrdem = async () => {
       setLoading(true);
       try {
-        // Na consulta do banco (linha 23), adicionar o campo prazo_entrega:
-        const { data, error } = await supabase
-          .from('ordens_servico')
-          .select(`
+        const baseSelect = `
             id,
             numero_os,
             empresa_id,
@@ -122,6 +139,7 @@ const VisualizarOrdemServicoPage = () => {
             numero_serie,
             status,
             status_tecnico,
+            cliente_recusou,
             observacao,
             qtd_peca,
             peca,
@@ -151,19 +169,50 @@ const VisualizarOrdemServicoPage = () => {
               nome,
               conteudo
             )
-          `)
-          .eq('id', String(id))
-          .single();
+          `;
+        const selectComAparelhoSemConserto = `${baseSelect.trim()},\n            aparelho_sem_conserto`;
+
+        const buildQuery = (selectFields: string) =>
+          supabase.from('ordens_servico').select(selectFields).eq('id', String(id)).single();
+
+        let { data, error } = await buildQuery(selectComAparelhoSemConserto);
+
+        const columnMissingAparelhoSemConserto =
+          !!error &&
+          typeof error.message === 'string' &&
+          error.message.includes('aparelho_sem_conserto');
+
+        if (columnMissingAparelhoSemConserto) {
+          console.warn('⚠️ Coluna aparelho_sem_conserto ausente neste banco; executando fallback de compatibilidade.');
+          const fallbackResult = await buildQuery(baseSelect);
+          data = fallbackResult.data;
+          error = fallbackResult.error;
+        }
 
         if (error) {
           const errMsg = error?.message || error?.code || JSON.stringify(error);
           console.error('Erro ao carregar OS:', errMsg, error);
-        } else {
-          // Mapear campos para compatibilidade com a interface
+        } else if (data) {
+          let termoGarantia = data.termo_garantia;
+          if (
+            data.termo_garantia_id &&
+            data.empresa_id &&
+            isTermoGarantiaPadraoId(data.termo_garantia_id, data.empresa_id)
+          ) {
+            termoGarantia = resolverTermoPadraoEmpresa(
+              data.empresa_id,
+              data.termo_garantia as TermoGarantia | null
+            );
+          } else if (termoGarantia && data.empresa_id) {
+            termoGarantia = normalizarTermoGarantia(termoGarantia, data.empresa_id);
+          }
+
           const ordemMapeada = {
             ...data,
-            relato: data.problema_relatado, // Mapear problema_relatado para relato
-            observacao: data.observacao // Manter observacao como está
+            aparelho_sem_conserto: data.aparelho_sem_conserto ?? false,
+            termo_garantia: termoGarantia,
+            relato: data.problema_relatado,
+            observacao: data.observacao,
           };
           
           setOrdem(ordemMapeada);
@@ -202,8 +251,10 @@ const VisualizarOrdemServicoPage = () => {
   }, [id]);
 
   useEffect(() => {
-    fetchTermosGarantia();
-  }, []);
+    if (empresaData?.id) {
+      void fetchTermosGarantia();
+    }
+  }, [empresaData?.id]);
 
   // Carregar histórico quando a OS for carregada
   useEffect(() => {
@@ -271,6 +322,16 @@ const VisualizarOrdemServicoPage = () => {
     return tipo === 'retorno' || tipo === 'Retorno';
   };
 
+  const statusExibicao = useMemo(() => {
+    if (!ordem) return null;
+    return getStatusTecnicoOrdemExibicao({
+      status: ordem.status,
+      status_tecnico: ordem.status_tecnico,
+      aparelho_sem_conserto: ordem.aparelho_sem_conserto,
+      cliente_recusou: ordem.cliente_recusou,
+    });
+  }, [ordem]);
+
   // Função para salvar o relato do cliente
   const salvarRelato = async () => {
     if (!ordem?.id) return;
@@ -308,28 +369,38 @@ const VisualizarOrdemServicoPage = () => {
   };
 
 
-  const fetchTermosGarantia = async () => {
+  const carregarTermosGarantiaLista = async (): Promise<TermoGarantia[]> => {
     if (!empresaData?.id) {
-      console.warn('Empresa não encontrada para carregar termos de garantia');
-      return;
+      return [];
     }
-    
+
     try {
       const { data, error } = await supabase
         .from('termos_garantia')
         .select('*')
         .eq('empresa_id', empresaData.id)
         .order('nome');
-      
+
       if (error) {
         console.error('Erro ao carregar termos de garantia:', error);
-        return;
+        const fallback = mesclarTermosGarantia(empresaData.id, []);
+        setTermosGarantia(fallback);
+        return fallback;
       }
-      
-      setTermosGarantia(data || []);
+
+      const merged = mesclarTermosGarantia(empresaData.id, (data || []) as TermoGarantia[]);
+      setTermosGarantia(merged);
+      return merged;
     } catch (error) {
       console.error('Erro ao carregar termos de garantia:', error);
+      const fallback = mesclarTermosGarantia(empresaData.id, []);
+      setTermosGarantia(fallback);
+      return fallback;
     }
+  };
+
+  const fetchTermosGarantia = async () => {
+    await carregarTermosGarantiaLista();
   };
 
   // Função para processar entrega da O.S.
@@ -376,6 +447,14 @@ const VisualizarOrdemServicoPage = () => {
     setProcessandoEntrega(true);
 
     try {
+      if (
+        termoGarantiaSelecionado?.id &&
+        empresaData?.id &&
+        isTermoGarantiaPadraoId(termoGarantiaSelecionado.id, empresaData.id)
+      ) {
+        await ensureTermoGarantiaPadraoNoBanco(supabase, empresaData.id);
+      }
+
       const statusTecnicoAtual = String(ordem?.status_tecnico || '').toUpperCase().trim();
       const tecnicoJaMarcouSemReparo =
         statusTecnicoAtual === 'SEM REPARO' || statusTecnicoAtual === 'SEM_REPARO';
@@ -390,7 +469,8 @@ const VisualizarOrdemServicoPage = () => {
         body: JSON.stringify({
           osId: id,
           newStatus: 'ENTREGUE',
-          newStatusTecnico: tecnicoJaMarcouSemReparo ? 'SEM REPARO' : 'REPARO CONCLUÍDO',
+          newStatusTecnico:
+            aparelhoSemConserto || tecnicoJaMarcouSemReparo ? 'SEM REPARO' : 'REPARO CONCLUÍDO',
           termo_garantia_id: termoGarantiaSelecionado.id,
           data_entrega: new Date().toISOString().split('T')[0],
           vencimento_garantia: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -584,7 +664,7 @@ const VisualizarOrdemServicoPage = () => {
     const senha = ordem?.senha_acesso ? String(ordem.senha_acesso).trim() : '';
     const clienteNome = ordem?.cliente?.nome || 'Cliente';
     const equipamento = [ordem?.equipamento, ordem?.marca, ordem?.modelo].filter(Boolean).join(' ') || '—';
-    const statusLabel = getStatusTecnicoLabel(ordem?.status, ordem?.status_tecnico) || ordem?.status || '—';
+    const statusLabel = statusExibicao?.label || getStatusTecnicoLabel(ordem?.status, ordem?.status_tecnico) || ordem?.status || '—';
     const texto = [
       `*Resumo da OS #${ordem?.numero_os ?? ordem?.id}*`,
       '',
@@ -858,10 +938,16 @@ const VisualizarOrdemServicoPage = () => {
                 <FiCheckCircle className="w-4 h-4 mr-2" />
                 {getStatusTecnicoLabel(ordem.status, null) || 'Status não definido'}
               </span>
-              {ordem.status_tecnico && (
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusTecnicoColor(ordem.status_tecnico)}`}>
+              {(ordem.status_tecnico || statusExibicao?.aparelhoSemConserto) && (
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusTecnicoColor(statusExibicao?.label || ordem.status_tecnico)}`}>
                   <FiTool className="w-4 h-4 mr-2" />
-                  {getStatusTecnicoLabel(ordem.status, ordem.status_tecnico)}
+                  {statusExibicao?.label || getStatusTecnicoLabel(ordem.status, ordem.status_tecnico)}
+                </span>
+              )}
+              {statusExibicao?.aparelhoSemConserto && (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 dark:bg-orange-900/50 text-orange-800 dark:text-orange-200 border border-orange-200 dark:border-orange-700">
+                  <FiAlertTriangle className="w-4 h-4 mr-2" />
+                  Entregue sem conserto
                 </span>
               )}
               {isRetorno(ordem) && (
@@ -1493,7 +1579,7 @@ const VisualizarOrdemServicoPage = () => {
                       <option value="">Selecione um termo...</option>
                       {termosGarantia.map((termo) => (
                         <option key={termo.id} value={termo.id}>
-                          {termo.nome}
+                          {termo.is_sistema ? `${termo.nome} (Modelo de exemplo)` : termo.nome}
                         </option>
                       ))}
                     </select>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabaseClient';
 import { sendPushToTecnico } from '@/lib/push-notification-tecnico';
-import { deveBloquearComissaoRetornoGarantia } from '@/lib/comissaoRetornoGarantia';
+import { deveBloquearComissaoRetornoGarantia, deveExcluirComissaoOs } from '@/lib/comissaoRetornoGarantia';
 
 function normalizeStatus(s: string | null | undefined): string {
   if (!s) return '';
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     // 1) Buscar OS finalizadas (ENTREGUE ou Reparo Concluído) com técnico e data_entrega; excluir "cliente recusou"
     const { data: ordens, error: ordensError } = await supabase
       .from('ordens_servico')
-      .select('id, numero_os, status, status_tecnico, data_entrega, tecnico_id, cliente_id, valor_faturado, valor_servico, valor_peca, tipo, os_garantia_id, empresa_id, cliente_recusou')
+      .select('id, numero_os, status, status_tecnico, data_entrega, tecnico_id, cliente_id, valor_faturado, valor_servico, valor_peca, tipo, os_garantia_id, empresa_id, cliente_recusou, aparelho_sem_conserto')
       .eq('empresa_id', empresa_id)
       .not('tecnico_id', 'is', null)
       .not('data_entrega', 'is', null);
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
 
     const osFinalizadas = (ordens || []).filter((os: any) => {
       if (!isFinalizada(os.status || '', os.status_tecnico || '')) return false;
-      if (isClienteRecusou(os.status || '', os.status_tecnico || '', !!os.cliente_recusou)) return false;
+      if (deveExcluirComissaoOs(os)) return false;
       return true;
     });
 

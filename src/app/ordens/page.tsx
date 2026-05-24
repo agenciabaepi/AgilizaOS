@@ -2,6 +2,7 @@
 'use client';
 
 import { getStatusTecnicoLabel } from '@/utils/statusLabels';
+import { inferirAparelhoSemConsertoOs } from '@/utils/osSemConserto';
 import { extrairNumeroOSDaObservacao } from '@/utils/extrairNumeroOSDaObservacao';
 
 /** Extrai string do status/status_tecnico (Supabase pode retornar objeto da relação com .nome). */
@@ -50,6 +51,49 @@ function statusOsEntregueOuConcluido(os: { status?: unknown }): boolean {
     .normalize('NFD')
     .replace(/\p{Diacritic}/gu, '');
   return s === 'ENTREGUE' || s === 'CONCLUIDO' || s === 'FATURADO';
+}
+
+function parseOsDataLocal(dataStr: string | null | undefined): Date | null {
+  if (!dataStr) return null;
+  const match = dataStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    const [, year, month, day] = match;
+    return new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+  }
+  const parsed = new Date(dataStr);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function isOsDataNoDia(
+  dataStr: string | null | undefined,
+  inicioDia: Date,
+  fimDia: Date
+): boolean {
+  const dataOS = parseOsDataLocal(dataStr);
+  if (!dataOS) return false;
+  return dataOS >= inicioDia && dataOS < fimDia;
+}
+
+function isOsFaturamentoReal(os: {
+  clienteRecusou?: boolean;
+  aparelhoSemConserto?: boolean;
+  foiFaturada?: boolean;
+}): boolean {
+  return !os.clienteRecusou && !os.aparelhoSemConserto && !!os.foiFaturada;
+}
+
+function labelStatusTecnicoOrdem(os: {
+  statusOS: string;
+  statusTecnico: string;
+  aparelhoSemConserto: boolean;
+  clienteRecusou: boolean;
+}): string {
+  return (
+    getStatusTecnicoLabel(os.statusOS, os.statusTecnico, {
+      aparelhoSemConserto: os.aparelhoSemConserto,
+      clienteRecusou: os.clienteRecusou,
+    }) || 'N/A'
+  );
 }
 
 /** Mesma ideia do dados-impressao: observações da venda ou total + cliente. */
@@ -691,6 +735,10 @@ export default function ListaOrdensPage() {
             tecnicoNome = 'Técnico não encontrado';
           }
 
+          const aparelhoSemConserto = inferirAparelhoSemConsertoOs(item, !!vendaOS);
+          const statusTecnicoDb = normStatusVal(item.status_tecnico) || '';
+          const statusTecnico = aparelhoSemConserto ? 'SEM REPARO' : statusTecnicoDb;
+
           return {
           id: item.id,
             numero: item.numero_os,
@@ -703,7 +751,7 @@ export default function ListaOrdensPage() {
             aparelhoImagemUrl: item.aparelho_imagem_url || null,
             servico: item.servico || '',
             statusOS: normStatusVal(item.status) || '',
-            statusTecnico: normStatusVal(item.status_tecnico) || '',
+            statusTecnico,
             entrada: item.created_at || '',
             tecnico: tecnicoNome,
             atendente: item.atendente || '',
@@ -718,17 +766,17 @@ export default function ListaOrdensPage() {
             valorFaturado: valorFaturado,
             tipo: item.tipo || 'Nova',
             clienteRecusou: item.cliente_recusou || false, // Campo para marcar se cliente recusou
-            aparelhoSemConserto: item.aparelho_sem_conserto || false, // Campo para marcar se aparelho não teve conserto
+            aparelhoSemConserto,
             // Faturado: OS fechada + venda encontrada + (valor na OS ou total na venda > 0)
             foiFaturada:
               !item.cliente_recusou &&
-              !item.aparelho_sem_conserto &&
+              !aparelhoSemConserto &&
               statusOsConsideradaFechada(item) &&
               !!vendaOS &&
               (valorFaturado > 0 || parseValorMonetarioBR(vendaOS?.total) > 0),
             faturamentoSemVendaVinculada:
               !item.cliente_recusou &&
-              !item.aparelho_sem_conserto &&
+              !aparelhoSemConserto &&
               statusOsConsideradaFechada(item) &&
               !vendaOS &&
               (valorFaturado > 0 || statusOsEntregueOuConcluido(item)),
@@ -1135,31 +1183,20 @@ export default function ListaOrdensPage() {
   const inicioDia = new Date(hojeAgora.getFullYear(), hojeAgora.getMonth(), hojeAgora.getDate());
   const fimDia = new Date(hojeAgora.getFullYear(), hojeAgora.getMonth(), hojeAgora.getDate() + 1);
 
-  const osHoje = ordens.filter(os => {
-    // Converter a data de entrada para data local sem timezone
-    let dataOS: Date;
-    if (typeof os.entrada === 'string') {
-      // Se for string YYYY-MM-DD, tratar como data local
-      const match = os.entrada.match(/^(\d{4})-(\d{2})-(\d{2})/);
-      if (match) {
-        const [, year, month, day] = match;
-        dataOS = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-      } else {
-        dataOS = new Date(os.entrada);
-      }
-    } else {
-      dataOS = new Date(os.entrada);
-    }
-    
-    return dataOS >= inicioDia && dataOS < fimDia;
-  }).length;
+  const osHoje = ordens.filter(os => isOsDataNoDia(os.entrada, inicioDia, fimDia)).length;
 
-  const faturamentoHoje = ordens.filter(os => {
-    const dataOS = new Date(os.entrada);
-    return dataOS >= inicioDia && dataOS < fimDia && os.valorFaturado;
-  }).reduce((sum: number, o: any) => sum + (o.valorFaturado || 0), 0);
+  const osFaturadasHoje = ordens.filter((os) => {
+    if (!isOsFaturamentoReal(os)) return false;
+    return isOsDataNoDia(os.entrega || os.entrada, inicioDia, fimDia);
+  });
 
-  const ticketMedioHoje = osHoje > 0 ? faturamentoHoje / osHoje : 0;
+  const faturamentoHoje = osFaturadasHoje.reduce(
+    (sum: number, o) => sum + (o.valorFaturado || 0),
+    0
+  );
+
+  const ticketMedioHoje =
+    osFaturadasHoje.length > 0 ? faturamentoHoje / osFaturadasHoje.length : 0;
 
   const retornosHoje = ordens.filter(os => {
     const dataOS = new Date(os.entrada);
@@ -1676,8 +1713,8 @@ export default function ListaOrdensPage() {
                     </td>
                     <td className="px-1 py-2">
                       <div className="flex items-center gap-1 min-w-0 overflow-hidden">
-                        <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium truncate max-w-full ${getStatusTecnicoColor(os.statusTecnico)}`}>
-                            {getStatusTecnicoLabel(os.statusOS, os.statusTecnico) || 'N/A'}
+                        <span className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium truncate max-w-full ${getStatusTecnicoColor(labelStatusTecnicoOrdem(os))}`}>
+                            {labelStatusTecnicoOrdem(os)}
                         </span>
                       </div>
                     </td>
@@ -1818,7 +1855,7 @@ export default function ListaOrdensPage() {
                 <div className="flex items-center justify-between text-xs">
                   <div>
                     <div className="text-gray-500 dark:text-zinc-400">Status Técnico</div>
-                    <div className="font-medium text-gray-900 dark:text-zinc-100">{getStatusTecnicoLabel(os.statusOS, os.statusTecnico) || 'N/A'}</div>
+                    <div className="font-medium text-gray-900 dark:text-zinc-100">{labelStatusTecnicoOrdem(os)}</div>
                   </div>
                   <div className="text-right">
                     <div className="text-gray-500 dark:text-zinc-400">Faturado</div>

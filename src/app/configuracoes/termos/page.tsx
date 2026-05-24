@@ -13,14 +13,16 @@ import Underline from '@tiptap/extension-underline'
 import { useToast } from '@/components/Toast'
 import { useConfirm } from '@/components/ConfirmDialog'
 import { useConfigPermission, AcessoNegadoComponent } from '@/hooks/useConfigPermission'
+import {
+  getTermoGarantiaPadraoId,
+  isTermoGarantiaPadraoId,
+  mesclarTermosGarantia,
+  restaurarTermoModeloSistema,
+  type TermoGarantia,
+} from '@/lib/termoGarantiaPadrao'
+import { FiShield, FiRotateCcw } from 'react-icons/fi'
 
-interface Termo {
-  id: string
-  nome: string
-  conteudo: string
-  ativo: boolean
-  ordem: number
-  empresa_id: string
+interface Termo extends TermoGarantia {
   created_at: string
   updated_at: string
 }
@@ -95,7 +97,7 @@ export default function TermosPage() {
         console.error('Erro ao carregar termos:', error)
         addToast('error', 'Erro ao carregar termos de garantia')
       } else {
-        setTermos(data || [])
+        setTermos(mesclarTermosGarantia(empresaData.id, (data || []) as TermoGarantia[]) as Termo[])
       }
     } catch (error) {
       console.error('Erro ao carregar termos:', error)
@@ -122,23 +124,48 @@ export default function TermosPage() {
     }
 
     try {
-      if (editingTermo) {
-        // Atualizar termo existente
-        const { error } = await supabase
-          .from('termos_garantia')
-          .update({
-            nome: formData.nome,
-            conteudo: formData.conteudo,
-            ativo: formData.ativo
-          })
-          .eq('id', editingTermo.id)
+      const editandoPadrao =
+        editingTermo &&
+        empresaData?.id &&
+        isTermoGarantiaPadraoId(editingTermo.id, empresaData.id)
 
-        if (error) {
-          console.error('Erro ao atualizar termo:', error)
-          addToast('error', 'Erro ao atualizar termo!')
-          return
+      if (editingTermo) {
+        if (editandoPadrao) {
+          const { error } = await supabase.from('termos_garantia').upsert(
+            {
+              id: getTermoGarantiaPadraoId(empresaData.id),
+              empresa_id: empresaData.id,
+              nome: formData.nome,
+              conteudo: formData.conteudo,
+              ativo: formData.ativo,
+              ordem: 0,
+            },
+            { onConflict: 'id' }
+          )
+
+          if (error) {
+            console.error('Erro ao salvar termo padrão:', error)
+            addToast('error', 'Erro ao salvar personalização do termo padrão!')
+            return
+          }
+          addToast('success', 'Termo padrão personalizado com sucesso!')
+        } else {
+          const { error } = await supabase
+            .from('termos_garantia')
+            .update({
+              nome: formData.nome,
+              conteudo: formData.conteudo,
+              ativo: formData.ativo,
+            })
+            .eq('id', editingTermo.id)
+
+          if (error) {
+            console.error('Erro ao atualizar termo:', error)
+            addToast('error', 'Erro ao atualizar termo!')
+            return
+          }
+          addToast('success', 'Termo atualizado com sucesso!')
         }
-        addToast('success', 'Termo atualizado com sucesso!')
       } else {
         // Criar novo termo
         const { error } = await supabase
@@ -148,7 +175,7 @@ export default function TermosPage() {
             nome: formData.nome,
             conteudo: formData.conteudo,
             ativo: formData.ativo,
-            ordem: termos.length + 1
+            ordem: termosCustomizados.length + 1
           })
 
         if (error) {
@@ -168,8 +195,38 @@ export default function TermosPage() {
     }
   }
 
+  const termosCustomizados = termos.filter((t) => !t.is_sistema)
+  const termoPadrao = termos.find((t) => t.is_sistema) ?? null
+
+  const restaurarModeloPadrao = async () => {
+    if (!empresaData?.id) return
+
+    const confirmed = await confirm({
+      title: 'Restaurar modelo original',
+      message:
+        'Isso substitui sua versão personalizada pelo modelo de exemplo do sistema. Novas empresas continuarão recebendo o original.',
+      confirmText: 'Restaurar',
+      cancelText: 'Cancelar',
+    })
+
+    if (!confirmed) return
+
+    try {
+      await restaurarTermoModeloSistema(supabase, empresaData.id)
+      await fetchTermos()
+      addToast('success', 'Termo padrão restaurado ao modelo original!')
+    } catch (error) {
+      console.error('Erro ao restaurar termo padrão:', error)
+      addToast('error', 'Erro ao restaurar termo padrão')
+    }
+  }
+
   // Excluir termo
   const excluirTermo = async (id: string) => {
+    if (empresaData?.id && isTermoGarantiaPadraoId(id, empresaData.id)) {
+      addToast('info', 'Use "Restaurar modelo" para voltar ao termo de exemplo original.')
+      return
+    }
     const confirmed = await confirm({
       title: 'Excluir Termo',
       message: 'Tem certeza que deseja excluir este termo? Esta ação não pode ser desfeita.',
@@ -338,7 +395,7 @@ export default function TermosPage() {
               </div>
               <h1 className="text-2xl font-bold text-gray-900">Termos de Garantia</h1>
             </div>
-            <p className="text-gray-600">Gerencie os termos de garantia da sua empresa</p>
+            <p className="text-gray-600">Modelo de exemplo do sistema + termos personalizados da sua empresa</p>
           </div>
           <Button
             onClick={novoTermo}
@@ -357,6 +414,7 @@ export default function TermosPage() {
             <div>
               <p className="text-sm font-medium text-gray-600">Total de Termos</p>
               <p className="text-2xl font-bold text-gray-900">{termos.length}</p>
+              <p className="text-xs text-gray-400 mt-0.5">1 padrão + {termosCustomizados.length} personalizado(s)</p>
             </div>
             <div className="p-2 bg-blue-100 rounded-lg">
               <FiFileText className="w-5 h-5 text-blue-600" />
@@ -397,21 +455,84 @@ export default function TermosPage() {
         </div>
       ) : (
         <div className="flex-1">
-          {termos.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="bg-gray-50 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
-                <FiFileText className="w-10 h-10 text-gray-400" />
+          {termoPadrao && (
+            <div className="mb-6 rounded-xl border-2 border-dashed border-indigo-200 bg-gradient-to-br from-indigo-50/80 to-white overflow-hidden">
+              <div className="flex items-center justify-between p-5 gap-3">
+                <div
+                  className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer hover:opacity-90 transition-opacity"
+                  onClick={() => toggleTermo(termoPadrao.id)}
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 shrink-0">
+                    <FiShield className="h-5 w-5 text-indigo-600" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-lg font-semibold text-gray-900">{termoPadrao.nome}</h3>
+                      <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700">
+                        Modelo de exemplo
+                      </span>
+                      {termoPadrao.personalizado && (
+                        <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-semibold text-amber-800">
+                          Personalizado
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Você pode editar para sua empresa · novos usuários recebem o modelo original
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => editarTermo(termoPadrao as Termo)}
+                    className="hover:bg-indigo-50 hover:text-indigo-700"
+                    title="Personalizar termo"
+                  >
+                    <FiEdit2 className="w-4 h-4" />
+                  </Button>
+                  {termoPadrao.personalizado && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={restaurarModeloPadrao}
+                      className="hover:bg-gray-100 text-gray-600"
+                      title="Restaurar modelo original"
+                    >
+                      <FiRotateCcw className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Nenhum termo encontrado</h3>
-              <p className="text-gray-600 mb-6 max-w-md mx-auto">Crie seu primeiro termo de garantia para começar a usar no sistema</p>
+              {expandedTermos.has(termoPadrao.id) && (
+                <div className="border-t border-indigo-100 p-5 bg-white/80">
+                  <div
+                    className="prose prose-sm max-w-none text-gray-600"
+                    dangerouslySetInnerHTML={{ __html: termoPadrao.conteudo }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {termosCustomizados.length === 0 ? (
+            <div className="text-center py-8 rounded-xl border border-gray-200 bg-gray-50/50">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum termo personalizado</h3>
+              <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                Use o termo padrão acima ou crie modelos personalizados para a sua empresa
+              </p>
               <Button onClick={novoTermo} className="shadow-lg">
                 <FiPlus className="w-4 h-4 mr-2" />
-                Criar Primeiro Termo
+                Criar Termo Personalizado
               </Button>
             </div>
           ) : (
             <div className="grid gap-4">
-              {termos.map((termo, index) => (
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 px-1">
+                Termos personalizados
+              </p>
+              {termosCustomizados.map((termo, index) => (
                 <div key={termo.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
                   {/* Header do Acordeão */}
                   <div 
@@ -486,7 +607,11 @@ export default function TermosPage() {
             {/* Header do Modal */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h2 className="text-xl font-semibold text-gray-900">
-                {editingTermo ? 'Editar Termo' : 'Novo Termo'}
+                {editingTermo?.is_sistema
+                  ? 'Personalizar termo padrão'
+                  : editingTermo
+                    ? 'Editar Termo'
+                    : 'Novo Termo'}
               </h2>
               <button
                 onClick={fecharModal}

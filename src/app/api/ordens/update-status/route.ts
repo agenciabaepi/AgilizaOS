@@ -2,7 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabaseClient';
 import { sendOSApprovedNotification, sendOSStatusNotification } from '@/lib/whatsapp-notifications';
 import { sendPushToTecnico, buildNovaOSPushMessage } from '@/lib/push-notification-tecnico';
-import { deveBloquearComissaoRetornoGarantia } from '@/lib/comissaoRetornoGarantia';
+import { deveBloquearComissaoRetornoGarantia, deveExcluirComissaoOs } from '@/lib/comissaoRetornoGarantia';
+import {
+  CAMPOS_MONITORADOS_OS,
+  detectarAlteracoesRelevantes,
+  gerarEventosHistorico,
+} from '@/utils/osHistoricoAuditoria';
+import {
+  ensureTermoGarantiaPadraoNoBanco,
+  isTermoGarantiaPadraoId,
+} from '@/lib/termoGarantiaPadrao';
 
 // Função auxiliar para normalizar status
 function normalizeStatus(status: string): string {
@@ -68,34 +77,6 @@ function extractMissingColumn(message: string): string | null {
   if (!message) return null;
   const match = message.match(/column\s+[^\s.]+\.(\w+)\s+does not exist/i);
   return match?.[1] || null;
-}
-
-// Função auxiliar para formatar valores no histórico
-function formatValorSimples(valor: unknown): string {
-  if (valor === null || valor === undefined || valor === '') return 'vazio';
-  if (typeof valor === 'number') {
-    return valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
-  if (valor instanceof Date) {
-    return valor.toLocaleString('pt-BR');
-  }
-  return String(valor);
-}
-
-// Função auxiliar para comparar valores numéricos (especialmente dinheiro) de forma robusta
-function parseNumeroBrasil(valor: unknown): number | null {
-  if (valor === null || valor === undefined || valor === '') return 0;
-  if (typeof valor === 'number') {
-    return Number.isNaN(valor) ? null : valor;
-  }
-  if (typeof valor === 'string') {
-    const trimmed = valor.trim();
-    if (!trimmed) return 0;
-    const normalizado = trimmed.replace(/\./g, '').replace(',', '.');
-    const n = Number(normalizado);
-    return Number.isNaN(n) ? null : n;
-  }
-  return null;
 }
 
 export async function POST(request: NextRequest) {
@@ -192,6 +173,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (
+      updateData.termo_garantia_id &&
+      osAnterior.empresa_id &&
+      isTermoGarantiaPadraoId(String(updateData.termo_garantia_id), osAnterior.empresa_id)
+    ) {
+      await ensureTermoGarantiaPadraoNoBanco(supabase, osAnterior.empresa_id);
+    }
+
     // Excluir do Supabase Storage os vídeos que foram removidos
     const oldVideos = String((osAnterior as any).videos_tecnico || '').split(',').map((u: string) => u.trim()).filter(Boolean);
     const newVideos = String(updateData.videos_tecnico ?? '').split(',').map((u: string) => u.trim()).filter(Boolean);
@@ -268,11 +257,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Entrega explícita: newStatus ENTREGUE deve prevalecer sobre o espelhamento técnico → OS.
-    // Caso contrário, se técnico e OS mudam no mesmo POST (ex.: modal de entrega com REPARO CONCLUÍDO),
-    // o ramo `tecnicoAlterou` usa mapTecnicoParaOS → CONCLUIDO e ignora ENTREGUE.
+    const semConsertoEntrega =
+      aparelho_sem_conserto === true ||
+      isStatusSemReparo(novoStatusTecnicoRaw) ||
+      isStatusSemReparo(osAnteriorStatusTecnico);
+
     if (normalizeStatus(novoStatusRaw) === 'ENTREGUE') {
       dadosAtualizacao.status = 'ENTREGUE';
-      if (isStatusSemReparo(osAnteriorStatusTecnico)) {
+      if (semConsertoEntrega) {
         dadosAtualizacao.status_tecnico = 'SEM REPARO';
       } else {
         dadosAtualizacao.status_tecnico =
@@ -280,14 +272,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Exceção SEM REPARO: ao entregar (ENTREGUE), status_tecnico permanece SEM REPARO se já era
+    // Exceção SEM REPARO: ao entregar (ENTREGUE), status_tecnico permanece SEM REPARO se já era ou se marcado sem conserto
     const statusFinal = normalizeStatus(String(dadosAtualizacao.status || ''));
-    if (statusFinal === 'ENTREGUE' && isStatusSemReparo(osAnteriorStatusTecnico)) {
+    if (statusFinal === 'ENTREGUE' && (isStatusSemReparo(osAnteriorStatusTecnico) || aparelho_sem_conserto === true)) {
       dadosAtualizacao.status_tecnico = 'SEM REPARO';
     }
-    // Persistir cliente_recusou para que essa OS não entre em comissões (gerar-pendentes, listas)
+    // Persistir flags para que comissões e listagens respeitem depois
     if (cliente_recusou === true) {
       dadosAtualizacao.cliente_recusou = true;
+    }
+    if (aparelho_sem_conserto === true) {
+      dadosAtualizacao.aparelho_sem_conserto = true;
+      dadosAtualizacao.status_tecnico = 'SEM REPARO';
     }
 
     // Atualizar a OS usando o ID UUID (com fallback para colunas opcionais ausentes)
@@ -387,7 +383,7 @@ export async function POST(request: NextRequest) {
     // Buscar OS atualizada para verificar status final
     const { data: osAtualizada } = await supabase
       .from('ordens_servico')
-      .select('status, status_tecnico, data_entrega, tecnico_id, valor_faturado, valor_servico, valor_peca, tipo, os_garantia_id, empresa_id, cliente_id')
+      .select('status, status_tecnico, data_entrega, tecnico_id, valor_faturado, valor_servico, valor_peca, tipo, os_garantia_id, empresa_id, cliente_id, cliente_recusou, aparelho_sem_conserto')
       .eq('id', osAnterior.id)
       .single();
     
@@ -397,10 +393,18 @@ export async function POST(request: NextRequest) {
     const temDataEntrega = osAtualizada?.data_entrega;
     const temTecnico = osAtualizada?.tecnico_id || osAnterior.tecnico_id;
     
+    const excluirComissao = deveExcluirComissaoOs({
+      cliente_recusou: cliente_recusou ?? osAtualizada?.cliente_recusou,
+      aparelho_sem_conserto: aparelho_sem_conserto ?? osAtualizada?.aparelho_sem_conserto,
+      status: osAtualizada?.status,
+      status_tecnico: osAtualizada?.status_tecnico,
+    });
+
     console.log('🔍 VERIFICAÇÃO DE COMISSÃO:', {
       foiFinalizada,
       temDataEntrega: !!temDataEntrega,
       temTecnico: !!temTecnico,
+      excluirComissao,
       clienteRecusou: !!cliente_recusou,
       aparelhoSemConserto: !!aparelho_sem_conserto,
       statusAtual,
@@ -410,8 +414,8 @@ export async function POST(request: NextRequest) {
       osId: osAnterior.id
     });
     
-    // Não registrar comissão se cliente recusou o serviço ou aparelho não teve conserto
-    if (foiFinalizada && temDataEntrega && temTecnico && !cliente_recusou && !aparelho_sem_conserto) {
+    // Não registrar comissão se cliente recusou, aparelho sem conserto ou status SEM REPARO
+    if (foiFinalizada && temDataEntrega && temTecnico && !excluirComissao) {
       console.log('💰 REGISTRANDO COMISSÃO - Técnico:', temTecnico, 'OS:', osAnterior.id);
       
       try {
@@ -662,7 +666,7 @@ export async function POST(request: NextRequest) {
       }
     } else {
       console.log('⏭️ COMISSÃO NÃO SERÁ REGISTRADA:', {
-        motivo: cliente_recusou ? 'Cliente recusou o serviço' : aparelho_sem_conserto ? 'Aparelho sem conserto' : !foiFinalizada ? 'OS não finalizada' : !temDataEntrega ? 'Sem data de entrega' : !temTecnico ? 'Sem técnico' : 'Desconhecido',
+        motivo: cliente_recusou ? 'Cliente recusou o serviço' : aparelho_sem_conserto ? 'Aparelho sem conserto' : isStatusSemReparo(String(osAtualizada?.status_tecnico || '')) ? 'Sem reparo' : !foiFinalizada ? 'OS não finalizada' : !temDataEntrega ? 'Sem data de entrega' : !temTecnico ? 'Sem técnico' : 'Desconhecido',
         foiFinalizada,
         temDataEntrega,
         temTecnico,
@@ -671,167 +675,84 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // ✅ REGISTRAR HISTÓRICO DETALHADO (os_historico) PARA CAMPOS ALTERADOS
-    try {
-      // Campos que queremos auditar no histórico geral da OS
-      const camposMonitorados = [
-        'status',
-        'status_tecnico',
-        'equipamento',
-        'categoria',
-        'marca',
-        'modelo',
-        'cor',
-        'numero_serie',
-        'problema_relatado',
-        'observacao',
-        'valor_faturado',
-        'valor_servico',
-        'valor_peca',
-        'data_entrega',
-        'prazo_entrega',
-        'acessorios',
-        'condicoes_equipamento',
-        'tecnico_id',
-        'cliente_id'
-      ] as const;
-
-      type CampoMonitorado = (typeof camposMonitorados)[number];
-
-      const alteracoes: Array<{
-        campo: CampoMonitorado;
-        valorAnterior: unknown;
-        valorNovo: unknown;
-      }> = [];
-
-      for (const campo of camposMonitorados) {
-        if (campo in dadosAtualizacao) {
-          const valorAnterior = (osAnterior as any)[campo];
-          const valorNovo = (dadosAtualizacao as any)[campo];
-
-          // Para campos monetários, comparar pelo valor numérico (ignorando formatação "100,00" vs "100")
-          const isCampoMonetario =
-            campo === 'valor_faturado' ||
-            campo === 'valor_servico' ||
-            campo === 'valor_peca';
-
-          if (isCampoMonetario) {
-            const numAnterior = parseNumeroBrasil(valorAnterior);
-            const numNovo = parseNumeroBrasil(valorNovo);
-
-            if (numAnterior !== null && numNovo !== null) {
-              const diff = Math.abs(numAnterior - numNovo);
-              if (diff < 0.000001) {
-                // Mesma quantidade em reais (apenas formatação diferente) → não registrar alteração
-                continue;
-              }
-            }
-          } else {
-            // Comparação genérica para outros campos, tratando null/undefined igual
-            const anteriorNorm = valorAnterior ?? null;
-            const novoNorm = valorNovo ?? null;
-
-            if (JSON.stringify(anteriorNorm) === JSON.stringify(novoNorm)) {
-              continue;
-            }
-          }
-
-          alteracoes.push({ campo, valorAnterior, valorNovo });
+    // Remover comissão indevida (recusa, sem conserto, SEM REPARO) — inclusive se criada pelo trigger do banco
+    if (excluirComissao) {
+      try {
+        const { error: deleteComissaoError } = await supabase
+          .from('comissoes_historico')
+          .delete()
+          .eq('ordem_servico_id', osAnterior.id);
+        if (deleteComissaoError) {
+          console.warn('⚠️ Erro ao remover comissão indevida:', deleteComissaoError);
+        } else {
+          console.log('🗑️ Comissão removida (OS sem conserto/recusa/SEM REPARO):', osAnterior.id);
         }
+      } catch (deleteErr) {
+        console.warn('⚠️ Erro ao remover comissão indevida:', deleteErr);
       }
+    }
 
-      if (alteracoes.length > 0) {
-        const labelPorCampo: Record<CampoMonitorado, string> = {
-          status: 'Status',
-          status_tecnico: 'Status Técnico',
-          equipamento: 'Equipamento',
-          categoria: 'Categoria',
-          marca: 'Marca',
-          modelo: 'Modelo',
-          cor: 'Cor',
-          numero_serie: 'Número de Série',
-          problema_relatado: 'Problema Relatado',
-          observacao: 'Observações Internas',
-          valor_faturado: 'Valor Faturado',
-          valor_servico: 'Valor de Serviço',
-          valor_peca: 'Valor de Peças',
-          data_entrega: 'Data de Entrega',
-          prazo_entrega: 'Prazo de Entrega',
-          acessorios: 'Acessórios',
-          condicoes_equipamento: 'Condições do Equipamento',
-          tecnico_id: 'Técnico Responsável',
-          cliente_id: 'Cliente'
-        };
+    // ✅ REGISTRAR HISTÓRICO RELEVANTE (os_historico)
+    try {
+      const alteracoes = detectarAlteracoesRelevantes(
+        dadosAtualizacao as Record<string, unknown>,
+        osAnterior as Record<string, unknown>,
+        CAMPOS_MONITORADOS_OS
+      );
 
-        for (const alt of alteracoes) {
-          const label = labelPorCampo[alt.campo] || alt.campo;
-          const valorAnteriorFmt = formatValorSimples(alt.valorAnterior);
-          const valorNovoFmt = formatValorSimples(alt.valorNovo);
+      const eventos = gerarEventosHistorico(alteracoes);
 
-          const isStatusField = alt.campo === 'status' || alt.campo === 'status_tecnico';
-          const acao = isStatusField ? 'STATUS_CHANGE' : 'FIELD_CHANGE';
-          const categoria = isStatusField ? 'STATUS' : 'DETALHES';
-          const descricao = `Campo ${label} alterado de "${valorAnteriorFmt}" para "${valorNovoFmt}"`;
+      for (const evento of eventos) {
+        try {
+          const { error: histError } = await supabase.rpc('registrar_historico_os', {
+            p_os_id: osAnterior.id,
+            p_acao: evento.acao,
+            p_categoria: evento.categoria,
+            p_descricao: evento.descricao,
+            p_detalhes: evento.detalhes ? JSON.stringify(evento.detalhes) : null,
+            p_valor_anterior: evento.valorAnterior ?? null,
+            p_valor_novo: evento.valorNovo ?? null,
+            p_campo_alterado: evento.campoAlterado ?? null,
+            p_usuario_id: usuario_id || null,
+            p_motivo: null,
+            p_observacoes: evento.observacoes ?? null,
+            p_ip_address: null,
+            p_user_agent: null,
+            p_origem: 'API_UPDATE_STATUS',
+          });
 
-          try {
-            // Tentar usar a função SQL centralizada
-            const { error: histError } = await supabase.rpc('registrar_historico_os', {
-              p_os_id: osAnterior.id,
-              p_acao: acao,
-              p_categoria: categoria,
-              p_descricao: descricao,
-              p_detalhes: JSON.stringify({
-                campo: alt.campo,
-                valor_anterior: alt.valorAnterior,
-                valor_novo: alt.valorNovo
-              }),
-              p_valor_anterior: valorAnteriorFmt,
-              p_valor_novo: valorNovoFmt,
-              p_campo_alterado: alt.campo,
-              p_usuario_id: usuario_id || null,
-              p_motivo: null,
-              p_observacoes: null,
-              p_ip_address: null,
-              p_user_agent: null,
-              p_origem: 'API_UPDATE_STATUS'
-            });
+          if (histError) {
+            console.warn('⚠️ Erro em registrar_historico_os, usando fallback direto:', histError);
 
-            if (histError) {
-              console.warn('⚠️ Erro em registrar_historico_os, usando fallback direto:', histError);
+            const { error: insertError } = await supabase
+              .from('os_historico')
+              .insert({
+                os_id: osAnterior.id,
+                numero_os: osAnterior.numero_os,
+                acao: evento.acao,
+                categoria: evento.categoria,
+                descricao: evento.descricao,
+                detalhes: evento.detalhes ? JSON.stringify(evento.detalhes) : null,
+                valor_anterior: evento.valorAnterior ?? null,
+                valor_novo: evento.valorNovo ?? null,
+                campo_alterado: evento.campoAlterado ?? null,
+                usuario_id: usuario_id || null,
+                usuario_nome: usuario_nome || null,
+                observacoes: evento.observacoes ?? null,
+                empresa_id: osAnterior.empresa_id,
+                origem: 'API_UPDATE_STATUS',
+              });
 
-              const { error: insertError } = await supabase
-                .from('os_historico')
-                .insert({
-                  os_id: osAnterior.id,
-                  numero_os: osAnterior.numero_os,
-                  acao,
-                  categoria,
-                  descricao,
-                  detalhes: JSON.stringify({
-                    campo: alt.campo,
-                    valor_anterior: alt.valorAnterior,
-                    valor_novo: alt.valorNovo
-                  }),
-                  valor_anterior: valorAnteriorFmt,
-                  valor_novo: valorNovoFmt,
-                  campo_alterado: alt.campo,
-                  usuario_id: usuario_id || null,
-                  usuario_nome: usuario_nome || null,
-                  empresa_id: osAnterior.empresa_id,
-                  origem: 'API_UPDATE_STATUS'
-                });
-
-              if (insertError) {
-                console.warn('⚠️ Erro no fallback de inserção em os_historico:', insertError);
-              }
+            if (insertError) {
+              console.warn('⚠️ Erro no fallback de inserção em os_historico:', insertError);
             }
-          } catch (histError) {
-            console.warn('⚠️ Erro inesperado ao registrar histórico detalhado:', histError);
           }
+        } catch (histError) {
+          console.warn('⚠️ Erro inesperado ao registrar histórico:', histError);
         }
       }
     } catch (e) {
-      console.warn('⚠️ Falha geral ao registrar histórico detalhado da OS (não crítico):', e);
+      console.warn('⚠️ Falha geral ao registrar histórico da OS (não crítico):', e);
     }
 
     // Enviar notificações WhatsApp se necessário (já desativadas por padrão)

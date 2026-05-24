@@ -18,6 +18,7 @@ import { useConfirm } from '@/components/ConfirmDialog';
 import { useAuth } from '@/context/AuthContext';
 import { useStatusHistorico } from '@/hooks/useStatusHistorico';
 import { getStatusTecnicoLabel } from '@/utils/statusLabels';
+import { normalizarTextoHistorico } from '@/utils/osHistoricoAuditoria';
 import { FiArrowLeft, FiSave, FiUser, FiCheckCircle, FiTool, FiFileText, FiEdit3 } from 'react-icons/fi';
 
 interface Item {
@@ -219,7 +220,29 @@ export default function EditarOSSimples() {
       setAcessorios(data.acessorios || '');
       setCondicoesEquipamento(data.condicoes_equipamento || '');
       setEquipamento(data.equipamento || '');
-      setAparelhoImagemUrl((data as { aparelho_imagem_url?: string }).aparelho_imagem_url || null);
+      const aparelhoImg = (data as { aparelho_imagem_url?: string }).aparelho_imagem_url || null;
+      setAparelhoImagemUrl(aparelhoImg);
+
+      const osAparelho = data as {
+        aparelho_origem?: string | null;
+        aparelho_catalogo_id?: string | null;
+        aparelho_empresa_id?: string | null;
+      };
+
+      if (data.marca && data.modelo) {
+        setAparelhoSelecionado({
+          origem: (osAparelho.aparelho_origem as AparelhoSelecionado['origem']) || 'manual',
+          catalogoId: osAparelho.aparelho_catalogo_id || null,
+          aparelhoEmpresaId: osAparelho.aparelho_empresa_id || null,
+          tipo: data.equipamento || '',
+          marca: data.marca,
+          modelo: data.modelo,
+          imagemUrl: aparelhoImg,
+          imagemFrenteUrl: aparelhoImg,
+        });
+      } else {
+        setAparelhoSelecionado(null);
+      }
       setRelato(data.problema_relatado || '');
       setObservacao(data.observacao || '');
       setLaudo(data.laudo || '');
@@ -499,7 +522,9 @@ export default function EditarOSSimples() {
       if (laudo !== (ordem as any)?.laudo) updateData.laudo = laudo;
       
       // Observações (só se mudaram)
-      if (observacoesAtualizadas !== (ordem as any)?.observacao) updateData.observacao = observacoesAtualizadas;
+      if (normalizarTextoHistorico(observacoesAtualizadas) !== normalizarTextoHistorico((ordem as any)?.observacao)) {
+        updateData.observacao = observacoesAtualizadas;
+      }
       
       // Produtos e serviços (sempre incluir valores atualizados se mudaram)
       const produtosText = produtos.map(p => {
@@ -672,9 +697,13 @@ export default function EditarOSSimples() {
   };
 
   const handleTipoEquipamentoSelecionado = (tipo: TipoEquipamentoSelecionado | null) => {
+    const novoCodigo = (tipo?.codigo || '').toUpperCase();
+    const codigoAtual = (tipoEquipamentoSelecionado?.codigo || equipamento || '').toUpperCase();
+    if (novoCodigo && codigoAtual && novoCodigo !== codigoAtual) {
+      setAparelhoSelecionado(null);
+      setAparelhoImagemUrl(null);
+    }
     setTipoEquipamentoSelecionado(tipo);
-    setAparelhoSelecionado(null);
-    setAparelhoImagemUrl(null);
     setEquipamento(tipo?.codigo || '');
   };
 
@@ -1237,6 +1266,7 @@ export default function EditarOSSimples() {
                 <AparelhoSelector
                   empresaId={empresaData?.id || ''}
                   tipoSelecionado={tipoEquipamentoSelecionado}
+                  tipoEquipamento={equipamento}
                   marca={marca}
                   modelo={modelo}
                   imagemUrl={aparelhoImagemUrl}

@@ -37,6 +37,12 @@ import NovaOSSection from '@/components/nova-os/NovaOSSection';
 import NovaOSAparelhoPreview from '@/components/nova-os/NovaOSAparelhoPreview';
 import type { AparelhoSelecionado } from '@/types/aparelhos';
 import type { TipoEquipamentoSelecionado } from '@/types/equipamentos';
+import {
+  ensureTermoGarantiaPadraoNoBanco,
+  getTermoGarantiaPadraoId,
+  isTermoGarantiaPadraoId,
+  mesclarTermosGarantia,
+} from '@/lib/termoGarantiaPadrao';
 
 const etapas = ["Cliente", "Aparelho", "Checklist", "Técnico", "Status", "Imagens"];
 
@@ -485,14 +491,13 @@ function NovaOS2Content() {
       .order('ordem', { ascending: true });
     
     if (!error && data) {
-      setTermos(data);
-      
-      // Selecionar automaticamente o primeiro termo ativo como padrão
-      if (data.length > 0) {
-        // Se não há termo selecionado OU se o termo selecionado não existe mais na lista
-        if (!termoSelecionado || !data.find((t: any) => t.id === termoSelecionado)) {
-          setTermoSelecionado(data[0].id);
-          }
+      const merged = mesclarTermosGarantia(empresaData.id, data);
+      setTermos(merged);
+
+      if (merged.length > 0) {
+        if (!termoSelecionado || !merged.find((t) => t.id === termoSelecionado)) {
+          setTermoSelecionado(merged[0].id);
+        }
       }
     }
     setLoadingTermos(false);
@@ -808,6 +813,15 @@ function NovaOS2Content() {
     setSalvando(true);
 
     try {
+      let termoGarantiaIdFinal = termoSelecionado || null;
+      if (
+        termoGarantiaIdFinal &&
+        empresaData?.id &&
+        isTermoGarantiaPadraoId(termoGarantiaIdFinal, empresaData.id)
+      ) {
+        await ensureTermoGarantiaPadraoNoBanco(supabase, empresaData.id);
+      }
+
       // Buscar dados do técnico selecionado
       const tecnicoSelecionado = tecnicos.find(t => t.tecnico_id === tecnicoResponsavel);
       
@@ -835,7 +849,7 @@ function NovaOS2Content() {
         condicoes_equipamento: condicoesEquipamento?.toUpperCase() || '',
         data_cadastro: new Date().toISOString(),
         os_garantia_id: tipoEntrada === 'garantia' && osGarantiaSelecionada ? osGarantiaSelecionada.id : null,
-        termo_garantia_id: termoSelecionado || null,
+        termo_garantia_id: termoGarantiaIdFinal,
         tipo: tipoEntrada === 'garantia' ? 'Retorno' : 'Normal',
         // Campos de senha
         senha_aparelho: dadosEquipamento.senha || null,
@@ -2034,24 +2048,21 @@ function NovaOS2Content() {
                       onChange={(e) => setTermoSelecionado(e.target.value || null)}
                     >
                       <option value="">Selecione um termo de garantia (opcional)</option>
-                      {termos.map((termo, index) => (
+                      {termos.map((termo) => (
                         <option key={termo.id} value={termo.id}>
-                          {index === 0 ? `${termo.nome} (Padrão)` : termo.nome}
+                          {termo.is_sistema ? `${termo.nome} (Modelo de exemplo)` : termo.nome}
                         </option>
                       ))}
                     </select>
                     {loadingTermos && <p className="text-xs text-gray-500 mt-1 text-left">Carregando termos...</p>}
                     {termos.length > 0 && termoSelecionado && !loadingTermos && (
                       <p className="text-xs text-green-600 mt-1 text-left">
-                        ✅ Termo padrão selecionado automaticamente
+                        Termo selecionado — use o padrão do sistema ou um personalizado
                       </p>
                     )}
                     {termos.length === 0 && !loadingTermos && (
                       <p className="text-xs text-gray-500 mt-1 text-left">
-                        Nenhum termo de garantia cadastrado.{' '}
-                        <a href="/configuracoes?tab=2" className="text-blue-600 hover:underline">
-                          Cadastrar termos
-                        </a>
+                        Carregando termos de garantia...
                       </p>
                     )}
                   </div>

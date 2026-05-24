@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { sendOSApprovedNotification } from '@/lib/whatsapp-notifications';
+import { carregarTermoPadraoEmpresa, isTermoGarantiaPadraoId } from '@/lib/termoGarantiaPadrao';
 
 export async function GET(
   request: NextRequest,
@@ -72,12 +73,22 @@ export async function GET(
       }
     }
 
-    // Montar objeto final com dados relacionados
+    let termoGarantia =
+      termoResult.status === 'fulfilled' ? termoResult.value.data : null;
+    if (
+      ordemData.termo_garantia_id &&
+      ordemData.empresa_id &&
+      isTermoGarantiaPadraoId(ordemData.termo_garantia_id, ordemData.empresa_id)
+    ) {
+      termoGarantia = await carregarTermoPadraoEmpresa(supabase, ordemData.empresa_id);
+    }
+
+  // Montar objeto final com dados relacionados
     const data = {
       ...ordemData,
       empresa: empresaResult.status === 'fulfilled' ? empresaResult.value.data : null,
       cliente: clienteResult.status === 'fulfilled' ? clienteResult.value.data : null,
-      termo_garantia: termoResult.status === 'fulfilled' ? termoResult.value.data : null,
+      termo_garantia: termoGarantia,
       checklistItens: checklistItens,
       // Usar o campo tecnico que já existe na OS
       tecnico: ordemData.tecnico || null,

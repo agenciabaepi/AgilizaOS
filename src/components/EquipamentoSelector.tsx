@@ -73,15 +73,21 @@ export default function EquipamentoSelector({
       return;
     }
     if (valueCodigo && tipos.length > 0) {
-      const found = tipos.find((t) => t.codigo === valueCodigo.toUpperCase());
+      const codigoNorm = valueCodigo.toUpperCase();
+      const found = tipos.find(
+        (t) => t.codigo === codigoNorm || t.nome.toUpperCase() === codigoNorm
+      );
       if (found) {
         const sel = toTipoEquipamentoSelecionado(found);
         setSelected(sel);
         setSearchTerm(tipoEquipamentoLabel(sel));
-      } else {
-        setSearchTerm(valueCodigo);
-        setSelected(null);
+        if (!value) {
+          onChange({ ...sel });
+        }
+        return;
       }
+      setSearchTerm(valueCodigo);
+      setSelected(null);
     } else if (!valueCodigo) {
       setSearchTerm('');
       setSelected(null);

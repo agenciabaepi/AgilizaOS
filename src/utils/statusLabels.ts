@@ -8,12 +8,24 @@ function strVal(v: string | null | undefined | { nome?: string }): string {
   return String(v).trim();
 }
 
+export type StatusTecnicoLabelOptions = {
+  aparelhoSemConserto?: boolean;
+  clienteRecusou?: boolean;
+};
+
 /**
  * Rótulos padronizados para status e status_tecnico de OS.
  * Usado em: Bancada, Ordens, Detalhe da OS, Editar OS, Dashboard técnico.
  * Prioriza status_tecnico para exibição.
  */
-export function getStatusTecnicoLabel(status?: string | null, statusTecnico?: string | null): string {
+export function getStatusTecnicoLabel(
+  status?: string | null,
+  statusTecnico?: string | null,
+  options?: StatusTecnicoLabelOptions
+): string {
+  if (options?.clienteRecusou) return 'Cliente Recusou';
+  if (options?.aparelhoSemConserto) return 'Sem Reparo';
+
   const st = strVal(statusTecnico).toUpperCase();
   const s = strVal(status).toUpperCase();
 

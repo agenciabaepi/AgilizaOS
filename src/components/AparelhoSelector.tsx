@@ -93,6 +93,10 @@ export default function AparelhoSelector({
 
   const tipoCodigo = tipoSelecionado?.codigo || tipoEquipamento || '';
   const tipoId = tipoSelecionado?.catalogoId || null;
+  const aparelhoJaInformado = Boolean(
+    value || (marca.trim() && modelo.trim())
+  );
+  const semTipo = !tipoCodigo && !aparelhoJaInformado;
 
   const [newAparelho, setNewAparelho] = useState({
     marca: '',
@@ -321,8 +325,6 @@ export default function AparelhoSelector({
       addToast('Erro ao cadastrar aparelho', 'error');
     }
   };
-
-  const semTipo = !tipoCodigo;
 
   useEffect(() => {
     if (semTipo) {

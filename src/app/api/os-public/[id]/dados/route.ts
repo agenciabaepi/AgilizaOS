@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { carregarTermoPadraoEmpresa, isTermoGarantiaPadraoId } from '@/lib/termoGarantiaPadrao';
 
 /**
  * GET /api/os-public/[id]/dados
@@ -122,7 +123,11 @@ export async function GET(
 
     let termo_garantia: { nome?: string; conteudo?: string } | null = null;
     const termoId = os.termo_garantia_id as string | null | undefined;
-    if (termoId) {
+    const empresaOsId = os.empresa_id as string | undefined;
+    if (termoId && empresaOsId && isTermoGarantiaPadraoId(termoId, empresaOsId)) {
+      const padrao = await carregarTermoPadraoEmpresa(supabase, empresaOsId);
+      termo_garantia = { nome: padrao.nome, conteudo: padrao.conteudo };
+    } else if (termoId) {
       const { data: termo } = await supabase
         .from('termos_garantia')
         .select('nome, conteudo')
@@ -141,7 +146,6 @@ export async function GET(
       obrigatorio: boolean;
     }> = [];
 
-    const empresaOsId = os.empresa_id as string | undefined;
     const equipLabel = os.equipamento != null ? String(os.equipamento).trim() : '';
     if (empresaOsId && equipLabel) {
       const pattern = equipLabel.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');

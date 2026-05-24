@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "predev": "node scripts/ensure-middleware-manifest.js",
-    "dev": "node --require ./scripts/node-localstorage-shim.cjs ./node_modules/next/dist/bin/next dev -p 3000",
+    "dev": "node scripts/dev-server.js 3000",
     "dev:3001": "node scripts/ensure-middleware-manifest.js && node --require ./scripts/node-localstorage-shim.cjs ./node_modules/next/dist/bin/next dev -p 3001",
     "dev:clean": "rm -rf .next && node scripts/ensure-middleware-manifest.js && node --require ./scripts/node-localstorage-shim.cjs ./node_modules/next/dist/bin/next dev -p 3001",
     "dev:fresh": "rm -rf .next && npm run dev",

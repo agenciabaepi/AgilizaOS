@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserIdFromRequest } from '@/lib/supabase/authFromRequest';
 import { createAdminClient } from '@/lib/supabaseClient';
-import { deveBloquearComissaoRetornoGarantia } from '@/lib/comissaoRetornoGarantia';
+import { deveBloquearComissaoRetornoGarantia, deveExcluirComissaoOs } from '@/lib/comissaoRetornoGarantia';
 
 /**
  * GET /api/comissoes/minhas
@@ -55,7 +55,7 @@ export async function GET(request: Request) {
         created_at,
         ativa,
         observacoes,
-        ordens_servico:ordem_servico_id ( numero_os, servico, status, status_tecnico ),
+        ordens_servico:ordem_servico_id ( numero_os, servico, status, status_tecnico, aparelho_sem_conserto, cliente_recusou ),
         clientes:cliente_id ( nome )
       `)
       .eq('empresa_id', empresaId)
@@ -90,7 +90,7 @@ export async function GET(request: Request) {
           status,
           tipo_ordem,
           created_at,
-          ordens_servico:ordem_servico_id ( numero_os, servico, status, status_tecnico ),
+          ordens_servico:ordem_servico_id ( numero_os, servico, status, status_tecnico, aparelho_sem_conserto, cliente_recusou ),
           clientes:cliente_id ( nome )
         `)
         .eq('empresa_id', empresaId)
@@ -129,14 +129,21 @@ export async function GET(request: Request) {
         ativa: c.ativa !== undefined ? c.ativa : true,
         observacoes: c.observacoes || null,
         status_os: os?.status || null,
-        status_tecnico_os: os?.status_tecnico || null
+        status_tecnico_os: os?.status_tecnico || null,
+        aparelho_sem_conserto_os: os?.aparelho_sem_conserto ?? null,
+        cliente_recusou_os: os?.cliente_recusou ?? null,
       };
     });
 
     const norm = (s: string | null | undefined) => (s || '').trim().toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
-    const isClienteRecusouOs = (c: { status_os?: string | null; status_tecnico_os?: string | null }) =>
-      norm(c.status_os) === 'CLIENTE RECUSOU' || norm(c.status_tecnico_os) === 'CLIENTE RECUSOU';
-    const comissoesFormatadasFiltradas = comissoesFormatadas.filter((c: any) => !isClienteRecusouOs(c));
+    const comissoesFormatadasFiltradas = comissoesFormatadas.filter((c: any) =>
+      !deveExcluirComissaoOs({
+        cliente_recusou: c.cliente_recusou_os,
+        aparelho_sem_conserto: c.aparelho_sem_conserto_os,
+        status: c.status_os,
+        status_tecnico: c.status_tecnico_os,
+      })
+    );
 
     const osComComissao = new Set(comissoesFormatadasFiltradas.map((c: any) => c.ordem_servico_id).filter(Boolean));
 
@@ -185,6 +192,7 @@ export async function GET(request: Request) {
         data_entrega,
         created_at,
         cliente_recusou,
+        aparelho_sem_conserto,
         clientes:cliente_id ( nome ),
         servico
       `)
@@ -208,7 +216,7 @@ export async function GET(request: Request) {
       comissoesPrevistas = ordensDoTecnico
         .filter((os: any) => {
           if (osComComissao.has(os.id)) return false;
-          if (isClienteRecusouPrevista(os)) return false;
+          if (deveExcluirComissaoOs(os)) return false;
           if (
             deveBloquearComissaoRetornoGarantia(
               configRetornoRow?.comissao_retorno_ativo,
