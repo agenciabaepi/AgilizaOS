@@ -308,7 +308,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (data.session) {
         setSession(data.session);
         setUser(data.session.user);
-        // Removido fetchUserData daqui para evitar duplicação
+        setUserDataReady(false);
+        setUsuarioData({
+          id: data.session.user.id,
+          empresa_id: '',
+          nome: data.session.user.email?.split('@')[0] || 'Usuário',
+          email: data.session.user.email || '',
+          nivel: '',
+          permissoes: [],
+          foto_url: null,
+        });
+        setEmpresaData({ id: '', nome: '', plano: '' });
+        void fetchUserData(data.session.user.id, data.session);
       }
     } catch (error) {
       console.error('Erro no login:', error);

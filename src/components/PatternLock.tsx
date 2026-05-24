@@ -10,6 +10,39 @@ interface PatternLockProps {
   className?: string;
   /** Esconde o bloco "Padrão registrado" com as coordenadas. Útil em formulários compactos. */
   showCoordinates?: boolean;
+  /** Centraliza grade e textos (mobile / formulários estreitos) */
+  centered?: boolean;
+}
+
+interface PatternGeometry {
+  offsetX: number;
+  offsetY: number;
+  innerPad: number;
+  dotSpacing: number;
+  dotSize: number;
+  touchRadius: number;
+}
+
+function computePatternGeometry(width: number, height: number): PatternGeometry {
+  const gridSide = Math.min(width, height) * 0.88;
+  const innerPad = gridSide * 0.12;
+  const dotSpacing = (gridSide - innerPad * 2) / 2;
+  const dotSize = Math.max(10, gridSide * 0.07);
+  return {
+    offsetX: (width - gridSide) / 2,
+    offsetY: (height - gridSide) / 2,
+    innerPad,
+    dotSpacing,
+    dotSize,
+    touchRadius: dotSize + 12,
+  };
+}
+
+function dotPosition(geom: PatternGeometry, row: number, col: number) {
+  return {
+    x: geom.offsetX + geom.innerPad + col * geom.dotSpacing,
+    y: geom.offsetY + geom.innerPad + row * geom.dotSpacing,
+  };
 }
 
 export default function PatternLock({ 
@@ -17,8 +50,9 @@ export default function PatternLock({
   onPatternClear, 
   value = [], 
   disabled = false,
-  className = "",
-  showCoordinates = true
+  className = '',
+  showCoordinates = true,
+  centered = false,
 }: PatternLockProps) {
   const [selectedDots, setSelectedDots] = useState<number[]>(value);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -85,70 +119,50 @@ export default function PatternLock({
     const rect = canvas.getBoundingClientRect();
     const width = rect.width;
     const height = rect.height;
-    
-    // Calcular dimensões responsivas
-    const minDimension = Math.min(width, height);
-    const padding = Math.max(20, minDimension * 0.15);
-    const dotSize = Math.max(12, minDimension * 0.08);
-    const dotSpacing = (minDimension - padding * 2) / 2;
+    const geom = computePatternGeometry(width, height);
 
-    // Limpar canvas
     ctx.clearRect(0, 0, width, height);
 
-    // Desenhar pontos
     for (let row = 0; row < 3; row++) {
       for (let col = 0; col < 3; col++) {
-        const x = padding + col * dotSpacing;
-        const y = padding + row * dotSpacing;
+        const { x, y } = dotPosition(geom, row, col);
         const dotIndex = row * 3 + col;
         const isSelected = selectedDots.includes(dotIndex);
 
-        // Círculo externo
         ctx.beginPath();
-        ctx.arc(x, y, dotSize + 4, 0, 2 * Math.PI);
+        ctx.arc(x, y, geom.dotSize + 4, 0, 2 * Math.PI);
         ctx.fillStyle = isSelected ? '#3b82f6' : '#e5e7eb';
         ctx.fill();
 
-        // Círculo interno
         ctx.beginPath();
-        ctx.arc(x, y, dotSize, 0, 2 * Math.PI);
+        ctx.arc(x, y, geom.dotSize, 0, 2 * Math.PI);
         ctx.fillStyle = isSelected ? '#ffffff' : '#9ca3af';
         ctx.fill();
 
-        // Ponto central se selecionado
         if (isSelected) {
           ctx.beginPath();
-          ctx.arc(x, y, Math.max(3, dotSize * 0.3), 0, 2 * Math.PI);
+          ctx.arc(x, y, Math.max(3, geom.dotSize * 0.3), 0, 2 * Math.PI);
           ctx.fillStyle = '#3b82f6';
           ctx.fill();
         }
       }
     }
 
-    // Desenhar linhas conectando os pontos
     if (selectedDots.length > 1) {
       ctx.strokeStyle = '#3b82f6';
-      ctx.lineWidth = Math.max(2, dotSize * 0.2);
+      ctx.lineWidth = Math.max(2, geom.dotSize * 0.2);
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
 
       for (let i = 0; i < selectedDots.length - 1; i++) {
         const startDot = selectedDots[i];
         const endDot = selectedDots[i + 1];
-
-        const startRow = Math.floor(startDot / 3);
-        const startCol = startDot % 3;
-        const endRow = Math.floor(endDot / 3);
-        const endCol = endDot % 3;
-
-        const startX = padding + startCol * dotSpacing;
-        const startY = padding + startRow * dotSpacing;
-        const endX = padding + endCol * dotSpacing;
-        const endY = padding + endRow * dotSpacing;
+        const start = dotPosition(geom, Math.floor(startDot / 3), startDot % 3);
+        const end = dotPosition(geom, Math.floor(endDot / 3), endDot % 3);
 
         ctx.beginPath();
-        ctx.moveTo(startX, startY);
-        ctx.lineTo(endX, endY);
+        ctx.moveTo(start.x, start.y);
+        ctx.lineTo(end.x, end.y);
         ctx.stroke();
       }
     }
@@ -178,26 +192,15 @@ export default function PatternLock({
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
+    const geom = computePatternGeometry(rect.width, rect.height);
 
-    // Usar as mesmas dimensões responsivas do drawPattern
-    const width = rect.width;
-    const height = rect.height;
-    const minDimension = Math.min(width, height);
-    const padding = Math.max(16, minDimension * 0.1);
-    const dotSize = Math.max(8, minDimension * 0.05);
-    const dotSpacing = (minDimension - padding * 2) / 2;
-    const touchRadius = dotSize + 10; // Raio de toque responsivo
-
-    // Verificar se está próximo de algum ponto
     for (let row = 0; row < 3; row++) {
       for (let col = 0; col < 3; col++) {
-        const dotX = padding + col * dotSpacing;
-        const dotY = padding + row * dotSpacing;
+        const { x: dotX, y: dotY } = dotPosition(geom, row, col);
         const dotIndex = row * 3 + col;
-
         const distance = Math.sqrt((x - dotX) ** 2 + (y - dotY) ** 2);
-        
-        if (distance <= touchRadius && !selectedDots.includes(dotIndex)) {
+
+        if (distance <= geom.touchRadius && !selectedDots.includes(dotIndex)) {
           setSelectedDots(prev => [...prev, dotIndex]);
         }
       }
@@ -221,9 +224,13 @@ export default function PatternLock({
 
   if (!isMounted) {
     return (
-      <div className={`relative ${className}`}>
-        <div className="border border-gray-300 rounded-lg bg-white overflow-hidden">
-          <div className="w-full h-32 sm:h-40 md:h-44 lg:h-48 bg-gray-100 animate-pulse flex items-center justify-center">
+      <div className={`relative w-full ${centered ? 'mx-auto' : ''} ${className}`}>
+        <div className="overflow-hidden rounded-lg border border-gray-300 bg-white">
+          <div
+            className={`flex w-full items-center justify-center bg-gray-100 animate-pulse ${
+              centered ? 'aspect-square max-h-[220px]' : 'h-32 sm:h-40 md:h-44 lg:h-48'
+            }`}
+          >
             <span className="text-gray-400 text-sm">Carregando...</span>
           </div>
         </div>
@@ -232,11 +239,13 @@ export default function PatternLock({
   }
 
   return (
-    <div className={`relative ${className}`}>
-      <div className="border border-gray-300 rounded-lg bg-white overflow-hidden">
+    <div className={`relative w-full ${centered ? 'mx-auto' : ''} ${className}`}>
+      <div className="overflow-hidden rounded-lg border border-gray-300 bg-white">
         <canvas
           ref={canvasRef}
-          className="w-full h-32 sm:h-40 md:h-44 lg:h-48 cursor-pointer"
+          className={`w-full cursor-pointer ${
+            centered ? 'aspect-square max-h-[220px]' : 'h-32 sm:h-40 md:h-44 lg:h-48'
+          }`}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
@@ -245,15 +254,22 @@ export default function PatternLock({
         />
       </div>
       
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-2 gap-2">
-        <span className="text-xs text-gray-500 leading-relaxed">
+      <div
+        className={`mt-2 flex gap-2 ${
+          centered
+            ? 'flex-col items-center text-center'
+            : 'flex-col items-start sm:flex-row sm:items-center sm:justify-between'
+        }`}
+      >
+        <span className="text-xs leading-relaxed text-gray-500">
           Desenhe o padrão de desbloqueio
         </span>
         {selectedDots.length > 0 && (
           <button
             onClick={clearPattern}
-            className="text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors"
+            className="rounded px-2 py-1 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-800"
             disabled={disabled}
+            type="button"
           >
             Limpar padrão
           </button>

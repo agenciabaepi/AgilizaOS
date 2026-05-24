@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { getEmpresaIdForUser, getSessionUserId } from '@/lib/api/routeAuthEmpresa';
+import { normalizeTipoCodigo } from '@/lib/aparelhos-tipo';
+import { fetchChecklistCatalogoItens, fetchChecklistEmpresaItens } from '@/lib/checklist-server';
+import { mergeChecklistItens } from '@/lib/checklist-merge';
 
 // GET - Listar itens de checklist
 export async function GET(request: NextRequest) {
@@ -21,6 +24,7 @@ export async function GET(request: NextRequest) {
     const empresaId = searchParams.get('empresa_id');
     const categoria = searchParams.get('categoria');
     const equipamentoCategoria = searchParams.get('equipamento_categoria');
+    const tipoCatalogoId = searchParams.get('tipo_id');
     const ativo = searchParams.get('ativo');
 
     console.log('🔍 Parâmetros recebidos:', { empresaId, categoria, equipamentoCategoria, ativo });
@@ -45,51 +49,36 @@ export async function GET(request: NextRequest) {
     }
 
     const admin = getSupabaseAdmin();
-    let query = admin
-      .from('checklist_itens')
-      .select('*')
-      .eq('empresa_id', empresaId)
-      .order('ordem', { ascending: true })
-      .order('nome', { ascending: true });
-
-    if (ativo !== null && ativo !== '') {
-      query = query.eq('ativo', ativo === 'true');
-    }
-
-    if (categoria && categoria !== '') {
-      query = query.eq('categoria', categoria);
-    }
-
-    if (equipamentoCategoria && equipamentoCategoria.trim() !== '') {
-      const valor = equipamentoCategoria.trim();
-      const pattern = valor.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
-      query = query.ilike('equipamento_categoria', pattern);
-    }
+    const ativoFilter =
+      ativo === 'true' ? true : ativo === 'false' ? false : null;
 
     console.log('🔍 Executando query...');
-    const { data, error } = await query;
+    const empresaItens = await fetchChecklistEmpresaItens(admin, {
+      empresaId,
+      equipamentoCategoria: equipamentoCategoria?.trim() || null,
+      ativo: ativoFilter,
+      categoriaGrupo: categoria?.trim() || null,
+    });
+    let itens = empresaItens;
 
-    if (error) {
-      console.error('❌ Erro ao buscar itens de checklist:', error);
-      return NextResponse.json(
-        {
-          error: 'Erro ao buscar itens de checklist',
-          details: error.message,
-        },
-        {
-          status: 500,
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE',
-            'Access-Control-Allow-Headers': 'Content-Type',
-          },
-        }
-      );
+    if (equipamentoCategoria?.trim() || tipoCatalogoId) {
+      const catalogoItens = await fetchChecklistCatalogoItens(admin, {
+        equipamentoCategoria,
+        tipoId: tipoCatalogoId,
+      });
+      itens = mergeChecklistItens(catalogoItens, empresaItens);
+      console.log('✅ Checklist mesclado:', {
+        catalogo: catalogoItens.length,
+        empresa: empresaItens.length,
+        total: itens.length,
+        categoria: normalizeTipoCodigo(equipamentoCategoria),
+      });
+    } else {
+      console.log('✅ Itens de checklist encontrados:', empresaItens.length);
     }
 
-    console.log('✅ Itens de checklist encontrados:', data?.length || 0);
     return NextResponse.json(
-      { itens: data || [] },
+      { itens },
       {
         headers: {
           'Access-Control-Allow-Origin': '*',

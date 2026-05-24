@@ -99,6 +99,7 @@ interface OrdemTransformada {
   aparelho: string;
   aparelhoCategoria: string;
   aparelhoMarca: string;
+  aparelhoImagemUrl?: string | null;
   servico: string;
   statusOS: string;
   statusTecnico: string;
@@ -427,7 +428,8 @@ export default function ListaOrdensPage() {
         atendente,
         atendente_id,
         cliente_recusou,
-        vencimento_garantia
+        vencimento_garantia,
+        aparelho_imagem_url
       `;
       const selectComAparelhoSemConserto = `${baseSelect}, aparelho_sem_conserto`;
       const buildQuery = (selectFields: string) =>
@@ -698,6 +700,7 @@ export default function ListaOrdensPage() {
             aparelho: item.modelo || item.marca || item.categoria || '',
             aparelhoCategoria: item.categoria || '',
             aparelhoMarca: item.marca || '',
+            aparelhoImagemUrl: item.aparelho_imagem_url || null,
             servico: item.servico || '',
             statusOS: normStatusVal(item.status) || '',
             statusTecnico: normStatusVal(item.status_tecnico) || '',
@@ -1595,17 +1598,24 @@ export default function ListaOrdensPage() {
                       )}
                     </td>
                     <td className="px-1 py-2">
-                      <div className="text-xs font-medium text-gray-900 dark:text-zinc-100 truncate min-w-0">{os.aparelho || 'N/A'}</div>
-                      {(os.aparelhoCategoria || os.aparelhoMarca) && (
-                        <div className="text-xs text-gray-500 dark:text-zinc-400 truncate">
-                          {[os.aparelhoCategoria, os.aparelhoMarca].filter(Boolean).join(' • ')}
+                      <div className="flex items-center gap-2 min-w-0">
+                        {os.aparelhoImagemUrl && (
+                          <img src={os.aparelhoImagemUrl} alt="" className="w-8 h-8 object-contain rounded bg-gray-50 flex-shrink-0 hidden sm:block" />
+                        )}
+                        <div className="min-w-0">
+                          <div className="text-xs font-medium text-gray-900 dark:text-zinc-100 truncate">{os.aparelho || 'N/A'}</div>
+                          {(os.aparelhoCategoria || os.aparelhoMarca) && (
+                            <div className="text-xs text-gray-500 dark:text-zinc-400 truncate">
+                              {[os.aparelhoCategoria, os.aparelhoMarca].filter(Boolean).join(' • ')}
+                            </div>
+                          )}
+                          {os.problema_relatado && (
+                            <div className="text-xs text-blue-600 truncate mt-1" title={os.problema_relatado}>
+                              💬 {os.problema_relatado}
+                            </div>
+                          )}
                         </div>
-                      )}
-                      {os.problema_relatado && (
-                        <div className="text-xs text-blue-600 truncate mt-1" title={os.problema_relatado}>
-                          💬 {os.problema_relatado}
-                        </div>
-                      )}
+                      </div>
                     </td>
                     <td className="px-1 py-2">
                       <div className="text-xs text-gray-900 dark:text-zinc-100 min-w-0">

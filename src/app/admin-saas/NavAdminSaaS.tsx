@@ -10,7 +10,10 @@ import {
   FiUsers, 
   FiSettings,
   FiMessageSquare,
-  FiBell
+  FiBell,
+  FiSmartphone,
+  FiPackage,
+  FiCheckSquare,
 } from 'react-icons/fi';
 
 const links = [
@@ -21,6 +24,9 @@ const links = [
   { href: '/admin-saas/tickets', label: 'Tickets', icon: FiMessageSquare },
   { href: '/admin-saas/notificacoes', label: 'Notificações', icon: FiBell },
   { href: '/admin-saas/usuarios', label: 'Usuários', icon: FiUsers },
+  { href: '/admin-saas/tipos-equipamento', label: 'Tipos equip.', icon: FiPackage },
+  { href: '/admin-saas/aparelhos', label: 'Aparelhos', icon: FiSmartphone },
+  { href: '/admin-saas/checklist', label: 'Checklist', icon: FiCheckSquare },
   { href: '/admin-saas/config', label: 'Config e preço', icon: FiSettings },
 ];
 

@@ -21,14 +21,19 @@ function isAdminRoute(pathname: string | null): boolean {
  */
 export default function SubscriptionVencidaGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { user, usuarioData, empresaData } = useAuth();
+  const { user, usuarioData, empresaData, userDataReady } = useAuth();
   const { loading, isAssinaturaVencida } = useSubscription();
 
   if (isAdminRoute(pathname) || isPublicPath(pathname || '')) {
     return <>{children}</>;
   }
 
-  if (!user || !usuarioData?.empresa_id || !empresaData) {
+  if (!user || !usuarioData?.empresa_id) {
+    return <>{children}</>;
+  }
+
+  // Aguardar empresa do contexto alinhada ao usuário (evita assinatura do login anterior)
+  if (!userDataReady || !empresaData?.id || empresaData.id !== usuarioData.empresa_id) {
     return <>{children}</>;
   }
 

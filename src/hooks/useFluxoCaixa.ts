@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
+import { parseValorMonetario } from '@/lib/utils';
 
 export interface FluxoCaixa {
   id: string;
@@ -38,6 +39,7 @@ export const useFluxoCaixa = () => {
   const [movimentacoes, setMovimentacoes] = useState<FluxoCaixa[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
 
   // Carregar movimentações
   const carregarMovimentacoes = async (
@@ -48,6 +50,7 @@ export const useFluxoCaixa = () => {
   ) => {
     if (!usuarioData?.empresa_id) return;
 
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setError(null);
 
@@ -135,7 +138,7 @@ export const useFluxoCaixa = () => {
 
           // Converter vendas para formato de movimentação
           const vendasConvertidas = vendasData.map(venda => {
-            const valor = venda.total || 0;
+            const valor = parseValorMonetario(venda.total);
             
             return {
               id: `venda_${venda.id}`,
@@ -207,7 +210,7 @@ export const useFluxoCaixa = () => {
             tipo: 'saida' as const,
             categoria: categoriaMov,
             descricao: conta.descricao || `Conta #${conta.id}`,
-            valor: conta.valor,
+            valor: parseValorMonetario(conta.valor),
             data_movimentacao: conta.data_pagamento.split('T')[0],
             data_cadastro: conta.data_pagamento,
             created_at: conta.data_pagamento,
@@ -258,7 +261,7 @@ export const useFluxoCaixa = () => {
           tipo: 'entrada' as const,
           categoria: 'investimento',
           descricao: inv.descricao || 'Investimento no caixa',
-          valor: inv.valor,
+          valor: parseValorMonetario(inv.valor),
           data_movimentacao: inv.data_movimentacao.split('T')[0],
           data_cadastro: inv.data_movimentacao,
           created_at: inv.data_movimentacao,
@@ -299,12 +302,22 @@ export const useFluxoCaixa = () => {
         total: movimentacoesFiltradas.length
       });
 
-      setMovimentacoes(movimentacoesFiltradas as FluxoCaixa[]);
+      if (requestId === requestIdRef.current) {
+        const normalizadas = movimentacoesFiltradas.map((mov) => ({
+          ...mov,
+          valor: parseValorMonetario(mov.valor),
+        }));
+        setMovimentacoes(normalizadas as FluxoCaixa[]);
+      }
     } catch (err) {
       console.error('Erro ao carregar movimentações:', err);
-      setError('Erro ao carregar movimentações');
+      if (requestId === requestIdRef.current) {
+        setError('Erro ao carregar movimentações');
+      }
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -426,11 +439,11 @@ export const useFluxoCaixa = () => {
   const calcularTotais = () => {
     const entradas = movimentacoes
       .filter(mov => mov.tipo === 'entrada')
-      .reduce((total, mov) => total + mov.valor, 0);
+      .reduce((total, mov) => total + parseValorMonetario(mov.valor), 0);
 
     const saidas = movimentacoes
       .filter(mov => mov.tipo === 'saida')
-      .reduce((total, mov) => total + mov.valor, 0);
+      .reduce((total, mov) => total + parseValorMonetario(mov.valor), 0);
 
     const saldo = entradas - saidas;
 
@@ -468,13 +481,6 @@ export const useFluxoCaixa = () => {
       todas: [...categoriasEntrada, ...categoriasSaida].filter((cat, index, arr) => arr.indexOf(cat) === index)
     };
   };
-
-  // Carregar movimentações quando o componente monta
-  useEffect(() => {
-    if (usuarioData?.empresa_id) {
-      carregarMovimentacoes();
-    }
-  }, [usuarioData?.empresa_id]);
 
   return {
     movimentacoes,

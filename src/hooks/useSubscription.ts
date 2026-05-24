@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import { diffDiasCalendario } from '@/lib/assinaturaCalendario';
@@ -112,15 +112,40 @@ export const useSubscription = () => {
   const [assinatura, setAssinatura] = useState<Assinatura | null>(null);
   const [limites, setLimites] = useState<Limites | null>(null);
   const [loading, setLoading] = useState(true);
+  /** Empresa para a qual `assinatura` foi carregada (evita usar dados do login anterior). */
+  const [loadedEmpresaId, setLoadedEmpresaId] = useState<string | null>(null);
+
+  const empresaIdAtual = usuarioData?.empresa_id?.trim() || null;
+  const fetchSeqRef = useRef(0);
+
+  const resetSubscriptionState = useCallback(() => {
+    setAssinatura(null);
+    setLimites(null);
+    setLoadedEmpresaId(null);
+    setLoading(true);
+  }, []);
+
+  // Troca de usuário/empresa: descartar assinatura anterior e invalidar fetches em voo
+  useEffect(() => {
+    fetchSeqRef.current += 1;
+    resetSubscriptionState();
+  }, [user?.id, empresaIdAtual, resetSubscriptionState]);
 
   const fetchAssinatura = useCallback(async () => {
-    if (!usuarioData?.empresa_id) {
+    const empresaId = usuarioData?.empresa_id?.trim();
+    if (!empresaId) {
       setAssinatura(null);
+      setLimites(null);
+      setLoadedEmpresaId(null);
       setLoading(false);
       return;
     }
+    const seq = ++fetchSeqRef.current;
+    const isStale = () => seq !== fetchSeqRef.current;
+
     try {
       setLoading(true);
+      setLoadedEmpresaId(null);
 
       let primeiraAssinatura: Record<string, unknown> | null = null;
       let empresaCriadaEm: string | null = null;
@@ -131,9 +156,10 @@ export const useSubscription = () => {
         if (session?.access_token) {
           (headers as Record<string, string>).Authorization = `Bearer ${session.access_token}`;
         }
-        const res = await fetch('/api/assinatura/minha', {
+        const res = await fetch(`/api/assinatura/minha?_=${Date.now()}`, {
           credentials: 'include',
           headers,
+          cache: 'no-store',
         });
         if (res.ok) {
           const json = await res.json();
@@ -145,6 +171,8 @@ export const useSubscription = () => {
       } catch {
         /* fallback abaixo */
       }
+
+      if (isStale()) return;
 
       const empresaCriadaEmParaPick =
         empresaCriadaEm ||
@@ -159,9 +187,11 @@ export const useSubscription = () => {
             *,
             planos(nome, descricao, preco, limite_usuarios, limite_produtos, limite_clientes, limite_fornecedores, recursos_disponiveis)
           `)
-          .eq('empresa_id', usuarioData.empresa_id)
+          .eq('empresa_id', empresaId)
           .order('created_at', { ascending: false })
           .limit(30);
+
+        if (isStale()) return;
 
         if (!assinaturaError && assinaturaData && assinaturaData.length > 0) {
           const picked = pickAssinaturaParaContexto(
@@ -175,6 +205,8 @@ export const useSubscription = () => {
       }
 
       const empresaCriadaEmFinal = empresaCriadaEmParaPick;
+
+      if (isStale()) return;
 
       if (primeiraAssinatura) {
         const assinaturaMapeada: Assinatura = {
@@ -190,33 +222,48 @@ export const useSubscription = () => {
           plano: planoFromAssinaturaRow(primeiraAssinatura),
         };
         setAssinatura(assinaturaMapeada);
-        await fetchLimites(usuarioData.empresa_id, assinaturaMapeada.plano);
+        setLoadedEmpresaId(empresaId);
+        await fetchLimites(empresaId, assinaturaMapeada.plano);
       } else if (empresaCriadaEmFinal) {
-        const implicit = buildAssinaturaTrialImplicita(usuarioData.empresa_id, empresaCriadaEmFinal);
+        const implicit = buildAssinaturaTrialImplicita(empresaId, empresaCriadaEmFinal);
         if (implicit) {
           setAssinatura(implicit);
-          await fetchLimites(usuarioData.empresa_id, implicit.plano);
+          setLoadedEmpresaId(empresaId);
+          await fetchLimites(empresaId, implicit.plano);
         } else {
           setAssinatura(null);
+          setLoadedEmpresaId(empresaId);
         }
       } else {
         setAssinatura(null);
+        setLoadedEmpresaId(empresaId);
       }
     } catch (error) {
-      console.error('Erro ao buscar assinatura:', error);
-      setAssinatura(null);
+      if (!isStale()) {
+        console.error('Erro ao buscar assinatura:', error);
+        setAssinatura(null);
+        setLoadedEmpresaId(null);
+      }
     } finally {
-      setLoading(false);
+      if (!isStale()) {
+        setLoading(false);
+      }
     }
-  }, [usuarioData?.empresa_id, empresaData?.created_at]);
+  }, [usuarioData?.empresa_id, empresaData?.created_at, empresaData?.id]);
 
   useEffect(() => {
-    if (!user || !usuarioData?.empresa_id) {
+    if (!user) {
+      setAssinatura(null);
+      setLimites(null);
+      setLoadedEmpresaId(null);
       setLoading(false);
       return;
     }
-    fetchAssinatura();
-  }, [user, usuarioData?.empresa_id, fetchAssinatura]);
+    if (!empresaIdAtual) {
+      return;
+    }
+    void fetchAssinatura();
+  }, [user?.id, empresaIdAtual, fetchAssinatura]);
 
   // Refetch quando um pagamento for aprovado (PIX). Um segundo fetch cobre lag Asaas→Supabase.
   useEffect(() => {
@@ -301,8 +348,13 @@ export const useSubscription = () => {
   };
 
   /** Assinatura vencida: bloqueia acesso às páginas (usuário deve renovar) */
-  const isAssinaturaVencida = (): boolean =>
-    computeAssinaturaVencidaPorBilling(
+  const isAssinaturaVencida = (): boolean => {
+    if (!empresaIdAtual) return false;
+    if (loading || loadedEmpresaId !== empresaIdAtual) return false;
+    if (assinatura && assinatura.empresa_id !== empresaIdAtual) return false;
+    const empresaCreatedAt =
+      empresaData?.id === empresaIdAtual ? empresaData?.created_at : undefined;
+    return computeAssinaturaVencidaPorBilling(
       assinatura
         ? {
             status: assinatura.status,
@@ -311,12 +363,13 @@ export const useSubscription = () => {
             data_fim: assinatura.data_fim,
           }
         : null,
-      empresaData?.created_at,
+      empresaCreatedAt,
       {
-        loading,
-        empresaIdPresent: !!usuarioData?.empresa_id,
+        loading: false,
+        empresaIdPresent: true,
       }
     );
+  };
 
   const podeCriar = (tipo: 'usuarios' | 'produtos' | 'servicos' | 'clientes' | 'ordens' | 'fornecedores'): boolean => {
     if (!limites) return true;

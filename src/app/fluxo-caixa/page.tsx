@@ -8,6 +8,7 @@ import { useFluxoCaixa, FluxoCaixaFormData } from '@/hooks/useFluxoCaixa';
 import MenuLayout from '@/components/MenuLayout';
 import AuthGuard from '@/components/AuthGuard';
 import { FiChevronLeft, FiChevronRight, FiCalendar } from 'react-icons/fi';
+import { toMesISO, getPeriodoMesFromString } from '@/lib/utils';
 
 export default function FluxoCaixaPage() {
   const { usuarioData } = useAuth();
@@ -40,26 +41,14 @@ export default function FluxoCaixaPage() {
     referencia_id: ''
   });
 
-  // Calcular datas do mês atual
-  const calcularDatasMesAtual = () => {
-    const hoje = new Date();
-    const ano = hoje.getFullYear();
-    const mes = hoje.getMonth();
-    const dataInicio = new Date(ano, mes, 1);
-    const dataFim = new Date(ano, mes + 1, 0); // Último dia do mês
-    return {
-      mesString: hoje.toISOString().slice(0, 7),
-      dataInicio: dataInicio.toISOString().split('T')[0],
-      dataFim: dataFim.toISOString().split('T')[0]
-    };
-  };
+  const mesAtualISO = toMesISO(new Date());
+  const periodoMesAtual = getPeriodoMesFromString(mesAtualISO);
 
-  // Estados dos filtros - inicializar com mês atual
-  const datasMesAtual = calcularDatasMesAtual();
-  const [filtroMes, setFiltroMes] = useState(datasMesAtual.mesString);
+  // Estados dos filtros - inicializar com mês atual (fuso local)
+  const [filtroMes, setFiltroMes] = useState(mesAtualISO);
   const [filtros, setFiltros] = useState({
-    dataInicio: datasMesAtual.dataInicio,
-    dataFim: datasMesAtual.dataFim,
+    dataInicio: periodoMesAtual.dataInicio,
+    dataFim: periodoMesAtual.dataFim,
     tipo: '' as 'entrada' | 'saida' | '',
     categoria: ''
   });
@@ -67,30 +56,21 @@ export default function FluxoCaixaPage() {
 
   // Funções para navegação entre meses
   const navegarMes = (direcao: 'anterior' | 'proximo') => {
-    if (!filtroMes) {
-      const hoje = new Date();
-      const mesAtual = hoje.toISOString().slice(0, 7);
-      setFiltroMes(mesAtual);
-      return;
-    }
-    
-    const [ano, mes] = filtroMes.split('-');
-    const dataAtual = new Date(parseInt(ano), parseInt(mes) - 1, 1);
-    
+    const base = filtroMes || mesAtualISO;
+    const [ano, mes] = base.split('-').map(Number);
+    const dataAtual = new Date(ano, mes - 1, 1);
+
     if (direcao === 'anterior') {
       dataAtual.setMonth(dataAtual.getMonth() - 1);
     } else {
       dataAtual.setMonth(dataAtual.getMonth() + 1);
     }
-    
-    const novoMesString = dataAtual.toISOString().slice(0, 7);
-    setFiltroMes(novoMesString);
+
+    setFiltroMes(toMesISO(dataAtual));
   };
 
   const irParaMesAtual = () => {
-    const hoje = new Date();
-    const mesAtual = hoje.toISOString().slice(0, 7);
-    setFiltroMes(mesAtual);
+    setFiltroMes(toMesISO(new Date()));
   };
 
   const limparFiltroMes = () => {
@@ -109,17 +89,14 @@ export default function FluxoCaixaPage() {
     return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   };
 
-  // Quando o filtroMes mudar, calcular dataInicio e dataFim
+  // Quando o filtroMes mudar, calcular dataInicio e dataFim (fuso local)
   useEffect(() => {
     if (filtroMes) {
-      const [ano, mes] = filtroMes.split('-');
-      const dataInicio = new Date(parseInt(ano), parseInt(mes) - 1, 1);
-      const dataFim = new Date(parseInt(ano), parseInt(mes), 0); // Último dia do mês
-      
+      const { dataInicio, dataFim } = getPeriodoMesFromString(filtroMes);
       setFiltros(prev => ({
         ...prev,
-        dataInicio: dataInicio.toISOString().split('T')[0],
-        dataFim: dataFim.toISOString().split('T')[0]
+        dataInicio,
+        dataFim,
       }));
     }
   }, [filtroMes]);
@@ -184,6 +161,12 @@ export default function FluxoCaixaPage() {
     if (confirmed) {
       try {
         await excluirMovimentacao(id);
+        await carregarMovimentacoes(
+          filtros.dataInicio || undefined,
+          filtros.dataFim || undefined,
+          filtros.tipo || undefined,
+          filtros.categoria || undefined
+        );
         addToast('Movimentação excluída com sucesso!', 'success');
       } catch (error) {
         addToast('Erro ao excluir movimentação', 'error');
@@ -219,6 +202,12 @@ export default function FluxoCaixaPage() {
         addToast('Movimentação adicionada com sucesso!', 'success');
       }
 
+      await carregarMovimentacoes(
+        filtros.dataInicio || undefined,
+        filtros.dataFim || undefined,
+        filtros.tipo || undefined,
+        filtros.categoria || undefined
+      );
       setShowModal(false);
       resetForm();
     } catch (error) {
@@ -234,9 +223,10 @@ export default function FluxoCaixaPage() {
     }).format(value);
   };
 
-  // Formatação de data
+  // Formatação de data (evita deslocamento UTC em strings YYYY-MM-DD)
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR');
+    const [y, m, d] = dateString.split('T')[0].split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('pt-BR');
   };
 
   // Obter categorias baseadas no tipo
@@ -280,6 +270,11 @@ export default function FluxoCaixaPage() {
       </div>
 
       {/* Cards de resumo */}
+      <div className="mb-2">
+        <p className="text-sm text-gray-500">
+          Resumo de {formatarMes(filtroMes || mesAtualISO)}
+        </p>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <div>

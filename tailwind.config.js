@@ -23,6 +23,15 @@ module.exports = {
           dark: '#27272a',
         },
       },
+      keyframes: {
+        'nova-os-fade-slide': {
+          from: { opacity: '0', transform: 'translateY(8px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+      },
+      animation: {
+        'nova-os-fade-slide': 'nova-os-fade-slide 0.35s ease-out',
+      },
     },
   },
   plugins: [],

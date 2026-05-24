@@ -37,6 +37,7 @@ function AuthContent({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
+    setBanner(null);
     async function checkVencimento() {
       try {
         if (!session || !empresaData?.id) return;
@@ -63,7 +64,7 @@ function AuthContent({ children }: { children: React.ReactNode }) {
     }
     checkVencimento();
     return () => { cancelled = true; };
-  }, []);
+  }, [session?.user?.id, empresaData?.id]);
   return isLoggingOut ? (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white' }}>
       <span style={{ fontSize: 24 }}>Saindo...</span>

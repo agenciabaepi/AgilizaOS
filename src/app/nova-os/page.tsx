@@ -4,13 +4,14 @@ import MenuLayout from "@/components/MenuLayout";
 
 import { Button } from '@/components/Button';
 import ReactSelect from 'react-select';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, startTransition } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { handleSupabaseError } from '@/utils/supabaseErrorHandler';
 import { interceptSupabaseQuery } from '@/utils/supabaseInterceptor';
 import { useForm } from 'react-hook-form';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import { Suspense } from 'react';
 import { useToast } from '@/components/Toast';
@@ -29,7 +30,13 @@ import {
   FiExternalLink,
 } from 'react-icons/fi';
 import EquipamentoSelector from '@/components/EquipamentoSelector';
+import AparelhoSelector from '@/components/AparelhoSelector';
 import DynamicChecklist from '@/components/DynamicChecklist';
+import NovaOSWizardLayout, { type NovaOSContextChip } from '@/components/nova-os/NovaOSWizardLayout';
+import NovaOSSection from '@/components/nova-os/NovaOSSection';
+import NovaOSAparelhoPreview from '@/components/nova-os/NovaOSAparelhoPreview';
+import type { AparelhoSelecionado } from '@/types/aparelhos';
+import type { TipoEquipamentoSelecionado } from '@/types/equipamentos';
 
 const etapas = ["Cliente", "Aparelho", "Checklist", "Técnico", "Status", "Imagens"];
 
@@ -45,7 +52,16 @@ interface Cliente {
 }
 
 function contatosClienteResumo(c: Pick<Cliente, 'telefone' | 'celular'>) {
-  const parts = [c.telefone, c.celular].filter((x) => x && String(x).trim());
+  const seen = new Set<string>();
+  const parts: string[] = [];
+  for (const raw of [c.telefone, c.celular]) {
+    const v = String(raw || '').trim();
+    if (!v) continue;
+    const key = v.replace(/\D/g, '') || v.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    parts.push(v);
+  }
   return parts.length ? parts.join(' · ') : null;
 }
 
@@ -114,6 +130,11 @@ interface Termo {
 function NovaOS2Content() {
   const { usuarioData, empresaData } = useAuth();
   const [etapaAtual, setEtapaAtual] = useState(1);
+  const [tipoEntrada, setTipoEntrada] = useState<'nova' | 'garantia'>('nova');
+  const [osGarantiaBusca, setOsGarantiaBusca] = useState('');
+  const [osGarantiaResultados, setOsGarantiaResultados] = useState<Record<string, unknown>[]>([]);
+  const [osGarantiaSelecionada, setOsGarantiaSelecionada] = useState<Record<string, unknown> | null>(null);
+  const [buscandoOsGarantia, setBuscandoOsGarantia] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clienteSelecionado, setClienteSelecionado] = useState<string | null>(null);
@@ -145,30 +166,73 @@ function NovaOS2Content() {
     senha_padrao: [] as number[]
   });
   
-  // Estado para equipamento selecionado do seletor
-  const [equipamentoSelecionado, setEquipamentoSelecionado] = useState<any>(null);
+  const [tipoEquipamentoSelecionado, setTipoEquipamentoSelecionado] =
+    useState<TipoEquipamentoSelecionado | null>(null);
+  const [aparelhoSelecionado, setAparelhoSelecionado] = useState<AparelhoSelecionado | null>(null);
+  const [identificacaoManual, setIdentificacaoManual] = useState(false);
 
-  // Função para lidar com seleção de equipamento
-  const handleEquipamentoSelecionado = (equipamento: any) => {
-    setEquipamentoSelecionado(equipamento);
-    if (equipamento) {
-      // Preencher apenas o tipo (categoria) do equipamento
-      setDadosEquipamento(prev => ({
-        ...prev,
-        tipo: equipamento.nome, // Usar o nome como tipo (ex: CELULAR, NOTEBOOK)
-        marca: prev.marca, // Manter marca manual
-        modelo: prev.modelo, // Manter modelo manual
-        cor: prev.cor, // Manter cor manual
-        numero_serie: prev.numero_serie // Manter número de série manual
-      }));
-    } else {
-      // Limpar apenas o tipo se nenhum equipamento selecionado
-      setDadosEquipamento(prev => ({
-        ...prev,
-        tipo: ''
-      }));
-    }
+  const handleTipoEquipamentoSelecionado = (tipo: TipoEquipamentoSelecionado | null) => {
+    setTipoEquipamentoSelecionado(tipo);
+    setAparelhoSelecionado(null);
+    setIdentificacaoManual(false);
+    setDadosEquipamento((prev) => ({
+      ...prev,
+      tipo: tipo?.codigo || '',
+      marca: '',
+      modelo: '',
+      cor: '',
+      numero_serie: '',
+    }));
   };
+
+  const handleAparelhoSelecionado = (aparelho: AparelhoSelecionado | null) => {
+    setAparelhoSelecionado(aparelho ? { ...aparelho } : null);
+
+    startTransition(() => {
+      if (!aparelho && !identificacaoManual) {
+        setDadosEquipamento((prev) => ({
+          ...prev,
+          marca: '',
+          modelo: '',
+          cor: '',
+          numero_serie: '',
+        }));
+      }
+      if (aparelho) {
+        setIdentificacaoManual(false);
+        setDadosEquipamento((prev) => ({
+          ...prev,
+          tipo: aparelho.tipo || prev.tipo,
+          marca: aparelho.marca,
+          modelo: aparelho.modelo,
+        }));
+        if (aparelho.tipoId) {
+          setTipoEquipamentoSelecionado({
+            codigo: aparelho.tipo,
+            nome: aparelho.tipo,
+            origem: 'catalogo_global',
+            catalogoId: aparelho.tipoId,
+            empresaTipoId: null,
+          });
+        } else if (aparelho.tipo) {
+          setTipoEquipamentoSelecionado((prev) =>
+            prev?.codigo === aparelho.tipo
+              ? prev
+              : {
+                  codigo: aparelho.tipo,
+                  nome: aparelho.tipo,
+                  origem: aparelho.origem === 'empresa' ? 'empresa' : 'catalogo_global',
+                  catalogoId: null,
+                  empresaTipoId: aparelho.aparelhoEmpresaId || null,
+                }
+          );
+        }
+      }
+    });
+  };
+
+  const aparelhoImagemFrentePreview = aparelhoSelecionado?.imagemFrenteUrl ?? aparelhoSelecionado?.imagemUrl ?? null;
+  const aparelhoImagemVersoPreview = aparelhoSelecionado?.imagemVersoUrl ?? null;
 
   // Estado para acessórios
   const [acessorios, setAcessorios] = useState('');
@@ -214,11 +278,13 @@ function NovaOS2Content() {
   const [statusSelecionado, setStatusSelecionado] = useState<string | null>(null);
   // Estado para retorno de garantia
   const [isRetornoGarantia, setIsRetornoGarantia] = useState(false);
-  const [tipoEntrada, setTipoEntrada] = useState<'nova' | 'garantia'>('nova');
-  const [osGarantiaBusca, setOsGarantiaBusca] = useState('');
-  const [osGarantiaResultados, setOsGarantiaResultados] = useState<Record<string, unknown>[]>([]);
-  const [osGarantiaSelecionada, setOsGarantiaSelecionada] = useState<Record<string, unknown> | null>(null);
-  const [buscandoOsGarantia, setBuscandoOsGarantia] = useState(false);
+
+  const identificacaoLiberada =
+    !!aparelhoSelecionado ||
+    identificacaoManual ||
+    (tipoEntrada === 'garantia' && !!osGarantiaSelecionada && !!(dadosEquipamento.marca && dadosEquipamento.modelo));
+
+  const marcaModeloDoCatalogo = !!aparelhoSelecionado && !identificacaoManual;
   
   // Estado para prazo de entrega
   const [prazoEntrega, setPrazoEntrega] = useState<string>('');
@@ -611,6 +677,33 @@ function NovaOS2Content() {
     }
   }
 
+  function irParaEtapa(etapa: number) {
+    if (etapa >= 1 && etapa <= etapas.length && etapa <= etapaAtual) {
+      setEtapaAtual(etapa);
+    }
+  }
+
+  function getWizardContextChips(): NovaOSContextChip[] {
+    const chips: NovaOSContextChip[] = [];
+    if (etapaAtual > 1 && clienteSelecionado) {
+      const c = clientes.find((x) => x.id === clienteSelecionado);
+      if (c?.nome) chips.push({ label: 'Cliente', value: c.nome });
+    }
+    if (etapaAtual > 2 && (dadosEquipamento.marca || dadosEquipamento.modelo)) {
+      const ap = [dadosEquipamento.marca, dadosEquipamento.modelo].filter(Boolean).join(' ');
+      if (ap) chips.push({ label: 'Aparelho', value: ap });
+      else if (dadosEquipamento.tipo) chips.push({ label: 'Tipo', value: dadosEquipamento.tipo });
+    }
+    if (etapaAtual > 3 && dadosEquipamento.tipo) {
+      chips.push({ label: 'Checklist', value: dadosEquipamento.tipo });
+    }
+    if (etapaAtual > 4 && tecnicoResponsavel) {
+      const t = tecnicos.find((x) => (x.tecnico_id || x.auth_user_id) === tecnicoResponsavel);
+      if (t?.nome) chips.push({ label: 'Técnico', value: t.nome });
+    }
+    return chips;
+  }
+
   // Função para verificar se o formulário está completo
   function formularioCompleto() {
     const camposBasicos = clienteSelecionado && 
@@ -748,6 +841,12 @@ function NovaOS2Content() {
         senha_aparelho: dadosEquipamento.senha || null,
         senha_padrao: dadosEquipamento.senha_padrao.length > 0 ? JSON.stringify(dadosEquipamento.senha_padrao) : null,
         checklist_entrada: Object.keys(checklistEntrada).length > 0 ? JSON.stringify(checklistEntrada) : null,
+        aparelho_origem: aparelhoSelecionado?.origem || (dadosEquipamento.marca && dadosEquipamento.modelo ? 'manual' : null),
+        aparelho_catalogo_id: aparelhoSelecionado?.catalogoId || null,
+        aparelho_empresa_id: aparelhoSelecionado?.aparelhoEmpresaId || null,
+        aparelho_imagem_url: aparelhoSelecionado?.imagemFrenteUrl || aparelhoSelecionado?.imagemUrl || aparelhoSelecionado?.imagemVersoUrl || null,
+        aparelho_imagem_frente_url: aparelhoImagemFrentePreview,
+        aparelho_imagem_verso_url: aparelhoImagemVersoPreview,
         // Adicionar campo de prazo de entrega
         prazo_entrega: prazoEntrega ? new Date(prazoEntrega).toISOString() : (() => {
           // Se não foi definido, criar prazo automático (7 dias)
@@ -864,51 +963,64 @@ function NovaOS2Content() {
 
   return (
     <MenuLayout>
-      <div className="w-full min-h-screen bg-gray-50/50">
+      <div className="w-full min-h-screen bg-gradient-to-b from-slate-50 via-gray-50 to-slate-100/80 pb-6">
         {/* Barra fixa só com Voltar - no lugar do header */}
-        <div className="sticky top-0 z-20 w-full bg-white border-b border-gray-200 px-4 md:px-6 py-3 flex items-center">
-          <button
-            type="button"
-            onClick={() => router.push('/ordens')}
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 font-medium transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Voltar para Ordens
-          </button>
+        <div className="sticky top-0 z-20 w-full bg-white/95 backdrop-blur-sm border-b border-gray-200 px-4 md:px-6 py-3">
+          <div className="relative mx-auto flex max-w-4xl items-center justify-between">
+            <button
+              type="button"
+              onClick={() => router.push('/ordens')}
+              className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 font-medium transition-colors z-10"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              <span className="hidden sm:inline">Voltar para Ordens</span>
+              <span className="sm:hidden">Voltar</span>
+            </button>
+            <Link
+              href="/ordens"
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+              aria-label="Gestão Consert"
+            >
+              <Image
+                src="/assets/imagens/logopreto.png"
+                alt="Gestão Consert"
+                width={140}
+                height={40}
+                className="h-8 w-auto object-contain sm:h-9"
+                priority
+              />
+            </Link>
+            <div className="w-[72px] sm:w-[140px]" aria-hidden />
+          </div>
         </div>
 
-        <div className="w-full max-w-[1800px] mx-auto py-6 px-4 md:px-8 lg:px-10 xl:px-12">
-          {/* Cabeçalho */}
-          <div className="w-full text-center mb-6">
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">Nova Ordem de Serviço</h1>
-            <div className="text-gray-500 text-base font-medium">
-              Etapa {etapaAtual} de {etapas.length} — <span className="font-semibold">{etapas[etapaAtual-1]}</span>
-            </div>
-          </div>
+        <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
+          <header className="mb-8 text-center">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">
+              Nova Ordem de Serviço
+            </h1>
+            <p className="mt-2 text-sm text-gray-500 max-w-md mx-auto">
+              Preencha cada etapa com calma. Você pode voltar às anteriores a qualquer momento.
+            </p>
+          </header>
 
-          {/* Barra de Progresso */}
-          <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
-            <div className="bg-black h-2 rounded-full transition-all duration-300" style={{ width: `${(etapaAtual/etapas.length)*100}%` }} />
-          </div>
-
-          {/* Etapas */}
-          <div className="flex items-center justify-between w-full mb-6 gap-4">
-            {etapas.map((label, idx) => (
-              <div key={label} className="flex flex-col items-center">
-                <div className={`flex items-center justify-center w-10 h-10 rounded-full border border-gray-300 ${
-                  etapaAtual === idx+1 ? 'bg-black text-white' : 'bg-gray-100 text-gray-500'
-                } font-bold`}>
-                  {idx + 1}
-                </div>
-                <span className="text-xs mt-2 text-center font-medium text-gray-600">{label}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Card/Container da etapa - items-stretch para o conteúdo usar toda a largura */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow p-6 md:p-8 mb-6 min-h-[200px] flex flex-col items-stretch w-full">
+          <NovaOSWizardLayout
+            etapas={etapas}
+            etapaAtual={etapaAtual}
+            onEtapaClick={irParaEtapa}
+            contextChips={getWizardContextChips()}
+            onAnterior={etapaAnterior}
+            onProxima={etapaAtual === etapas.length ? finalizarOS : proximaEtapa}
+            proximaLabel={etapaAtual === etapas.length ? (salvando ? 'Salvando...' : 'Finalizar') : 'Continuar'}
+            disableAnterior={etapaAtual === 1}
+            disableProxima={etapaAtual === etapas.length && (!formularioCompleto() || salvando)}
+            proximaClassName={
+              etapaAtual === etapas.length && formularioCompleto() ? 'bg-green-600 hover:bg-green-700' : ''
+            }
+            proximaTitle={etapaAtual === etapas.length ? getTooltipFinalizar() : undefined}
+          >
             {etapaAtual === 1 && (
               <div className="w-full flex flex-col gap-6">
                 {/* Tipo de entrada: Nova ou Retorno Garantia */}
@@ -1086,6 +1198,8 @@ function NovaOS2Content() {
                   isLoading={loadingClientes}
                   placeholder={loadingClientes ? "Carregando clientes..." : "Busque por nome, telefone, e-mail, CPF ou nº do cliente..."}
                   className="mb-2"
+                  menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                  menuPosition="fixed"
                   formatOptionLabel={(option, meta) => {
                     const c = (clientes || []).find((x) => x.id === option.value);
                     if (!c) return <span>{option.label}</span>;
@@ -1143,7 +1257,14 @@ function NovaOS2Content() {
                       boxShadow: 'none',
                       ':hover': { borderColor: '#d1d5db' },
                     }),
-                    menu: (p) => ({ ...p, borderRadius: '0.5rem', boxShadow: '0 4px 16px rgba(0,0,0,0.08)', border: '1px solid #e5e7eb' }),
+                    menuPortal: (p) => ({ ...p, zIndex: 9999 }),
+                    menu: (p) => ({
+                      ...p,
+                      zIndex: 9999,
+                      borderRadius: '0.5rem',
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                      border: '1px solid #e5e7eb',
+                    }),
                     option: (provided, state) => ({
                       ...provided,
                       backgroundColor: state.isSelected ? '#111827' : state.isFocused ? '#f9fafb' : 'white',
@@ -1386,195 +1507,256 @@ function NovaOS2Content() {
             )}
 
             {etapaAtual === 2 && (
-              <div className="w-full flex flex-col gap-6">
-                <h3 className="text-lg font-semibold text-gray-800 text-left">Dados do Aparelho</h3>
-
-                {/* 1. Tipo de equipamento */}
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700 text-left">
-                    <FiPackage className="text-amber-600" />
-                    Tipo de equipamento
-                  </label>
-                  <EquipamentoSelector
-                    empresaId={empresaData?.id || ''}
-                    value={equipamentoSelecionado?.nome}
-                    onChange={handleEquipamentoSelecionado}
-                    placeholder="Ex: CELULAR, NOTEBOOK, IMPRESSORA..."
-                    className="w-full"
-                  />
+              <div className="flex flex-col gap-5">
+                <div className="text-center sm:text-left">
+                  <h2 className="text-xl font-bold text-gray-900">Dados do aparelho</h2>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Escolha o equipamento no catálogo e complete os detalhes da entrada.
+                  </p>
                 </div>
 
-                {/* 2. Identificação do aparelho - 4 colunas em telas grandes */}
-                <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-5 space-y-4">
-                  <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2 text-left">
-                    <FiSmartphone className="text-gray-500" />
-                    Identificação
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1 text-left">Marca</label>
-                      <input
-                        type="text"
-                        placeholder="Samsung, Apple..."
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-black focus:border-transparent"
-                        value={dadosEquipamento.marca}
-                        onChange={(e) => setDadosEquipamento(prev => ({ ...prev, marca: e.target.value.toUpperCase() }))}
-                        readOnly={tipoEntrada === 'garantia' && !!osGarantiaSelecionada}
+                <NovaOSSection
+                  step={1}
+                  title="Tipo e modelo"
+                  description="Defina a categoria e selecione o aparelho no catálogo."
+                  icon={<FiPackage className="text-amber-600" />}
+                >
+                  <div className="space-y-4">
+                    <div className="relative isolate">
+                      <label className="mb-1.5 block text-xs font-medium text-gray-600">Tipo de equipamento</label>
+                      <EquipamentoSelector
+                        empresaId={empresaData?.id || ''}
+                        value={tipoEquipamentoSelecionado}
+                        valueCodigo={dadosEquipamento.tipo}
+                        onChange={handleTipoEquipamentoSelecionado}
+                        placeholder="Ex: CELULAR, NOTEBOOK..."
+                        className="w-full"
                       />
                     </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1 text-left">Modelo</label>
-                      <input
-                        type="text"
-                        placeholder="Galaxy S21, iPhone 13..."
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-black focus:border-transparent"
-                        value={dadosEquipamento.modelo}
-                        onChange={(e) => setDadosEquipamento(prev => ({ ...prev, modelo: e.target.value.toUpperCase() }))}
+                    <div className="relative isolate">
+                      <label className="mb-1.5 block text-xs font-medium text-gray-600">Aparelho</label>
+                      <AparelhoSelector
+                        empresaId={empresaData?.id || ''}
+                        tipoSelecionado={tipoEquipamentoSelecionado}
+                        marca={dadosEquipamento.marca}
+                        modelo={dadosEquipamento.modelo}
+                        value={aparelhoSelecionado}
+                        onChange={handleAparelhoSelecionado}
                         readOnly={tipoEntrada === 'garantia' && !!osGarantiaSelecionada}
+                        hidePreview
+                        className="w-full"
                       />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1 text-left">Cor</label>
-                      <input
-                        type="text"
-                        placeholder="Preto, Prata..."
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-black focus:border-transparent"
-                        value={dadosEquipamento.cor}
-                        onChange={(e) => setDadosEquipamento(prev => ({ ...prev, cor: e.target.value.toUpperCase() }))}
-                        readOnly={tipoEntrada === 'garantia' && !!osGarantiaSelecionada}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1 text-left">Nº de série</label>
-                      <input
-                        type="text"
-                        placeholder="Opcional"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-black focus:border-transparent"
-                        value={dadosEquipamento.numero_serie}
-                        onChange={(e) => setDadosEquipamento(prev => ({ ...prev, numero_serie: e.target.value.toUpperCase() }))}
-                        readOnly={tipoEntrada === 'garantia' && !!osGarantiaSelecionada}
-                      />
+                      {!identificacaoLiberada && tipoEquipamentoSelecionado && (
+                        <button
+                          type="button"
+                          onClick={() => setIdentificacaoManual(true)}
+                          className="mt-2 text-xs font-medium text-blue-600 hover:text-blue-800"
+                        >
+                          Não encontrou? Preencher manualmente
+                        </button>
+                      )}
                     </div>
                   </div>
-                </div>
+                </NovaOSSection>
 
-                {/* 3. Problema relatado */}
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700 text-left">Problema relatado</label>
-                  <textarea
-                    placeholder="Descreva o problema apresentado pelo equipamento..."
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 h-24 resize-none focus:ring-2 focus:ring-black focus:border-transparent"
-                    value={dadosEquipamento.descricao_problema}
-                    onChange={(e) => setDadosEquipamento(prev => ({ ...prev, descricao_problema: e.target.value.toUpperCase() }))}
-                  />
-                </div>
+                <NovaOSAparelhoPreview
+                  imagemFrenteUrl={aparelhoImagemFrentePreview}
+                  imagemVersoUrl={aparelhoImagemVersoPreview}
+                  marca={dadosEquipamento.marca}
+                  modelo={dadosEquipamento.modelo}
+                  tipo={dadosEquipamento.tipo}
+                  aparelhoSelecionado={aparelhoSelecionado}
+                />
 
-                {/* 4 e 5. Acesso + Itens que acompanham - lado a lado em telas grandes */}
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                  {/* 4. Acesso ao aparelho (opcional) */}
-                  <div className="rounded-xl border border-gray-200 bg-slate-50/50 p-5 space-y-4">
-                    <div>
-                      <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2 text-left">
-                        <FiKey className="text-slate-600" />
-                        Acesso ao aparelho
-                        <span className="text-xs font-normal text-gray-500">(opcional)</span>
-                      </h4>
-                      <p className="text-xs text-gray-500 mt-1 text-left">
-                        Informe a senha, PIN ou desenhe o padrão de desbloqueio, caso o cliente tenha informado.
-                      </p>
+                <NovaOSSection
+                  step={2}
+                  title="Identificação"
+                  description={
+                    identificacaoLiberada
+                      ? marcaModeloDoCatalogo
+                        ? 'Marca e modelo vindos do catálogo.'
+                        : 'Confira ou ajuste os dados do equipamento.'
+                      : 'Selecione um aparelho acima para liberar.'
+                  }
+                  icon={<FiSmartphone className="text-blue-600" />}
+                >
+                  {!identificacaoLiberada ? (
+                    <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 py-8 text-center">
+                      <FiSmartphone className="mx-auto mb-2 h-8 w-8 text-gray-300" />
+                      <p className="text-sm font-medium text-gray-600">Aguardando seleção</p>
                     </div>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Senha / PIN */}
-                      <div className="space-y-1.5">
-                        <label className="block text-xs font-medium text-gray-600 mb-1 text-left">Senha / PIN</label>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {(['marca', 'modelo', 'cor', 'numero_serie'] as const).map((field) => {
+                        const labels = {
+                          marca: 'Marca',
+                          modelo: 'Modelo',
+                          cor: 'Cor',
+                          numero_serie: 'Nº de série',
+                        };
+                        const placeholders = {
+                          marca: 'Apple, Samsung...',
+                          modelo: 'iPhone 11, Galaxy...',
+                          cor: 'Preto, Prata...',
+                          numero_serie: 'Opcional',
+                        };
+                        const readOnlyGarantia = tipoEntrada === 'garantia' && !!osGarantiaSelecionada;
+                        const readOnlyField =
+                          (field === 'marca' || field === 'modelo') &&
+                          (marcaModeloDoCatalogo || readOnlyGarantia);
+                        const readOnly =
+                          readOnlyField || (readOnlyGarantia && (field === 'cor' || field === 'numero_serie' || field === 'marca' || field === 'modelo'));
+
+                        return (
+                          <div key={field} className={field === 'numero_serie' ? 'sm:col-span-2' : ''}>
+                            <label className="mb-1 block text-xs font-medium text-gray-600">{labels[field]}</label>
+                            <input
+                              type="text"
+                              placeholder={placeholders[field]}
+                              className={`w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm transition focus:border-gray-900 focus:ring-1 focus:ring-gray-900 ${
+                                readOnlyField ? 'bg-gray-50 text-gray-600' : 'bg-white'
+                              }`}
+                              value={dadosEquipamento[field]}
+                              onChange={(e) =>
+                                setDadosEquipamento((prev) => ({
+                                  ...prev,
+                                  [field]: e.target.value.toUpperCase(),
+                                }))
+                              }
+                              readOnly={readOnly}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </NovaOSSection>
+
+                <NovaOSSection
+                  step={3}
+                  title="Problema relatado"
+                  description="O que o cliente informou na recepção."
+                >
+                  <textarea
+                    placeholder="Descreva o defeito ou solicitação..."
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm h-28 resize-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
+                    value={dadosEquipamento.descricao_problema}
+                    onChange={(e) =>
+                      setDadosEquipamento((prev) => ({
+                        ...prev,
+                        descricao_problema: e.target.value.toUpperCase(),
+                      }))
+                    }
+                  />
+                </NovaOSSection>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <NovaOSSection
+                    step={4}
+                    title="Acesso ao aparelho"
+                    description="Senha, PIN ou padrão de desbloqueio."
+                    icon={<FiKey className="text-slate-600" />}
+                    optional
+                  >
+                    <div className="space-y-4">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-600">Senha / PIN</label>
                         <div className="relative">
                           <input
-                            type={mostrarSenha ? "text" : "password"}
-                            placeholder="Ex: 1234 ou senha do cliente"
+                            type={mostrarSenha ? 'text' : 'password'}
+                            placeholder="Ex: 1234"
                             autoComplete="off"
-                            className="w-full border border-gray-300 rounded-lg pl-3 pr-10 py-2.5 text-sm focus:ring-2 focus:ring-black focus:border-transparent"
+                            className="w-full rounded-lg border border-gray-200 py-2.5 pl-3 pr-10 text-sm focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
                             value={dadosEquipamento.senha}
-                            onChange={(e) => setDadosEquipamento(prev => ({ ...prev, senha: e.target.value }))}
+                            onChange={(e) =>
+                              setDadosEquipamento((prev) => ({ ...prev, senha: e.target.value }))
+                            }
                           />
                           <button
                             type="button"
-                            onClick={() => setMostrarSenha(s => !s)}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-600 rounded transition-colors"
-                            title={mostrarSenha ? "Ocultar senha" : "Mostrar senha"}
+                            onClick={() => setMostrarSenha((s) => !s)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-gray-400 hover:text-gray-600"
                           >
-                            {mostrarSenha ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+                            {mostrarSenha ? <FiEyeOff className="h-4 w-4" /> : <FiEye className="h-4 w-4" />}
                           </button>
                         </div>
-                        <p className="text-xs text-gray-500 text-left">PIN ou senha para desbloqueio</p>
                       </div>
-                      {/* Padrão Android */}
-                      <div className="space-y-1.5">
-                        <label className="block text-xs font-medium text-gray-600 mb-1 text-left">Padrão Android</label>
+                      <div className="flex w-full flex-col items-center">
+                        <label className="mb-2 w-full text-left text-xs font-medium text-gray-600">
+                          Padrão Android
+                        </label>
                         <PatternLock
-                          onPatternComplete={(p) => setDadosEquipamento(prev => ({ ...prev, senha_padrao: p }))}
-                          onPatternClear={() => setDadosEquipamento(prev => ({ ...prev, senha_padrao: [] }))}
+                          onPatternComplete={(p) =>
+                            setDadosEquipamento((prev) => ({ ...prev, senha_padrao: p }))
+                          }
+                          onPatternClear={() =>
+                            setDadosEquipamento((prev) => ({ ...prev, senha_padrao: [] }))
+                          }
                           value={dadosEquipamento.senha_padrao}
-                          className="w-full lg:max-w-[220px]"
+                          className="w-full max-w-[220px]"
                           showCoordinates={false}
+                          centered
                         />
                       </div>
+                      {(dadosEquipamento.senha || dadosEquipamento.senha_padrao.length > 0) && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700">
+                          <FiCheckCircle className="h-3.5 w-3.5" /> Acesso registrado
+                        </span>
+                      )}
                     </div>
-                    {(dadosEquipamento.senha || dadosEquipamento.senha_padrao.length > 0) && (
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-50 text-green-700 text-xs font-medium border border-green-100">
-                        <FiCheckCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                        Acesso registrado
-                      </div>
-                    )}
-                  </div>
+                  </NovaOSSection>
 
-                  {/* 5. Acessórios e estado */}
-                  <div className="rounded-xl border border-gray-200 bg-amber-50/30 p-5 space-y-4">
-                    <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2 text-left">
-                      <FiList className="text-amber-600" />
-                      Itens que acompanham
-                      <span className="text-xs font-normal text-gray-500">(opcional)</span>
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <NovaOSSection
+                    step={5}
+                    title="Itens que acompanham"
+                    description="Acessórios e estado físico na entrega."
+                    icon={<FiList className="text-amber-600" />}
+                    optional
+                  >
+                    <div className="space-y-3">
                       <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1 text-left">Acessórios</label>
+                        <label className="mb-1 block text-xs font-medium text-gray-600">Acessórios</label>
                         <textarea
                           placeholder="Carregador, cabo, capa..."
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-black focus:border-transparent"
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
                           rows={2}
                           value={acessorios}
                           onChange={(e) => setAcessorios(e.target.value)}
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1 text-left">Estado físico</label>
+                        <label className="mb-1 block text-xs font-medium text-gray-600">Estado físico</label>
                         <textarea
                           placeholder="Riscos, amassados..."
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-black focus:border-transparent"
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
                           rows={2}
                           value={condicoesEquipamento}
                           onChange={(e) => setCondicoesEquipamento(e.target.value)}
                         />
                       </div>
                     </div>
-                  </div>
+                  </NovaOSSection>
                 </div>
               </div>
             )}
 
             {etapaAtual === 3 && (
-              <div className="w-full flex flex-col gap-6">
-                <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2 text-left">
-                  <FiList className="text-blue-600" />
-                  Checklist de entrada
-                </h3>
-                <p className="text-sm text-gray-600 text-left">
-                  {dadosEquipamento.tipo
-                    ? <>Checklist para <strong>{dadosEquipamento.tipo}</strong>. Marque o que foi verificado na recepção.</>
-                    : 'Selecione o tipo de equipamento na etapa anterior para ver o checklist específico.'}
-                </p>
+              <div className="w-full flex flex-col gap-5">
+                <div className="text-center sm:text-left">
+                  <h2 className="text-xl font-bold text-gray-900 flex items-center justify-center sm:justify-start gap-2">
+                    <FiList className="text-blue-600" />
+                    Checklist de entrada
+                  </h2>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {dadosEquipamento.tipo
+                      ? <>Checklist para <strong>{dadosEquipamento.tipo}</strong>. Para cada item testado, indique se <strong>funciona</strong> ou <strong>não funciona</strong>.</>
+                      : 'Selecione o tipo de equipamento na etapa anterior para ver o checklist específico.'}
+                  </p>
+                </div>
                 {dadosEquipamento.tipo ? (
                   <DynamicChecklist
-                    equipamentoCategoria={dadosEquipamento.tipo}
+                    equipamentoCategoria={tipoEquipamentoSelecionado?.codigo || dadosEquipamento.tipo}
+                    tipoCatalogoId={tipoEquipamentoSelecionado?.catalogoId}
                     value={checklistEntrada}
                     onChange={setChecklistEntrada}
                     showAparelhoNaoLiga={true}
@@ -2218,27 +2400,7 @@ function NovaOS2Content() {
                 <p>Etapa {etapaAtual} em desenvolvimento...</p>
               </div>
             )}
-          </div>
-
-          {/* Botões de navegação */}
-          <div className="flex justify-between">
-            <Button 
-              variant="secondary" 
-              onClick={etapaAnterior}
-              disabled={etapaAtual === 1}
-            >
-              Anterior
-            </Button>
-            <Button 
-              variant="default" 
-              onClick={etapaAtual === etapas.length ? finalizarOS : proximaEtapa}
-              disabled={etapaAtual === etapas.length && (!formularioCompleto() || salvando)}
-              className={etapaAtual === etapas.length && formularioCompleto() ? 'bg-green-600 hover:bg-green-700' : ''}
-              title={etapaAtual === etapas.length ? getTooltipFinalizar() : ''}
-            >
-              {etapaAtual === etapas.length ? (salvando ? 'Salvando...' : 'Finalizar') : 'Próxima'}
-            </Button>
-          </div>
+          </NovaOSWizardLayout>
 
           {/* Modal de Cadastro Rápido de Produto */}
           {showCadastroRapidoProduto && (

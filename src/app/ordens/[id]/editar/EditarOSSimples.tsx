@@ -7,7 +7,10 @@ import MenuLayout from '@/components/MenuLayout';
 
 import ProdutoServicoManager from '@/components/ProdutoServicoManager';
 import EquipamentoSelector from '@/components/EquipamentoSelector';
+import AparelhoSelector from '@/components/AparelhoSelector';
 import DynamicChecklist from '@/components/DynamicChecklist';
+import type { AparelhoSelecionado } from '@/types/aparelhos';
+import type { TipoEquipamentoSelecionado } from '@/types/equipamentos';
 import ImageEditor from '@/components/ImageEditor';
 import LaudoEditor from '@/components/LaudoEditor';
 import { useToast } from '@/components/Toast';
@@ -96,6 +99,10 @@ export default function EditarOSSimples() {
   const [acessorios, setAcessorios] = useState('');
   const [condicoesEquipamento, setCondicoesEquipamento] = useState('');
   const [equipamento, setEquipamento] = useState('');
+  const [tipoEquipamentoSelecionado, setTipoEquipamentoSelecionado] =
+    useState<TipoEquipamentoSelecionado | null>(null);
+  const [aparelhoSelecionado, setAparelhoSelecionado] = useState<AparelhoSelecionado | null>(null);
+  const [aparelhoImagemUrl, setAparelhoImagemUrl] = useState<string | null>(null);
   
   // Estados dos relatos (campos da tabela)
   const [relato, setRelato] = useState('');
@@ -212,6 +219,7 @@ export default function EditarOSSimples() {
       setAcessorios(data.acessorios || '');
       setCondicoesEquipamento(data.condicoes_equipamento || '');
       setEquipamento(data.equipamento || '');
+      setAparelhoImagemUrl((data as { aparelho_imagem_url?: string }).aparelho_imagem_url || null);
       setRelato(data.problema_relatado || '');
       setObservacao(data.observacao || '');
       setLaudo(data.laudo || '');
@@ -400,7 +408,11 @@ export default function EditarOSSimples() {
     if (!confirmed) return;
 
     // Se for avançar para técnico (há técnico selecionado), exigir checklist preenchido (ao menos 1 item marcado)
-    const algumItemChecklistMarcado = Object.values(checklistEntrada).some(Boolean);
+    const algumItemChecklistMarcado =
+      checklistEntrada.aparelhoNaoLiga === true ||
+      Object.keys(checklistEntrada).some(
+        (k) => k !== 'aparelhoNaoLiga' && Object.prototype.hasOwnProperty.call(checklistEntrada, k)
+      );
     if (tecnicoSelecionado && !algumItemChecklistMarcado) {
       addToast('error', 'Preencha o Checklist de entrada antes de encaminhar ao técnico.');
       return;
@@ -471,6 +483,14 @@ export default function EditarOSSimples() {
       if (cor !== ordem?.cor) updateData.cor = cor;
       if (numeroSerie !== ordem?.numero_serie) updateData.numero_serie = numeroSerie;
       if (equipamento !== ordem?.equipamento) updateData.equipamento = equipamento;
+      if (aparelhoSelecionado) {
+        updateData.aparelho_origem = aparelhoSelecionado.origem;
+        updateData.aparelho_catalogo_id = aparelhoSelecionado.catalogoId || null;
+        updateData.aparelho_empresa_id = aparelhoSelecionado.aparelhoEmpresaId || null;
+      }
+      if (aparelhoImagemUrl !== (ordem as { aparelho_imagem_url?: string })?.aparelho_imagem_url) {
+        updateData.aparelho_imagem_url = aparelhoImagemUrl;
+      }
       if (acessorios !== ordem?.acessorios) updateData.acessorios = acessorios;
       if (condicoesEquipamento !== ordem?.condicoes_equipamento) updateData.condicoes_equipamento = condicoesEquipamento;
       
@@ -630,12 +650,32 @@ export default function EditarOSSimples() {
     }
   };
 
-  const handleEquipamentoSelecionado = (equipamento: any) => {
-    if (equipamento) {
-      setEquipamento(equipamento.nome);
+  const handleAparelhoSelecionado = (aparelho: AparelhoSelecionado | null) => {
+    setAparelhoSelecionado(aparelho ? { ...aparelho } : null);
+    if (aparelho) {
+      setMarca(aparelho.marca);
+      setModelo(aparelho.modelo);
+      if (aparelho.tipo) setEquipamento(aparelho.tipo);
+      setAparelhoImagemUrl(aparelho.imagemUrl || null);
+      if (aparelho.tipoId) {
+        setTipoEquipamentoSelecionado({
+          codigo: aparelho.tipo,
+          nome: aparelho.tipo,
+          origem: 'catalogo_global',
+          catalogoId: aparelho.tipoId,
+          empresaTipoId: null,
+        });
+      }
     } else {
-      setEquipamento('');
+      setAparelhoImagemUrl(null);
     }
+  };
+
+  const handleTipoEquipamentoSelecionado = (tipo: TipoEquipamentoSelecionado | null) => {
+    setTipoEquipamentoSelecionado(tipo);
+    setAparelhoSelecionado(null);
+    setAparelhoImagemUrl(null);
+    setEquipamento(tipo?.codigo || '');
   };
 
   const formatCurrency = (value: number) => {
@@ -1186,9 +1226,22 @@ export default function EditarOSSimples() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Equipamento</label>
                 <EquipamentoSelector
                   empresaId={empresaData?.id || ''}
-                  value={equipamento}
-                  onChange={handleEquipamentoSelecionado}
+                  value={tipoEquipamentoSelecionado}
+                  valueCodigo={equipamento}
+                  onChange={handleTipoEquipamentoSelecionado}
                   placeholder="Selecione o tipo de equipamento (ex: CELULAR, NOTEBOOK)"
+                />
+              </div>
+              <div className="md:col-span-2 lg:col-span-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Selecionar aparelho</label>
+                <AparelhoSelector
+                  empresaId={empresaData?.id || ''}
+                  tipoSelecionado={tipoEquipamentoSelecionado}
+                  marca={marca}
+                  modelo={modelo}
+                  imagemUrl={aparelhoImagemUrl}
+                  value={aparelhoSelecionado}
+                  onChange={handleAparelhoSelecionado}
                 />
               </div>
               <div>

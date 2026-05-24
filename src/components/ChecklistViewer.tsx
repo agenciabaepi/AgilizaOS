@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { bearerAuthHeadersForApi } from '@/lib/api/clientAuthHeaders';
+import { fetchChecklistItensMerged } from '@/lib/checklist-client';
+import { formatChecklistItemLabel, partitionChecklistItens } from '@/lib/checklist-values';
 import { FiCheck, FiX } from 'react-icons/fi';
 
 interface ChecklistItem {
@@ -17,10 +18,15 @@ interface ChecklistItem {
 
 interface ChecklistViewerProps {
   checklistData: string | null;
-  equipamentoCategoria?: string; // Nova prop para filtrar por categoria
+  equipamentoCategoria?: string;
+  tipoCatalogoId?: string | null;
 }
 
-export default function ChecklistViewer({ checklistData, equipamentoCategoria }: ChecklistViewerProps) {
+export default function ChecklistViewer({
+  checklistData,
+  equipamentoCategoria,
+  tipoCatalogoId,
+}: ChecklistViewerProps) {
   const { empresaData, session } = useAuth();
   const [itens, setItens] = useState<ChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,28 +40,13 @@ export default function ChecklistViewer({ checklistData, equipamentoCategoria }:
       }
 
       try {
-        // ✅ NOVO: Usar categoria de equipamento se fornecida, caso contrário usar todos
-        const url = equipamentoCategoria 
-          ? `/api/checklist-itens?empresa_id=${empresaData.id}&equipamento_categoria=${encodeURIComponent(equipamentoCategoria)}&ativo=true`
-          : `/api/checklist-itens?empresa_id=${empresaData.id}&ativo=true`;
-          
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: await bearerAuthHeadersForApi(session, {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            Pragma: 'no-cache',
-            Expires: '0',
-            'Content-Type': 'application/json',
-          }),
-          credentials: 'include',
+        const merged = await fetchChecklistItensMerged({
+          empresaId: empresaData.id,
+          session,
+          equipamentoCategoria,
+          tipoCatalogoId,
         });
-
-        if (response.ok) {
-          const data = await response.json();
-          setItens(data.itens || []);
-        } else {
-          console.error('Erro ao carregar itens de checklist:', response.statusText);
-        }
+        setItens(merged);
       } catch (error) {
         console.error('Erro ao carregar itens de checklist:', error);
       } finally {
@@ -64,7 +55,7 @@ export default function ChecklistViewer({ checklistData, equipamentoCategoria }:
     };
 
     fetchItens();
-  }, [empresaData?.id, equipamentoCategoria, session?.access_token]);
+  }, [empresaData?.id, equipamentoCategoria, tipoCatalogoId, session?.access_token]);
 
   if (!checklistData) return null;
 
@@ -146,31 +137,22 @@ export default function ChecklistViewer({ checklistData, equipamentoCategoria }:
       return labels[categoria] || categoria;
     };
 
-    // Separar itens aprovados e reprovados
-    const itensAprovados: ChecklistItem[] = [];
-    const itensReprovados: ChecklistItem[] = [];
-
-    Object.values(itensPorCategoria).flat().forEach(item => {
-      const isAprovado = checklist[item.id] === true;
-      if (isAprovado) {
-        itensAprovados.push(item);
-      } else {
-        itensReprovados.push(item);
-      }
-    });
+    const allItens = Object.values(itensPorCategoria).flat();
+    const { ok: itensAprovados, fail: itensReprovados, unanswered: itensSemResposta } =
+      partitionChecklistItens(allItens, checklist);
 
     return (
       <div className="space-y-4">
         {itensAprovados.length > 0 && (
           <div>
-            <h4 className="text-sm font-medium text-green-700 mb-3">✅ Testes Aprovados:</h4>
+            <h4 className="text-sm font-medium text-green-700 mb-3">Funciona</h4>
             <div className="grid grid-cols-2 gap-2">
               {itensAprovados.map(item => (
                 <div key={item.id} className="flex items-center gap-2 text-sm text-green-600">
                   <div className="w-4 h-4 border-2 border-green-500 rounded flex items-center justify-center bg-green-50">
                     <FiCheck className="w-3 h-3 text-green-600" />
                   </div>
-                  <span>{item.nome}</span>
+                  <span>{formatChecklistItemLabel(item.nome)}</span>
                 </div>
               ))}
             </div>
@@ -179,21 +161,35 @@ export default function ChecklistViewer({ checklistData, equipamentoCategoria }:
 
         {itensReprovados.length > 0 && (
           <div>
-            <h4 className="text-sm font-medium text-red-600 mb-3">❌ Testes Reprovados:</h4>
+            <h4 className="text-sm font-medium text-red-600 mb-3">Não funciona</h4>
             <div className="grid grid-cols-2 gap-2">
               {itensReprovados.map(item => (
                 <div key={item.id} className="flex items-center gap-2 text-sm text-red-500">
                   <div className="w-4 h-4 border-2 border-red-500 rounded flex items-center justify-center bg-red-50">
                     <FiX className="w-3 h-3 text-red-600" />
                   </div>
-                  <span>{item.nome}</span>
+                  <span>{formatChecklistItemLabel(item.nome)}</span>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {itensAprovados.length === 0 && itensReprovados.length === 0 && (
+        {itensSemResposta.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium text-gray-600 mb-3">Não informado na entrada</h4>
+            <div className="grid grid-cols-2 gap-2">
+              {itensSemResposta.map((item) => (
+                <div key={item.id} className="flex items-center gap-2 text-sm text-gray-500">
+                  <div className="w-4 h-4 border-2 border-gray-300 rounded bg-gray-50" />
+                  <span>{formatChecklistItemLabel(item.nome)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {itensAprovados.length === 0 && itensReprovados.length === 0 && itensSemResposta.length === 0 && (
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
             <p className="text-gray-600 text-sm">
               Nenhum teste foi realizado no checklist de entrada.

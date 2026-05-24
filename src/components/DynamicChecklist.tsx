@@ -2,7 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { bearerAuthHeadersForApi } from '@/lib/api/clientAuthHeaders';
+import { fetchChecklistItensMerged } from '@/lib/checklist-client';
+import {
+  type ChecklistData,
+  formatChecklistItemLabel,
+  isChecklistItemAnswered,
+  isChecklistItemFail,
+  isChecklistItemOk,
+} from '@/lib/checklist-values';
 import { FiCheck, FiX } from 'react-icons/fi';
 
 interface ChecklistItem {
@@ -15,9 +22,7 @@ interface ChecklistItem {
   obrigatorio: boolean;
 }
 
-interface ChecklistData {
-  [key: string]: boolean;
-}
+export type { ChecklistData };
 
 export interface ValidationResult {
   isValid: boolean;
@@ -30,7 +35,9 @@ interface DynamicChecklistProps {
   onChange?: (checklist: ChecklistData) => void;
   disabled?: boolean;
   showAparelhoNaoLiga?: boolean;
-  equipamentoCategoria?: string; // Nova prop para filtrar por categoria de equipamento
+  equipamentoCategoria?: string;
+  /** ID em equipamentos_tipos_catalogo — melhora o match com itens do admin SaaS */
+  tipoCatalogoId?: string | null;
   onValidationChange?: (validation: ValidationResult) => void;
 }
 
@@ -40,6 +47,7 @@ export default function DynamicChecklist({
   disabled = false,
   showAparelhoNaoLiga = true,
   equipamentoCategoria,
+  tipoCatalogoId,
   onValidationChange
 }: DynamicChecklistProps) {
   const { empresaData, session } = useAuth();
@@ -57,28 +65,16 @@ export default function DynamicChecklist({
       }
 
       try {
-        // ✅ NOVO: Usar categoria de equipamento se fornecida, caso contrário usar todos
-        const url = equipamentoCategoria 
-          ? `/api/checklist-itens?empresa_id=${empresaData.id}&equipamento_categoria=${encodeURIComponent(equipamentoCategoria)}&ativo=true`
-          : `/api/checklist-itens?empresa_id=${empresaData.id}&ativo=true`;
-          
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: await bearerAuthHeadersForApi(session, {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            Pragma: 'no-cache',
-            Expires: '0',
-            'Content-Type': 'application/json',
-          }),
-          credentials: 'include',
+        const merged = await fetchChecklistItensMerged({
+          empresaId: empresaData.id,
+          session,
+          equipamentoCategoria,
+          tipoCatalogoId,
         });
-
-        if (response.ok) {
-          const data = await response.json();
-          setItens(data.itens || []);
-        } else {
-          console.error('Erro ao carregar itens de checklist:', response.statusText);
-        }
+        // "Aparelho não liga" tem controle próprio no topo (não duplicar item da lista padrão)
+        setItens(
+          merged.filter((i) => i.nome.trim().toLowerCase() !== 'aparelho não liga')
+        );
       } catch (error) {
         console.error('Erro ao carregar itens de checklist:', error);
       } finally {
@@ -87,7 +83,7 @@ export default function DynamicChecklist({
     };
 
     fetchItens();
-  }, [empresaData?.id, equipamentoCategoria, session?.access_token]);
+  }, [empresaData?.id, equipamentoCategoria, tipoCatalogoId, session?.access_token]);
 
   // Atualizar estado interno quando value prop muda
   useEffect(() => {
@@ -109,8 +105,8 @@ export default function DynamicChecklist({
     itensPorCategoria[categoria].sort((a, b) => a.ordem - b.ordem);
   });
 
-  const handleItemChange = (itemId: string, checked: boolean) => {
-    const newData = { ...checklistData, [itemId]: checked };
+  const handleItemStatus = (itemId: string, funciona: boolean) => {
+    const newData = { ...checklistData, [itemId]: funciona };
     setChecklistData(newData);
     onChange?.(newData);
   };
@@ -157,14 +153,16 @@ export default function DynamicChecklist({
     }
 
     const itensObrigatorios = itens.filter(item => item.obrigatorio && item.ativo);
-    const itensFaltando = itensObrigatorios.filter(item => !checklistData[item.id]);
+    const itensFaltando = itensObrigatorios.filter(
+      (item) => !isChecklistItemAnswered(checklistData, item.id)
+    );
 
     return {
       isValid: itensFaltando.length === 0,
       missingItems: itensFaltando,
-      message: itensFaltando.length > 0 
-        ? `${itensFaltando.length} item(ns) obrigatório(s) não preenchido(s)`
-        : 'Todos os itens obrigatórios foram preenchidos'
+      message: itensFaltando.length > 0
+        ? `${itensFaltando.length} item(ns) obrigatório(s) sem resposta (escolha Funciona ou Não funciona)`
+        : 'Todos os itens obrigatórios foram respondidos',
     };
   };
 
@@ -216,6 +214,17 @@ export default function DynamicChecklist({
 
   return (
     <div className="space-y-6">
+      {!aparelhoNaoLiga && (
+        <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          <p className="font-medium">Como responder</p>
+          <p className="mt-1 text-blue-800 text-xs leading-relaxed">
+            Para cada item testado na recepção, escolha <strong>Funciona</strong> ou{' '}
+            <strong>Não funciona</strong>. Itens com <span className="text-red-600 font-semibold">*</span>{' '}
+            precisam de uma das duas opções.
+          </p>
+        </div>
+      )}
+
       {/* Aparelho não liga - sempre no topo */}
       {showAparelhoNaoLiga && (
         <div className="border-b pb-4">
@@ -247,42 +256,55 @@ export default function DynamicChecklist({
           </h4>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {itensPorCategoria[categoria].map(item => (
-              <div key={item.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                <label className="flex items-center space-x-2 cursor-pointer flex-1">
-                  <div className="relative">
-                    <input
-                      type="checkbox"
-                      checked={checklistData[item.id] || false}
-                      onChange={(e) => handleItemChange(item.id, e.target.checked)}
-                      disabled={disabled || aparelhoNaoLiga}
-                      className="sr-only"
-                    />
-                    <div className={`w-6 h-6 border-2 rounded flex items-center justify-center transition-colors ${
-                      checklistData[item.id] 
-                        ? 'bg-green-500 border-green-500 text-white' 
-                        : 'bg-white border-gray-300 hover:border-gray-400'
-                    } ${disabled || aparelhoNaoLiga ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
-                      {checklistData[item.id] && <FiCheck size={14} />}
-                    </div>
-                  </div>
-                  
-                  <div className="flex-1">
-                    <span className={`text-sm font-medium ${
-                      checklistData[item.id] ? 'text-green-700' : 'text-gray-700'
-                    }`}>
-                      {item.nome}
+            {itensPorCategoria[categoria].map((item) => {
+              const ok = isChecklistItemOk(checklistData, item.id);
+              const fail = isChecklistItemFail(checklistData, item.id);
+              const label = formatChecklistItemLabel(item.nome);
+
+              return (
+                <div key={item.id} className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                  <div className="mb-2">
+                    <span className="text-sm font-medium text-gray-800">
+                      {label}
+                      {item.obrigatorio && (
+                        <span className="ml-1 text-xs text-red-500 font-semibold">*</span>
+                      )}
                     </span>
-                    {item.obrigatorio && (
-                      <span className="ml-2 text-xs text-red-500 font-semibold">*</span>
-                    )}
                     {item.descricao && (
-                      <p className="text-xs text-gray-500 mt-1">{item.descricao}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{item.descricao}</p>
                     )}
                   </div>
-                </label>
-              </div>
-            ))}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={disabled || aparelhoNaoLiga}
+                      onClick={() => handleItemStatus(item.id, true)}
+                      className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${
+                        ok
+                          ? 'bg-green-600 border-green-600 text-white'
+                          : 'bg-white border-gray-300 text-gray-700 hover:border-green-400 hover:text-green-700'
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      <FiCheck size={14} />
+                      Funciona
+                    </button>
+                    <button
+                      type="button"
+                      disabled={disabled || aparelhoNaoLiga}
+                      onClick={() => handleItemStatus(item.id, false)}
+                      className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${
+                        fail
+                          ? 'bg-red-600 border-red-600 text-white'
+                          : 'bg-white border-gray-300 text-gray-700 hover:border-red-400 hover:text-red-700'
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      <FiX size={14} />
+                      Não funciona
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       ))}
@@ -315,7 +337,9 @@ export default function DynamicChecklist({
           <div className="space-y-3">
             {/* Resumo dos itens obrigatórios */}
             <div className="text-xs text-gray-500">
-              <p>* Itens marcados com asterisco são obrigatórios ({itensObrigatorios.length} total)</p>
+              <p>
+                * Obrigatórios ({itensObrigatorios.length}): responda Funciona ou Não funciona em cada um
+              </p>
             </div>
 
             {/* Alerta de validação */}
@@ -325,7 +349,7 @@ export default function DynamicChecklist({
                   <FiX className="text-yellow-500 mt-0.5" size={16} />
                   <div className="flex-1">
                     <p className="text-yellow-800 font-medium text-sm">
-                      Itens obrigatórios pendentes
+                      Itens obrigatórios sem resposta
                     </p>
                     <p className="text-yellow-700 text-xs mt-1">
                       {validation.message}
@@ -348,7 +372,7 @@ export default function DynamicChecklist({
                 <div className="flex items-center space-x-2">
                   <FiCheck className="text-green-500" size={16} />
                   <p className="text-green-800 font-medium text-sm">
-                    Todos os itens obrigatórios foram preenchidos
+                    Todos os itens obrigatórios foram respondidos
                   </p>
                 </div>
               </div>

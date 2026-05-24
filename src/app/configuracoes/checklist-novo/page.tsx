@@ -7,6 +7,8 @@ import { useToast } from '@/components/Toast';
 import { FiPlus, FiEdit, FiTrash2, FiSearch, FiRefreshCw, FiPackage, FiList, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import { useConfigPermission, AcessoNegadoComponent } from '@/hooks/useConfigPermission';
 import { bearerAuthHeadersForApi } from '@/lib/api/clientAuthHeaders';
+import { fetchChecklistItensMerged } from '@/lib/checklist-client';
+import { normalizeTipoCodigo } from '@/lib/aparelhos-tipo';
 
 interface ChecklistItem {
   id: string;
@@ -93,23 +95,12 @@ export default function ChecklistNovoPage() {
     setLoadingItens(true);
 
     try {
-      const response = await fetch(
-        `/api/checklist-itens?empresa_id=${empresaData.id}&equipamento_categoria=${encodeURIComponent(categoriaSelecionada)}&ativo=true`,
-        {
-          headers: await bearerAuthHeadersForApi(session),
-          credentials: 'include',
-        }
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
-        setItens(data.itens || []);
-      } else {
-        const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-        console.error(`❌ Erro ao buscar itens:`, errorData);
-        addToast('error', `Erro: ${errorData.error || 'Não foi possível carregar itens'}`);
-        setItens([]);
-      }
+      const merged = await fetchChecklistItensMerged({
+        empresaId: empresaData.id,
+        session,
+        equipamentoCategoria: normalizeTipoCodigo(categoriaSelecionada),
+      });
+      setItens(merged);
     } catch (error) {
       console.error('❌ Erro ao buscar itens:', error);
       addToast('error', 'Erro de conexão ao carregar itens');

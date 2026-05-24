@@ -84,6 +84,12 @@ export async function POST(request: NextRequest) {
       senha_padrao: body.senha_padrao || null,
       checklist_entrada: body.checklist_entrada || null,
       prazo_entrega: body.prazo_entrega || null,
+      aparelho_origem: body.aparelho_origem || null,
+      aparelho_catalogo_id: body.aparelho_catalogo_id || null,
+      aparelho_empresa_id: body.aparelho_empresa_id || null,
+      aparelho_imagem_url: body.aparelho_imagem_url || null,
+      aparelho_imagem_frente_url: body.aparelho_imagem_frente_url || null,
+      aparelho_imagem_verso_url: body.aparelho_imagem_verso_url || null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };

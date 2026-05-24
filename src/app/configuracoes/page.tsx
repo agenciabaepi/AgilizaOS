@@ -18,6 +18,7 @@ import ComissoesPage from './comissoes/page'
 import CatalogoPage from './catalogo/page'
 import WhatsAppPage from './whatsapp/page'
 import EquipamentosPage from './equipamentos/page'
+import AparelhosPage from './aparelhos/page'
 import ChecklistNovoPage from './checklist-novo/page'
 import AvisosPage from './avisos/page'
 import LinkPublicoPage from './link-publico/page'
@@ -73,6 +74,7 @@ function ConfiguracoesInner() {
     { name: 'Usuários', Component: UsuariosPage, permissao: 'usuarios', requerRecurso: null },
     { name: 'Comissões', Component: ComissoesPage, permissao: 'comissoes', requerRecurso: 'financeiro' },
     { name: 'Equipamentos', Component: EquipamentosPage, permissao: 'equipamentos', requerRecurso: null },
+    { name: 'Aparelhos', Component: AparelhosPage, permissao: 'equipamentos', requerRecurso: null },
     { name: 'Checklist', Component: ChecklistNovoPage, permissao: 'checklist', requerRecurso: null },
     { name: 'Termos de Garantia', Component: TermosPage, permissao: 'termos', requerRecurso: null },
     { name: 'Status', Component: StatusPage, permissao: 'status', requerRecurso: null },

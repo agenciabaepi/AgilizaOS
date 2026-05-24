@@ -4,8 +4,9 @@ import { supabase } from '@/lib/supabaseClient';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
-import bglogin from '@/assets/imagens/bglogin.jpg';
 import logo from '@/assets/imagens/logopreto.png';
+
+const BG_LOGIN_URL = '/bglogin.jpg';
 import { ToastProvider, useToast } from '@/components/Toast';
 import { ConfirmProvider, useConfirm } from '@/components/ConfirmDialog';
 import { FaEye, FaEyeSlash, FaArrowLeft, FaArrowRight } from 'react-icons/fa';
@@ -345,6 +346,22 @@ function LoginClientInner() {
     }
     */
     
+    // Encerrar sessão anterior para não misturar empresa/assinatura entre usuários
+    try {
+      const { data: { session: sessaoAnterior } } = await supabase.auth.getSession();
+      if (sessaoAnterior) {
+        await supabase.auth.signOut({ scope: 'global' });
+        auth.clearSession();
+        localStorage.removeItem('user');
+        localStorage.removeItem('empresa_id');
+        localStorage.removeItem('session');
+        sessionStorage.clear();
+        await new Promise((resolve) => setTimeout(resolve, 150));
+      }
+    } catch {
+      /* segue com novo login */
+    }
+
     // Tentar fazer login
     const {
       data: { session },
@@ -566,7 +583,7 @@ function LoginClientInner() {
       {/* Lado Esquerdo - Carrossel de Cards */}
       <div
         className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-center bg-cover"
-        style={{ backgroundImage: `url(${(bglogin as any).src || bglogin})` }}
+        style={{ backgroundImage: `url(${BG_LOGIN_URL})` }}
       >
         {/* Overlay sutil para contraste */}
         <div className="absolute inset-0 bg-black/50 pointer-events-none" />

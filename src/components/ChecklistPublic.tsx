@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { bearerAuthHeadersForApi } from '@/lib/api/clientAuthHeaders';
+import { formatChecklistItemLabel, partitionChecklistItens } from '@/lib/checklist-values';
 import { FiCheck, FiX } from 'react-icons/fi';
 
 interface ChecklistItem {
@@ -128,30 +129,19 @@ export default function ChecklistPublic({
       );
     }
 
-    // Separar itens aprovados e reprovados
-    const itensAprovados: ChecklistItem[] = [];
-    const itensReprovados: ChecklistItem[] = [];
-
-    itens.forEach(item => {
-      const itemValue = checklist[item.id];
-      if (itemValue === true) {
-        itensAprovados.push(item);
-      } else {
-        // Itens não marcados (undefined) ou marcados como false são considerados reprovados
-        itensReprovados.push(item);
-      }
-    });
+    const { ok: itensAprovados, fail: itensReprovados, unanswered: itensSemResposta } =
+      partitionChecklistItens(itens, checklist);
 
     return (
       <div className="space-y-2">
         {itensAprovados.length > 0 && (
           <div>
-            <h4 className="text-xs font-medium text-green-700 mb-1 text-left">Funcionalidades Operacionais</h4>
+            <h4 className="text-xs font-medium text-green-700 mb-1 text-left">Funciona</h4>
             <div className="grid grid-cols-2 gap-1">
               {itensAprovados.map(item => (
                 <div key={item.id} className="flex items-center gap-1 text-xs text-gray-700">
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span>{item.nome}</span>
+                  <span>{formatChecklistItemLabel(item.nome)}</span>
                 </div>
               ))}
             </div>
@@ -160,19 +150,33 @@ export default function ChecklistPublic({
 
         {itensReprovados.length > 0 && (
           <div>
-            <h4 className="text-xs font-medium text-red-600 mb-1 text-left">Funcionalidades com Problemas</h4>
+            <h4 className="text-xs font-medium text-red-600 mb-1 text-left">Não funciona</h4>
             <div className="grid grid-cols-2 gap-1">
               {itensReprovados.map(item => (
                 <div key={item.id} className="flex items-center gap-1 text-xs text-gray-700">
                   <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                  <span>{item.nome}</span>
+                  <span>{formatChecklistItemLabel(item.nome)}</span>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {itensAprovados.length === 0 && itensReprovados.length === 0 && (
+        {itensSemResposta.length > 0 && (
+          <div>
+            <h4 className="text-xs font-medium text-gray-600 mb-1 text-left">Não informado</h4>
+            <div className="grid grid-cols-2 gap-1">
+              {itensSemResposta.map((item) => (
+                <div key={item.id} className="flex items-center gap-1 text-xs text-gray-500">
+                  <div className="w-2 h-2 bg-gray-300 rounded-full" />
+                  <span>{formatChecklistItemLabel(item.nome)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {itensAprovados.length === 0 && itensReprovados.length === 0 && itensSemResposta.length === 0 && (
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-2">
             <p className="text-gray-600 text-xs">
               Nenhum teste foi realizado no checklist de entrada.

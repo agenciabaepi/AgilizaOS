@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { getEmpresaIdForUser, getSessionUserId } from '@/lib/api/routeAuthEmpresa';
+import { listTiposEquipamentoUnificados } from '@/lib/equipamentos-tipos-merge';
+import { normalizeTipoCodigo } from '@/lib/aparelhos-tipo';
 
 // GET - Listar tipos de equipamentos
 export async function GET(request: NextRequest) {
@@ -21,6 +23,7 @@ export async function GET(request: NextRequest) {
     const empresaId = searchParams.get('empresa_id');
     const ativo = searchParams.get('ativo');
     const categoria = searchParams.get('categoria');
+    const unificado = searchParams.get('unificado') === 'true';
 
     console.log('🔍 Parâmetros recebidos:', { empresaId, ativo, categoria });
 
@@ -83,8 +86,31 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('✅ Equipamentos encontrados:', data?.length || 0);
+
+    let tiposUnificados;
+    if (unificado) {
+      try {
+        tiposUnificados = await listTiposEquipamentoUnificados(admin, empresaId);
+      } catch (mergeErr) {
+        console.error('Erro ao montar tipos unificados:', mergeErr);
+        tiposUnificados = (data || []).map((row: { id: string; nome: string; categoria?: string; descricao?: string | null }) => ({
+          id: row.id,
+          codigo: normalizeTipoCodigo(row.nome || row.categoria),
+          nome: row.nome,
+          descricao: row.descricao,
+          origem: 'empresa' as const,
+          catalogoId: null,
+          empresaTipoId: row.id,
+          ativo: true,
+        }));
+      }
+    }
+
     return NextResponse.json(
-      { equipamentos: data || [] },
+      {
+        equipamentos: data || [],
+        ...(unificado ? { tipos: tiposUnificados } : {}),
+      },
       {
         headers: {
           'Access-Control-Allow-Origin': '*',
@@ -185,12 +211,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const codigo = normalizeTipoCodigo(body.codigo || nome || categoria);
+
     console.log('🔍 Inserindo novo equipamento...');
     const { data, error } = await admin
       .from('equipamentos_tipos')
       .insert({
         nome,
-        categoria,
+        categoria: categoria || codigo,
+        codigo,
+        catalogo_id: body.catalogo_id || null,
         descricao: descricao || null,
         empresa_id,
         ativo: true,
