@@ -12,6 +12,8 @@ import {
 import { flattenAparelhoImageFile } from '@/lib/aparelho-imagem-upload';
 import type { TipoEquipamentoCatalogo } from '@/types/equipamentos';
 import type { MarcaCatalogo } from '@/types/marcas';
+import type { CorCatalogo, AparelhoCatalogoCor } from '@/types/cores';
+import { invalidateAparelhosFetchCache } from '@/components/AparelhoSelector';
 
 function mesclarListaPreservandoImagens(
   novaLista: AparelhoCatalogo[],
@@ -27,6 +29,14 @@ function mesclarListaPreservandoImagens(
   });
 }
 
+type CorVarianteForm = {
+  cor_id: string;
+  imagemFrenteFile: File | null;
+  imagemVersoFile: File | null;
+  imagem_frente_url: string;
+  imagem_verso_url: string;
+};
+
 function urlThumbLista(aparelho: AparelhoCatalogo, url: string, listaVersao: number): string {
   const otimizada = aparelhoImagemPreviewUrl(url, { width: 96 }) || url;
   const bust = aparelho.updated_at || `${listaVersao}-${aparelho.id}`;
@@ -34,6 +44,7 @@ function urlThumbLista(aparelho: AparelhoCatalogo, url: string, listaVersao: num
 }
 
 export default function AparelhosCatalogoClient() {
+  const [coresCatalogo, setCoresCatalogo] = useState<CorCatalogo[]>([]);
   const [tiposCatalogo, setTiposCatalogo] = useState<TipoEquipamentoCatalogo[]>([]);
   const [marcas, setMarcas] = useState<MarcaCatalogo[]>([]);
   const [marcaAtiva, setMarcaAtiva] = useState('');
@@ -62,6 +73,17 @@ export default function AparelhosCatalogoClient() {
     imagem_verso_url: '',
     ativo: true,
   });
+  const [variantesCor, setVariantesCor] = useState<CorVarianteForm[]>([]);
+
+  const fetchCoresCatalogo = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin-saas/cores-catalogo', { credentials: 'include', cache: 'no-store' });
+      const data = await res.json();
+      if (data.ok) setCoresCatalogo(data.cores || []);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const fetchMarcas = useCallback(async (opts?: { preserveTab?: boolean; silent?: boolean }) => {
     if (!opts?.silent) setLoadingMarcas(true);
@@ -150,7 +172,33 @@ export default function AparelhosCatalogoClient() {
         if (d.ok) setTiposCatalogo(d.tipos || []);
       })
       .catch(() => {});
-  }, []);
+    fetchCoresCatalogo();
+  }, [fetchCoresCatalogo]);
+
+  const loadVariantesCor = async (aparelhoId: string) => {
+    try {
+      const res = await fetch(
+        `/api/admin-saas/aparelhos-catalogo/cores?aparelho_catalogo_id=${aparelhoId}`,
+        { credentials: 'include', cache: 'no-store' }
+      );
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.cores)) {
+        setVariantesCor(
+          (data.cores as AparelhoCatalogoCor[]).map((c) => ({
+            cor_id: c.cor_id,
+            imagemFrenteFile: null,
+            imagemVersoFile: null,
+            imagem_frente_url: c.imagem_frente_url || c.imagem_url || '',
+            imagem_verso_url: c.imagem_verso_url || '',
+          }))
+        );
+      } else {
+        setVariantesCor([]);
+      }
+    } catch {
+      setVariantesCor([]);
+    }
+  };
 
   const resetForm = (marcaPadrao?: string) => {
     const defaultTipo = tiposCatalogo[0];
@@ -165,6 +213,7 @@ export default function AparelhosCatalogoClient() {
       imagem_verso_url: '',
       ativo: true,
     });
+    setVariantesCor([]);
     setEditing(null);
   };
 
@@ -187,6 +236,68 @@ export default function AparelhosCatalogoClient() {
       ativo: aparelho.ativo,
     });
     setShowModal(true);
+    void loadVariantesCor(aparelho.id);
+  };
+
+  const adicionarVarianteCor = () => {
+    setVariantesCor((prev) => [
+      ...prev,
+      {
+        cor_id: '',
+        imagemFrenteFile: null,
+        imagemVersoFile: null,
+        imagem_frente_url: '',
+        imagem_verso_url: '',
+      },
+    ]);
+  };
+
+  const syncVariantesCor = async (aparelhoId: string) => {
+    const payload: Array<{
+      cor_id: string;
+      imagem_frente_url: string | null;
+      imagem_verso_url: string | null;
+      ordem: number;
+    }> = [];
+
+    for (let i = 0; i < variantesCor.length; i++) {
+      const v = variantesCor[i];
+      if (!v.cor_id) continue;
+
+      let imagem_frente_url = v.imagem_frente_url || null;
+      let imagem_verso_url = v.imagem_verso_url || null;
+
+      if (v.imagemFrenteFile) {
+        const up = await uploadImagem(v.imagemFrenteFile);
+        if ('error' in up) throw new Error(up.error);
+        imagem_frente_url = up.url;
+      }
+      if (v.imagemVersoFile) {
+        const up = await uploadImagem(v.imagemVersoFile);
+        if ('error' in up) throw new Error(up.error);
+        imagem_verso_url = up.url;
+      }
+
+      if (!imagem_frente_url && !imagem_verso_url) continue;
+
+      payload.push({
+        cor_id: v.cor_id,
+        imagem_frente_url,
+        imagem_verso_url,
+        ordem: i,
+      });
+    }
+
+    const res = await fetch('/api/admin-saas/aparelhos-catalogo/cores', {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ aparelho_catalogo_id: aparelhoId, cores: payload }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      throw new Error(data.error || 'Erro ao salvar cores do aparelho');
+    }
   };
 
   const uploadImagem = async (file: File): Promise<{ url: string } | { error: string }> => {
@@ -284,6 +395,21 @@ export default function AparelhosCatalogoClient() {
           })
         : undefined;
 
+      if (aparelhoSalvo?.id && variantesCor.some((v) => v.cor_id)) {
+        try {
+          await syncVariantesCor(aparelhoSalvo.id);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'Erro ao salvar imagens por cor';
+          setMessage({
+            type: 'error',
+            text: `${editing ? 'Aparelho atualizado' : 'Aparelho cadastrado'}, mas falhou nas cores: ${msg}`,
+          });
+          setSaving(false);
+          return;
+        }
+      }
+
+      invalidateAparelhosFetchCache();
       setMessage({ type: 'success', text: editing ? 'Aparelho atualizado!' : 'Aparelho cadastrado!' });
       setShowModal(false);
       resetForm();
@@ -651,12 +777,11 @@ export default function AparelhosCatalogoClient() {
                 </select>
               </div>
               <p className="text-xs text-gray-500 -mt-1">
-                Use PNG/JPG com fundo branco ou recorte limpo. Evite imagens de banco com quadriculado ou marca d&apos;água
-                (ex.: pngtree).
+                Imagens padrão (fallback quando a cor não tiver foto). Use PNG/JPG com fundo branco.
               </p>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Foto frente</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Foto frente (padrão)</label>
                   {form.imagem_frente_url && !form.imagemFrenteFile && (
                     <img
                       src={form.imagem_frente_url}
@@ -672,7 +797,7 @@ export default function AparelhosCatalogoClient() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Foto verso</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Foto verso (padrão)</label>
                   {form.imagem_verso_url && !form.imagemVersoFile && (
                     <img
                       src={form.imagem_verso_url}
@@ -688,6 +813,108 @@ export default function AparelhosCatalogoClient() {
                   />
                 </div>
               </div>
+
+              <div className="border-t border-gray-100 pt-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-gray-800">Imagens por cor</label>
+                  <button
+                    type="button"
+                    onClick={adicionarVarianteCor}
+                    className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                  >
+                    + Adicionar cor
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500">
+                  Ex.: iPhone 11 preto, branco, vermelho. Na Nova OS a foto muda conforme a cor; sem foto da cor, usa a
+                  imagem padrão acima.
+                </p>
+                {variantesCor.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic">Nenhuma cor cadastrada para este modelo.</p>
+                ) : (
+                  <div className="space-y-4 max-h-64 overflow-y-auto pr-1">
+                    {variantesCor.map((v, idx) => (
+                      <div key={idx} className="rounded-lg border border-gray-200 p-3 space-y-2 bg-gray-50/50">
+                        <div className="flex gap-2 items-center">
+                          <select
+                            value={v.cor_id}
+                            onChange={(e) =>
+                              setVariantesCor((prev) => {
+                                const next = [...prev];
+                                next[idx] = { ...next[idx], cor_id: e.target.value };
+                                return next;
+                              })
+                            }
+                            className="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white"
+                            required
+                          >
+                            <option value="">Cor</option>
+                            {coresCatalogo.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.nome}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => setVariantesCor((prev) => prev.filter((_, i) => i !== idx))}
+                            className="text-xs text-red-600 shrink-0"
+                          >
+                            Remover
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <span className="text-xs text-gray-600">Frente</span>
+                            {v.imagem_frente_url && !v.imagemFrenteFile && (
+                              <img
+                                src={v.imagem_frente_url}
+                                alt=""
+                                className="w-full max-h-16 object-contain my-1 rounded bg-white"
+                              />
+                            )}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="w-full text-xs"
+                              onChange={(e) =>
+                                setVariantesCor((prev) => {
+                                  const next = [...prev];
+                                  next[idx] = { ...next[idx], imagemFrenteFile: e.target.files?.[0] || null };
+                                  return next;
+                                })
+                              }
+                            />
+                          </div>
+                          <div>
+                            <span className="text-xs text-gray-600">Verso</span>
+                            {v.imagem_verso_url && !v.imagemVersoFile && (
+                              <img
+                                src={v.imagem_verso_url}
+                                alt=""
+                                className="w-full max-h-16 object-contain my-1 rounded bg-white"
+                              />
+                            )}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="w-full text-xs"
+                              onChange={(e) =>
+                                setVariantesCor((prev) => {
+                                  const next = [...prev];
+                                  next[idx] = { ...next[idx], imagemVersoFile: e.target.files?.[0] || null };
+                                  return next;
+                                })
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {editing && (
                 <label className="flex items-center gap-2 text-sm">
                   <input

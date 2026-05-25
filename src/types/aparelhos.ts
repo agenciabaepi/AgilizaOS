@@ -1,3 +1,5 @@
+import type { AparelhoCatalogoCor } from '@/types/cores';
+
 export type AparelhoOrigem = 'catalogo_global' | 'empresa' | 'manual';
 
 export interface AparelhoCatalogo {
@@ -10,6 +12,8 @@ export interface AparelhoCatalogo {
   imagem_url?: string | null;
   imagem_frente_url?: string | null;
   imagem_verso_url?: string | null;
+  /** Variantes por cor (quando API retorna com_cores) */
+  cores?: AparelhoCatalogoCor[];
   ativo: boolean;
   created_at?: string;
   updated_at?: string;
@@ -31,6 +35,11 @@ export interface AparelhoSelecionado {
   imagemUrl?: string | null;
   imagemFrenteUrl?: string | null;
   imagemVersoUrl?: string | null;
+  corId?: string | null;
+  corNome?: string | null;
+  corHex?: string | null;
+  /** Cores disponíveis para este aparelho (catálogo) */
+  coresDisponiveis?: AparelhoCatalogoCor[];
 }
 
 export function aparelhoLabel(a: Pick<AparelhoCatalogo, 'marca' | 'modelo'>): string {

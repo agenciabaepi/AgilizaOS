@@ -92,3 +92,4 @@ CREATE POLICY "aparelhos_empresa_delete_empresa"
 -- Tipos de equipamento globais: execute database/equipamentos_tipos_catalogo.sql
 -- Imagens frente/verso: execute database/aparelhos_imagens_frente_verso.sql
 -- Marcas (abas no admin): execute database/marcas_catalogo.sql
+-- Cores + imagens por cor: execute database/cores_catalogo.sql e database/aparelhos_catalogo_cores.sql

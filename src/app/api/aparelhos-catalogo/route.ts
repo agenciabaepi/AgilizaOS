@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { getSessionUserId } from '@/lib/api/routeAuthEmpresa';
 import { applyAparelhoTipoFilter } from '@/lib/aparelhos-tipo';
+import { fetchCoresPorAparelhosCatalogo } from '@/lib/aparelhos-catalogo-cores-db';
 
 /** Lista aparelhos do catálogo global (somente leitura, para usuários autenticados) */
 export async function GET(request: NextRequest) {
@@ -31,12 +32,25 @@ export async function GET(request: NextRequest) {
       query = query.or(`marca.ilike.${term},modelo.ilike.${term}`);
     }
 
+    const comCores = searchParams.get('com_cores') !== 'false';
+
     const { data, error } = await query;
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ aparelhos: data || [] });
+    const aparelhos = data || [];
+    if (!comCores || !aparelhos.length) {
+      return NextResponse.json({ aparelhos });
+    }
+
+    const ids = aparelhos.map((a) => a.id);
+    const coresMap = await fetchCoresPorAparelhosCatalogo(admin, ids);
+    const comCoresList = aparelhos.map((a) => ({
+      ...a,
+      cores: coresMap.get(a.id) || [],
+    }));
+    return NextResponse.json({ aparelhos: comCoresList });
   } catch (error) {
     console.error('Erro ao buscar catálogo de aparelhos:', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });

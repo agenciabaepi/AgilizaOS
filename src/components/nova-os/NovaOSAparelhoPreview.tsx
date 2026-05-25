@@ -3,12 +3,18 @@
 import { useEffect, useState } from 'react';
 import { FiSmartphone } from 'react-icons/fi';
 import type { AparelhoSelecionado } from '@/types/aparelhos';
-import { aparelhoImagemPreviewUrl, preloadAparelhoImagens } from '@/lib/aparelhos-imagens';
+import {
+  aparelhoImagemComCacheBust,
+  aparelhoImagemPreviewUrl,
+  preloadAparelhoImagens,
+} from '@/lib/aparelhos-imagens';
 
 interface NovaOSAparelhoPreviewProps {
   imagemUrl?: string | null;
   imagemFrenteUrl?: string | null;
   imagemVersoUrl?: string | null;
+  /** Força recarregar <img> ao trocar cor (evita cache do navegador) */
+  corCacheBust?: string | null;
   marca: string;
   modelo: string;
   tipo?: string;
@@ -31,13 +37,16 @@ function SlotImagem({
   src,
   alt,
   priority,
+  cacheBust,
 }: {
   label: string;
   src: string | null;
   alt: string;
   priority?: boolean;
+  cacheBust?: string | null;
 }) {
-  const displaySrc = src ? aparelhoImagemPreviewUrl(src, { width: PREVIEW_SIZES.imgWidth, quality: 82 }) : null;
+  const rawSrc = src ? aparelhoImagemComCacheBust(src, cacheBust) : null;
+  const displaySrc = rawSrc ? aparelhoImagemPreviewUrl(rawSrc, { width: PREVIEW_SIZES.imgWidth, quality: 82 }) : null;
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
 
@@ -90,14 +99,21 @@ export default function NovaOSAparelhoPreview({
   imagemUrl,
   imagemFrenteUrl,
   imagemVersoUrl,
+  corCacheBust,
   marca,
   modelo,
   tipo,
   aparelhoSelecionado,
 }: NovaOSAparelhoPreviewProps) {
   const titulo = [marca, modelo].filter(Boolean).join(' ') || 'Aparelho';
-  const frente = imagemFrenteUrl ?? aparelhoSelecionado?.imagemFrenteUrl ?? imagemUrl ?? null;
-  const verso = imagemVersoUrl ?? aparelhoSelecionado?.imagemVersoUrl ?? null;
+  const frente =
+    imagemFrenteUrl !== undefined
+      ? imagemFrenteUrl
+      : aparelhoSelecionado?.imagemFrenteUrl ?? imagemUrl ?? aparelhoSelecionado?.imagemUrl ?? null;
+  const verso =
+    imagemVersoUrl !== undefined
+      ? imagemVersoUrl
+      : aparelhoSelecionado?.imagemVersoUrl ?? null;
   const aparelhoEscolhido = !!(marca || modelo || aparelhoSelecionado);
   const temAlgumaImagem = !!(frente || verso);
 
@@ -111,8 +127,21 @@ export default function NovaOSAparelhoPreview({
     >
       {temAlgumaImagem || aparelhoEscolhido ? (
         <div className={`grid w-full grid-cols-2 gap-4 sm:gap-6 ${PREVIEW_SIZES.gridMinH}`}>
-          <SlotImagem label="Frente" src={frente} alt={`${titulo} — frente`} priority />
-          <SlotImagem label="Verso" src={verso} alt={`${titulo} — verso`} />
+          <SlotImagem
+            key={`frente-${corCacheBust || 'x'}-${frente || 'vazio'}`}
+            label="Frente"
+            src={frente}
+            alt={`${titulo} — frente`}
+            priority
+            cacheBust={corCacheBust}
+          />
+          <SlotImagem
+            key={`verso-${corCacheBust || 'x'}-${verso || 'vazio'}`}
+            label="Verso"
+            src={verso}
+            alt={`${titulo} — verso`}
+            cacheBust={corCacheBust}
+          />
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center text-center text-gray-400 py-10 w-full min-h-[200px] sm:min-h-[260px]">

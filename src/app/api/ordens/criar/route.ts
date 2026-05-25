@@ -90,6 +90,7 @@ export async function POST(request: NextRequest) {
       aparelho_imagem_url: body.aparelho_imagem_url || null,
       aparelho_imagem_frente_url: body.aparelho_imagem_frente_url || null,
       aparelho_imagem_verso_url: body.aparelho_imagem_verso_url || null,
+      aparelho_cor_catalogo_id: body.aparelho_cor_catalogo_id || null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };

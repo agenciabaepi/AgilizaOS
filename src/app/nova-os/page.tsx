@@ -4,7 +4,7 @@ import MenuLayout from "@/components/MenuLayout";
 
 import { Button } from '@/components/Button';
 import ReactSelect from 'react-select';
-import { useState, useEffect, startTransition } from 'react';
+import { useState, useEffect, startTransition, useMemo } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { handleSupabaseError } from '@/utils/supabaseErrorHandler';
 import { interceptSupabaseQuery } from '@/utils/supabaseInterceptor';
@@ -36,6 +36,15 @@ import NovaOSWizardLayout, { type NovaOSContextChip } from '@/components/nova-os
 import NovaOSSection from '@/components/nova-os/NovaOSSection';
 import NovaOSAparelhoPreview from '@/components/nova-os/NovaOSAparelhoPreview';
 import type { AparelhoSelecionado } from '@/types/aparelhos';
+import type { AparelhoCatalogoCor, CorCatalogo } from '@/types/cores';
+import AparelhoCorPicker from '@/components/AparelhoCorPicker';
+import {
+  aparelhoSelecionadoComCor,
+  mergeCoresParaPicker,
+  resolverCorParaAplicar,
+} from '@/lib/aparelhos-cores';
+import { fetchCoresAparelhoCliente } from '@/lib/aparelhos-cores-client';
+import { preloadAparelhoImagens, resolveAparelhoImagens } from '@/lib/aparelhos-imagens';
 import type { TipoEquipamentoSelecionado } from '@/types/equipamentos';
 import {
   ensureTermoGarantiaPadraoNoBanco,
@@ -175,7 +184,37 @@ function NovaOS2Content() {
   const [tipoEquipamentoSelecionado, setTipoEquipamentoSelecionado] =
     useState<TipoEquipamentoSelecionado | null>(null);
   const [aparelhoSelecionado, setAparelhoSelecionado] = useState<AparelhoSelecionado | null>(null);
+  const [coresCatalogo, setCoresCatalogo] = useState<CorCatalogo[]>([]);
+  const [variantesCoresAtual, setVariantesCoresAtual] = useState<AparelhoCatalogoCor[]>([]);
+  const [imagensPadraoAparelho, setImagensPadraoAparelho] = useState<{
+    imagemUrl: string | null;
+    imagemFrenteUrl: string | null;
+    imagemVersoUrl: string | null;
+  } | null>(null);
+  const [previewCor, setPreviewCor] = useState<{
+    frente: string | null;
+    verso: string | null;
+    corId: string | null;
+  }>({ frente: null, verso: null, corId: null });
   const [identificacaoManual, setIdentificacaoManual] = useState(false);
+
+  const imagensPreviewParaAparelho = (
+    variantes: AparelhoCatalogoCor[],
+    cor: AparelhoCatalogoCor | null
+  ) => {
+    const padrao = resolveAparelhoImagens({
+      imagem_url: imagensPadraoAparelho?.imagemUrl,
+      imagem_frente_url: imagensPadraoAparelho?.imagemFrenteUrl,
+      imagem_verso_url: imagensPadraoAparelho?.imagemVersoUrl,
+    });
+    if (!cor) return padrao;
+    const corUsar = resolverCorParaAplicar(cor, variantes);
+    const daCor = resolveAparelhoImagens(corUsar);
+    return {
+      frente: daCor.frente || padrao.frente,
+      verso: daCor.verso || padrao.verso,
+    };
+  };
 
   const handleTipoEquipamentoSelecionado = (tipo: TipoEquipamentoSelecionado | null) => {
     setTipoEquipamentoSelecionado(tipo);
@@ -192,53 +231,172 @@ function NovaOS2Content() {
   };
 
   const handleAparelhoSelecionado = (aparelho: AparelhoSelecionado | null) => {
-    setAparelhoSelecionado(aparelho ? { ...aparelho } : null);
+    if (!aparelho) {
+      setAparelhoSelecionado(null);
+      setVariantesCoresAtual([]);
+      setImagensPadraoAparelho(null);
+      setPreviewCor({ frente: null, verso: null, corId: null });
+      startTransition(() => {
+        if (!identificacaoManual) {
+          setDadosEquipamento((prev) => ({
+            ...prev,
+            marca: '',
+            modelo: '',
+            cor: '',
+            numero_serie: '',
+          }));
+        }
+      });
+      return;
+    }
+
+    const base = { ...aparelho };
+    const variantesIniciais = aparelho.coresDisponiveis || [];
+    setImagensPadraoAparelho({
+      imagemUrl: aparelho.imagemUrl,
+      imagemFrenteUrl: aparelho.imagemFrenteUrl,
+      imagemVersoUrl: aparelho.imagemVersoUrl,
+    });
+    setVariantesCoresAtual(variantesIniciais);
+    setAparelhoSelecionado(base);
+    const previewInicial = imagensPreviewParaAparelho(variantesIniciais, null);
+    setPreviewCor({ ...previewInicial, corId: null });
+    preloadAparelhoImagens(previewInicial.frente, previewInicial.verso);
 
     startTransition(() => {
-      if (!aparelho && !identificacaoManual) {
-        setDadosEquipamento((prev) => ({
-          ...prev,
-          marca: '',
-          modelo: '',
-          cor: '',
-          numero_serie: '',
-        }));
-      }
-      if (aparelho) {
-        setIdentificacaoManual(false);
-        setDadosEquipamento((prev) => ({
-          ...prev,
-          tipo: aparelho.tipo || prev.tipo,
-          marca: aparelho.marca,
-          modelo: aparelho.modelo,
-        }));
-        if (aparelho.tipoId) {
-          setTipoEquipamentoSelecionado({
-            codigo: aparelho.tipo,
-            nome: aparelho.tipo,
-            origem: 'catalogo_global',
-            catalogoId: aparelho.tipoId,
-            empresaTipoId: null,
-          });
-        } else if (aparelho.tipo) {
-          setTipoEquipamentoSelecionado((prev) =>
-            prev?.codigo === aparelho.tipo
-              ? prev
-              : {
-                  codigo: aparelho.tipo,
-                  nome: aparelho.tipo,
-                  origem: aparelho.origem === 'empresa' ? 'empresa' : 'catalogo_global',
-                  catalogoId: null,
-                  empresaTipoId: aparelho.aparelhoEmpresaId || null,
-                }
-          );
-        }
+      setIdentificacaoManual(false);
+      setDadosEquipamento((prev) => ({
+        ...prev,
+        tipo: aparelho.tipo || prev.tipo,
+        marca: aparelho.marca,
+        modelo: aparelho.modelo,
+        cor: aparelho.corNome || prev.cor,
+      }));
+      if (aparelho.tipoId) {
+        setTipoEquipamentoSelecionado({
+          codigo: aparelho.tipo,
+          nome: aparelho.tipo,
+          origem: 'catalogo_global',
+          catalogoId: aparelho.tipoId,
+          empresaTipoId: null,
+        });
+      } else if (aparelho.tipo) {
+        setTipoEquipamentoSelecionado((prev) =>
+          prev?.codigo === aparelho.tipo
+            ? prev
+            : {
+                codigo: aparelho.tipo,
+                nome: aparelho.tipo,
+                origem: aparelho.origem === 'empresa' ? 'empresa' : 'catalogo_global',
+                catalogoId: null,
+                empresaTipoId: aparelho.aparelhoEmpresaId || null,
+              }
+        );
       }
     });
+
+    const catalogoId = aparelho.catalogoId;
+    if (!catalogoId) return;
+
+    void (async () => {
+      const variantes = await fetchCoresAparelhoCliente(supabase, catalogoId);
+      setVariantesCoresAtual(variantes);
+      setAparelhoSelecionado((prev) => {
+        if (!prev || prev.catalogoId !== catalogoId) return prev;
+        return { ...prev, coresDisponiveis: variantes };
+      });
+      setPreviewCor((prevPreview) => {
+        if (prevPreview.corId) return prevPreview;
+        const imgs = imagensPreviewParaAparelho(variantes, null);
+        preloadAparelhoImagens(imgs.frente, imgs.verso);
+        return { ...imgs, corId: null };
+      });
+    })();
   };
 
-  const aparelhoImagemFrentePreview = aparelhoSelecionado?.imagemFrenteUrl ?? aparelhoSelecionado?.imagemUrl ?? null;
-  const aparelhoImagemVersoPreview = aparelhoSelecionado?.imagemVersoUrl ?? null;
+  const handleCorTexto = (texto: string) => {
+    setDadosEquipamento((prev) => ({ ...prev, cor: texto }));
+  };
+
+  const handleCorAparelho = (cor: AparelhoCatalogoCor | null) => {
+    if (!cor) return;
+
+    const snapshot = aparelhoSelecionado;
+    if (!snapshot) return;
+
+    setDadosEquipamento((prev) => ({
+      ...prev,
+      cor: cor.cor_nome || prev.cor,
+    }));
+
+    let variantes = variantesCoresAtual.length ? variantesCoresAtual : snapshot.coresDisponiveis || [];
+    const corUsar = resolverCorParaAplicar(cor, variantes);
+    const imgsPreview = imagensPreviewParaAparelho(variantes, corUsar);
+
+    setPreviewCor({
+      frente: imgsPreview.frente,
+      verso: imgsPreview.verso,
+      corId: corUsar.cor_id,
+    });
+    preloadAparelhoImagens(imgsPreview.frente, imgsPreview.verso);
+
+    const padraoRow = {
+      imagem_url: imagensPadraoAparelho?.imagemUrl ?? snapshot.imagemUrl,
+      imagem_frente_url: imagensPadraoAparelho?.imagemFrenteUrl ?? snapshot.imagemFrenteUrl,
+      imagem_verso_url: imagensPadraoAparelho?.imagemVersoUrl ?? snapshot.imagemVersoUrl,
+    };
+    setAparelhoSelecionado(
+      aparelhoSelecionadoComCor(
+        {
+          ...snapshot,
+          ...padraoRow,
+          cores: variantes,
+        },
+        corUsar
+      )
+    );
+
+    if (!snapshot.catalogoId) return;
+
+    void (async () => {
+      const fetched = await fetchCoresAparelhoCliente(supabase, snapshot.catalogoId!);
+      if (!fetched.length) return;
+
+      variantes = fetched;
+      setVariantesCoresAtual(fetched);
+
+      const corAtualizada = resolverCorParaAplicar(cor, variantes);
+      const imgsAtualizadas = imagensPreviewParaAparelho(variantes, corAtualizada);
+
+      setPreviewCor({
+        frente: imgsAtualizadas.frente,
+        verso: imgsAtualizadas.verso,
+        corId: corAtualizada.cor_id,
+      });
+      preloadAparelhoImagens(imgsAtualizadas.frente, imgsAtualizadas.verso);
+
+      setAparelhoSelecionado((prev) => {
+        if (!prev || prev.catalogoId !== snapshot.catalogoId) return prev;
+        return aparelhoSelecionadoComCor(
+          {
+            ...prev,
+            imagem_url: padraoRow.imagem_url,
+            imagem_frente_url: padraoRow.imagem_frente_url,
+            imagem_verso_url: padraoRow.imagem_verso_url,
+            cores: variantes,
+          },
+          corAtualizada
+        );
+      });
+    })();
+  };
+
+  const aparelhoImagemFrentePreview =
+    previewCor.frente ??
+    imagensPadraoAparelho?.imagemFrenteUrl ??
+    imagensPadraoAparelho?.imagemUrl ??
+    null;
+  const aparelhoImagemVersoPreview = previewCor.verso ?? imagensPadraoAparelho?.imagemVersoUrl ?? null;
 
   // Estado para acessórios
   const [acessorios, setAcessorios] = useState('');
@@ -248,6 +406,26 @@ function NovaOS2Content() {
 
   // Estado para checklist de entrada (etapa 3 - conforme equipamento da etapa 2)
   const [checklistEntrada, setChecklistEntrada] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    supabase
+      .from('cores_catalogo')
+      .select('id, nome, hex, ordem, ativo')
+      .eq('ativo', true)
+      .order('ordem', { ascending: true })
+      .order('nome', { ascending: true })
+      .then(({ data, error }) => {
+        if (!error && data) setCoresCatalogo(data as CorCatalogo[]);
+      })
+      .catch(() => {});
+  }, []);
+
+  const coresOpcoesPicker = useMemo(
+    () => mergeCoresParaPicker(coresCatalogo, variantesCoresAtual.length ? variantesCoresAtual : aparelhoSelecionado?.coresDisponiveis),
+    [coresCatalogo, variantesCoresAtual, aparelhoSelecionado?.coresDisponiveis]
+  );
+
+  const corGarantiaReadOnly = tipoEntrada === 'garantia' && !!osGarantiaSelecionada;
 
   // Verificar se há técnicos cadastrados
   useEffect(() => {
@@ -859,8 +1037,9 @@ function NovaOS2Content() {
         aparelho_catalogo_id: aparelhoSelecionado?.catalogoId || null,
         aparelho_empresa_id: aparelhoSelecionado?.aparelhoEmpresaId || null,
         aparelho_imagem_url: aparelhoSelecionado?.imagemFrenteUrl || aparelhoSelecionado?.imagemUrl || aparelhoSelecionado?.imagemVersoUrl || null,
-        aparelho_imagem_frente_url: aparelhoImagemFrentePreview,
-        aparelho_imagem_verso_url: aparelhoImagemVersoPreview,
+        aparelho_imagem_frente_url: aparelhoSelecionado?.imagemFrenteUrl || aparelhoSelecionado?.imagemUrl || null,
+        aparelho_imagem_verso_url: aparelhoSelecionado?.imagemVersoUrl || null,
+        aparelho_cor_catalogo_id: aparelhoSelecionado?.corId || null,
         // Adicionar campo de prazo de entrega
         prazo_entrega: prazoEntrega ? new Date(prazoEntrega).toISOString() : (() => {
           // Se não foi definido, criar prazo automático (7 dias)
@@ -1574,8 +1753,10 @@ function NovaOS2Content() {
                 </NovaOSSection>
 
                 <NovaOSAparelhoPreview
+                  key={`preview-${aparelhoSelecionado?.catalogoId || 'x'}-${previewCor.corId || 'padrao'}`}
                   imagemFrenteUrl={aparelhoImagemFrentePreview}
                   imagemVersoUrl={aparelhoImagemVersoPreview}
+                  corCacheBust={previewCor.corId}
                   marca={dadosEquipamento.marca}
                   modelo={dadosEquipamento.modelo}
                   tipo={dadosEquipamento.tipo}
@@ -1601,17 +1782,15 @@ function NovaOS2Content() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      {(['marca', 'modelo', 'cor', 'numero_serie'] as const).map((field) => {
+                      {(['marca', 'modelo', 'numero_serie'] as const).map((field) => {
                         const labels = {
                           marca: 'Marca',
                           modelo: 'Modelo',
-                          cor: 'Cor',
                           numero_serie: 'Nº de série',
                         };
                         const placeholders = {
                           marca: 'Apple, Samsung...',
                           modelo: 'iPhone 11, Galaxy...',
-                          cor: 'Preto, Prata...',
                           numero_serie: 'Opcional',
                         };
                         const readOnlyGarantia = tipoEntrada === 'garantia' && !!osGarantiaSelecionada;
@@ -1619,7 +1798,7 @@ function NovaOS2Content() {
                           (field === 'marca' || field === 'modelo') &&
                           (marcaModeloDoCatalogo || readOnlyGarantia);
                         const readOnly =
-                          readOnlyField || (readOnlyGarantia && (field === 'cor' || field === 'numero_serie' || field === 'marca' || field === 'modelo'));
+                          readOnlyField || (readOnlyGarantia && (field === 'numero_serie' || field === 'marca' || field === 'modelo'));
 
                         return (
                           <div key={field} className={field === 'numero_serie' ? 'sm:col-span-2' : ''}>
@@ -1642,6 +1821,24 @@ function NovaOS2Content() {
                           </div>
                         );
                       })}
+                      <div className="sm:col-span-2">
+                        <label className="mb-1 block text-xs font-medium text-gray-600">Cor</label>
+                        <AparelhoCorPicker
+                          cores={coresOpcoesPicker}
+                          corId={aparelhoSelecionado?.corId}
+                          valor={dadosEquipamento.cor}
+                          onChange={handleCorAparelho}
+                          onTextoChange={handleCorTexto}
+                          disabled={corGarantiaReadOnly}
+                          placeholder="Digite ou escolha na lista..."
+                        />
+                        {coresOpcoesPicker.length > 0 && (
+                          <p className="mt-1.5 text-xs text-gray-500">
+                            Digite para filtrar ou clique na lista. Com foto cadastrada no admin, a imagem do aparelho
+                            atualiza.
+                          </p>
+                        )}
+                      </div>
                     </div>
                   )}
                 </NovaOSSection>

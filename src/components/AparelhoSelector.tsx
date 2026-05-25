@@ -10,13 +10,18 @@ import type { AparelhoCatalogo, AparelhoSelecionado } from '@/types/aparelhos';
 import { aparelhoLabel } from '@/types/aparelhos';
 import {
   aparelhoImagemPreviewUrl,
-  aparelhoImagensParaSelecionado,
   preloadAparelhoImagens,
   resolveAparelhoImagens,
 } from '@/lib/aparelhos-imagens';
+import { aparelhoSelecionadoComCor } from '@/lib/aparelhos-cores';
+import type { AparelhoCatalogoCor } from '@/types/cores';
 import { flattenAparelhoImageFile } from '@/lib/aparelho-imagem-upload';
 
 const aparelhosFetchCache = new Map<string, { catalogo: AparelhoCatalogo[]; empresa: AparelhoCatalogo[] }>();
+
+export function invalidateAparelhosFetchCache() {
+  aparelhosFetchCache.clear();
+}
 import type { TipoEquipamentoSelecionado } from '@/types/equipamentos';
 
 type OrigemLista = 'catalogo_global' | 'empresa';
@@ -121,7 +126,7 @@ export default function AparelhoSelector({
     let cancelled = false;
 
     const fetchAparelhos = async () => {
-      const cacheKey = `${empresaId}|${tipoId || ''}|${tipoCodigo}`;
+      const cacheKey = `${empresaId}|${tipoId || ''}|${tipoCodigo}|cores-v2`;
       const cached = aparelhosFetchCache.get(cacheKey);
       if (cached) {
         setCatalogo(cached.catalogo);
@@ -226,27 +231,37 @@ export default function AparelhoSelector({
     preloadAparelhoImagens(frente, verso);
   };
 
+  const aplicarSelecionado = (base: AparelhoListItem, cor: AparelhoCatalogoCor | null) => {
+    const selecionado = aparelhoSelecionadoComCor(
+      {
+        origem: base.origemLista,
+        catalogoId: base.origemLista === 'catalogo_global' ? base.id : null,
+        aparelhoEmpresaId: base.origemLista === 'empresa' ? base.id : null,
+        tipo: base.tipo || tipoCodigo || 'CELULAR',
+        tipoId: base.tipo_id ?? tipoId ?? null,
+        marca: base.marca,
+        modelo: base.modelo,
+        imagem_url: base.imagem_url,
+        imagem_frente_url: base.imagem_frente_url,
+        imagem_verso_url: base.imagem_verso_url,
+        cores: base.cores?.length ? base.cores : undefined,
+      },
+      cor
+    );
+    preloadAparelhoImagens(selecionado.imagemFrenteUrl, selecionado.imagemVersoUrl);
+    setSelected(selecionado);
+    setPreviewFrente(selecionado.imagemFrenteUrl ?? null);
+    setPreviewVerso(selecionado.imagemVersoUrl ?? null);
+    onChange({ ...selecionado });
+    return selecionado;
+  };
+
   const handleSelect = (aparelho: AparelhoListItem) => {
     isUserSearchingRef.current = false;
-    const imgs = aparelhoImagensParaSelecionado(aparelho);
-    preloadAparelhoImagens(imgs.imagemFrenteUrl, imgs.imagemVersoUrl);
-    const selecionado: AparelhoSelecionado = {
-      origem: aparelho.origemLista,
-      catalogoId: aparelho.origemLista === 'catalogo_global' ? aparelho.id : null,
-      aparelhoEmpresaId: aparelho.origemLista === 'empresa' ? aparelho.id : null,
-      tipo: aparelho.tipo || tipoCodigo || 'CELULAR',
-      tipoId: aparelho.tipo_id ?? tipoId ?? null,
-      marca: aparelho.marca,
-      modelo: aparelho.modelo,
-      ...imgs,
-    };
-    setSelected(selecionado);
-    setPreviewFrente(imgs.imagemFrenteUrl ?? null);
-    setPreviewVerso(imgs.imagemVersoUrl ?? null);
+    aplicarSelecionado(aparelho, null);
     setSearchTerm(aparelhoLabel(aparelho));
     setShowDropdown(false);
     setShowAddForm(false);
-    onChange({ ...selecionado });
   };
 
   const handleClear = () => {

@@ -20,7 +20,7 @@ export default function NovaOSSection({
   optional,
 }: NovaOSSectionProps) {
   return (
-    <section className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+    <section className="rounded-2xl border border-gray-100 bg-white shadow-sm">
       <div className="flex items-start gap-3 px-4 py-3 sm:px-5 sm:py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-900 text-xs font-bold text-white">
           {step}

@@ -14,6 +14,7 @@ import {
   FiSmartphone,
   FiPackage,
   FiCheckSquare,
+  FiDroplet,
 } from 'react-icons/fi';
 
 const links = [
@@ -26,6 +27,7 @@ const links = [
   { href: '/admin-saas/usuarios', label: 'Usuários', icon: FiUsers },
   { href: '/admin-saas/tipos-equipamento', label: 'Tipos equip.', icon: FiPackage },
   { href: '/admin-saas/aparelhos', label: 'Aparelhos', icon: FiSmartphone },
+  { href: '/admin-saas/cores', label: 'Cores', icon: FiDroplet },
   { href: '/admin-saas/checklist', label: 'Checklist', icon: FiCheckSquare },
   { href: '/admin-saas/config', label: 'Config e preço', icon: FiSettings },
 ];
