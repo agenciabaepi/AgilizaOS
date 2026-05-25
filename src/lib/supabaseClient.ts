@@ -23,10 +23,9 @@ export const supabase: SupabaseClient =
         supabaseConfig.anonKey,
         {
           auth: {
-            persistSession: true, // ✅ Persistir sessão
-            autoRefreshToken: true, // ✅ Renovar tokens automaticamente
-            detectSessionInUrl: true, // ✅ Detectar sessão na URL
-            flowType: 'pkce' // ✅ Usar PKCE para segurança
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: true,
           },
           global: {
             headers: {

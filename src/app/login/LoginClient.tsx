@@ -360,16 +360,20 @@ function LoginClientInner() {
     try {
       const { data: { session: sessaoAnterior } } = await supabase.auth.getSession();
       if (sessaoAnterior) {
-        await supabase.auth.signOut({ scope: 'global' });
+        await supabase.auth.signOut({ scope: 'local' });
         auth.clearSession();
         localStorage.removeItem('user');
         localStorage.removeItem('empresa_id');
         localStorage.removeItem('session');
         sessionStorage.clear();
-        await new Promise((resolve) => setTimeout(resolve, 150));
+        await new Promise((resolve) => setTimeout(resolve, 200));
       }
     } catch {
-      /* segue com novo login */
+      // Forçar limpeza mesmo com erro
+      try { auth.clearSession(); } catch { /* ignore */ }
+      localStorage.removeItem('user');
+      localStorage.removeItem('empresa_id');
+      sessionStorage.clear();
     }
 
     // Tentar fazer login
@@ -382,6 +386,7 @@ function LoginClientInner() {
     });
     
     if (error) {
+      console.error('Erro signInWithPassword:', error.message, error.status, error);
       setIsSubmitting(false);
       loginInProgress.current = false;
       if (error.message.includes('Invalid login credentials')) {
@@ -389,7 +394,7 @@ function LoginClientInner() {
       } else if (error.message.includes('Email not confirmed')) {
         addToast('error', 'E-mail não confirmado. Verifique sua caixa de entrada.');
       } else {
-        addToast('error', 'Erro ao fazer login. Tente novamente.');
+        addToast('error', `Erro ao fazer login: ${error.message}`);
       }
       return;
     }
