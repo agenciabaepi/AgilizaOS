@@ -224,32 +224,42 @@ function LoginClientInner() {
     // Verificar se é email ou usuário
     if (!loginInput.includes('@')) {
       const username = loginInput.trim().toLowerCase();
-      const { data: usuario, error } = await supabase
-        .from('usuarios')
-        .select('email')
-        .eq('usuario', username)
-        .single();
-      if (error || !usuario?.email) {
+      try {
+        const res = await fetch('/api/auth/resolve-username', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username }),
+        });
+        const result = await res.json();
+        if (!res.ok || !result.email) {
+          setIsSubmitting(false);
+          loginInProgress.current = false;
+          addToast('error', 'Usuário não encontrado. Verifique o nome de usuário.');
+          return;
+        }
+        emailToLogin = result.email;
+      } catch {
         setIsSubmitting(false);
-      loginInProgress.current = false;
-        addToast('error', 'Usuário não encontrado. Verifique o nome de usuário.');
+        loginInProgress.current = false;
+        addToast('error', 'Erro ao verificar usuário. Tente novamente.');
         return;
       }
-      emailToLogin = usuario.email;
     }
     
-    // 🔒 VERIFICAÇÃO CRÍTICA: Verificar se o email foi confirmado ANTES de tentar login
-    const { data: usuarioVerificacao, error: verificacaoError } = await supabase
-      .from('usuarios')
-      .select('email_verificado, auth_user_id, nivel, empresa_id')
-      .eq('email', emailToLogin)
-      .single();
-    
-    if (verificacaoError) {
-      setIsSubmitting(false);
-      loginInProgress.current = false;
-      addToast('error', 'Usuário não encontrado. Verifique suas credenciais.');
-      return;
+    // Verificação de email/usuário — pular se não conseguir (RLS pode bloquear)
+    // A autenticação real é feita pelo signInWithPassword abaixo
+    let usuarioVerificacao: { email_verificado?: boolean; auth_user_id?: string; nivel?: string; empresa_id?: string } | null = null;
+    try {
+      const { data, error: verificacaoError } = await supabase
+        .from('usuarios')
+        .select('email_verificado, auth_user_id, nivel, empresa_id')
+        .eq('email', emailToLogin)
+        .single();
+      if (!verificacaoError && data) {
+        usuarioVerificacao = data;
+      }
+    } catch {
+      // RLS pode bloquear — seguir com login normal
     }
     
     // Verificação de email desabilitada - permitir login sem verificação obrigatória
@@ -536,16 +546,22 @@ function LoginClientInner() {
     let emailToReset = loginInput;
     if (!loginInput.includes('@')) {
       const username = loginInput.trim().toLowerCase();
-      const { data: usuario, error } = await supabase
-        .from('usuarios')
-        .select('email')
-        .eq('usuario', username)
-        .single();
-      if (error || !usuario?.email) {
-        addToast('error', 'Usuário não encontrado. Verifique o nome de usuário.');
+      try {
+        const res = await fetch('/api/auth/resolve-username', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username }),
+        });
+        const result = await res.json();
+        if (!res.ok || !result.email) {
+          addToast('error', 'Usuário não encontrado. Verifique o nome de usuário.');
+          return;
+        }
+        emailToReset = result.email;
+      } catch {
+        addToast('error', 'Erro ao verificar usuário. Tente novamente.');
         return;
       }
-      emailToReset = usuario.email;
     }
     
     setIsRecovering(true);
