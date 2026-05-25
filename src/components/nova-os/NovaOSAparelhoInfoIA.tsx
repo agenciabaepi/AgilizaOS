@@ -15,25 +15,24 @@ interface NovaOSAparelhoInfoIAProps {
 }
 
 function SkeletonLine({ w = 'w-full' }: { w?: string }) {
-  return <div className={`h-4 bg-gray-200 rounded animate-pulse ${w}`} />;
+  return <div className={`h-3.5 bg-gray-200 rounded animate-pulse ${w}`} />;
 }
 
 function LoadingSkeleton() {
   return (
-    <div className="space-y-3 p-4">
+    <div className="space-y-2.5 p-3">
       <div className="flex items-center gap-2">
-        <div className="h-5 w-5 bg-gray-200 rounded animate-pulse" />
-        <SkeletonLine w="w-48" />
+        <div className="h-4 w-4 bg-gray-200 rounded animate-pulse" />
+        <SkeletonLine w="w-40" />
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="space-y-1">
-            <SkeletonLine w="w-20" />
-            <SkeletonLine w="w-28" />
+      <div className="space-y-2">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="flex justify-between">
+            <SkeletonLine w="w-16" />
+            <SkeletonLine w="w-24" />
           </div>
         ))}
       </div>
-      <SkeletonLine w="w-32" />
     </div>
   );
 }
@@ -47,8 +46,6 @@ export default function NovaOSAparelhoInfoIA({
   loading,
   error,
   onRetry,
-  marca,
-  modelo,
 }: NovaOSAparelhoInfoIAProps) {
   const [expanded, setExpanded] = useState(true);
 
@@ -59,80 +56,80 @@ export default function NovaOSAparelhoInfoIA({
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-indigo-50/40 transition-colors"
+        className="w-full flex items-center justify-between px-3.5 py-2.5 hover:bg-indigo-50/40 transition-colors"
       >
         <div className="flex items-center gap-2 min-w-0">
-          <HiSparkles className="w-4 h-4 text-indigo-500 shrink-0" />
-          <span className="text-sm font-semibold text-indigo-700 truncate">
+          <HiSparkles className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+          <span className="text-xs font-semibold text-indigo-700 truncate">
             Informações via IA
           </span>
           {loading && (
-            <span className="text-xs text-indigo-400 animate-pulse">Buscando...</span>
+            <span className="text-[11px] text-indigo-400 animate-pulse">Buscando...</span>
           )}
         </div>
         {expanded ? (
-          <FiChevronUp className="w-4 h-4 text-indigo-400" />
+          <FiChevronUp className="w-3.5 h-3.5 text-indigo-400" />
         ) : (
-          <FiChevronDown className="w-4 h-4 text-indigo-400" />
+          <FiChevronDown className="w-3.5 h-3.5 text-indigo-400" />
         )}
       </button>
 
       {expanded && (
-        <div className="px-4 pb-4">
+        <div className="px-3.5 pb-3.5">
           {loading && <LoadingSkeleton />}
 
           {error && !loading && (
-            <div className="flex items-center justify-between py-3 px-3 rounded-xl bg-red-50 border border-red-100">
-              <p className="text-sm text-red-600">{error}</p>
+            <div className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-red-50 border border-red-100">
+              <p className="text-xs text-red-600">{error}</p>
               <button
                 type="button"
                 onClick={onRetry}
-                className="flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 px-2 py-1 rounded-lg hover:bg-red-100 transition-colors"
+                className="flex items-center gap-1 text-[11px] font-medium text-red-600 hover:text-red-700 px-2 py-1 rounded-lg hover:bg-red-100 transition-colors shrink-0"
               >
                 <FiRefreshCw className="w-3 h-3" />
-                Tentar novamente
+                Tentar
               </button>
             </div>
           )}
 
           {data && !loading && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {data.descricao && (
-                <div className="flex items-start gap-2">
-                  <FiInfo className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
-                  <p className="text-sm text-gray-600 leading-relaxed">{data.descricao}</p>
+                <div className="flex items-start gap-1.5">
+                  <FiInfo className="w-3.5 h-3.5 text-gray-400 mt-0.5 shrink-0" />
+                  <p className="text-xs text-gray-600 leading-relaxed">{data.descricao}</p>
                 </div>
               )}
 
               {data.preco_medio && (
-                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-100">
-                  <FiDollarSign className="w-4 h-4 text-emerald-600 shrink-0" />
+                <div className="flex items-center gap-2 px-2.5 py-2 rounded-xl bg-emerald-50 border border-emerald-100">
+                  <FiDollarSign className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-emerald-700">
+                    <p className="text-xs font-semibold text-emerald-700">
                       {formatBRL(data.preco_medio.min)} – {formatBRL(data.preco_medio.max)}
                     </p>
-                    <p className="text-[11px] text-emerald-500">Valor aproximado no mercado brasileiro</p>
+                    <p className="text-[10px] text-emerald-500">Usado/seminovo (valor aproximado)</p>
                   </div>
                 </div>
               )}
 
               {Object.keys(data.especificacoes).length > 0 && (
                 <div>
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <FiCpu className="w-3.5 h-3.5 text-gray-400" />
-                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <FiCpu className="w-3 h-3 text-gray-400" />
+                    <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
                       Especificações
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2">
+                  <div className="space-y-1">
                     {Object.entries(data.especificacoes).map(([key, value]) => (
-                      <div key={key} className="min-w-0">
-                        <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide truncate">
+                      <div key={key} className="flex items-baseline justify-between gap-2 min-w-0">
+                        <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide shrink-0">
                           {key}
-                        </p>
-                        <p className="text-sm text-gray-700 truncate" title={value}>
+                        </span>
+                        <span className="text-[11px] text-gray-700 text-right truncate" title={value}>
                           {value}
-                        </p>
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -140,13 +137,13 @@ export default function NovaOSAparelhoInfoIA({
               )}
 
               {data.ano_lancamento && (
-                <p className="text-[11px] text-gray-400">
+                <p className="text-[10px] text-gray-400">
                   Lançamento: {data.ano_lancamento}
                 </p>
               )}
 
-              <p className="text-[10px] text-gray-300 text-right">
-                Dados obtidos via IA — podem conter imprecisões
+              <p className="text-[9px] text-gray-300 text-right">
+                Dados via IA — podem conter imprecisões
               </p>
             </div>
           )}

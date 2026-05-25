@@ -1762,26 +1762,32 @@ function NovaOS2Content() {
                   </div>
                 </NovaOSSection>
 
-                <NovaOSAparelhoPreview
-                  key={`preview-${aparelhoSelecionado?.catalogoId || 'x'}-${previewCor.corId || 'padrao'}`}
-                  imagemFrenteUrl={aparelhoImagemFrentePreview}
-                  imagemVersoUrl={aparelhoImagemVersoPreview}
-                  corCacheBust={previewCor.corId}
-                  marca={dadosEquipamento.marca}
-                  modelo={dadosEquipamento.modelo}
-                  tipo={dadosEquipamento.tipo}
-                  aparelhoSelecionado={aparelhoSelecionado}
-                  imagemIAUrl={aparelhoInfoIA.data?.imagem_url}
-                />
+                <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-5 items-start">
+                  <NovaOSAparelhoPreview
+                    key={`preview-${aparelhoSelecionado?.catalogoId || 'x'}-${previewCor.corId || 'padrao'}`}
+                    imagemFrenteUrl={aparelhoImagemFrentePreview}
+                    imagemVersoUrl={aparelhoImagemVersoPreview}
+                    corCacheBust={previewCor.corId}
+                    marca={dadosEquipamento.marca}
+                    modelo={dadosEquipamento.modelo}
+                    tipo={dadosEquipamento.tipo}
+                    aparelhoSelecionado={aparelhoSelecionado}
+                    imagemIAUrl={aparelhoInfoIA.data?.imagem_url}
+                  />
 
-                <NovaOSAparelhoInfoIA
-                  data={aparelhoInfoIA.data}
-                  loading={aparelhoInfoIA.loading}
-                  error={aparelhoInfoIA.error}
-                  onRetry={aparelhoInfoIA.retry}
-                  marca={dadosEquipamento.marca}
-                  modelo={dadosEquipamento.modelo}
-                />
+                  {(aparelhoInfoIA.data || aparelhoInfoIA.loading || aparelhoInfoIA.error) && (
+                    <div className="lg:sticky lg:top-4">
+                      <NovaOSAparelhoInfoIA
+                        data={aparelhoInfoIA.data}
+                        loading={aparelhoInfoIA.loading}
+                        error={aparelhoInfoIA.error}
+                        onRetry={aparelhoInfoIA.retry}
+                        marca={dadosEquipamento.marca}
+                        modelo={dadosEquipamento.modelo}
+                      />
+                    </div>
+                  )}
+                </div>
 
                 <NovaOSSection
                   step={2}

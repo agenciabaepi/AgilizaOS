@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import type { DadosUsuario } from './user-data';
 import type { AparelhoInfoIA } from '@/types/aparelhos';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 /**
  * Cliente OpenAI (ChatGPT)
@@ -382,18 +383,24 @@ function parseInfoJson(raw: string): AparelhoInfoIA | null {
 }
 
 const INFO_SYSTEM_PROMPT = `Você é um assistente que retorna informações técnicas sobre aparelhos eletrônicos em formato JSON.
+Este sistema é usado por assistências técnicas de eletrônicos no Brasil.
 
 INSTRUÇÕES:
 - Busque na internet informações atualizadas sobre o aparelho solicitado
 - Retorne APENAS um objeto JSON válido, sem markdown, sem explicações
-- Para imagem_url, forneça uma URL direta de imagem do aparelho (JPG/PNG/WebP) de um site confiável (fabricante, loja oficial, gsmarena, etc.)
-- Preços devem ser em Reais (BRL), valores aproximados do mercado brasileiro atual
+- Para imagem_url, forneça uma URL direta de imagem do aparelho (JPG/PNG/WebP) de um site confiável (fabricante, gsmarena, loja oficial, etc.)
 - Especificações devem ser concisas e em português
+
+REGRAS DE PREÇO:
+- preco_medio deve refletir o valor ATUAL de mercado no Brasil para o aparelho USADO/SEMINOVO em bom estado
+- Pesquise em sites como OLX, Mercado Livre, BackMarket para referência de preço de usados
+- Se o aparelho tem mais de 3 anos, o preço de usado é muito menor que o de novo
+- Se não conseguir estimar um preço confiável, retorne null para preco_medio
 
 Formato JSON esperado:
 {
   "imagem_url": "https://...",
-  "preco_medio": { "min": 1999, "max": 2499 },
+  "preco_medio": { "min": 800, "max": 1200 },
   "especificacoes": {
     "Tela": "6.1 pol AMOLED 120Hz",
     "Processador": "Snapdragon 8 Gen 3",
@@ -410,9 +417,70 @@ Formato JSON esperado:
 Se o aparelho for um notebook, adapte as especificações para: Tela, Processador, RAM, Armazenamento, Bateria, Placa de Vídeo, Sistema.
 Se não encontrar alguma informação, use null para o campo.`;
 
+function dbRowToInfo(row: any): AparelhoInfoIA {
+  return {
+    imagem_url: row.imagem_url || null,
+    preco_medio:
+      row.preco_min != null && row.preco_max != null
+        ? { min: Number(row.preco_min), max: Number(row.preco_max) }
+        : null,
+    especificacoes: row.especificacoes || {},
+    descricao: row.descricao || null,
+    ano_lancamento: row.ano_lancamento || null,
+  };
+}
+
+async function buscarCacheDB(marca: string, modelo: string): Promise<AparelhoInfoIA | null> {
+  try {
+    const admin = getSupabaseAdmin();
+    const { data, error } = await admin
+      .from('aparelhos_info_ia_cache')
+      .select('*')
+      .ilike('marca', marca)
+      .ilike('modelo', modelo)
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      if (error.code === '42P01') return null; // table doesn't exist yet
+      console.warn('⚠️ Erro ao buscar cache IA no banco:', error.message);
+      return null;
+    }
+    if (!data) return null;
+    return dbRowToInfo(data);
+  } catch {
+    return null;
+  }
+}
+
+async function salvarCacheDB(marca: string, modelo: string, tipo: string | undefined, info: AparelhoInfoIA): Promise<void> {
+  try {
+    const admin = getSupabaseAdmin();
+    await admin
+      .from('aparelhos_info_ia_cache')
+      .upsert(
+        {
+          marca: marca.toUpperCase(),
+          modelo: modelo.toUpperCase(),
+          tipo: tipo?.toUpperCase() || null,
+          imagem_url: info.imagem_url,
+          preco_min: info.preco_medio?.min ?? null,
+          preco_max: info.preco_medio?.max ?? null,
+          especificacoes: info.especificacoes,
+          descricao: info.descricao,
+          ano_lancamento: info.ano_lancamento,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'marca,modelo' }
+      );
+  } catch {
+    // silently ignore — cache is best-effort
+  }
+}
+
 /**
  * Busca informações de um aparelho via OpenAI (com web search quando disponível).
- * Retorna specs, preço e imagem ou null em caso de falha.
+ * Primeiro verifica cache no banco, depois em memória, só então chama a API.
  */
 export async function buscarInfoAparelho(
   marca: string,
@@ -420,17 +488,30 @@ export async function buscarInfoAparelho(
   tipo?: string
 ): Promise<AparelhoInfoIA | null> {
   const cacheKey = `${marca}|${modelo}|${tipo || ''}`.toLowerCase();
-  const cached = infoCache.get(cacheKey);
-  if (cached && Date.now() - cached.ts < INFO_CACHE_TTL) {
-    return cached.data;
+
+  // 1) Cache em memória
+  const memCached = infoCache.get(cacheKey);
+  if (memCached && Date.now() - memCached.ts < INFO_CACHE_TTL) {
+    return memCached.data;
   }
 
+  // 2) Cache no banco (Supabase)
+  const dbCached = await buscarCacheDB(marca, modelo);
+  if (dbCached) {
+    infoCache.set(cacheKey, { data: dbCached, ts: Date.now() });
+    console.log('✅ Info do aparelho obtida do cache (banco):', { marca, modelo });
+    return dbCached;
+  }
+
+  // 3) Buscar via OpenAI
   const client = getOpenAIClient();
   if (!client) return null;
 
-  const userPrompt = `Busque informações completas sobre: ${marca} ${modelo}${tipo ? ` (tipo: ${tipo})` : ''}. Inclua uma URL de imagem real do produto, preço no Brasil, especificações técnicas e ano de lançamento.`;
+  const userPrompt = `Busque informações completas sobre: ${marca} ${modelo}${tipo ? ` (tipo: ${tipo})` : ''}. Inclua uma URL de imagem real do produto, preço de usado/seminovo no Brasil, especificações técnicas e ano de lançamento.`;
 
   console.log('🔍 Buscando info do aparelho via IA:', { marca, modelo, tipo });
+
+  let info: AparelhoInfoIA | null = null;
 
   try {
     const response = await client.responses.create({
@@ -441,26 +522,19 @@ export async function buscarInfoAparelho(
     });
 
     const text = response.output_text;
-    if (!text) {
-      console.error('❌ OpenAI retornou resposta vazia para busca de aparelho');
-      return null;
+    if (text) {
+      info = parseInfoJson(text);
+      if (info) {
+        console.log('✅ Info do aparelho obtida via Responses API:', {
+          marca, modelo,
+          temImagem: !!info.imagem_url,
+          temPreco: !!info.preco_medio,
+          specs: Object.keys(info.especificacoes).length,
+        });
+      } else {
+        console.warn('⚠️ Não foi possível parsear resposta da IA:', text.substring(0, 200));
+      }
     }
-
-    const info = parseInfoJson(text);
-    if (info) {
-      infoCache.set(cacheKey, { data: info, ts: Date.now() });
-      console.log('✅ Info do aparelho obtida via Responses API:', {
-        marca,
-        modelo,
-        temImagem: !!info.imagem_url,
-        temPreco: !!info.preco_medio,
-        specs: Object.keys(info.especificacoes).length,
-      });
-      return info;
-    }
-
-    console.warn('⚠️ Não foi possível parsear resposta da IA:', text.substring(0, 200));
-    return null;
   } catch (responsesErr: any) {
     if (responsesErr?.status === 429 || responsesErr?.code === 'insufficient_quota') {
       console.error('❌ OpenAI quota excedida — verifique os créditos da conta');
@@ -482,23 +556,21 @@ export async function buscarInfoAparelho(
       });
 
       const text = completion.choices[0]?.message?.content;
-      if (!text) return null;
-
-      const info = parseInfoJson(text);
+      if (text) info = parseInfoJson(text);
       if (info) {
-        infoCache.set(cacheKey, { data: info, ts: Date.now() });
-        console.log('✅ Info do aparelho obtida via Chat Completions (fallback):', {
-          marca,
-          modelo,
-          temImagem: !!info.imagem_url,
-        });
-        return info;
+        console.log('✅ Info do aparelho obtida via Chat Completions (fallback):', { marca, modelo });
       }
-      return null;
     } catch (chatErr: any) {
       console.error('❌ Erro ao buscar info do aparelho:', chatErr.message);
       return null;
     }
   }
+
+  if (info) {
+    infoCache.set(cacheKey, { data: info, ts: Date.now() });
+    salvarCacheDB(marca, modelo, tipo, info);
+  }
+
+  return info;
 }
 
