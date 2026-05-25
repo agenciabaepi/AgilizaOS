@@ -28,26 +28,39 @@ export async function GET(req: NextRequest) {
     const marca = searchParams.get('marca');
 
     const supabase = getSupabaseAdmin();
-    let query = supabase
-      .from('aparelhos_catalogo')
-      .select('*')
-      .order('modelo', { ascending: true });
+    const PAGE = 1000;
+    const rows: Record<string, unknown>[] = [];
+    let from = 0;
 
-    if (ativo === 'true') query = query.eq('ativo', true);
-    if (ativo === 'false') query = query.eq('ativo', false);
-    if (marca?.trim()) query = query.eq('marca', marca.trim().toUpperCase());
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      let query = supabase
+        .from('aparelhos_catalogo')
+        .select('*')
+        .order('modelo', { ascending: true })
+        .range(from, from + PAGE - 1);
 
-    if (busca) {
-      const term = `%${busca.trim()}%`;
-      query = query.or(`marca.ilike.${term},modelo.ilike.${term}`);
+      if (ativo === 'true') query = query.eq('ativo', true);
+      if (ativo === 'false') query = query.eq('ativo', false);
+      if (marca?.trim()) query = query.eq('marca', marca.trim().toUpperCase());
+
+      if (busca) {
+        const term = `%${busca.trim()}%`;
+        query = query.or(`marca.ilike.${term},modelo.ilike.${term}`);
+      }
+
+      const { data, error } = await query;
+      if (error) {
+        return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      }
+
+      const page = data || [];
+      rows.push(...page);
+      if (page.length < PAGE) break;
+      from += PAGE;
     }
 
-    const { data, error } = await query;
-    if (error) {
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ ok: true, aparelhos: data || [] });
+    return NextResponse.json({ ok: true, aparelhos: rows });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erro inesperado';
     return NextResponse.json({ ok: false, error: message }, { status: 500 });

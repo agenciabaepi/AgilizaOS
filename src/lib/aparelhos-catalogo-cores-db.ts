@@ -42,17 +42,16 @@ const COR_SELECT = `
   cores_catalogo ( nome, hex )
 `;
 
-export async function fetchCoresPorAparelhosCatalogo(
-  supabase: SupabaseClient,
-  aparelhoIds: string[]
-): Promise<Map<string, AparelhoCatalogoCor[]>> {
-  const map = new Map<string, AparelhoCatalogoCor[]>();
-  if (!aparelhoIds.length) return map;
+const IN_CHUNK = 300;
 
+async function fetchCoresChunk(
+  supabase: SupabaseClient,
+  ids: string[]
+): Promise<CorRow[]> {
   let { data, error } = await supabase
     .from('aparelhos_catalogo_cores')
     .select(COR_SELECT)
-    .in('aparelho_catalogo_id', aparelhoIds)
+    .in('aparelho_catalogo_id', ids)
     .eq('ativo', true)
     .order('ordem', { ascending: true });
 
@@ -60,28 +59,47 @@ export async function fetchCoresPorAparelhosCatalogo(
     const fallback = await supabase
       .from('aparelhos_catalogo_cores')
       .select('id, aparelho_catalogo_id, cor_id, imagem_url, imagem_frente_url, imagem_verso_url, ordem, ativo')
-      .in('aparelho_catalogo_id', aparelhoIds)
+      .in('aparelho_catalogo_id', ids)
       .eq('ativo', true)
       .order('ordem', { ascending: true });
     data = fallback.data;
     error = fallback.error;
   }
 
-  if (error || !data) return map;
+  if (error || !data) return [];
+  return data as CorRow[];
+}
 
-  const corIds = [...new Set((data as CorRow[]).map((r) => r.cor_id))];
+export async function fetchCoresPorAparelhosCatalogo(
+  supabase: SupabaseClient,
+  aparelhoIds: string[]
+): Promise<Map<string, AparelhoCatalogoCor[]>> {
+  const map = new Map<string, AparelhoCatalogoCor[]>();
+  if (!aparelhoIds.length) return map;
+
+  const allRows: CorRow[] = [];
+  for (let i = 0; i < aparelhoIds.length; i += IN_CHUNK) {
+    const slice = aparelhoIds.slice(i, i + IN_CHUNK);
+    const rows = await fetchCoresChunk(supabase, slice);
+    allRows.push(...rows);
+  }
+
+  if (!allRows.length) return map;
+
+  const corIds = [...new Set(allRows.map((r) => r.cor_id))];
   const nomesCor = new Map<string, { nome: string; hex: string | null }>();
-  if (corIds.length) {
+  for (let i = 0; i < corIds.length; i += IN_CHUNK) {
+    const slice = corIds.slice(i, i + IN_CHUNK);
     const { data: coresRef } = await supabase
       .from('cores_catalogo')
       .select('id, nome, hex')
-      .in('id', corIds);
+      .in('id', slice);
     for (const c of coresRef || []) {
       nomesCor.set(c.id, { nome: c.nome, hex: c.hex });
     }
   }
 
-  for (const row of data as CorRow[]) {
+  for (const row of allRows) {
     const id = row.aparelho_catalogo_id;
     const list = map.get(id) || [];
     const ref = nomesCor.get(row.cor_id);
