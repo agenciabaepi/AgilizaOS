@@ -32,6 +32,7 @@ import { useAuth } from '@/context/AuthContext';
 import { v4 as uuidv4 } from 'uuid';
 import AuthGuardFinal from '@/components/AuthGuardFinal';
 import DashboardOverview from '@/components/dashboard/DashboardOverview';
+import DashboardAparelhosRanking from '@/components/dashboard/DashboardAparelhosRanking';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { getDashboardPath, canAccessRoute } from '@/lib/dashboardRouting';
@@ -777,6 +778,10 @@ export default function LembretesPage() {
               {/* Componentes de sessão removidos temporariamente */}
         <div className="mb-6 md:mb-10">
           <DashboardOverview />
+        </div>
+
+        <div className="mb-6 md:mb-10">
+          <DashboardAparelhosRanking />
         </div>
 
         {/* Sistema de Calendário */}
