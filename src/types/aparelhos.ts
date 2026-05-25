@@ -45,3 +45,11 @@ export interface AparelhoSelecionado {
 export function aparelhoLabel(a: Pick<AparelhoCatalogo, 'marca' | 'modelo'>): string {
   return `${a.marca} ${a.modelo}`.trim();
 }
+
+export interface AparelhoInfoIA {
+  imagem_url: string | null;
+  preco_medio: { min: number; max: number } | null;
+  especificacoes: Record<string, string>;
+  descricao: string | null;
+  ano_lancamento: string | null;
+}

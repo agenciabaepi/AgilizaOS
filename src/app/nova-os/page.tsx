@@ -35,6 +35,8 @@ import DynamicChecklist from '@/components/DynamicChecklist';
 import NovaOSWizardLayout, { type NovaOSContextChip } from '@/components/nova-os/NovaOSWizardLayout';
 import NovaOSSection from '@/components/nova-os/NovaOSSection';
 import NovaOSAparelhoPreview from '@/components/nova-os/NovaOSAparelhoPreview';
+import NovaOSAparelhoInfoIA from '@/components/nova-os/NovaOSAparelhoInfoIA';
+import { useAparelhoInfo } from '@/hooks/useAparelhoInfo';
 import type { AparelhoSelecionado } from '@/types/aparelhos';
 import type { AparelhoCatalogoCor, CorCatalogo } from '@/types/cores';
 import AparelhoCorPicker from '@/components/AparelhoCorPicker';
@@ -397,6 +399,14 @@ function NovaOS2Content() {
     imagensPadraoAparelho?.imagemUrl ??
     null;
   const aparelhoImagemVersoPreview = previewCor.verso ?? imagensPadraoAparelho?.imagemVersoUrl ?? null;
+
+  const temImagemCatalogo = !!(aparelhoImagemFrentePreview || aparelhoImagemVersoPreview);
+  const aparelhoInfoIA = useAparelhoInfo({
+    marca: dadosEquipamento.marca,
+    modelo: dadosEquipamento.modelo,
+    tipo: dadosEquipamento.tipo,
+    temImagem: temImagemCatalogo,
+  });
 
   // Estado para acessórios
   const [acessorios, setAcessorios] = useState('');
@@ -1761,6 +1771,16 @@ function NovaOS2Content() {
                   modelo={dadosEquipamento.modelo}
                   tipo={dadosEquipamento.tipo}
                   aparelhoSelecionado={aparelhoSelecionado}
+                  imagemIAUrl={aparelhoInfoIA.data?.imagem_url}
+                />
+
+                <NovaOSAparelhoInfoIA
+                  data={aparelhoInfoIA.data}
+                  loading={aparelhoInfoIA.loading}
+                  error={aparelhoInfoIA.error}
+                  onRetry={aparelhoInfoIA.retry}
+                  marca={dadosEquipamento.marca}
+                  modelo={dadosEquipamento.modelo}
                 />
 
                 <NovaOSSection

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { FiSmartphone } from 'react-icons/fi';
+import { HiSparkles } from 'react-icons/hi2';
 import type { AparelhoSelecionado } from '@/types/aparelhos';
 import {
   aparelhoImagemComCacheBust,
@@ -19,6 +20,8 @@ interface NovaOSAparelhoPreviewProps {
   modelo: string;
   tipo?: string;
   aparelhoSelecionado?: AparelhoSelecionado | null;
+  /** Imagem obtida via IA (fallback quando não há imagem no catálogo) */
+  imagemIAUrl?: string | null;
   /** @deprecated — tamanho único otimizado para Nova OS */
   compact?: boolean;
 }
@@ -38,23 +41,31 @@ function SlotImagem({
   alt,
   priority,
   cacheBust,
+  isExternal,
+  badge,
 }: {
   label: string;
   src: string | null;
   alt: string;
   priority?: boolean;
   cacheBust?: string | null;
+  isExternal?: boolean;
+  badge?: string | null;
 }) {
-  const rawSrc = src ? aparelhoImagemComCacheBust(src, cacheBust) : null;
-  const displaySrc = rawSrc ? aparelhoImagemPreviewUrl(rawSrc, { width: PREVIEW_SIZES.imgWidth, quality: 82 }) : null;
+  const rawSrc = src ? (isExternal ? src : aparelhoImagemComCacheBust(src, cacheBust)) : null;
+  const displaySrc = rawSrc
+    ? isExternal
+      ? rawSrc
+      : aparelhoImagemPreviewUrl(rawSrc, { width: PREVIEW_SIZES.imgWidth, quality: 82 })
+    : null;
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     setLoaded(false);
     setFailed(false);
-    if (displaySrc) preloadAparelhoImagens(displaySrc);
-  }, [displaySrc]);
+    if (displaySrc && !isExternal) preloadAparelhoImagens(displaySrc);
+  }, [displaySrc, isExternal]);
 
   return (
     <div className="flex flex-col items-center min-w-0 w-full">
@@ -76,12 +87,19 @@ function SlotImagem({
               loading={priority ? 'eager' : 'lazy'}
               fetchPriority={priority ? 'high' : 'auto'}
               decoding="async"
+              referrerPolicy={isExternal ? 'no-referrer' : undefined}
               onLoad={() => setLoaded(true)}
               onError={() => setFailed(true)}
               className={`object-contain drop-shadow-lg w-full h-full ${PREVIEW_SIZES.imgMaxH} transition-opacity duration-200 ${
                 loaded ? 'opacity-100' : 'opacity-0'
               }`}
             />
+            {badge && loaded && (
+              <span className="absolute top-2 right-2 flex items-center gap-1 text-[10px] font-medium text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-full px-2 py-0.5">
+                <HiSparkles className="w-3 h-3" />
+                {badge}
+              </span>
+            )}
           </>
         ) : (
           <div
@@ -104,9 +122,10 @@ export default function NovaOSAparelhoPreview({
   modelo,
   tipo,
   aparelhoSelecionado,
+  imagemIAUrl,
 }: NovaOSAparelhoPreviewProps) {
   const titulo = [marca, modelo].filter(Boolean).join(' ') || 'Aparelho';
-  const frente =
+  const frenteCatalogo =
     imagemFrenteUrl !== undefined
       ? imagemFrenteUrl
       : aparelhoSelecionado?.imagemFrenteUrl ?? imagemUrl ?? aparelhoSelecionado?.imagemUrl ?? null;
@@ -114,12 +133,16 @@ export default function NovaOSAparelhoPreview({
     imagemVersoUrl !== undefined
       ? imagemVersoUrl
       : aparelhoSelecionado?.imagemVersoUrl ?? null;
+
+  const usandoIA = !frenteCatalogo && !verso && !!imagemIAUrl;
+  const frente = frenteCatalogo || imagemIAUrl || null;
+
   const aparelhoEscolhido = !!(marca || modelo || aparelhoSelecionado);
   const temAlgumaImagem = !!(frente || verso);
 
   useEffect(() => {
-    preloadAparelhoImagens(frente, verso);
-  }, [frente, verso]);
+    if (!usandoIA) preloadAparelhoImagens(frente, verso);
+  }, [frente, verso, usandoIA]);
 
   return (
     <div
@@ -129,11 +152,13 @@ export default function NovaOSAparelhoPreview({
         <div className={`grid w-full grid-cols-2 gap-4 sm:gap-6 ${PREVIEW_SIZES.gridMinH}`}>
           <SlotImagem
             key={`frente-${corCacheBust || 'x'}-${frente || 'vazio'}`}
-            label="Frente"
+            label={usandoIA ? 'Imagem' : 'Frente'}
             src={frente}
             alt={`${titulo} — frente`}
             priority
-            cacheBust={corCacheBust}
+            cacheBust={usandoIA ? undefined : corCacheBust}
+            isExternal={usandoIA}
+            badge={usandoIA ? 'IA' : null}
           />
           <SlotImagem
             key={`verso-${corCacheBust || 'x'}-${verso || 'vazio'}`}

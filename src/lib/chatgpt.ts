@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import type { DadosUsuario } from './user-data';
+import type { AparelhoInfoIA } from '@/types/aparelhos';
 
 /**
  * Cliente OpenAI (ChatGPT)
@@ -346,6 +347,158 @@ O texto deve ser retornado em formato HTML simples, usando tags como <p>, <stron
     });
     
     return null;
+  }
+}
+
+const infoCache = new Map<string, { data: AparelhoInfoIA; ts: number }>();
+const INFO_CACHE_TTL = 60 * 60 * 1000; // 1h
+
+function parseInfoJson(raw: string): AparelhoInfoIA | null {
+  try {
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    if (start === -1 || end === -1) return null;
+    const obj = JSON.parse(raw.slice(start, end + 1));
+    return {
+      imagem_url: typeof obj.imagem_url === 'string' ? obj.imagem_url : null,
+      preco_medio:
+        obj.preco_medio &&
+        typeof obj.preco_medio.min === 'number' &&
+        typeof obj.preco_medio.max === 'number'
+          ? { min: obj.preco_medio.min, max: obj.preco_medio.max }
+          : null,
+      especificacoes:
+        obj.especificacoes && typeof obj.especificacoes === 'object'
+          ? Object.fromEntries(
+              Object.entries(obj.especificacoes).map(([k, v]) => [k, String(v)])
+            )
+          : {},
+      descricao: typeof obj.descricao === 'string' ? obj.descricao : null,
+      ano_lancamento: obj.ano_lancamento != null ? String(obj.ano_lancamento) : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+const INFO_SYSTEM_PROMPT = `Você é um assistente que retorna informações técnicas sobre aparelhos eletrônicos em formato JSON.
+
+INSTRUÇÕES:
+- Busque na internet informações atualizadas sobre o aparelho solicitado
+- Retorne APENAS um objeto JSON válido, sem markdown, sem explicações
+- Para imagem_url, forneça uma URL direta de imagem do aparelho (JPG/PNG/WebP) de um site confiável (fabricante, loja oficial, gsmarena, etc.)
+- Preços devem ser em Reais (BRL), valores aproximados do mercado brasileiro atual
+- Especificações devem ser concisas e em português
+
+Formato JSON esperado:
+{
+  "imagem_url": "https://...",
+  "preco_medio": { "min": 1999, "max": 2499 },
+  "especificacoes": {
+    "Tela": "6.1 pol AMOLED 120Hz",
+    "Processador": "Snapdragon 8 Gen 3",
+    "RAM": "8 GB",
+    "Armazenamento": "128 GB",
+    "Bateria": "4000 mAh",
+    "Câmera": "50 MP + 12 MP + 10 MP",
+    "Sistema": "Android 14"
+  },
+  "descricao": "Descrição curta do aparelho",
+  "ano_lancamento": "2024"
+}
+
+Se o aparelho for um notebook, adapte as especificações para: Tela, Processador, RAM, Armazenamento, Bateria, Placa de Vídeo, Sistema.
+Se não encontrar alguma informação, use null para o campo.`;
+
+/**
+ * Busca informações de um aparelho via OpenAI (com web search quando disponível).
+ * Retorna specs, preço e imagem ou null em caso de falha.
+ */
+export async function buscarInfoAparelho(
+  marca: string,
+  modelo: string,
+  tipo?: string
+): Promise<AparelhoInfoIA | null> {
+  const cacheKey = `${marca}|${modelo}|${tipo || ''}`.toLowerCase();
+  const cached = infoCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < INFO_CACHE_TTL) {
+    return cached.data;
+  }
+
+  const client = getOpenAIClient();
+  if (!client) return null;
+
+  const userPrompt = `Busque informações completas sobre: ${marca} ${modelo}${tipo ? ` (tipo: ${tipo})` : ''}. Inclua uma URL de imagem real do produto, preço no Brasil, especificações técnicas e ano de lançamento.`;
+
+  console.log('🔍 Buscando info do aparelho via IA:', { marca, modelo, tipo });
+
+  try {
+    const response = await client.responses.create({
+      model: 'gpt-4o-mini',
+      instructions: INFO_SYSTEM_PROMPT,
+      input: userPrompt,
+      tools: [{ type: 'web_search' as const }],
+    });
+
+    const text = response.output_text;
+    if (!text) {
+      console.error('❌ OpenAI retornou resposta vazia para busca de aparelho');
+      return null;
+    }
+
+    const info = parseInfoJson(text);
+    if (info) {
+      infoCache.set(cacheKey, { data: info, ts: Date.now() });
+      console.log('✅ Info do aparelho obtida via Responses API:', {
+        marca,
+        modelo,
+        temImagem: !!info.imagem_url,
+        temPreco: !!info.preco_medio,
+        specs: Object.keys(info.especificacoes).length,
+      });
+      return info;
+    }
+
+    console.warn('⚠️ Não foi possível parsear resposta da IA:', text.substring(0, 200));
+    return null;
+  } catch (responsesErr: any) {
+    if (responsesErr?.status === 429 || responsesErr?.code === 'insufficient_quota') {
+      console.error('❌ OpenAI quota excedida — verifique os créditos da conta');
+      return null;
+    }
+
+    console.warn('⚠️ Responses API falhou, tentando Chat Completions:', responsesErr.message);
+
+    try {
+      const completion = await client.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: INFO_SYSTEM_PROMPT },
+          { role: 'user', content: userPrompt },
+        ],
+        max_tokens: 1000,
+        temperature: 0.3,
+        response_format: { type: 'json_object' },
+      });
+
+      const text = completion.choices[0]?.message?.content;
+      if (!text) return null;
+
+      const info = parseInfoJson(text);
+      if (info) {
+        infoCache.set(cacheKey, { data: info, ts: Date.now() });
+        console.log('✅ Info do aparelho obtida via Chat Completions (fallback):', {
+          marca,
+          modelo,
+          temImagem: !!info.imagem_url,
+        });
+        return info;
+      }
+      return null;
+    } catch (chatErr: any) {
+      console.error('❌ Erro ao buscar info do aparelho:', chatErr.message);
+      return null;
+    }
   }
 }
 
