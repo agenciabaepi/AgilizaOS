@@ -256,11 +256,11 @@ export async function POST(request: NextRequest) {
       dadosAtualizacao.status_tecnico = isStatusSemReparo(osAnteriorStatusTecnico) ? 'SEM REPARO' : (mapOSTecnico(novoStatusRaw) || osAnteriorStatusTecnico);
     }
 
-    // Entrega explícita: newStatus ENTREGUE deve prevalecer sobre o espelhamento técnico → OS.
+    // Entrega explícita: respeitar a intenção do atendente via flags
     const semConsertoEntrega =
       aparelho_sem_conserto === true ||
-      isStatusSemReparo(novoStatusTecnicoRaw) ||
-      isStatusSemReparo(osAnteriorStatusTecnico);
+      cliente_recusou === true ||
+      isStatusSemReparo(novoStatusTecnicoRaw);
 
     if (normalizeStatus(novoStatusRaw) === 'ENTREGUE') {
       dadosAtualizacao.status = 'ENTREGUE';
@@ -270,12 +270,6 @@ export async function POST(request: NextRequest) {
         dadosAtualizacao.status_tecnico =
           novoStatusTecnicoRaw || mapOSTecnico('ENTREGUE') || osAnteriorStatusTecnico;
       }
-    }
-
-    // Exceção SEM REPARO: ao entregar (ENTREGUE), status_tecnico permanece SEM REPARO se já era ou se marcado sem conserto
-    const statusFinal = normalizeStatus(String(dadosAtualizacao.status || ''));
-    if (statusFinal === 'ENTREGUE' && (isStatusSemReparo(osAnteriorStatusTecnico) || aparelho_sem_conserto === true)) {
-      dadosAtualizacao.status_tecnico = 'SEM REPARO';
     }
     // Persistir flags para que comissões e listagens respeitem depois
     if (cliente_recusou === true) {

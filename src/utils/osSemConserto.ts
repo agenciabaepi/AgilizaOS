@@ -31,14 +31,7 @@ export function inferirAparelhoSemConsertoOs(
 ): boolean {
   if (item.aparelho_sem_conserto) return true;
   if (isStatusSemReparoOs(normStatusVal(item.status_tecnico))) return true;
-  if (item.cliente_recusou || temVenda) return false;
-
-  const statusOs = normStatusCompare(item.status);
-  const statusTec = normStatusCompare(item.status_tecnico);
-  if (statusOs !== 'ENTREGUE') return false;
-
-  // Legado: entregue marcando sem conserto antes da correção (status_tecnico ficou REPARO CONCLUÍDO)
-  return statusTec.includes('REPARO CONCLUIDO');
+  return false;
 }
 
 export function getStatusTecnicoOrdemExibicao(

@@ -455,12 +455,8 @@ const VisualizarOrdemServicoPage = () => {
         await ensureTermoGarantiaPadraoNoBanco(supabase, empresaData.id);
       }
 
-      const statusTecnicoAtual = String(ordem?.status_tecnico || '').toUpperCase().trim();
-      const tecnicoJaMarcouSemReparo =
-        statusTecnicoAtual === 'SEM REPARO' || statusTecnicoAtual === 'SEM_REPARO';
-
       // 1. Atualizar O.S. para ENTREGUE usando nosso endpoint
-      // Passar flags clienteRecusou e aparelhoSemConserto para a API não registrar comissão
+      // Só marca SEM REPARO se o checkbox aparelhoSemConserto foi explicitamente marcado
       const response = await fetch('/api/ordens/update-status', {
         method: 'POST',
         headers: {
@@ -469,13 +465,12 @@ const VisualizarOrdemServicoPage = () => {
         body: JSON.stringify({
           osId: id,
           newStatus: 'ENTREGUE',
-          newStatusTecnico:
-            aparelhoSemConserto || tecnicoJaMarcouSemReparo ? 'SEM REPARO' : 'REPARO CONCLUÍDO',
+          newStatusTecnico: aparelhoSemConserto ? 'SEM REPARO' : 'REPARO CONCLUÍDO',
           termo_garantia_id: termoGarantiaSelecionado.id,
           data_entrega: new Date().toISOString().split('T')[0],
           vencimento_garantia: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          cliente_recusou: clienteRecusou, // Flag para não registrar comissão
-          aparelho_sem_conserto: aparelhoSemConserto // Flag para aparelho sem conserto
+          cliente_recusou: clienteRecusou,
+          aparelho_sem_conserto: aparelhoSemConserto
         }),
       });
 
