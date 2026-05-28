@@ -37,6 +37,10 @@ export default function SubscriptionVencidaGuard({ children }: { children: React
     return <>{children}</>;
   }
 
+  if (empresaData.sistema_liberado === true) {
+    return <>{children}</>;
+  }
+
   if (loading) {
     return <>{children}</>;
   }

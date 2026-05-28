@@ -361,6 +361,7 @@ export const fetchUserDataOptimized = async (userId: string, retryCount = 0) => 
         plano: empresaData.plano || 'trial',
         ativo: empresaData.ativo ?? true,
         created_at: empresaData.created_at ?? null,
+        sistema_liberado: empresaData.sistema_liberado === true,
       },
       catalogoHabilitado,
       recursosPlano

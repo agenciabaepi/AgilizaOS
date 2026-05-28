@@ -123,13 +123,13 @@ export const useSubscription = () => {
     setAssinatura(null);
     setLimites(null);
     setLoadedEmpresaId(null);
-    setSistemaLiberado(false);
     setLoading(true);
   }, []);
 
   // Troca de usuário/empresa: descartar assinatura anterior e invalidar fetches em voo
   useEffect(() => {
     fetchSeqRef.current += 1;
+    setSistemaLiberado(false);
     resetSubscriptionState();
   }, [user?.id, empresaIdAtual, resetSubscriptionState]);
 
@@ -152,6 +152,30 @@ export const useSubscription = () => {
       let primeiraAssinatura: Record<string, unknown> | null = null;
       let empresaCriadaEm: string | null = null;
       let liberadoApi = false;
+      let liberadoEmpresa = empresaData?.id === empresaId && empresaData?.sistema_liberado === true;
+
+      // Flag de liberação: consulta direta (não depende só da API /assinatura/minha)
+      try {
+        const { data: empFlags } = await supabase
+          .from('empresas')
+          .select('sistema_liberado, created_at')
+          .eq('id', empresaId)
+          .maybeSingle();
+        if (empFlags?.sistema_liberado === true) {
+          liberadoEmpresa = true;
+        }
+        if (!empresaCriadaEm && typeof empFlags?.created_at === 'string' && empFlags.created_at) {
+          empresaCriadaEm = empFlags.created_at;
+        }
+      } catch {
+        /* fallback abaixo */
+      }
+
+      if (isStale()) return;
+
+      if (liberadoEmpresa) {
+        setSistemaLiberado(true);
+      }
 
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -180,9 +204,7 @@ export const useSubscription = () => {
 
       if (isStale()) return;
 
-      const liberado =
-        liberadoApi ||
-        (empresaData?.id === empresaId && empresaData?.sistema_liberado === true);
+      const liberado = liberadoApi || liberadoEmpresa;
       setSistemaLiberado(liberado);
 
       const empresaCriadaEmParaPick =
@@ -260,7 +282,7 @@ export const useSubscription = () => {
         setLoading(false);
       }
     }
-  }, [usuarioData?.empresa_id, empresaData?.created_at, empresaData?.id]);
+  }, [usuarioData?.empresa_id, empresaData?.created_at, empresaData?.id, empresaData?.sistema_liberado]);
 
   useEffect(() => {
     if (!user) {
@@ -276,7 +298,7 @@ export const useSubscription = () => {
     void fetchAssinatura();
   }, [user?.id, empresaIdAtual, fetchAssinatura]);
 
-  // Refetch quando um pagamento for aprovado (PIX). Um segundo fetch cobre lag Asaas→Supabase.
+  // Recarregar quando admin alterar liberação ou pagamento for aprovado
   useEffect(() => {
     let t1: ReturnType<typeof setTimeout> | null = null;
     const handler = () => {
@@ -290,6 +312,17 @@ export const useSubscription = () => {
       document.removeEventListener('assinatura-updated', handler);
       if (t1) clearTimeout(t1);
     };
+  }, [usuarioData?.empresa_id, fetchAssinatura]);
+
+  // Admin pode liberar com usuário já logado — atualiza ao voltar à aba
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && usuarioData?.empresa_id) {
+        void fetchAssinatura();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, [usuarioData?.empresa_id, fetchAssinatura]);
 
   // Buscar limites reais da empresa (`planoLimite` evita estado React atrasado logo após setAssinatura)
@@ -361,7 +394,10 @@ export const useSubscription = () => {
   /** Assinatura vencida: bloqueia acesso às páginas (usuário deve renovar) */
   const isAssinaturaVencida = (): boolean => {
     if (!empresaIdAtual) return false;
-    if (sistemaLiberado || empresaData?.sistema_liberado === true) return false;
+    const liberado =
+      sistemaLiberado ||
+      (empresaData?.id === empresaIdAtual && empresaData?.sistema_liberado === true);
+    if (liberado) return false;
     if (loading || loadedEmpresaId !== empresaIdAtual) return false;
     if (assinatura && assinatura.empresa_id !== empresaIdAtual) return false;
     const empresaCreatedAt =
@@ -379,7 +415,7 @@ export const useSubscription = () => {
       {
         loading: false,
         empresaIdPresent: true,
-        sistemaLiberado: sistemaLiberado || empresaData?.sistema_liberado === true,
+        sistemaLiberado: liberado,
       }
     );
   };
