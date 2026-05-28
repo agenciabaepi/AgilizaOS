@@ -4,10 +4,13 @@ import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import OrdemPDFCupom from '@/components/OrdemPDFCupom';
+import { convertLogoToBlackForCupom } from '@/utils/logoCupomPreto';
 
 export default function ImprimirCupomPage() {
   const { id } = useParams();
   const [ordem, setOrdem] = useState<any>(null);
+  const [logoCupomPreto, setLogoCupomPreto] = useState<string | null>(null);
+  const [logoReady, setLogoReady] = useState(false);
   const [PDFViewer, setPDFViewer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +27,7 @@ export default function ImprimirCupomPage() {
         const { data, error: err } = await supabase
           .from('ordens_servico')
           .select(`
-            id, numero_os, equipamento, marca, modelo, status, created_at, prazo_entrega, data_entrega, vencimento_garantia,
+            id, numero_os, equipamento, marca, modelo, status, status_tecnico, created_at, prazo_entrega, data_entrega, vencimento_garantia,
             servico, observacao, problema_relatado, condicoes_equipamento, cor, numero_serie, acessorios, atendente,
             senha_acesso, senha_aparelho, senha_padrao, qtd_peca, peca, valor_peca, qtd_servico, valor_servico, valor_faturado, desconto,
             termo_garantia_id, empresa_id, clientes(nome, telefone, email, cpf, endereco), tecnico_id,
@@ -85,12 +88,45 @@ export default function ImprimirCupomPage() {
     fetchOrdem();
   }, [id]);
 
+  useEffect(() => {
+    if (!ordem) return;
+
+    let cancelled = false;
+
+    async function prepareLogo() {
+      setLogoReady(false);
+      const source = ordem.empresas?.logo_url || '/logo.png';
+      try {
+        const converted = await convertLogoToBlackForCupom(source);
+        if (!cancelled) setLogoCupomPreto(converted);
+      } catch {
+        if (source !== '/logo.png') {
+          try {
+            const fallback = await convertLogoToBlackForCupom('/logo.png');
+            if (!cancelled) setLogoCupomPreto(fallback);
+          } catch {
+            if (!cancelled) setLogoCupomPreto(null);
+          }
+        } else if (!cancelled) {
+          setLogoCupomPreto(null);
+        }
+      } finally {
+        if (!cancelled) setLogoReady(true);
+      }
+    }
+
+    prepareLogo();
+    return () => {
+      cancelled = true;
+    };
+  }, [ordem]);
+
   useEffect(() => setMounted(true), []);
   useEffect(() => {
     import('@react-pdf/renderer').then((mod) => setPDFViewer(() => mod.PDFViewer));
   }, []);
 
-  if (!mounted || loading) {
+  if (!mounted || loading || !logoReady) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -125,7 +161,7 @@ export default function ImprimirCupomPage() {
 
   return (
     <PDFViewer style={{ width: '100vw', height: '100vh' }}>
-      <OrdemPDFCupom ordem={ordem} />
+      <OrdemPDFCupom ordem={{ ...ordem, logo_cupom_preto: logoCupomPreto }} />
     </PDFViewer>
   );
 }

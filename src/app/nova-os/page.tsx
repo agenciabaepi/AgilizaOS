@@ -49,6 +49,11 @@ import { fetchCoresAparelhoCliente } from '@/lib/aparelhos-cores-client';
 import { preloadAparelhoImagens, resolveAparelhoImagens } from '@/lib/aparelhos-imagens';
 import type { TipoEquipamentoSelecionado } from '@/types/equipamentos';
 import {
+  PRAZO_ENTREGA_DIAS_UTEIS_PADRAO,
+  calcularPrazoEntregaPadrao,
+  formatarDataHoraPtBr,
+} from '@/utils/diasUteis';
+import {
   ensureTermoGarantiaPadraoNoBanco,
   getTermoGarantiaPadraoId,
   isTermoGarantiaPadraoId,
@@ -482,6 +487,7 @@ function NovaOS2Content() {
   
   // Estado para prazo de entrega
   const [prazoEntrega, setPrazoEntrega] = useState<string>('');
+  const prazoEntregaPadrao = useMemo(() => calcularPrazoEntregaPadrao(), []);
   
   // Estado para produtos e serviços aprovados
   const [produtosServicos, setProdutosServicos] = useState<ProdutoServico[]>([]);
@@ -1051,12 +1057,9 @@ function NovaOS2Content() {
         aparelho_imagem_verso_url: aparelhoSelecionado?.imagemVersoUrl || null,
         aparelho_cor_catalogo_id: aparelhoSelecionado?.corId || null,
         // Adicionar campo de prazo de entrega
-        prazo_entrega: prazoEntrega ? new Date(prazoEntrega).toISOString() : (() => {
-          // Se não foi definido, criar prazo automático (7 dias)
-          const prazoAutomatico = new Date();
-          prazoAutomatico.setDate(prazoAutomatico.getDate() + 7);
-          return prazoAutomatico.toISOString();
-        })()
+        prazo_entrega: prazoEntrega
+          ? new Date(prazoEntrega).toISOString()
+          : calcularPrazoEntregaPadrao().toISOString()
         // Agora usando os nomes corretos das colunas da tabela
       };
 
@@ -2250,18 +2253,27 @@ function NovaOS2Content() {
                 {/* Prazo de Entrega e Termo de Garantia - lado a lado em telas grandes */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
                   <div className="w-full">
-                    <label className="block text-sm font-medium text-gray-700 mb-2 text-left">Prazo de Entrega</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2 text-left">
+                      Prazo de Entrega{' '}
+                      <span className="font-normal text-gray-500">(opcional)</span>
+                    </label>
                     <input
                       type="datetime-local"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-black focus:border-transparent"
                       value={prazoEntrega}
                       onChange={(e) => setPrazoEntrega(e.target.value)}
                       min={new Date().toISOString().slice(0, 16)}
-                      required
                     />
                     <p className="text-xs text-gray-500 mt-1 text-left">
                       Defina quando o aparelho deve ser entregue ao cliente. Este prazo será usado para controle pelos técnicos e atendentes.
                     </p>
+                    {!prazoEntrega && (
+                      <p className="text-xs text-gray-600 mt-1 text-left">
+                        Se nenhuma data for selecionada, o sistema aplicará automaticamente{' '}
+                        <strong>{PRAZO_ENTREGA_DIAS_UTEIS_PADRAO} dias úteis</strong> — previsão:{' '}
+                        <strong>{formatarDataHoraPtBr(prazoEntregaPadrao)}</strong>.
+                      </p>
+                    )}
                   </div>
                   <div className="w-full">
                     <label className="block text-sm font-medium text-gray-700 mb-2 text-left">Termo de Garantia</label>

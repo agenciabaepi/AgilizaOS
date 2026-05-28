@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabaseClient';
 import { sendNewOSNotification } from '@/lib/whatsapp-notifications';
 import { sendPushToTecnico, buildNovaOSPushMessage } from '@/lib/push-notification-tecnico';
+import { calcularPrazoEntregaPadrao } from '@/utils/diasUteis';
 
 function normalizeStatusText(value: unknown): string {
   return String(value || '')
@@ -83,7 +84,7 @@ export async function POST(request: NextRequest) {
       senha_aparelho: body.senha_aparelho || null,
       senha_padrao: body.senha_padrao || null,
       checklist_entrada: body.checklist_entrada || null,
-      prazo_entrega: body.prazo_entrega || null,
+      prazo_entrega: body.prazo_entrega || calcularPrazoEntregaPadrao().toISOString(),
       aparelho_origem: body.aparelho_origem || null,
       aparelho_catalogo_id: body.aparelho_catalogo_id || null,
       aparelho_empresa_id: body.aparelho_empresa_id || null,

@@ -1,6 +1,7 @@
 'use client';
 
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
+import { getStatusTecnicoLabel } from '@/utils/statusLabels';
 
 // 80 mm ≈ 227 pt; altura A4 para permitir fluxo com wrap (várias “folhas” no PDF)
 const CUPOM_WIDTH = 227;
@@ -9,18 +10,87 @@ const PAGE_HEIGHT = 842;
 const styles = StyleSheet.create({
   page: {
     fontFamily: 'Helvetica',
-    fontSize: 8,
-    paddingHorizontal: 12,
+    fontSize: 10,
+    paddingHorizontal: 10,
     paddingVertical: 10,
     backgroundColor: '#fff',
     color: '#000',
   },
   center: { textAlign: 'center' },
   bold: { fontWeight: 'bold' },
-  line: { borderBottomWidth: 1, borderBottomColor: '#000', marginVertical: 4 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 },
-  block: { marginBottom: 6 },
-  mt: { marginTop: 4 },
+  label: { fontWeight: 'bold', color: '#000' },
+  line: { borderBottomWidth: 1.5, borderBottomColor: '#000', marginVertical: 5 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 },
+  valueRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 5,
+    width: '100%',
+  },
+  valueDescWrap: {
+    flex: 1,
+    paddingRight: 8,
+    maxWidth: CUPOM_WIDTH - 78,
+  },
+  valueDesc: { fontWeight: 'bold', fontSize: 10 },
+  valueAmount: {
+    fontWeight: 'bold',
+    fontSize: 10,
+    width: 58,
+    textAlign: 'right',
+    flexShrink: 0,
+  },
+  valueTotalRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 5,
+    paddingTop: 5,
+    borderTopWidth: 1.5,
+    borderTopColor: '#000',
+    width: '100%',
+  },
+  valueTotalAmount: {
+    fontWeight: 'bold',
+    fontSize: 12,
+    width: 58,
+    textAlign: 'right',
+    flexShrink: 0,
+  },
+  block: { marginBottom: 7 },
+  mt: { marginTop: 5 },
+  secondary: { fontSize: 9, color: '#000' },
+  termoTitle: { fontSize: 11, fontWeight: 'bold', marginBottom: 6, textAlign: 'center', color: '#000' },
+  termoSectionTitle: { fontSize: 10, fontWeight: 'bold', marginBottom: 3, color: '#000' },
+  termoLine: { fontSize: 10, lineHeight: 1.5, color: '#000', marginBottom: 3 },
+  logoWrap: { alignItems: 'center', marginBottom: 4 },
+  logo: { width: 160, height: 48, objectFit: 'contain' },
+  qrBox: { alignItems: 'center', marginTop: 6, marginBottom: 4 },
+  qrTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    color: '#000',
+    marginBottom: 8,
+    lineHeight: 1.2,
+  },
+  systemCredit: {
+    marginTop: 10,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#000',
+    alignItems: 'center',
+  },
+  systemCreditName: { fontSize: 8, fontWeight: 'bold', textAlign: 'center', color: '#000' },
+  systemCreditLink: { fontSize: 8, textAlign: 'center', color: '#000', marginTop: 2 },
+  signatureBlock: { marginTop: 14, alignItems: 'center', width: '100%' },
+  signatureSpace: { height: 32, width: '100%' },
+  signatureLine: {
+    borderBottomWidth: 1.5,
+    borderBottomColor: '#000',
+    width: '92%',
+    marginBottom: 4,
+  },
+  signatureLabel: { fontSize: 9, fontWeight: 'bold', textAlign: 'center' },
 });
 
 function formatDate(dateStr: string | null | undefined) {
@@ -47,18 +117,6 @@ function formatCnpj(raw: string | null | undefined): string {
     return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
   }
   return String(raw);
-}
-
-/** Parse seguro do JSON de senha_padrao (índices 0–8). */
-function parseSenhaPadrao(raw: unknown): number[] {
-  if (raw == null || raw === '') return [];
-  if (Array.isArray(raw)) return raw.filter((n) => typeof n === 'number' && n >= 0 && n < 9);
-  try {
-    const p = JSON.parse(String(raw));
-    return Array.isArray(p) ? p.filter((n: unknown) => typeof n === 'number' && n >= 0 && n < 9) : [];
-  } catch {
-    return [];
-  }
 }
 
 /** Mesma lógica da impressão A4: cláusulas numeradas ou texto corrido. */
@@ -107,50 +165,21 @@ function termoToSections(htmlContent: string | null | undefined): { title: strin
   return [{ title: '', lines }];
 }
 
-function PatternGridCupom({ pattern }: { pattern: number[] }) {
-  const hasPath = pattern.length > 0;
-  const rows = [0, 1, 2].map((row) => (
-    <View key={row} style={{ flexDirection: 'row', marginBottom: 3, justifyContent: 'center' }}>
-      {[0, 1, 2].map((col) => {
-        const index = row * 3 + col;
-        const isSelected = hasPath && pattern.includes(index);
-        const sequenceNumber = isSelected ? pattern.indexOf(index) + 1 : null;
-        const isLastCol = col === 2;
-        return (
-          <View
-            key={index}
-            style={{
-              width: 14,
-              height: 14,
-              borderRadius: 7,
-              borderWidth: 1,
-              borderStyle: hasPath ? 'solid' : 'dashed',
-              borderColor: isSelected ? '#000' : '#888',
-              backgroundColor: isSelected ? '#000' : '#fff',
-              justifyContent: 'center',
-              alignItems: 'center',
-              marginRight: isLastCol ? 0 : 4,
-            }}
-          >
-            {isSelected && sequenceNumber != null ? (
-              <Text style={{ color: '#fff', fontSize: 7, fontWeight: 'bold' }}>{sequenceNumber}</Text>
-            ) : !hasPath ? (
-              <Text style={{ fontSize: 5, color: '#ccc' }}> </Text>
-            ) : null}
-          </View>
-        );
-      })}
-    </View>
-  ));
+function getAcompanhamentoUrl(ordemId: string | number): string {
+  const base =
+    typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin
+      : 'https://gestaoconsert.com.br';
+  return `${base}/os/${ordemId}/status`;
+}
 
+function CupomValueRow({ desc, amount }: { desc: string; amount: string }) {
   return (
-    <View style={{ alignItems: 'center', marginTop: 4, marginBottom: 4 }}>
-      {!hasPath && (
-        <Text style={{ fontSize: 6, color: '#555', marginBottom: 4, textAlign: 'center' }}>
-          Preencha à mão o desenho de desbloqueio, se o cliente usar padrão Android
-        </Text>
-      )}
-      <View>{rows}</View>
+    <View style={styles.valueRow}>
+      <View style={styles.valueDescWrap}>
+        <Text style={styles.valueDesc}>{desc}</Text>
+      </View>
+      <Text style={styles.valueAmount}>{amount}</Text>
     </View>
   );
 }
@@ -161,125 +190,129 @@ export default function OrdemPDFCupom({ ordem }: { ordem: any }) {
   const subtotal = totalServico + totalPeca;
   const total = subtotal - (ordem.desconto || 0);
   const emp = ordem.empresas || {};
-  const pattern = parseSenhaPadrao(ordem.senha_padrao);
+  const logoSrc = ordem.logo_cupom_preto;
+  const acompanhamentoUrl = getAcompanhamentoUrl(ordem.id);
 
   const termoSections = termoToSections(ordem?.termo_garantia?.conteudo);
   const termoFallback =
     stripHTML(ordem?.termo_garantia?.conteudo) || 'Termo de garantia conforme legislação vigente.';
+  const statusTecnicoLabel = getStatusTecnicoLabel(ordem.status, ordem.status_tecnico);
 
   return (
     <Document>
       <Page size={[CUPOM_WIDTH, PAGE_HEIGHT]} style={styles.page} wrap>
-        <Text style={[styles.center, styles.bold, { fontSize: 11 }]}>{emp.nome || '---'}</Text>
-        <Text style={[styles.center, { fontSize: 7 }]}>CNPJ: {formatCnpj(emp.cnpj)}</Text>
-        <Text style={[styles.center]}>{emp.endereco || '---'}</Text>
-        <Text style={[styles.center]}>
+        <View style={styles.logoWrap}>
+          {logoSrc ? <Image src={logoSrc} style={styles.logo} /> : null}
+        </View>
+        <Text style={[styles.center, styles.secondary]}>CNPJ: {formatCnpj(emp.cnpj)}</Text>
+        <Text style={[styles.center, styles.bold]}>{emp.endereco || '---'}</Text>
+        <Text style={[styles.center, styles.secondary]}>
           {emp.telefone || '---'} {emp.email ? `| ${emp.email}` : ''}
         </Text>
-        {emp.website ? <Text style={[styles.center, { fontSize: 7 }]}>{emp.website}</Text> : null}
+        {emp.website ? <Text style={[styles.center, styles.secondary]}>{emp.website}</Text> : null}
         <View style={styles.line} />
 
         <View style={styles.row}>
-          <Text style={styles.bold}>OS nº {ordem.numero_os || ordem.id}</Text>
-          <Text>Entrada: {formatDate(ordem.created_at)}</Text>
+          <Text style={[styles.bold, { fontSize: 11 }]}>OS nº {ordem.numero_os || ordem.id}</Text>
+          <Text style={styles.bold}>Entrada: {formatDate(ordem.created_at)}</Text>
         </View>
         <View style={styles.row}>
-          <Text>Prazo: {formatDate(ordem.prazo_entrega)}</Text>
-          <Text>Status: {ordem.status || '---'}</Text>
+          <Text style={styles.bold}>Prazo: {formatDate(ordem.prazo_entrega)}</Text>
+          <Text style={styles.bold}>Status: {ordem.status || '---'}</Text>
         </View>
+        <Text style={[styles.bold, { marginTop: 2 }]}>Status técnico: {statusTecnicoLabel}</Text>
         <View style={styles.line} />
 
-        <Text style={[styles.bold, styles.block]}>CLIENTE</Text>
-        <Text>{ordem.clientes?.nome || '---'}</Text>
-        <Text>Tel: {ordem.clientes?.telefone || '---'}</Text>
-        <View style={styles.line} />
-
-        <Text style={[styles.bold, styles.block]}>EQUIPAMENTO</Text>
+        <Text style={[styles.bold, styles.block, { fontSize: 11 }]}>CLIENTE</Text>
+        <Text style={styles.bold}>{ordem.clientes?.nome || '---'}</Text>
         <Text>
+          <Text style={styles.label}>Tel: </Text>
+          {ordem.clientes?.telefone || '---'}
+        </Text>
+        <View style={styles.line} />
+
+        <Text style={[styles.bold, styles.block, { fontSize: 11 }]}>EQUIPAMENTO</Text>
+        <Text style={styles.bold}>
           {ordem.equipamento || '---'} | {ordem.marca || ''} {ordem.modelo || ''}
         </Text>
         <Text style={styles.block}>
-          Problema: {(ordem.relato || ordem.problema_relatado || '---').toString().slice(0, 200)}
+          <Text style={styles.label}>Problema: </Text>
+          {(ordem.relato || ordem.problema_relatado || '---').toString().slice(0, 200)}
           {((ordem.relato || ordem.problema_relatado || '').toString().length > 200 ? '...' : '')}
         </Text>
-
-        <Text style={[styles.bold, { marginTop: 4 }]}>Acesso ao aparelho</Text>
-        {ordem.senha_aparelho ? (
-          <Text style={styles.block}>
-            <Text style={styles.bold}>Senha / PIN: </Text>
-            {String(ordem.senha_aparelho)}
-          </Text>
-        ) : null}
-        <Text style={[styles.bold, { fontSize: 7, marginTop: 2 }]}>Padrão Android</Text>
-        <PatternGridCupom pattern={pattern} />
         <View style={styles.line} />
 
-        <Text style={[styles.bold, styles.block]}>SERVIÇOS E PEÇAS</Text>
+        <Text style={[styles.bold, styles.block, { fontSize: 11 }]}>SERVIÇOS E PEÇAS</Text>
         {ordem.servico && (
-          <View style={styles.row}>
-            <Text>
-              {ordem.servico} x{ordem.qtd_servico || 1}
-            </Text>
-            <Text>{formatMoney(totalServico)}</Text>
-          </View>
+          <CupomValueRow
+            desc={`${ordem.servico} x${ordem.qtd_servico || 1}`}
+            amount={formatMoney(totalServico)}
+          />
         )}
         {ordem.peca && (
-          <View style={styles.row}>
-            <Text>
-              {ordem.peca} x{ordem.qtd_peca || 1}
-            </Text>
-            <Text>{formatMoney(totalPeca)}</Text>
-          </View>
+          <CupomValueRow
+            desc={`${ordem.peca} x${ordem.qtd_peca || 1}`}
+            amount={formatMoney(totalPeca)}
+          />
         )}
         {(ordem.desconto || 0) > 0 && (
-          <View style={styles.row}>
-            <Text>Desconto</Text>
-            <Text>-{formatMoney(ordem.desconto)}</Text>
-          </View>
+          <CupomValueRow desc="Desconto" amount={`-${formatMoney(ordem.desconto)}`} />
         )}
-        <View style={[styles.row, styles.mt, { borderTopWidth: 1, borderTopColor: '#000', paddingTop: 4 }]}>
-          <Text style={styles.bold}>TOTAL</Text>
-          <Text style={styles.bold}>{formatMoney(total)}</Text>
+        <View style={styles.valueTotalRow}>
+          <View style={styles.valueDescWrap}>
+            <Text style={[styles.bold, { fontSize: 12 }]}>TOTAL</Text>
+          </View>
+          <Text style={styles.valueTotalAmount}>{formatMoney(total)}</Text>
         </View>
         <View style={styles.line} />
 
         {(emp?.link_publico_ativo ?? true) && (
-          <View>
-            <Text style={[styles.center, styles.mt]}>Senha para acompanhar: {ordem.senha_acesso || '---'}</Text>
-            <Text style={[styles.center, { fontSize: 7, color: '#666', marginTop: 2 }]}>
-              acesse o link enviado ou informe a senha
+          <View style={styles.qrBox}>
+            <Text style={styles.qrTitle}>Acompanhe sua O.S digital</Text>
+            <Image
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(acompanhamentoUrl)}`}
+              style={{ width: 72, height: 72 }}
+            />
+            <Text style={[styles.center, styles.bold, { marginTop: 4 }]}>
+              Senha: {ordem.senha_acesso || '---'}
+            </Text>
+            <Text style={[styles.center, styles.secondary, { marginTop: 2, fontSize: 8 }]}>
+              Escaneie o QR code ou acesse o link enviado
             </Text>
           </View>
         )}
 
-        <View style={{ marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#ccc' }}>
-          <Text style={{ fontSize: 7, fontWeight: 'bold', marginBottom: 4, textAlign: 'center' }}>
-            {ordem.termo_garantia?.nome || 'Termo de Garantia'} (texto completo)
+        <View style={{ marginTop: 8, paddingTop: 6, borderTopWidth: 1.5, borderTopColor: '#000' }}>
+          <Text style={styles.termoTitle}>
+            {ordem.termo_garantia?.nome || 'Termo de Garantia'}
           </Text>
           {termoSections.length > 0 ? (
             termoSections.map((section, si) => (
               <View key={`ts-${si}`} style={{ marginBottom: 5 }}>
                 {section.title ? (
-                  <Text style={{ fontSize: 6, fontWeight: 'bold', marginBottom: 2 }}>{section.title}</Text>
+                  <Text style={styles.termoSectionTitle}>{section.title}</Text>
                 ) : null}
                 {section.lines.map((line, li) => (
-                  <Text
-                    key={`ts-${si}-l-${li}`}
-                    style={{ fontSize: 5, lineHeight: 1.35, color: '#222', marginBottom: 1 }}
-                  >
+                  <Text key={`ts-${si}-l-${li}`} style={styles.termoLine}>
                     {line}
                   </Text>
                 ))}
               </View>
             ))
           ) : (
-            <Text style={{ fontSize: 5, lineHeight: 1.35, color: '#222' }}>{termoFallback}</Text>
+            <Text style={styles.termoLine}>{termoFallback}</Text>
           )}
         </View>
 
-        <View style={{ marginTop: 10, borderTopWidth: 1, borderTopColor: '#000', paddingTop: 8, alignItems: 'center' }}>
-          <Text style={{ fontSize: 7 }}>_________________________________________</Text>
-          <Text style={{ fontSize: 7, marginTop: 2 }}>Assinatura do Cliente</Text>
+        <View style={styles.signatureBlock}>
+          <View style={styles.signatureSpace} />
+          <View style={styles.signatureLine} />
+          <Text style={styles.signatureLabel}>Nome completo</Text>
+        </View>
+
+        <View style={styles.systemCredit}>
+          <Text style={styles.systemCreditName}>Gestão Consert</Text>
+          <Text style={styles.systemCreditLink}>www.gestaoconsert.com.br</Text>
         </View>
       </Page>
     </Document>
