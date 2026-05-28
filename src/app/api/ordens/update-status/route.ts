@@ -75,8 +75,11 @@ function extractStatusText(value: unknown): string {
 
 function extractMissingColumn(message: string): string | null {
   if (!message) return null;
-  const match = message.match(/column\s+[^\s.]+\.(\w+)\s+does not exist/i);
-  return match?.[1] || null;
+  const pgMatch = message.match(/column\s+[^\s.]+\.(\w+)\s+does not exist/i);
+  if (pgMatch?.[1]) return pgMatch[1];
+  const cacheMatch = message.match(/Could not find the '(\w+)' column of/i);
+  if (cacheMatch?.[1]) return cacheMatch[1];
+  return null;
 }
 
 export async function POST(request: NextRequest) {
@@ -238,13 +241,26 @@ export async function POST(request: NextRequest) {
       dadosAtualizacao.status_tecnico = novoStatusTecnicoRaw;
       dadosAtualizacao.status = mapTecnicoParaOS(novoStatusTecnicoRaw) || novoStatusRaw || osAnteriorStatus;
     }
-    // Atendente alterou → espelhar para técnico (exceto se técnico tinha SEM REPARO)
+    // Atendente alterou → espelhar para técnico
     else if (atendenteAlterou) {
       dadosAtualizacao.status = novoStatusRaw;
-      if (isStatusSemReparo(osAnteriorStatusTecnico)) {
-        dadosAtualizacao.status_tecnico = 'SEM REPARO'; // FIXO: não sobrescreve
+      const entregaSemConsertoExplicita =
+        aparelho_sem_conserto === true ||
+        cliente_recusou === true ||
+        isStatusSemReparo(novoStatusTecnicoRaw);
+      const entregaComConsertoExplicita =
+        normalizeStatus(novoStatusRaw) === 'ENTREGUE' &&
+        !!novoStatusTecnicoRaw &&
+        !isStatusSemReparo(novoStatusTecnicoRaw) &&
+        !entregaSemConsertoExplicita;
+
+      if (entregaComConsertoExplicita) {
+        dadosAtualizacao.status_tecnico = novoStatusTecnicoRaw;
+      } else if (isStatusSemReparo(osAnteriorStatusTecnico) && !entregaComConsertoExplicita) {
+        dadosAtualizacao.status_tecnico = 'SEM REPARO';
       } else {
-        dadosAtualizacao.status_tecnico = mapOSTecnico(novoStatusRaw) || novoStatusTecnicoRaw || osAnteriorStatusTecnico;
+        dadosAtualizacao.status_tecnico =
+          novoStatusTecnicoRaw || mapOSTecnico(novoStatusRaw) || osAnteriorStatusTecnico;
       }
     }
     // Apenas updateData (ex.: bancada com outros campos) – aplicar espelhamento do que veio
@@ -375,11 +391,33 @@ export async function POST(request: NextRequest) {
     let comissaoRegistrada = false;
     let comissaoErro: string | null = null;
     // Buscar OS atualizada para verificar status final
-    const { data: osAtualizada } = await supabase
+    const osSelectComFlag =
+      'status, status_tecnico, data_entrega, tecnico_id, valor_faturado, valor_servico, valor_peca, tipo, os_garantia_id, empresa_id, cliente_id, cliente_recusou, aparelho_sem_conserto';
+    const osSelectSemFlag =
+      'status, status_tecnico, data_entrega, tecnico_id, valor_faturado, valor_servico, valor_peca, tipo, os_garantia_id, empresa_id, cliente_id, cliente_recusou';
+
+    let osAtualizada: Record<string, unknown> | null = ordemAtualizada;
+    const osFetch = await supabase
       .from('ordens_servico')
-      .select('status, status_tecnico, data_entrega, tecnico_id, valor_faturado, valor_servico, valor_peca, tipo, os_garantia_id, empresa_id, cliente_id, cliente_recusou, aparelho_sem_conserto')
+      .select(osSelectComFlag)
       .eq('id', osAnterior.id)
       .single();
+
+    if (!osFetch.error && osFetch.data) {
+      osAtualizada = osFetch.data as Record<string, unknown>;
+    } else if (extractMissingColumn(String(osFetch.error?.message || '')) === 'aparelho_sem_conserto') {
+      const osFetchLegacy = await supabase
+        .from('ordens_servico')
+        .select(osSelectSemFlag)
+        .eq('id', osAnterior.id)
+        .single();
+      if (!osFetchLegacy.error && osFetchLegacy.data) {
+        osAtualizada = {
+          ...(osFetchLegacy.data as Record<string, unknown>),
+          aparelho_sem_conserto: aparelho_sem_conserto === true,
+        };
+      }
+    }
     
     const statusAtual = normalizeStatus(osAtualizada?.status || '');
     const statusTecnicoAtual = normalizeStatus(osAtualizada?.status_tecnico || '');

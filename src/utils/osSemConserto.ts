@@ -30,6 +30,11 @@ export function inferirAparelhoSemConsertoOs(
   temVenda = false
 ): boolean {
   if (item.aparelho_sem_conserto) return true;
+  if (item.cliente_recusou) return false;
+
+  const statusOs = normStatusCompare(item.status);
+  if (statusOs !== 'ENTREGUE') return false;
+
   if (isStatusSemReparoOs(normStatusVal(item.status_tecnico))) return true;
   return false;
 }

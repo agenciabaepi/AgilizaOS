@@ -405,7 +405,8 @@ const VisualizarOrdemServicoPage = () => {
 
   // Função para processar entrega da O.S.
   const processarEntrega = async () => {
-    if (!termoGarantiaSelecionado) {
+    const exigeTermoGarantia = !clienteRecusou && !aparelhoSemConserto;
+    if (exigeTermoGarantia && !termoGarantiaSelecionado) {
       addToast('Selecione um termo de garantia', 'error');
       return;
     }
@@ -455,23 +456,28 @@ const VisualizarOrdemServicoPage = () => {
         await ensureTermoGarantiaPadraoNoBanco(supabase, empresaData.id);
       }
 
-      // 1. Atualizar O.S. para ENTREGUE usando nosso endpoint
-      // Só marca SEM REPARO se o checkbox aparelhoSemConserto foi explicitamente marcado
+      const payloadEntrega: Record<string, unknown> = {
+        osId: id,
+        newStatus: 'ENTREGUE',
+        newStatusTecnico: aparelhoSemConserto ? 'SEM REPARO' : 'REPARO CONCLUÍDO',
+        data_entrega: new Date().toISOString().split('T')[0],
+        cliente_recusou: clienteRecusou,
+        aparelho_sem_conserto: aparelhoSemConserto,
+      };
+
+      if (exigeTermoGarantia && termoGarantiaSelecionado?.id) {
+        payloadEntrega.termo_garantia_id = termoGarantiaSelecionado.id;
+        payloadEntrega.vencimento_garantia = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split('T')[0];
+      }
+
       const response = await fetch('/api/ordens/update-status', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          osId: id,
-          newStatus: 'ENTREGUE',
-          newStatusTecnico: aparelhoSemConserto ? 'SEM REPARO' : 'REPARO CONCLUÍDO',
-          termo_garantia_id: termoGarantiaSelecionado.id,
-          data_entrega: new Date().toISOString().split('T')[0],
-          vencimento_garantia: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          cliente_recusou: clienteRecusou,
-          aparelho_sem_conserto: aparelhoSemConserto
-        }),
+        body: JSON.stringify(payloadEntrega),
       });
 
       if (!response.ok) {
@@ -696,6 +702,7 @@ const VisualizarOrdemServicoPage = () => {
       entregaSomaPagamentos + 0.009 >= entregaTotalLiquido &&
       entregaSomaPagamentos > 0);
   const entregaDescontoInvalido = entregaDescontoExtra > entregaValorBruto + 0.001;
+  const entregaExigeTermo = !clienteRecusou && !aparelhoSemConserto;
 
   if (loading) {
     return (
@@ -1559,26 +1566,32 @@ const VisualizarOrdemServicoPage = () => {
                     </div>
                   )}
 
-                  <div className="rounded-xl border border-gray-200 dark:border-zinc-600 bg-gray-50/80 dark:bg-zinc-900/40 p-4">
-                    <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-zinc-400 mb-2">
-                      Termo de garantia *
-                    </label>
-                    <select
-                      value={termoGarantiaSelecionado?.id || ''}
-                      onChange={(e) => {
-                        const termo = termosGarantia.find((t) => t.id === e.target.value);
-                        setTermoGarantiaSelecionado(termo || null);
-                      }}
-                      className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-zinc-600 rounded-xl bg-white dark:bg-zinc-800 text-gray-900 dark:text-zinc-100 focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500"
-                    >
-                      <option value="">Selecione um termo...</option>
-                      {termosGarantia.map((termo) => (
-                        <option key={termo.id} value={termo.id}>
-                          {termo.is_sistema ? `${termo.nome} (Modelo de exemplo)` : termo.nome}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  {entregaExigeTermo ? (
+                    <div className="rounded-xl border border-gray-200 dark:border-zinc-600 bg-gray-50/80 dark:bg-zinc-900/40 p-4">
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-zinc-400 mb-2">
+                        Termo de garantia *
+                      </label>
+                      <select
+                        value={termoGarantiaSelecionado?.id || ''}
+                        onChange={(e) => {
+                          const termo = termosGarantia.find((t) => t.id === e.target.value);
+                          setTermoGarantiaSelecionado(termo || null);
+                        }}
+                        className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-zinc-600 rounded-xl bg-white dark:bg-zinc-800 text-gray-900 dark:text-zinc-100 focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500"
+                      >
+                        <option value="">Selecione um termo...</option>
+                        {termosGarantia.map((termo) => (
+                          <option key={termo.id} value={termo.id}>
+                            {termo.is_sistema ? `${termo.nome} (Modelo de exemplo)` : termo.nome}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-orange-200 dark:border-orange-900/50 bg-orange-50/50 dark:bg-orange-950/20 px-3 py-2.5 text-xs text-orange-900 dark:text-orange-200">
+                      Termo de garantia não é obrigatório para entrega sem conserto ou com recusa do cliente.
+                    </div>
+                  )}
 
                   {entregaValorBruto === 0 && (
                     <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/25 p-4">
@@ -1826,7 +1839,7 @@ const VisualizarOrdemServicoPage = () => {
                     onClick={processarEntrega}
                     disabled={
                       processandoEntrega ||
-                      !termoGarantiaSelecionado ||
+                      (entregaExigeTermo && !termoGarantiaSelecionado) ||
                       entregaDescontoInvalido ||
                       !entregaPagamentoOk
                     }
