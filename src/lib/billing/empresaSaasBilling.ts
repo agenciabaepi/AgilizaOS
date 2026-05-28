@@ -12,6 +12,8 @@ export type ComputeAssinaturaVencidaOptions = {
   loading?: boolean;
   /** Se false, não bloqueia (ex.: ainda sem `empresa_id` no contexto). */
   empresaIdPresent?: boolean;
+  /** Admin liberou acesso sem assinatura paga (coluna `empresas.sistema_liberado`). */
+  sistemaLiberado?: boolean;
   /** Se definido, usa dias civis nesse fuso; senão, o mesmo critério `diffDiasCalendario` (local do ambiente). */
   timeZone?: string;
 };
@@ -31,6 +33,7 @@ export function computeAssinaturaVencidaPorBilling(
 
   if (loading) return false;
   if (opts?.empresaIdPresent === false) return false;
+  if (opts?.sistemaLiberado === true) return false;
 
   const diff = (iso: string | null | undefined) =>
     useTz ? diffDiasCalendarioInTimeZone(iso, tz!) : diffDiasCalendario(iso);

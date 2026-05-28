@@ -20,11 +20,15 @@ export async function empresaBloqueadaParaUsoSaasAdmin(
       .eq('empresa_id', empresaId)
       .order('created_at', { ascending: false })
       .limit(30),
-    admin.from('empresas').select('created_at, ativo').eq('id', empresaId).maybeSingle(),
+    admin.from('empresas').select('created_at, ativo, sistema_liberado').eq('id', empresaId).maybeSingle(),
   ]);
 
   if (emp && emp.ativo === false) {
     return true;
+  }
+
+  if (emp?.sistema_liberado === true) {
+    return false;
   }
 
   const row = pickAssinaturaParaContexto(

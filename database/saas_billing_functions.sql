@@ -26,6 +26,7 @@ SET search_path = public
 AS $$
 DECLARE
   e_ativo boolean;
+  e_sistema_liberado boolean;
   e_created timestamptz;
   br_today date;
   trial_fim_ts timestamptz;
@@ -34,7 +35,8 @@ DECLARE
   has_active_ok boolean;
   has_any_assinatura boolean;
 BEGIN
-  SELECT e.ativo, e.created_at INTO e_ativo, e_created
+  SELECT e.ativo, e.sistema_liberado, e.created_at
+  INTO e_ativo, e_sistema_liberado, e_created
   FROM public.empresas e
   WHERE e.id = p_empresa_id;
 
@@ -44,6 +46,10 @@ BEGIN
 
   IF e_ativo IS false THEN
     RETURN false;
+  END IF;
+
+  IF e_sistema_liberado IS true THEN
+    RETURN true;
   END IF;
 
   br_today := (timezone('America/Sao_Paulo', now()))::date;
@@ -126,7 +132,7 @@ REVOKE ALL ON FUNCTION public.saas_auth_pode_usar_app() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.saas_auth_pode_usar_app() TO authenticated;
 
 COMMENT ON FUNCTION public.saas_empresa_pode_usar_app(uuid) IS
-  'true se empresa ativa e (trial válido ou assinatura paga em dia). Usar em RLS.';
+  'true se empresa ativa e (sistema_liberado, trial válido ou assinatura paga em dia). Usar em RLS.';
 
 COMMENT ON FUNCTION public.saas_auth_pode_usar_app() IS
   'true se o usuário autenticado (JWT) pertence a empresa com acesso SaaS ativo. Usado pelo middleware.';

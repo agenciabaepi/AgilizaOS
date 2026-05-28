@@ -239,7 +239,9 @@ export async function GET(
     let vencido = false;
     let cobrancaStatus = '—';
     const hoje = new Date();
-    if (tf.emTrialAtivo) {
+    if (empresa.sistema_liberado === true) {
+      cobrancaStatus = 'Sistema liberado';
+    } else if (tf.emTrialAtivo) {
       cobrancaStatus = 'Trial';
     } else if ((assinatura?.status === 'trial' || tf.trialImplicito) && tf.trialExpirado) {
       cobrancaStatus = 'Trial encerrado';
@@ -311,6 +313,7 @@ export async function PATCH(
 
     const updateData: Record<string, unknown> = {};
     if (typeof body.ativo === 'boolean') updateData.ativo = body.ativo;
+    if (typeof body.sistema_liberado === 'boolean') updateData.sistema_liberado = body.sistema_liberado;
     if (typeof body.status === 'string' && ['pendente', 'aprovada', 'reprovada'].includes(body.status)) {
       updateData.status = body.status;
     }

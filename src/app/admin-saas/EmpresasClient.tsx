@@ -29,6 +29,7 @@ type Empresa = {
   endereco?: string | null;
   status?: string | null; // pendente, aprovada, reprovada
   ativo?: boolean | null;
+  sistema_liberado?: boolean | null;
   created_at?: string | null;
   logo_url?: string | null;
   metrics?: {
@@ -172,6 +173,10 @@ export default function EmpresasClient() {
   }
   async function handleToggleActive(e: Empresa) {
     await patchEmpresa(e.id, { ativo: !e.ativo });
+  }
+
+  async function handleToggleSistemaLiberado(e: Empresa) {
+    await patchEmpresa(e.id, { sistema_liberado: !e.sistema_liberado });
   }
 
   async function handleCreate() {
@@ -434,6 +439,11 @@ export default function EmpresasClient() {
                       >
                         {e.ativo ? 'Ativa' : 'Inativa'}
                       </span>
+                      {e.sistema_liberado && (
+                        <span className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-medium leading-none bg-sky-50 text-sky-800 ring-1 ring-sky-200/80">
+                          Liberado
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-gray-600 tabular-nums text-[13px]">
@@ -454,7 +464,9 @@ export default function EmpresasClient() {
                         <div className="flex items-center gap-1 flex-wrap">
                           <span
                             className={`inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-[11px] font-medium leading-none ${
-                              e.billing.cobrancaStatus === 'Em dia'
+                              e.billing.cobrancaStatus === 'Sistema liberado'
+                                ? 'bg-sky-100 text-sky-800'
+                                : e.billing.cobrancaStatus === 'Em dia'
                                 ? 'bg-green-100 text-green-800'
                                 : e.billing.cobrancaStatus === 'Trial'
                                   ? 'bg-yellow-100 text-yellow-800'
@@ -502,13 +514,26 @@ export default function EmpresasClient() {
                   <td className="px-4 py-3 whitespace-nowrap text-gray-600 tabular-nums text-[13px]">{e.metrics?.ordens ?? 0}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-gray-600 tabular-nums text-[13px]">{e.metrics?.usoMb ?? 0}</td>
                   <td className="px-4 py-3 whitespace-nowrap" onClick={(ev) => ev.stopPropagation()}>
-                    <Button 
-                      size="sm" 
-                      onClick={() => window.location.href = `/admin-saas/empresas/${e.id}`}
-                      className="bg-gray-900 hover:bg-gray-800 text-white text-xs px-3 py-1"
-                    >
-                      Ver Detalhes
-                    </Button>
+                    <div className="flex flex-col gap-1.5 items-start">
+                      <Button
+                        size="sm"
+                        onClick={() => void handleToggleSistemaLiberado(e)}
+                        className={
+                          e.sistema_liberado
+                            ? 'bg-sky-100 hover:bg-sky-200 text-sky-900 border border-sky-300 text-xs px-3 py-1'
+                            : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 text-xs px-3 py-1'
+                        }
+                      >
+                        {e.sistema_liberado ? 'Revogar liberação' : 'Liberar sistema'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => window.location.href = `/admin-saas/empresas/${e.id}`}
+                        className="bg-gray-900 hover:bg-gray-800 text-white text-xs px-3 py-1"
+                      >
+                        Ver Detalhes
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))

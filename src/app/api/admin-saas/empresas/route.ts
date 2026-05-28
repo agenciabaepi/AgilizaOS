@@ -243,7 +243,9 @@ export async function GET(req: NextRequest) {
         let vencido = false;
         let cobrancaStatus = '—';
         const hoje = new Date();
-        if (tf.emTrialAtivo) {
+        if (e.sistema_liberado === true) {
+          cobrancaStatus = 'Sistema liberado';
+        } else if (tf.emTrialAtivo) {
           cobrancaStatus = 'Trial';
         } else if ((assinatura?.status === 'trial' || tf.trialImplicito) && tf.trialExpirado) {
           cobrancaStatus = 'Trial encerrado';

@@ -31,6 +31,7 @@ type EmpresaDetalhes = {
   cpf?: string | null;
   status?: string | null;
   ativo?: boolean | null;
+  sistema_liberado?: boolean | null;
   created_at?: string | null;
   plano?: string | null;
   logo_url?: string | null;
@@ -593,6 +594,7 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
   const [showGerenciarRecursos, setShowGerenciarRecursos] = useState(false);
   const [showEditarDadosEmpresa, setShowEditarDadosEmpresa] = useState(false);
   const [salvandoAtivo, setSalvandoAtivo] = useState(false);
+  const [salvandoLiberado, setSalvandoLiberado] = useState(false);
   const [cancelandoAssinatura, setCancelandoAssinatura] = useState(false);
   const [valorAssinaturaInline, setValorAssinaturaInline] = useState('');
   const [salvandoValorAssinatura, setSalvandoValorAssinatura] = useState(false);
@@ -662,6 +664,18 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
       alert(e.message || 'Não foi possível atualizar. Tente novamente.');
     } finally {
       setSalvandoAtivo(false);
+    }
+  }
+
+  async function handleToggleSistemaLiberado() {
+    if (!empresa) return;
+    setSalvandoLiberado(true);
+    try {
+      await patchEmpresa({ sistema_liberado: !empresa.sistema_liberado });
+    } catch (e: any) {
+      alert(e.message || 'Não foi possível atualizar a liberação.');
+    } finally {
+      setSalvandoLiberado(false);
     }
   }
 
@@ -783,6 +797,35 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
           )}
           <Button
             variant="outline"
+            onClick={handleToggleSistemaLiberado}
+            disabled={salvandoLiberado || !empresa.ativo}
+            title={
+              !empresa.ativo
+                ? 'Ative a empresa antes de liberar o sistema'
+                : empresa.sistema_liberado
+                  ? 'Remove acesso sem assinatura paga'
+                  : 'Permite usar o sistema mesmo sem assinatura/trial válido'
+            }
+            className={
+              empresa.sistema_liberado
+                ? 'border-sky-300 text-sky-800 hover:bg-sky-50'
+                : 'border-amber-300 text-amber-800 hover:bg-amber-50'
+            }
+          >
+            {empresa.sistema_liberado ? (
+              <>
+                <FiSlash className="mr-2" />
+                {salvandoLiberado ? 'Revogando...' : 'Revogar liberação'}
+              </>
+            ) : (
+              <>
+                <FiCheck className="mr-2" />
+                {salvandoLiberado ? 'Liberando...' : 'Liberar sistema'}
+              </>
+            )}
+          </Button>
+          <Button
+            variant="outline"
             onClick={handleToggleActive}
             disabled={salvandoAtivo}
             className={empresa.ativo ? 'border-red-300 text-red-700 hover:bg-red-50' : 'border-green-300 text-green-700 hover:bg-green-50'}
@@ -834,6 +877,7 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
             </div>
             {empresa.billing?.cobrancaStatus && (
               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                empresa.billing.cobrancaStatus === 'Sistema liberado' ? 'bg-sky-100 text-sky-800' :
                 empresa.billing.cobrancaStatus === 'Em dia' ? 'bg-green-100 text-green-800' :
                 empresa.billing.cobrancaStatus === 'Trial' ? 'bg-yellow-100 text-yellow-800' :
                 empresa.billing.cobrancaStatus === 'Trial encerrado' ? 'bg-amber-100 text-amber-900' :

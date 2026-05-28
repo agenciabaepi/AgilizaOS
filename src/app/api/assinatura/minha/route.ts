@@ -57,13 +57,19 @@ export async function GET(req: NextRequest) {
         .eq('empresa_id', empresaId)
         .order('created_at', { ascending: false })
         .limit(30),
-      admin.from('empresas').select('created_at').eq('id', empresaId).maybeSingle(),
+      admin.from('empresas').select('created_at, sistema_liberado').eq('id', empresaId).maybeSingle(),
     ]);
 
     const empresaCreatedAt = (empRow?.created_at as string | undefined) ?? null;
 
+    const sistemaLiberado = empRow?.sistema_liberado === true;
+
     if (aErr || !rows?.length) {
-      return NextResponse.json({ assinatura: null, empresa_created_at: empresaCreatedAt });
+      return NextResponse.json({
+        assinatura: null,
+        empresa_created_at: empresaCreatedAt,
+        sistema_liberado: sistemaLiberado,
+      });
     }
 
     const row = pickAssinaturaParaContexto(rows as Record<string, unknown>[], empresaCreatedAt)!;
@@ -81,6 +87,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       assinatura: { ...row, planos },
       empresa_created_at: empresaCreatedAt,
+      sistema_liberado: sistemaLiberado,
     });
   } catch (e) {
     console.error('GET /api/assinatura/minha:', e);
