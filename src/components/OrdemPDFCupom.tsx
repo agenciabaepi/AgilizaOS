@@ -232,10 +232,10 @@ export default function OrdemPDFCupom({ ordem }: { ordem: any }) {
         <View style={styles.line} />
 
         <Text style={[styles.bold, styles.block, { fontSize: 11 }]}>EQUIPAMENTO</Text>
-        <Text style={styles.bold}>
+        <Text style={[styles.bold, { marginBottom: 4 }]}>
           {ordem.equipamento || '---'} | {ordem.marca || ''} {ordem.modelo || ''}
         </Text>
-        <Text style={styles.block}>
+        <Text style={[styles.block, { marginTop: 4 }]}>
           <Text style={styles.label}>Problema: </Text>
           {(ordem.relato || ordem.problema_relatado || '---').toString().slice(0, 200)}
           {((ordem.relato || ordem.problema_relatado || '').toString().length > 200 ? '...' : '')}

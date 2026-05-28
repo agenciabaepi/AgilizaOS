@@ -4,7 +4,7 @@ import MenuLayout from "@/components/MenuLayout";
 
 import { Button } from '@/components/Button';
 import ReactSelect from 'react-select';
-import { useState, useEffect, startTransition, useMemo } from 'react';
+import { useState, useEffect, startTransition, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { handleSupabaseError } from '@/utils/supabaseErrorHandler';
 import { interceptSupabaseQuery } from '@/utils/supabaseInterceptor';
@@ -28,6 +28,8 @@ import {
   FiCheck,
   FiX,
   FiExternalLink,
+  FiFileText,
+  FiTrash2,
 } from 'react-icons/fi';
 import EquipamentoSelector from '@/components/EquipamentoSelector';
 import AparelhoSelector from '@/components/AparelhoSelector';
@@ -59,6 +61,8 @@ import {
   isTermoGarantiaPadraoId,
   mesclarTermosGarantia,
 } from '@/lib/termoGarantiaPadrao';
+import { formatDraftUpdatedAt, type NovaOSDraftData } from '@/lib/novaOsDraft';
+import { useNovaOSDraft } from '@/hooks/useNovaOSDraft';
 
 const etapas = ["Cliente", "Aparelho", "Checklist", "Técnico", "Status", "Imagens"];
 
@@ -532,6 +536,173 @@ function NovaOS2Content() {
   const { addToast } = useToast();
   const { register, handleSubmit, reset, formState: { errors } } = useForm<{ nome: string; whatsapp: string; cpf: string; numero_reserva?: string; email?: string }>();
 
+  const draftRestoredRef = useRef(false);
+  const skipUrlClienteRef = useRef(false);
+  const tipoEntradaInicialRef = useRef(true);
+
+  const getDraftSnapshot = useCallback((): NovaOSDraftData | null => {
+    const base = {
+      etapaAtual,
+      tipoEntrada,
+      osGarantiaBusca,
+      osGarantiaSelecionada: osGarantiaSelecionada
+        ? {
+            id: String(osGarantiaSelecionada.id),
+            numero_os: osGarantiaSelecionada.numero_os as number | string | undefined,
+            marca: osGarantiaSelecionada.marca as string | undefined,
+            modelo: osGarantiaSelecionada.modelo as string | undefined,
+            cor: osGarantiaSelecionada.cor as string | undefined,
+            numero_serie: osGarantiaSelecionada.numero_serie as string | undefined,
+            cliente_id: osGarantiaSelecionada.cliente_id as string | undefined,
+          }
+        : null,
+      clienteSelecionado,
+      dadosEquipamento,
+      tipoEquipamentoSelecionado,
+      aparelhoSelecionado,
+      identificacaoManual,
+      previewCor,
+      checklistEntrada,
+      acessorios,
+      tecnicoResponsavel,
+      statusSelecionado,
+      produtosSelecionados,
+      servicosSelecionados,
+      termoSelecionado,
+      prazoEntrega,
+      observacoes,
+      condicoesEquipamento,
+    };
+    return {
+      ...base,
+      version: 1,
+      updatedAt: new Date().toISOString(),
+    };
+  }, [
+    etapaAtual,
+    tipoEntrada,
+    osGarantiaBusca,
+    osGarantiaSelecionada,
+    clienteSelecionado,
+    dadosEquipamento,
+    tipoEquipamentoSelecionado,
+    aparelhoSelecionado,
+    identificacaoManual,
+    previewCor,
+    checklistEntrada,
+    acessorios,
+    tecnicoResponsavel,
+    statusSelecionado,
+    produtosSelecionados,
+    servicosSelecionados,
+    termoSelecionado,
+    prazoEntrega,
+    observacoes,
+    condicoesEquipamento,
+  ]);
+
+  const resetFormularioNovaOS = useCallback(() => {
+    setEtapaAtual(1);
+    setTipoEntrada('nova');
+    setOsGarantiaBusca('');
+    setOsGarantiaResultados([]);
+    setOsGarantiaSelecionada(null);
+    setClienteSelecionado(null);
+    setDadosEquipamento({
+      tipo: '',
+      marca: '',
+      modelo: '',
+      cor: '',
+      numero_serie: '',
+      descricao_problema: '',
+      senha: '',
+      senha_padrao: [],
+    });
+    setTipoEquipamentoSelecionado(null);
+    setAparelhoSelecionado(null);
+    setVariantesCoresAtual([]);
+    setImagensPadraoAparelho(null);
+    setPreviewCor({ frente: null, verso: null, corId: null });
+    setIdentificacaoManual(false);
+    setChecklistEntrada({});
+    setAcessorios('');
+    setTecnicoResponsavel(null);
+    setStatusSelecionado('orcamento');
+    setProdutosSelecionados([]);
+    setServicosSelecionados([]);
+    setTermoSelecionado(null);
+    setPrazoEntrega('');
+    setObservacoes('');
+    setCondicoesEquipamento('');
+    setImagens([]);
+    setPreviewImagens([]);
+    draftRestoredRef.current = false;
+    skipUrlClienteRef.current = false;
+    tipoEntradaInicialRef.current = true;
+  }, []);
+
+  const aplicarRascunho = useCallback((draft: NovaOSDraftData) => {
+    draftRestoredRef.current = true;
+    skipUrlClienteRef.current = !!draft.clienteSelecionado;
+    setEtapaAtual(draft.etapaAtual);
+    setTipoEntrada(draft.tipoEntrada);
+    setOsGarantiaBusca(draft.osGarantiaBusca || '');
+    setOsGarantiaSelecionada(draft.osGarantiaSelecionada as Record<string, unknown> | null);
+    setClienteSelecionado(draft.clienteSelecionado);
+    setDadosEquipamento(draft.dadosEquipamento);
+    setTipoEquipamentoSelecionado(draft.tipoEquipamentoSelecionado);
+    setAparelhoSelecionado(draft.aparelhoSelecionado);
+    setIdentificacaoManual(draft.identificacaoManual);
+    setPreviewCor(draft.previewCor || { frente: null, verso: null, corId: null });
+    setVariantesCoresAtual(draft.aparelhoSelecionado?.coresDisponiveis || []);
+    if (draft.aparelhoSelecionado) {
+      setImagensPadraoAparelho({
+        imagemUrl: draft.aparelhoSelecionado.imagemUrl ?? null,
+        imagemFrenteUrl: draft.aparelhoSelecionado.imagemFrenteUrl ?? null,
+        imagemVersoUrl: draft.aparelhoSelecionado.imagemVersoUrl ?? null,
+      });
+    } else {
+      setImagensPadraoAparelho(null);
+    }
+    setChecklistEntrada(draft.checklistEntrada || {});
+    setAcessorios(draft.acessorios || '');
+    setTecnicoResponsavel(draft.tecnicoResponsavel);
+    setStatusSelecionado(draft.statusSelecionado);
+    setProdutosSelecionados(draft.produtosSelecionados || []);
+    setServicosSelecionados(draft.servicosSelecionados || []);
+    setTermoSelecionado(draft.termoSelecionado);
+    setPrazoEntrega(draft.prazoEntrega || '');
+    setObservacoes(draft.observacoes || '');
+    setCondicoesEquipamento(draft.condicoesEquipamento || '');
+  }, []);
+
+  const { draftRestored, draftUpdatedAt, clearDraft, persistDraft } = useNovaOSDraft({
+    empresaId: empresaData?.id,
+    usuarioAuthId: usuarioData?.auth_user_id,
+    enabled: isMounted,
+    getSnapshot: getDraftSnapshot,
+    onRestore: aplicarRascunho,
+    onClearForm: resetFormularioNovaOS,
+  });
+
+  const limparRascunho = useCallback(() => {
+    clearDraft();
+    addToast('success', 'Formulário limpo. Você pode iniciar uma nova O.S.');
+  }, [clearDraft, addToast]);
+
+  useEffect(() => {
+    if (!isMounted || !empresaData?.id) return;
+    const timer = setTimeout(() => persistDraft(), 600);
+    return () => clearTimeout(timer);
+  }, [getDraftSnapshot, isMounted, empresaData?.id, persistDraft]);
+
+  useEffect(() => {
+    if (!isMounted || !empresaData?.id) return;
+    const flush = () => persistDraft();
+    window.addEventListener('beforeunload', flush);
+    return () => window.removeEventListener('beforeunload', flush);
+  }, [isMounted, empresaData?.id, persistDraft]);
+
   // Controlar hidratação
   useEffect(() => {
     setIsMounted(true);
@@ -550,7 +721,12 @@ function NovaOS2Content() {
         
         // Verificar se há clienteId na URL para selecionar automaticamente
         const clienteIdFromURL = searchParams.get('clienteId');
-        if (clienteIdFromURL && clienteIdFromURL !== 'null' && data.find((c: any) => c.id === clienteIdFromURL)) {
+        if (
+          !skipUrlClienteRef.current &&
+          clienteIdFromURL &&
+          clienteIdFromURL !== 'null' &&
+          data.find((c: Cliente) => c.id === clienteIdFromURL)
+        ) {
           setClienteSelecionado(clienteIdFromURL);
         }
       }
@@ -577,9 +753,9 @@ function NovaOS2Content() {
         setUsuarios(data);
         setTecnicos(data.filter((u: any) => u.nivel === 'tecnico'));
         
-        // Auto-atribuir baseado no usuário logado
-        if (usuarioData) {
-          const usuarioLogado = data.find((u: any) => u.auth_user_id === usuarioData.auth_user_id);
+        // Auto-atribuir baseado no usuário logado (não sobrescrever rascunho)
+        if (usuarioData && !draftRestoredRef.current) {
+          const usuarioLogado = data.find((u: Usuario) => u.auth_user_id === usuarioData.auth_user_id);
           if (usuarioLogado && usuarioLogado.nivel === 'tecnico') {
             setTecnicoResponsavel(usuarioLogado.tecnico_id || usuarioLogado.auth_user_id);
           }
@@ -620,19 +796,28 @@ function NovaOS2Content() {
       ];
       
       setStatusOS(statusPadrao);
-      setStatusSelecionado('orcamento'); // Padrão: ORÇAMENTO
+      if (!draftRestoredRef.current) {
+        setStatusSelecionado('orcamento'); // Padrão: ORÇAMENTO
+      }
     }
     fetchStatus();
   }, [empresaData?.id]);
 
   // Auto-selecionar status para retorno de garantia
   useEffect(() => {
-    if (tipoEntrada === 'garantia' && statusOS.length > 0) {
+    if (statusOS.length === 0) return;
+
+    if (tipoEntradaInicialRef.current) {
+      tipoEntradaInicialRef.current = false;
+      if (draftRestoredRef.current) return;
+    }
+
+    if (tipoEntrada === 'garantia') {
       const statusRetornoGarantia = statusOS.find(s => s.id === 'retorno_garantia');
       if (statusRetornoGarantia) {
         setStatusSelecionado('retorno_garantia');
       }
-    } else if (tipoEntrada === 'nova' && statusOS.length > 0) {
+    } else if (tipoEntrada === 'nova') {
       setStatusSelecionado('orcamento');
     }
   }, [tipoEntrada, statusOS]);
@@ -689,7 +874,10 @@ function NovaOS2Content() {
       setTermos(merged);
 
       if (merged.length > 0) {
-        if (!termoSelecionado || !merged.find((t) => t.id === termoSelecionado)) {
+        if (
+          !draftRestoredRef.current &&
+          (!termoSelecionado || !merged.find((t) => t.id === termoSelecionado))
+        ) {
           setTermoSelecionado(merged[0].id);
         }
       }
@@ -1155,6 +1343,8 @@ function NovaOS2Content() {
 
       // Mostrar toast de sucesso
       addToast('success', 'Ordem de Serviço criada com sucesso!');
+
+      clearDraft();
       
       // Redirecionar para visualizar a OS criada
       router.push(`/ordens/${osData.id}`);
@@ -1211,6 +1401,36 @@ function NovaOS2Content() {
               Preencha cada etapa com calma. Você pode voltar às anteriores a qualquer momento.
             </p>
           </header>
+
+          {(draftRestored || draftUpdatedAt) && (
+            <div className="mb-6 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-start gap-3">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
+                  <FiFileText className="h-4 w-4" aria-hidden />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-amber-950">
+                    {draftRestored ? 'Rascunho restaurado' : 'Rascunho salvo automaticamente'}
+                  </p>
+                  <p className="mt-0.5 text-xs text-amber-800">
+                    {draftRestored
+                      ? 'Seus dados foram recuperados. As fotos precisam ser anexadas novamente.'
+                      : 'O preenchimento é salvo enquanto você edita.'}
+                    {draftUpdatedAt ? ` · ${formatDraftUpdatedAt(draftUpdatedAt)}` : ''}
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={limparRascunho}
+                className="shrink-0 gap-2 self-start sm:self-center"
+              >
+                <FiTrash2 className="h-4 w-4" aria-hidden />
+                Nova O.S. (limpar)
+              </Button>
+            </div>
+          )}
 
           <NovaOSWizardLayout
             etapas={etapas}
