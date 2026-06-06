@@ -16,8 +16,10 @@ import {
   type ConfiguracaoPrecificacao,
 } from '@/lib/pricingCalculator';
 import { cn } from '@/lib/utils';
-import { FiAlertCircle, FiSettings, FiTrendingUp } from 'react-icons/fi';
+import { FiAlertCircle, FiPrinter, FiSettings, FiTrendingUp } from 'react-icons/fi';
 import { Calculator } from 'lucide-react';
+import PricingCalculatorPrintDialog from '@/components/PricingCalculatorPrintDialog';
+import { Button } from '@/components/Button';
 
 interface PricingCalculatorModalProps {
   isOpen: boolean;
@@ -36,6 +38,7 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
   const [config, setConfig] = useState<ConfiguracaoPrecificacao | null>(null);
   const [custoInput, setCustoInput] = useState('');
   const [maoDeObraInput, setMaoDeObraInput] = useState('');
+  const [printOpen, setPrintOpen] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !usuarioData?.empresa_id) return;
@@ -44,6 +47,7 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
     setLoading(true);
     setCustoInput('');
     setMaoDeObraInput('');
+    setPrintOpen(false);
 
     (async () => {
       try {
@@ -98,6 +102,7 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
   const configurado = isConfiguracaoValida(config);
 
   return (
+    <>
     <Dialog onClose={onClose}>
       <div className="p-6 w-full max-w-md">
         <div className="flex items-center gap-3 mb-5 pr-6">
@@ -210,6 +215,16 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
                     Margem: {resultado.margemBrutaPercent.toFixed(1)}%
                   </span>
                 </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setPrintOpen(true)}
+                >
+                  <FiPrinter className="mr-2" size={16} />
+                  Imprimir orçamento
+                </Button>
               </div>
             )}
 
@@ -222,5 +237,22 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
         )}
       </div>
     </Dialog>
+
+    {resultado && empresaData && (
+      <PricingCalculatorPrintDialog
+        isOpen={printOpen}
+        onClose={() => setPrintOpen(false)}
+        empresa={{
+          nome: empresaData.nome,
+          cnpj: empresaData.cnpj,
+          endereco: empresaData.endereco,
+          telefone: empresaData.telefone,
+          email: empresaData.email,
+        }}
+        resultado={resultado}
+        maoDeObra={maoDeObra}
+      />
+    )}
+    </>
   );
 }

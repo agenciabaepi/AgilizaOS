@@ -9,6 +9,7 @@ export interface ConfiguracaoPrecificacao {
 export type SaudePreco = 'saudavel' | 'apertado' | 'insuficiente';
 
 export interface ResultadoPrecificacao {
+  precoPeca: number;
   precoVenda: number;
   precoParcelado: number;
   lucroBruto: number;
@@ -73,6 +74,7 @@ export function calcularPrecificacao(
   }
 
   return {
+    precoPeca,
     precoVenda,
     precoParcelado,
     lucroBruto,
