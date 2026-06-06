@@ -243,11 +243,13 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
         isOpen={printOpen}
         onClose={() => setPrintOpen(false)}
         empresa={{
+          id: empresaData.id,
           nome: empresaData.nome,
           cnpj: empresaData.cnpj,
           endereco: empresaData.endereco,
           telefone: empresaData.telefone,
           email: empresaData.email,
+          logo_url: empresaData.logo_url,
         }}
         resultado={resultado}
         maoDeObra={maoDeObra}

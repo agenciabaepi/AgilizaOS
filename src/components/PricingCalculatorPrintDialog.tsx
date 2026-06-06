@@ -6,14 +6,19 @@ import { Input } from '@/components/Input';
 import { Button } from '@/components/Button';
 import { imprimirCupomOrcamento } from '@/lib/pricingCalculatorCupom';
 import type { ResultadoPrecificacao } from '@/lib/pricingCalculator';
+import { convertLogoToBlackForCupom } from '@/utils/logoCupomPreto';
+import { supabase } from '@/lib/supabaseClient';
 import { FiPrinter } from 'react-icons/fi';
 
 interface EmpresaPrintData {
+  id?: string;
   nome: string;
   cnpj?: string;
   endereco?: string;
   telefone?: string;
   email?: string;
+  logo_url?: string;
+  website?: string;
 }
 
 interface PricingCalculatorPrintDialogProps {
@@ -22,6 +27,22 @@ interface PricingCalculatorPrintDialogProps {
   empresa: EmpresaPrintData;
   resultado: ResultadoPrecificacao;
   maoDeObra: number;
+}
+
+async function prepararLogoCupom(logoUrl?: string): Promise<string | null> {
+  const source = logoUrl || '/logo.png';
+  try {
+    return await convertLogoToBlackForCupom(source);
+  } catch {
+    if (source !== '/logo.png') {
+      try {
+        return await convertLogoToBlackForCupom('/logo.png');
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
 }
 
 export default function PricingCalculatorPrintDialog({
@@ -34,31 +55,65 @@ export default function PricingCalculatorPrintDialog({
   const [cliente, setCliente] = useState('');
   const [modeloAparelho, setModeloAparelho] = useState('');
   const [exibirMaoDeObraSeparada, setExibirMaoDeObraSeparada] = useState(false);
+  const [imprimindo, setImprimindo] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setCliente('');
       setModeloAparelho('');
       setExibirMaoDeObraSeparada(false);
+      setImprimindo(false);
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const handleImprimir = () => {
+  const handleImprimir = async () => {
     if (!cliente.trim() || !modeloAparelho.trim()) return;
 
-    imprimirCupomOrcamento({
-      empresa,
-      cliente: cliente.trim(),
-      modeloAparelho: modeloAparelho.trim(),
-      precoPeca: resultado.precoPeca,
-      maoDeObra,
-      precoVenda: resultado.precoVenda,
-      exibirMaoDeObraSeparada,
-    });
+    setImprimindo(true);
+    try {
+      let empresaCompleta = { ...empresa };
 
-    onClose();
+      if (empresa.id && !empresa.website) {
+        const { data } = await supabase
+          .from('empresas')
+          .select('website, logo_url')
+          .eq('id', empresa.id)
+          .maybeSingle();
+        if (data) {
+          empresaCompleta = {
+            ...empresaCompleta,
+            website: data.website || empresaCompleta.website,
+            logo_url: data.logo_url || empresaCompleta.logo_url,
+          };
+        }
+      }
+
+      const logoCupomPreto = await prepararLogoCupom(empresaCompleta.logo_url);
+
+      imprimirCupomOrcamento({
+        empresa: {
+          nome: empresaCompleta.nome,
+          cnpj: empresaCompleta.cnpj,
+          endereco: empresaCompleta.endereco,
+          telefone: empresaCompleta.telefone,
+          email: empresaCompleta.email,
+          website: empresaCompleta.website,
+        },
+        logoCupomPreto,
+        cliente: cliente.trim(),
+        modeloAparelho: modeloAparelho.trim(),
+        precoPeca: resultado.precoPeca,
+        maoDeObra,
+        precoVenda: resultado.precoVenda,
+        exibirMaoDeObraSeparada,
+      });
+
+      onClose();
+    } finally {
+      setImprimindo(false);
+    }
   };
 
   const podeImprimir = cliente.trim().length > 0 && modeloAparelho.trim().length > 0;
@@ -116,12 +171,12 @@ export default function PricingCalculatorPrintDialog({
         </div>
 
         <div className="flex justify-end gap-2 mt-6">
-          <Button type="button" variant="outline" onClick={onClose}>
+          <Button type="button" variant="outline" onClick={onClose} disabled={imprimindo}>
             Cancelar
           </Button>
-          <Button type="button" onClick={handleImprimir} disabled={!podeImprimir}>
+          <Button type="button" onClick={handleImprimir} disabled={!podeImprimir || imprimindo}>
             <FiPrinter className="mr-2" size={16} />
-            Imprimir
+            {imprimindo ? 'Preparando...' : 'Imprimir'}
           </Button>
         </div>
       </div>
