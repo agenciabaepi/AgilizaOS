@@ -12,6 +12,7 @@ import {
   Building2,
   Users,
   DollarSign,
+  Calculator,
   Wrench,
   Smartphone,
   ClipboardCheck,
@@ -31,6 +32,7 @@ import UsuariosPage from './usuarios/page'
 import TermosPage from './termos/page'
 import StatusPage from './status/page'
 import ComissoesPage from './comissoes/page'
+import PrecificacaoPage from './precificacao/page'
 import CatalogoPage from './catalogo/page'
 import EquipamentosPage from './equipamentos/page'
 import AparelhosPage from './aparelhos/page'
@@ -62,6 +64,7 @@ const tabsConfig: TabConfig[] = [
   { name: 'Empresa', description: 'Dados e identidade da loja', group: 'geral', icon: Building2, Component: EmpresaPage, permissao: 'empresa', requerRecurso: null },
   { name: 'Usuários', description: 'Equipe e permissões', group: 'geral', icon: Users, Component: UsuariosPage, permissao: 'usuarios', requerRecurso: null },
   { name: 'Comissões', description: 'Regras para técnicos', group: 'financeiro', icon: DollarSign, Component: ComissoesPage, permissao: 'comissoes', requerRecurso: 'financeiro' },
+  { name: 'Precificação', description: 'Calculadora de preços de peças', group: 'financeiro', icon: Calculator, Component: PrecificacaoPage, permissao: 'empresa', requerRecurso: null },
   { name: 'Equipamentos', description: 'Tipos de equipamento', group: 'operacao', icon: Wrench, Component: EquipamentosPage, permissao: 'equipamentos', requerRecurso: null },
   { name: 'Aparelhos', description: 'Catálogo de aparelhos', group: 'operacao', icon: Smartphone, Component: AparelhosPage, permissao: 'equipamentos', requerRecurso: null },
   { name: 'Checklist', description: 'Itens de entrada na OS', group: 'operacao', icon: ClipboardCheck, Component: ChecklistNovoPage, permissao: 'checklist', requerRecurso: null },
@@ -84,19 +87,11 @@ function ConfiguracoesInner() {
     const tab = searchParams.get('tab')
     if (tab !== null) {
       const index = Number(tab)
-      // Avisos era tab=11 antes de remover WhatsApp (tab=10)
-      if (index === 11) {
-        const params = new URLSearchParams(searchParams.toString())
-        params.set('tab', '10')
-        router.replace(`?${params.toString()}`)
-        setTabIndex(10)
-        return
-      }
       if (!Number.isNaN(index) && index >= 0 && index < tabsConfig.length) {
         setTabIndex(index)
       }
     }
-  }, [searchParams, router])
+  }, [searchParams])
 
   const handleTabChange = (index: number) => {
     setTabIndex(index)

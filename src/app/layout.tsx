@@ -17,6 +17,7 @@ import { ConfirmProvider } from '@/components/ConfirmDialog';
 
 import dynamic from 'next/dynamic';
 import StickyOrcamentoPopup from '@/components/StickyOrcamentoPopup';
+import PricingCalculatorFAB from '@/components/PricingCalculatorFAB';
 
 const DynamicToaster = dynamic(() => import('@/components/ClientToaster'), { ssr: false });
 import { Analytics } from '@vercel/analytics/react';
@@ -149,6 +150,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <ConfirmProvider>
                   <AuthContent>
                     <StickyOrcamentoPopup />
+                    <PricingCalculatorFAB />
                     <>{children}</>
                   </AuthContent>
                   <DynamicToaster />
