@@ -224,9 +224,8 @@ export default function PrecificacaoPage() {
           <div className="rounded-lg bg-gray-50 border border-gray-200 p-4 text-sm text-gray-600">
             <p className="font-medium text-gray-800 mb-1">Como funciona o cálculo</p>
             <ol className="list-decimal list-inside space-y-0.5 text-xs">
-              <li>Soma o custo da peça com o frete</li>
-              <li>Aplica o markup configurado</li>
-              <li>Adiciona o imposto sobre o valor com markup</li>
+              <li>Soma o custo da peça com o frete e aplica markup e imposto</li>
+              <li>Adiciona o valor de mão de obra informado na calculadora</li>
               <li>Calcula o parcelado com os juros configurados</li>
             </ol>
           </div>

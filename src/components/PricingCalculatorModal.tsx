@@ -9,7 +9,7 @@ import { supabase } from '@/lib/supabaseClient';
 import {
   calcularPrecificacao,
   formatBRL,
-  formatMoneyInput,
+  handleMoneyInputChange,
   isConfiguracaoValida,
   parseMoneyInput,
   SAUDE_LABELS,
@@ -35,6 +35,7 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
   const [loading, setLoading] = useState(true);
   const [config, setConfig] = useState<ConfiguracaoPrecificacao | null>(null);
   const [custoInput, setCustoInput] = useState('');
+  const [maoDeObraInput, setMaoDeObraInput] = useState('');
 
   useEffect(() => {
     if (!isOpen || !usuarioData?.empresa_id) return;
@@ -42,6 +43,7 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
     let cancelled = false;
     setLoading(true);
     setCustoInput('');
+    setMaoDeObraInput('');
 
     (async () => {
       try {
@@ -82,20 +84,14 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
   }, [isOpen, usuarioData?.empresa_id]);
 
   const custo = useMemo(() => parseMoneyInput(custoInput), [custoInput]);
+  const maoDeObra = useMemo(() => parseMoneyInput(maoDeObraInput), [maoDeObraInput]);
+
+  const temValorInformado = custo > 0 || maoDeObra > 0;
 
   const resultado = useMemo(() => {
-    if (!config || !isConfiguracaoValida(config) || custo <= 0) return null;
-    return calcularPrecificacao(custo, config);
-  }, [config, custo]);
-
-  const handleCustoChange = (value: string) => {
-    const digits = value.replace(/\D/g, '');
-    if (!digits) {
-      setCustoInput('');
-      return;
-    }
-    setCustoInput(formatMoneyInput(parseInt(digits, 10) / 100));
-  };
+    if (!config || !isConfiguracaoValida(config) || !temValorInformado) return null;
+    return calcularPrecificacao(custo, config, maoDeObra);
+  }, [config, custo, maoDeObra, temValorInformado]);
 
   if (!isOpen) return null;
 
@@ -110,7 +106,7 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
           </div>
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Calculadora de Precificação</h2>
-            <p className="text-xs text-gray-500">Calcule o preço de venda com base no custo da peça</p>
+            <p className="text-xs text-gray-500">Calcule o preço de venda com peça e mão de obra</p>
           </div>
         </div>
 
@@ -144,21 +140,35 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
           </div>
         ) : (
           <div className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Custo da peça
-              </label>
-              <Input
-                type="text"
-                inputMode="numeric"
-                placeholder="R$ 0,00"
-                value={custoInput}
-                onChange={(e) => handleCustoChange(e.target.value)}
-                autoFocus
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Custo da peça
+                </label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="R$ 0,00"
+                  value={custoInput}
+                  onChange={(e) => setCustoInput(handleMoneyInputChange(e.target.value))}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Mão de obra
+                </label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="R$ 0,00"
+                  value={maoDeObraInput}
+                  onChange={(e) => setMaoDeObraInput(handleMoneyInputChange(e.target.value))}
+                />
+              </div>
             </div>
 
-            {custo > 0 && resultado && (
+            {temValorInformado && resultado && (
               <div className="space-y-3">
                 <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
                   <div className="flex justify-between items-center">
@@ -203,9 +213,9 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
               </div>
             )}
 
-            {custo <= 0 && (
+            {!temValorInformado && (
               <p className="text-xs text-gray-500 text-center">
-                Informe o custo da peça para ver os valores calculados automaticamente.
+                Informe o custo da peça e/ou mão de obra para ver os valores calculados.
               </p>
             )}
           </div>
