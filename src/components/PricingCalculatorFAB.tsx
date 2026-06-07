@@ -29,7 +29,7 @@ export default function PricingCalculatorFAB() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gray-900 text-white shadow-xl hover:bg-gray-800 hover:scale-105 active:scale-95 transition-all"
+        className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gray-900 text-white shadow-xl hover:bg-gray-800 hover:scale-105 active:scale-95 transition-all max-sm:bottom-[calc(1.25rem+env(safe-area-inset-bottom,0px))] max-sm:right-4"
         aria-label="Abrir calculadora de precificação"
         title="Calculadora de precificação"
       >

@@ -123,8 +123,8 @@ export default function PricingCalculatorPrintDialog({
   const podeImprimir = cliente.trim().length > 0 && modeloAparelho.trim().length > 0;
 
   return (
-    <Dialog onClose={onClose}>
-      <div className="p-6 w-full max-w-sm">
+    <Dialog onClose={onClose} mobileBottomSheet>
+      <div className="px-4 pb-5 pt-1 sm:p-6 w-full max-w-sm">
         <h3 className="text-lg font-semibold text-gray-900 mb-1 pr-6">Imprimir orçamento</h3>
         <p className="text-xs text-gray-500 mb-5">
           Preencha os dados para gerar o cupom. O cliente verá apenas o valor final.
@@ -189,11 +189,11 @@ export default function PricingCalculatorPrintDialog({
           </label>
         </div>
 
-        <div className="flex justify-end gap-2 mt-6">
-          <Button type="button" variant="outline" onClick={onClose} disabled={imprimindo}>
+        <div className="flex flex-col-reverse gap-2 mt-6 sm:flex-row sm:justify-end">
+          <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={onClose} disabled={imprimindo}>
             Cancelar
           </Button>
-          <Button type="button" onClick={handleImprimir} disabled={!podeImprimir || imprimindo}>
+          <Button type="button" className="w-full sm:w-auto" onClick={handleImprimir} disabled={!podeImprimir || imprimindo}>
             <FiPrinter className="mr-2" size={16} />
             {imprimindo ? 'Preparando...' : 'Imprimir'}
           </Button>
