@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MenuLayout from '@/components/MenuLayout';
 
 import { useParams, useRouter } from 'next/navigation';
@@ -112,11 +112,11 @@ const VisualizarOrdemServicoPage = () => {
     })();
   }, [modalEntrega, empresaData?.id, ordem?.termo_garantia_id]);
 
-  useEffect(() => {
-    const fetchOrdem = async () => {
-      setLoading(true);
-      try {
-        const baseSelect = `
+  const carregarOrdem = useCallback(async (options?: { silencioso?: boolean }) => {
+    if (!id) return;
+    if (!options?.silencioso) setLoading(true);
+    try {
+      const baseSelect = `
             id,
             numero_os,
             empresa_id,
@@ -239,16 +239,17 @@ const VisualizarOrdemServicoPage = () => {
             setCustosOS(0);
           }
         }
-      } catch (error) {
-        const errMsg = error instanceof Error ? error.message : String(error);
-        console.error('Erro ao carregar OS:', errMsg, error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (id) fetchOrdem();
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      console.error('Erro ao carregar OS:', errMsg, error);
+    } finally {
+      if (!options?.silencioso) setLoading(false);
+    }
   }, [id]);
+
+  useEffect(() => {
+    void carregarOrdem();
+  }, [carregarOrdem]);
 
   useEffect(() => {
     if (empresaData?.id) {
@@ -512,8 +513,10 @@ const VisualizarOrdemServicoPage = () => {
       }
 
       addToast('✅ O.S. entregue com sucesso!', 'success');
-      setModalEntrega(false);
-      router.push('/ordens');
+      setTimeout(() => setModalEntrega(false), 0);
+      await carregarOrdem({ silencioso: true });
+      void buscarHistoricoOS(String(id));
+      router.replace(`/ordens/${id}`);
 
     } catch (error) {
       console.error('Erro ao processar entrega:', error);
@@ -1836,7 +1839,11 @@ const VisualizarOrdemServicoPage = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={processarEntrega}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      void processarEntrega();
+                    }}
                     disabled={
                       processandoEntrega ||
                       (entregaExigeTermo && !termoGarantiaSelecionado) ||
