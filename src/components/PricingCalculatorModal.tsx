@@ -125,8 +125,8 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
   return (
     <>
       <Dialog onClose={onClose} mobileBottomSheet>
-        <div className="px-4 pb-5 pt-1 sm:p-6 w-full max-w-md">
-          <div className="flex items-start gap-3 mb-4 pr-10">
+        <div className="px-4 pb-5 pt-1 sm:px-6 sm:pb-6 sm:pt-6 w-full sm:w-[28rem]">
+          <div className="flex items-start gap-3 mb-5 pr-8">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-900 text-white">
               <Calculator size={20} />
             </div>
@@ -256,19 +256,19 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
                     </span>
                   </div>
 
-                  <div className="flex flex-col gap-2 sm:flex-row">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <Button
                       type="button"
                       variant="outline"
-                      className="w-full sm:flex-1"
+                      className="w-full sm:w-auto"
                       onClick={() => setPrintOpen(true)}
                     >
                       <FiPrinter className="mr-2" size={16} />
                       Imprimir orçamento
                     </Button>
-                    <Button asChild variant="secondary" className="w-full sm:flex-1">
+                    <Button asChild variant="ghost" size="sm" className="w-full sm:w-auto text-gray-600">
                       <Link href={CONFIG_TAXAS_HREF} onClick={onClose}>
-                        <FiSettings className="mr-2" size={16} />
+                        <FiSettings className="mr-1.5" size={14} />
                         Configurar taxas
                       </Link>
                     </Button>
@@ -277,17 +277,9 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
               )}
 
               {!temValorInformado && (
-                <div className="space-y-3">
-                  <p className="text-xs text-gray-500 text-center px-2">
-                    Informe o custo da peça e/ou mão de obra para ver os valores calculados.
-                  </p>
-                  <Button asChild variant="outline" className="w-full">
-                    <Link href={CONFIG_TAXAS_HREF} onClick={onClose}>
-                      <FiSettings className="mr-2" size={16} />
-                      Configurar taxas
-                    </Link>
-                  </Button>
-                </div>
+                <p className="text-xs text-gray-500 text-center px-2">
+                  Informe o custo da peça e/ou mão de obra para ver os valores calculados.
+                </p>
               )}
             </div>
           )}

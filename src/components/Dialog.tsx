@@ -28,10 +28,10 @@ export const Dialog: React.FC<DialogProps> = ({
     >
       <div
         className={cn(
-          'bg-white shadow-lg relative w-full',
+          'bg-white shadow-lg relative',
           mobileBottomSheet
-            ? 'rounded-t-2xl sm:rounded-xl max-h-[92dvh] overflow-y-auto max-w-md sm:max-w-full pb-[env(safe-area-inset-bottom)]'
-            : 'rounded-xl max-w-full w-auto',
+            ? 'w-full max-h-[92dvh] overflow-y-auto rounded-t-2xl pb-[env(safe-area-inset-bottom)] sm:w-auto sm:max-w-md sm:max-h-[90vh] sm:rounded-xl sm:pb-0'
+            : 'rounded-xl w-auto max-w-full',
           className
         )}
         onClick={(e) => e.stopPropagation()}

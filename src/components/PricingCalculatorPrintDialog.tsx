@@ -124,8 +124,8 @@ export default function PricingCalculatorPrintDialog({
 
   return (
     <Dialog onClose={onClose} mobileBottomSheet>
-      <div className="px-4 pb-5 pt-1 sm:p-6 w-full max-w-sm">
-        <h3 className="text-lg font-semibold text-gray-900 mb-1 pr-6">Imprimir orçamento</h3>
+      <div className="px-4 pb-5 pt-1 sm:px-6 sm:pb-6 sm:pt-6 w-full sm:w-[24rem]">
+        <h3 className="text-lg font-semibold text-gray-900 mb-1 pr-8">Imprimir orçamento</h3>
         <p className="text-xs text-gray-500 mb-5">
           Preencha os dados para gerar o cupom. O cliente verá apenas o valor final.
         </p>
