@@ -55,6 +55,7 @@ export default function PricingCalculatorPrintDialog({
   const [cliente, setCliente] = useState('');
   const [modeloAparelho, setModeloAparelho] = useState('');
   const [exibirMaoDeObraSeparada, setExibirMaoDeObraSeparada] = useState(false);
+  const [exibirParcelamento, setExibirParcelamento] = useState(true);
   const [imprimindo, setImprimindo] = useState(false);
 
   useEffect(() => {
@@ -62,6 +63,7 @@ export default function PricingCalculatorPrintDialog({
       setCliente('');
       setModeloAparelho('');
       setExibirMaoDeObraSeparada(false);
+      setExibirParcelamento(true);
       setImprimindo(false);
     }
   }, [isOpen]);
@@ -107,7 +109,9 @@ export default function PricingCalculatorPrintDialog({
         precoPeca: resultado.precoPeca,
         maoDeObra,
         precoVenda: resultado.precoVenda,
+        precoParcelado: resultado.precoParcelado,
         exibirMaoDeObraSeparada,
+        exibirParcelamento,
       });
 
       onClose();
@@ -168,6 +172,21 @@ export default function PricingCalculatorPrintDialog({
               </span>
             </label>
           )}
+
+          <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-gray-200 p-3">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={exibirParcelamento}
+              onChange={(e) => setExibirParcelamento(e.target.checked)}
+            />
+            <span className="text-sm text-gray-700">
+              Exibir parcelamento em até 6x
+              <span className="block text-xs text-gray-500 mt-0.5">
+                Mostra o valor de cada parcela e o total com juros configurado.
+              </span>
+            </span>
+          </label>
         </div>
 
         <div className="flex justify-end gap-2 mt-6">

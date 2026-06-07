@@ -49,5 +49,4 @@
     "supabase/**/*",
     "src/lib/chromium.ts"
   ]
-  // "extends": "expo/tsconfig.base" // Removido - não é um projeto Expo
 }

@@ -83,6 +83,13 @@ export function calcularPrecificacao(
   };
 }
 
+export const PARCELAS_MAX = 6;
+
+export function calcularValorParcela(precoParcelado: number, parcelas = PARCELAS_MAX): number {
+  if (parcelas <= 0 || precoParcelado <= 0) return 0;
+  return precoParcelado / parcelas;
+}
+
 export const SAUDE_LABELS: Record<SaudePreco, string> = {
   saudavel: 'Preço saudável',
   apertado: 'Margem apertada',

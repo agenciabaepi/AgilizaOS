@@ -66,7 +66,12 @@ export default function RedirectToLoginIfUnauth({ children }: { children: React.
 
   const path = pathname || '';
   if (!ready && !isPublicPath(path) && !isAdminRoute(path)) {
-    return null;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-white gap-3">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-gray-900 border-t-transparent" />
+        <p className="text-sm text-gray-500">Carregando...</p>
+      </div>
+    );
   }
 
   return <>{children}</>;
