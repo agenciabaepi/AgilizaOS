@@ -154,7 +154,7 @@ export default function LaudoProntoAlert() {
         </div>
       )}
 
-      <div className="fixed bottom-4 left-4 z-40 max-w-xs max-sm:bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] max-sm:left-4 max-sm:max-w-[calc(100vw-2rem)]">
+      <div className="fixed right-4 z-40 max-w-xs bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] max-sm:right-4 max-sm:max-w-[calc(100vw-2rem)]">
         <div
           className={`
           bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-600 rounded-xl shadow-xl dark:shadow-2xl dark:shadow-black/40

@@ -6,9 +6,14 @@ import { Input } from '@/components/Input';
 import { Button } from '@/components/Button';
 import { imprimirCupomOrcamento } from '@/lib/pricingCalculatorCupom';
 import type { ResultadoPrecificacao } from '@/lib/pricingCalculator';
+import {
+  abrirOrcamentoWhatsApp,
+  handlePhoneInputChange,
+  isTelefoneWhatsAppValido,
+} from '@/lib/pricingCalculatorWhatsApp';
 import { convertLogoToBlackForCupom } from '@/utils/logoCupomPreto';
 import { supabase } from '@/lib/supabaseClient';
-import { FiPrinter } from 'react-icons/fi';
+import { FiMessageCircle, FiPrinter } from 'react-icons/fi';
 
 interface EmpresaPrintData {
   id?: string;
@@ -53,81 +58,104 @@ export default function PricingCalculatorPrintDialog({
   maoDeObra,
 }: PricingCalculatorPrintDialogProps) {
   const [cliente, setCliente] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
   const [modeloAparelho, setModeloAparelho] = useState('');
   const [exibirMaoDeObraSeparada, setExibirMaoDeObraSeparada] = useState(false);
   const [exibirParcelamento, setExibirParcelamento] = useState(true);
-  const [imprimindo, setImprimindo] = useState(false);
+  const [processando, setProcessando] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setCliente('');
+      setWhatsapp('');
       setModeloAparelho('');
       setExibirMaoDeObraSeparada(false);
       setExibirParcelamento(true);
-      setImprimindo(false);
+      setProcessando(false);
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const handleImprimir = async () => {
-    if (!cliente.trim() || !modeloAparelho.trim()) return;
+  const dadosBasicosPreenchidos = cliente.trim().length > 0 && modeloAparelho.trim().length > 0;
+  const whatsappValido = isTelefoneWhatsAppValido(whatsapp);
 
-    setImprimindo(true);
-    try {
-      let empresaCompleta = { ...empresa };
+  async function prepararDadosOrcamento() {
+    let empresaCompleta = { ...empresa };
 
-      if (empresa.id && !empresa.website) {
-        const { data } = await supabase
-          .from('empresas')
-          .select('website, logo_url')
-          .eq('id', empresa.id)
-          .maybeSingle();
-        if (data) {
-          empresaCompleta = {
-            ...empresaCompleta,
-            website: data.website || empresaCompleta.website,
-            logo_url: data.logo_url || empresaCompleta.logo_url,
-          };
-        }
+    if (empresa.id && !empresa.website) {
+      const { data } = await supabase
+        .from('empresas')
+        .select('website, logo_url')
+        .eq('id', empresa.id)
+        .maybeSingle();
+      if (data) {
+        empresaCompleta = {
+          ...empresaCompleta,
+          website: data.website || empresaCompleta.website,
+          logo_url: data.logo_url || empresaCompleta.logo_url,
+        };
       }
+    }
 
-      const logoCupomPreto = await prepararLogoCupom(empresaCompleta.logo_url);
+    const empresaCupom = {
+      nome: empresaCompleta.nome,
+      cnpj: empresaCompleta.cnpj,
+      endereco: empresaCompleta.endereco,
+      telefone: empresaCompleta.telefone,
+      email: empresaCompleta.email,
+      website: empresaCompleta.website,
+    };
 
-      imprimirCupomOrcamento({
-        empresa: {
-          nome: empresaCompleta.nome,
-          cnpj: empresaCompleta.cnpj,
-          endereco: empresaCompleta.endereco,
-          telefone: empresaCompleta.telefone,
-          email: empresaCompleta.email,
-          website: empresaCompleta.website,
-        },
-        logoCupomPreto,
-        cliente: cliente.trim(),
-        modeloAparelho: modeloAparelho.trim(),
-        precoPeca: resultado.precoPeca,
-        maoDeObra,
-        precoVenda: resultado.precoVenda,
-        precoParcelado: resultado.precoParcelado,
-        exibirMaoDeObraSeparada,
-        exibirParcelamento,
-      });
+    const orcamentoBase = {
+      empresa: empresaCupom,
+      cliente: cliente.trim(),
+      modeloAparelho: modeloAparelho.trim(),
+      precoPeca: resultado.precoPeca,
+      maoDeObra,
+      precoVenda: resultado.precoVenda,
+      precoParcelado: resultado.precoParcelado,
+      exibirMaoDeObraSeparada,
+      exibirParcelamento,
+    };
 
+    const logoCupomPreto = await prepararLogoCupom(empresaCompleta.logo_url);
+
+    return { orcamentoBase, logoCupomPreto };
+  }
+
+  const handleImprimir = async () => {
+    if (!dadosBasicosPreenchidos) return;
+
+    setProcessando(true);
+    try {
+      const { orcamentoBase, logoCupomPreto } = await prepararDadosOrcamento();
+      imprimirCupomOrcamento({ ...orcamentoBase, logoCupomPreto });
       onClose();
     } finally {
-      setImprimindo(false);
+      setProcessando(false);
     }
   };
 
-  const podeImprimir = cliente.trim().length > 0 && modeloAparelho.trim().length > 0;
+  const handleEnviarWhatsApp = async () => {
+    if (!dadosBasicosPreenchidos || !whatsappValido) return;
+
+    setProcessando(true);
+    try {
+      const { orcamentoBase } = await prepararDadosOrcamento();
+      abrirOrcamentoWhatsApp(whatsapp, orcamentoBase);
+      onClose();
+    } finally {
+      setProcessando(false);
+    }
+  };
 
   return (
     <Dialog onClose={onClose} mobileBottomSheet>
       <div className="px-4 pb-5 pt-1 sm:px-6 sm:pb-6 sm:pt-6 w-full sm:w-[24rem]">
-        <h3 className="text-lg font-semibold text-gray-900 mb-1 pr-8">Imprimir orçamento</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-1 pr-8">Enviar orçamento</h3>
         <p className="text-xs text-gray-500 mb-5">
-          Preencha os dados para gerar o cupom. O cliente verá apenas o valor final.
+          Preencha os dados do cliente para imprimir o cupom ou enviar pelo WhatsApp.
         </p>
 
         <div className="space-y-4">
@@ -142,6 +170,22 @@ export default function PricingCalculatorPrintDialog({
               onChange={(e) => setCliente(e.target.value)}
               autoFocus
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              WhatsApp do cliente
+            </label>
+            <Input
+              type="tel"
+              inputMode="numeric"
+              placeholder="(11) 99999-9999"
+              value={whatsapp}
+              onChange={(e) => setWhatsapp(handlePhoneInputChange(e.target.value))}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Com DDD. Usado para abrir o WhatsApp com o orçamento formatado.
+            </p>
           </div>
 
           <div>
@@ -165,7 +209,7 @@ export default function PricingCalculatorPrintDialog({
                 onChange={(e) => setExibirMaoDeObraSeparada(e.target.checked)}
               />
               <span className="text-sm text-gray-700">
-                Exibir mão de obra separada no cupom
+                Exibir mão de obra separada
                 <span className="block text-xs text-gray-500 mt-0.5">
                   Se desmarcado, aparece apenas o valor total para o cliente.
                 </span>
@@ -189,14 +233,31 @@ export default function PricingCalculatorPrintDialog({
           </label>
         </div>
 
-        <div className="flex flex-col-reverse gap-2 mt-6 sm:flex-row sm:justify-end">
-          <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={onClose} disabled={imprimindo}>
-            Cancelar
+        <div className="flex flex-col gap-2 mt-6">
+          <Button
+            type="button"
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+            onClick={handleEnviarWhatsApp}
+            disabled={!dadosBasicosPreenchidos || !whatsappValido || processando}
+          >
+            <FiMessageCircle className="mr-2" size={16} />
+            {processando ? 'Preparando...' : 'Enviar pelo WhatsApp'}
           </Button>
-          <Button type="button" className="w-full sm:w-auto" onClick={handleImprimir} disabled={!podeImprimir || imprimindo}>
-            <FiPrinter className="mr-2" size={16} />
-            {imprimindo ? 'Preparando...' : 'Imprimir'}
-          </Button>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={onClose} disabled={processando}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={handleImprimir}
+              disabled={!dadosBasicosPreenchidos || processando}
+            >
+              <FiPrinter className="mr-2" size={16} />
+              Imprimir cupom
+            </Button>
+          </div>
         </div>
       </div>
     </Dialog>

@@ -264,7 +264,7 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
                       onClick={() => setPrintOpen(true)}
                     >
                       <FiPrinter className="mr-2" size={16} />
-                      Imprimir orçamento
+                      Enviar orçamento
                     </Button>
                     <Button asChild variant="ghost" size="sm" className="w-full sm:w-auto text-gray-600">
                       <Link href={CONFIG_TAXAS_HREF} onClick={onClose}>
