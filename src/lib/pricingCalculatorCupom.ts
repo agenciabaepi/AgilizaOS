@@ -1,6 +1,5 @@
 import {
   PARCELAS_MAX,
-  formatBRL,
   calcularPrecoVistaExibicao,
   formatDescontoVistaTexto,
   type ModoExibicaoPrecoCliente,
@@ -57,14 +56,12 @@ function formatCupomValor(value: number): string {
   }).format(value || 0);
 }
 
-function padEnd(text: string, len: number): string {
-  const s = text.slice(0, len);
-  return s + ' '.repeat(Math.max(0, len - s.length));
-}
-
-function padStart(text: string, len: number): string {
-  const s = text.slice(0, len);
-  return ' '.repeat(Math.max(0, len - s.length)) + s;
+interface LinhaTabelaCupom {
+  cod: string;
+  descricao: string;
+  qtd: string;
+  vlrUnit: string;
+  vlrTotal: string;
 }
 
 function linhaTabela(
@@ -73,19 +70,41 @@ function linhaTabela(
   qtd: string,
   vlrUnit: string,
   vlrTotal: string
-): string {
-  return `|${padEnd(cod, 4)}|${padEnd(descricao, 18)}|${padStart(qtd, 3)}| X |${padStart(vlrUnit, 8)}|${padStart(vlrTotal, 9)}|`;
+): LinhaTabelaCupom {
+  return { cod, descricao, qtd, vlrUnit, vlrTotal };
 }
 
-function cabecalhoTabela(): string {
-  return [
-    linhaTabela('COD', 'Descricao', 'Qtd', 'Vlr Unit', 'Vlr Total'),
-    '='.repeat(56),
-  ].join('\n');
+function renderTabelaCupom(linhas: LinhaTabelaCupom[]): string {
+  const rows = linhas
+    .map(
+      (l) => `
+      <tr>
+        <td class="col-cod">${escapeHtml(l.cod)}</td>
+        <td class="col-desc">${escapeHtml(l.descricao)}</td>
+        <td class="col-qtd">${escapeHtml(l.qtd)}</td>
+        <td class="col-unit">${escapeHtml(l.vlrUnit)}</td>
+        <td class="col-total">${escapeHtml(l.vlrTotal)}</td>
+      </tr>`
+    )
+    .join('');
+
+  return `
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th class="col-cod">COD</th>
+          <th class="col-desc">Descrição</th>
+          <th class="col-qtd">Qtd</th>
+          <th class="col-unit">Vlr Unit</th>
+          <th class="col-total">Total</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
 }
 
-function linhaResumo(label: string, valor: string, largura = 28): string {
-  return `${padEnd(label, largura)}${padStart(valor, 12)}`;
+function linhaResumo(label: string, valor: string): string {
+  return `<div class="resumo-row"><span class="resumo-label">${escapeHtml(label)}</span><span class="resumo-valor">${escapeHtml(valor)}</span></div>`;
 }
 
 function buildLinhasItens(
@@ -94,8 +113,8 @@ function buildLinhasItens(
   precoPeca: number,
   maoDeObra: number,
   exibirMaoDeObraSeparada: boolean
-): string[] {
-  const linhas: string[] = [];
+): LinhaTabelaCupom[] {
+  const linhas: LinhaTabelaCupom[] = [];
 
   if (exibirMaoDeObraSeparada && maoDeObra > 0) {
     if (precoPeca > 0) {
@@ -105,7 +124,7 @@ function buildLinhasItens(
     const mo = formatCupomValor(maoDeObra);
     linhas.push(linhaTabela('002', 'Mão de obra', '1', mo, mo));
   } else {
-    const desc = modeloAparelho.length > 18 ? `${modeloAparelho.slice(0, 15)}...` : modeloAparelho;
+    const desc = modeloAparelho.length > 24 ? `${modeloAparelho.slice(0, 21)}...` : modeloAparelho;
     const v = formatCupomValor(valorPrincipal);
     linhas.push(linhaTabela('001', desc, '1', v, v));
   }
@@ -127,26 +146,26 @@ function buildResumoCupom(
       descontoVistaPercent
     );
     const linhas = [linhaResumo('Valor parcelado:', formatCupomValor(precoParcelado))];
-    linhas.push(`Parcelado em até ${PARCELAS_MAX}x`);
+    linhas.push(`<p class="resumo-note">Parcelado em até ${PARCELAS_MAX}x</p>`);
     const desconto = formatDescontoVistaTexto(precoVenda, precoParcelado, descontoVistaPercent);
     if (desconto) {
-      linhas.push(desconto);
+      linhas.push(`<p class="resumo-note">${escapeHtml(desconto)}</p>`);
       linhas.push(linhaResumo('À vista:', formatCupomValor(precoVistaCliente)));
     }
-    return linhas.join('\n');
+    return linhas.join('');
   }
 
   const linhas = [linhaResumo('Valor à vista:', formatCupomValor(precoVenda))];
   if (exibirParcelamento && precoParcelado > precoVenda) {
     linhas.push(linhaResumo('Valor parcelado:', formatCupomValor(precoParcelado)));
   }
-  return linhas.join('\n');
+  return linhas.join('');
 }
 
-function buildLinhasParcelas(opcoesParcelamento: OpcaoParcelamento[]): string[] {
+function buildLinhasParcelas(opcoesParcelamento: OpcaoParcelamento[]): LinhaTabelaCupom[] {
   return opcoesParcelamento.map((opcao) => {
     const v = formatCupomValor(opcao.valorParcela);
-    const desc = `Parcelado ${opcao.parcelas}x`;
+    const desc = `${opcao.parcelas}x`;
     const cod = String(opcao.parcelas).padStart(3, '0');
     return linhaTabela(cod, desc, '1', v, v);
   });
@@ -183,17 +202,14 @@ export function imprimirCupomOrcamento(data: OrcamentoCupomData): void {
     exibirMaoDeObraSeparada
   );
 
-  const tabelaItens = [cabecalhoTabela(), ...linhasItens, '='.repeat(56)].join('\n');
+  const tabelaItens = renderTabelaCupom(linhasItens);
 
   let blocoParcelamento = '';
   if (exibirParcelamento && opcoesParcelamento.length > 0) {
     const linhasOpcoes = buildLinhasParcelas(opcoesParcelamento);
-
     blocoParcelamento = `
       <p class="section-title">PARCELAMENTO</p>
-      <pre class="receipt-table">${cabecalhoTabela()}
-${linhasOpcoes.join('\n')}
-${'='.repeat(56)}</pre>
+      ${renderTabelaCupom(linhasOpcoes)}
     `;
   }
 
@@ -211,105 +227,155 @@ ${'='.repeat(56)}</pre>
   <meta charset="utf-8" />
   <title>Orçamento - ${escapeHtml(cliente)}</title>
   <style>
-    @page { size: 80mm auto; margin: 0; }
+    @page { size: 80mm auto; margin: 2mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: 'Courier New', Courier, monospace;
-      font-size: 10px;
-      line-height: 1.35;
+      font-family: Arial, Helvetica, 'Liberation Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.4;
       color: #000;
       background: #fff;
-      width: 302px;
+      width: 72mm;
+      max-width: 72mm;
       margin: 0 auto;
-      padding: 10px 8px 14px;
+      padding: 4mm 3mm 5mm;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
     .cupom { width: 100%; }
-    .center { text-align: center; }
     .logo-wrap {
       display: flex;
       justify-content: center;
-      margin-bottom: 6px;
-    }
-    .logo { max-width: 140px; max-height: 44px; object-fit: contain; }
-    .empresa-nome {
-      font-weight: 700;
-      font-size: 11px;
-      text-align: center;
       margin-bottom: 4px;
+    }
+    .logo { max-width: 50mm; max-height: 14mm; object-fit: contain; }
+    .empresa-nome {
+      font-weight: 800;
+      font-size: 14px;
+      text-align: center;
+      margin-bottom: 3px;
       text-transform: uppercase;
     }
     .empresa-info {
       text-align: center;
-      font-size: 9px;
-      line-height: 1.4;
-      margin-bottom: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.45;
+      margin-bottom: 6px;
     }
     .rule {
       border: none;
       border-top: 1px solid #000;
-      margin: 8px 0;
+      margin: 6px 0;
     }
     .rule-double {
       border: none;
       border-top: 2px solid #000;
-      margin: 8px 0;
+      margin: 6px 0;
     }
     .doc-title {
       text-align: center;
-      font-weight: 700;
-      font-size: 11px;
-      letter-spacing: 0.1em;
+      font-weight: 800;
+      font-size: 14px;
       margin-bottom: 2px;
     }
     .doc-meta {
       text-align: center;
-      font-size: 9px;
-      margin-bottom: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-bottom: 6px;
     }
     .meta-line {
-      font-size: 9px;
+      font-size: 11px;
+      font-weight: 600;
       margin-bottom: 3px;
       word-break: break-word;
     }
-    .meta-line strong { font-weight: 700; }
+    .meta-line strong { font-weight: 800; }
     .section-title {
-      font-weight: 700;
-      font-size: 9px;
+      font-weight: 800;
+      font-size: 12px;
       text-align: center;
-      margin: 10px 0 6px;
-      letter-spacing: 0.06em;
+      margin: 8px 0 4px;
     }
-    .receipt-table {
-      font-family: 'Courier New', Courier, monospace;
-      font-size: 9px;
-      line-height: 1.3;
-      white-space: pre;
-      overflow-x: hidden;
+    .items-table {
       width: 100%;
-      margin: 0 0 4px;
+      border-collapse: collapse;
+      font-size: 10px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      table-layout: fixed;
     }
-    .resumo {
-      font-family: 'Courier New', Courier, monospace;
+    .items-table th,
+    .items-table td {
+      border-bottom: 1px solid #000;
+      padding: 2px 1px;
+      vertical-align: top;
+      word-wrap: break-word;
+    }
+    .items-table thead th {
+      font-weight: 800;
       font-size: 9px;
-      line-height: 1.5;
-      white-space: pre;
-      margin: 8px 0;
+      border-bottom: 2px solid #000;
+      padding-bottom: 3px;
     }
-    .resumo strong { font-weight: 700; }
+    .items-table tbody tr:last-child td {
+      border-bottom: 2px solid #000;
+    }
+    .col-cod { width: 11%; text-align: center; }
+    .col-desc { width: 34%; text-align: left; }
+    .col-qtd { width: 10%; text-align: center; }
+    .col-unit { width: 22%; text-align: right; font-variant-numeric: tabular-nums; }
+    .col-total { width: 23%; text-align: right; font-variant-numeric: tabular-nums; }
+    .resumo {
+      margin: 8px 0;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .resumo-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 4px;
+      margin-bottom: 3px;
+    }
+    .resumo-label { font-weight: 700; }
+    .resumo-valor {
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .resumo-note {
+      font-size: 11px;
+      font-weight: 700;
+      text-align: center;
+      margin: 4px 0;
+    }
     .footer-note {
       text-align: center;
-      font-size: 8px;
+      font-size: 10px;
+      font-weight: 600;
       line-height: 1.45;
-      margin: 10px 0 8px;
+      margin: 8px 0 6px;
     }
     .system-credit {
       text-align: center;
-      font-size: 8px;
-      padding-top: 8px;
+      font-size: 10px;
+      font-weight: 600;
+      padding-top: 6px;
       border-top: 1px solid #000;
     }
     @media print {
-      body { padding: 8px 6px 12px; }
+      body {
+        width: 72mm;
+        padding: 2mm 2mm 4mm;
+        font-weight: 700;
+      }
+      .items-table { font-size: 10px; }
+      .items-table th,
+      .items-table td {
+        border-color: #000 !important;
+      }
     }
   </style>
 </head>
@@ -342,11 +408,11 @@ ${'='.repeat(56)}</pre>
     <hr class="rule" />
 
     <p class="section-title">VALORES</p>
-    <pre class="receipt-table">${tabelaItens}</pre>
+    ${tabelaItens}
 
     ${blocoParcelamento}
 
-    <pre class="resumo"><strong>${resumoLinhas}</strong></pre>
+    <div class="resumo">${resumoLinhas}</div>
 
     <p class="footer-note">
       Orçamento válido por 7 dias.<br />
