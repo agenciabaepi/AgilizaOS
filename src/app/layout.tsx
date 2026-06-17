@@ -22,6 +22,7 @@ import PricingCalculatorFAB from '@/components/PricingCalculatorFAB';
 const DynamicToaster = dynamic(() => import('@/components/ClientToaster'), { ssr: false });
 import { Analytics } from '@vercel/analytics/react';
 import RedirectToLoginIfUnauth from '@/components/RedirectToLoginIfUnauth';
+import { SubscriptionProvider } from '@/context/SubscriptionContext';
 import SubscriptionVencidaGuard from '@/components/SubscriptionVencidaGuard';
 import { ThemeProvider } from '@/context/ThemeContext';
 import SupabaseStatusBanner from '@/components/SupabaseStatusBanner';
@@ -144,6 +145,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
         <SupabaseStatusBanner />
         <AuthProvider>
+          <SubscriptionProvider>
           <RedirectToLoginIfUnauth>
             <SubscriptionVencidaGuard>
               <ToastProvider>
@@ -158,6 +160,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </ToastProvider>
             </SubscriptionVencidaGuard>
           </RedirectToLoginIfUnauth>
+          </SubscriptionProvider>
         </AuthProvider>
         </ThemeProvider>
         <Analytics />

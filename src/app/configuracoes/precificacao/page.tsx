@@ -199,7 +199,7 @@ export default function PrecificacaoPage() {
                 />
                 <FiPercent className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
               </div>
-              <p className="text-xs text-gray-500 mt-1">Juros adicionados ao preço à vista para calcular o parcelado.</p>
+              <p className="text-xs text-gray-500 mt-1">Percentual de juros sobre o valor à vista (aplicado no total parcelado, exibido de 2x até 12x).</p>
             </div>
 
             <div>
@@ -226,7 +226,7 @@ export default function PrecificacaoPage() {
             <ol className="list-decimal list-inside space-y-0.5 text-xs">
               <li>Soma o custo da peça com o frete e aplica markup e imposto</li>
               <li>Adiciona o valor de mão de obra informado na calculadora</li>
-              <li>Calcula o parcelado com os juros configurados</li>
+              <li>Calcula o parcelado com os juros configurados (até 12x)</li>
             </ol>
           </div>
 

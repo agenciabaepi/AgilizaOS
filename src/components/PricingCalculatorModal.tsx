@@ -12,6 +12,7 @@ import {
   handleMoneyInputChange,
   isConfiguracaoValida,
   parseMoneyInput,
+  PARCELAS_MAX,
   SAUDE_LABELS,
   type ConfiguracaoPrecificacao,
 } from '@/lib/pricingCalculator';
@@ -217,17 +218,22 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
                 <div className="space-y-3">
                   <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
                     <div className="flex justify-between items-center gap-3">
-                      <span className="text-sm text-gray-600">Preço de venda sugerido</span>
+                      <span className="text-sm text-gray-600">Preço à vista</span>
                       <span className="text-lg font-bold text-gray-900 tabular-nums shrink-0">
                         {formatBRL(resultado.precoVenda)}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center gap-3">
-                      <span className="text-sm text-gray-600">Preço com parcelamento</span>
+                    <div className="flex justify-between items-center gap-3 border-t border-gray-200 pt-3">
+                      <span className="text-sm text-gray-600">Total parcelado</span>
                       <span className="text-base font-semibold text-gray-800 tabular-nums shrink-0">
                         {formatBRL(resultado.precoParcelado)}
                       </span>
                     </div>
+                    {resultado.jurosPercent > 0 && (
+                      <p className="text-xs text-gray-500">
+                        Juros de {resultado.jurosPercent}% sobre o valor à vista
+                      </p>
+                    )}
                     <div className="flex justify-between items-center gap-3 border-t border-gray-200 pt-3">
                       <span className="text-sm text-gray-600 flex items-center gap-1">
                         <FiTrendingUp size={14} />
@@ -243,6 +249,30 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
                       </span>
                     </div>
                   </div>
+
+                  {resultado.opcoesParcelamento.length > 0 && (
+                    <div className="rounded-xl border border-gray-200 bg-white p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                        Parcelamento até {PARCELAS_MAX}x
+                      </p>
+                      <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+                        {resultado.opcoesParcelamento.map((opcao) => (
+                          <div
+                            key={opcao.parcelas}
+                            className={cn(
+                              'flex justify-between items-center gap-2 text-sm tabular-nums',
+                              opcao.parcelas === PARCELAS_MAX
+                                ? 'font-semibold text-gray-900'
+                                : 'text-gray-700'
+                            )}
+                          >
+                            <span>{opcao.parcelas}x de</span>
+                            <span>{formatBRL(opcao.valorParcela)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div
                     className={cn(

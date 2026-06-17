@@ -12,9 +12,17 @@ export interface ResultadoPrecificacao {
   precoPeca: number;
   precoVenda: number;
   precoParcelado: number;
+  jurosPercent: number;
+  opcoesParcelamento: OpcaoParcelamento[];
   lucroBruto: number;
   margemBrutaPercent: number;
   saude: SaudePreco;
+}
+
+export interface OpcaoParcelamento {
+  parcelas: number;
+  valorParcela: number;
+  totalParcelado: number;
 }
 
 export function formatBRL(value: number): string {
@@ -57,12 +65,13 @@ export function calcularPrecificacao(
   const frete = Math.max(0, config.frete_valor);
   const markup = config.markup_percent / 100;
   const imposto = config.imposto_percent / 100;
-  const juros = config.juros_parcelamento_percent / 100;
 
   const baseComFrete = custoSeguro + frete;
   const precoPeca = baseComFrete * (1 + markup) * (1 + imposto);
   const precoVenda = precoPeca + maoDeObraSegura;
-  const precoParcelado = precoVenda * (1 + juros);
+  const jurosPercent = config.juros_parcelamento_percent;
+  const precoParcelado = calcularPrecoParcelado(precoVenda, jurosPercent);
+  const opcoesParcelamento = calcularOpcoesParcelamento(precoVenda, jurosPercent);
   const lucroBruto = precoVenda - custoSeguro - frete;
   const margemBrutaPercent = precoVenda > 0 ? (lucroBruto / precoVenda) * 100 : 0;
 
@@ -77,13 +86,41 @@ export function calcularPrecificacao(
     precoPeca,
     precoVenda,
     precoParcelado,
+    jurosPercent,
+    opcoesParcelamento,
     lucroBruto,
     margemBrutaPercent,
     saude,
   };
 }
 
-export const PARCELAS_MAX = 6;
+export const PARCELAS_MIN = 2;
+export const PARCELAS_MAX = 12;
+
+export function calcularPrecoParcelado(precoVenda: number, jurosPercent: number): number {
+  const juros = Math.max(0, jurosPercent) / 100;
+  return precoVenda * (1 + juros);
+}
+
+export function calcularOpcoesParcelamento(
+  precoVenda: number,
+  jurosPercent: number,
+  maxParcelas = PARCELAS_MAX,
+  minParcelas = PARCELAS_MIN
+): OpcaoParcelamento[] {
+  const totalParcelado = calcularPrecoParcelado(precoVenda, jurosPercent);
+  if (totalParcelado <= 0) return [];
+
+  const opcoes: OpcaoParcelamento[] = [];
+  for (let parcelas = minParcelas; parcelas <= maxParcelas; parcelas++) {
+    opcoes.push({
+      parcelas,
+      valorParcela: totalParcelado / parcelas,
+      totalParcelado,
+    });
+  }
+  return opcoes;
+}
 
 export function calcularValorParcela(precoParcelado: number, parcelas = PARCELAS_MAX): number {
   if (parcelas <= 0 || precoParcelado <= 0) return 0;

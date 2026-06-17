@@ -70,7 +70,7 @@ export default function PricingCalculatorPrintDialog({
       setWhatsapp('');
       setModeloAparelho('');
       setExibirMaoDeObraSeparada(false);
-      setExibirParcelamento(true);
+      setExibirParcelamento(false);
       setProcessando(false);
     }
   }, [isOpen]);
@@ -115,6 +115,7 @@ export default function PricingCalculatorPrintDialog({
       maoDeObra,
       precoVenda: resultado.precoVenda,
       precoParcelado: resultado.precoParcelado,
+      opcoesParcelamento: resultado.opcoesParcelamento,
       exibirMaoDeObraSeparada,
       exibirParcelamento,
     };
@@ -217,20 +218,25 @@ export default function PricingCalculatorPrintDialog({
             </label>
           )}
 
-          <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-gray-200 p-3">
-            <input
-              type="checkbox"
-              className="mt-0.5"
-              checked={exibirParcelamento}
-              onChange={(e) => setExibirParcelamento(e.target.checked)}
-            />
-            <span className="text-sm text-gray-700">
-              Exibir parcelamento em até 6x
-              <span className="block text-xs text-gray-500 mt-0.5">
-                Mostra o valor de cada parcela e o total com juros configurado.
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Opções para o cliente
+            </p>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={exibirParcelamento}
+                onChange={(e) => setExibirParcelamento(e.target.checked)}
+              />
+              <span className="text-sm text-gray-700">
+                Incluir parcelamento (até 12x)
+                <span className="block text-xs text-gray-500 mt-0.5">
+                  No cupom: tabela com opções de 2x a 12x. No WhatsApp, mesma lista.
+                </span>
               </span>
-            </span>
-          </label>
+            </label>
+          </div>
         </div>
 
         <div className="flex flex-col gap-2 mt-6">

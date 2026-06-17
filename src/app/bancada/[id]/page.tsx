@@ -1,10 +1,18 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { FiClipboard, FiSave, FiBox, FiTool, FiPlayCircle, FiX, FiCamera, FiTrash2, FiEdit, FiCheck, FiAlertCircle, FiLock, FiArrowLeft, FiUser, FiDollarSign, FiMessageCircle, FiPackage, FiAlertTriangle, FiEdit3, FiVideo, FiPlay } from 'react-icons/fi';
+import { FiClipboard, FiSave, FiBox, FiTool, FiPlayCircle, FiX, FiCamera, FiTrash2, FiEdit, FiCheck, FiAlertCircle, FiLock, FiArrowLeft, FiUser, FiDollarSign, FiMessageCircle, FiPackage, FiAlertTriangle, FiEdit3, FiVideo, FiPlay, FiClock } from 'react-icons/fi';
 import MenuLayout from '@/components/MenuLayout';
+import { useAuth } from '@/context/AuthContext';
+import { useOsEditDraft } from '@/hooks/useOsEditDraft';
+import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning';
+import {
+  isOsBancadaDraftMeaningful,
+  formatOsDraftUpdatedAt,
+  type OsBancadaDraftPayload,
+} from '@/lib/osEditDraft';
 // Removido ProtectedArea - agora é responsabilidade do MenuLayout
 import ProdutoServicoManager from '@/components/ProdutoServicoManager';
 import { Button } from '@/components/Button';
@@ -81,6 +89,7 @@ export default function DetalheBancadaPage() {
   const id = params?.id as string;
   const { addToast, showModal } = useToast();
   const confirm = useConfirm();
+  const { usuarioData } = useAuth();
   interface OrdemServico {
     id: string;
     empresa_id: string;
@@ -171,6 +180,41 @@ export default function DetalheBancadaPage() {
   // Estados para checklist e senha
   const [checklistData, setChecklistData] = useState<any>(null);
   const [checklistItens, setChecklistItens] = useState<any[]>([]);
+
+  const getDraftSnapshot = useCallback((): OsBancadaDraftPayload => ({
+    statusTecnico,
+    laudo,
+    observacoes,
+    produtosSelecionados,
+    servicosSelecionados,
+    checklistData,
+  }), [statusTecnico, laudo, observacoes, produtosSelecionados, servicosSelecionados, checklistData]);
+
+  const aplicarRascunho = useCallback((draft: OsBancadaDraftPayload) => {
+    setStatusTecnico(draft.statusTecnico || '');
+    setLaudo(draft.laudo || '');
+    setObservacoes(draft.observacoes || '');
+    setProdutosSelecionados(draft.produtosSelecionados || []);
+    setServicosSelecionados(draft.servicosSelecionados || []);
+    if (draft.checklistData) setChecklistData(draft.checklistData);
+  }, []);
+
+  const {
+    draftRestored,
+    draftUpdatedAt,
+    hasUnsavedDraft,
+    clearDraft,
+  } = useOsEditDraft<OsBancadaDraftPayload>({
+    osId: id,
+    kind: 'bancada',
+    usuarioAuthId: usuarioData?.auth_user_id,
+    ready: !loading && !!os,
+    getSnapshot: getDraftSnapshot,
+    onRestore: aplicarRascunho,
+    isMeaningful: isOsBancadaDraftMeaningful,
+  });
+
+  useUnsavedChangesWarning(hasUnsavedDraft);
 
   useEffect(() => {
     const fetchOS = async () => {
@@ -580,6 +624,7 @@ export default function DetalheBancadaPage() {
 
       // Mostrar toast de sucesso
       addToast('success', 'Dados salvos com sucesso!');
+      clearDraft();
       // Se enviou orçamento, emite notificação backend
       try {
         if ((statusTecnicoParaSalvar || '').toUpperCase().includes('ORÇAMENTO CONCLUÍDO') && empresaId && id) {
@@ -1208,6 +1253,14 @@ export default function DetalheBancadaPage() {
   return (
     <MenuLayout>
       <div className="min-h-screen bg-gray-100/80 w-full max-w-full overflow-x-hidden">
+        {draftRestored && draftUpdatedAt && (
+          <div className="mx-4 sm:mx-5 mt-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900 max-w-full lg:max-w-7xl lg:mx-auto lg:px-6">
+            <FiClock className="shrink-0" />
+            <span>
+              Rascunho restaurado (salvo em {formatOsDraftUpdatedAt(draftUpdatedAt)}). Salve para confirmar.
+            </span>
+          </div>
+        )}
         {/* Header */}
         <div className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm w-full">
           <div className="px-4 sm:px-5 lg:px-6 py-3.5 lg:py-4 max-w-full lg:max-w-7xl mx-auto">

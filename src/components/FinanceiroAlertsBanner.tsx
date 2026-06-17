@@ -12,6 +12,7 @@ import {
 } from 'react';
 import { FiAlertTriangle, FiClock } from 'react-icons/fi';
 import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 
@@ -57,10 +58,8 @@ interface ConfigAvisoContasPagar {
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
-const hexToRgba = (hex: string | undefined, alpha: number) => {
-  if (!hex) {
-    return `rgba(0, 0, 0, ${alpha})`;
-  }
+const parseHexColor = (hex: string | undefined) => {
+  if (!hex) return null;
 
   let sanitized = hex.replace('#', '');
   if (sanitized.length === 3) {
@@ -70,15 +69,117 @@ const hexToRgba = (hex: string | undefined, alpha: number) => {
       .join('');
   }
 
-  if (sanitized.length !== 6) {
-    return `rgba(0, 0, 0, ${alpha})`;
+  if (sanitized.length !== 6) return null;
+
+  return {
+    r: parseInt(sanitized.slice(0, 2), 16),
+    g: parseInt(sanitized.slice(2, 4), 16),
+    b: parseInt(sanitized.slice(4, 6), 16),
+  };
+};
+
+const hexToRgba = (hex: string | undefined, alpha: number) => {
+  const rgb = parseHexColor(hex);
+  if (!rgb) return `rgba(0, 0, 0, ${alpha})`;
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+};
+
+const mixHexColors = (hexA: string, hexB: string, weightB: number) => {
+  const a = parseHexColor(hexA);
+  const b = parseHexColor(hexB);
+  if (!a || !b) return hexA;
+
+  const w = Math.min(1, Math.max(0, weightB));
+  const mix = (c1: number, c2: number) => Math.round(c1 * (1 - w) + c2 * w);
+  const r = mix(a.r, b.r);
+  const g = mix(a.g, b.g);
+  const bl = mix(a.b, b.b);
+
+  return `#${[r, g, bl].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+};
+
+interface BannerTheme {
+  fundo: string;
+  border: string;
+  shadow: string;
+  texto: string;
+  muted: string;
+  chipBg: string;
+  iconBg: string;
+  iconRing: string;
+  itemBg: string;
+  itemHoverBg: string;
+  itemBorder: string;
+  itemMuted: string;
+}
+
+const DARK_THEMES: Record<string, BannerTheme> = {
+  'contas-vencidas': {
+    fundo: 'rgba(69, 10, 10, 0.92)',
+    border: 'rgba(252, 165, 165, 0.55)',
+    shadow: 'rgba(127, 29, 29, 0.45)',
+    texto: '#fecaca',
+    muted: '#fca5a5',
+    chipBg: 'rgba(153, 27, 27, 0.75)',
+    iconBg: 'rgba(127, 29, 29, 0.85)',
+    iconRing: 'rgba(252, 165, 165, 0.45)',
+    itemBg: 'rgba(24, 24, 27, 0.92)',
+    itemHoverBg: 'rgba(39, 39, 42, 0.95)',
+    itemBorder: 'rgba(252, 165, 165, 0.35)',
+    itemMuted: '#fdba74',
+  },
+  'contas-proximas': {
+    fundo: 'rgba(69, 26, 3, 0.92)',
+    border: 'rgba(252, 211, 77, 0.55)',
+    shadow: 'rgba(120, 53, 15, 0.45)',
+    texto: '#fde68a',
+    muted: '#fcd34d',
+    chipBg: 'rgba(146, 64, 14, 0.75)',
+    iconBg: 'rgba(120, 53, 15, 0.85)',
+    iconRing: 'rgba(252, 211, 77, 0.45)',
+    itemBg: 'rgba(24, 24, 27, 0.92)',
+    itemHoverBg: 'rgba(39, 39, 42, 0.95)',
+    itemBorder: 'rgba(252, 211, 77, 0.35)',
+    itemMuted: '#fbbf24',
+  },
+};
+
+const resolveBannerTheme = (card: AlertCard, isDark: boolean): BannerTheme => {
+  if (isDark) {
+    const preset = DARK_THEMES[card.id];
+    if (preset) return preset;
+
+    const accent = card.corTexto;
+    return {
+      fundo: hexToRgba(accent, 0.35),
+      border: hexToRgba(mixHexColors(accent, '#FFFFFF', 0.65), 0.55),
+      shadow: hexToRgba(accent, 0.35),
+      texto: mixHexColors(accent, '#FFFFFF', 0.82),
+      muted: mixHexColors(accent, '#E4E4E7', 0.68),
+      chipBg: hexToRgba(accent, 0.45),
+      iconBg: hexToRgba(accent, 0.4),
+      iconRing: hexToRgba(mixHexColors(accent, '#FFFFFF', 0.65), 0.45),
+      itemBg: 'rgba(24, 24, 27, 0.92)',
+      itemHoverBg: 'rgba(39, 39, 42, 0.95)',
+      itemBorder: hexToRgba(mixHexColors(accent, '#FFFFFF', 0.65), 0.35),
+      itemMuted: mixHexColors(accent, '#E4E4E7', 0.55),
+    };
   }
 
-  const r = parseInt(sanitized.slice(0, 2), 16);
-  const g = parseInt(sanitized.slice(2, 4), 16);
-  const b = parseInt(sanitized.slice(4, 6), 16);
-
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  return {
+    fundo: hexToRgba(card.corFundo, 0.38),
+    border: hexToRgba(card.corTexto, 0.14),
+    shadow: hexToRgba(card.corTexto, 0.18),
+    texto: card.corTexto,
+    muted: hexToRgba(card.corTexto, 0.65),
+    chipBg: hexToRgba(card.corTexto, 0.1),
+    iconBg: 'rgba(255, 255, 255, 0.65)',
+    iconRing: 'rgba(255, 255, 255, 0.5)',
+    itemBg: 'rgba(255, 255, 255, 0.55)',
+    itemHoverBg: 'rgba(255, 255, 255, 0.8)',
+    itemBorder: hexToRgba(card.corTexto, 0.1),
+    itemMuted: hexToRgba(card.corTexto, 0.65),
+  };
 };
 
 const formatarDataCurta = (data: string | null) => {
@@ -290,6 +391,8 @@ function montarCards(contas: ContaPagar[], configs: ConfigAvisoContasPagar[], co
 }
 
 export default function FinanceiroAlertsBanner() {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const { empresaData, usuarioData } = useAuth();
   const [contas, setContas] = useState<ContaPagar[]>([]);
   const [configs, setConfigs] = useState<ConfigAvisoContasPagar[]>([]);
@@ -476,11 +579,7 @@ export default function FinanceiroAlertsBanner() {
   return (
     <div className="w-full space-y-1.5">
       {alertCards.map((card) => {
-        const fundoSolido = hexToRgba(card.corFundo, 0.38);
-        const borderColor = hexToRgba(card.corTexto, 0.14);
-        const shadowColor = hexToRgba(card.corTexto, 0.18);
-        const mutedColor = hexToRgba(card.corTexto, 0.65);
-        const chipBackground = hexToRgba(card.corTexto, 0.1);
+        const theme = resolveBannerTheme(card, isDark);
 
         const handleContaClick = (contaId: string, dataISO?: string | null) => {
           const params = new URLSearchParams();
@@ -496,16 +595,20 @@ export default function FinanceiroAlertsBanner() {
             key={card.id}
             className="relative flex w-full flex-col gap-1.5 overflow-hidden rounded-lg border px-2.5 py-2 shadow-sm animate-fade-in sm:flex-row sm:items-center sm:gap-2 sm:py-1.5 sm:pr-2"
             style={{
-              backgroundColor: fundoSolido,
-              borderColor,
-              boxShadow: `0 4px 14px -6px ${shadowColor}`,
-              color: card.corTexto,
+              backgroundColor: theme.fundo,
+              borderColor: theme.border,
+              boxShadow: `0 4px 14px -6px ${theme.shadow}`,
+              color: theme.texto,
             }}
           >
             <div className="relative flex min-w-0 flex-1 items-center gap-2">
               <div
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/65 ring-1 ring-white/50"
-                style={{ color: card.corTexto }}
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md ring-1"
+                style={{
+                  color: theme.texto,
+                  backgroundColor: theme.iconBg,
+                  boxShadow: `inset 0 0 0 1px ${theme.iconRing}`,
+                }}
               >
                 {isValidElement(card.icon)
                   ? cloneElement(card.icon as ReactElement<any>, { className: 'h-3.5 w-3.5' } as any)
@@ -515,17 +618,19 @@ export default function FinanceiroAlertsBanner() {
                 <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0">
                   <span
                     className="text-[9px] font-semibold uppercase tracking-wider"
-                    style={{ color: mutedColor }}
+                    style={{ color: theme.muted }}
                   >
                     Financeiro
                   </span>
-                  <h4 className="text-xs font-semibold leading-snug sm:text-[13px]">{card.titulo}</h4>
+                  <h4 className="text-xs font-semibold leading-snug sm:text-[13px]" style={{ color: theme.texto }}>
+                    {card.titulo}
+                  </h4>
                   {card.restante && (
                     <span
                       className="rounded px-1 py-0.5 text-[9px] font-medium"
                       style={{
-                        backgroundColor: chipBackground,
-                        color: card.corTexto,
+                        backgroundColor: theme.chipBg,
+                        color: theme.texto,
                       }}
                     >
                       {card.restante}
@@ -534,7 +639,7 @@ export default function FinanceiroAlertsBanner() {
                 </div>
                 <p
                   className="line-clamp-1 text-[10px] leading-tight"
-                  style={{ color: mutedColor }}
+                  style={{ color: theme.muted }}
                   title={card.descricao}
                 >
                   {card.descricao}
@@ -551,28 +656,32 @@ export default function FinanceiroAlertsBanner() {
                   key={item.id}
                   type="button"
                   onClick={() => handleContaClick(item.id, item.dataISO)}
-                  className="group flex max-w-[min(100%,240px)] shrink-0 items-center gap-1.5 rounded-md border bg-white/55 px-2 py-1 text-left text-[11px] leading-tight ring-white/30 transition-colors hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+                  className="group flex max-w-[min(100%,240px)] shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-left text-[11px] leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
                   style={{
-                    borderColor: hexToRgba(card.corTexto, 0.1),
+                    backgroundColor: theme.itemBg,
+                    borderColor: theme.itemBorder,
+                    color: theme.texto,
                   }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = theme.itemHoverBg; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = theme.itemBg; }}
                   title={`${item.titulo} · ${item.dataFormatada} · ${item.descricaoDias}`}
                 >
                   <span
                     className="flex h-4 min-w-[1.1rem] items-center justify-center rounded text-[9px] font-bold tabular-nums"
                     style={{
-                      backgroundColor: chipBackground,
-                      color: card.corTexto,
+                      backgroundColor: theme.chipBg,
+                      color: theme.texto,
                     }}
                   >
                     {index + 1}
                   </span>
-                  <span className="min-w-0 flex-1 truncate font-medium" style={{ color: card.corTexto }}>
+                  <span className="min-w-0 flex-1 truncate font-medium" style={{ color: theme.texto }}>
                     {item.titulo}
                   </span>
-                  <span className="shrink-0 whitespace-nowrap text-[10px] opacity-90" style={{ color: card.corTexto }}>
+                  <span className="shrink-0 whitespace-nowrap text-[10px]" style={{ color: theme.texto }}>
                     {item.dataFormatada}
-                    <span className="mx-0.5 opacity-50">·</span>
-                    <span style={{ color: mutedColor }}>{item.descricaoDias}</span>
+                    <span className="mx-0.5 opacity-60">·</span>
+                    <span style={{ color: theme.itemMuted }}>{item.descricaoDias}</span>
                   </span>
                 </button>
               ))}

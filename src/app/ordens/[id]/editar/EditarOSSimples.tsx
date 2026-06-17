@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import MenuLayout from '@/components/MenuLayout';
@@ -19,7 +19,14 @@ import { useAuth } from '@/context/AuthContext';
 import { useStatusHistorico } from '@/hooks/useStatusHistorico';
 import { getStatusTecnicoLabel } from '@/utils/statusLabels';
 import { normalizarTextoHistorico } from '@/utils/osHistoricoAuditoria';
-import { FiArrowLeft, FiSave, FiUser, FiCheckCircle, FiTool, FiFileText, FiEdit3 } from 'react-icons/fi';
+import { useOsEditDraft } from '@/hooks/useOsEditDraft';
+import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning';
+import {
+  isOsEditarDraftMeaningful,
+  formatOsDraftUpdatedAt,
+  type OsEditarDraftPayload,
+} from '@/lib/osEditDraft';
+import { FiArrowLeft, FiSave, FiUser, FiCheckCircle, FiTool, FiFileText, FiEdit3, FiClock } from 'react-icons/fi';
 
 interface Item {
   id?: string;
@@ -83,6 +90,9 @@ export default function EditarOSSimples() {
   const { usuarioData, empresaData } = useAuth();
   const { registrarMudancaStatus, historico, buscarHistorico } = useStatusHistorico(id);
 
+  const pendingStatusIdRef = useRef<string | null>(null);
+  const pendingTecnicoKeyRef = useRef<string | null>(null);
+
   const [ordem, setOrdem] = useState<Ordem | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -138,6 +148,87 @@ export default function EditarOSSimples() {
   const [produtos, setProdutos] = useState<Item[]>([]);
   const redirectingEntregueRef = useRef(false);
 
+  const getDraftSnapshot = useCallback((): OsEditarDraftPayload => ({
+    observacoesInternas,
+    marca,
+    modelo,
+    cor,
+    numeroSerie,
+    acessorios,
+    condicoesEquipamento,
+    equipamento,
+    relato,
+    observacao,
+    laudo,
+    termoGarantiaId,
+    checklistEntrada,
+    produtos,
+    servicos,
+    statusSelecionadoId: statusSelecionado?.id ?? null,
+    tecnicoKey: tecnicoSelecionado?.tecnico_id ?? tecnicoSelecionado?.auth_user_id ?? null,
+    aparelhoSelecionado,
+    aparelhoImagemUrl,
+  }), [
+    observacoesInternas,
+    marca,
+    modelo,
+    cor,
+    numeroSerie,
+    acessorios,
+    condicoesEquipamento,
+    equipamento,
+    relato,
+    observacao,
+    laudo,
+    termoGarantiaId,
+    checklistEntrada,
+    produtos,
+    servicos,
+    statusSelecionado,
+    tecnicoSelecionado,
+    aparelhoSelecionado,
+    aparelhoImagemUrl,
+  ]);
+
+  const aplicarRascunho = useCallback((draft: OsEditarDraftPayload) => {
+    setObservacoesInternas(draft.observacoesInternas);
+    setMarca(draft.marca);
+    setModelo(draft.modelo);
+    setCor(draft.cor);
+    setNumeroSerie(draft.numeroSerie);
+    setAcessorios(draft.acessorios);
+    setCondicoesEquipamento(draft.condicoesEquipamento);
+    setEquipamento(draft.equipamento);
+    setRelato(draft.relato);
+    setObservacao(draft.observacao);
+    setLaudo(draft.laudo);
+    setTermoGarantiaId(draft.termoGarantiaId);
+    setChecklistEntrada(draft.checklistEntrada || {});
+    setProdutos(draft.produtos || []);
+    setServicos(draft.servicos || []);
+    setAparelhoSelecionado(draft.aparelhoSelecionado);
+    setAparelhoImagemUrl(draft.aparelhoImagemUrl);
+    pendingStatusIdRef.current = draft.statusSelecionadoId;
+    pendingTecnicoKeyRef.current = draft.tecnicoKey;
+  }, []);
+
+  const {
+    draftRestored,
+    draftUpdatedAt,
+    hasUnsavedDraft,
+    clearDraft,
+  } = useOsEditDraft<OsEditarDraftPayload>({
+    osId: id,
+    kind: 'editar',
+    usuarioAuthId: usuarioData?.auth_user_id,
+    ready: !loading && !!ordem,
+    getSnapshot: getDraftSnapshot,
+    onRestore: aplicarRascunho,
+    isMeaningful: isOsEditarDraftMeaningful,
+  });
+
+  useUnsavedChangesWarning(hasUnsavedDraft);
+
   useEffect(() => {
     if (id) {
       fetchOrdem();
@@ -164,6 +255,14 @@ export default function EditarOSSimples() {
 
   // Atualizar status selecionado quando a ordem for carregada
   useEffect(() => {
+    if (pendingStatusIdRef.current && status.length > 0) {
+      const fromDraft = status.find((s) => s.id === pendingStatusIdRef.current);
+      if (fromDraft) {
+        setStatusSelecionado(fromDraft);
+        pendingStatusIdRef.current = null;
+        return;
+      }
+    }
     if (ordem && status.length > 0) {
       const statusEncontrado = status.find(s => s.nome === ordem.status);
       if (statusEncontrado) {
@@ -174,6 +273,19 @@ export default function EditarOSSimples() {
 
   // Atualizar técnico selecionado quando a ordem for carregada
   useEffect(() => {
+    if (pendingTecnicoKeyRef.current && tecnicos.length > 0) {
+      const fromDraft = tecnicos.find(
+        (t) =>
+          t.tecnico_id === pendingTecnicoKeyRef.current ||
+          t.auth_user_id === pendingTecnicoKeyRef.current ||
+          t.id === pendingTecnicoKeyRef.current
+      );
+      if (fromDraft) {
+        setTecnicoSelecionado(fromDraft);
+        pendingTecnicoKeyRef.current = null;
+        return;
+      }
+    }
     if (ordem && tecnicos.length > 0) {
       // Buscar por tecnico_id primeiro, depois por auth_user_id como fallback
       let tecnicoEncontrado = tecnicos.find(t => t.tecnico_id === ordem.tecnico_id);
@@ -667,6 +779,7 @@ export default function EditarOSSimples() {
       }
 
       router.push(`/ordens/${id}`);
+      clearDraft();
 
     } catch (error) {
       addToast('error', 'Erro ao salvar dados');
@@ -1070,6 +1183,15 @@ export default function EditarOSSimples() {
     
       <MenuLayout>
         <div className="p-6 space-y-6">
+          {draftRestored && draftUpdatedAt && (
+            <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+              <FiClock className="shrink-0" />
+              <span>
+                Rascunho restaurado automaticamente (salvo em {formatOsDraftUpdatedAt(draftUpdatedAt)}).
+                Salve a O.S. para confirmar as alterações.
+              </span>
+            </div>
+          )}
           {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">

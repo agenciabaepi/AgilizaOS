@@ -1,7 +1,7 @@
 import {
   PARCELAS_MAX,
-  calcularValorParcela,
   formatBRL,
+  type OpcaoParcelamento,
 } from '@/lib/pricingCalculator';
 
 export interface EmpresaCupomData {
@@ -22,6 +22,7 @@ export interface OrcamentoCupomData {
   maoDeObra: number;
   precoVenda: number;
   precoParcelado: number;
+  opcoesParcelamento: OpcaoParcelamento[];
   exibirMaoDeObraSeparada: boolean;
   exibirParcelamento: boolean;
 }
@@ -43,12 +44,77 @@ function formatCnpj(raw: string | null | undefined): string {
   return String(raw);
 }
 
-function valueRow(desc: string, amount: string): string {
-  return `
-    <div class="value-row">
-      <span class="value-desc">${escapeHtml(desc)}</span>
-      <span class="value-amount">${amount}</span>
-    </div>`;
+/** Valor numérico no padrão cupom fiscal: 1.050,00 */
+function formatCupomValor(value: number): string {
+  return new Intl.NumberFormat('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value || 0);
+}
+
+function padEnd(text: string, len: number): string {
+  const s = text.slice(0, len);
+  return s + ' '.repeat(Math.max(0, len - s.length));
+}
+
+function padStart(text: string, len: number): string {
+  const s = text.slice(0, len);
+  return ' '.repeat(Math.max(0, len - s.length)) + s;
+}
+
+function linhaTabela(
+  cod: string,
+  descricao: string,
+  qtd: string,
+  vlrUnit: string,
+  vlrTotal: string
+): string {
+  return `|${padEnd(cod, 4)}|${padEnd(descricao, 18)}|${padStart(qtd, 3)}| X |${padStart(vlrUnit, 8)}|${padStart(vlrTotal, 9)}|`;
+}
+
+function cabecalhoTabela(): string {
+  return [
+    linhaTabela('COD', 'Descricao', 'Qtd', 'Vlr Unit', 'Vlr Total'),
+    '='.repeat(56),
+  ].join('\n');
+}
+
+function linhaResumo(label: string, valor: string, largura = 28): string {
+  return `${padEnd(label, largura)}${padStart(valor, 12)}`;
+}
+
+function buildLinhasItens(
+  modeloAparelho: string,
+  precoVenda: number,
+  precoPeca: number,
+  maoDeObra: number,
+  exibirMaoDeObraSeparada: boolean
+): string[] {
+  const linhas: string[] = [];
+
+  if (exibirMaoDeObraSeparada && maoDeObra > 0) {
+    if (precoPeca > 0) {
+      const v = formatCupomValor(precoPeca);
+      linhas.push(linhaTabela('001', 'Peça', '1', v, v));
+    }
+    const mo = formatCupomValor(maoDeObra);
+    linhas.push(linhaTabela('002', 'Mão de obra', '1', mo, mo));
+  } else {
+    const desc = modeloAparelho.length > 18 ? `${modeloAparelho.slice(0, 15)}...` : modeloAparelho;
+    const v = formatCupomValor(precoVenda);
+    linhas.push(linhaTabela('001', desc, '1', v, v));
+  }
+
+  return linhas;
+}
+
+function buildLinhasParcelas(opcoesParcelamento: OpcaoParcelamento[]): string[] {
+  return opcoesParcelamento.map((opcao) => {
+    const v = formatCupomValor(opcao.valorParcela);
+    const desc = `Parcelado ${opcao.parcelas}x`;
+    const cod = String(opcao.parcelas).padStart(3, '0');
+    return linhaTabela(cod, desc, '1', v, v);
+  });
 }
 
 export function imprimirCupomOrcamento(data: OrcamentoCupomData): void {
@@ -61,32 +127,44 @@ export function imprimirCupomOrcamento(data: OrcamentoCupomData): void {
     maoDeObra,
     precoVenda,
     precoParcelado,
+    opcoesParcelamento,
     exibirMaoDeObraSeparada,
     exibirParcelamento,
   } = data;
 
   const dataStr = new Date().toLocaleDateString('pt-BR');
   const horaStr = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  const contato = [empresa.telefone || '---', empresa.email].filter(Boolean).join(' · ');
-  const valorParcela = calcularValorParcela(precoParcelado, PARCELAS_MAX);
 
-  const detalheValores =
-    exibirMaoDeObraSeparada && maoDeObra > 0
-      ? `
-        ${precoPeca > 0 ? valueRow('Peça', formatBRL(precoPeca)) : ''}
-        ${valueRow('Mão de obra', formatBRL(maoDeObra))}
-      `
-      : '';
+  const linhasItens = buildLinhasItens(
+    modeloAparelho,
+    precoVenda,
+    precoPeca,
+    maoDeObra,
+    exibirMaoDeObraSeparada
+  );
 
-  const blocoParcelamento = exibirParcelamento
-    ? `
-      <div class="pay-box pay-installment">
-        <p class="pay-label">PARCELADO EM ATÉ ${PARCELAS_MAX}X</p>
-        <p class="pay-highlight">${PARCELAS_MAX}x de ${formatBRL(valorParcela)}</p>
-        <p class="pay-sub">Total parcelado: ${formatBRL(precoParcelado)}</p>
-      </div>
-    `
-    : '';
+  const tabelaItens = [cabecalhoTabela(), ...linhasItens, '='.repeat(56)].join('\n');
+
+  let blocoParcelamento = '';
+  if (exibirParcelamento && opcoesParcelamento.length > 0) {
+    const linhasOpcoes = buildLinhasParcelas(opcoesParcelamento);
+
+    blocoParcelamento = `
+      <p class="section-title">PARCELAMENTO</p>
+      <pre class="receipt-table">${cabecalhoTabela()}
+${linhasOpcoes.join('\n')}
+${'='.repeat(56)}</pre>
+    `;
+  }
+
+  const resumoLinhas = [
+    linhaResumo('Valor à vista:', formatCupomValor(precoVenda)),
+    exibirParcelamento && opcoesParcelamento.length > 0
+      ? linhaResumo(`Total ${PARCELAS_MAX}x:`, formatCupomValor(precoParcelado))
+      : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
 
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -97,186 +175,148 @@ export function imprimirCupomOrcamento(data: OrcamentoCupomData): void {
     @page { size: 80mm auto; margin: 0; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: Helvetica, Arial, sans-serif;
+      font-family: 'Courier New', Courier, monospace;
       font-size: 10px;
-      line-height: 1.4;
+      line-height: 1.35;
       color: #000;
       background: #fff;
       width: 302px;
       margin: 0 auto;
-      padding: 12px 10px 16px;
+      padding: 10px 8px 14px;
     }
     .cupom { width: 100%; }
     .center { text-align: center; }
-    .bold { font-weight: 700; }
-    .muted { font-size: 9px; line-height: 1.35; }
     .logo-wrap {
       display: flex;
       justify-content: center;
-      align-items: center;
-      min-height: 52px;
       margin-bottom: 6px;
     }
-    .logo {
-      max-width: 168px;
-      max-height: 52px;
-      object-fit: contain;
-    }
-    .empresa-info { text-align: center; margin-bottom: 2px; }
-    .empresa-info p { margin-bottom: 2px; }
-    .empresa-endereco { font-weight: 700; font-size: 10px; margin: 3px 0; }
-    .line-solid {
-      border: none;
-      border-top: 1.5px solid #000;
-      margin: 7px 0;
-    }
-    .line-dashed {
-      border: none;
-      border-top: 1px dashed #555;
-      margin: 6px 0;
-    }
-    .doc-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      gap: 8px;
+    .logo { max-width: 140px; max-height: 44px; object-fit: contain; }
+    .empresa-nome {
       font-weight: 700;
       font-size: 11px;
-      letter-spacing: 0.04em;
-      margin: 2px 0;
-    }
-    .doc-date { font-size: 9px; font-weight: 700; letter-spacing: 0; }
-    .section { margin: 8px 0 4px; }
-    .section-title {
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
+      text-align: center;
       margin-bottom: 4px;
+      text-transform: uppercase;
     }
-    .section-body {
-      font-size: 11px;
+    .empresa-info {
+      text-align: center;
+      font-size: 9px;
+      line-height: 1.4;
+      margin-bottom: 8px;
+    }
+    .rule {
+      border: none;
+      border-top: 1px solid #000;
+      margin: 8px 0;
+    }
+    .rule-double {
+      border: none;
+      border-top: 2px solid #000;
+      margin: 8px 0;
+    }
+    .doc-title {
+      text-align: center;
       font-weight: 700;
-      line-height: 1.35;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      margin-bottom: 2px;
+    }
+    .doc-meta {
+      text-align: center;
+      font-size: 9px;
+      margin-bottom: 8px;
+    }
+    .meta-line {
+      font-size: 9px;
+      margin-bottom: 3px;
       word-break: break-word;
     }
-    .value-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      gap: 10px;
-      margin-bottom: 4px;
-      font-size: 10px;
-    }
-    .value-desc { flex: 1; font-weight: 600; }
-    .value-amount { font-weight: 700; white-space: nowrap; }
-    .pay-section { margin-top: 8px; }
-    .pay-box {
-      border: 1.5px solid #000;
-      padding: 8px 10px;
-      margin-bottom: 6px;
-      text-align: center;
-    }
-    .pay-cash {
-      background: #fff;
-    }
-    .pay-installment {
-      background: #f7f7f7;
-    }
-    .pay-label {
-      font-size: 8px;
+    .meta-line strong { font-weight: 700; }
+    .section-title {
       font-weight: 700;
-      letter-spacing: 0.1em;
-      margin-bottom: 4px;
-    }
-    .pay-highlight {
-      font-size: 14px;
-      font-weight: 700;
-      line-height: 1.2;
-    }
-    .pay-sub {
       font-size: 9px;
-      margin-top: 3px;
+      text-align: center;
+      margin: 10px 0 6px;
+      letter-spacing: 0.06em;
     }
+    .receipt-table {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 9px;
+      line-height: 1.3;
+      white-space: pre;
+      overflow-x: hidden;
+      width: 100%;
+      margin: 0 0 4px;
+    }
+    .resumo {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 9px;
+      line-height: 1.5;
+      white-space: pre;
+      margin: 8px 0;
+    }
+    .resumo strong { font-weight: 700; }
     .footer-note {
       text-align: center;
-      font-size: 9px;
-      margin: 10px 0 6px;
-      line-height: 1.4;
+      font-size: 8px;
+      line-height: 1.45;
+      margin: 10px 0 8px;
     }
     .system-credit {
-      margin-top: 8px;
+      text-align: center;
+      font-size: 8px;
       padding-top: 8px;
       border-top: 1px solid #000;
-      text-align: center;
-    }
-    .system-credit-name {
-      font-size: 8px;
-      font-weight: 700;
-    }
-    .system-credit-link {
-      font-size: 8px;
-      margin-top: 2px;
     }
     @media print {
-      body { padding: 8px; }
-      .pay-installment { background: #fff; }
+      body { padding: 8px 6px 12px; }
     }
   </style>
 </head>
 <body>
   <div class="cupom">
     <div class="logo-wrap">
-      ${logoCupomPreto ? `<img src="${logoCupomPreto}" alt="" class="logo" />` : `<p class="bold center" style="font-size:13px">${escapeHtml(empresa.nome)}</p>`}
+      ${
+        logoCupomPreto
+          ? `<img src="${logoCupomPreto}" alt="" class="logo" />`
+          : `<p class="empresa-nome">${escapeHtml(empresa.nome)}</p>`
+      }
     </div>
 
-    <div class="empresa-info muted">
+    <div class="empresa-info">
+      ${logoCupomPreto ? `<p class="empresa-nome">${escapeHtml(empresa.nome)}</p>` : ''}
       <p>CNPJ: ${escapeHtml(formatCnpj(empresa.cnpj))}</p>
-      <p class="empresa-endereco">${escapeHtml(empresa.endereco || '---')}</p>
-      <p>${escapeHtml(contato)}</p>
-      ${empresa.website ? `<p>${escapeHtml(empresa.website)}</p>` : ''}
+      <p>${escapeHtml(empresa.endereco || '---')}</p>
+      ${empresa.telefone ? `<p>Tel: ${escapeHtml(empresa.telefone)}</p>` : ''}
+      ${empresa.email ? `<p>${escapeHtml(empresa.email)}</p>` : ''}
     </div>
 
-    <hr class="line-solid" />
+    <hr class="rule-double" />
 
-    <div class="doc-header">
-      <span>ORÇAMENTO</span>
-      <span class="doc-date">${dataStr} · ${horaStr}</span>
-    </div>
+    <p class="doc-title">ORÇAMENTO</p>
+    <p class="doc-meta">${dataStr} · ${horaStr}</p>
 
-    <hr class="line-solid" />
+    <p class="meta-line"><strong>Cliente:</strong> ${escapeHtml(cliente)}</p>
+    <p class="meta-line"><strong>Aparelho:</strong> ${escapeHtml(modeloAparelho)}</p>
 
-    <div class="section">
-      <p class="section-title">CLIENTE</p>
-      <p class="section-body">${escapeHtml(cliente)}</p>
-    </div>
+    <hr class="rule" />
 
-    <hr class="line-dashed" />
+    <p class="section-title">VALORES</p>
+    <pre class="receipt-table">${tabelaItens}</pre>
 
-    <div class="section">
-      <p class="section-title">APARELHO</p>
-      <p class="section-body">${escapeHtml(modeloAparelho)}</p>
-    </div>
+    ${blocoParcelamento}
 
-    <hr class="line-solid" />
+    <pre class="resumo"><strong>${resumoLinhas}</strong></pre>
 
-    <div class="section">
-      <p class="section-title">VALORES</p>
-      ${detalheValores}
-    </div>
-
-    <div class="pay-section">
-      <div class="pay-box pay-cash">
-        <p class="pay-label">À VISTA</p>
-        <p class="pay-highlight">${formatBRL(precoVenda)}</p>
-      </div>
-      ${blocoParcelamento}
-    </div>
-
-    <p class="footer-note">Orçamento válido por 7 dias.<br/>Sujeito à disponibilidade de peças.</p>
+    <p class="footer-note">
+      Orçamento válido por 7 dias.<br />
+      Sujeito à disponibilidade de peças.
+    </p>
 
     <div class="system-credit">
-      <p class="system-credit-name">Gestão Consert</p>
-      <p class="system-credit-link">www.gestaoconsert.com.br</p>
+      <p>Gestão Consert</p>
+      <p>www.gestaoconsert.com.br</p>
     </div>
   </div>
   <script>
@@ -288,7 +328,7 @@ export function imprimirCupomOrcamento(data: OrcamentoCupomData): void {
 </body>
 </html>`;
 
-  const printWindow = window.open('', '_blank', 'width=360,height=720');
+  const printWindow = window.open('', '_blank', 'width=360,height=800');
   if (!printWindow) return;
   printWindow.document.write(html);
   printWindow.document.close();
