@@ -1,6 +1,9 @@
 import {
   PARCELAS_MAX,
   formatBRL,
+  calcularPrecoVistaExibicao,
+  formatDescontoVistaTexto,
+  type ModoExibicaoPrecoCliente,
   type OpcaoParcelamento,
 } from '@/lib/pricingCalculator';
 
@@ -25,6 +28,8 @@ export interface OrcamentoCupomData {
   opcoesParcelamento: OpcaoParcelamento[];
   exibirMaoDeObraSeparada: boolean;
   exibirParcelamento: boolean;
+  modoExibicaoCliente: ModoExibicaoPrecoCliente;
+  descontoVistaPercent: number;
 }
 
 function escapeHtml(text: string): string {
@@ -85,7 +90,7 @@ function linhaResumo(label: string, valor: string, largura = 28): string {
 
 function buildLinhasItens(
   modeloAparelho: string,
-  precoVenda: number,
+  valorPrincipal: number,
   precoPeca: number,
   maoDeObra: number,
   exibirMaoDeObraSeparada: boolean
@@ -101,11 +106,41 @@ function buildLinhasItens(
     linhas.push(linhaTabela('002', 'Mão de obra', '1', mo, mo));
   } else {
     const desc = modeloAparelho.length > 18 ? `${modeloAparelho.slice(0, 15)}...` : modeloAparelho;
-    const v = formatCupomValor(precoVenda);
+    const v = formatCupomValor(valorPrincipal);
     linhas.push(linhaTabela('001', desc, '1', v, v));
   }
 
   return linhas;
+}
+
+function buildResumoCupom(
+  modo: ModoExibicaoPrecoCliente,
+  precoVenda: number,
+  precoParcelado: number,
+  exibirParcelamento: boolean,
+  descontoVistaPercent: number
+): string {
+  if (modo === 'parcelado_destaque') {
+    const precoVistaCliente = calcularPrecoVistaExibicao(
+      precoVenda,
+      precoParcelado,
+      descontoVistaPercent
+    );
+    const linhas = [linhaResumo('Valor parcelado:', formatCupomValor(precoParcelado))];
+    linhas.push(`Parcelado em até ${PARCELAS_MAX}x`);
+    const desconto = formatDescontoVistaTexto(precoVenda, precoParcelado, descontoVistaPercent);
+    if (desconto) {
+      linhas.push(desconto);
+      linhas.push(linhaResumo('À vista:', formatCupomValor(precoVistaCliente)));
+    }
+    return linhas.join('\n');
+  }
+
+  const linhas = [linhaResumo('Valor à vista:', formatCupomValor(precoVenda))];
+  if (exibirParcelamento && precoParcelado > precoVenda) {
+    linhas.push(linhaResumo('Valor parcelado:', formatCupomValor(precoParcelado)));
+  }
+  return linhas.join('\n');
 }
 
 function buildLinhasParcelas(opcoesParcelamento: OpcaoParcelamento[]): string[] {
@@ -130,14 +165,19 @@ export function imprimirCupomOrcamento(data: OrcamentoCupomData): void {
     opcoesParcelamento,
     exibirMaoDeObraSeparada,
     exibirParcelamento,
+    modoExibicaoCliente,
+    descontoVistaPercent,
   } = data;
 
   const dataStr = new Date().toLocaleDateString('pt-BR');
   const horaStr = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
+  const valorPrincipal =
+    modoExibicaoCliente === 'parcelado_destaque' ? precoParcelado : precoVenda;
+
   const linhasItens = buildLinhasItens(
     modeloAparelho,
-    precoVenda,
+    valorPrincipal,
     precoPeca,
     maoDeObra,
     exibirMaoDeObraSeparada
@@ -157,14 +197,13 @@ ${'='.repeat(56)}</pre>
     `;
   }
 
-  const resumoLinhas = [
-    linhaResumo('Valor à vista:', formatCupomValor(precoVenda)),
-    exibirParcelamento && opcoesParcelamento.length > 0
-      ? linhaResumo(`Total ${PARCELAS_MAX}x:`, formatCupomValor(precoParcelado))
-      : null,
-  ]
-    .filter(Boolean)
-    .join('\n');
+  const resumoLinhas = buildResumoCupom(
+    modoExibicaoCliente,
+    precoVenda,
+    precoParcelado,
+    exibirParcelamento,
+    descontoVistaPercent
+  );
 
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">

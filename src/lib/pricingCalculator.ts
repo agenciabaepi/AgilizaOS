@@ -1,10 +1,31 @@
+export type ModoExibicaoPrecoCliente = 'separado' | 'parcelado_destaque';
+
 export interface ConfiguracaoPrecificacao {
   markup_percent: number;
   imposto_percent: number;
   juros_parcelamento_percent: number;
   frete_valor: number;
+  modo_exibicao_cliente: ModoExibicaoPrecoCliente;
+  desconto_vista_percent: number;
   configurado: boolean;
 }
+
+export const MODO_EXIBICAO_CLIENTE_OPTIONS: {
+  value: ModoExibicaoPrecoCliente;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: 'separado',
+    label: 'À vista e parcelado separados',
+    description: 'Ex: R$ 100,00 à vista e R$ 120,00 parcelado.',
+  },
+  {
+    value: 'parcelado_destaque',
+    label: 'Parcelado em destaque com desconto à vista',
+    description: 'Ex: R$ 120,00 parcelado em até 12x — 17% de desconto à vista.',
+  },
+];
 
 export type SaudePreco = 'saudavel' | 'apertado' | 'insuficiente';
 
@@ -125,6 +146,44 @@ export function calcularOpcoesParcelamento(
 export function calcularValorParcela(precoParcelado: number, parcelas = PARCELAS_MAX): number {
   if (parcelas <= 0 || precoParcelado <= 0) return 0;
   return precoParcelado / parcelas;
+}
+
+/** Desconto à vista em relação ao valor parcelado (ex: 120 parcelado, 100 à vista → 16,7%) */
+export function calcularDescontoVistaPercent(precoVenda: number, precoParcelado: number): number {
+  if (precoParcelado <= 0 || precoVenda >= precoParcelado) return 0;
+  return Math.round(((precoParcelado - precoVenda) / precoParcelado) * 1000) / 10;
+}
+
+export function obterDescontoVistaPercent(
+  precoVenda: number,
+  precoParcelado: number,
+  descontoVistaConfigurado = 0
+): number {
+  if (descontoVistaConfigurado > 0) return descontoVistaConfigurado;
+  return calcularDescontoVistaPercent(precoVenda, precoParcelado);
+}
+
+/** Valor à vista exibido ao cliente no modo parcelado_destaque */
+export function calcularPrecoVistaExibicao(
+  precoVenda: number,
+  precoParcelado: number,
+  descontoVistaConfigurado = 0
+): number {
+  if (descontoVistaConfigurado > 0 && precoParcelado > 0) {
+    return precoParcelado * (1 - descontoVistaConfigurado / 100);
+  }
+  return precoVenda;
+}
+
+export function formatDescontoVistaTexto(
+  precoVenda: number,
+  precoParcelado: number,
+  descontoVistaConfigurado = 0
+): string {
+  const pct = obterDescontoVistaPercent(precoVenda, precoParcelado, descontoVistaConfigurado);
+  if (pct <= 0) return '';
+  const pctStr = Number.isInteger(pct) ? String(pct) : pct.toFixed(1).replace('.', ',');
+  return `${pctStr}% de desconto à vista`;
 }
 
 export const SAUDE_LABELS: Record<SaudePreco, string> = {

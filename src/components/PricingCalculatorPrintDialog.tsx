@@ -5,7 +5,7 @@ import { Dialog } from '@/components/Dialog';
 import { Input } from '@/components/Input';
 import { Button } from '@/components/Button';
 import { imprimirCupomOrcamento } from '@/lib/pricingCalculatorCupom';
-import type { ResultadoPrecificacao } from '@/lib/pricingCalculator';
+import type { ResultadoPrecificacao, ModoExibicaoPrecoCliente } from '@/lib/pricingCalculator';
 import {
   abrirOrcamentoWhatsApp,
   handlePhoneInputChange,
@@ -32,6 +32,8 @@ interface PricingCalculatorPrintDialogProps {
   empresa: EmpresaPrintData;
   resultado: ResultadoPrecificacao;
   maoDeObra: number;
+  modoExibicaoCliente: ModoExibicaoPrecoCliente;
+  descontoVistaPercent: number;
 }
 
 async function prepararLogoCupom(logoUrl?: string): Promise<string | null> {
@@ -56,6 +58,8 @@ export default function PricingCalculatorPrintDialog({
   empresa,
   resultado,
   maoDeObra,
+  modoExibicaoCliente,
+  descontoVistaPercent,
 }: PricingCalculatorPrintDialogProps) {
   const [cliente, setCliente] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
@@ -118,6 +122,8 @@ export default function PricingCalculatorPrintDialog({
       opcoesParcelamento: resultado.opcoesParcelamento,
       exibirMaoDeObraSeparada,
       exibirParcelamento,
+      modoExibicaoCliente,
+      descontoVistaPercent,
     };
 
     const logoCupomPreto = await prepararLogoCupom(empresaCompleta.logo_url);

@@ -1,6 +1,9 @@
 import {
   PARCELAS_MAX,
+  calcularPrecoVistaExibicao,
   formatBRL,
+  formatDescontoVistaTexto,
+  type ModoExibicaoPrecoCliente,
   type OpcaoParcelamento,
 } from '@/lib/pricingCalculator';
 import { normalizeBRPhone } from '@/lib/sanitize-os-data';
@@ -17,6 +20,8 @@ export interface OrcamentoWhatsAppData {
   opcoesParcelamento: OpcaoParcelamento[];
   exibirMaoDeObraSeparada: boolean;
   exibirParcelamento: boolean;
+  modoExibicaoCliente: ModoExibicaoPrecoCliente;
+  descontoVistaPercent: number;
 }
 
 export function handlePhoneInputChange(value: string): string {
@@ -35,6 +40,54 @@ export function isTelefoneWhatsAppValido(telefone: string): boolean {
   return digits.length >= 10;
 }
 
+function buildBlocoPrecosWhatsApp(data: OrcamentoWhatsAppData): string[] {
+  const {
+    precoVenda,
+    precoParcelado,
+    opcoesParcelamento,
+    exibirParcelamento,
+    modoExibicaoCliente,
+    descontoVistaPercent,
+  } = data;
+
+  if (modoExibicaoCliente === 'parcelado_destaque') {
+    const precoVistaCliente = calcularPrecoVistaExibicao(
+      precoVenda,
+      precoParcelado,
+      descontoVistaPercent
+    );
+    const linhas = [
+      '',
+      `*${formatBRL(precoParcelado)}*`,
+      `Parcelado em até ${PARCELAS_MAX}x`,
+    ];
+    const desconto = formatDescontoVistaTexto(precoVenda, precoParcelado, descontoVistaPercent);
+    if (desconto) {
+      linhas.push(desconto);
+      linhas.push(`À vista: ${formatBRL(precoVistaCliente)}`);
+    }
+    if (exibirParcelamento && opcoesParcelamento.length > 0) {
+      linhas.push('', `*Opções de parcelamento:*`);
+      opcoesParcelamento.forEach((opcao) => {
+        const destaque = opcao.parcelas === PARCELAS_MAX ? '*' : '';
+        linhas.push(`${destaque}${opcao.parcelas}x de ${formatBRL(opcao.valorParcela)}${destaque}`);
+      });
+    }
+    return linhas;
+  }
+
+  const linhas = ['', `*À VISTA:* ${formatBRL(precoVenda)}`];
+  if (exibirParcelamento && opcoesParcelamento.length > 0) {
+    linhas.push('', `*PARCELAMENTO ATÉ ${PARCELAS_MAX}X:*`);
+    linhas.push(`Valor parcelado: ${formatBRL(precoParcelado)}`, '');
+    opcoesParcelamento.forEach((opcao) => {
+      const destaque = opcao.parcelas === PARCELAS_MAX ? '*' : '';
+      linhas.push(`${destaque}${opcao.parcelas}x de ${formatBRL(opcao.valorParcela)}${destaque}`);
+    });
+  }
+  return linhas;
+}
+
 export function buildOrcamentoWhatsAppMessage(data: OrcamentoWhatsAppData): string {
   const {
     empresa,
@@ -42,11 +95,7 @@ export function buildOrcamentoWhatsAppMessage(data: OrcamentoWhatsAppData): stri
     modeloAparelho,
     precoPeca,
     maoDeObra,
-    precoVenda,
-    precoParcelado,
-    opcoesParcelamento,
     exibirMaoDeObraSeparada,
-    exibirParcelamento,
   } = data;
 
   const linhas: string[] = [
@@ -64,16 +113,7 @@ export function buildOrcamentoWhatsAppMessage(data: OrcamentoWhatsAppData): stri
     linhas.push(`Mão de obra: ${formatBRL(maoDeObra)}`);
   }
 
-  linhas.push('', `*À VISTA:* ${formatBRL(precoVenda)}`);
-
-  if (exibirParcelamento && opcoesParcelamento.length > 0) {
-    linhas.push('');
-    linhas.push(`*PARCELAMENTO ATÉ ${PARCELAS_MAX}X:*`);
-    opcoesParcelamento.forEach((opcao) => {
-      const destaque = opcao.parcelas === PARCELAS_MAX ? '*' : '';
-      linhas.push(`${destaque}${opcao.parcelas}x de ${formatBRL(opcao.valorParcela)}${destaque}`);
-    });
-  }
+  linhas.push(...buildBlocoPrecosWhatsApp(data));
 
   linhas.push(
     '',

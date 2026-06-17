@@ -13,6 +13,7 @@ import {
   isConfiguracaoValida,
   parseMoneyInput,
   PARCELAS_MAX,
+  MODO_EXIBICAO_CLIENTE_OPTIONS,
   SAUDE_LABELS,
   type ConfiguracaoPrecificacao,
 } from '@/lib/pricingCalculator';
@@ -36,20 +37,37 @@ const SAUDE_STYLES = {
 } as const;
 
 function ResumoTaxas({ config }: { config: ConfiguracaoPrecificacao }) {
+  const modoLabel = MODO_EXIBICAO_CLIENTE_OPTIONS.find(
+    (o) => o.value === config.modo_exibicao_cliente
+  )?.label;
+
   return (
-    <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs text-gray-600 sm:grid-cols-4">
-      <span>
-        Markup: <strong className="text-gray-800">{config.markup_percent}%</strong>
-      </span>
-      <span>
-        Imposto: <strong className="text-gray-800">{config.imposto_percent}%</strong>
-      </span>
-      <span>
-        Juros: <strong className="text-gray-800">{config.juros_parcelamento_percent}%</strong>
-      </span>
-      <span>
-        Frete: <strong className="text-gray-800">{formatBRL(config.frete_valor)}</strong>
-      </span>
+    <div className="space-y-2">
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs text-gray-600 sm:grid-cols-4">
+        <span>
+          Markup: <strong className="text-gray-800">{config.markup_percent}%</strong>
+        </span>
+        <span>
+          Imposto: <strong className="text-gray-800">{config.imposto_percent}%</strong>
+        </span>
+        <span>
+          Juros: <strong className="text-gray-800">{config.juros_parcelamento_percent}%</strong>
+        </span>
+        <span>
+          Frete: <strong className="text-gray-800">{formatBRL(config.frete_valor)}</strong>
+        </span>
+      </div>
+      {modoLabel && (
+        <p className="text-xs text-gray-500">
+          Exibição ao cliente: <strong className="text-gray-700">{modoLabel}</strong>
+          {config.modo_exibicao_cliente === 'parcelado_destaque' && config.desconto_vista_percent > 0 && (
+            <>
+              {' · '}
+              Desconto à vista: <strong className="text-gray-700">{config.desconto_vista_percent}%</strong>
+            </>
+          )}
+        </p>
+      )}
     </div>
   );
 }
@@ -75,7 +93,7 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
       try {
         const { data, error } = await supabase
           .from('configuracoes_precificacao')
-          .select('markup_percent, imposto_percent, juros_parcelamento_percent, frete_valor, configurado')
+          .select('markup_percent, imposto_percent, juros_parcelamento_percent, frete_valor, modo_exibicao_cliente, desconto_vista_percent, configurado')
           .eq('empresa_id', usuarioData.empresa_id)
           .maybeSingle();
 
@@ -92,6 +110,9 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
             imposto_percent: Number(data.imposto_percent ?? 0),
             juros_parcelamento_percent: Number(data.juros_parcelamento_percent ?? 0),
             frete_valor: Number(data.frete_valor ?? 0),
+            modo_exibicao_cliente:
+              data.modo_exibicao_cliente === 'parcelado_destaque' ? 'parcelado_destaque' : 'separado',
+            desconto_vista_percent: Number(data.desconto_vista_percent ?? 0),
             configurado: Boolean(data.configurado),
           });
         } else {
@@ -331,6 +352,8 @@ export default function PricingCalculatorModal({ isOpen, onClose }: PricingCalcu
           }}
           resultado={resultado}
           maoDeObra={maoDeObra}
+          modoExibicaoCliente={config?.modo_exibicao_cliente ?? 'separado'}
+          descontoVistaPercent={config?.desconto_vista_percent ?? 0}
         />
       )}
     </>

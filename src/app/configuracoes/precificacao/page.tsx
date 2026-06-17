@@ -8,7 +8,7 @@ import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/lib/supabaseClient';
-import { parsePercentInput } from '@/lib/pricingCalculator';
+import { parsePercentInput, MODO_EXIBICAO_CLIENTE_OPTIONS, type ModoExibicaoPrecoCliente } from '@/lib/pricingCalculator';
 import { FiPercent, FiDollarSign, FiSave } from 'react-icons/fi';
 import { Calculator } from 'lucide-react';
 
@@ -19,6 +19,8 @@ interface ConfigPrecificacao {
   imposto_percent: number;
   juros_parcelamento_percent: number;
   frete_valor: number;
+  modo_exibicao_cliente: ModoExibicaoPrecoCliente;
+  desconto_vista_percent: number;
   configurado: boolean;
 }
 
@@ -28,6 +30,8 @@ function formFromData(d: ConfigPrecificacao) {
     imposto_percent: String(d.imposto_percent ?? ''),
     juros_parcelamento_percent: String(d.juros_parcelamento_percent ?? ''),
     frete_valor: String(d.frete_valor ?? ''),
+    modo_exibicao_cliente: (d.modo_exibicao_cliente ?? 'separado') as ModoExibicaoPrecoCliente,
+    desconto_vista_percent: String(d.desconto_vista_percent ?? ''),
   };
 }
 
@@ -43,6 +47,8 @@ export default function PrecificacaoPage() {
     imposto_percent: '',
     juros_parcelamento_percent: '',
     frete_valor: '',
+    modo_exibicao_cliente: 'separado' as ModoExibicaoPrecoCliente,
+    desconto_vista_percent: '',
   });
 
   const empresaId = usuarioData?.empresa_id;
@@ -93,6 +99,8 @@ export default function PrecificacaoPage() {
         imposto_percent: parsePercentInput(form.imposto_percent),
         juros_parcelamento_percent: parsePercentInput(form.juros_parcelamento_percent),
         frete_valor: parsePercentInput(form.frete_valor),
+        modo_exibicao_cliente: form.modo_exibicao_cliente,
+        desconto_vista_percent: parsePercentInput(form.desconto_vista_percent),
         configurado: true,
         updated_at: new Date().toISOString(),
       };
@@ -219,6 +227,59 @@ export default function PrecificacaoPage() {
               </div>
               <p className="text-xs text-gray-500 mt-1">Valor fixo de frete somado ao custo da peça.</p>
             </div>
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-gray-800">Exibição para o cliente</p>
+            <p className="text-xs text-gray-500">
+              Define como o orçamento aparece no cupom e no WhatsApp.
+            </p>
+            <div className="space-y-2">
+              {MODO_EXIBICAO_CLIENTE_OPTIONS.map((opcao) => (
+                <label
+                  key={opcao.value}
+                  className={`flex items-start gap-3 cursor-pointer rounded-lg border p-3 transition-colors ${
+                    form.modo_exibicao_cliente === opcao.value
+                      ? 'border-gray-900 bg-gray-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="modo_exibicao_cliente"
+                    className="mt-1"
+                    checked={form.modo_exibicao_cliente === opcao.value}
+                    onChange={() => setForm((f) => ({ ...f, modo_exibicao_cliente: opcao.value }))}
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-gray-900">{opcao.label}</span>
+                    <span className="block text-xs text-gray-500 mt-0.5">{opcao.description}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+
+            {form.modo_exibicao_cliente === 'parcelado_destaque' && (
+              <div className="max-w-sm">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Desconto à vista (%)
+                </label>
+                <div className="relative">
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="Ex: 10"
+                    value={form.desconto_vista_percent}
+                    onChange={(e) => setForm((f) => ({ ...f, desconto_vista_percent: e.target.value }))}
+                    className="pr-10"
+                  />
+                  <FiPercent className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Percentual exibido ao cliente no cupom e WhatsApp. Deixe em branco ou 0 para calcular automaticamente.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="rounded-lg bg-gray-50 border border-gray-200 p-4 text-sm text-gray-600">
