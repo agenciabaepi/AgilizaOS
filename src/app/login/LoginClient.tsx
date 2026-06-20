@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
 import logo from '@/assets/imagens/logopreto.png';
 
-const BG_LOGIN_URL = '/bglogin.jpg';
+const BG_LOGIN_URL = '/assets/imagens/brendha.jpg';
 import { ToastProvider, useToast } from '@/components/Toast';
 import { ConfirmProvider, useConfirm } from '@/components/ConfirmDialog';
 import { FaEye, FaEyeSlash, FaArrowLeft, FaArrowRight } from 'react-icons/fa';
