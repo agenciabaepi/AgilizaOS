@@ -48,7 +48,35 @@ export default function PerfilPage() {
   const [senhaNovaVisivel, setSenhaNovaVisivel] = useState(false);
   const [confirmarSenhaVisivel, setConfirmarSenhaVisivel] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [erroUsuario, setErroUsuario] = useState('');
+  const [erroEmail, setErroEmail] = useState('');
  
+  const restaurarFormularioPerfil = () => {
+    if (!perfil) return;
+    setForm({
+      nome: perfil.nome,
+      email: perfil.email,
+      usuario: perfil.usuario,
+      cpf: perfil.cpf,
+      whatsapp: perfil.whatsapp,
+    });
+    setWhatsappValido(true);
+    setErroUsuario('');
+    setErroEmail('');
+  };
+
+  const handleToggleEdit = () => {
+    if (isEditing) {
+      restaurarFormularioPerfil();
+      setIsEditing(false);
+      return;
+    }
+    setWhatsappValido(true);
+    setErroUsuario('');
+    setErroEmail('');
+    setIsEditing(true);
+  };
+
   const getAvatarBaseUrl = (url?: string | null) => {
     if (!url) return null;
     return url.split('?')[0];
@@ -61,8 +89,6 @@ export default function PerfilPage() {
   };
  
   // Estados de validação
-  const [emailValido, setEmailValido] = useState(true);
-  const [usuarioValido, setUsuarioValido] = useState(true);
   const [whatsappValido, setWhatsappValido] = useState(true);
 
   useEffect(() => {
@@ -109,7 +135,7 @@ export default function PerfilPage() {
         if (!isMounted) return;
 
         setPerfil({
-          id: data.id || user.id,
+          id: data.id,
           nome: data.nome || '',
           email: data.email || '',
           usuario: data.usuario || '',
@@ -165,36 +191,6 @@ export default function PerfilPage() {
     }
   }, [usuarioData?.foto_url, fotoUrl]); // Apenas observar mudanças na foto_url
 
-  // Validação em tempo real
-  useEffect(() => {
-    if (form.email && perfil) {
-      const emailFormatValido = validarEmail(form.email);
-      if (!emailFormatValido) {
-        setEmailValido(false);
-        return;
-      }
-      // Se o email não mudou, é válido
-      if (form.email === perfil.email) {
-        setEmailValido(true);
-      } else {
-        // Só valida unicidade se o email mudou
-        validarEmailUnico(form.email).then(setEmailValido);
-      }
-    }
-  }, [form.email, perfil]);
-
-  useEffect(() => {
-    if (form.usuario && perfil) {
-      // Se o nome de usuário não mudou, é válido
-      if (form.usuario === perfil.usuario) {
-        setUsuarioValido(true);
-      } else {
-        // Só valida unicidade se o usuário mudou
-        validarUsuarioUnico(form.usuario).then(setUsuarioValido);
-      }
-    }
-  }, [form.usuario, perfil]);
-
   useEffect(() => {
     if (form.whatsapp && perfil) {
       // Se o WhatsApp não mudou, é válido
@@ -212,52 +208,30 @@ export default function PerfilPage() {
   // Função para validar email
   const validarEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
-
-  // Função para validar usuário único
-  const validarUsuarioUnico = async (usuario: string) => {
-    if (!usuario.trim() || !perfil?.id) return true;
-    
-    try {
-      const { data, error } = await supabase
-        .from('usuarios')
-        .select('id')
-        .eq('usuario', usuario.trim().toLowerCase())
-        .neq('id', perfil.id)
-        .limit(1);
-      
-      if (error) {
-        console.warn('⚠️ Erro na validação de usuário:', error);
-        return true; // Assumir válido em caso de erro
-      }
-      
-      return !data || data.length === 0; // Retorna true se não existir (válido)
-    } catch {
-      return true; // Se não encontrar, é válido
-    }
+    return emailRegex.test(email.trim());
   };
 
   // Função para validar email único
-  const validarEmailUnico = async (email: string) => {
-    if (!email.trim() || !perfil?.id) return true;
-    
+  const validarEmailUnico = async (email: string, excludeId?: string) => {
+    const emailNormalizado = email.trim().toLowerCase();
+    if (!emailNormalizado) return false;
+
     try {
-      const { data, error } = await supabase
-        .from('usuarios')
-        .select('id')
-        .eq('email', email.trim().toLowerCase())
-        .neq('id', perfil.id)
-        .limit(1);
-      
-      if (error) {
-        console.warn('⚠️ Erro na validação de email:', error);
-        return true; // Assumir válido em caso de erro
-      }
-      
-      return !data || data.length === 0; // Retorna true se não existir (válido)
+      const res = await fetch('/api/verificar/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          email: emailNormalizado,
+          excludeId: excludeId ?? perfil?.id,
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok) return true;
+      if (typeof result.exists === 'boolean') return !result.exists;
+      return true;
     } catch {
-      return true; // Se não encontrar, é válido
+      return true;
     }
   };
 
@@ -301,21 +275,36 @@ export default function PerfilPage() {
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (name === 'usuario') {
+      setErroUsuario('');
+      setForm({ ...form, usuario: value.trim().toLowerCase() });
+      return;
+    }
+    if (name === 'email') {
+      setErroEmail('');
+    }
+    setForm({ ...form, [name]: value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validações finais
-    if (!emailValido) {
-      addToast('error', 'E-mail inválido ou já cadastrado');
+    if (!validarEmail(form.email)) {
+      setErroEmail('E-mail inválido');
+      addToast('error', 'E-mail inválido');
       return;
     }
-    
-    if (!usuarioValido) {
-      addToast('error', 'Nome de usuário já existe');
-      return;
+
+    const emailMudou = perfil && form.email.trim().toLowerCase() !== perfil.email.trim().toLowerCase();
+    if (emailMudou) {
+      const emailUnico = await validarEmailUnico(form.email, perfil?.id);
+      if (!emailUnico) {
+        setErroEmail('E-mail já cadastrado');
+        addToast('error', 'E-mail já cadastrado');
+        return;
+      }
     }
 
     if (!whatsappValido) {
@@ -350,7 +339,7 @@ export default function PerfilPage() {
         credentials: 'include',
         body: JSON.stringify({
           nome: form.nome,
-          email: form.email,
+          email: form.email.trim().toLowerCase(),
           usuario: usuarioPadronizado,
           cpf: form.cpf || null,
           whatsapp: form.whatsapp || null,
@@ -359,12 +348,21 @@ export default function PerfilPage() {
       
       const result = await response.json();
       if (!response.ok) {
-        addToast('error', result.error || 'Erro ao atualizar perfil');
+        const msg = result.error || 'Erro ao atualizar perfil';
+        if (/usu[aá]rio/i.test(msg)) {
+          setErroUsuario(msg);
+        }
+        if (/e-?mail/i.test(msg)) {
+          setErroEmail(msg);
+        }
+        addToast('error', msg);
         setSaving(false);
         return;
       }
       
       setPerfil(prev => prev ? { ...prev, ...form, usuario: usuarioPadronizado } : null);
+      setErroUsuario('');
+      setErroEmail('');
       addToast('success', 'Perfil atualizado com sucesso!');
       setIsEditing(false);
     } catch (err) {
@@ -621,7 +619,7 @@ export default function PerfilPage() {
             <p className="text-gray-600">Gerencie suas informações pessoais e configurações de conta</p>
           </div>
           <Button
-            onClick={() => setIsEditing(!isEditing)}
+            onClick={handleToggleEdit}
             variant={isEditing ? "outline" : "default"}
             className={isEditing ? "" : "bg-[#cffb6d] text-black hover:bg-[#b8e55a]"}
           >
@@ -748,16 +746,14 @@ export default function PerfilPage() {
                       disabled={!isEditing}
                       className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
                         isEditing 
-                          ? emailValido ? 'border-gray-300 focus:ring-gray-900' : 'border-red-500 focus:ring-red-500'
+                          ? erroEmail ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-gray-900'
                           : 'border-gray-200 bg-gray-50 cursor-not-allowed'
                       }`}
                       placeholder="Digite seu e-mail"
                       required
                     />
-                    {isEditing && form.email && !emailValido && (
-                      <p className="text-red-500 text-xs">
-                        {!validarEmail(form.email) ? 'E-mail inválido' : 'E-mail já cadastrado'}
-                      </p>
+                    {isEditing && erroEmail && (
+                      <p className="text-red-500 text-xs">{erroEmail}</p>
                     )}
                   </div>
 
@@ -774,14 +770,14 @@ export default function PerfilPage() {
                       disabled={!isEditing}
                       className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
                         isEditing 
-                          ? usuarioValido ? 'border-gray-300 focus:ring-gray-900' : 'border-red-500 focus:ring-red-500'
+                          ? erroUsuario ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-gray-900'
                           : 'border-gray-200 bg-gray-50 cursor-not-allowed'
                       }`}
                       placeholder="Digite seu nome de usuário"
                       required
                     />
-                    {isEditing && form.usuario && !usuarioValido && (
-                      <p className="text-red-500 text-xs">Nome de usuário já existe</p>
+                    {isEditing && erroUsuario && (
+                      <p className="text-red-500 text-xs">{erroUsuario}</p>
                     )}
                   </div>
 
@@ -858,13 +854,13 @@ export default function PerfilPage() {
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => setIsEditing(false)}
+                      onClick={handleToggleEdit}
                     >
                       Cancelar
                     </Button>
                     <Button
                       type="submit"
-                      disabled={saving || !emailValido || !usuarioValido || !whatsappValido}
+                      disabled={saving || !whatsappValido || !form.usuario.trim() || !form.email.trim()}
                       className="bg-[#cffb6d] text-black hover:bg-[#b8e55a]"
                     >
                       {saving ? (

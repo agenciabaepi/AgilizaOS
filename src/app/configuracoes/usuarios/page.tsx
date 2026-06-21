@@ -24,7 +24,7 @@ import { ToastProvider, useToast } from '@/components/Toast';
 import { ConfirmProvider, useConfirm } from '@/components/ConfirmDialog';
 import { mask as masker } from 'remask';
 import MenuLayout from '@/components/MenuLayout';
-import { TECNICO_DEFAULT_PERMISSIONS } from '@/config/tecnicoAllowedPaths';
+import { getDefaultPermissionsForRole } from '@/lib/permissions';
 
 function UsuariosPageInner({ embedded = false }: { embedded?: boolean }) {
   const { session, usuarioData } = useAuth()
@@ -45,8 +45,8 @@ function UsuariosPageInner({ embedded = false }: { embedded?: boolean }) {
   const [empresaId, setEmpresaId] = useState('')
   
   // Estados de validação
-  const [emailValido, setEmailValido] = useState(true)
   const [cpfValido, setCpfValido] = useState(true)
+  const [erroEmail, setErroEmail] = useState('')
   const [usuarioValido, setUsuarioValido] = useState(true)
   const [whatsappValido, setWhatsappValido] = useState(true)
   const [senhaVisivel, setSenhaVisivel] = useState(false)
@@ -94,7 +94,7 @@ function UsuariosPageInner({ embedded = false }: { embedded?: boolean }) {
   // Função para validar email
   const validarEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+    return emailRegex.test(email.trim());
   };
 
   // Função para validar usuário único
@@ -117,19 +117,25 @@ function UsuariosPageInner({ embedded = false }: { embedded?: boolean }) {
 
   // Função para validar email único
   const validarEmailUnico = async (email: string) => {
-    if (!email.trim() || !empresaId) return false;
-    
+    const emailNormalizado = email.trim().toLowerCase();
+    if (!emailNormalizado) return false;
+
     try {
-      const { data } = await supabase
-        .from('usuarios')
-        .select('id')
-        .eq('email', email.trim().toLowerCase())
-        .eq('empresa_id', empresaId)
-        .maybeSingle();
-      
-      return !data; // Retorna true se não existir (válido)
+      const res = await fetch('/api/verificar/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          email: emailNormalizado,
+          empresa_id: empresaId,
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok) return true;
+      if (typeof result.exists === 'boolean') return !result.exists;
+      return true;
     } catch {
-      return true; // Se não encontrar, é válido
+      return true;
     }
   };
 
@@ -190,24 +196,6 @@ function UsuariosPageInner({ embedded = false }: { embedded?: boolean }) {
   };
 
   // Validação em tempo real
-  useEffect(() => {
-    if (email) {
-      const emailFormatValido = validarEmail(email);
-      
-      if (!emailFormatValido) {
-        setEmailValido(false);
-        return;
-      }
-      
-      // Verificar se email já existe apenas se o formato for válido
-      validarEmailUnico(email).then((emailUnico) => {
-        setEmailValido(emailUnico);
-      });
-    } else {
-      setEmailValido(true);
-    }
-  }, [email, empresaId]);
-
   useEffect(() => {
     if (cpf) {
       const cpfFormatValido = validarCPF(cpf);
@@ -367,8 +355,16 @@ function UsuariosPageInner({ embedded = false }: { embedded?: boolean }) {
     e.preventDefault()
     
     // Validações finais
-    if (!emailValido) {
-      addToast('error', 'E-mail inválido ou já cadastrado');
+    if (!validarEmail(email)) {
+      setErroEmail('E-mail inválido');
+      addToast('error', 'E-mail inválido');
+      return;
+    }
+
+    const emailUnico = await validarEmailUnico(email);
+    if (!emailUnico) {
+      setErroEmail('E-mail já cadastrado');
+      addToast('error', 'E-mail já cadastrado');
       return;
     }
     
@@ -393,7 +389,7 @@ function UsuariosPageInner({ embedded = false }: { embedded?: boolean }) {
       const usuarioPadronizado = usuario.trim().toLowerCase();
       const payload: Record<string, unknown> = {
         nome,
-        email,
+        email: email.trim().toLowerCase(),
         senha,
         cpf: cpf.trim() || null,
         whatsapp,
@@ -401,8 +397,8 @@ function UsuariosPageInner({ embedded = false }: { embedded?: boolean }) {
         empresa_id: empresaId,
         usuario: usuarioPadronizado,
       };
-      if (nivel === 'tecnico') {
-        payload.permissoes = TECNICO_DEFAULT_PERMISSIONS;
+      if (nivel) {
+        payload.permissoes = getDefaultPermissionsForRole(nivel);
       }
       
       const response = await fetch('/api/usuarios/cadastrar', {
@@ -431,6 +427,7 @@ function UsuariosPageInner({ embedded = false }: { embedded?: boolean }) {
       // Limpar formulário
       setNome('')
       setEmail('')
+      setErroEmail('')
       setSenha('')
       setCpf('')
       setWhatsapp('')
@@ -573,29 +570,21 @@ function UsuariosPageInner({ embedded = false }: { embedded?: boolean }) {
                     <input
                       type="email"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => {
+                        setErroEmail('');
+                        setEmail(e.target.value);
+                      }}
                           className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
-                            emailValido 
-                              ? 'border-gray-300 focus:ring-gray-900' 
-                              : 'border-red-500 focus:ring-red-500'
+                            erroEmail
+                              ? 'border-red-500 focus:ring-red-500'
+                              : 'border-gray-300 focus:ring-gray-900'
                           }`}
                           placeholder="Digite o e-mail"
                       required
                     />
-                        {email && (
-                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                            {emailValido ? (
-                              <CheckCircle className="w-5 h-5 text-green-500" />
-                            ) : (
-                              <XCircle className="w-5 h-5 text-red-500" />
-                            )}
-                          </div>
-                        )}
                       </div>
-                      {email && !emailValido && (
-                        <p className="text-red-500 text-xs">
-                          {!validarEmail(email) ? 'E-mail inválido' : 'E-mail já cadastrado'}
-                        </p>
+                      {erroEmail && (
+                        <p className="text-red-500 text-xs">{erroEmail}</p>
                       )}
                   </div>
 
@@ -726,7 +715,7 @@ function UsuariosPageInner({ embedded = false }: { embedded?: boolean }) {
                     </button>
                 <button
                   type="submit"
-                      disabled={isSubmitting || !emailValido || !cpfValido || !usuarioValido || !whatsappValido}
+                      disabled={isSubmitting || !cpfValido || !usuarioValido || !whatsappValido || !email.trim()}
                       className="bg-gray-900 text-white px-8 py-3 rounded-lg font-medium hover:bg-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                       {isSubmitting ? (

@@ -19,7 +19,9 @@ import PricingCalculatorFAB from '@/components/PricingCalculatorFAB';
 
 const DynamicToaster = dynamic(() => import('@/components/ClientToaster'), { ssr: false });
 import { Analytics } from '@vercel/analytics/react';
+import { Suspense } from 'react';
 import RedirectToLoginIfUnauth from '@/components/RedirectToLoginIfUnauth';
+import RoutePermissionGuard from '@/components/RoutePermissionGuard';
 import { SubscriptionProvider } from '@/context/SubscriptionContext';
 import SubscriptionVencidaGuard from '@/components/SubscriptionVencidaGuard';
 import { ThemeProvider } from '@/context/ThemeContext';
@@ -133,6 +135,12 @@ export default function RootLayoutClient({ children }: { children: React.ReactNo
         <AuthProvider>
           <SubscriptionProvider>
           <RedirectToLoginIfUnauth>
+            <Suspense fallback={
+              <div className="min-h-screen flex items-center justify-center bg-white">
+                <div className="h-10 w-10 animate-spin rounded-full border-2 border-gray-900 border-t-transparent" />
+              </div>
+            }>
+              <RoutePermissionGuard>
             <SubscriptionVencidaGuard>
               <ToastProvider>
                 <ConfirmProvider>
@@ -145,6 +153,8 @@ export default function RootLayoutClient({ children }: { children: React.ReactNo
                 </ConfirmProvider>
               </ToastProvider>
             </SubscriptionVencidaGuard>
+              </RoutePermissionGuard>
+            </Suspense>
           </RedirectToLoginIfUnauth>
           </SubscriptionProvider>
         </AuthProvider>

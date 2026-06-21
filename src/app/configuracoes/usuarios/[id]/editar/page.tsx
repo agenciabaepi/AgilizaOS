@@ -15,22 +15,14 @@ import {
   FiMail, 
   FiLock, 
   FiPhone, 
-  FiShield,
   FiSave,
   FiX,
   FiCheck
 } from 'react-icons/fi';
 import { mask as masker } from 'remask';
-import { User, Shield, Eye, EyeOff } from 'lucide-react';
-import {
-  PERMISSOES_PRINCIPAIS,
-  PERMISSOES_FINANCEIRO,
-  PERMISSOES_CONTATOS,
-  PERMISSOES_PRODUTOS,
-  PERMISSOES_CONFIGURACOES,
-  PERMISSOES_AVANCADAS,
-  getAllGrantableKeys,
-} from '@/config/grantablePermissions';
+import { User, Eye, EyeOff } from 'lucide-react';
+import PermissionsEditor from '@/components/permissions/PermissionsEditor';
+import { getDefaultPermissionsForRole } from '@/lib/permissions';
 
 function EditarUsuarioPageInner() {
   const router = useRouter();
@@ -57,9 +49,9 @@ function EditarUsuarioPageInner() {
   });
 
   // Estados de validação
-  const [emailValido, setEmailValido] = useState(true);
   const [cpfValido, setCpfValido] = useState(true);
-  const [usuarioValido, setUsuarioValido] = useState(true);
+  const [erroUsuario, setErroUsuario] = useState('');
+  const [erroEmail, setErroEmail] = useState('');
   
   // Estado para armazenar dados originais do usuário
   const [usuarioOriginal, setUsuarioOriginal] = useState<any>(null);
@@ -91,42 +83,52 @@ function EditarUsuarioPageInner() {
   // Função para validar email
   const validarEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+    return emailRegex.test(email.trim());
   };
 
-  // Função para validar usuário único (excluindo o usuário atual)
   const validarUsuarioUnico = async (usuario: string) => {
-    if (!usuario.trim()) return false;
-    
+    const usuarioNormalizado = usuario.trim().toLowerCase();
+    if (!usuarioNormalizado) return false;
+
     try {
-      const { data, error } = await supabase
-        .from('usuarios')
-        .select('id')
-        .eq('usuario', usuario.trim().toLowerCase())
-        .neq('id', userId)
-        .single();
-      
-      return !data; // Retorna true se não existir (válido)
+      const res = await fetch('/api/verificar/usuario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          usuario: usuarioNormalizado,
+          excludeId: userId,
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok) return true;
+      if (typeof result.exists === 'boolean') return !result.exists;
+      return true;
     } catch {
-      return true; // Se não encontrar, é válido
+      return true;
     }
   };
 
-  // Função para validar email único (excluindo o usuário atual)
   const validarEmailUnico = async (email: string) => {
-    if (!email.trim()) return false;
-    
+    const emailNormalizado = email.trim().toLowerCase();
+    if (!emailNormalizado) return false;
+
     try {
-      const { data, error } = await supabase
-        .from('usuarios')
-        .select('id')
-        .eq('email', email.trim().toLowerCase())
-        .neq('id', userId)
-        .single();
-      
-      return !data; // Retorna true se não existir (válido)
+      const res = await fetch('/api/verificar/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          email: emailNormalizado,
+          excludeId: userId,
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok) return true;
+      if (typeof result.exists === 'boolean') return !result.exists;
+      return true;
     } catch {
-      return true; // Se não encontrar, é válido
+      return true;
     }
   };
 
@@ -147,25 +149,6 @@ function EditarUsuarioPageInner() {
       return true; // Se não encontrar, é válido
     }
   };
-
-  // Validação em tempo real
-  useEffect(() => {
-    if (form.email && usuarioOriginal) {
-      const emailFormatoValido = validarEmail(form.email);
-      
-      if (!emailFormatoValido) {
-        setEmailValido(false);
-      } else {
-        // Se o email não mudou, é válido
-        if (form.email === usuarioOriginal.email) {
-          setEmailValido(true);
-        } else {
-          // Só valida unicidade se o email mudou
-          validarEmailUnico(form.email).then(setEmailValido);
-        }
-      }
-    }
-  }, [form.email, usuarioOriginal]);
 
   useEffect(() => {
     if (form.cpf) {
@@ -188,18 +171,6 @@ function EditarUsuarioPageInner() {
       setCpfValido(true); // CPF vazio é válido
     }
   }, [form.cpf, usuarioOriginal]);
-
-  useEffect(() => {
-    if (form.usuario && usuarioOriginal) {
-      // Se o nome de usuário não mudou, é válido
-      if (form.usuario === usuarioOriginal.usuario) {
-        setUsuarioValido(true);
-      } else {
-        // Só valida se o nome de usuário mudou
-        validarUsuarioUnico(form.usuario).then(setUsuarioValido);
-      }
-    }
-  }, [form.usuario, userId, usuarioOriginal]);
 
   useEffect(() => {
     const fetchUsuario = async () => {
@@ -259,108 +230,33 @@ function EditarUsuarioPageInner() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    if (name === 'usuario') {
+      setErroUsuario('');
+      setForm((prev) => ({ ...prev, usuario: value.trim().toLowerCase() }));
+      return;
+    }
+    if (name === 'email') {
+      setErroEmail('');
+    }
     setForm((prev) => ({ ...prev, [name]: value }));
     
     // Preencher permissões padrão ao trocar nível
     if (name === 'nivel') {
-      let permissoesPadrao: string[] = [];
-      if (value === 'tecnico') {
-        permissoesPadrao = ['dashboard', 'bancada', 'comissoes'];
-      } else if (value === 'financeiro') {
-        permissoesPadrao = ['dashboard', 'lembretes', 'clientes', 'ordens', 'equipamentos', 'financeiro', 'vendas', 'movimentacao-caixa', 'contas-a-pagar', 'lucro-desempenho', 'caixa'];
-      } else if (value === 'atendente') {
-        permissoesPadrao = ['dashboard', 'lembretes', 'clientes', 'ordens', 'equipamentos', 'caixa', 'catalogo'];
-      } else if (value === 'admin') {
-        permissoesPadrao = getAllGrantableKeys();
-      }
-      if (!permissoesPadrao.includes('dashboard')) {
-        permissoesPadrao.push('dashboard');
-      }
+      const permissoesPadrao = getDefaultPermissionsForRole(value);
       setForm((prev) => ({ ...prev, permissoes: permissoesPadrao }));
     }
   };
 
-  // Função para gerenciar permissões em cascata
-  const handlePermissaoChange = (key: string) => {
-    // ✅ PROTEÇÃO: Dashboard é permissão fixa e obrigatória
-    if (key === 'dashboard') {
-      addToast('warning', 'Dashboard é uma permissão obrigatória e não pode ser removida');
-      return;
-    }
-
-    setForm((prev) => {
-      const novasPermissoes = [...prev.permissoes];
-      const permissaoAtual = novasPermissoes.includes(key);
-      
-      if (permissaoAtual) {
-        // Desmarcando permissão principal
-        const permissaoRemovida = novasPermissoes.filter((p) => p !== key);
-        
-        // ✅ GARANTIR: Dashboard sempre presente
-        if (!permissaoRemovida.includes('dashboard')) {
-          permissaoRemovida.push('dashboard');
-        }
-        
-        if (key === PERMISSOES_FINANCEIRO.principal.key) {
-          PERMISSOES_FINANCEIRO.sub.forEach(sub => {
-            const i = permissaoRemovida.indexOf(sub.key);
-            if (i > -1) permissaoRemovida.splice(i, 1);
-          });
-        }
-        if (key === PERMISSOES_CONTATOS.principal.key) {
-          PERMISSOES_CONTATOS.sub.forEach(sub => {
-            const i = permissaoRemovida.indexOf(sub.key);
-            if (i > -1) permissaoRemovida.splice(i, 1);
-          });
-        }
-        if (key === PERMISSOES_PRODUTOS.principal.key) {
-          PERMISSOES_PRODUTOS.sub.forEach(sub => {
-            const i = permissaoRemovida.indexOf(sub.key);
-            if (i > -1) permissaoRemovida.splice(i, 1);
-          });
-        }
-        if (key === PERMISSOES_CONFIGURACOES.principal.key) {
-          PERMISSOES_CONFIGURACOES.sub.forEach(sub => {
-            const i = permissaoRemovida.indexOf(sub.key);
-            if (i > -1) permissaoRemovida.splice(i, 1);
-          });
-        }
-        return { ...prev, permissoes: permissaoRemovida };
-      } else {
-        novasPermissoes.push(key);
-        if (!novasPermissoes.includes('dashboard')) {
-          novasPermissoes.push('dashboard');
-        }
-        if (key === PERMISSOES_FINANCEIRO.principal.key) {
-          PERMISSOES_FINANCEIRO.sub.forEach(sub => {
-            if (!novasPermissoes.includes(sub.key)) novasPermissoes.push(sub.key);
-          });
-        }
-        if (key === PERMISSOES_CONTATOS.principal.key) {
-          PERMISSOES_CONTATOS.sub.forEach(sub => {
-            if (!novasPermissoes.includes(sub.key)) novasPermissoes.push(sub.key);
-          });
-        }
-        if (key === PERMISSOES_PRODUTOS.principal.key) {
-          PERMISSOES_PRODUTOS.sub.forEach(sub => {
-            if (!novasPermissoes.includes(sub.key)) novasPermissoes.push(sub.key);
-          });
-        }
-        if (key === PERMISSOES_CONFIGURACOES.principal.key) {
-          PERMISSOES_CONFIGURACOES.sub.forEach(sub => {
-            if (!novasPermissoes.includes(sub.key)) novasPermissoes.push(sub.key);
-          });
-        }
-        return { ...prev, permissoes: novasPermissoes };
-      }
-    });
-  };
+  // Permissões gerenciadas pelo PermissionsEditor
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErroUsuario('');
+    setErroEmail('');
     
     // Validações finais
-    if (!emailValido) {
+    if (!validarEmail(form.email)) {
+      setErroEmail('E-mail inválido');
       addToast('error', 'E-mail inválido');
       return;
     }
@@ -370,11 +266,6 @@ function EditarUsuarioPageInner() {
       return;
     }
     
-    if (!usuarioValido) {
-      addToast('error', 'Nome de usuário já existe');
-      return;
-    }
-
     // Validações de unicidade só quando o valor mudou (evita "já cadastrado" ao manter o mesmo email/usuário/CPF)
     const emailMudou = usuarioOriginal && form.email?.trim().toLowerCase() !== usuarioOriginal.email?.trim().toLowerCase();
     const usuarioMudou = usuarioOriginal && form.usuario?.trim().toLowerCase() !== (usuarioOriginal as { usuario?: string }).usuario?.trim().toLowerCase();
@@ -383,6 +274,7 @@ function EditarUsuarioPageInner() {
     if (emailMudou) {
       const emailUnico = await validarEmailUnico(form.email);
       if (!emailUnico) {
+        setErroEmail('E-mail já cadastrado');
         addToast('error', 'E-mail já cadastrado');
         return;
       }
@@ -390,7 +282,8 @@ function EditarUsuarioPageInner() {
     if (usuarioMudou) {
       const usuarioUnico = await validarUsuarioUnico(form.usuario);
       if (!usuarioUnico) {
-        addToast('error', 'Nome de usuário já existe');
+        setErroUsuario('Nome de usuário já cadastrado');
+        addToast('error', 'Nome de usuário já cadastrado');
         return;
       }
     }
@@ -408,7 +301,7 @@ function EditarUsuarioPageInner() {
     const updateData: any = {
       id: userId,
       nome: form.nome,
-      email: form.email,
+      email: form.email.trim().toLowerCase(),
       usuario: form.usuario.trim().toLowerCase(),
         cpf: form.cpf?.trim() || null, // ⭐ Envia null se CPF estiver vazio
       whatsapp: form.whatsapp,
@@ -443,7 +336,14 @@ function EditarUsuarioPageInner() {
       
     } catch (error) {
       console.error('Erro ao salvar usuário:', error);
-      addToast('error', error instanceof Error ? error.message : 'Erro ao salvar alterações');
+      const msg = error instanceof Error ? error.message : 'Erro ao salvar alterações';
+      if (/usu[aá]rio/i.test(msg)) {
+        setErroUsuario(msg);
+      }
+      if (/e-?mail/i.test(msg)) {
+        setErroEmail(msg);
+      }
+      addToast('error', msg);
     } finally {
       setSaving(false);
     }
@@ -548,32 +448,21 @@ function EditarUsuarioPageInner() {
                     <label className="text-sm font-medium text-gray-700">
                       Nome de Usuário *
                     </label>
-                    <div className="relative">
-              <input
+                    <input
                 type="text"
                 name="usuario"
                 value={form.usuario}
                 onChange={handleChange}
                         className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
-                          usuarioValido 
-                            ? 'border-gray-300 focus:ring-gray-900' 
-                            : 'border-red-500 focus:ring-red-500'
+                          erroUsuario
+                            ? 'border-red-500 focus:ring-red-500'
+                            : 'border-gray-300 focus:ring-gray-900'
                         }`}
                         placeholder="Digite o nome de usuário"
                 required
               />
-                      {form.usuario && (
-                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                          {usuarioValido ? (
-                            <FiCheck className="w-5 h-5 text-green-500" />
-                          ) : (
-                            <FiX className="w-5 h-5 text-red-500" />
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    {form.usuario && !usuarioValido && (
-                      <p className="text-red-500 text-xs">Nome de usuário já existe</p>
+                    {erroUsuario && (
+                      <p className="text-red-500 text-xs">{erroUsuario}</p>
                     )}
             </div>
 
@@ -582,32 +471,21 @@ function EditarUsuarioPageInner() {
                     <label className="text-sm font-medium text-gray-700">
                       E-mail *
                     </label>
-                    <div className="relative">
-              <input
+                    <input
                 type="email"
                 name="email"
                 value={form.email}
                 onChange={handleChange}
                         className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
-                          emailValido 
-                            ? 'border-gray-300 focus:ring-gray-900' 
-                            : 'border-red-500 focus:ring-red-500'
+                          erroEmail
+                            ? 'border-red-500 focus:ring-red-500'
+                            : 'border-gray-300 focus:ring-gray-900'
                         }`}
                         placeholder="Digite o e-mail"
                 required
               />
-                      {form.email && (
-                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                          {emailValido ? (
-                            <FiCheck className="w-5 h-5 text-green-500" />
-                          ) : (
-                            <FiX className="w-5 h-5 text-red-500" />
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    {form.email && !emailValido && (
-                      <p className="text-red-500 text-xs">E-mail inválido</p>
+                    {erroEmail && (
+                      <p className="text-red-500 text-xs">{erroEmail}</p>
                     )}
             </div>
 
@@ -718,155 +596,13 @@ function EditarUsuarioPageInner() {
 
               {/* Permissões de Acesso */}
               <div className="bg-gradient-to-r from-gray-50 to-white border border-gray-200 rounded-xl p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                  <Shield className="w-5 h-5" />
-                  Permissões de Acesso
-                </h3>
-                
-                <div className="space-y-6">
-                  {/* Módulos Principais (inclui Comissões) */}
-                  <div>
-                    <h4 className="text-md font-semibold text-gray-800 mb-3">Principais</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {PERMISSOES_PRINCIPAIS.map((permissao) => {
-                        const isChecked = form.permissoes.includes(permissao.key);
-                        const isDashboard = permissao.key === 'dashboard';
-                        return (
-                          <label
-                            key={permissao.key}
-                            className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
-                              isDashboard ? 'border-green-600 bg-green-50 cursor-not-allowed' : isChecked ? 'border-gray-900 bg-gray-50 cursor-pointer' : 'border-gray-200 bg-white hover:border-gray-300 cursor-pointer'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              disabled={isDashboard}
-                              onChange={() => handlePermissaoChange(permissao.key)}
-                              className="w-4 h-4 rounded focus:ring-gray-900 text-gray-900 border-gray-300"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <span className="font-medium text-gray-900">{permissao.label}</span>
-                              {isDashboard && <span className="text-xs text-green-600 font-medium ml-1">(obrigatório)</span>}
-                            </div>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Módulo Financeiro (com Lucro e Desempenho) */}
-                  <div>
-                    <h4 className="text-md font-semibold text-gray-800 mb-3">Financeiro</h4>
-                    <div className="space-y-2">
-                      <label className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${form.permissoes.includes('financeiro') ? 'border-blue-600 bg-blue-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
-                        <input type="checkbox" checked={form.permissoes.includes('financeiro')} onChange={() => handlePermissaoChange('financeiro')} className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-600" />
-                        <span className="font-medium text-gray-900">{PERMISSOES_FINANCEIRO.principal.label}</span>
-                      </label>
-                      {form.permissoes.includes('financeiro') && (
-                        <div className="ml-6 space-y-1.5 border-l-2 border-blue-200 pl-3">
-                          {PERMISSOES_FINANCEIRO.sub.map((sub) => (
-                            <label key={sub.key} className="flex items-center gap-2 py-1.5 cursor-pointer">
-                              <input type="checkbox" checked={form.permissoes.includes(sub.key)} onChange={() => handlePermissaoChange(sub.key)} className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600" />
-                              <span className="text-sm text-gray-700">{sub.label}</span>
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Módulo Contatos */}
-                  <div>
-                    <h4 className="text-md font-semibold text-gray-800 mb-3">Contatos</h4>
-                    <div className="space-y-2">
-                      <label className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${form.permissoes.includes('clientes') ? 'border-green-600 bg-green-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
-                        <input type="checkbox" checked={form.permissoes.includes('clientes')} onChange={() => handlePermissaoChange('clientes')} className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-600" />
-                        <span className="font-medium text-gray-900">{PERMISSOES_CONTATOS.principal.label}</span>
-                      </label>
-                      {form.permissoes.includes('clientes') && (
-                        <div className="ml-6 space-y-1.5 border-l-2 border-green-200 pl-3">
-                          {PERMISSOES_CONTATOS.sub.map((sub) => (
-                            <label key={sub.key} className="flex items-center gap-2 py-1.5 cursor-pointer">
-                              <input type="checkbox" checked={form.permissoes.includes(sub.key)} onChange={() => handlePermissaoChange(sub.key)} className="w-3.5 h-3.5 rounded border-gray-300 text-green-600" />
-                              <span className="text-sm text-gray-700">{sub.label}</span>
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Módulo Produtos/Serviços (Catálogo como sub) */}
-                  <div>
-                    <h4 className="text-md font-semibold text-gray-800 mb-3">Produtos e serviços</h4>
-                    <div className="space-y-2">
-                      <label className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${form.permissoes.includes('equipamentos') ? 'border-purple-600 bg-purple-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
-                        <input type="checkbox" checked={form.permissoes.includes('equipamentos')} onChange={() => handlePermissaoChange('equipamentos')} className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-600" />
-                        <span className="font-medium text-gray-900">{PERMISSOES_PRODUTOS.principal.label}</span>
-                      </label>
-                      {form.permissoes.includes('equipamentos') && (
-                        <div className="ml-6 space-y-1.5 border-l-2 border-purple-200 pl-3">
-                          {PERMISSOES_PRODUTOS.sub.map((sub) => (
-                            <label key={sub.key} className="flex items-center gap-2 py-1.5 cursor-pointer">
-                              <input type="checkbox" checked={form.permissoes.includes(sub.key)} onChange={() => handlePermissaoChange(sub.key)} className="w-3.5 h-3.5 rounded border-gray-300 text-purple-600" />
-                              <span className="text-sm text-gray-700">{sub.label}</span>
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Configurações (subáreas: usuários, empresa, checklist, etc.) */}
-                  <div>
-                    <h4 className="text-md font-semibold text-gray-800 mb-3">Configurações</h4>
-                    <div className="space-y-2">
-                      <label className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${form.permissoes.includes('configuracoes') ? 'border-amber-600 bg-amber-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
-                        <input type="checkbox" checked={form.permissoes.includes('configuracoes')} onChange={() => handlePermissaoChange('configuracoes')} className="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-600" />
-                        <span className="font-medium text-gray-900">{PERMISSOES_CONFIGURACOES.principal.label}</span>
-                      </label>
-                      {form.permissoes.includes('configuracoes') && (
-                        <div className="ml-6 space-y-1.5 border-l-2 border-amber-200 pl-3">
-                          {PERMISSOES_CONFIGURACOES.sub.map((sub) => (
-                            <label key={sub.key} className="flex items-center gap-2 py-1.5 cursor-pointer">
-                              <input type="checkbox" checked={form.permissoes.includes(sub.key)} onChange={() => handlePermissaoChange(sub.key)} className="w-3.5 h-3.5 rounded border-gray-300 text-amber-600" />
-                              <span className="text-sm text-gray-700">{sub.label}</span>
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Módulos Avançados */}
-                  <div>
-                    <h4 className="text-md font-semibold text-gray-800 mb-3">Avançados</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {PERMISSOES_AVANCADAS.map((permissao) => {
-                        const isChecked = form.permissoes.includes(permissao.key);
-                        return (
-                          <label key={permissao.key} className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${isChecked ? 'border-gray-900 bg-gray-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
-                            <input type="checkbox" checked={isChecked} onChange={() => handlePermissaoChange(permissao.key)} className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900" />
-                            <span className="font-medium text-gray-900">{permissao.label}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <Shield className="w-5 h-5 text-blue-600 mt-0.5" />
-                    <div>
-                      <p className="font-medium text-blue-800">Como funciona</p>
-                      <p className="text-xs text-blue-700 mt-1">
-                        Ao marcar um módulo principal (ex.: Financeiro), as sub-opções são incluídas automaticamente; você pode desmarcar alguma depois. Usuários com nível <strong>técnico</strong> só acessam as rotas cujas permissões estiverem marcadas aqui.
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                <PermissionsEditor
+                  permissoes={form.permissoes}
+                  onChange={(permissoes) => setForm((prev) => ({ ...prev, permissoes }))}
+                  onDashboardLocked={() =>
+                    addToast('warning', 'Dashboard é uma permissão obrigatória e não pode ser removida')
+                  }
+                />
               </div>
 
               {/* Botões de Ação */}
@@ -880,7 +616,7 @@ function EditarUsuarioPageInner() {
                 </button>
                 <button
                 type="submit"
-                  disabled={saving || !emailValido || !usuarioValido}
+                  disabled={saving || !form.email.trim() || !form.usuario.trim()}
                   className="bg-gray-900 text-white px-8 py-3 rounded-lg font-medium hover:bg-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {saving ? (

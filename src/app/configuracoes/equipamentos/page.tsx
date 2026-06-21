@@ -7,6 +7,7 @@ import { useToast } from '@/components/Toast';
 import { useAutoSync } from '@/hooks/useAutoSync';
 import { bearerAuthHeadersForApi } from '@/lib/api/clientAuthHeaders';
 import { FiPlus, FiEdit, FiTrash2, FiSearch, FiFilter, FiRefreshCw } from 'react-icons/fi';
+import { useConfigPermission, AcessoNegadoComponent } from '@/hooks/useConfigPermission';
 
 interface EquipamentoTipo {
   id: string;
@@ -22,6 +23,7 @@ interface EquipamentoTipo {
 export default function EquipamentosConfigPage() {
   const { empresaData, session } = useAuth();
   const { addToast } = useToast();
+  const { podeAcessar } = useConfigPermission('equipamentos-config');
   
   // Sincronização automática a cada 5 minutos
   useAutoSync({ intervalMs: 5 * 60 * 1000, enabled: true });
@@ -250,6 +252,10 @@ export default function EquipamentosConfigPage() {
 
   // Obter categorias únicas
   const categorias = [...new Set(equipamentos.map(e => e.categoria))];
+
+  if (!podeAcessar) {
+    return <AcessoNegadoComponent />;
+  }
 
   // ✅ AGUARDAR empresaData antes de mostrar erro
   if (aguardandoEmpresa) {

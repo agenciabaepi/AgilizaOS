@@ -149,75 +149,28 @@ export async function middleware(request: NextRequest) {
     }
 
     const nivel = usuarioData.nivel?.toLowerCase();
-    const rawPermissoes = Array.isArray(usuarioData.permissoes) ? usuarioData.permissoes : [];
+    const {
+      normalizePermissoes,
+      checkRouteAccess,
+      getHomePathForUser,
+      isWrongRoleDashboard,
+      getDashboardPathForNivel,
+    } = await import('@/lib/permissions');
+
+    const rawPermissoes = normalizePermissoes(usuarioData.permissoes);
     const isAdminOuTeste = nivel === 'admin' || nivel === 'usuarioteste';
 
-    // Carregar permissões só quando necessário (evita travar compilação do middleware no Turbopack)
-    const { canTecnicoAccessPath, TECNICO_DEFAULT_PERMISSIONS } = await import('@/config/tecnicoAllowedPaths');
-
-    // Admin e usuarioteste têm acesso total; demais níveis podem ter permissões restritas
-    let permissoes: string[] = [];
-    if (nivel === 'tecnico') {
-      permissoes = rawPermissoes.length > 0 ? rawPermissoes : TECNICO_DEFAULT_PERMISSIONS;
-    } else if (!isAdminOuTeste && rawPermissoes.length > 0) {
-      permissoes = rawPermissoes;
-    }
-
-    // 🔒 /comissoes = só técnico (Minhas Comissões). Admin/atendente redireciona para o dashboard.
-    if (pathname === '/comissoes' && nivel !== 'tecnico') {
-      const dashboardUrl = new URL(nivel === 'atendente' ? '/dashboard-atendente' : '/dashboard', request.url);
-      return NextResponse.redirect(dashboardUrl);
-    }
-
-    // 🔒 /financeiro/comissoes-tecnicos = só admin/atendente (gestão de comissões). Técnico redireciona.
-    if (pathname === '/financeiro/comissoes-tecnicos' && nivel === 'tecnico') {
-      const dashboardTecnicoUrl = new URL('/dashboard-tecnico', request.url);
-      return NextResponse.redirect(dashboardTecnicoUrl);
-    }
-
-    // 🔒 /assinatura = não disponível para técnico (gestão de assinatura é admin/atendente).
-    if (pathname === '/assinatura' && nivel === 'tecnico') {
-      return NextResponse.redirect(new URL('/dashboard-tecnico', request.url));
-    }
-
-    // 🔒 Bloquear rotas por permissão: técnico sempre; atendente/financeiro quando tiverem permissoes definidas
-    if (!isAdminOuTeste && permissoes.length > 0) {
-      const permitido = canTecnicoAccessPath(pathname, permissoes);
-      if (!permitido) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`🚫 Middleware: Usuário (${nivel}) tentou acessar ${pathname}, redirecionando`);
-        }
-        const redirectPath = nivel === 'tecnico' ? '/dashboard-tecnico' : nivel === 'atendente' ? '/dashboard-atendente' : '/dashboard';
-        return NextResponse.redirect(new URL(redirectPath, request.url));
+    // 🔒 Bloquear rotas por permissão (técnico, atendente, financeiro)
+    if (!isAdminOuTeste && !checkRouteAccess(pathname, nivel, rawPermissoes)) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🚫 Middleware: Usuário (${nivel}) bloqueado em ${pathname}`);
       }
+      return NextResponse.redirect(new URL(getHomePathForUser(nivel, rawPermissoes), request.url));
     }
 
-    // 🔒 Verificar acesso a dashboards específicas (admin/atendente não acessam dashboard do outro)
-    const dashboardRoutes = ['/dashboard', '/dashboard-tecnico', '/dashboard-atendente'];
-    const isDashboardRoute = dashboardRoutes.includes(pathname);
-    
-    if (isDashboardRoute) {
-      let temAcesso = false;
-      let dashboardCorreta = '/dashboard';
-
-      if (pathname === '/dashboard') {
-        temAcesso = nivel === 'admin' || nivel === 'usuarioteste';
-        dashboardCorreta = '/dashboard';
-      } else if (pathname === '/dashboard-tecnico') {
-        temAcesso = nivel === 'tecnico';
-        dashboardCorreta = '/dashboard-tecnico';
-      } else if (pathname === '/dashboard-atendente') {
-        temAcesso = nivel === 'atendente';
-        dashboardCorreta = '/dashboard-atendente';
-      }
-
-      if (!temAcesso) {
-        if (nivel === 'tecnico') dashboardCorreta = '/dashboard-tecnico';
-        else if (nivel === 'atendente') dashboardCorreta = '/dashboard-atendente';
-        else dashboardCorreta = '/dashboard';
-        const correctDashboardUrl = new URL(dashboardCorreta, request.url);
-        return NextResponse.redirect(correctDashboardUrl);
-      }
+    // 🔒 Dashboard de outro nível (ex.: atendente em /dashboard do admin)
+    if (isWrongRoleDashboard(pathname, nivel)) {
+      return NextResponse.redirect(new URL(getDashboardPathForNivel(nivel), request.url));
     }
 
     // 🔒 Cobrança / trial (SaaS): exige RPC `saas_auth_pode_usar_app` no Postgres (ver database/saas_billing_functions.sql)

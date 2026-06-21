@@ -24,8 +24,10 @@ import {
   Settings,
   ChevronDown,
   Search,
+  MessageCircle,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { canUseModule } from '@/lib/permissions'
 
 const EmpresaPage = dynamic(() => import('./empresa/page'), { ssr: false })
 import UsuariosPage from './usuarios/page'
@@ -63,17 +65,17 @@ const TAB_GROUPS: { id: TabGroupId; label: string }[] = [
 const tabsConfig: TabConfig[] = [
   { name: 'Empresa', description: 'Dados e identidade da loja', group: 'geral', icon: Building2, Component: EmpresaPage, permissao: 'empresa', requerRecurso: null },
   { name: 'Usuários', description: 'Equipe e permissões', group: 'geral', icon: Users, Component: UsuariosPage, permissao: 'usuarios', requerRecurso: null },
-  { name: 'Comissões', description: 'Regras para técnicos', group: 'financeiro', icon: DollarSign, Component: ComissoesPage, permissao: 'comissoes', requerRecurso: 'financeiro' },
-  { name: 'Precificação', description: 'Calculadora de preços de peças', group: 'financeiro', icon: Calculator, Component: PrecificacaoPage, permissao: 'empresa', requerRecurso: null },
-  { name: 'Equipamentos', description: 'Tipos de equipamento', group: 'operacao', icon: Wrench, Component: EquipamentosPage, permissao: 'equipamentos', requerRecurso: null },
-  { name: 'Aparelhos', description: 'Catálogo de aparelhos', group: 'operacao', icon: Smartphone, Component: AparelhosPage, permissao: 'equipamentos', requerRecurso: null },
+  { name: 'Comissões', description: 'Regras para técnicos', group: 'financeiro', icon: DollarSign, Component: ComissoesPage, permissao: 'regras-comissoes', requerRecurso: 'financeiro' },
+  { name: 'Precificação', description: 'Calculadora de preços de peças', group: 'financeiro', icon: Calculator, Component: PrecificacaoPage, permissao: 'precificacao', requerRecurso: null },
+  { name: 'Equipamentos', description: 'Tipos de equipamento', group: 'operacao', icon: Wrench, Component: EquipamentosPage, permissao: 'equipamentos-config', requerRecurso: null },
+  { name: 'Aparelhos', description: 'Catálogo de aparelhos', group: 'operacao', icon: Smartphone, Component: AparelhosPage, permissao: 'aparelhos', requerRecurso: null },
   { name: 'Checklist', description: 'Itens de entrada na OS', group: 'operacao', icon: ClipboardCheck, Component: ChecklistNovoPage, permissao: 'checklist', requerRecurso: null },
-  { name: 'Termos de Garantia', description: 'Modelos de garantia', group: 'operacao', icon: FileText, Component: TermosPage, permissao: 'termos', requerRecurso: null },
+  { name: 'Termos de Garantia', description: 'Modelos de garantia', group: 'operacao', icon: FileText, Component: TermosPage, permissao: 'termos-config', requerRecurso: null },
   { name: 'Status', description: 'Fluxo das ordens de serviço', group: 'operacao', icon: Activity, Component: StatusPage, permissao: 'status', requerRecurso: null },
-  { name: 'Link Público', description: 'Página de acompanhamento', group: 'geral', icon: Link2, Component: LinkPublicoPage, permissao: 'empresa', requerRecurso: null },
-  { name: 'Catálogo', description: 'Produtos e serviços', group: 'integracoes', icon: BookOpen, Component: CatalogoPage, permissao: 'catalogo', requerRecurso: null },
-  // WhatsApp — recurso futuro (aba desabilitada)
-  { name: 'Avisos', description: 'Comunicados internos', group: 'sistema', icon: Bell, Component: AvisosPage, permissao: 'configuracoes', requerRecurso: null },
+  { name: 'Link Público', description: 'Página de acompanhamento', group: 'geral', icon: Link2, Component: LinkPublicoPage, permissao: 'link-publico', requerRecurso: null },
+  { name: 'Catálogo', description: 'Produtos e serviços', group: 'integracoes', icon: BookOpen, Component: CatalogoPage, permissao: 'catalogo-config', requerRecurso: null },
+  { name: 'WhatsApp', description: 'Integração com WhatsApp', group: 'integracoes', icon: MessageCircle, Component: dynamic(() => import('./whatsapp/page'), { ssr: false }), permissao: 'whatsapp', requerRecurso: null },
+  { name: 'Avisos', description: 'Comunicados internos', group: 'sistema', icon: Bell, Component: AvisosPage, permissao: 'avisos', requerRecurso: null },
 ]
 
 function ConfiguracoesInner() {
@@ -83,17 +85,32 @@ function ConfiguracoesInner() {
   const [tabIndex, setTabIndex] = useState(0)
   const [buscaAba, setBuscaAba] = useState('')
 
+  const tabsPermitidas = useMemo(() => {
+    if (!usuarioData) return []
+    if (!canUseModule('configuracoes', usuarioData.nivel, usuarioData.permissoes)) return []
+    return tabsConfig
+      .map((tab, index) => ({ tab, index }))
+      .filter(({ tab }) =>
+        canUseModule(tab.permissao, usuarioData.nivel, usuarioData.permissoes)
+      )
+  }, [usuarioData])
+
   useEffect(() => {
     const tab = searchParams.get('tab')
     if (tab !== null) {
       const index = Number(tab)
       if (!Number.isNaN(index) && index >= 0 && index < tabsConfig.length) {
-        setTabIndex(index)
+        const permitida = tabsPermitidas.some(({ index: i }) => i === index)
+        if (permitida) setTabIndex(index)
+        else if (tabsPermitidas.length > 0) setTabIndex(tabsPermitidas[0].index)
       }
+    } else if (tabsPermitidas.length > 0 && !tabsPermitidas.some(({ index }) => index === tabIndex)) {
+      setTabIndex(tabsPermitidas[0].index)
     }
-  }, [searchParams])
+  }, [searchParams, tabsPermitidas, tabIndex])
 
   const handleTabChange = (index: number) => {
+    if (!tabsPermitidas.some(({ index: i }) => i === index)) return
     setTabIndex(index)
     setBuscaAba('')
     const params = new URLSearchParams(searchParams.toString())
@@ -101,20 +118,21 @@ function ConfiguracoesInner() {
     router.replace(`?${params.toString()}`)
   }
 
-  const abaAtiva = tabsConfig[tabIndex]
+  const abaAtivaPermitida = tabsPermitidas.find(({ index }) => index === tabIndex)
+  const abaAtiva = abaAtivaPermitida?.tab ?? tabsPermitidas[0]?.tab
   const ActiveComponent = abaAtiva?.Component
 
   const abasFiltradas = useMemo(() => {
     const termo = buscaAba.trim().toLowerCase()
-    if (!termo) return tabsConfig.map((tab, index) => ({ tab, index }))
-    return tabsConfig
-      .map((tab, index) => ({ tab, index }))
-      .filter(({ tab }) =>
-        tab.name.toLowerCase().includes(termo) ||
-        tab.description.toLowerCase().includes(termo) ||
-        TAB_GROUPS.find((g) => g.id === tab.group)?.label.toLowerCase().includes(termo)
-      )
-  }, [buscaAba])
+    const base = termo
+      ? tabsPermitidas.filter(({ tab }) =>
+          tab.name.toLowerCase().includes(termo) ||
+          tab.description.toLowerCase().includes(termo) ||
+          TAB_GROUPS.find((g) => g.id === tab.group)?.label.toLowerCase().includes(termo)
+        )
+      : tabsPermitidas
+    return base
+  }, [buscaAba, tabsPermitidas])
 
   const gruposVisiveis = useMemo(() => {
     const indices = new Set(abasFiltradas.map(({ index }) => index))
@@ -221,7 +239,7 @@ function ConfiguracoesInner() {
                   onChange={(e) => handleTabChange(Number(e.target.value))}
                   className="w-full appearance-none rounded-xl border border-gray-200 bg-white py-3 pl-4 pr-10 text-sm font-medium text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
                 >
-                  {tabsConfig.map((tab, index) => (
+                  {tabsPermitidas.map(({ tab, index }) => (
                     <option key={tab.name} value={index}>
                       {tab.name}
                     </option>
@@ -305,7 +323,13 @@ function ConfiguracoesInner() {
             )}
 
             <div className="min-h-[400px]">
-              {ActiveComponent ? <ActiveComponent embedded /> : null}
+              {tabsPermitidas.length === 0 ? (
+                <div className="flex items-center justify-center h-64 rounded-xl border border-gray-200 bg-gray-50">
+                  <p className="text-sm text-gray-600">Você não tem permissão para acessar nenhuma configuração.</p>
+                </div>
+              ) : ActiveComponent ? (
+                <ActiveComponent embedded />
+              ) : null}
             </div>
           </main>
         </div>

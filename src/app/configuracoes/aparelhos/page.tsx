@@ -10,10 +10,12 @@ import { FiPlus, FiEdit2, FiTrash2, FiSmartphone, FiSearch } from 'react-icons/f
 import type { AparelhoEmpresa } from '@/types/aparelhos';
 import { resolveAparelhoImagens } from '@/lib/aparelhos-imagens';
 import { flattenAparelhoImageFile } from '@/lib/aparelho-imagem-upload';
+import { useConfigPermission, AcessoNegadoComponent } from '@/hooks/useConfigPermission';
 
 export default function AparelhosConfigPage({ embedded = false }: { embedded?: boolean }) {
   const { empresaData, session } = useAuth();
   const { addToast } = useToast();
+  const { podeAcessar } = useConfigPermission('aparelhos');
   const [aparelhos, setAparelhos] = useState<AparelhoEmpresa[]>([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState('');
@@ -152,6 +154,11 @@ export default function AparelhosConfigPage({ embedded = false }: { embedded?: b
       addToast('error', 'Erro de conexão');
     }
   };
+
+  if (!podeAcessar) {
+    const denied = <AcessoNegadoComponent />;
+    return embedded ? denied : <MenuLayout><div className="p-8">{denied}</div></MenuLayout>;
+  }
 
   const content = (
     <div className="space-y-6">

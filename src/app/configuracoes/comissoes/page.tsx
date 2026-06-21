@@ -10,6 +10,7 @@ import { FiDollarSign, FiUsers, FiSettings, FiEdit, FiSave, FiX, FiCheck, FiSear
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { bearerAuthHeadersForApi } from '@/lib/api/clientAuthHeaders';
 import { cn } from '@/lib/utils';
+import { useConfigPermission, AcessoNegadoComponent } from '@/hooks/useConfigPermission';
 
 interface Tecnico {
   id: string;
@@ -37,6 +38,7 @@ export default function ComissoesPage() {
   const { usuarioData, session } = useAuth();
   const { addToast } = useToast();
   const confirm = useConfirm();
+  const { podeAcessar } = useConfigPermission('regras-comissoes');
   
   const [tecnicos, setTecnicos] = useState<Tecnico[]>([]);
   const [configuracao, setConfiguracao] = useState<ConfiguracaoComissao | null>(null);
@@ -392,6 +394,10 @@ export default function ComissoesPage() {
     tecnico.tipo_comissao === 'fixo'
       ? `R$ ${(tecnico.comissao_fixa ?? 0).toFixed(2)}`
       : `${tecnico.comissao_percentual ?? 0}%`;
+
+  if (!podeAcessar) {
+    return <AcessoNegadoComponent />;
+  }
 
   if (loading) {
     return (

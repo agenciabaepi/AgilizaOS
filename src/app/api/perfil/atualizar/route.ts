@@ -64,9 +64,46 @@ export async function POST(request: Request) {
     }
 
     const updatePayload: Record<string, unknown> = {};
+
+    if (usuario !== undefined) {
+      const usuarioNormalizado = String(usuario).trim().toLowerCase();
+      if (!usuarioNormalizado) {
+        return NextResponse.json({ error: 'Nome de usuário inválido' }, { status: 400 });
+      }
+
+      const { data: usuarioAtual } = await supabaseAdmin
+        .from('usuarios')
+        .select('usuario')
+        .eq('id', meuUsuario.id)
+        .single();
+
+      const usuarioAtualNormalizado = usuarioAtual?.usuario?.trim().toLowerCase() ?? '';
+      if (usuarioNormalizado !== usuarioAtualNormalizado) {
+        const { data: conflitos, error: conflitoError } = await supabaseAdmin
+          .from('usuarios')
+          .select('id, auth_user_id, usuario')
+          .eq('usuario', usuarioNormalizado);
+
+        if (conflitoError) {
+          console.error('Erro ao verificar nome de usuário:', conflitoError);
+          return NextResponse.json({ error: 'Erro ao verificar nome de usuário' }, { status: 500 });
+        }
+
+        const jaExiste = (conflitos ?? []).some((row) => {
+          if (!row.usuario || row.usuario.trim().toLowerCase() !== usuarioNormalizado) return false;
+          return row.id !== meuUsuario.id && row.auth_user_id !== user.id;
+        });
+
+        if (jaExiste) {
+          return NextResponse.json({ error: 'Nome de usuário já cadastrado' }, { status: 400 });
+        }
+      }
+
+      updatePayload.usuario = usuarioNormalizado;
+    }
+
     if (nome !== undefined) updatePayload.nome = nome;
     if (email !== undefined) updatePayload.email = email;
-    if (usuario !== undefined) updatePayload.usuario = usuario;
     if (cpf !== undefined) updatePayload.cpf = cpf;
     if (whatsapp !== undefined) updatePayload.whatsapp = whatsapp;
 

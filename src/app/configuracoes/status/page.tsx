@@ -28,8 +28,10 @@ import SortableItem from '@/components/SortableItem'
 // Removido ProtectedRoute - agora é responsabilidade do MenuLayout
 
 import { FiEdit2, FiTrash2, FiMove } from 'react-icons/fi';
+import { useConfigPermission, AcessoNegadoComponent } from '@/hooks/useConfigPermission';
 
 export default function StatusPage() {
+  const { podeAcessar } = useConfigPermission('status');
   const [customStatusOS, setCustomStatusOS] = useState<{ id: string; nome: string; cor: string }[]>([])
   const [statusFixoOS, setStatusFixoOS] = useState<{ id: string; nome: string; cor: string }[]>([])
   const [newStatusOS, setNewStatusOS] = useState('')
@@ -143,6 +145,10 @@ export default function StatusPage() {
     }
   }
 
+
+  if (!podeAcessar) {
+    return <AcessoNegadoComponent />;
+  }
 
   return (
     

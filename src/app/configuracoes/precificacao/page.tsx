@@ -37,7 +37,7 @@ function formFromData(d: ConfigPrecificacao) {
 
 export default function PrecificacaoPage() {
   const { usuarioData } = useAuth();
-  const { podeAcessar } = useConfigPermission('empresa');
+  const { podeAcessar } = useConfigPermission('precificacao');
   const { addToast } = useToast();
 
   const [loading, setLoading] = useState(true);

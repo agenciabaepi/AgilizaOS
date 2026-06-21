@@ -31,7 +31,7 @@ export default function TermosPage() {
   const { empresaData } = useAuth()
   const { addToast } = useToast()
   const confirm = useConfirm()
-  const { podeAcessar } = useConfigPermission('termos')
+  const { podeAcessar } = useConfigPermission('termos-config')
   
   const [termos, setTermos] = useState<Termo[]>([])
   const [loading, setLoading] = useState(true)

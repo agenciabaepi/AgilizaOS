@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useToast } from '@/components/Toast'
 import { FiPlus, FiEdit2, FiTrash2, FiX, FiSave } from 'react-icons/fi'
 import { supabase } from '@/lib/supabaseClient'
+import { useConfigPermission, AcessoNegadoComponent } from '@/hooks/useConfigPermission'
 
 interface Aviso {
   id: string
@@ -44,6 +45,7 @@ interface ConfigAvisoContasPagar {
 export default function AvisosPage() {
   const { usuarioData, empresaData, loading: authLoading } = useAuth()
   const { addToast } = useToast()
+  const { podeAcessar } = useConfigPermission('avisos')
   const [avisos, setAvisos] = useState<Aviso[]>([])
   const [loading, setLoading] = useState(true) // Iniciar como true para mostrar loading na primeira renderização
   const [showModal, setShowModal] = useState(false)
@@ -83,14 +85,11 @@ export default function AvisosPage() {
     usuarios_ids: [] as string[],
   })
 
-  // Verificar se é admin
-  const isAdmin = usuarioData?.nivel === 'admin' || usuarioData?.nivel === 'usuarioteste'
-
   // Carregar usuários da empresa
   useEffect(() => {
     const carregarUsuarios = async () => {
       const empresaId = empresaData?.id || usuarioData?.empresa_id
-      if (!empresaId || !isAdmin) {
+      if (!empresaId || !podeAcessar) {
         setUsuarios([])
         return
       }
@@ -114,18 +113,18 @@ export default function AvisosPage() {
     }
 
     carregarUsuarios()
-  }, [empresaData?.id, usuarioData?.empresa_id, isAdmin])
+  }, [empresaData?.id, usuarioData?.empresa_id, podeAcessar])
 
   // Carregar configurações de avisos de contas a pagar
   useEffect(() => {
     const empresaId = empresaData?.id || usuarioData?.empresa_id
-    if (!empresaId || !isAdmin) {
+    if (!empresaId || !podeAcessar) {
       setConfigsContasPagar([])
       return
     }
 
     carregarConfigsContasPagar()
-  }, [empresaData?.id, usuarioData?.empresa_id, isAdmin])
+  }, [empresaData?.id, usuarioData?.empresa_id, podeAcessar])
 
   const carregarConfigsContasPagar = async () => {
     const empresaId = empresaData?.id || usuarioData?.empresa_id
@@ -363,7 +362,7 @@ export default function AvisosPage() {
 
   // Carregar avisos quando tiver empresaId e for admin
   useEffect(() => {
-    if (!isAdmin) {
+    if (!podeAcessar) {
       setAvisos([])
       setLoading(false)
       return
@@ -394,7 +393,7 @@ export default function AvisosPage() {
       carregarAvisos(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdmin, empresaData?.id, usuarioData?.empresa_id])
+  }, [podeAcessar, empresaData?.id, usuarioData?.empresa_id])
 
   const carregarAvisos = async (forcarDoBanco = false) => {
     // Prevenir múltiplas chamadas simultâneas
@@ -832,14 +831,8 @@ export default function AvisosPage() {
     }
   }
 
-  if (!isAdmin) {
-    return (
-      <div className="p-8">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800">Você não tem permissão para acessar esta página.</p>
-        </div>
-      </div>
-    )
+  if (!podeAcessar) {
+    return <AcessoNegadoComponent />
   }
 
   return (

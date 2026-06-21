@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
+import { useConfigPermission, AcessoNegadoComponent } from '@/hooks/useConfigPermission';
 
 export default function CatalogoConfigPage() {
   const { empresaData } = useAuth();
+  const { podeAcessar } = useConfigPermission('catalogo-config');
   const [habilitado, setHabilitado] = useState<boolean>(true);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -54,6 +56,10 @@ export default function CatalogoConfigPage() {
   };
 
   // Handlers do cadastro removidos aqui
+
+  if (!podeAcessar) {
+    return <AcessoNegadoComponent />;
+  }
 
   return (
     <div className="space-y-6">

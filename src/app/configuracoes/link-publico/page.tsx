@@ -9,7 +9,7 @@ import { FiLink, FiExternalLink, FiPrinter, FiShield } from 'react-icons/fi';
 
 export default function LinkPublicoPage() {
   const { user, empresaData } = useAuth();
-  const { podeAcessar } = useConfigPermission('empresa');
+  const { podeAcessar } = useConfigPermission('link-publico');
   const [ativo, setAtivo] = useState<boolean>(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

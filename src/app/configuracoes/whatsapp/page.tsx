@@ -18,8 +18,11 @@ interface WhatsAppSession {
   ultima_conexao: string | null;
 }
 
+import { useConfigPermission, AcessoNegadoComponent } from '@/hooks/useConfigPermission';
+
 export default function WhatsAppPage({ embedded = false }: { embedded?: boolean }) {
   const { empresaData } = useAuth();
+  const { podeAcessar } = useConfigPermission('whatsapp');
   const [session, setSession] = useState<WhatsAppSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
@@ -203,6 +206,11 @@ export default function WhatsAppPage({ embedded = false }: { embedded?: boolean 
       toast.error('Erro ao enviar mensagem de teste: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
     }
   };
+
+  if (!podeAcessar) {
+    const denied = <AcessoNegadoComponent />;
+    return embedded ? denied : <MenuLayout><div className="p-8">{denied}</div></MenuLayout>;
+  }
 
   if (loading) {
     const content = (

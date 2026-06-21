@@ -1,24 +1,27 @@
 import React from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { canUseModule } from '@/lib/permissions';
 
 export function useConfigPermission(configPermissao: string) {
   const { usuarioData } = useAuth();
-  
+
   const isAdmin = usuarioData?.nivel === 'admin';
   const isUsuarioTeste = usuarioData?.nivel === 'usuarioteste';
-  const permissoes = usuarioData?.permissoes || [];
-  
-  const podeAcessar = isAdmin || isUsuarioTeste || permissoes.includes(configPermissao);
-  
+
+  const podeAcessar = canUseModule(
+    configPermissao,
+    usuarioData?.nivel,
+    usuarioData?.permissoes
+  );
+
   return {
     podeAcessar,
     isAdmin,
     isUsuarioTeste,
-    permissoes
+    permissoes: usuarioData?.permissoes || [],
   };
 }
 
-// Componente de acesso negado
 export function AcessoNegadoComponent() {
   return (
     <div className="flex items-center justify-center h-64">
@@ -29,4 +32,3 @@ export function AcessoNegadoComponent() {
     </div>
   );
 }
-

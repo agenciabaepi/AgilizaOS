@@ -40,7 +40,8 @@ import { useWhatsAppNotification } from '@/hooks/useWhatsAppNotification';
 import { useLogout } from '@/hooks/useLogout';
 import AvisosBanner from '@/components/AvisosBanner';
 import FinanceiroAlertsBanner from '@/components/FinanceiroAlertsBanner';
-import { TECNICO_DEFAULT_PERMISSIONS } from '@/config/tecnicoAllowedPaths';
+import { usePermissions } from '@/hooks/usePermissions';
+import { getDashboardPathForNivel, isUserHomePath } from '@/lib/dashboardRouting';
 import { getMenuAccentColor, MENU_ACCENT_DEFAULT } from '@/lib/menuTheme';
 
 type MenuTheme = { accentColor: string; inverted: boolean };
@@ -304,12 +305,11 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
   // Remover menuExpandido, hoverTimeout, handleMouseEnter, handleMouseLeave, e toda lógica relacionada
   // Sidebar sempre expandida
 
-  // Técnico: só vê itens cuja permissão está em usuarioData.permissoes; se vazio, usa padrão (dashboard, bancada, comissoes).
   const isTecnico = usuarioData?.nivel === 'tecnico';
-  const rawPermissoes = usuarioData?.permissoes ?? [];
-  const permissoesTecnico = isTecnico && rawPermissoes.length === 0 ? TECNICO_DEFAULT_PERMISSIONS : rawPermissoes;
-  const podeVer = (area: string) => isTecnico ? permissoesTecnico.includes(area) : true;
-  const podeVerModulo = (area: string, _recurso?: string) => isTecnico ? permissoesTecnico.includes(area) : true;
+  const { podeVer } = usePermissions();
+  const podeVerModulo = podeVer;
+  const dashboardPath = getDashboardPathForNivel(usuarioData?.nivel);
+  const dashboardAtivo = isUserHomePath(pathname || '', usuarioData?.nivel);
 
   // ❌ REMOVIDO: Esta linha impedia a renderização do menu
   // if (menuExpandido === null) return null;
@@ -353,8 +353,8 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
           ) : (
             <>
           {/* Dashboard - técnico vai para dashboard-tecnico */}
-          {(podeVer('dashboard') || usuarioData?.nivel === 'atendente') && matchesSearch('Dashboard') && (
-            <SidebarButton path={isTecnico ? '/dashboard-tecnico' : '/dashboard'} icon={<FiHome size={22} strokeWidth={1.75} />} label="Dashboard" isActive={isTecnico ? pathname === '/dashboard-tecnico' : pathname === '/dashboard'} menuRecolhido={false} />
+          {podeVer('dashboard') && matchesSearch('Dashboard') && (
+            <SidebarButton path={dashboardPath} icon={<FiHome size={22} strokeWidth={1.75} />} label="Dashboard" isActive={dashboardAtivo} menuRecolhido={false} />
           )}
                   {/* Lembretes */}
                   {podeVer('lembretes') && matchesSearch('Lembretes') && (
@@ -502,10 +502,10 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
           {isTecnico && podeVer('comissoes') && matchesSearch('Comissões') && (
             <SidebarButton path="/comissoes" icon={<FiDollarSign size={22} strokeWidth={1.75} />} label="Comissões" isActive={pathname === '/comissoes'} menuRecolhido={false} />
           )}
-          {matchesSearch('Suporte') && (
+          {podeVer('suporte') && matchesSearch('Suporte') && (
             <SidebarButton path="/suporte" icon={<FiMessageSquare size={22} strokeWidth={1.75} />} label="Suporte" isActive={pathname === '/suporte'} menuRecolhido={false} />
           )}
-          {!isTecnico && matchesSearch('Assinatura') && (
+          {!isTecnico && podeVer('assinatura') && matchesSearch('Assinatura') && (
             <SidebarButton path="/assinatura" icon={<FiCreditCard size={22} strokeWidth={1.75} />} label="Assinatura" isActive={pathname === '/assinatura'} menuRecolhido={false} />
           )}
           {matchesSearch('Meu Perfil') && (
@@ -568,8 +568,8 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
               ) : (
                 <>
               {/* Dashboard - técnico vai para dashboard-tecnico */}
-              {(podeVer('dashboard') || usuarioData?.nivel === 'atendente') && (
-                <SidebarButton path={isTecnico ? '/dashboard-tecnico' : '/dashboard'} icon={<FiHome size={22} strokeWidth={1.75} />} label="Dashboard" isActive={isTecnico ? pathname === '/dashboard-tecnico' : pathname === '/dashboard'} menuRecolhido={false} />
+              {podeVer('dashboard') && (
+                <SidebarButton path={dashboardPath} icon={<FiHome size={22} strokeWidth={1.75} />} label="Dashboard" isActive={dashboardAtivo} menuRecolhido={false} />
               )}
               {/* Lembretes */}
               {podeVer('lembretes') && (
@@ -716,8 +716,10 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
               {isTecnico && podeVer('comissoes') && (
                 <SidebarButton path="/comissoes" icon={<FiDollarSign size={22} strokeWidth={1.75} />} label="Comissões" isActive={pathname === '/comissoes'} menuRecolhido={false} />
               )}
-              <SidebarButton path="/suporte" icon={<FiMessageSquare size={22} strokeWidth={1.75} />} label="Suporte" isActive={pathname === '/suporte'} menuRecolhido={false} />
-              {!isTecnico && (
+              {podeVer('suporte') && (
+                <SidebarButton path="/suporte" icon={<FiMessageSquare size={22} strokeWidth={1.75} />} label="Suporte" isActive={pathname === '/suporte'} menuRecolhido={false} />
+              )}
+              {!isTecnico && podeVer('assinatura') && (
                 <SidebarButton path="/assinatura" icon={<FiCreditCard size={22} strokeWidth={1.75} />} label="Assinatura" isActive={pathname === '/assinatura'} menuRecolhido={false} />
               )}
               <SidebarButton path="/perfil" icon={<FiUsers size={22} strokeWidth={1.75} />} label="Meu Perfil" isActive={pathname === '/perfil'} menuRecolhido={false} />
