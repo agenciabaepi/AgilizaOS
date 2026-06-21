@@ -153,8 +153,6 @@ export async function middleware(request: NextRequest) {
       normalizePermissoes,
       checkRouteAccess,
       getHomePathForUser,
-      isWrongRoleDashboard,
-      getDashboardPathForNivel,
     } = await import('@/lib/permissions');
 
     const rawPermissoes = normalizePermissoes(usuarioData.permissoes);
@@ -166,11 +164,6 @@ export async function middleware(request: NextRequest) {
         console.log(`🚫 Middleware: Usuário (${nivel}) bloqueado em ${pathname}`);
       }
       return NextResponse.redirect(new URL(getHomePathForUser(nivel, rawPermissoes), request.url));
-    }
-
-    // 🔒 Dashboard de outro nível (ex.: atendente em /dashboard do admin)
-    if (isWrongRoleDashboard(pathname, nivel)) {
-      return NextResponse.redirect(new URL(getDashboardPathForNivel(nivel), request.url));
     }
 
     // 🔒 Cobrança / trial (SaaS): exige RPC `saas_auth_pode_usar_app` no Postgres (ver database/saas_billing_functions.sql)

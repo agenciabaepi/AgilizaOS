@@ -1,6 +1,8 @@
 import { matchesPermission, getAllGrantableKeys } from '@/config/grantablePermissions';
 import { getRequiredPermission } from '@/config/pagePermissions';
-import {
+import { getDashboardPathForNivel, isAllowedDashboardPath } from '@/lib/dashboardRouting';
+
+export {
   getDashboardPathForNivel,
   getDashboardPath,
   isUserHomePath,
@@ -8,7 +10,7 @@ import {
   isWrongRoleDashboard,
 } from '@/lib/dashboardRouting';
 
-export { getDashboardPathForNivel, getDashboardPath, isUserHomePath, isAllowedDashboardPath, isWrongRoleDashboard };
+const ISOLATED_DASHBOARD_PATHS = ['/dashboard', '/dashboard-tecnico', '/dashboard-atendente'] as const;
 
 export const TECNICO_DEFAULT_PERMISSIONS: string[] = ['dashboard', 'bancada', 'comissoes'];
 
@@ -202,6 +204,15 @@ export function isBlockedByNivel(pathname: string, nivel: UserNivel | null | und
   return false;
 }
 
+/** Dashboard de outro nível (ex.: atendente em /dashboard do admin). */
+function blocksWrongRoleDashboard(pathname: string, nivel: UserNivel | null | undefined): boolean {
+  const clean = pathname.split('?')[0];
+  if (!ISOLATED_DASHBOARD_PATHS.includes(clean as (typeof ISOLATED_DASHBOARD_PATHS)[number])) {
+    return false;
+  }
+  return !isAllowedDashboardPath(clean, nivel);
+}
+
 /** Verificação unificada de acesso a rota (middleware + guard cliente). */
 export function checkRouteAccess(
   pathname: string,
@@ -209,7 +220,7 @@ export function checkRouteAccess(
   rawPermissoes: unknown
 ): boolean {
   if (hasFullAccess(nivel)) return true;
-  if (isWrongRoleDashboard(pathname, nivel)) return false;
+  if (blocksWrongRoleDashboard(pathname, nivel)) return false;
   if (isBlockedByNivel(pathname, nivel)) return false;
   if (!shouldEnforcePermissions(nivel, rawPermissoes)) return true;
 
