@@ -147,11 +147,15 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const fetchSeqRef = useRef(0);
   const hiddenAtRef = useRef<number | null>(null);
   const hasLoadedOnceRef = useRef(false);
+  const loadedEmpresaIdRef = useRef<string | null>(null);
+  const empresaDataRef = useRef(empresaData);
+  empresaDataRef.current = empresaData;
 
   const resetSubscriptionState = useCallback(() => {
     setAssinatura(null);
     setLimites(null);
     setLoadedEmpresaId(null);
+    loadedEmpresaIdRef.current = null;
     setLoading(true);
     hasLoadedOnceRef.current = false;
   }, []);
@@ -162,9 +166,9 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     resetSubscriptionState();
   }, [user?.id, empresaIdAtual, resetSubscriptionState]);
 
-  const fetchLimites = useCallback(async (empresaId: string, planoLimite?: Plano) => {
+  const fetchLimitesForEmpresa = async (empresaId: string, planoLimite?: Plano) => {
     try {
-      const lim = planoLimite ?? assinatura?.plano;
+      const lim = planoLimite;
       const [
         { count: usuariosCount },
         { count: produtosCount },
@@ -192,33 +196,37 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Erro ao buscar limites:', error);
     }
-  }, [assinatura?.plano]);
+  };
 
   const fetchAssinatura = useCallback(async (options?: { silent?: boolean }) => {
     const silent = options?.silent === true;
     const empresaId = usuarioData?.empresa_id?.trim();
+    const empresaDataSnapshot = empresaDataRef.current;
     if (!empresaId) {
       setAssinatura(null);
       setLimites(null);
       setLoadedEmpresaId(null);
+      loadedEmpresaIdRef.current = null;
       setLoading(false);
       return;
     }
 
     const seq = ++fetchSeqRef.current;
     const isStale = () => seq !== fetchSeqRef.current;
-    const canSilent = silent && hasLoadedOnceRef.current && loadedEmpresaId === empresaId;
+    const canSilent = silent && hasLoadedOnceRef.current && loadedEmpresaIdRef.current === empresaId;
 
     try {
       if (!canSilent) {
         setLoading(true);
         setLoadedEmpresaId(null);
+        loadedEmpresaIdRef.current = null;
       }
 
       let primeiraAssinatura: Record<string, unknown> | null = null;
       let empresaCriadaEm: string | null = null;
       let liberadoApi = false;
-      let liberadoEmpresa = empresaData?.id === empresaId && empresaData?.sistema_liberado === true;
+      let liberadoEmpresa =
+        empresaDataSnapshot?.id === empresaId && empresaDataSnapshot?.sistema_liberado === true;
 
       try {
         const { data: empFlags } = await supabase
@@ -266,8 +274,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
       const empresaCriadaEmParaPick =
         empresaCriadaEm ||
-        (typeof empresaData?.created_at === 'string' && empresaData.created_at.trim()
-          ? empresaData.created_at
+        (typeof empresaDataSnapshot?.created_at === 'string' && empresaDataSnapshot.created_at.trim()
+          ? empresaDataSnapshot.created_at
           : null);
 
       if (!primeiraAssinatura) {
@@ -311,20 +319,24 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         };
         setAssinatura(assinaturaMapeada);
         setLoadedEmpresaId(empresaId);
-        await fetchLimites(empresaId, assinaturaMapeada.plano);
+        loadedEmpresaIdRef.current = empresaId;
+        await fetchLimitesForEmpresa(empresaId, assinaturaMapeada.plano);
       } else if (empresaCriadaEmParaPick) {
         const implicit = buildAssinaturaTrialImplicita(empresaId, empresaCriadaEmParaPick);
         if (implicit) {
           setAssinatura(implicit);
           setLoadedEmpresaId(empresaId);
-          await fetchLimites(empresaId, implicit.plano);
+          loadedEmpresaIdRef.current = empresaId;
+          await fetchLimitesForEmpresa(empresaId, implicit.plano);
         } else {
           setAssinatura(null);
           setLoadedEmpresaId(empresaId);
+          loadedEmpresaIdRef.current = empresaId;
         }
       } else {
         setAssinatura(null);
         setLoadedEmpresaId(empresaId);
+        loadedEmpresaIdRef.current = empresaId;
       }
 
       hasLoadedOnceRef.current = true;
@@ -334,40 +346,38 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         if (!canSilent) {
           setAssinatura(null);
           setLoadedEmpresaId(null);
+          loadedEmpresaIdRef.current = null;
         }
       }
     } finally {
       if (!isStale()) setLoading(false);
     }
-  }, [
-    usuarioData?.empresa_id,
-    empresaData?.created_at,
-    empresaData?.id,
-    empresaData?.sistema_liberado,
-    loadedEmpresaId,
-    fetchLimites,
-  ]);
+  }, [usuarioData?.empresa_id]);
+
+  const fetchAssinaturaRef = useRef(fetchAssinatura);
+  fetchAssinaturaRef.current = fetchAssinatura;
 
   useEffect(() => {
     if (!user) {
       setAssinatura(null);
       setLimites(null);
       setLoadedEmpresaId(null);
+      loadedEmpresaIdRef.current = null;
       setLoading(false);
       return;
     }
     if (!empresaIdAtual) return;
-    void fetchAssinatura();
-  }, [user?.id, empresaIdAtual, fetchAssinatura]);
+    void fetchAssinaturaRef.current();
+  }, [user?.id, empresaIdAtual]);
 
   useEffect(() => {
     const handler = () => {
       if (!usuarioData?.empresa_id) return;
-      void fetchAssinatura({ silent: hasLoadedOnceRef.current });
+      void fetchAssinaturaRef.current({ silent: hasLoadedOnceRef.current });
     };
     document.addEventListener('assinatura-updated', handler);
     return () => document.removeEventListener('assinatura-updated', handler);
-  }, [usuarioData?.empresa_id, fetchAssinatura]);
+  }, [usuarioData?.empresa_id]);
 
   useEffect(() => {
     const onVisibility = () => {
@@ -384,12 +394,12 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       const hiddenMs = Date.now() - hiddenAt;
       if (hiddenMs < VISIBILITY_REFETCH_MIN_HIDDEN_MS) return;
 
-      void fetchAssinatura({ silent: true });
+      void fetchAssinaturaRef.current({ silent: true });
     };
 
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, [usuarioData?.empresa_id, fetchAssinatura]);
+  }, [usuarioData?.empresa_id]);
 
   const isTrialExpired = useCallback((): boolean => {
     if (!assinatura || assinatura.status !== 'trial') return false;
@@ -482,9 +492,9 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   const carregarLimites = useCallback(async () => {
     if (usuarioData?.empresa_id) {
-      await fetchLimites(usuarioData.empresa_id);
+      await fetchLimitesForEmpresa(usuarioData.empresa_id);
     }
-  }, [usuarioData?.empresa_id, fetchLimites]);
+  }, [usuarioData?.empresa_id]);
 
   const value = useMemo<SubscriptionContextValue>(
     () => ({

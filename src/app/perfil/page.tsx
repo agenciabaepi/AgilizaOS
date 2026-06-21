@@ -1,13 +1,13 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase, getAccessTokenForApi } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import MenuLayout from '@/components/MenuLayout';
 import { useToast } from '@/components/Toast';
 import { ConfirmProvider, useConfirm } from '@/components/ConfirmDialog';
 import { Button } from '@/components/Button';
-import { FiUser, FiCamera, FiTrash2, FiEdit2, FiSave, FiX, FiEye, FiEyeOff } from 'react-icons/fi';
+import { FiUser, FiCamera, FiTrash2, FiEdit2, FiSave, FiX, FiEye, FiEyeOff, FiLock } from 'react-icons/fi';
 import { mask as masker } from 'remask';
 
 interface UsuarioPerfil {
@@ -35,11 +35,18 @@ export default function PerfilPage() {
     usuario: '',
     cpf: '',
     whatsapp: '',
-    senha: '',
+  });
+  const [senhaForm, setSenhaForm] = useState({
+    senhaAntiga: '',
+    senhaNova: '',
+    confirmarSenha: '',
   });
   const [fotoUrl, setFotoUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [senhaVisivel, setSenhaVisivel] = useState(false);
+  const [savingSenha, setSavingSenha] = useState(false);
+  const [senhaAntigaVisivel, setSenhaAntigaVisivel] = useState(false);
+  const [senhaNovaVisivel, setSenhaNovaVisivel] = useState(false);
+  const [confirmarSenhaVisivel, setConfirmarSenhaVisivel] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
  
   const getAvatarBaseUrl = (url?: string | null) => {
@@ -117,7 +124,6 @@ export default function PerfilPage() {
           usuario: data.usuario || '',
           cpf: data.cpf || '',
           whatsapp: data.whatsapp || '',
-          senha: '',
         });
         if (isMounted) {
           if (data?.foto_url) {
@@ -328,19 +334,26 @@ export default function PerfilPage() {
       // Padronizar username
       const usuarioPadronizado = form.usuario.trim().toLowerCase();
       
-      // Usar API de edição para sincronizar Auth
-      const response = await fetch('/api/usuarios/editar', {
+      const token = await getAccessTokenForApi();
+      if (!token) {
+        addToast('error', 'Sessão expirada. Faça login novamente.');
+        setSaving(false);
+        return;
+      }
+
+      const response = await fetch('/api/perfil/atualizar', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        credentials: 'include',
         body: JSON.stringify({
-          id: perfil?.id,
-          auth_user_id: user.id,
           nome: form.nome,
           email: form.email,
           usuario: usuarioPadronizado,
           cpf: form.cpf || null,
           whatsapp: form.whatsapp || null,
-          senha: form.senha || undefined,
         }),
       });
       
@@ -351,18 +364,75 @@ export default function PerfilPage() {
         return;
       }
       
-      // Atualizar estado local
       setPerfil(prev => prev ? { ...prev, ...form, usuario: usuarioPadronizado } : null);
-      
-      // Limpar senha do formulário
-      setForm(prev => ({ ...prev, senha: '' }));
-      
       addToast('success', 'Perfil atualizado com sucesso!');
       setIsEditing(false);
     } catch (err) {
       addToast('error', 'Erro inesperado ao salvar alterações');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSenhaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSenhaForm({ ...senhaForm, [e.target.name]: e.target.value });
+  };
+
+  const handleAlterarSenha = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!senhaForm.senhaAntiga || !senhaForm.senhaNova || !senhaForm.confirmarSenha) {
+      addToast('error', 'Preencha todos os campos de senha');
+      return;
+    }
+
+    if (senhaForm.senhaNova !== senhaForm.confirmarSenha) {
+      addToast('error', 'A nova senha e a confirmação não coincidem');
+      return;
+    }
+
+    if (senhaForm.senhaNova.length < 6) {
+      addToast('error', 'A nova senha deve ter pelo menos 6 caracteres');
+      return;
+    }
+
+    setSavingSenha(true);
+    try {
+      const token = await getAccessTokenForApi();
+      if (!token) {
+        addToast('error', 'Sessão expirada. Faça login novamente.');
+        setSavingSenha(false);
+        return;
+      }
+
+      const response = await fetch('/api/perfil/alterar-senha', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          senhaAntiga: senhaForm.senhaAntiga,
+          senhaNova: senhaForm.senhaNova,
+          confirmarSenha: senhaForm.confirmarSenha,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        addToast('error', result.error || 'Erro ao alterar senha');
+        return;
+      }
+
+      setSenhaForm({ senhaAntiga: '', senhaNova: '', confirmarSenha: '' });
+      addToast('success', 'Senha alterada com sucesso! Faça login com a nova senha.');
+      await supabase.auth.signOut({ scope: 'global' });
+      window.location.href = '/login';
+    } catch {
+      addToast('error', 'Erro inesperado ao alterar senha');
+    } finally {
+      setSavingSenha(false);
     }
   };
 
@@ -641,6 +711,7 @@ export default function PerfilPage() {
                 <span className="mt-2 text-sm text-gray-600">Clique no ícone para trocar a foto</span>
               </div>
 
+              <div className="space-y-6">
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Nome */}
@@ -712,42 +783,6 @@ export default function PerfilPage() {
                     {isEditing && form.usuario && !usuarioValido && (
                       <p className="text-red-500 text-xs">Nome de usuário já existe</p>
                     )}
-                  </div>
-
-                  {/* Senha */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">
-                      Nova Senha
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={senhaVisivel ? 'text' : 'password'}
-                        name="senha"
-                        value={form.senha}
-                        onChange={handleChange}
-                        disabled={!isEditing}
-                        className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 pr-12 ${
-                          isEditing 
-                            ? 'border-gray-300 focus:ring-gray-900' 
-                            : 'border-gray-200 bg-gray-50 cursor-not-allowed'
-                        }`}
-                        placeholder="Deixe em branco para não alterar"
-                        autoComplete="new-password"
-                      />
-                      {isEditing && (
-                        <button
-                          type="button"
-                          onClick={() => setSenhaVisivel(!senhaVisivel)}
-                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                        >
-                          {senhaVisivel ? (
-                            <FiEyeOff className="w-5 h-5" />
-                          ) : (
-                            <FiEye className="w-5 h-5" />
-                          )}
-                        </button>
-                      )}
-                    </div>
                   </div>
 
                   {/* CPF */}
@@ -847,6 +882,133 @@ export default function PerfilPage() {
                   </div>
                 )}
               </form>
+
+              {/* Alterar senha */}
+              <div className="bg-gradient-to-r from-gray-50 to-white border border-gray-200 rounded-xl p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <FiLock className="w-5 h-5" />
+                  Alterar Senha
+                </h3>
+                <form onSubmit={handleAlterarSenha} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">
+                        Senha atual *
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={senhaAntigaVisivel ? 'text' : 'password'}
+                          name="senhaAntiga"
+                          value={senhaForm.senhaAntiga}
+                          onChange={handleSenhaChange}
+                          className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200 pr-12"
+                          placeholder="Digite sua senha atual"
+                          autoComplete="current-password"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setSenhaAntigaVisivel(!senhaAntigaVisivel)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                          {senhaAntigaVisivel ? (
+                            <FiEyeOff className="w-5 h-5" />
+                          ) : (
+                            <FiEye className="w-5 h-5" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">
+                        Nova senha *
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={senhaNovaVisivel ? 'text' : 'password'}
+                          name="senhaNova"
+                          value={senhaForm.senhaNova}
+                          onChange={handleSenhaChange}
+                          className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200 pr-12"
+                          placeholder="Mínimo 6 caracteres"
+                          autoComplete="new-password"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setSenhaNovaVisivel(!senhaNovaVisivel)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                          {senhaNovaVisivel ? (
+                            <FiEyeOff className="w-5 h-5" />
+                          ) : (
+                            <FiEye className="w-5 h-5" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">
+                        Confirmar nova senha *
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={confirmarSenhaVisivel ? 'text' : 'password'}
+                          name="confirmarSenha"
+                          value={senhaForm.confirmarSenha}
+                          onChange={handleSenhaChange}
+                          className={`w-full px-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 pr-12 ${
+                            senhaForm.confirmarSenha && senhaForm.senhaNova !== senhaForm.confirmarSenha
+                              ? 'border-red-500 focus:ring-red-500'
+                              : 'border-gray-300 focus:ring-gray-900'
+                          }`}
+                          placeholder="Repita a nova senha"
+                          autoComplete="new-password"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setConfirmarSenhaVisivel(!confirmarSenhaVisivel)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                          {confirmarSenhaVisivel ? (
+                            <FiEyeOff className="w-5 h-5" />
+                          ) : (
+                            <FiEye className="w-5 h-5" />
+                          )}
+                        </button>
+                      </div>
+                      {senhaForm.confirmarSenha && senhaForm.senhaNova !== senhaForm.confirmarSenha && (
+                        <p className="text-red-500 text-xs">As senhas não coincidem</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button
+                      type="submit"
+                      disabled={
+                        savingSenha ||
+                        !senhaForm.senhaAntiga ||
+                        !senhaForm.senhaNova ||
+                        !senhaForm.confirmarSenha ||
+                        senhaForm.senhaNova !== senhaForm.confirmarSenha ||
+                        senhaForm.senhaNova.length < 6
+                      }
+                      className="bg-gray-900 text-white hover:bg-gray-800"
+                    >
+                      {savingSenha ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                          Alterando...
+                        </>
+                      ) : (
+                        <>
+                          <FiLock size={16} className="mr-2" />
+                          Alterar Senha
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </div>
+              </div>
             </div>
           </div>
         </div>

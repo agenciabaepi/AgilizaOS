@@ -10,6 +10,7 @@ import DashboardCard from '@/components/ui/DashboardCard';
 import { useAuth } from '@/context/AuthContext';
 import { FiPrinter, FiDollarSign, FiShoppingCart, FiTrendingUp, FiUsers, FiCalendar } from 'react-icons/fi';
 import { useSnapshotFinanceiro } from '@/hooks/useSnapshotFinanceiro';
+import { parseProdutosVenda } from '@/utils/normalizarItemCupom';
 import { extrairNumeroOSDaObservacao } from '@/utils/extrairNumeroOSDaObservacao';
 
 interface VendaItem {
@@ -225,7 +226,7 @@ export default function ListaVendasPage() {
         return [];
       }
 
-      return venda?.produtos || [];
+      return parseProdutosVenda(venda?.produtos);
     } catch (error) {
       console.error('Erro ao buscar itens:', error);
       return [];
@@ -438,16 +439,15 @@ export default function ListaVendasPage() {
                     <CupomVenda
                       numeroVenda={vendaSelecionada.numero_venda}
                       cliente={vendaSelecionada.cliente}
-                      produtos={vendaSelecionada.itens?.map(item => ({
-                        id: item.id,
-                        nome: item.nome,
-                        preco: item.preco,
-                        qty: item.qtd
-                      })) || []}
-                      subtotal={vendaSelecionada.total - vendaSelecionada.acrescimo + vendaSelecionada.desconto}
-                      desconto={vendaSelecionada.desconto || 0}
-                      acrescimo={vendaSelecionada.acrescimo || 0}
-                      total={vendaSelecionada.total}
+                      produtos={vendaSelecionada.itens}
+                      subtotal={
+                        Number(vendaSelecionada.total ?? 0) -
+                        Number(vendaSelecionada.acrescimo ?? 0) +
+                        Number(vendaSelecionada.desconto ?? 0)
+                      }
+                      desconto={Number(vendaSelecionada.desconto ?? 0)}
+                      acrescimo={Number(vendaSelecionada.acrescimo ?? 0)}
+                      total={Number(vendaSelecionada.total ?? 0)}
                       formaPagamento={vendaSelecionada.forma_pagamento}
                       tipoPedido={vendaSelecionada.tipo_pedido || 'Balcão'}
                       data={new Date(vendaSelecionada.data_venda).toLocaleString('pt-BR')}

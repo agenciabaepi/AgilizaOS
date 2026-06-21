@@ -52,6 +52,10 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const queryEmpresaId = url.searchParams.get('empresaId');
     const tipo = url.searchParams.get('tipo'); // 'produto' | 'servico' | null = todos
+    const search = url.searchParams.get('search')?.trim() || '';
+    const apenasAtivos = url.searchParams.get('apenasAtivos') !== 'false';
+    const limitParam = parseInt(url.searchParams.get('limit') || '0', 10);
+    const limit = limitParam > 0 ? Math.min(limitParam, 50) : 0;
 
     // Usar sempre a empresa do usuário logado (segurança)
     const empresaId = usuario.empresa_id;
@@ -64,15 +68,36 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    let query = admin
-      .from('produtos_servicos')
-      .select('*, grupos_produtos(nome)')
-      .eq('empresa_id', empresaId)
-      .order('nome');
+    const buildQuery = (client: ReturnType<typeof getSupabaseAdmin>, selectFields: string) => {
+      let q = client
+        .from('produtos_servicos')
+        .select(selectFields)
+        .eq('empresa_id', empresaId);
 
-    if (tipo === 'produto' || tipo === 'servico') {
-      query = query.eq('tipo', tipo);
-    }
+      if (apenasAtivos) {
+        q = q.eq('ativo', true);
+      }
+
+      if (tipo === 'produto' || tipo === 'servico') {
+        q = q.eq('tipo', tipo);
+      }
+
+      if (search) {
+        const escaped = search.replace(/[%_,]/g, '');
+        if (escaped) {
+          const pattern = `%${escaped}%`;
+          q = q.or(
+            `nome.ilike.${pattern},codigo.ilike.${pattern},codigo_barras.ilike.${pattern},categoria.ilike.${pattern},marca.ilike.${pattern}`
+          );
+        }
+      }
+
+      q = q.order('nome');
+      if (limit > 0) q = q.limit(limit);
+      return q;
+    };
+
+    let query = buildQuery(admin, '*, grupos_produtos(nome)');
 
     const { data, error } = await query;
 
@@ -82,15 +107,7 @@ export async function GET(req: NextRequest) {
         error.message?.includes('grupos_produtos') ||
         (error as { code?: string }).code === 'PGRST204';
       if (isJoinError) {
-        let fallbackQuery = admin
-          .from('produtos_servicos')
-          .select('*')
-          .eq('empresa_id', empresaId)
-          .order('nome');
-        if (tipo === 'produto' || tipo === 'servico') {
-          fallbackQuery = fallbackQuery.eq('tipo', tipo);
-        }
-        const { data: fallbackData, error: fallbackError } = await fallbackQuery;
+        const { data: fallbackData, error: fallbackError } = await buildQuery(admin, '*');
         if (!fallbackError) return NextResponse.json(fallbackData ?? []);
       }
       console.error('Erro ao listar produtos/serviços:', error);

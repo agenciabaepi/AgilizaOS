@@ -9,6 +9,13 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        brand: {
+          DEFAULT: '#D1FE6E',
+          hover: '#B8E55A',
+          light: '#cffb6d',
+          muted: '#D1FE6E26',
+          surface: '#D1FE6E14',
+        },
         /* Canvas principal: modo escuro mais profundo (contraste com texto zinc-50) */
         canvas: {
           DEFAULT: '#ffffff',

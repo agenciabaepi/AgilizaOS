@@ -258,6 +258,8 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
   const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
   const pathname = usePathname();
   const isNovaOSFullScreen = pathname === '/nova-os';
+  const isPDVFullScreen = pathname.startsWith('/caixa/pdv');
+  const isFullScreenPage = isNovaOSFullScreen || isPDVFullScreen;
 
   useEffect(() => {
     const stored = localStorage.getItem('menuExpandido') === 'true';
@@ -278,6 +280,9 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
     // Expandir automaticamente se estiver em qualquer página do financeiro
     if (pathname.startsWith('/financeiro/')) {
       setFinanceiroExpanded(true);
+    }
+    if (pathname.startsWith('/caixa')) {
+      setCaixaExpanded(true);
     }
   }, [pathname]);
 
@@ -323,7 +328,7 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen bg-white dark:bg-zinc-950">
         {/* Sidebar Desktop - invertido (fundo claro) para técnico; escuro com alto contraste */}
         <aside
-          className={`w-64 hidden md:flex flex-col py-8 px-4 h-screen fixed top-0 left-0 z-40 transition-all duration-300 overflow-y-auto no-print ${isNovaOSFullScreen ? '!hidden' : ''} ${isTecnico ? 'bg-white border-r border-gray-200 dark:bg-zinc-950 dark:border-zinc-600' : 'bg-black border-r border-white/20 dark:bg-zinc-950 dark:border-zinc-600'}`}
+          className={`w-64 hidden md:flex flex-col py-8 px-4 h-screen fixed top-0 left-0 z-40 transition-all duration-300 overflow-y-auto no-print ${isFullScreenPage ? '!hidden' : ''} ${isTecnico ? 'bg-white border-r border-gray-200 dark:bg-zinc-950 dark:border-zinc-600' : 'bg-black border-r border-white/20 dark:bg-zinc-950 dark:border-zinc-600'}`}
           style={{ ['--menu-accent' as string]: menuAccentColor }}
         >
         {/* Busca */}
@@ -361,7 +366,7 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
           {podeVer('ordens') && matchesSearch('Ordens de Serviço') && (
             <SidebarButton path="/ordens" icon={<FiFileText size={22} strokeWidth={1.75} />} label="Ordens de Serviço" isActive={pathname === '/ordens'} menuRecolhido={false} />
           )}
-          {podeVer('caixa') && (matchesSearch('Caixa') || matchesSearch('Fluxo de Caixa')) && (
+          {podeVer('caixa') && (matchesSearch('Caixa') || matchesSearch('Fluxo de Caixa') || matchesSearch('PDV')) && (
             <>
               <SidebarSectionHeader
                 icon={<FiDollarSign size={22} strokeWidth={1.75} />}
@@ -371,6 +376,13 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
               />
               {caixaExpanded && (
                 <SidebarSubmenuPanel>
+                  <SidebarButton
+                    path="/caixa/pdv"
+                    label="PDV"
+                    isActive={pathname === '/caixa/pdv'}
+                    menuRecolhido={false}
+                    isSubmenu
+                  />
                   {podeVerModulo('movimentacao-caixa', 'financeiro') && (
                     <SidebarButton
                       path="/fluxo-caixa"
@@ -579,6 +591,13 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
                   />
                   {caixaExpanded && (
                     <SidebarSubmenuPanel>
+                      <SidebarButton
+                        path="/caixa/pdv"
+                        label="PDV"
+                        isActive={pathname === '/caixa/pdv'}
+                        menuRecolhido={false}
+                        isSubmenu
+                      />
                       {podeVerModulo('movimentacao-caixa', 'financeiro') && (
                         <SidebarButton
                           path="/fluxo-caixa"
@@ -724,9 +743,9 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
         </div>
       )}
       {/* Main area - largura limitada para não cortar à direita (sidebar 16rem = 256px) */}
-      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 min-w-0 bg-white dark:bg-zinc-950 ${isNovaOSFullScreen ? 'md:ml-0 w-full md:max-w-full' : 'ml-0 w-full md:ml-64 md:max-w-[calc(100vw-16rem)]'}`}>
+      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 min-w-0 bg-white dark:bg-zinc-950 ${isFullScreenPage ? 'md:ml-0 w-full md:max-w-full' : 'ml-0 w-full md:ml-64 md:max-w-[calc(100vw-16rem)]'}`}>
         {/* TopHeader - oculto na tela cheia de Nova OS (só fica o botão Voltar na própria página) */}
-        {!isNovaOSFullScreen && (
+        {!isFullScreenPage && (
         <header className="w-full h-16 bg-white dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-600 flex items-center justify-between px-4 md:px-6 sticky top-0 z-30 no-print">
           {/* Esquerda: botão menu mobile + logo da empresa */}
           <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
@@ -870,14 +889,14 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
         </header>
         )}
         {/* Banner de Avisos - oculto na tela cheia de Nova OS para mais espaço */}
-        {!isNovaOSFullScreen && (
+        {!isFullScreenPage && (
           <div className="w-full sticky top-16 z-20 space-y-1.5 no-print">
             <AvisosBanner />
             <FinanceiroAlertsBanner />
           </div>
         )}
         {/* Conteúdo principal - min-w-0 para permitir scroll horizontal em tabelas em qualquer resolução */}
-        <main className={`flex-1 w-full min-w-0 ${isNovaOSFullScreen ? 'pb-6 pt-0 px-0' : 'pb-6 px-4 md:px-6 pt-6'}`}>
+        <main className={`flex-1 w-full min-w-0 ${isFullScreenPage ? 'pb-6 pt-0 px-0' : 'pb-6 px-4 md:px-6 pt-6'}`}>
           <div className="w-full min-w-0 max-w-full">
             {children}
           </div>

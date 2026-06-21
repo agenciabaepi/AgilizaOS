@@ -219,31 +219,32 @@ function LoginClientInner() {
     console.log('🔐 Iniciando processo de login para:', loginInput);
     
     try {
-    let emailToLogin = loginInput;
-    
-    // Verificar se é email ou usuário
-    if (!loginInput.includes('@')) {
-      const username = loginInput.trim().toLowerCase();
-      try {
-        const res = await fetch('/api/auth/resolve-username', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username }),
-        });
-        const result = await res.json();
-        if (!res.ok || !result.email) {
-          setIsSubmitting(false);
-          loginInProgress.current = false;
-          addToast('error', 'Usuário não encontrado. Verifique o nome de usuário.');
-          return;
-        }
-        emailToLogin = result.email;
-      } catch {
+    let emailToLogin = loginInput.trim().toLowerCase();
+
+    try {
+      const res = await fetch('/api/auth/resolve-username', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ login: emailToLogin }),
+      });
+      const result = await res.json();
+      if (!res.ok || !result.email) {
         setIsSubmitting(false);
         loginInProgress.current = false;
-        addToast('error', 'Erro ao verificar usuário. Tente novamente.');
+        addToast(
+          'error',
+          emailToLogin.includes('@')
+            ? 'E-mail não encontrado. Verifique suas credenciais.'
+            : 'Usuário não encontrado. Verifique o nome de usuário.'
+        );
         return;
       }
+      emailToLogin = result.email;
+    } catch {
+      setIsSubmitting(false);
+      loginInProgress.current = false;
+      addToast('error', 'Erro ao verificar usuário. Tente novamente.');
+      return;
     }
     
     // Verificação de email/usuário — pular se não conseguir (RLS pode bloquear)
@@ -386,7 +387,6 @@ function LoginClientInner() {
     });
     
     if (error) {
-      console.error('Erro signInWithPassword:', error.message, error.status, error);
       setIsSubmitting(false);
       loginInProgress.current = false;
       if (error.message.includes('Invalid login credentials')) {
