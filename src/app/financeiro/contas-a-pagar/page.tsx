@@ -14,6 +14,7 @@ import { FiPlus, FiEdit, FiTrash2, FiCheck, FiX, FiFilter, FiDownload, FiEye, Fi
 import DashboardCard from '@/components/ui/DashboardCard';
 import { useRouter, useSearchParams } from 'next/navigation';
 import AnexosManager from '@/components/AnexosManager';
+import { Dialog } from '@/components/Dialog';
 
 const debugLog = (...args: unknown[]) => {
   if (process.env.NODE_ENV !== 'production') {
@@ -63,6 +64,39 @@ interface OrdemServico {
   };
 }
 
+const PARCELA_SUFFIX_REGEX = /\s*\(\d+\/\d+\)$/;
+
+function extrairDescricaoBase(descricao: string): string {
+  return descricao.replace(PARCELA_SUFFIX_REGEX, '').trim();
+}
+
+function formatarDescricaoParcela(base: string, parcela: number, total: number): string {
+  return total > 1 ? `${base} (${parcela}/${total})` : base;
+}
+
+function isContaComParcelas(conta: ContaPagar): boolean {
+  return !!(conta.conta_fixa && conta.parcelas_totais && conta.parcelas_totais > 1);
+}
+
+function getParcelasRelacionadas(conta: ContaPagar, todasContas: ContaPagar[]): ContaPagar[] {
+  if (!isContaComParcelas(conta)) {
+    return [conta];
+  }
+
+  const descricaoBase = extrairDescricaoBase(conta.descricao);
+
+  return todasContas
+    .filter(c =>
+      c.conta_fixa &&
+      c.parcelas_totais === conta.parcelas_totais &&
+      c.categoria_id === conta.categoria_id &&
+      c.data_fixa_mes === conta.data_fixa_mes &&
+      extrairDescricaoBase(c.descricao) === descricaoBase &&
+      (c.fornecedor || '') === (conta.fornecedor || '')
+    )
+    .sort((a, b) => (a.parcela_atual || 0) - (b.parcela_atual || 0));
+}
+
 function ContasAPagarPageContent() {
   const { empresaData } = useAuth();
   const { addToast } = useToast();
@@ -73,7 +107,6 @@ function ContasAPagarPageContent() {
   const [filtroMes, setFiltroMes] = useState(() => new Date().toISOString().slice(0, 7));
   const [filtroCategoria, setFiltroCategoria] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('');
-  const [filtroPeriodo, setFiltroPeriodo] = useState('');
 
   const {
     loading,
@@ -89,6 +122,13 @@ function ContasAPagarPageContent() {
   const [activeTab, setActiveTab] = useState<'todas' | 'fixas' | 'variaveis' | 'pecas'>('todas');
   const [showModal, setShowModal] = useState(false);
   const [editingConta, setEditingConta] = useState<ContaPagar | null>(null);
+  const [editarTodasParcelas, setEditarTodasParcelas] = useState(false);
+  const [parcelasRelacionadasEdicao, setParcelasRelacionadasEdicao] = useState<ContaPagar[]>([]);
+  const [deleteModal, setDeleteModal] = useState<{
+    conta: ContaPagar;
+    parcelasRelacionadas: ContaPagar[];
+  } | null>(null);
+  const [parcelasSelecionadasExclusao, setParcelasSelecionadasExclusao] = useState<Set<string>>(new Set());
   const [contaFocus, setContaFocus] = useState<string | null>(null);
   const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
   
@@ -204,6 +244,28 @@ function ContasAPagarPageContent() {
     data_fixa_mes: 1
   });
 
+  const atualizarDataVencimento = (data: string) => {
+    const dia = data ? parseInt(data.split('-')[2], 10) : NaN;
+    setFormData(prev => ({
+      ...prev,
+      data_vencimento: data,
+      ...(prev.conta_fixa && !isNaN(dia) ? { data_fixa_mes: dia } : {}),
+    }));
+  };
+
+  const ativarContaFixa = (ativa: boolean) => {
+    setFormData(prev => {
+      const dia = prev.data_vencimento ? parseInt(prev.data_vencimento.split('-')[2], 10) : prev.data_fixa_mes;
+      return {
+        ...prev,
+        conta_fixa: ativa,
+        parcela_atual: 1,
+        parcelas_totais: ativa ? Math.max(prev.parcelas_totais || 1, 1) : 1,
+        ...(ativa && !isNaN(dia) ? { data_fixa_mes: dia } : {}),
+      };
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -236,13 +298,54 @@ function ContasAPagarPageContent() {
 
 
       if (editingConta) {
-        const { data, error } = await supabase
-          .from('contas_pagar')
-          .update(contaData)
-          .eq('id', editingConta.id);
-        
-        if (error) throw error;
-        addToast('success', 'Conta atualizada com sucesso!');
+        const parcelasRelacionadas = getParcelasRelacionadas(editingConta, contas);
+        const aplicarEmTodas = editarTodasParcelas && parcelasRelacionadas.length > 1;
+
+        if (aplicarEmTodas) {
+          const descricaoBase = extrairDescricaoBase(formData.descricao);
+          const updates = parcelasRelacionadas.map(parcela => ({
+            id: parcela.id,
+            categoria_id: formData.categoria_id || null,
+            tipo: formData.tipo,
+            descricao: formatarDescricaoParcela(
+              descricaoBase,
+              parcela.parcela_atual || 1,
+              parcela.parcelas_totais || 1
+            ),
+            valor: parseFloat(formData.valor),
+            fornecedor: formData.fornecedor || null,
+            observacoes: formData.observacoes || null,
+          }));
+
+          const results = await Promise.all(
+            updates.map(update =>
+              supabase
+                .from('contas_pagar')
+                .update({
+                  categoria_id: update.categoria_id,
+                  tipo: update.tipo,
+                  descricao: update.descricao,
+                  valor: update.valor,
+                  fornecedor: update.fornecedor,
+                  observacoes: update.observacoes,
+                })
+                .eq('id', update.id)
+            )
+          );
+
+          const error = results.find(r => r.error)?.error;
+          if (error) throw error;
+
+          addToast('success', `${parcelasRelacionadas.length} parcelas atualizadas com sucesso!`);
+        } else {
+          const { error } = await supabase
+            .from('contas_pagar')
+            .update(contaData)
+            .eq('id', editingConta.id);
+
+          if (error) throw error;
+          addToast('success', 'Conta atualizada com sucesso!');
+        }
       } else {
         // Se é conta fixa com parcelas, criar todas as parcelas como contas reais
         if (formData.conta_fixa && formData.parcelas_totais && formData.parcelas_totais > 1) {
@@ -295,6 +398,8 @@ function ContasAPagarPageContent() {
       
       setShowModal(false);
       setEditingConta(null);
+      setEditarTodasParcelas(false);
+      setParcelasRelacionadasEdicao([]);
       resetForm();
       refetch();
       
@@ -312,9 +417,10 @@ function ContasAPagarPageContent() {
   };
 
   const handleEdit = (conta: ContaPagar) => {
-    // Agora todas as contas são reais, pode editar qualquer uma
-    
+    const relacionadas = getParcelasRelacionadas(conta, contas);
     setEditingConta(conta);
+    setParcelasRelacionadasEdicao(relacionadas);
+    setEditarTodasParcelas(false);
 
     setFormData({
       descricao: conta.descricao,
@@ -327,34 +433,71 @@ function ContasAPagarPageContent() {
       os_id: conta.os_id || '',
       peca_nome: conta.peca_nome || '',
       peca_quantidade: conta.peca_quantidade || 1,
-      // Novos campos
       conta_fixa: conta.conta_fixa || false,
       parcelas_totais: conta.parcelas_totais || 1,
       parcela_atual: conta.parcela_atual || 1,
-      data_fixa_mes: conta.data_fixa_mes || 1
+      data_fixa_mes: conta.data_fixa_mes || (conta.data_vencimento ? parseInt(conta.data_vencimento.split('-')[2], 10) : 1)
     });
     setShowModal(true);
   };
 
-  const handleDelete = async (id: string) => {
-    // Agora todas as contas são reais, pode excluir qualquer uma
-    
+  const fecharModalExclusao = () => {
+    setDeleteModal(null);
+    setParcelasSelecionadasExclusao(new Set());
+  };
+
+  const handleDeleteClick = (conta: ContaPagar) => {
+    const relacionadas = getParcelasRelacionadas(conta, contas);
+
+    if (relacionadas.length > 1) {
+      setParcelasSelecionadasExclusao(new Set([conta.id]));
+      setDeleteModal({ conta, parcelasRelacionadas: relacionadas });
+      return;
+    }
+
     if (!confirm('Tem certeza que deseja excluir esta conta?')) return;
-    
+    void executarExclusao([conta.id]);
+  };
+
+  const toggleParcelaExclusao = (id: string) => {
+    setParcelasSelecionadasExclusao(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelecionarTodasExclusao = () => {
+    if (!deleteModal) return;
+    const todasIds = deleteModal.parcelasRelacionadas.map(p => p.id);
+    const todasMarcadas = todasIds.every(id => parcelasSelecionadasExclusao.has(id));
+    setParcelasSelecionadasExclusao(todasMarcadas ? new Set() : new Set(todasIds));
+  };
+
+  const executarExclusao = async (ids: string[]) => {
+    if (ids.length === 0) return;
+
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('contas_pagar')
         .delete()
-        .eq('id', id);
-      
+        .in('id', ids);
+
       if (error) throw error;
-      
-      addToast('success', 'Conta excluída com sucesso!');
-        refetch();
-      
+
+      addToast(
+        'success',
+        ids.length === 1
+          ? 'Conta excluída com sucesso!'
+          : `${ids.length} parcelas excluídas com sucesso!`
+      );
+      refetch();
     } catch (error) {
       console.error('Erro ao excluir conta:', error);
       addToast('error', 'Erro ao excluir conta');
+    } finally {
+      fecharModalExclusao();
     }
   };
 
@@ -422,6 +565,8 @@ function ContasAPagarPageContent() {
 
   const openModal = () => {
     setEditingConta(null);
+    setEditarTodasParcelas(false);
+    setParcelasRelacionadasEdicao([]);
     resetForm();
     setShowModal(true);
   };
@@ -592,56 +737,37 @@ function ContasAPagarPageContent() {
         </div>
 
         {/* Filtros */}
-        <div className="bg-white p-4 rounded-lg border border-gray-200 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <Select
-              value={filtroCategoria}
-              onChange={(e) => setFiltroCategoria(e.target.value)}
-            >
-              <option value="">Todas as categorias</option>
-              {categorias.map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.nome}</option>
-              ))}
-            </Select>
-            
-            
-            <Select
-              value={filtroStatus}
-              onChange={(e) => setFiltroStatus(e.target.value)}
-            >
-              <option value="">Todos os status</option>
-              <option value="pendente">Pendente</option>
-              <option value="pago">Pago</option>
-              <option value="vencido">Vencido</option>
-            </Select>
-            
-            {/* Navegação de Mês */}
-            <div className="flex items-center space-x-2">
-              <div className="flex items-center bg-white border border-gray-300 rounded-lg px-3 py-2">
-                <button
-                  onClick={() => navegarMes('anterior')}
-                  className="p-1 hover:bg-gray-100 rounded transition-colors"
-                  title="Mês anterior"
-                >
-                  <FiChevronLeft className="w-4 h-4 text-gray-600" />
-                </button>
-                
-                <div className="flex items-center space-x-2 px-3">
-                  <FiCalendar className="w-4 h-4 text-gray-500" />
-                  <span className="text-sm font-medium text-gray-700 min-w-[140px] text-center">
-                    {formatarMes(filtroMes)}
-                  </span>
-                </div>
-                
-                <button
-                  onClick={() => navegarMes('proximo')}
-                  className="p-1 hover:bg-gray-100 rounded transition-colors"
-                  title="Próximo mês"
-                >
-                  <FiChevronRight className="w-4 h-4 text-gray-600" />
-                </button>
+        <div className="bg-white p-4 rounded-lg border border-gray-200 mb-6 space-y-4">
+          {/* Navegação de Mês */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="flex w-full sm:w-auto items-center justify-between gap-1 border border-gray-300 rounded-lg px-2 py-2 bg-white">
+              <button
+                onClick={() => navegarMes('anterior')}
+                className="p-2 hover:bg-gray-100 rounded transition-colors shrink-0"
+                title="Mês anterior"
+                type="button"
+              >
+                <FiChevronLeft className="w-4 h-4 text-gray-600" />
+              </button>
+
+              <div className="flex items-center justify-center gap-2 min-w-0 flex-1 px-1">
+                <FiCalendar className="w-4 h-4 text-gray-500 shrink-0" />
+                <span className="text-sm font-medium text-gray-700 text-center truncate">
+                  {formatarMes(filtroMes)}
+                </span>
               </div>
-              
+
+              <button
+                onClick={() => navegarMes('proximo')}
+                className="p-2 hover:bg-gray-100 rounded transition-colors shrink-0"
+                title="Próximo mês"
+                type="button"
+              >
+                <FiChevronRight className="w-4 h-4 text-gray-600" />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
               <Button
                 onClick={irParaMesAtual}
                 variant="outline"
@@ -650,7 +776,7 @@ function ContasAPagarPageContent() {
               >
                 Hoje
               </Button>
-              
+
               {filtroMes && (
                 <Button
                   onClick={limparFiltroMes}
@@ -662,13 +788,28 @@ function ContasAPagarPageContent() {
                 </Button>
               )}
             </div>
-            
-            <Input
-              type="date"
-              value={filtroPeriodo}
-              onChange={(e) => setFiltroPeriodo(e.target.value)}
-              placeholder="Filtrar por período"
-            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Select
+              value={filtroCategoria}
+              onChange={(e) => setFiltroCategoria(e.target.value)}
+            >
+              <option value="">Todas as categorias</option>
+              {categorias.map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.nome}</option>
+              ))}
+            </Select>
+
+            <Select
+              value={filtroStatus}
+              onChange={(e) => setFiltroStatus(e.target.value)}
+            >
+              <option value="">Todos os status</option>
+              <option value="pendente">Pendente</option>
+              <option value="pago">Pago</option>
+              <option value="vencido">Vencido</option>
+            </Select>
           </div>
         </div>
 
@@ -860,7 +1001,7 @@ function ContasAPagarPageContent() {
                                   <FiEdit className="w-4 h-4" />
                                 </button>
                                 <button
-                                  onClick={() => handleDelete(conta.id)}
+                                  onClick={() => handleDeleteClick(conta)}
                                   className="text-red-600 hover:text-red-900"
                                   title="Excluir"
                                 >
@@ -898,251 +1039,325 @@ function ContasAPagarPageContent() {
 
         {/* Modal de Cadastro/Edição */}
         {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <h2 className="text-xl font-bold mb-4">
-                {editingConta ? 'Editar Conta' : 'Nova Conta'}
-              </h2>
-              
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Descrição *
-                    </label>
-                    <Input
-                      value={formData.descricao}
-                      onChange={(e) => setFormData({...formData, descricao: e.target.value})}
-                      required
-                      placeholder="Ex: Aluguel do escritório"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Categoria *
-                    </label>
-                    <Select
-                      value={formData.categoria_id}
-                      onChange={(e) => setFormData({...formData, categoria_id: e.target.value})}
-                      required
-                    >
-                      <option value="">Selecione uma categoria</option>
-                      {categorias.map(cat => (
-                        <option key={cat.id} value={cat.id}>{cat.nome}</option>
-                      ))}
-                    </Select>
-                  </div>
-                  
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Tipo
-                    </label>
-                    <Select
-                      value={formData.tipo}
-                      onChange={(e) => setFormData({...formData, tipo: e.target.value as any})}
-                    >
-                      <option value="fixa">Fixa</option>
-                      <option value="variavel">Variável</option>
-                      <option value="pecas">Peças</option>
-                    </Select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Valor *
-                    </label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={formData.valor || ''}
-                      onChange={(e) => setFormData({...formData, valor: e.target.value})}
-                      required
-                      placeholder="0,00"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Data de Vencimento *
-                    </label>
-                    <Input
-                      type="date"
-                      value={formData.data_vencimento}
-                      onChange={(e) => setFormData({...formData, data_vencimento: e.target.value})}
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Fornecedor
-                    </label>
-                    <Input
-                      value={formData.fornecedor}
-                      onChange={(e) => setFormData({...formData, fornecedor: e.target.value})}
-                      placeholder="Nome do fornecedor"
-                    />
-                  </div>
+          <Dialog
+            onClose={() => {
+              setShowModal(false);
+              setEditingConta(null);
+              setEditarTodasParcelas(false);
+              setParcelasRelacionadasEdicao([]);
+            }}
+            className="w-[calc(100vw-1.5rem)] sm:w-[calc(100vw-3rem)] max-w-5xl"
+          >
+            <div className="p-5 sm:p-6 pt-8 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-start justify-between gap-4 mb-5 pr-8">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    {editingConta ? 'Editar Conta' : 'Nova Conta'}
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    {editingConta ? 'Atualize os dados da conta selecionada.' : 'Preencha os dados para cadastrar uma nova conta.'}
+                  </p>
                 </div>
-                
-                {/* Seção para Contas Fixas */}
-                {formData.tipo === 'fixa' && (
-                  <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <h3 className="text-lg font-medium text-blue-900">Configurações de Conta Fixa</h3>
-                    
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id="conta_fixa"
-                        checked={formData.conta_fixa}
-                        onChange={(e) => setFormData({...formData, conta_fixa: e.target.checked})}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
+                  {/* Coluna esquerda — dados gerais */}
+                  <div className="space-y-4">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Dados gerais</h3>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Descrição *</label>
+                      <Input
+                        value={formData.descricao}
+                        onChange={(e) => setFormData({...formData, descricao: e.target.value})}
+                        required
+                        placeholder="Ex: Aluguel do escritório"
                       />
-                      <label htmlFor="conta_fixa" className="text-sm font-medium text-gray-700">
-                        Esta é uma conta fixa mensal
-                      </label>
                     </div>
-                    
-                    {formData.conta_fixa && (
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Dia do Mês *
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Categoria *</label>
+                        <Select
+                          value={formData.categoria_id}
+                          onChange={(e) => setFormData({...formData, categoria_id: e.target.value})}
+                          required
+                        >
+                          <option value="">Selecione</option>
+                          {categorias.map(cat => (
+                            <option key={cat.id} value={cat.id}>{cat.nome}</option>
+                          ))}
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+                        <Select
+                          value={formData.tipo}
+                          onChange={(e) => setFormData({...formData, tipo: e.target.value as ContaPagar['tipo']})}
+                        >
+                          <option value="fixa">Fixa</option>
+                          <option value="variavel">Variável</option>
+                          <option value="pecas">Peças</option>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Valor *</label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={formData.valor || ''}
+                          onChange={(e) => setFormData({...formData, valor: e.target.value})}
+                          required
+                          placeholder="0,00"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Fornecedor</label>
+                        <Input
+                          value={formData.fornecedor}
+                          onChange={(e) => setFormData({...formData, fornecedor: e.target.value})}
+                          placeholder="Opcional"
+                        />
+                      </div>
+                    </div>
+
+                    {editingConta && parcelasRelacionadasEdicao.length > 1 && (
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-2">
+                        <p className="text-sm font-medium text-amber-900">
+                          Série de {parcelasRelacionadasEdicao.length} parcelas
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <label className="flex items-start gap-2 cursor-pointer p-2 rounded-md border border-transparent has-[:checked]:border-amber-300 has-[:checked]:bg-white">
+                            <input
+                              type="radio"
+                              name="escopo_edicao"
+                              checked={!editarTodasParcelas}
+                              onChange={() => setEditarTodasParcelas(false)}
+                              className="mt-0.5 text-blue-600 border-gray-300 focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-700 leading-snug">
+                              Só esta ({editingConta.parcela_atual}/{editingConta.parcelas_totais})
+                            </span>
                           </label>
-                          <Input
-                            type="number"
-                            min="1"
-                            max="31"
-                            value={formData.data_fixa_mes || ''}
-                            onChange={(e) => {
-                              const value = parseInt(e.target.value);
-                              setFormData({...formData, data_fixa_mes: isNaN(value) ? 1 : value});
-                            }}
-                            placeholder="Ex: 15"
-                          />
-                          <p className="text-xs text-gray-500 mt-1">Dia do mês para vencimento</p>
+                          <label className="flex items-start gap-2 cursor-pointer p-2 rounded-md border border-transparent has-[:checked]:border-amber-300 has-[:checked]:bg-white">
+                            <input
+                              type="radio"
+                              name="escopo_edicao"
+                              checked={editarTodasParcelas}
+                              onChange={() => setEditarTodasParcelas(true)}
+                              className="mt-0.5 text-blue-600 border-gray-300 focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-700 leading-snug">
+                              Todas as {parcelasRelacionadasEdicao.length} parcelas
+                            </span>
+                          </label>
                         </div>
-                        
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Parcela Atual
-                          </label>
-                          <Input
-                            type="number"
-                            min="1"
-                            value={formData.parcela_atual || ''}
-                            onChange={(e) => {
-                              const value = parseInt(e.target.value);
-                              setFormData({...formData, parcela_atual: isNaN(value) ? 1 : value});
-                            }}
-                          />
+                      </div>
+                    )}
+
+                    {formData.tipo === 'pecas' && (
+                      <div className="space-y-3 p-3 rounded-lg border border-gray-200 bg-gray-50">
+                        <h4 className="text-sm font-medium text-gray-900">Peça vinculada</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Nome da peça</label>
+                            <Input
+                              value={formData.peca_nome}
+                              onChange={(e) => setFormData({...formData, peca_nome: e.target.value})}
+                              placeholder="Ex: Tela iPhone 12"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Quantidade</label>
+                            <Input
+                              type="number"
+                              value={formData.peca_quantidade || ''}
+                              onChange={(e) => {
+                                const value = parseInt(e.target.value);
+                                setFormData({...formData, peca_quantidade: isNaN(value) ? 1 : value});
+                              }}
+                              min="1"
+                            />
+                          </div>
                         </div>
-                        
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Total de Parcelas
-                          </label>
-                          <Input
-                            type="number"
-                            min="1"
-                            value={formData.parcelas_totais || ''}
-                            onChange={(e) => {
-                              const value = parseInt(e.target.value);
-                              setFormData({...formData, parcelas_totais: isNaN(value) ? 1 : value});
-                            }}
-                          />
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Vincular à OS</label>
+                          <Select
+                            value={formData.os_id}
+                            onChange={(e) => setFormData({...formData, os_id: e.target.value})}
+                          >
+                            <option value="">Nenhuma</option>
+                            {ordensServico.map(os => (
+                              <option key={os.id} value={os.id}>
+                                OS #{os.numero_os} - {os.cliente?.nome || 'Cliente não informado'}
+                              </option>
+                            ))}
+                          </Select>
                         </div>
                       </div>
                     )}
                   </div>
-                )}
 
-                {formData.tipo === 'pecas' && (
+                  {/* Coluna direita — vencimento e parcelas */}
                   <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      {formData.tipo === 'fixa' ? 'Vencimento e parcelas' : 'Vencimento'}
+                    </h3>
+
+                    {formData.tipo === 'fixa' ? (
+                      <div className="h-full p-4 bg-blue-50/80 rounded-xl border border-blue-200 space-y-4">
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            id="conta_fixa"
+                            checked={formData.conta_fixa}
+                            onChange={(e) => ativarContaFixa(e.target.checked)}
+                            className="mt-0.5 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <div>
+                            <label htmlFor="conta_fixa" className="text-sm font-medium text-gray-900 cursor-pointer">
+                              Conta fixa mensal com parcelas
+                            </label>
+                            <p className="text-xs text-gray-600 mt-0.5">
+                              Vencimento no mesmo dia de cada mês.
+                            </p>
+                          </div>
+                        </div>
+
+                        {formData.conta_fixa ? (
+                          <div className="space-y-3 pt-3 border-t border-blue-200">
+                            {editingConta && (
+                              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-100 text-blue-800 text-sm font-medium">
+                                Parcela {editingConta.parcela_atual}/{editingConta.parcelas_totais}
+                                {formData.data_fixa_mes ? ` · Dia ${formData.data_fixa_mes}` : ''}
+                              </div>
+                            )}
+
+                            <div className="grid grid-cols-2 gap-3">
+                              {!editingConta ? (
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Primeiro vencimento *
+                                  </label>
+                                  <Input
+                                    type="date"
+                                    value={formData.data_vencimento}
+                                    onChange={(e) => atualizarDataVencimento(e.target.value)}
+                                    required
+                                  />
+                                </div>
+                              ) : (
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Data de vencimento *
+                                  </label>
+                                  <Input
+                                    type="date"
+                                    value={formData.data_vencimento}
+                                    onChange={(e) => atualizarDataVencimento(e.target.value)}
+                                    required
+                                  />
+                                </div>
+                              )}
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  {editingConta ? 'Total de parcelas' : 'Quantidade *'}
+                                </label>
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  value={formData.parcelas_totais || ''}
+                                  onChange={(e) => {
+                                    const value = parseInt(e.target.value);
+                                    setFormData({...formData, parcelas_totais: isNaN(value) ? 1 : value});
+                                  }}
+                                  disabled={!!editingConta}
+                                  required={!editingConta}
+                                />
+                              </div>
+                            </div>
+
+                            {!editingConta && formData.data_vencimento && formData.parcelas_totais > 1 && (
+                              <p className="text-xs text-blue-700">
+                                {formData.parcelas_totais} parcelas, vencendo todo dia {formData.data_fixa_mes} de cada mês
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Data de vencimento *
+                            </label>
+                            <Input
+                              type="date"
+                              value={formData.data_vencimento}
+                              onChange={(e) => atualizarDataVencimento(e.target.value)}
+                              required
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ) : (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Nome da Peça
+                          Data de vencimento *
                         </label>
                         <Input
-                          value={formData.peca_nome}
-                          onChange={(e) => setFormData({...formData, peca_nome: e.target.value})}
-                          placeholder="Ex: Tela iPhone 12"
+                          type="date"
+                          value={formData.data_vencimento}
+                          onChange={(e) => atualizarDataVencimento(e.target.value)}
+                          required
                         />
                       </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Quantidade
-                        </label>
-                        <Input
-                          type="number"
-                          value={formData.peca_quantidade || ''}
-                          onChange={(e) => {
-                            const value = parseInt(e.target.value);
-                            setFormData({...formData, peca_quantidade: isNaN(value) ? 1 : value});
-                          }}
-                          min="1"
-                        />
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Vincular à OS (Opcional)
-                      </label>
-                      <Select
-                        value={formData.os_id}
-                        onChange={(e) => setFormData({...formData, os_id: e.target.value})}
-                      >
-                        <option value="">Selecione uma OS</option>
-                        {ordensServico.map(os => (
-                          <option key={os.id} value={os.id}>
-                            OS #{os.numero_os} - {os.cliente?.nome || 'Cliente não informado'}
-                          </option>
-                        ))}
-                      </Select>
-                    </div>
+                    )}
                   </div>
-                )}
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Observações
-                  </label>
-                  <textarea
-                    value={formData.observacoes}
-                    onChange={(e) => setFormData({...formData, observacoes: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    rows={3}
-                    placeholder="Observações adicionais..."
-                  />
                 </div>
 
-                {/* Seção de Anexos - apenas para edição */}
-                {editingConta && (
-                  <div className="border-t pt-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <FiPaperclip className="w-5 h-5 text-gray-600" />
-                      <h3 className="text-lg font-medium text-gray-900">Anexos</h3>
-                    </div>
-                    <AnexosManager
-                      contaId={editingConta.id}
-                      anexos={editingConta.anexos_url || []}
-                      onAnexosChange={(anexos) => {
-                        setEditingConta({...editingConta, anexos_url: anexos});
-                      }}
+                {/* Observações e anexos lado a lado */}
+                <div className={`grid grid-cols-1 gap-5 ${editingConta ? 'lg:grid-cols-2' : ''}`}>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Observações</label>
+                    <textarea
+                      value={formData.observacoes}
+                      onChange={(e) => setFormData({...formData, observacoes: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      rows={editingConta ? 4 : 2}
+                      placeholder="Observações adicionais..."
                     />
                   </div>
-                )}
-                
-                <div className="flex justify-end gap-2 pt-4">
+
+                  {editingConta && (
+                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50/50">
+                      <div className="flex items-center gap-2 mb-3">
+                        <FiPaperclip className="w-4 h-4 text-gray-600" />
+                        <h3 className="text-sm font-medium text-gray-900">Anexos</h3>
+                      </div>
+                      <AnexosManager
+                        contaId={editingConta.id}
+                        anexos={editingConta.anexos_url || []}
+                        onAnexosChange={(anexos) => {
+                          setEditingConta({...editingConta, anexos_url: anexos});
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setShowModal(false)}
+                    onClick={() => {
+                      setShowModal(false);
+                      setEditingConta(null);
+                      setEditarTodasParcelas(false);
+                      setParcelasRelacionadasEdicao([]);
+                    }}
                   >
                     Cancelar
                   </Button>
@@ -1152,8 +1367,129 @@ function ContasAPagarPageContent() {
                 </div>
               </form>
             </div>
-          </div>
+          </Dialog>
         )}
+
+        {/* Modal de exclusão de parcelas */}
+        {deleteModal && (() => {
+          const parcelas = deleteModal.parcelasRelacionadas;
+          const totalSelecionadas = parcelasSelecionadasExclusao.size;
+          const todasMarcadas = parcelas.every(p => parcelasSelecionadasExclusao.has(p.id));
+          const algumasMarcadas = !todasMarcadas && parcelas.some(p => parcelasSelecionadasExclusao.has(p.id));
+          const descricaoBase = extrairDescricaoBase(deleteModal.conta.descricao);
+
+          return (
+            <Dialog onClose={fecharModalExclusao} mobileBottomSheet className="w-full max-w-lg">
+              <div className="p-6 pt-8">
+                <div className="flex items-start gap-3 mb-5 pr-8">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-100">
+                    <FiTrash2 className="w-5 h-5 text-red-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="text-lg font-semibold text-gray-900">Excluir parcelas</h2>
+                    <p className="text-sm text-gray-500 mt-0.5 truncate">{descricaoBase}</p>
+                  </div>
+                </div>
+
+                <label className="flex items-center gap-3 p-3 mb-3 rounded-lg border border-gray-200 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={todasMarcadas}
+                    ref={el => {
+                      if (el) el.indeterminate = algumasMarcadas;
+                    }}
+                    onChange={toggleSelecionarTodasExclusao}
+                    className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                  />
+                  <span className="text-sm font-medium text-gray-900">
+                    Selecionar todas ({parcelas.length} parcelas)
+                  </span>
+                </label>
+
+                <div className="max-h-72 overflow-y-auto rounded-lg border border-gray-200 divide-y divide-gray-100">
+                  {parcelas.map(parcela => {
+                    const selecionada = parcelasSelecionadasExclusao.has(parcela.id);
+                    const statusNorm = (parcela.status || '').toLowerCase();
+                    const statusLabel = statusNorm === 'pago' ? 'Pago' : statusNorm === 'vencido' ? 'Vencido' : 'Pendente';
+                    const statusClass =
+                      statusNorm === 'pago'
+                        ? 'bg-green-100 text-green-700'
+                        : statusNorm === 'vencido'
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-yellow-100 text-yellow-700';
+
+                    return (
+                      <label
+                        key={parcela.id}
+                        className={`flex items-start gap-3 p-3 cursor-pointer transition-colors ${
+                          selecionada ? 'bg-red-50' : 'hover:bg-gray-50'
+                        } ${parcela.id === deleteModal.conta.id ? 'ring-1 ring-inset ring-red-200' : ''}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selecionada}
+                          onChange={() => toggleParcelaExclusao(parcela.id)}
+                          className="mt-0.5 h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-medium text-gray-900">
+                              Parcela {parcela.parcela_atual}/{parcela.parcelas_totais}
+                              {parcela.id === deleteModal.conta.id && (
+                                <span className="ml-2 text-xs font-normal text-red-600">(selecionada)</span>
+                              )}
+                            </span>
+                            <span className="text-sm font-semibold text-gray-900 shrink-0">
+                              R$ {parcela.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-2 mt-1">
+                            <span className="text-xs text-gray-500">
+                              Vencimento:{' '}
+                              {parcela.data_vencimento
+                                ? parcela.data_vencimento.split('-').reverse().join('/')
+                                : '-'}
+                            </span>
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusClass}`}>
+                              {statusLabel}
+                            </span>
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                {totalSelecionadas > 0 && (
+                  <p className="text-sm text-gray-600 mt-3">
+                    {totalSelecionadas === 1
+                      ? '1 parcela será excluída permanentemente.'
+                      : `${totalSelecionadas} parcelas serão excluídas permanentemente.`}
+                  </p>
+                )}
+
+                <div className="flex flex-col-reverse sm:flex-row gap-2 mt-6">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={fecharModalExclusao}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={totalSelecionadas === 0}
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={() => void executarExclusao([...parcelasSelecionadasExclusao])}
+                  >
+                    Excluir{totalSelecionadas > 0 ? ` (${totalSelecionadas})` : ''}
+                  </Button>
+                </div>
+              </div>
+            </Dialog>
+          );
+        })()}
       </div>
     </MenuLayout>
   );
