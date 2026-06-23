@@ -36,9 +36,7 @@ import AparelhoSelector from '@/components/AparelhoSelector';
 import DynamicChecklist from '@/components/DynamicChecklist';
 import NovaOSWizardLayout, { type NovaOSContextChip } from '@/components/nova-os/NovaOSWizardLayout';
 import NovaOSSection from '@/components/nova-os/NovaOSSection';
-import NovaOSAparelhoPreview from '@/components/nova-os/NovaOSAparelhoPreview';
-import NovaOSAparelhoInfoIA from '@/components/nova-os/NovaOSAparelhoInfoIA';
-import { useAparelhoInfo } from '@/hooks/useAparelhoInfo';
+import NovaOSPendenciasFinalizar from '@/components/nova-os/NovaOSPendenciasFinalizar';
 import type { AparelhoSelecionado } from '@/types/aparelhos';
 import type { AparelhoCatalogoCor, CorCatalogo } from '@/types/cores';
 import AparelhoCorPicker from '@/components/AparelhoCorPicker';
@@ -401,21 +399,6 @@ function NovaOS2Content() {
       });
     })();
   };
-
-  const aparelhoImagemFrentePreview =
-    previewCor.frente ??
-    imagensPadraoAparelho?.imagemFrenteUrl ??
-    imagensPadraoAparelho?.imagemUrl ??
-    null;
-  const aparelhoImagemVersoPreview = previewCor.verso ?? imagensPadraoAparelho?.imagemVersoUrl ?? null;
-
-  const temImagemCatalogo = !!(aparelhoImagemFrentePreview || aparelhoImagemVersoPreview);
-  const aparelhoInfoIA = useAparelhoInfo({
-    marca: dadosEquipamento.marca,
-    modelo: dadosEquipamento.modelo,
-    tipo: dadosEquipamento.tipo,
-    temImagem: temImagemCatalogo,
-  });
 
   // Estado para acessórios
   const [acessorios, setAcessorios] = useState('');
@@ -1065,10 +1048,107 @@ function NovaOS2Content() {
   }
 
   function irParaEtapa(etapa: number) {
-    if (etapa >= 1 && etapa <= etapas.length && etapa <= etapaAtual) {
+    if (etapa >= 1 && etapa <= etapas.length) {
       setEtapaAtual(etapa);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }
+
+  const pendenciasFinalizar = useMemo(() => {
+    type PendenciaBruta = { id: string; label: string; etapa: number };
+    const brutas: PendenciaBruta[] = [];
+    const etapaNome = (n: number) => etapas[n - 1] || '';
+
+    if (!empresaData?.id) {
+      brutas.push({ id: 'empresa', label: 'Sessão expirada — faça login novamente', etapa: 1 });
+    }
+
+    if (tipoEntrada === 'garantia' && !osGarantiaSelecionada) {
+      brutas.push({ id: 'os-garantia-entrada', label: 'OS original do retorno de garantia', etapa: 1 });
+    }
+
+    if (!clienteSelecionado) {
+      brutas.push({ id: 'cliente', label: 'Cliente', etapa: 1 });
+    }
+
+    const faltasAparelho: string[] = [];
+    if (!dadosEquipamento.tipo?.trim()) faltasAparelho.push('tipo de equipamento');
+    if (!dadosEquipamento.marca?.trim()) faltasAparelho.push('marca');
+    if (!dadosEquipamento.modelo?.trim()) faltasAparelho.push('modelo');
+    if (faltasAparelho.length > 0) {
+      brutas.push({
+        id: 'aparelho',
+        label: `Dados do aparelho: ${faltasAparelho.join(', ')}`,
+        etapa: 2,
+      });
+    }
+
+    if (!tecnicoResponsavel) {
+      brutas.push({ id: 'tecnico', label: 'Técnico responsável', etapa: 4 });
+    }
+
+    const faltasStatus: string[] = [];
+    if (!statusSelecionado) {
+      faltasStatus.push('como o cliente deixou o aparelho');
+    }
+    if (statusSelecionado === 'retorno_garantia' && !osGarantiaSelecionada) {
+      faltasStatus.push('OS original para retorno de garantia');
+    }
+    if (statusSelecionado === 'aprovado') {
+      const temProdutosComValor =
+        produtosSelecionados.length > 0 && produtosSelecionados.some((p) => p.preco > 0);
+      const temServicosComValor =
+        servicosSelecionados.length > 0 && servicosSelecionados.some((s) => s.preco > 0);
+
+      if (!temProdutosComValor && !temServicosComValor) {
+        faltasStatus.push('produto ou serviço com valor');
+      } else {
+        const produtoInvalido = produtosSelecionados.some((p) => p.preco <= 0);
+        const servicoInvalido = servicosSelecionados.some((s) => s.preco <= 0);
+        if (produtoInvalido || servicoInvalido) {
+          faltasStatus.push('valores dos produtos/serviços');
+        }
+      }
+    }
+    if (faltasStatus.length > 0) {
+      brutas.push({
+        id: 'status',
+        label: faltasStatus.join('; '),
+        etapa: 5,
+      });
+    }
+
+    const porEtapa = new Map<number, PendenciaBruta[]>();
+    for (const item of brutas) {
+      const lista = porEtapa.get(item.etapa) || [];
+      lista.push(item);
+      porEtapa.set(item.etapa, lista);
+    }
+
+    return Array.from(porEtapa.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([etapa, lista]) => ({
+        id: `etapa-${etapa}`,
+        etapa,
+        etapaNome: etapaNome(etapa),
+        label:
+          lista.length === 1
+            ? lista[0].label
+            : lista.map((i) => i.label).join(' · '),
+      }));
+  }, [
+    empresaData?.id,
+    tipoEntrada,
+    osGarantiaSelecionada,
+    clienteSelecionado,
+    dadosEquipamento.tipo,
+    dadosEquipamento.marca,
+    dadosEquipamento.modelo,
+    tecnicoResponsavel,
+    statusSelecionado,
+    produtosSelecionados,
+    servicosSelecionados,
+  ]);
 
   function getWizardContextChips(): NovaOSContextChip[] {
     const chips: NovaOSContextChip[] = [];
@@ -1093,24 +1173,7 @@ function NovaOS2Content() {
 
   // Função para verificar se o formulário está completo
   function formularioCompleto() {
-    const camposBasicos = clienteSelecionado && 
-                          dadosEquipamento.tipo && 
-                          dadosEquipamento.marca && 
-                          dadosEquipamento.modelo &&
-                          tecnicoResponsavel &&
-                          statusSelecionado;
-    
-    // Se for APROVADO, verificar se há produtos/serviços selecionados COM VALORES
-    if (statusSelecionado === 'aprovado') {
-      const temProdutosComValor = produtosSelecionados.length > 0 && 
-        produtosSelecionados.some(p => p.preco > 0);
-      const temServicosComValor = servicosSelecionados.length > 0 && 
-        servicosSelecionados.some(s => s.preco > 0);
-      
-      return camposBasicos && (temProdutosComValor || temServicosComValor);
-    }
-    
-    return camposBasicos;
+    return pendenciasFinalizar.length === 0;
   }
 
   // Função para verificar se há produtos/serviços com valores para OS aprovada
@@ -1143,6 +1206,11 @@ function NovaOS2Content() {
 
   // Função para gerar tooltip do botão finalizar
   function getTooltipFinalizar() {
+    if (pendenciasFinalizar.length > 0) {
+      const n = pendenciasFinalizar.length;
+      return `${n} item${n > 1 ? 'ns' : ''} obrigatório${n > 1 ? 's' : ''} pendente${n > 1 ? 's' : ''}`;
+    }
+
     if (statusSelecionado !== 'aprovado') return 'Finalizar OS';
     
     const validacao = validarProdutosServicosAprovados();
@@ -1436,6 +1504,7 @@ function NovaOS2Content() {
             etapas={etapas}
             etapaAtual={etapaAtual}
             onEtapaClick={irParaEtapa}
+            navegacaoLivreEtapas
             contextChips={getWizardContextChips()}
             onAnterior={etapaAnterior}
             onProxima={etapaAtual === etapas.length ? finalizarOS : proximaEtapa}
@@ -1984,33 +2053,6 @@ function NovaOS2Content() {
                     </div>
                   </div>
                 </NovaOSSection>
-
-                <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-5 items-start">
-                  <NovaOSAparelhoPreview
-                    key={`preview-${aparelhoSelecionado?.catalogoId || 'x'}-${previewCor.corId || 'padrao'}`}
-                    imagemFrenteUrl={aparelhoImagemFrentePreview}
-                    imagemVersoUrl={aparelhoImagemVersoPreview}
-                    corCacheBust={previewCor.corId}
-                    marca={dadosEquipamento.marca}
-                    modelo={dadosEquipamento.modelo}
-                    tipo={dadosEquipamento.tipo}
-                    aparelhoSelecionado={aparelhoSelecionado}
-                    imagemIAUrl={aparelhoInfoIA.data?.imagem_url}
-                  />
-
-                  {(aparelhoInfoIA.data || aparelhoInfoIA.loading || aparelhoInfoIA.error) && (
-                    <div className="lg:sticky lg:top-4">
-                      <NovaOSAparelhoInfoIA
-                        data={aparelhoInfoIA.data}
-                        loading={aparelhoInfoIA.loading}
-                        error={aparelhoInfoIA.error}
-                        onRetry={aparelhoInfoIA.retry}
-                        marca={dadosEquipamento.marca}
-                        modelo={dadosEquipamento.modelo}
-                      />
-                    </div>
-                  )}
-                </div>
 
                 <NovaOSSection
                   step={2}
@@ -2850,6 +2892,11 @@ function NovaOS2Content() {
                     </div>
                   </div>
                 )}
+
+                <NovaOSPendenciasFinalizar
+                  pendencias={pendenciasFinalizar}
+                  onIrParaEtapa={irParaEtapa}
+                />
 
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <h4 className="text-sm font-medium text-blue-700 mb-2 text-left">💡 Dica</h4>

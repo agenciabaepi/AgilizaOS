@@ -13,6 +13,7 @@ interface NovaOSWizardLayoutProps {
   etapas: string[];
   etapaAtual: number;
   onEtapaClick?: (etapa: number) => void;
+  navegacaoLivreEtapas?: boolean;
   contextChips?: NovaOSContextChip[];
   children: ReactNode;
   onAnterior: () => void;
@@ -25,6 +26,79 @@ interface NovaOSWizardLayoutProps {
 }
 
 const SCROLL_THRESHOLD = 72;
+
+function WizardStepper({
+  etapas,
+  etapaAtual,
+  onEtapaClick,
+  navegacaoLivreEtapas = true,
+  className = '',
+}: {
+  etapas: string[];
+  etapaAtual: number;
+  onEtapaClick?: (etapa: number) => void;
+  navegacaoLivreEtapas?: boolean;
+  className?: string;
+}) {
+  return (
+    <nav className={className} aria-label="Etapas da ordem de serviço">
+      <ol className="flex items-center justify-between gap-1">
+        {etapas.map((label, idx) => {
+          const num = idx + 1;
+          const isActive = etapaAtual === num;
+          const isDone = etapaAtual > num;
+          const canClick = !!onEtapaClick && (navegacaoLivreEtapas || num <= etapaAtual);
+
+          return (
+            <li key={label} className="flex min-w-0 flex-1 flex-col items-center">
+              <div className="flex w-full items-center">
+                {idx > 0 && (
+                  <div
+                    className={`h-0.5 flex-1 transition-colors duration-300 ${
+                      isDone || isActive ? 'bg-gray-900' : 'bg-gray-200'
+                    }`}
+                  />
+                )}
+                <button
+                  type="button"
+                  disabled={!canClick}
+                  onClick={() => canClick && onEtapaClick?.(num)}
+                  className={`relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-all duration-200 ${
+                    isActive
+                      ? 'scale-110 bg-gray-900 text-white ring-4 ring-gray-900/10'
+                      : isDone
+                        ? 'bg-gray-900 text-white hover:bg-gray-800'
+                        : canClick
+                          ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                          : 'bg-gray-100 text-gray-400'
+                  } ${canClick && !isActive ? 'cursor-pointer' : 'cursor-default'}`}
+                  title={canClick ? `Ir para etapa ${num}: ${label}` : undefined}
+                  aria-current={isActive ? 'step' : undefined}
+                >
+                  {isDone ? <FiCheck className="h-4 w-4" strokeWidth={3} /> : num}
+                </button>
+                {idx < etapas.length - 1 && (
+                  <div
+                    className={`h-0.5 flex-1 transition-colors duration-300 ${
+                      isDone ? 'bg-gray-900' : 'bg-gray-200'
+                    }`}
+                  />
+                )}
+              </div>
+              <span
+                className={`mt-2 hidden w-full truncate px-0.5 text-center text-[11px] font-medium sm:block ${
+                  isActive ? 'text-gray-900' : isDone ? 'text-gray-600' : 'text-gray-400'
+                }`}
+              >
+                {label}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
+  );
+}
 
 function WizardNavButtons({
   etapaAtual,
@@ -88,6 +162,7 @@ export default function NovaOSWizardLayout({
   etapas,
   etapaAtual,
   onEtapaClick,
+  navegacaoLivreEtapas = true,
   contextChips = [],
   children,
   onAnterior,
@@ -138,73 +213,35 @@ export default function NovaOSWizardLayout({
 
   return (
     <div className={`relative mx-auto w-full max-w-3xl lg:max-w-4xl ${showFloatingNav ? 'pb-28' : 'pb-6'}`}>
-      {/* Mobile: passo atual */}
-      <div className="mb-4 flex items-center justify-between rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm md:hidden">
-        <div>
-          <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">
-            Passo {etapaAtual} de {etapas.length}
-          </p>
-          <p className="text-base font-semibold text-gray-900">{etapas[etapaAtual - 1]}</p>
+      {/* Mobile: passo atual + números clicáveis */}
+      <div className="mb-4 md:hidden">
+        <div className="mb-3 flex items-center justify-between rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">
+              Passo {etapaAtual} de {etapas.length}
+            </p>
+            <p className="text-base font-semibold text-gray-900">{etapas[etapaAtual - 1]}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-2xl font-bold text-gray-900">{progress}%</p>
+          </div>
         </div>
-        <div className="text-right">
-          <p className="text-2xl font-bold text-gray-900">{progress}%</p>
-        </div>
+        <WizardStepper
+          etapas={etapas}
+          etapaAtual={etapaAtual}
+          onEtapaClick={onEtapaClick}
+          navegacaoLivreEtapas={navegacaoLivreEtapas}
+        />
       </div>
 
       {/* Desktop: stepper */}
-      <nav className="mb-6 hidden md:block" aria-label="Etapas da ordem de serviço">
-        <ol className="flex items-center justify-between gap-1">
-          {etapas.map((label, idx) => {
-            const num = idx + 1;
-            const isActive = etapaAtual === num;
-            const isDone = etapaAtual > num;
-            const canClick = onEtapaClick && num <= etapaAtual;
-
-            return (
-              <li key={label} className="flex min-w-0 flex-1 flex-col items-center">
-                <div className="flex w-full items-center">
-                  {idx > 0 && (
-                    <div
-                      className={`h-0.5 flex-1 transition-colors duration-300 ${
-                        isDone || isActive ? 'bg-gray-900' : 'bg-gray-200'
-                      }`}
-                    />
-                  )}
-                  <button
-                    type="button"
-                    disabled={!canClick}
-                    onClick={() => canClick && onEtapaClick(num)}
-                    className={`relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-all duration-200 ${
-                      isActive
-                        ? 'scale-110 bg-gray-900 text-white ring-4 ring-gray-900/10'
-                        : isDone
-                          ? 'bg-gray-900 text-white hover:bg-gray-800'
-                          : 'bg-gray-100 text-gray-400'
-                    } ${canClick && !isActive ? 'cursor-pointer' : 'cursor-default'}`}
-                    title={canClick ? `Ir para ${label}` : undefined}
-                  >
-                    {isDone ? <FiCheck className="h-4 w-4" strokeWidth={3} /> : num}
-                  </button>
-                  {idx < etapas.length - 1 && (
-                    <div
-                      className={`h-0.5 flex-1 transition-colors duration-300 ${
-                        isDone ? 'bg-gray-900' : 'bg-gray-200'
-                      }`}
-                    />
-                  )}
-                </div>
-                <span
-                  className={`mt-2 w-full truncate px-0.5 text-center text-[11px] font-medium ${
-                    isActive ? 'text-gray-900' : isDone ? 'text-gray-600' : 'text-gray-400'
-                  }`}
-                >
-                  {label}
-                </span>
-              </li>
-            );
-          })}
-        </ol>
-      </nav>
+      <WizardStepper
+        etapas={etapas}
+        etapaAtual={etapaAtual}
+        onEtapaClick={onEtapaClick}
+        navegacaoLivreEtapas={navegacaoLivreEtapas}
+        className="mb-6 hidden md:block"
+      />
 
       <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
         <div
