@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type ComponentType, type SVGProps } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -8,11 +8,46 @@ import { supabase } from '@/lib/supabaseClient';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
 import { useAppleParallax } from '@/hooks/useParallax';
 import { useValorAssinatura } from '@/hooks/useValorAssinatura';
+import ordensImage from '@/assets/imagens/ordens.png';
 import dashboardImage from '@/assets/imagens/dashboard.png';
-import caixaImage from '@/assets/imagens/caixa.png';
+import comissoesImage from '@/assets/imagens/comissoes.png';
 import financeiroImage from '@/assets/imagens/financeiro.png';
 import produtosImage from '@/assets/imagens/produtos.png';
 import contasPagarImage from '@/assets/imagens/contas a pagar.png';
+import {
+  ClipboardDocumentListIcon,
+  ChartBarIcon,
+  CurrencyDollarIcon,
+  DocumentTextIcon,
+  ChartPieIcon,
+  CubeIcon,
+  BoltIcon,
+} from '@heroicons/react/24/outline';
+import type { StaticImageData } from 'next/image';
+
+type SystemTab = {
+  id: string;
+  label: string;
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
+  image?: StaticImageData;
+  imageAlt?: string;
+  extraFeatures?: string[];
+};
+
+const SYSTEM_TABS: SystemTab[] = [
+  { id: 'ordens', label: 'Ordens', icon: ClipboardDocumentListIcon, image: ordensImage, imageAlt: 'Ordens de serviço no Consert' },
+  { id: 'dashboard', label: 'Dashboard', icon: ChartBarIcon, image: dashboardImage, imageAlt: 'Dashboard do sistema Consert' },
+  { id: 'comissoes', label: 'Comissões', icon: CurrencyDollarIcon, image: comissoesImage, imageAlt: 'Módulo de comissões do Consert' },
+  { id: 'contas', label: 'Contas a Pagar', icon: DocumentTextIcon, image: contasPagarImage, imageAlt: 'Contas a pagar no Consert' },
+  { id: 'financeiro', label: 'Financeiro', icon: ChartPieIcon, image: financeiroImage, imageAlt: 'Módulo financeiro do Consert' },
+  { id: 'produtos', label: 'Produtos', icon: CubeIcon, image: produtosImage, imageAlt: 'Gestão de produtos no Consert' },
+  {
+    id: 'mais',
+    label: 'Muito mais',
+    icon: BoltIcon,
+    extraFeatures: ['Laudos com IA', 'App mobile', 'WhatsApp', 'Checklist', 'Caixa'],
+  },
+];
 
 function PrecoAssinatura({ isDarkMode }: { isDarkMode: boolean }) {
   const { valor } = useValorAssinatura();
@@ -73,7 +108,8 @@ export default function Home() {
   const [scrollY, setScrollY] = useState(0);
   
   // Sistema de abas state
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('ordens');
+  const activeSystemTab = SYSTEM_TABS.find((tab) => tab.id === activeTab) ?? SYSTEM_TABS[0];
 
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
@@ -456,105 +492,188 @@ export default function Home() {
 
       {/* Hero Section - sem animação pesada */}
       <div 
-        className="relative z-10 py-12 sm:py-16 md:py-24 lg:py-32" 
+        className="relative z-10 pt-12 sm:pt-16 md:pt-20 lg:pt-24 pb-6 sm:pb-8 lg:pb-10" 
         style={{ overflow: 'visible' }}
       >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 md:px-8 lg:px-12">
-          <div className="relative w-full min-h-[50vh] flex flex-col items-center justify-center text-center">
+          <div className="relative w-full">
             {/* Glow de fundo - leve e performático */}
             <div 
               className="absolute inset-0 blur-3xl opacity-20 pointer-events-none -z-10"
               style={{
                 background: isDarkMode
-                  ? 'radial-gradient(circle at 50% 40%, rgba(209, 254, 110, 0.25) 0%, rgba(209, 254, 110, 0.08) 40%, transparent 70%)'
-                  : 'radial-gradient(circle at 50% 40%, rgba(209, 254, 110, 0.2) 0%, rgba(184, 229, 90, 0.06) 40%, transparent 70%)'
+                  ? 'radial-gradient(circle at 30% 50%, rgba(209, 254, 110, 0.25) 0%, rgba(209, 254, 110, 0.08) 40%, transparent 70%)'
+                  : 'radial-gradient(circle at 30% 50%, rgba(209, 254, 110, 0.2) 0%, rgba(184, 229, 90, 0.06) 40%, transparent 70%)'
               }}
             />
 
-            <div className="w-full max-w-4xl flex flex-col items-center gap-5 md:gap-6 animate-fade-in">
-              {/* Social Proof Badge */}
-              <div 
-                data-reveal="badge"
-                className={`inline-flex items-center px-6 py-3 backdrop-blur-xl border rounded-full ${
-                  isDarkMode 
-                    ? 'bg-black/40 border-white/20' 
-                    : 'bg-white/90 border-gray-300 shadow-lg'
+            <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-8 lg:gap-10 xl:gap-12 items-center lg:items-start">
+              {/* Esquerda — mockups celular1, celular2 e celular3 */}
+              <div
+                data-reveal="hero-phones"
+                className={`relative order-1 w-full overflow-visible scroll-reveal-slide-up ${
+                  isAnimated('hero-phones') ? 'animated' : ''
                 }`}
-                style={{
-                  boxShadow: isDarkMode 
-                    ? '0 8px 32px rgba(209, 254, 110, 0.1)' 
-                    : '0 8px 32px rgba(0,0,0,0.15), 0 4px 16px rgba(0,0,0,0.1)'
-                }}
               >
-                <div className="w-2.5 h-2.5 bg-[#D1FE6E] rounded-full mr-3 animate-pulse" />
-                <span className={`text-xs sm:text-sm font-light tracking-wide ${
-                  isDarkMode ? 'text-white/90' : 'text-gray-700'
-                }`}>
-                  +500 assistências confiam no Consert
-                </span>
+                <div className="relative w-full pt-4 pb-2 px-3 sm:px-4 lg:px-2 xl:px-4 overflow-visible">
+                  <div className="relative flex items-center justify-center w-full overflow-visible">
+                    <div className="hero-phone-float-delay-1 relative w-[38%] sm:w-[39%] lg:w-[40%] shrink-0 -rotate-3 opacity-90 z-[1]">
+                      <div className="hero-phone-float-inner">
+                        <div
+                          className="relative"
+                          style={{
+                            filter: isDarkMode
+                              ? 'drop-shadow(0 20px 40px rgba(0,0,0,0.45)) drop-shadow(0 0 24px rgba(209, 254, 110, 0.12))'
+                              : 'drop-shadow(0 20px 40px rgba(0,0,0,0.15)) drop-shadow(0 0 20px rgba(209, 254, 110, 0.2))',
+                          }}
+                        >
+                          <Image
+                            src="/assets/imagens/celular1.png"
+                            alt="App Consert — visão do técnico"
+                            width={1030}
+                            height={2021}
+                            className="w-full h-auto"
+                            priority
+                            sizes="(max-width: 1024px) 39vw, 340px"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="hero-phone-float-delay-2 relative w-[50%] sm:w-[51%] lg:w-[52%] shrink-0 -ml-[12%] sm:-ml-[13%] z-10">
+                      <div className="hero-phone-float-inner">
+                        <div
+                          className="relative"
+                          style={{
+                            filter: isDarkMode
+                              ? 'drop-shadow(0 25px 50px rgba(0,0,0,0.55)) drop-shadow(0 0 32px rgba(209, 254, 110, 0.18))'
+                              : 'drop-shadow(0 25px 50px rgba(0,0,0,0.2)) drop-shadow(0 0 28px rgba(209, 254, 110, 0.25))',
+                          }}
+                        >
+                          <Image
+                            src="/assets/imagens/celular2.png"
+                            alt="App Consert — tela principal"
+                            width={865}
+                            height={1696}
+                            className="w-full h-auto"
+                            priority
+                            sizes="(max-width: 1024px) 51vw, 420px"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="hero-phone-float-delay-3 relative w-[38%] sm:w-[39%] lg:w-[40%] shrink-0 rotate-3 -ml-[12%] sm:-ml-[13%] opacity-90 z-[1]">
+                      <div className="hero-phone-float-inner">
+                        <div
+                          className="relative"
+                          style={{
+                            filter: isDarkMode
+                              ? 'drop-shadow(0 20px 40px rgba(0,0,0,0.45)) drop-shadow(0 0 24px rgba(209, 254, 110, 0.12))'
+                              : 'drop-shadow(0 20px 40px rgba(0,0,0,0.15)) drop-shadow(0 0 20px rgba(209, 254, 110, 0.2))',
+                          }}
+                        >
+                          <Image
+                            src="/assets/imagens/celular3.png"
+                            alt="App Consert — visão do lojista"
+                            width={1030}
+                            height={2021}
+                            className="w-full h-auto"
+                            priority
+                            sizes="(max-width: 1024px) 39vw, 340px"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    className="absolute inset-x-0 bottom-0 h-12 sm:h-16 pointer-events-none z-20"
+                    style={{
+                      background: isDarkMode
+                        ? 'linear-gradient(to top, rgb(0 0 0) 0%, rgb(0 0 0 / 80%) 40%, transparent 100%)'
+                        : 'linear-gradient(to top, rgb(255 255 255) 0%, rgb(255 255 255 / 85%) 40%, transparent 100%)',
+                    }}
+                  />
+                </div>
               </div>
 
-              {/* Main Headline */}
-              <div data-reveal="headline">
-                <h1 
-                  className={`text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-light mb-2 md:mb-3 leading-tight tracking-tight ${
-                    isDarkMode ? 'text-white' : 'text-gray-800'
-                  }`}
-                  style={{
-                    textShadow: isDarkMode ? '0 0 30px rgba(209, 254, 110, 0.4), 0 0 60px rgba(209, 254, 110, 0.2)' : 'none'
-                  }}
-                >
-                  Sua assistência digital começa aqui
-                </h1>
-                <p 
-                  className={`block font-medium mt-1 text-lg sm:text-xl md:text-2xl ${
-                    isDarkMode ? 'text-white/90' : 'text-gray-700'
-                  }`}
-                  style={{ textShadow: isDarkMode ? '0 0 15px rgba(209, 254, 110, 0.3)' : 'none' }}
-                >
-                  simples de usar
-                </p>
-              </div>
-
-              {/* Sub-headline */}
-              <p 
-                data-reveal="subheadline"
-                className={`text-sm sm:text-base md:text-lg max-w-2xl mx-auto leading-relaxed font-light ${
-                  isDarkMode ? 'text-white/70' : 'text-gray-600'
-                }`}
-                style={{ textShadow: isDarkMode ? '0 2px 10px rgba(0, 0, 0, 0.5)' : 'none' }}
-              >
-                Ferramentas inteligentes que fazem o trabalho pesado — para que você não precise.
-                Transforme seu fluxo de trabalho com automação inteligente.
-              </p>
-
-              {/* CTA Buttons */}
-              <div data-reveal="cta" className="flex flex-col sm:flex-row gap-3">
-                <button 
-                  onClick={() => router.push('/cadastro')}
-                  className={`px-6 py-3 rounded-full font-medium text-sm sm:text-base transition-all duration-300 ${
-                    isDarkMode
-                      ? 'bg-[#D1FE6E] text-black hover:bg-[#B8E55A] hover:shadow-lg hover:shadow-[#D1FE6E]/50'
-                      : 'bg-[#D1FE6E] text-black hover:bg-[#B8E55A] hover:shadow-lg'
-                  }`}
-                  style={{
-                    boxShadow: isDarkMode 
-                      ? '0 4px 20px rgba(209, 254, 110, 0.4)' 
-                      : '0 4px 20px rgba(209, 254, 110, 0.5)'
-                  }}
-                >
-                  Começar Agora
-                </button>
-                <button 
-                  onClick={() => scrollToSection('solucoes')}
-                  className={`px-6 py-3 rounded-full font-medium text-sm sm:text-base transition-all duration-300 border backdrop-blur-sm ${
+              {/* Direita — texto */}
+              <div className="order-2 relative z-10 flex flex-col items-center lg:items-start text-center lg:text-left gap-6 md:gap-7 animate-fade-in lg:pt-10 xl:pt-14">
+                <div 
+                  data-reveal="badge"
+                  className={`inline-flex items-center px-5 py-2.5 backdrop-blur-xl border rounded-full ${
                     isDarkMode 
-                      ? 'border-white/30 text-white bg-black/40 hover:bg-black/60 hover:border-white/50'
-                      : 'border-gray-300 text-gray-700 bg-white/90 hover:bg-gray-50'
+                      ? 'bg-white/[0.06] border-white/15' 
+                      : 'bg-white/90 border-gray-300 shadow-lg'
                   }`}
                 >
-                  Ver Funcionalidades
-                </button>
+                  <div className="w-2 h-2 bg-[#D1FE6E] rounded-full mr-2.5 animate-pulse" />
+                  <span className={`text-xs sm:text-sm font-medium tracking-wide uppercase ${
+                    isDarkMode ? 'text-white/75' : 'text-gray-600'
+                  }`}>
+                    App exclusivo · Técnicos e lojistas
+                  </span>
+                </div>
+
+                <div data-reveal="headline" className="space-y-3">
+                  <h1 
+                    className={`text-3xl sm:text-4xl md:text-[2.75rem] lg:text-5xl xl:text-[3.25rem] font-light leading-[1.1] tracking-tight ${
+                      isDarkMode ? 'text-white' : 'text-gray-900'
+                    }`}
+                  >
+                    <span className="block">A assistência técnica</span>
+                    <span className={`block mt-1 font-normal ${isDarkMode ? 'text-gradient-accent' : 'text-gradient-secondary'}`}>
+                      que cabe no bolso.
+                    </span>
+                  </h1>
+                  <p 
+                    className={`text-base sm:text-lg md:text-xl font-light leading-snug max-w-lg ${
+                      isDarkMode ? 'text-white/60' : 'text-gray-500'
+                    }`}
+                  >
+                    O primeiro e único sistema com aplicativo dedicado
+                    para quem conserta e quem gerencia a loja.
+                  </p>
+                </div>
+
+                <p 
+                  data-reveal="subheadline"
+                  className={`text-sm sm:text-base max-w-md leading-relaxed ${
+                    isDarkMode ? 'text-white/50' : 'text-gray-500'
+                  }`}
+                >
+                  Ordens de serviço, equipe e financeiro em tempo real —
+                  sem depender do computador.
+                </p>
+
+                <div data-reveal="cta" className="flex flex-col sm:flex-row gap-3 pt-1">
+                  <button 
+                    onClick={() => router.push('/cadastro')}
+                    className={`px-6 py-3 rounded-full font-medium text-sm sm:text-base transition-all duration-300 ${
+                      isDarkMode
+                        ? 'bg-[#D1FE6E] text-black hover:bg-[#B8E55A] hover:shadow-lg hover:shadow-[#D1FE6E]/50'
+                        : 'bg-[#D1FE6E] text-black hover:bg-[#B8E55A] hover:shadow-lg'
+                    }`}
+                    style={{
+                      boxShadow: isDarkMode 
+                        ? '0 4px 20px rgba(209, 254, 110, 0.4)' 
+                        : '0 4px 20px rgba(209, 254, 110, 0.5)'
+                    }}
+                  >
+                    Começar Agora
+                  </button>
+                  <button 
+                    onClick={() => scrollToSection('solucoes')}
+                    className={`px-6 py-3 rounded-full font-medium text-sm sm:text-base transition-all duration-300 border backdrop-blur-sm ${
+                      isDarkMode 
+                        ? 'border-white/30 text-white bg-black/40 hover:bg-black/60 hover:border-white/50'
+                        : 'border-gray-300 text-gray-700 bg-white/90 hover:bg-gray-50'
+                    }`}
+                  >
+                    Ver Funcionalidades
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -562,9 +681,9 @@ export default function Home() {
       </div>
 
       {/* Sistema de Abas - Visualizações do Sistema */}
-      <section id="solucoes" className="relative z-10 px-4 sm:px-6 md:px-8 py-4 md:py-8 lg:px-12">
-        <div 
-          className="mx-auto max-w-7xl"
+      <section id="solucoes" className="relative z-10 px-4 sm:px-6 md:px-8 pt-4 sm:pt-6 md:pt-8 pb-16 md:pb-24 lg:px-12">
+        <div
+          className="relative mx-auto max-w-7xl"
           ref={(el) => {
             if (el) {
               const style = getSectionTransform(el);
@@ -572,246 +691,120 @@ export default function Home() {
             }
           }}
         >
-          {/* Section Header */}
-          <div 
+          {/* Glow de fundo */}
+          <div
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[60%] blur-3xl opacity-20 pointer-events-none -z-10"
+            style={{
+              background: isDarkMode
+                ? 'radial-gradient(ellipse, rgba(209, 254, 110, 0.15) 0%, transparent 70%)'
+                : 'radial-gradient(ellipse, rgba(209, 254, 110, 0.12) 0%, transparent 70%)',
+            }}
+          />
+
+          {/* Cabeçalho */}
+          <div
             data-reveal="tabs-header"
-            className={`text-center mb-16 scroll-reveal-slide-up ${
+            className={`text-center mb-6 md:mb-8 scroll-reveal-slide-up ${
               isAnimated('tabs-header') ? 'animated' : ''
             }`}
           >
-            <h2 className={`text-4xl md:text-5xl lg:text-6xl font-light mb-8 leading-tight tracking-tight ${
-              isDarkMode ? 'text-gradient-accent' : 'text-gray-800'
-            }`}>
+            <h2
+              className={`text-3xl sm:text-4xl md:text-5xl font-light leading-tight tracking-tight ${
+                isDarkMode ? 'text-gradient-accent' : 'text-gray-900'
+              }`}
+            >
               Veja o sistema em ação
             </h2>
-            <p className={`text-lg md:text-xl max-w-3xl mx-auto leading-relaxed font-light ${
-              isDarkMode ? 'text-white/70' : 'text-gray-600'
-            }`}>
-              Explore as diferentes funcionalidades e visualize como o Consert pode transformar sua assistência
-            </p>
           </div>
 
-          {/* Sistema de Abas */}
-          <div className={`bg-transparent rounded-3xl border p-8 md:p-12 ${isDarkMode ? 'border-white/20' : 'border-gray-300'}`}>
-            {/* Navegação das Abas */}
-            <div className="flex flex-wrap justify-center gap-2 mb-12">
-              {[
-                { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-                { id: 'caixa', label: 'Caixa', icon: '💰' },
-                { id: 'contas', label: 'Contas a Pagar', icon: '📄' },
-                { id: 'financeiro', label: 'Financeiro', icon: '💹' },
-                { id: 'produtos', label: 'Produtos', icon: '📦' },
-                { id: 'mais', label: 'Muito mais', icon: '⚡' }
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center px-5 py-2.5 md:px-6 md:py-3 rounded-full font-medium transition-all duration-300 text-sm md:text-base ${
-                    activeTab === tab.id
-                      ? 'bg-[#D1FE6E] text-black shadow-lg shadow-[#D1FE6E]/30 transform scale-105'
-                      : isDarkMode 
-                        ? 'bg-white/5 text-white/80 hover:bg-white/10 hover:text-white border border-white/10'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 border border-gray-300'
-                  }`}
-                >
-                  <span className="mr-2 text-lg">{tab.icon}</span>
-                  {tab.label}
-                </button>
-              ))}
+          {/* Card principal */}
+          <div
+            className={`rounded-3xl border backdrop-blur-sm overflow-hidden ${
+              isDarkMode
+                ? 'bg-white/[0.03] border-white/10'
+                : 'bg-white border-gray-200 shadow-xl shadow-black/5'
+            }`}
+          >
+            {/* Abas */}
+            <div className="px-4 sm:px-6 pt-5 pb-5">
+              <div className="flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                {SYSTEM_TABS.map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex items-center shrink-0 px-4 py-2 md:px-5 md:py-2.5 rounded-full font-medium transition-all duration-300 text-sm ${
+                        isActive
+                          ? 'bg-[#D1FE6E] text-black'
+                          : isDarkMode
+                            ? 'text-white/60 hover:text-white hover:bg-white/[0.06]'
+                            : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 mr-1.5 shrink-0" strokeWidth={1.75} />
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Conteúdo das Abas */}
-            <div className="relative">
-              {/* Dashboard Tab */}
-              {activeTab === 'dashboard' && (
-                <div className="space-y-8">
-                  <div className="text-center">
-                    <h3 className={`text-2xl md:text-3xl font-light mb-4 ${
-                      isDarkMode ? 'text-white' : 'text-gray-800'
-                    }`}>
-                      Dashboard BI (em tempo real)
-                    </h3>
-                    <div className={`flex flex-wrap justify-center gap-4 text-sm mb-8 ${
-                      isDarkMode ? 'text-white/70' : 'text-gray-600'
-                    }`}>
-                      <span className="flex items-center">
-                        <span className="w-2 h-2 bg-[#D1FE6E] rounded-full mr-2"></span>
-                        Indicadores (KPIs)
-                      </span>
-                      <span className="flex items-center">
-                        <span className="w-2 h-2 bg-[#D1FE6E] rounded-full mr-2"></span>
-                        Gráficos interativos
-                      </span>
-                      <span className="flex items-center">
-                        <span className="w-2 h-2 bg-[#D1FE6E] rounded-full mr-2"></span>
-                        Relatórios simplificados
-                      </span>
-                      <span className="flex items-center">
-                        <span className="w-2 h-2 bg-[#D1FE6E] rounded-full mr-2"></span>
-                        Tudo em tempo real
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {/* Imagem do Dashboard */}
-                  <div className="relative bg-gradient-to-br from-gray-50 to-white rounded-2xl p-3 md:p-6 shadow-2xl shadow-black/20 border border-gray-200/50 overflow-hidden group hover:shadow-3xl transition-shadow duration-300">
-                    <div className="relative w-full h-auto rounded-xl overflow-hidden">
-                      <Image 
-                        src={dashboardImage}
-                        alt="Dashboard do sistema Consert"
-                        className="w-full h-auto rounded-xl transition-transform duration-500 group-hover:scale-[1.01]"
-                        quality={95}
-                        priority={activeTab === 'dashboard'}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/5 via-transparent to-transparent pointer-events-none"></div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Caixa Tab */}
-              {activeTab === 'caixa' && (
-                <div className="space-y-8">
-                  <div className="text-center">
-                    <h3 className={`text-2xl md:text-3xl font-light mb-4 ${
-                      isDarkMode ? 'text-white' : 'text-gray-800'
-                    }`}>
-                      Gestão de Caixa Completa
-                    </h3>
-                    <p className={`text-lg max-w-2xl mx-auto ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
-                      Controle total do fluxo de caixa, vendas e movimentações financeiras
-                    </p>
-                  </div>
-                  
-                  <div className="relative bg-gradient-to-br from-gray-50 to-white rounded-2xl p-3 md:p-6 shadow-2xl shadow-black/20 border border-gray-200/50 overflow-hidden group hover:shadow-3xl transition-shadow duration-300">
-                    <div className="relative w-full h-auto rounded-xl overflow-hidden">
-                      <Image 
-                        src={caixaImage}
-                        alt="Sistema de Caixa"
-                        className="w-full h-auto rounded-xl transition-transform duration-500 group-hover:scale-[1.01]"
-                        quality={95}
-                        priority={activeTab === 'caixa'}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/5 via-transparent to-transparent pointer-events-none"></div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Contas a Pagar Tab */}
-              {activeTab === 'contas' && (
-                <div className="space-y-8">
-                  <div className="text-center">
-                    <h3 className={`text-2xl md:text-3xl font-light mb-4 ${
-                      isDarkMode ? 'text-white' : 'text-gray-800'
-                    }`}>
-                      Contas a Pagar
-                    </h3>
-                    <p className={`text-lg max-w-2xl mx-auto ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
-                      Gerencie todas as contas da empresa com controle total de pagamentos e vencimentos
-                    </p>
-                  </div>
-                  
-                  <div className="relative bg-gradient-to-br from-gray-50 to-white rounded-2xl p-3 md:p-6 shadow-2xl shadow-black/20 border border-gray-200/50 overflow-hidden group hover:shadow-3xl transition-shadow duration-300">
-                    <div className="relative w-full h-auto rounded-xl overflow-hidden">
-                      <Image 
-                        src={contasPagarImage}
-                        alt="Contas a Pagar"
-                        className="w-full h-auto rounded-xl transition-transform duration-500 group-hover:scale-[1.01]"
-                        quality={95}
-                        priority={activeTab === 'contas'}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/5 via-transparent to-transparent pointer-events-none"></div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Financeiro Tab */}
-              {activeTab === 'financeiro' && (
-                <div className="space-y-8">
-                  <div className="text-center">
-                    <h3 className={`text-2xl md:text-3xl font-light mb-4 ${
-                      isDarkMode ? 'text-white' : 'text-gray-800'
-                    }`}>
-                      Análise Financeira e Lucro
-                    </h3>
-                    <p className={`text-lg max-w-2xl mx-auto ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
-                      Visualize lucros, despesas e desempenho financeiro com gráficos e métricas em tempo real
-                    </p>
-                  </div>
-                  
-                  <div className="relative bg-gradient-to-br from-gray-50 to-white rounded-2xl p-3 md:p-6 shadow-2xl shadow-black/20 border border-gray-200/50 overflow-hidden group hover:shadow-3xl transition-shadow duration-300">
-                    <div className="relative w-full h-auto rounded-xl overflow-hidden">
-                      <Image 
-                        src={financeiroImage}
-                        alt="Módulo Financeiro"
-                        className="w-full h-auto rounded-xl transition-transform duration-500 group-hover:scale-[1.01]"
-                        quality={95}
-                        priority={activeTab === 'financeiro'}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/5 via-transparent to-transparent pointer-events-none"></div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Produtos Tab */}
-              {activeTab === 'produtos' && (
-                <div className="space-y-8">
-                  <div className="text-center">
-                    <h3 className={`text-2xl md:text-3xl font-light mb-4 ${
-                      isDarkMode ? 'text-white' : 'text-gray-800'
-                    }`}>
-                      Gestão de Produtos
-                    </h3>
-                    <p className={`text-lg max-w-2xl mx-auto ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
-                      Cadastre e gerencie produtos, serviços e estoque de forma organizada
-                    </p>
-                  </div>
-                  
-                  <div className="relative bg-gradient-to-br from-gray-50 to-white rounded-2xl p-3 md:p-6 shadow-2xl shadow-black/20 border border-gray-200/50 overflow-hidden group hover:shadow-3xl transition-shadow duration-300">
-                    <div className="relative w-full h-auto rounded-xl overflow-hidden">
-                      <Image 
-                        src={produtosImage}
-                        alt="Gestão de Produtos"
-                        className="w-full h-auto rounded-xl transition-transform duration-500 group-hover:scale-[1.01]"
-                        quality={95}
-                        priority={activeTab === 'produtos'}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/5 via-transparent to-transparent pointer-events-none"></div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Mais Funcionalidades Tab */}
-              {activeTab === 'mais' && (
-                <div className="space-y-8">
-                  <div className="text-center">
-                    <h3 className={`text-2xl md:text-3xl font-light mb-4 ${
-                      isDarkMode ? 'text-white' : 'text-gray-800'
-                    }`}>
-                      Muito Mais Funcionalidades
-                    </h3>
-                    <p className={`text-lg max-w-2xl mx-auto ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
-                      Sistema completo com recursos avançados para sua assistência
-                    </p>
-                  </div>
-                  
-                  <div className="relative bg-white rounded-2xl p-8 shadow-2xl border border-gray-200">
-                    <div className="h-96 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl flex items-center justify-center border border-gray-200">
-                      <div className="text-center">
-                        <div className="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <span className="text-4xl">⚡</span>
-                        </div>
-                        <h4 className="text-gray-700 text-xl font-medium mb-2">Recursos Avançados</h4>
-                        <p className="text-gray-500">Mais funcionalidades em desenvolvimento</p>
+            {/* Preview */}
+            <div className="px-4 sm:px-6 pb-5 sm:pb-6 md:px-8 md:pb-8">
+              <div key={activeSystemTab.id} className="animate-fade-in">
+                {activeSystemTab.image ? (
+                  <div
+                    className={`rounded-2xl overflow-hidden border ${
+                      isDarkMode ? 'border-white/10' : 'border-gray-200'
+                    }`}
+                  >
+                    <div
+                      className={`flex items-center gap-3 px-4 py-2.5 border-b ${
+                        isDarkMode ? 'bg-zinc-900/90 border-white/10' : 'bg-gray-100 border-gray-200'
+                      }`}
+                    >
+                      <div className="flex gap-1.5 shrink-0">
+                        <span className="w-2 h-2 rounded-full bg-red-400/70" />
+                        <span className="w-2 h-2 rounded-full bg-yellow-400/70" />
+                        <span className="w-2 h-2 rounded-full bg-green-400/70" />
+                      </div>
+                      <div
+                        className={`flex-1 h-6 rounded-md flex items-center justify-center text-[11px] ${
+                          isDarkMode ? 'bg-white/[0.06] text-white/25' : 'bg-white text-gray-400 border border-gray-200'
+                        }`}
+                      >
+                        gestaoconsert.com.br
                       </div>
                     </div>
+                    <div className="relative w-full bg-white">
+                      <Image
+                        src={activeSystemTab.image}
+                        alt={activeSystemTab.imageAlt ?? activeSystemTab.label}
+                        className="w-full h-auto"
+                        quality={95}
+                        priority={activeTab === activeSystemTab.id}
+                      />
+                    </div>
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="flex flex-wrap gap-2 py-4">
+                    {activeSystemTab.extraFeatures?.map((feature) => (
+                      <span
+                        key={feature}
+                        className={`px-4 py-2 rounded-full text-sm ${
+                          isDarkMode
+                            ? 'bg-white/[0.06] text-white/70 border border-white/10'
+                            : 'bg-gray-50 text-gray-600 border border-gray-200'
+                        }`}
+                      >
+                        {feature}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

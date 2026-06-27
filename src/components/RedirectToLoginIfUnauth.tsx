@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { isPublicPath } from '@/config/publicPaths';
+import { handleAuthError, isInvalidRefreshTokenError } from '@/utils/clearAuth';
 
 /** Rotas do painel admin - acesso totalmente separado do sistema principal (não exige sessão Supabase). */
 function isAdminRoute(pathname: string): boolean {
@@ -30,21 +31,39 @@ export default function RedirectToLoginIfUnauth({ children }: { children: React.
       return;
     }
 
-    // Timeout de segurança: não travar a tela em branco se getSession demorar
-    const safetyTimer = setTimeout(() => {
-      if (!cancelled) setReady(true);
+    // Timeout de segurança: liberar só se houver sessão válida
+    const safetyTimer = setTimeout(async () => {
+      if (cancelled) return;
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (error && isInvalidRefreshTokenError(error)) {
+        handleAuthError(error);
+        return;
+      }
+      if (session) {
+        setReady(true);
+      } else {
+        router.replace(`/login?redirect=${encodeURIComponent(path || '/')}`);
+      }
     }, 2500);
 
     async function check() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const { data: { session }, error } = await supabase.auth.getSession();
       if (cancelled) return;
+
+      if (error) {
+        if (handleAuthError(error)) return;
+        clearTimeout(safetyTimer);
+        router.replace(`/login?redirect=${encodeURIComponent(path || '/')}`);
+        return;
+      }
+
       if (!session) {
         await new Promise((r) => setTimeout(r, 200));
         if (cancelled) return;
-        const { data: { session: sessionRetry } } = await supabase.auth.getSession();
+        const { data: { session: sessionRetry }, error: retryError } = await supabase.auth.getSession();
         if (cancelled) return;
+        if (retryError && handleAuthError(retryError)) return;
         if (sessionRetry) {
           setReady(true);
           return;
@@ -54,6 +73,7 @@ export default function RedirectToLoginIfUnauth({ children }: { children: React.
         router.replace(loginUrl);
         return;
       }
+      clearTimeout(safetyTimer);
       setReady(true);
     }
 

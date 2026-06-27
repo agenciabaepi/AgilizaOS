@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useState, ReactNode, useCallback,
 import { supabase, fetchUserDataOptimized } from '@/lib/supabaseClient';
 import { Session, User } from '@supabase/supabase-js';
 import { podeUsarFuncionalidade as podeUsarFuncionalidadeUtil, isUsuarioTeste as isUsuarioTesteUtil } from '@/config/featureFlags';
-import { handleAuthError } from '@/utils/clearAuth';
+import { handleAuthError, isInvalidRefreshTokenError, setupAuthErrorRecovery } from '@/utils/clearAuth';
 
 interface UsuarioData {
   id: string;
@@ -190,16 +190,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setRecursosPlano({});
   }, []);
 
+  // Recuperação global quando o refresh token expira
+  useEffect(() => setupAuthErrorRecovery(), []);
+
   // ✅ ULTRA SIMPLIFICADO: useEffect principal sem travamentos
   useEffect(() => {
     let isMounted = true;
 
     const initializeAuth = async () => {
       try {
-        // ✅ SEM TIMEOUT: Deixar o Supabase responder naturalmente
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error } = await supabase.auth.getSession();
 
         if (!isMounted) return;
+
+        if (error) {
+          if (handleAuthError(error)) return;
+          clearSession();
+          return;
+        }
 
         if (session) {
           setSession(session);
@@ -228,8 +236,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           fetchUserData(session.user.id, session).catch(() => {
             // Silencioso - dados temporários já estão disponíveis
           });
+        } else {
+          clearSession();
         }
-      } catch {}
+      } catch (error) {
+        if (isInvalidRefreshTokenError(error)) {
+          handleAuthError(error);
+        }
+      }
     };
 
     initializeAuth();
@@ -272,6 +286,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           });
         } else if (event === 'SIGNED_OUT') {
           clearSession();
+        } else if (event === 'TOKEN_REFRESHED' && session) {
+          setSession(session);
+          setUser(session.user);
         }
       }
     );

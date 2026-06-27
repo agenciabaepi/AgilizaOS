@@ -2,6 +2,22 @@
  * Utilitário para limpar completamente dados de autenticação corrompidos
  */
 
+let recoveringFromInvalidSession = false;
+
+export const isInvalidRefreshTokenError = (error: unknown): boolean => {
+  const message =
+    (error as { message?: string })?.message ??
+    (error as { error_description?: string })?.error_description ??
+    String(error ?? '');
+
+  return (
+    message.includes('Refresh Token Not Found') ||
+    message.includes('Invalid Refresh Token') ||
+    message.includes('refresh_token_not_found') ||
+    message.includes('Refresh Token')
+  );
+};
+
 export const clearAllAuthData = () => {
   if (typeof window === 'undefined') return;
 
@@ -33,22 +49,46 @@ export const clearAllAuthData = () => {
   }
 };
 
-export const forceLogoutAndRedirect = () => {
+export const forceLogoutAndRedirect = async (redirectPath?: string) => {
+  if (typeof window === 'undefined' || recoveringFromInvalidSession) return;
+  recoveringFromInvalidSession = true;
+
+  try {
+    const { supabase } = await import('@/lib/supabaseClient');
+    await supabase.auth.signOut({ scope: 'local' });
+  } catch {
+    // Ignorar — sessão já inválida
+  }
+
   clearAllAuthData();
-  
-  // Redirecionar para login
-  window.location.href = '/login';
+
+  const path = redirectPath ?? (() => {
+    const current = window.location.pathname;
+    if (!current || current === '/login') return '/login';
+    return `/login?redirect=${encodeURIComponent(current)}`;
+  })();
+
+  window.location.replace(path);
 };
 
-export const handleAuthError = (error: any) => {
-  console.error('🚨 Erro de autenticação detectado:', error);
-  
-  // Se for erro de refresh token, limpar tudo
-  if (error?.message?.includes('Refresh Token') || 
-      error?.message?.includes('Invalid Refresh Token') ||
-      error?.message?.includes('Refresh Token Not Found')) {
-    
-    console.log('🔄 Refresh Token inválido - limpando dados de autenticação');
-    forceLogoutAndRedirect();
-  }
+export const handleAuthError = (error: unknown): boolean => {
+  if (!isInvalidRefreshTokenError(error)) return false;
+
+  console.warn('Sessão expirada ou inválida — redirecionando para login');
+  void forceLogoutAndRedirect();
+  return true;
+};
+
+export const setupAuthErrorRecovery = () => {
+  if (typeof window === 'undefined') return () => {};
+
+  const onUnhandledRejection = (event: PromiseRejectionEvent) => {
+    if (isInvalidRefreshTokenError(event.reason)) {
+      event.preventDefault();
+      handleAuthError(event.reason);
+    }
+  };
+
+  window.addEventListener('unhandledrejection', onUnhandledRejection);
+  return () => window.removeEventListener('unhandledrejection', onUnhandledRejection);
 };

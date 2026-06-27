@@ -321,6 +321,33 @@ html.dark {
   animation: fade-in 0.5s ease-out;
 }
 
+/* Hero — mockups de celular flutuantes */
+@keyframes hero-phone-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.hero-phone-float-inner {
+  animation: hero-phone-float 5.5s ease-in-out infinite;
+  will-change: transform;
+}
+
+.hero-phone-float-delay-1 .hero-phone-float-inner {
+  animation-delay: 0s;
+}
+
+.hero-phone-float-delay-2 .hero-phone-float-inner {
+  animation-delay: 0.7s;
+}
+
+.hero-phone-float-delay-3 .hero-phone-float-inner {
+  animation-delay: 1.4s;
+}
+
 .animate-progress-bar {
   animation: progress-bar 1.5s ease-in-out;
 }
@@ -417,6 +444,10 @@ html.dark {
 
 /* Responsividade para animações */
 @media (prefers-reduced-motion: reduce) {
+  .hero-phone-float-inner {
+    animation: none;
+  }
+
   .scroll-reveal,
   .scroll-reveal-fade,
   .scroll-reveal-slide-up,

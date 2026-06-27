@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { supabaseConfig } from './supabase-config';
+import { handleAuthError, isInvalidRefreshTokenError } from '@/utils/clearAuth';
 
 function hasWorkingBrowserStorage(): boolean {
   if (typeof window === 'undefined') return false;
@@ -56,19 +57,37 @@ export async function getAccessTokenForApi(): Promise<string | null> {
   if (typeof window === 'undefined') return null;
   try {
     const client = supabase as SupabaseClient;
-    if (!client?.auth?.refreshSession) return null;
+    if (!client?.auth?.getSession) return null;
 
-    const { data: refreshed, error: refErr } = await client.auth.refreshSession();
-    if (!refErr && refreshed.session?.access_token) {
-      return refreshed.session.access_token;
+    const { data: { session }, error: sessionError } = await client.auth.getSession();
+    if (sessionError) {
+      if (isInvalidRefreshTokenError(sessionError)) {
+        handleAuthError(sessionError);
+      }
+      return null;
     }
 
-    const { error: userErr } = await client.auth.getUser();
-    if (userErr) return null;
+    if (session?.access_token) {
+      const now = Math.floor(Date.now() / 1000);
+      const expiresAt = session.expires_at ?? 0;
+      if (expiresAt - now > 60) {
+        return session.access_token;
+      }
+    }
 
-    const { data: { session } } = await client.auth.getSession();
-    return session?.access_token ?? null;
-  } catch {
+    const { data: refreshed, error: refErr } = await client.auth.refreshSession();
+    if (refErr) {
+      if (isInvalidRefreshTokenError(refErr)) {
+        handleAuthError(refErr);
+      }
+      return null;
+    }
+
+    return refreshed.session?.access_token ?? null;
+  } catch (error) {
+    if (isInvalidRefreshTokenError(error)) {
+      handleAuthError(error);
+    }
     return null;
   }
 }

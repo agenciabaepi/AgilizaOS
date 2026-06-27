@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
+import { handleAuthError } from '@/utils/clearAuth';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -41,7 +42,13 @@ export default function AuthGuard({
         if (!isMounted) return;
 
         // Se não há sessão, redirecionar para login
-        if (error || !session) {
+        if (error) {
+          if (handleAuthError(error)) return;
+          router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
+          return;
+        }
+
+        if (!session) {
           console.log('🚫 AuthGuard: Sem sessão válida, redirecionando para login');
           router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
           return;
