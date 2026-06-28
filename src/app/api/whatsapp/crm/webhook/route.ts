@@ -13,12 +13,21 @@ import { WHATSAPP_WEBHOOK_ENABLED } from '@/config/whatsapp-config';
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const mode = searchParams.get('hub.mode');
-  const token = searchParams.get('hub.verify_token');
+  const token = searchParams.get('hub.verify_token')?.trim();
   const challenge = searchParams.get('hub.challenge');
+  const expected = process.env.WHATSAPP_VERIFY_TOKEN?.trim();
 
-  if (mode === 'subscribe' && token === process.env.WHATSAPP_VERIFY_TOKEN) {
-    return new NextResponse(challenge, { status: 200 });
+  if (!mode || !token || !challenge) {
+    return NextResponse.json({ error: 'Parâmetros obrigatórios ausentes' }, { status: 400 });
   }
+
+  if (mode === 'subscribe' && expected && token === expected) {
+    return new NextResponse(challenge, {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain' },
+    });
+  }
+
   return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 }
 
