@@ -31,10 +31,15 @@ EMAIL_PASS=your-app-password
 
 # WhatsApp Cloud API Configuration
 WHATSAPP_APP_ID=1342089140921867
+WHATSAPP_APP_SECRET=your-app-secret
 WHATSAPP_BUSINESS_ACCOUNT_ID=1756179698338226
 WHATSAPP_PHONE_NUMBER_ID=752768294592697
 WHATSAPP_ACCESS_TOKEN=your-access-token
 WHATSAPP_VERIFY_TOKEN=093718
+
+# Embedded Signup (frontend — Meta App Dashboard → WhatsApp → Embedded Signup Builder)
+NEXT_PUBLIC_WHATSAPP_APP_ID=1342089140921867
+NEXT_PUBLIC_WHATSAPP_EMBEDDED_CONFIG_ID=your-embedded-signup-config-id
 
 # WhatsApp Web.js Configuration (opcional)
 WHATSAPP_SESSION_PATH=/tmp/whatsapp-sessions

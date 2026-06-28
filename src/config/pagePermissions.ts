@@ -111,6 +111,7 @@ export const PAGE_PERMISSIONS = {
   '/configuracoes/link-publico': 'link-publico',
   '/configuracoes/avisos': 'avisos',
   '/configuracoes/whatsapp': 'whatsapp',
+  '/whatsapp': 'whatsapp',
   '/configuracoes/teste': 'configuracoes',
 
   // Usuários (legado)

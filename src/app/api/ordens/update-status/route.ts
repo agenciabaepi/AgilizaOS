@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabaseClient';
 import { sendOSApprovedNotification, sendOSStatusNotification } from '@/lib/whatsapp-notifications';
+import { dispatchAutomacaoOs } from '@/lib/whatsapp-crm/dispatch';
 import { sendPushToTecnico, buildNovaOSPushMessage } from '@/lib/push-notification-tecnico';
 import { deveBloquearComissaoRetornoGarantia, deveExcluirComissaoOs } from '@/lib/comissaoRetornoGarantia';
 import {
@@ -797,6 +798,22 @@ export async function POST(request: NextRequest) {
       }
     } catch (notifError) {
       console.warn('⚠️ Erro ao enviar notificação WhatsApp (não crítico):', notifError);
+    }
+
+    // CRM WhatsApp — mensagem automática ao cliente (Cloud API)
+    try {
+      const newStatusString = newStatus ? String(newStatus) : '';
+      if (osAnterior.empresa_id) {
+        await dispatchAutomacaoOs({
+          empresa_id: osAnterior.empresa_id,
+          os_id: osAnterior.id,
+          evento: 'os_status_alterado',
+          status_anterior: osAnterior.status ?? undefined,
+          status_novo: newStatusString,
+        });
+      }
+    } catch (crmError) {
+      console.warn('⚠️ Erro ao disparar automação CRM WhatsApp (não crítico):', crmError);
     }
 
     return NextResponse.json({

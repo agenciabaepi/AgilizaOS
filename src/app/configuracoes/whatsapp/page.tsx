@@ -1,390 +1,338 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext';
-import AuthGuard from '@/components/AuthGuard';
 import MenuLayout from '@/components/MenuLayout';
-
-import { supabase } from '@/lib/supabaseClient';
-import { toast } from 'react-hot-toast';
-import Image from 'next/image';
-
-interface WhatsAppSession {
-  id?: string;
-  status: 'disconnected' | 'connecting' | 'connected' | 'error';
-  numero_whatsapp: string;
-  nome_contato: string;
-  qr_code: string | null;
-  ultima_conexao: string | null;
-}
-
+import Link from 'next/link';
 import { useConfigPermission, AcessoNegadoComponent } from '@/hooks/useConfigPermission';
+import {
+  MessageCircle,
+  Settings,
+  Zap,
+  ExternalLink,
+  CheckCircle2,
+  AlertCircle,
+} from 'lucide-react';
+import type { WhatsAppAutomacao } from '@/lib/whatsapp-crm/types';
+import { EmbeddedSignupConnect } from '@/components/whatsapp-crm/EmbeddedSignupConnect';
+
+const EVENTO_LABELS: Record<string, string> = {
+  os_criada: 'OS cadastrada',
+  os_status_alterado: 'Status alterado',
+  os_aprovada: 'OS aprovada',
+  os_concluida: 'Reparo concluído',
+  os_entregue: 'OS entregue',
+  os_orcamento_enviado: 'Orçamento pronto',
+  os_aguardando_peca: 'Aguardando peça',
+  pagamento_confirmado: 'Pagamento confirmado',
+  nota_fiscal_emitida: 'Nota fiscal emitida',
+};
 
 export default function WhatsAppPage({ embedded = false }: { embedded?: boolean }) {
-  const { empresaData } = useAuth();
   const { podeAcessar } = useConfigPermission('whatsapp');
-  const [session, setSession] = useState<WhatsAppSession | null>(null);
+  const [aba, setAba] = useState<'conexao' | 'automacoes'>('conexao');
+  const [config, setConfig] = useState<{
+    phone_number_id?: string;
+    business_account_id?: string;
+    display_phone_number?: string;
+    ativo?: boolean;
+    webhook_verified?: boolean;
+    connection_mode?: 'cloud_api' | 'coexistence' | null;
+    is_on_biz_app?: boolean;
+  } | null>(null);
+  const [automacoes, setAutomacoes] = useState<WhatsAppAutomacao[]>([]);
   const [loading, setLoading] = useState(true);
-  const [connecting, setConnecting] = useState(false);
-  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  const [form, setForm] = useState({
+    phone_number_id: '',
+    access_token: '',
+    business_account_id: '',
+    ativo: true,
+  });
 
   useEffect(() => {
-    if (empresaData?.id) {
-      carregarSessao();
-    }
-  }, [empresaData]);
+    if (!podeAcessar) return;
+    void carregarDados();
+  }, [podeAcessar]);
 
-  useEffect(() => {
-    // Polling para verificar status da conexão
-    if (session?.status === 'connecting') {
-      const interval = setInterval(() => {
-        verificarStatus();
-      }, 3000); // Verificar a cada 3 segundos
-      setPollingInterval(interval);
-
-      return () => {
-        if (interval) clearInterval(interval);
-      };
-    }
-  }, [session?.status]);
-
-  const carregarSessao = async () => {
+  async function carregarDados() {
+    setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('whatsapp_sessions')
-        .select('*')
-        .eq('empresa_id', empresaData?.id)
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        throw error;
+      const [cfgRes, autoRes] = await Promise.all([
+        fetch('/api/whatsapp/crm/config'),
+        fetch('/api/whatsapp/crm/automations'),
+      ]);
+      const cfgJson = await cfgRes.json();
+      const autoJson = await autoRes.json();
+      if (cfgJson.data) {
+        setConfig(cfgJson.data);
+        setForm((f) => ({
+          ...f,
+          phone_number_id: cfgJson.data.phone_number_id ?? '',
+          business_account_id: cfgJson.data.business_account_id ?? '',
+          ativo: cfgJson.data.ativo ?? true,
+        }));
       }
-
-      const sessionData = data || {
-        status: 'disconnected',
-        numero_whatsapp: '',
-        nome_contato: '',
-        qr_code: null,
-        ultima_conexao: null
-      };
-
-      setSession(sessionData);
-    } catch (error) {
-      console.error('❌ WhatsApp: Erro ao carregar sessão:', error);
-      toast.error('Erro ao carregar dados do WhatsApp');
+      if (autoJson.data) setAutomacoes(autoJson.data);
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const conectarWhatsApp = async () => {
-    if (!empresaData?.id) return;
-
-    setConnecting(true);
+  async function salvarConfig() {
+    setSalvando(true);
     try {
-      const response = await fetch('/api/whatsapp/connect', {
+      const res = await fetch('/api/whatsapp/crm/config', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          empresa_id: empresaData.id
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erro ao conectar WhatsApp');
-      }
-
-      const result = await response.json();
-      // Atualizar a sessão com os dados da resposta
-      if (result.success) {
-        // Buscar dados atualizados do banco
-        await carregarSessao();
-        toast.success('QR Code gerado! Escaneie com seu WhatsApp');
+      const json = await res.json();
+      if (json.success) {
+        setConfig(json.data);
+        alert('Configuração salva com sucesso!');
       } else {
-        throw new Error(result.error || 'Erro desconhecido');
+        alert(json.error || 'Erro ao salvar');
       }
-    } catch (error) {
-      console.error('Erro ao conectar WhatsApp:', error);
-      toast.error('Erro ao conectar WhatsApp');
     } finally {
-      setConnecting(false);
+      setSalvando(false);
     }
-  };
+  }
 
-  const verificarStatus = async () => {
-    if (!empresaData?.id) return;
-
-    try {
-      const response = await fetch(`/api/whatsapp/connect?empresa_id=${empresaData.id}`);
-      
-      if (response.ok) {
-        const result = await response.json();
-        if (result.session) {
-          setSession(result.session);
-          
-          if (result.session.status === 'connected') {
-            toast.success('WhatsApp conectado com sucesso!');
-            if (pollingInterval) {
-              clearInterval(pollingInterval);
-              setPollingInterval(null);
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Erro ao verificar status:', error);
+  async function toggleAutomacao(id: string, ativo: boolean) {
+    const res = await fetch('/api/whatsapp/crm/automations', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ativo }),
+    });
+    const json = await res.json();
+    if (json.success) {
+      setAutomacoes((prev) => prev.map((a) => (a.id === id ? { ...a, ativo } : a)));
     }
-  };
-
-  const desconectarWhatsApp = async () => {
-    if (!empresaData?.id) return;
-
-    try {
-      const response = await fetch('/api/whatsapp/connect', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          empresa_id: empresaData.id
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erro ao desconectar WhatsApp');
-      }
-
-      toast.success('WhatsApp desconectado com sucesso!');
-      carregarSessao();
-    } catch (error) {
-      console.error('❌ WhatsApp: Erro ao desconectar:', error);
-      toast.error('Erro ao desconectar WhatsApp');
-    }
-  };
-
-  const enviarMensagemTeste = async () => {
-    if (!empresaData?.id) return;
-
-    try {
-      toast.loading('Enviando mensagem de teste...');
-      
-      const response = await fetch('/api/whatsapp/enviar', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          empresa_id: empresaData.id,
-          tecnico_id: '5671d602-42e6-4103-953a-a2fffac04585', // ID do Lucas Oliveira
-          aparelho_info: {
-            marca: 'TESTE',
-            modelo: 'Sistema',
-            cliente_nome: 'Teste de Sistema',
-            problema: 'Verificação de funcionamento',
-            os_id: 'TESTE-001'
-          }
-        }),
-      });
-
-      toast.dismiss();
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erro ao enviar mensagem de teste');
-      }
-
-      const result = await response.json();
-      toast.success('Mensagem de teste enviada com sucesso!');
-      
-    } catch (error) {
-      toast.dismiss();
-      console.error('❌ WhatsApp: Erro ao enviar mensagem de teste:', error);
-      toast.error('Erro ao enviar mensagem de teste: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
-    }
-  };
+  }
 
   if (!podeAcessar) {
     const denied = <AcessoNegadoComponent />;
     return embedded ? denied : <MenuLayout><div className="p-8">{denied}</div></MenuLayout>;
   }
 
-  if (loading) {
-    const content = (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
-      </div>
-    );
-    return embedded ? content : <MenuLayout>{content}</MenuLayout>;
-  }
-
   const content = (
-      <AuthGuard>
-        <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">
-                Conectar WhatsApp
-              </h1>
-              <p className="text-lg text-gray-600">
-                Conecte o WhatsApp da sua empresa para enviar mensagens automáticas
-              </p>
-            </div>
+    <div className="space-y-6">
+      {!embedded && (
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">WhatsApp CRM</h2>
+            <p className="text-gray-600 text-sm">
+              Integração via{' '}
+              <a
+                href="https://developers.facebook.com/docs/whatsapp/cloud-api"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-green-700 hover:underline"
+              >
+                WhatsApp Cloud API (Meta)
+              </a>
+            </p>
+          </div>
+          <Link
+            href="/whatsapp"
+            className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+          >
+            <MessageCircle size={16} />
+            Abrir inbox
+            <ExternalLink size={14} />
+          </Link>
+        </div>
+      )}
 
-            {/* Status da Conexão */}
-            <div className="mb-8">
-              <div className={`p-4 rounded-lg border ${
-                session?.status === 'connected' ? 'bg-green-50 border-green-200' :
-                session?.status === 'connecting' ? 'bg-yellow-50 border-yellow-200' :
-                session?.status === 'error' ? 'bg-red-50 border-red-200' :
-                'bg-gray-50 border-gray-200'
-              }`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      Status da Conexão
-                    </h3>
-                    <p className={`text-sm ${
-                      session?.status === 'connected' ? 'text-green-700' :
-                      session?.status === 'connecting' ? 'text-yellow-700' :
-                      session?.status === 'error' ? 'text-red-700' :
-                      'text-gray-700'
-                    }`}>
-                      {session?.status === 'connected' ? '✅ Conectado' :
-                       session?.status === 'connecting' ? '🔄 Conectando...' :
-                       session?.status === 'error' ? '❌ Erro na conexão' :
-                       '❌ Desconectado'}
-                    </p>
-                  </div>
-                  
-                  {session?.status === 'connected' && (
-                    <div className="text-right">
-                      <p className="text-sm text-gray-600">
-                        Número: {session.numero_whatsapp}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Nome: {session.nome_contato}
-                      </p>
-                      {session.ultima_conexao && (
-                        <p className="text-xs text-gray-500">
-                          Conectado em: {new Date(session.ultima_conexao).toLocaleString('pt-BR')}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+      {embedded && (
+        <Link
+          href="/whatsapp"
+          className="inline-flex items-center gap-2 text-sm text-green-700 hover:underline"
+        >
+          <MessageCircle size={16} />
+          Abrir inbox de conversas
+          <ExternalLink size={14} />
+        </Link>
+      )}
 
-            {/* QR Code */}
-            {session?.status === 'connecting' && session.qr_code && (
-              <div className="mb-8 text-center">
-                <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                  Escaneie o QR Code
-                </h3>
-                <div className="bg-white p-4 rounded-lg border inline-block">
-                  <Image
-                    src={session.qr_code}
-                    alt="QR Code WhatsApp"
-                    width={300}
-                    height={300}
-                    className="mx-auto"
-                  />
-                </div>
-                <p className="text-sm text-gray-600 mt-4">
-                  Abra o WhatsApp no seu celular → Menu → WhatsApp Web → Escaneie o código
+      <div className="flex gap-2 border-b border-gray-200">
+        {(['conexao', 'automacoes'] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setAba(t)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
+              aba === t
+                ? 'border-green-600 text-green-700'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {t === 'conexao' ? (
+              <span className="inline-flex items-center gap-1.5"><Settings size={15} /> Conexão</span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5"><Zap size={15} /> Automações</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-gray-500">Carregando...</p>
+      ) : aba === 'conexao' ? (
+        <div className="space-y-6">
+          {config?.ativo ? (
+            <div className="rounded-xl border border-green-200 bg-green-50 p-4 flex items-start gap-3">
+              <CheckCircle2 size={20} className="text-green-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-green-900">WhatsApp conectado</p>
+                <p className="text-sm text-green-800 mt-0.5">
+                  {config.display_phone_number && `${config.display_phone_number} · `}
+                  {config.connection_mode === 'coexistence' || config.is_on_biz_app
+                    ? 'Coexistência — app no celular + CRM'
+                    : 'Cloud API'}
                 </p>
               </div>
+            </div>
+          ) : (
+            <EmbeddedSignupConnect onConnected={() => void carregarDados()} />
+          )}
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <details className="rounded-xl border border-gray-200 bg-white group">
+              <summary className="cursor-pointer px-6 py-4 text-sm font-medium text-gray-700 list-none flex items-center justify-between">
+                Configuração manual (avançado)
+                <span className="text-gray-400 text-xs group-open:hidden">expandir</span>
+              </summary>
+              <div className="px-6 pb-6 space-y-4 border-t border-gray-100 pt-4">
+                <p className="text-xs text-gray-500">
+                  Use apenas se não puder usar o botão acima ou for ambiente de testes Meta.
+                </p>
+
+                <label className="block text-sm">
+                  <span className="text-gray-700">Phone Number ID</span>
+                  <input
+                    type="text"
+                    value={form.phone_number_id}
+                    onChange={(e) => setForm({ ...form, phone_number_id: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                    placeholder="752768294592697"
+                  />
+                </label>
+
+                <label className="block text-sm">
+                  <span className="text-gray-700">Access Token</span>
+                  <input
+                    type="password"
+                    value={form.access_token}
+                    onChange={(e) => setForm({ ...form, access_token: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                    placeholder={config?.phone_number_id ? '•••••••• (deixe vazio para manter)' : 'Token permanente'}
+                  />
+                </label>
+
+                <label className="block text-sm">
+                  <span className="text-gray-700">Business Account ID (WABA)</span>
+                  <input
+                    type="text"
+                    value={form.business_account_id}
+                    onChange={(e) => setForm({ ...form, business_account_id: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                  />
+                </label>
+
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.ativo}
+                    onChange={(e) => setForm({ ...form, ativo: e.target.checked })}
+                  />
+                  Integração ativa
+                </label>
+
+                <button
+                  type="button"
+                  onClick={salvarConfig}
+                  disabled={salvando}
+                  className="w-full rounded-lg border border-gray-300 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {salvando ? 'Salvando...' : 'Salvar manualmente'}
+                </button>
+              </div>
+            </details>
+
+            <div className="rounded-xl border border-gray-200 bg-white p-6 space-y-4">
+            <h3 className="font-semibold text-gray-900">Webhook</h3>
+            <p className="text-xs text-gray-500">
+              Configure no painel Meta para receber mensagens dos clientes:
+            </p>
+            <code className="block text-xs bg-gray-50 rounded-lg p-3 break-all">
+              {typeof window !== 'undefined'
+                ? `${window.location.origin}/api/whatsapp/crm/webhook`
+                : '/api/whatsapp/crm/webhook'}
+            </code>
+            <p className="text-xs text-gray-500">
+              Verify Token: use o valor de <code className="bg-gray-100 px-1">WHATSAPP_VERIFY_TOKEN</code> no .env
+            </p>
+
+            {config?.ativo ? (
+              <div className="flex items-center gap-2 text-sm text-green-700">
+                <CheckCircle2 size={16} />
+                Webhook ativo no WABA
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-sm text-amber-700">
+                <AlertCircle size={16} />
+                Conecte o WhatsApp para ativar o webhook
+              </div>
             )}
-
-            {/* Botões de Ação */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              {session?.status === 'disconnected' && (
-                <button
-                  onClick={conectarWhatsApp}
-                  disabled={connecting}
-                  className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors font-medium"
-                >
-                  {connecting ? 'Conectando...' : '🔗 Conectar WhatsApp'}
-                </button>
-              )}
-
-              {session?.status === 'connecting' && (
-                <button
-                  onClick={verificarStatus}
-                  className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                >
-                  🔄 Verificar Status
-                </button>
-              )}
-
-              {session?.status === 'connected' && (
-                <button
-                  onClick={desconectarWhatsApp}
-                  className="px-8 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
-                >
-                  ❌ Desconectar WhatsApp
-                </button>
-              )}
-
-              {session?.status === 'error' && (
-                <button
-                  onClick={conectarWhatsApp}
-                  disabled={connecting}
-                  className="px-8 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50 transition-colors font-medium"
-                >
-                  🔄 Tentar Novamente
-                </button>
-              )}
-
-              {session?.status === 'connected' && (
-                <button
-                  onClick={enviarMensagemTeste}
-                  className="px-8 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
-                >
-                  💬 Enviar Mensagem de Teste
-                </button>
-              )}
-            </div>
-
-            {/* Informações */}
-            <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="text-lg font-semibold text-blue-900 mb-2">
-                📱 Como Funciona
-              </h4>
-              <ol className="list-decimal list-inside space-y-2 text-blue-800">
-                <li>Clique em "Conectar WhatsApp"</li>
-                <li>Um QR Code será gerado na tela</li>
-                <li>Abra o WhatsApp no seu celular</li>
-                <li>Vá em Menu → WhatsApp Web</li>
-                <li>Escaneie o QR Code</li>
-                <li>Pronto! Seu WhatsApp estará conectado</li>
-              </ol>
-              <p className="mt-3 text-sm text-blue-700">
-                <strong>Importante:</strong> Mantenha o celular conectado à internet para manter a conexão ativa.
-              </p>
-            </div>
-
-            {/* Funcionalidades */}
-            <div className="mt-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <h4 className="text-lg font-semibold text-gray-900 mb-2">
-                🚀 Funcionalidades
-              </h4>
-              <ul className="list-disc list-inside space-y-1 text-gray-700">
-                <li>Envio automático de mensagens quando uma nova OS for cadastrada</li>
-                <li>Notificações para técnicos sobre novos aparelhos</li>
-                <li>Log completo de todas as mensagens enviadas</li>
-                <li>Conexão segura e criptografada</li>
-              </ul>
-            </div>
+          </div>
           </div>
         </div>
+      ) : (
+        <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+            <p className="text-sm text-gray-600">
+              Mensagens automáticas enviadas ao cliente quando eventos da OS ocorrem.
+              Variáveis: <code className="text-xs bg-white px-1">{'{{cliente_nome}}'}</code>,{' '}
+              <code className="text-xs bg-white px-1">{'{{numero_os}}'}</code>,{' '}
+              <code className="text-xs bg-white px-1">{'{{status}}'}</code>,{' '}
+              <code className="text-xs bg-white px-1">{'{{valor}}'}</code>
+            </p>
+          </div>
+          <ul className="divide-y divide-gray-100">
+            {automacoes.map((a) => (
+              <li key={a.id} className="px-4 py-4 flex items-start gap-4">
+                <label className="flex items-center pt-1">
+                  <input
+                    type="checkbox"
+                    checked={a.ativo}
+                    onChange={(e) => toggleAutomacao(a.id, e.target.checked)}
+                    className="rounded border-gray-300 text-green-600 focus:ring-green-600"
+                  />
+                </label>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-sm text-gray-900">{a.nome}</p>
+                    <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                      {EVENTO_LABELS[a.evento] ?? a.evento}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1 whitespace-pre-wrap line-clamp-2">
+                    {a.mensagem_template}
+                  </p>
+                </div>
+              </li>
+            ))}
+            {automacoes.length === 0 && (
+              <li className="px-4 py-8 text-center text-sm text-gray-500">
+                Salve a configuração de conexão para criar automações padrão.
+              </li>
+            )}
+          </ul>
         </div>
-      </AuthGuard>
+      )}
+    </div>
   );
-  return embedded ? content : <MenuLayout>{content}</MenuLayout>;
+
+  return embedded ? content : <MenuLayout><div className="p-8">{content}</div></MenuLayout>;
 }

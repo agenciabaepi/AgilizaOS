@@ -357,6 +357,9 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
           {podeVer('dashboard') && matchesSearch('Dashboard') && (
             <SidebarButton path={dashboardPath} icon={<FiHome size={22} strokeWidth={1.75} />} label="Dashboard" isActive={dashboardAtivo} menuRecolhido={false} />
           )}
+          {podeVer('whatsapp') && matchesSearch('WhatsApp') && (
+            <SidebarButton path="/whatsapp" icon={<FiMessageCircle size={22} strokeWidth={1.75} />} label="WhatsApp" isActive={pathname === '/whatsapp' || pathname.startsWith('/whatsapp/')} menuRecolhido={false} />
+          )}
                   {/* Lembretes */}
                   {podeVer('lembretes') && matchesSearch('Lembretes') && (
                     <SidebarButton path="/lembretes" icon={<FiBell size={22} strokeWidth={1.75} />} label="Lembretes" isActive={pathname === '/lembretes'} menuRecolhido={false} />
@@ -571,6 +574,9 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
               {/* Dashboard - técnico vai para dashboard-tecnico */}
               {podeVer('dashboard') && (
                 <SidebarButton path={dashboardPath} icon={<FiHome size={22} strokeWidth={1.75} />} label="Dashboard" isActive={dashboardAtivo} menuRecolhido={false} />
+              )}
+              {podeVer('whatsapp') && (
+                <SidebarButton path="/whatsapp" icon={<FiMessageCircle size={22} strokeWidth={1.75} />} label="WhatsApp" isActive={pathname === '/whatsapp' || pathname.startsWith('/whatsapp/')} menuRecolhido={false} />
               )}
               {/* Lembretes */}
               {podeVer('lembretes') && (
