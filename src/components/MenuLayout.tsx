@@ -40,6 +40,7 @@ import { useWhatsAppNotification } from '@/hooks/useWhatsAppNotification';
 import { useLogout } from '@/hooks/useLogout';
 import AvisosBanner from '@/components/AvisosBanner';
 import FinanceiroAlertsBanner from '@/components/FinanceiroAlertsBanner';
+import AppStoreBanner from '@/components/AppStoreBanner';
 import { usePermissions } from '@/hooks/usePermissions';
 import { getDashboardPathForNivel, isUserHomePath } from '@/lib/dashboardRouting';
 import { getMenuAccentColor, MENU_ACCENT_DEFAULT } from '@/lib/menuTheme';
@@ -893,6 +894,7 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
         {/* Banner de Avisos - oculto na tela cheia de Nova OS para mais espaço */}
         {!isFullScreenPage && (
           <div className="w-full sticky top-16 z-20 space-y-1.5 no-print">
+            <AppStoreBanner placement="app" />
             <AvisosBanner />
             <FinanceiroAlertsBanner />
           </div>

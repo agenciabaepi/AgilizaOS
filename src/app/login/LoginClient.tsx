@@ -600,7 +600,15 @@ function LoginClientInner() {
   const showCards = false;
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex relative">
+      {/* Background no mobile */}
+      <div
+        className="absolute inset-0 lg:hidden bg-center bg-cover bg-no-repeat"
+        style={{ backgroundImage: `url(${BG_LOGIN_URL})` }}
+        aria-hidden
+      />
+      <div className="absolute inset-0 lg:hidden bg-black/55 pointer-events-none" aria-hidden />
+
       {/* Lado Esquerdo - Carrossel de Cards */}
       <div
         className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-center bg-cover"
@@ -755,17 +763,24 @@ function LoginClientInner() {
       </div>
       
       {/* Lado Direito - Formulário de Login */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gradient-to-br from-gray-50 to-white">
+      <div className="relative z-10 w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-8 bg-transparent lg:bg-gradient-to-br lg:from-gray-50 lg:to-white min-h-screen lg:min-h-0">
         <div className="w-full max-w-md">
           {/* Logo */}
           <div className="flex justify-center mb-12">
             <div className="relative group">
-              <Image 
-                src={logo} 
-                alt="Consert Logo" 
-                width={240} 
+              <Image
+                src={logo}
+                alt="Consert Logo"
+                width={240}
                 height={240}
-                className="transition-all duration-300 hover:scale-105"
+                className="transition-all duration-300 hover:scale-105 hidden lg:block"
+              />
+              <Image
+                src="/assets/imagens/logobranco.png"
+                alt="Consert Logo"
+                width={240}
+                height={240}
+                className="transition-all duration-300 hover:scale-105 lg:hidden"
               />
             </div>
           </div>
@@ -986,13 +1001,13 @@ function LoginClientInner() {
 
           {/* Footer Links */}
           <div className="text-center mt-8 space-x-6 text-sm">
-            <a href="/privacidade" className="text-gray-500 hover:text-gray-700 transition-colors">
+            <a href="/privacidade" className="text-white/55 hover:text-white/80 lg:text-gray-500 lg:hover:text-gray-700 transition-colors">
               Política de Privacidade
             </a>
-            <a href="/termos" className="text-gray-500 hover:text-gray-700 transition-colors">
+            <a href="/termos" className="text-white/55 hover:text-white/80 lg:text-gray-500 lg:hover:text-gray-700 transition-colors">
               Termos de Uso
             </a>
-            <a href="/ajuda" className="text-gray-500 hover:text-gray-700 transition-colors">
+            <a href="/ajuda" className="text-white/55 hover:text-white/80 lg:text-gray-500 lg:hover:text-gray-700 transition-colors">
               Ajuda
             </a>
           </div>

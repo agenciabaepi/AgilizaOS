@@ -7,6 +7,9 @@ export const metadata: Metadata = {
   icons: {
     icon: '/assets/imagens/icon.png',
   },
+  other: {
+    'apple-itunes-app': 'app-id=6759183136',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
