@@ -33,8 +33,7 @@ export async function syncOsContexto(
   const finalizado = isFinalizado(os.status) || isFinalizado(os.status_tecnico);
   const valor =
     os.valor_faturado ??
-    (Number(os.valor_servico || 0) + Number(os.valor_peca || 0)) ||
-    null;
+    (Number(os.valor_servico || 0) + Number(os.valor_peca || 0) || null);
 
   const { data: venda } = await supabase
     .from('vendas')
