@@ -121,7 +121,7 @@ export default function PublicHeader() {
         {/* CTA Buttons */}
         <div className="hidden md:flex items-center space-x-6">
           <button 
-            onClick={() => router.push('/cadastro')}
+            onClick={() => router.push('/fale-conosco')}
             className="px-8 py-3 text-black bg-[#D1FE6E] rounded-full font-medium hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105"
           >
             Começar Agora
@@ -202,7 +202,7 @@ export default function PublicHeader() {
             
             <div className="flex flex-col space-y-3 pt-4 border-t border-[#D1FE6E]/20">
               <button 
-                onClick={() => router.push('/cadastro')}
+                onClick={() => router.push('/fale-conosco')}
                 className="px-6 py-3 text-gray-900 bg-[#D1FE6E] rounded-lg font-semibold hover:bg-[#B8E55A] transition-all duration-300"
               >
                 Começar Agora

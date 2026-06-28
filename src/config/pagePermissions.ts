@@ -118,6 +118,7 @@ export const PAGE_PERMISSIONS = {
 
   // Páginas públicas (sem proteção)
   '/login': null,
+  '/fale-conosco': null,
   '/cadastro': null,
   '/cadastro/sucesso': null,
   '/planos': null,

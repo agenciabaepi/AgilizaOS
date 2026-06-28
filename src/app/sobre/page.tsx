@@ -259,7 +259,7 @@ export default function SobreEmpresaPage() {
                       Junte-se a centenas de empresas que já confiam na Consert para gerenciar suas operações.
                     </p>
                     <Link 
-                      href="/cadastro"
+                      href="/fale-conosco"
                       className="inline-block bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
                     >
                       Começar Agora

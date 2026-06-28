@@ -1,67 +1,40 @@
 'use client';
 
-import { useState, useEffect, useRef, type ComponentType, type SVGProps } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
 import { useAppleParallax } from '@/hooks/useParallax';
-import { useValorAssinatura } from '@/hooks/useValorAssinatura';
-import ordensImage from '@/assets/imagens/ordens.png';
-import dashboardImage from '@/assets/imagens/dashboard.png';
-import comissoesImage from '@/assets/imagens/comissoes.png';
-import financeiroImage from '@/assets/imagens/financeiro.png';
-import produtosImage from '@/assets/imagens/produtos.png';
-import contasPagarImage from '@/assets/imagens/contas a pagar.png';
-import {
-  ClipboardDocumentListIcon,
-  ChartBarIcon,
-  CurrencyDollarIcon,
-  DocumentTextIcon,
-  ChartPieIcon,
-  CubeIcon,
-  BoltIcon,
-} from '@heroicons/react/24/outline';
-import type { StaticImageData } from 'next/image';
+import FeaturesCarousel from '@/components/landing/FeaturesCarousel';
+import SystemShowcaseSlider from '@/components/landing/SystemShowcaseSlider';
+import PricingSection from '@/components/landing/PricingSection';
+import AppShowcase from '@/components/landing/AppShowcase';
+import { abrirWhatsApp } from '@/config/contato';
+import { LANDING_TRIAL } from '@/config/landing';
 
-type SystemTab = {
-  id: string;
-  label: string;
-  icon: ComponentType<SVGProps<SVGSVGElement>>;
-  image?: StaticImageData;
-  imageAlt?: string;
-  extraFeatures?: string[];
-};
-
-const SYSTEM_TABS: SystemTab[] = [
-  { id: 'ordens', label: 'Ordens', icon: ClipboardDocumentListIcon, image: ordensImage, imageAlt: 'Ordens de serviço no Consert' },
-  { id: 'dashboard', label: 'Dashboard', icon: ChartBarIcon, image: dashboardImage, imageAlt: 'Dashboard do sistema Consert' },
-  { id: 'comissoes', label: 'Comissões', icon: CurrencyDollarIcon, image: comissoesImage, imageAlt: 'Módulo de comissões do Consert' },
-  { id: 'contas', label: 'Contas a Pagar', icon: DocumentTextIcon, image: contasPagarImage, imageAlt: 'Contas a pagar no Consert' },
-  { id: 'financeiro', label: 'Financeiro', icon: ChartPieIcon, image: financeiroImage, imageAlt: 'Módulo financeiro do Consert' },
-  { id: 'produtos', label: 'Produtos', icon: CubeIcon, image: produtosImage, imageAlt: 'Gestão de produtos no Consert' },
-  {
-    id: 'mais',
-    label: 'Muito mais',
-    icon: BoltIcon,
-    extraFeatures: ['Laudos com IA', 'App mobile', 'WhatsApp', 'Checklist', 'Caixa'],
-  },
+const SYSTEM_FEATURES = [
+  'Ordens de serviço completas',
+  'App mobile para técnicos',
+  'Dashboard e relatórios em tempo real',
+  'Comissões de técnicos',
+  'Contas a pagar',
+  'Financeiro e lucro',
+  'Produtos, estoque e catálogo',
+  'Gestão de clientes',
+  'Caixa e fluxo financeiro',
+  'Laudos com IA',
+  'WhatsApp integrado',
+  'Checklist digital',
+  'Orçamentos e PDV',
+  'Bancada do técnico',
+  'Multi-usuários e permissões',
+  'Impressão e PDF',
+  'Lembretes e alertas',
+  'Fornecedores e equipamentos',
+  'Sistema de notas fiscais (NFC)',
 ];
-
-function PrecoAssinatura({ isDarkMode }: { isDarkMode: boolean }) {
-  const { valor } = useValorAssinatura();
-  return (
-    <div className="mb-8">
-      <div className="flex items-baseline">
-        <span className={`text-3xl md:text-4xl font-light ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-          R$ {valor.toFixed(2).replace('.', ',')}
-        </span>
-        <span className={`text-sm ml-2 ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>/mês</span>
-      </div>
-    </div>
-  );
-}
 
 export default function Home() {
   const router = useRouter();
@@ -106,10 +79,6 @@ export default function Home() {
   // Inicializa a posição do mouse com valores negativos para que o efeito não apareça inicialmente
   const [mousePosition, setMousePosition] = useState({ x: -100, y: -100 });
   const [scrollY, setScrollY] = useState(0);
-  
-  // Sistema de abas state
-  const [activeTab, setActiveTab] = useState('ordens');
-  const activeSystemTab = SYSTEM_TABS.find((tab) => tab.id === activeTab) ?? SYSTEM_TABS[0];
 
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
@@ -119,6 +88,10 @@ export default function Home() {
         block: 'start'
       });
     }
+  };
+
+  const handleContatoEquipe = () => {
+    abrirWhatsApp();
   };
 
   useEffect(() => {
@@ -356,10 +329,10 @@ export default function Home() {
             </button>
             
             <button 
-              onClick={() => router.push('/cadastro')}
+              onClick={() => router.push('/fale-conosco')}
               className="px-8 py-3 text-black bg-[#D1FE6E] rounded-full font-medium hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105"
             >
-              Começar Agora
+              {LANDING_TRIAL.shortLabel}
             </button>
             <button 
               onClick={() => router.push('/login')}
@@ -469,10 +442,10 @@ export default function Home() {
               
               <div className="flex flex-col space-y-3 pt-4 border-t border-[#D1FE6E]/20">
                 <button 
-                  onClick={() => router.push('/cadastro')}
+                  onClick={() => router.push('/fale-conosco')}
                   className="px-6 py-3 text-gray-900 bg-[#D1FE6E] rounded-lg font-semibold hover:bg-[#B8E55A] transition-all duration-300"
                 >
-                  Começar Agora
+                  {LANDING_TRIAL.shortLabel}
                 </button>
                 <button 
                   onClick={() => router.push('/login')}
@@ -575,7 +548,7 @@ export default function Home() {
                         >
                           <Image
                             src="/assets/imagens/celular3.png"
-                            alt="App Consert — visão do lojista"
+                            alt="App Consert — tela do aplicativo"
                             width={1030}
                             height={2021}
                             className="w-full h-auto"
@@ -612,7 +585,7 @@ export default function Home() {
                   <span className={`text-xs sm:text-sm font-medium tracking-wide uppercase ${
                     isDarkMode ? 'text-white/75' : 'text-gray-600'
                   }`}>
-                    App exclusivo · Técnicos e lojistas
+                    App exclusivo · {LANDING_TRIAL.label}
                   </span>
                 </div>
 
@@ -633,7 +606,7 @@ export default function Home() {
                     }`}
                   >
                     O primeiro e único sistema com aplicativo dedicado
-                    para quem conserta e quem gerencia a loja.
+                    para técnicos.
                   </p>
                 </div>
 
@@ -647,9 +620,10 @@ export default function Home() {
                   sem depender do computador.
                 </p>
 
-                <div data-reveal="cta" className="flex flex-col sm:flex-row gap-3 pt-1">
+                <div data-reveal="cta" className="flex flex-col items-center lg:items-start gap-3 pt-1">
+                  <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
                   <button 
-                    onClick={() => router.push('/cadastro')}
+                    onClick={() => router.push('/fale-conosco')}
                     className={`px-6 py-3 rounded-full font-medium text-sm sm:text-base transition-all duration-300 ${
                       isDarkMode
                         ? 'bg-[#D1FE6E] text-black hover:bg-[#B8E55A] hover:shadow-lg hover:shadow-[#D1FE6E]/50'
@@ -661,10 +635,10 @@ export default function Home() {
                         : '0 4px 20px rgba(209, 254, 110, 0.5)'
                     }}
                   >
-                    Começar Agora
+                    {LANDING_TRIAL.shortLabel}
                   </button>
                   <button 
-                    onClick={() => scrollToSection('solucoes')}
+                    onClick={() => scrollToSection('recursos')}
                     className={`px-6 py-3 rounded-full font-medium text-sm sm:text-base transition-all duration-300 border backdrop-blur-sm ${
                       isDarkMode 
                         ? 'border-white/30 text-white bg-black/40 hover:bg-black/60 hover:border-white/50'
@@ -673,6 +647,10 @@ export default function Home() {
                   >
                     Ver Funcionalidades
                   </button>
+                  </div>
+                  <p className={`text-xs sm:text-sm ${isDarkMode ? 'text-white/45' : 'text-gray-500'}`}>
+                    {LANDING_TRIAL.description} {LANDING_TRIAL.note}
+                  </p>
                 </div>
               </div>
             </div>
@@ -680,10 +658,10 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Sistema de Abas - Visualizações do Sistema */}
-      <section id="solucoes" className="relative z-10 px-4 sm:px-6 md:px-8 pt-4 sm:pt-6 md:pt-8 pb-16 md:pb-24 lg:px-12">
+      {/* Features Section */}
+      <div id="recursos" className="relative z-10 pt-4 pb-12 md:pt-6 md:pb-16 overflow-hidden">
         <div
-          className="relative mx-auto max-w-7xl"
+          className="mx-auto max-w-6xl px-4 sm:px-6 md:px-8 lg:px-12"
           ref={(el) => {
             if (el) {
               const style = getSectionTransform(el);
@@ -691,7 +669,46 @@ export default function Home() {
             }
           }}
         >
-          {/* Glow de fundo */}
+          <div
+            data-reveal="features-header"
+            className={`text-center mb-8 md:mb-10 hero-reveal ${
+              isAnimated('features-header') ? 'revealed' : ''
+            }`}
+          >
+            <h2 className={`text-5xl sm:text-6xl md:text-7xl font-light mb-6 md:mb-8 leading-none tracking-tight ${
+              isDarkMode ? 'text-gradient-accent' : 'text-gray-800'
+            }`}>
+              Tudo que sua assistência precisa
+            </h2>
+            <p className={`text-lg md:text-xl max-w-2xl mx-auto leading-relaxed font-light ${
+              isDarkMode ? 'text-white/60' : 'text-gray-600'
+            }`}>
+              Ferramentas essenciais para modernizar sua operação — do app do técnico ao financeiro completo.
+            </p>
+          </div>
+        </div>
+
+        <div
+          data-reveal="features-carousel"
+          className={`hero-reveal ${isAnimated('features-carousel') ? 'revealed' : ''}`}
+        >
+          <FeaturesCarousel isDarkMode={isDarkMode} />
+        </div>
+      </div>
+
+      <AppShowcase isDarkMode={isDarkMode} />
+
+      {/* Sistema — slide infinito */}
+      <section id="solucoes" className="relative z-10 pt-8 sm:pt-10 md:pt-12 pb-16 md:pb-24 overflow-hidden">
+        <div
+          className="relative mx-auto max-w-7xl px-4 sm:px-6 md:px-8 lg:px-12"
+          ref={(el) => {
+            if (el) {
+              const style = getSectionTransform(el);
+              Object.assign(el.style, style);
+            }
+          }}
+        >
           <div
             className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[60%] blur-3xl opacity-20 pointer-events-none -z-10"
             style={{
@@ -701,10 +718,9 @@ export default function Home() {
             }}
           />
 
-          {/* Cabeçalho */}
           <div
             data-reveal="tabs-header"
-            className={`text-center mb-6 md:mb-8 scroll-reveal-slide-up ${
+            className={`text-center mb-8 md:mb-10 scroll-reveal-slide-up ${
               isAnimated('tabs-header') ? 'animated' : ''
             }`}
           >
@@ -715,333 +731,24 @@ export default function Home() {
             >
               Veja o sistema em ação
             </h2>
+            <p className={`mt-4 text-base md:text-lg font-light max-w-xl mx-auto ${
+              isDarkMode ? 'text-white/50' : 'text-gray-500'
+            }`}>
+              Telas reais do Consert — passe o mouse para pausar
+            </p>
           </div>
+        </div>
 
-          {/* Card principal */}
-          <div
-            className={`rounded-3xl border backdrop-blur-sm overflow-hidden ${
-              isDarkMode
-                ? 'bg-white/[0.03] border-white/10'
-                : 'bg-white border-gray-200 shadow-xl shadow-black/5'
-            }`}
-          >
-            {/* Abas */}
-            <div className="px-4 sm:px-6 pt-5 pb-5">
-              <div className="flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                {SYSTEM_TABS.map((tab) => {
-                  const Icon = tab.icon;
-                  const isActive = activeTab === tab.id;
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`flex items-center shrink-0 px-4 py-2 md:px-5 md:py-2.5 rounded-full font-medium transition-all duration-300 text-sm ${
-                        isActive
-                          ? 'bg-[#D1FE6E] text-black'
-                          : isDarkMode
-                            ? 'text-white/60 hover:text-white hover:bg-white/[0.06]'
-                            : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
-                      }`}
-                    >
-                      <Icon className="w-4 h-4 mr-1.5 shrink-0" strokeWidth={1.75} />
-                      {tab.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Preview */}
-            <div className="px-4 sm:px-6 pb-5 sm:pb-6 md:px-8 md:pb-8">
-              <div key={activeSystemTab.id} className="animate-fade-in">
-                {activeSystemTab.image ? (
-                  <div
-                    className={`rounded-2xl overflow-hidden border ${
-                      isDarkMode ? 'border-white/10' : 'border-gray-200'
-                    }`}
-                  >
-                    <div
-                      className={`flex items-center gap-3 px-4 py-2.5 border-b ${
-                        isDarkMode ? 'bg-zinc-900/90 border-white/10' : 'bg-gray-100 border-gray-200'
-                      }`}
-                    >
-                      <div className="flex gap-1.5 shrink-0">
-                        <span className="w-2 h-2 rounded-full bg-red-400/70" />
-                        <span className="w-2 h-2 rounded-full bg-yellow-400/70" />
-                        <span className="w-2 h-2 rounded-full bg-green-400/70" />
-                      </div>
-                      <div
-                        className={`flex-1 h-6 rounded-md flex items-center justify-center text-[11px] ${
-                          isDarkMode ? 'bg-white/[0.06] text-white/25' : 'bg-white text-gray-400 border border-gray-200'
-                        }`}
-                      >
-                        gestaoconsert.com.br
-                      </div>
-                    </div>
-                    <div className="relative w-full bg-white">
-                      <Image
-                        src={activeSystemTab.image}
-                        alt={activeSystemTab.imageAlt ?? activeSystemTab.label}
-                        className="w-full h-auto"
-                        quality={95}
-                        priority={activeTab === activeSystemTab.id}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap gap-2 py-4">
-                    {activeSystemTab.extraFeatures?.map((feature) => (
-                      <span
-                        key={feature}
-                        className={`px-4 py-2 rounded-full text-sm ${
-                          isDarkMode
-                            ? 'bg-white/[0.06] text-white/70 border border-white/10'
-                            : 'bg-gray-50 text-gray-600 border border-gray-200'
-                        }`}
-                      >
-                        {feature}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+        <div
+          data-reveal="system-slider"
+          className={`scroll-reveal-slide-up ${isAnimated('system-slider') ? 'animated' : ''}`}
+        >
+          <SystemShowcaseSlider isDarkMode={isDarkMode} />
         </div>
       </section>
 
-      {/* Features Section */}
-      <div id="recursos" className="relative z-10 px-4 sm:px-6 md:px-8 py-12 md:py-20 lg:px-12">
-        <div 
-          className="mx-auto max-w-6xl"
-          ref={(el) => {
-            if (el) {
-              const style = getSectionTransform(el);
-              Object.assign(el.style, style);
-            }
-          }}
-        >
-          <div 
-            data-reveal="features-header"
-            className={`text-center mb-12 md:mb-16 hero-reveal ${
-              isAnimated('features-header') ? 'revealed' : ''
-            }`}
-          >
-            <h2 className={`text-6xl md:text-7xl font-light mb-12 leading-none tracking-tight ${
-              isDarkMode ? 'text-gradient-accent' : 'text-gray-800'
-            }`}>
-              Tudo que sua assistência precisa
-            </h2>
-            <p className={`text-xl md:text-2xl max-w-4xl mx-auto leading-relaxed font-light ${
-              isDarkMode ? 'text-white/70' : 'text-gray-600'
-            }`}>
-              Uma plataforma completa com todas as ferramentas essenciais para modernizar sua assistência
-            </p>
-          </div>
-
-          {/* Features Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-            {/* Feature 1 */}
-            <div 
-              data-reveal="feature-1"
-              className={`group h-full card-reveal ${
-                isAnimated('feature-1') ? 'revealed' : ''
-              }`}
-            >
-              <div 
-                className={`h-full rounded-3xl p-6 md:p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col ${
-                  isDarkMode ? '' : 'bg-gray-50/90 border-gray-200 shadow-lg'
-                }`}
-                style={isDarkMode ? {
-                  background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  backdropFilter: 'blur(20px)',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-                } : undefined}
-              >
-                <div 
-                  className="w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-3xl flex items-center justify-center mb-4 md:mb-6 shadow-2xl transition-all duration-500 group-hover:scale-110"
-                  style={{
-                    boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)'
-                  }}
-                >
-                  <svg className="w-8 h-8 md:w-10 md:h-10 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-                <h3 className={`font-light text-lg md:text-xl mb-3 md:mb-4 tracking-wide ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Ordens de Serviço</h3>
-                <p className={`leading-relaxed text-sm md:text-base font-light flex-grow ${isDarkMode ? 'text-white/80' : 'text-gray-600'}`}>
-                  Crie e gerencie ordens de serviço de forma simples e organizada. 
-                  Acompanhe o progresso em tempo real.
-                </p>
-              </div>
-            </div>
-
-            {/* Feature 2 */}
-            <div 
-              data-reveal="feature-2"
-              className={`group h-full card-reveal scroll-reveal-delay-100 ${
-                isAnimated('feature-2') ? 'revealed' : ''
-              }`}
-            >
-              <div 
-                className={`h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col ${isDarkMode ? '' : 'bg-gray-50/90 border-gray-200 shadow-lg'}`}
-                style={isDarkMode ? {
-                  background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  backdropFilter: 'blur(20px)',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-                } : undefined}
-              >
-                <div 
-                  className="w-20 h-20 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-3xl flex items-center justify-center mb-6 shadow-2xl transition-all duration-500 group-hover:scale-110"
-                  style={{ boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)' }}
-                >
-                  <svg className="w-10 h-10 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                </div>
-                <h3 className={`font-light text-xl mb-4 tracking-wide ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Gestão de Clientes</h3>
-                <p className={`leading-relaxed text-base font-light flex-grow ${isDarkMode ? 'text-white/80' : 'text-gray-600'}`}>
-                  Cadastre e acompanhe seus clientes com histórico completo. 
-                  Histórico de serviços e veículos.
-                </p>
-              </div>
-            </div>
-
-            {/* Feature 3 */}
-            <div 
-              data-reveal="feature-3"
-              className={`group h-full card-reveal scroll-reveal-delay-200 ${
-                isAnimated('feature-3') ? 'revealed' : ''
-              }`}
-            >
-              <div 
-                className={`h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col ${isDarkMode ? '' : 'bg-gray-50/90 border-gray-200 shadow-lg'}`}
-                style={isDarkMode ? {
-                  background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  backdropFilter: 'blur(20px)',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-                } : undefined}
-              >
-                <div 
-                  className="w-20 h-20 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-3xl flex items-center justify-center mb-6 shadow-2xl transition-all duration-500 group-hover:scale-110"
-                  style={{ boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)' }}
-                >
-                  <svg className="w-10 h-10 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h3 className={`font-light text-xl mb-4 tracking-wide ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Controle Financeiro</h3>
-                <p className={`leading-relaxed text-base font-light flex-grow ${isDarkMode ? 'text-white/80' : 'text-gray-600'}`}>
-                  Acompanhe receitas, despesas e lucros em tempo real. 
-                  Relatórios financeiros detalhados.
-                </p>
-              </div>
-            </div>
-
-            {/* Feature 4 */}
-            <div 
-              data-reveal="feature-4"
-              className={`group h-full card-reveal scroll-reveal-delay-300 ${
-                isAnimated('feature-4') ? 'revealed' : ''
-              }`}
-            >
-              <div 
-                className={`h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col ${isDarkMode ? '' : 'bg-gray-50/90 border-gray-200 shadow-lg'}`}
-                style={isDarkMode ? {
-                  background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  backdropFilter: 'blur(20px)',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-                } : undefined}
-              >
-                <div 
-                  className="w-20 h-20 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-3xl flex items-center justify-center mb-6 shadow-2xl transition-all duration-500 group-hover:scale-110"
-                  style={{ boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)' }}
-                >
-                  <svg className="w-10 h-10 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                </div>
-                <h3 className={`font-light text-xl mb-4 tracking-wide ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Relatórios Avançados</h3>
-                <p className={`leading-relaxed text-base font-light flex-grow ${isDarkMode ? 'text-white/80' : 'text-gray-600'}`}>
-                  Relatórios detalhados para tomar decisões estratégicas. 
-                  Dashboards personalizáveis.
-                </p>
-              </div>
-            </div>
-
-            {/* Feature 5 */}
-            <div 
-              data-reveal="feature-5"
-              className={`group h-full card-reveal scroll-reveal-delay-400 ${
-                isAnimated('feature-5') ? 'revealed' : ''
-              }`}
-            >
-              <div 
-                className={`h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col ${isDarkMode ? '' : 'bg-gray-50/90 border-gray-200 shadow-lg'}`}
-                style={isDarkMode ? {
-                  background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  backdropFilter: 'blur(20px)',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-                } : undefined}
-              >
-                <div 
-                  className="w-20 h-20 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-3xl flex items-center justify-center mb-6 shadow-2xl transition-all duration-500 group-hover:scale-110"
-                  style={{ boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)' }}
-                >
-                  <svg className="w-10 h-10 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <h3 className={`font-light text-xl mb-4 tracking-wide ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Acesso Mobile</h3>
-                <p className={`leading-relaxed text-base font-light flex-grow ${isDarkMode ? 'text-white/80' : 'text-gray-600'}`}>
-                  Acesse o sistema de qualquer dispositivo, a qualquer hora. 
-                  Interface responsiva e otimizada.
-                </p>
-              </div>
-            </div>
-
-            {/* Feature 6 */}
-            <div 
-              data-reveal="feature-6"
-              className={`group h-full card-reveal scroll-reveal-delay-500 ${
-                isAnimated('feature-6') ? 'revealed' : ''
-              }`}
-            >
-              <div 
-                className={`h-full rounded-3xl p-8 border transition-all duration-500 ease-out hover:transform hover:scale-105 group-hover:shadow-2xl flex flex-col ${isDarkMode ? '' : 'bg-gray-50/90 border-gray-200 shadow-lg'}`}
-                style={isDarkMode ? {
-                  background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  backdropFilter: 'blur(20px)',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-                } : undefined}
-              >
-                <div 
-                  className="w-20 h-20 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-3xl flex items-center justify-center mb-6 shadow-2xl transition-all duration-500 group-hover:scale-110"
-                  style={{ boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)' }}
-                >
-                  <svg className="w-10 h-10 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
-                </div>
-                <h3 className={`font-light text-xl mb-4 tracking-wide ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Segurança Total</h3>
-                <p className={`leading-relaxed text-base font-light flex-grow ${isDarkMode ? 'text-white/80' : 'text-gray-600'}`}>
-                  Seus dados protegidos com a mais alta segurança. 
-                  Backup automático e criptografia.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Pricing Section */}
-      <div id="precos" className="relative z-10 px-4 sm:px-6 md:px-8 py-12 md:py-20 lg:px-12">
+      <div id="precos" className="relative z-10 px-4 sm:px-6 md:px-8 pt-12 md:pt-16 pb-6 md:pb-8 lg:px-12">
         <div 
           className="mx-auto max-w-7xl"
           ref={(el) => {
@@ -1058,134 +765,73 @@ export default function Home() {
               isAnimated('pricing-header') ? 'revealed' : ''
             }`}
           >
-            <h2 className={`text-6xl md:text-7xl font-light mb-8 leading-none tracking-tight ${
+            <h2 className={`text-5xl sm:text-6xl md:text-7xl font-light mb-6 md:mb-8 leading-none tracking-tight ${
               isDarkMode ? 'text-gradient-accent' : 'text-gray-800'
             }`}>
               Nossos valores
             </h2>
-            <p className={`text-xl md:text-2xl max-w-4xl mx-auto leading-relaxed font-light ${
-              isDarkMode ? 'text-white/70' : 'text-gray-600'
+            <p className={`text-lg md:text-xl max-w-2xl mx-auto leading-relaxed font-light ${
+              isDarkMode ? 'text-white/60' : 'text-gray-600'
             }`}>
-              Acesso completo ao sistema por um valor único mensal
+              Comece com {LANDING_TRIAL.label.toLowerCase()} — plano completo com {SYSTEM_FEATURES.length}+ funcionalidades
             </p>
           </div>
 
-          {/* Card único - valor fixo */}
-          <div 
+          <div
             data-reveal="pricing-basic"
-            className={`group relative card-reveal max-w-xl mx-auto ${
-              isAnimated('pricing-basic') ? 'revealed' : ''
-            }`}
+            className={`card-reveal ${isAnimated('pricing-basic') ? 'revealed' : ''}`}
           >
-            <div 
-              className={`rounded-3xl p-6 md:p-8 border transition-all duration-500 ease-out hover:shadow-2xl flex flex-col relative overflow-hidden ${
-                isDarkMode ? '' : 'bg-white border-gray-200 shadow-xl'
-              }`}
-              style={isDarkMode ? {
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.12)',
-                backdropFilter: 'blur(10px)'
-              } : undefined}
-            >
-              {/* Ícone */}
-              <div className="relative z-10 mb-4 md:mb-6">
-                <div 
-                  className="w-14 h-14 md:w-16 md:h-16 bg-gradient-to-br from-[#D1FE6E] to-[#B8E55A] rounded-2xl flex items-center justify-center shadow-2xl"
-                  style={{ boxShadow: '0 8px 32px rgba(209, 254, 110, 0.2)' }}
-                >
-                  <svg className="w-7 h-7 md:w-8 md:h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                </div>
-              </div>
-
-              <div className="relative z-10 flex-grow">
-                <div className="mb-4">
-                  <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded mb-3 ${
-                    isDarkMode ? 'bg-white/5 text-white/80' : 'bg-gray-100 text-gray-700'
-                  }`}>
-                    Acesso completo ao sistema
-                  </span>
-                  <p className={`text-sm mb-4 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>Tudo que sua assistência precisa em uma única assinatura</p>
-                </div>
-
-                {/* Preço fixo - valor dinâmico da config */}
-                <PrecoAssinatura isDarkMode={isDarkMode} />
-
-                {/* Principais serviços do sistema */}
-                <p className={`text-xs font-medium uppercase tracking-wider mb-4 ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>Incluído no sistema</p>
-                <div className="space-y-3 mb-8">
-                  {[
-                    'Ordens de serviço (OS completo)',
-                    'Gestão de clientes e histórico',
-                    'Caixa e controle financeiro',
-                    'Contas a pagar',
-                    'Produtos, serviços e catálogo',
-                    'Dashboard e relatórios em tempo real',
-                    'Acesso mobile e responsivo',
-                    'Dados na nuvem com segurança'
-                  ].map((item) => (
-                    <div key={item} className="flex items-center">
-                      <div className="w-5 h-5 bg-[#D1FE6E] rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-                        <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <span className={`text-sm ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>{item}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="relative z-10 mt-auto">
-                <button 
-                  onClick={() => router.push('/cadastro')}
-                  className="w-full py-3 md:py-4 bg-[#D1FE6E] text-black rounded-2xl font-medium hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-[1.02] text-sm md:text-base"
-                  style={{ boxShadow: '0 4px 20px rgba(209, 254, 110, 0.3)' }}
-                >
-                  Começar agora
-                </button>
-              </div>
-            </div>
+            <PricingSection
+              isDarkMode={isDarkMode}
+              features={SYSTEM_FEATURES}
+              onContact={handleContatoEquipe}
+            />
           </div>
 
           {/* Additional Info */}
           <div 
             data-reveal="pricing-info"
-            className={`text-center mt-16 scroll-reveal-fade scroll-reveal-delay-300 ${
+            className={`text-center mt-6 md:mt-8 scroll-reveal-fade scroll-reveal-delay-300 ${
               isAnimated('pricing-info') ? 'revealed' : ''
             }`}
           >
             <p className={`text-sm max-w-2xl mx-auto ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>
-              Suporte por email e chat. Cancelamento a qualquer momento.
+              {LANDING_TRIAL.label} para experimentar. Suporte por email e chat. Cancelamento a qualquer momento.
             </p>
           </div>
         </div>
       </div>
 
       {/* CTA Section */}
-      <div className="relative z-10 px-8 py-32 lg:px-12">
+      <div className="relative z-10 px-4 sm:px-6 md:px-8 pt-4 pb-16 md:pt-6 md:pb-20 lg:px-12">
         <div className="mx-auto max-w-5xl text-center">
-          <div className={`backdrop-blur-sm rounded-3xl p-16 border ${
+          <div className={`backdrop-blur-sm rounded-3xl p-8 sm:p-10 md:p-12 border ${
             isDarkMode ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-gray-200 shadow-lg'
           }`}>
-            <h2 className={`text-6xl md:text-7xl font-light mb-8 leading-none tracking-tight ${
+            <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full border mb-6 ${
+              isDarkMode ? 'border-[#D1FE6E]/25 bg-[#D1FE6E]/10' : 'border-[#B8E55A]/40 bg-[#D1FE6E]/15'
+            }`}>
+              <span className={`text-xs font-medium tracking-wide uppercase ${isDarkMode ? 'text-[#D1FE6E]' : 'text-gray-700'}`}>
+                {LANDING_TRIAL.label}
+              </span>
+            </div>
+            <h2 className={`text-4xl sm:text-5xl md:text-6xl font-light mb-6 leading-none tracking-tight ${
               isDarkMode ? 'text-white' : 'text-gray-900'
             }`}>
               Pronto para transformar sua assistência?
             </h2>
-            <p className={`text-xl md:text-2xl mb-12 leading-relaxed font-light max-w-4xl mx-auto ${
-              isDarkMode ? 'text-white/70' : 'text-gray-600'
+            <p className={`text-lg md:text-xl mb-10 leading-relaxed font-light max-w-2xl mx-auto ${
+              isDarkMode ? 'text-white/65' : 'text-gray-600'
             }`}>
-              Junte-se a centenas de assistências que já confiam no Consert para 
-              gerenciar seus negócios de forma mais eficiente e lucrativa!
+              Junte-se a centenas de assistências que já confiam no Gestão Consert.
+              {` ${LANDING_TRIAL.description}`}
             </p>
-            <div className="flex flex-col sm:flex-row gap-8 justify-center items-center">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <button 
-                onClick={() => router.push('/cadastro')}
-                className="px-12 py-5 bg-[#D1FE6E] text-black rounded-full font-medium text-lg hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105"
+                onClick={() => router.push('/fale-conosco')}
+                className="px-10 py-4 bg-[#D1FE6E] text-black rounded-full font-medium text-base sm:text-lg hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105"
               >
-                Começar Agora
+                {LANDING_TRIAL.shortLabel}
               </button>
               <button 
                 onClick={() => router.push('/login')}
@@ -1213,7 +859,7 @@ export default function Home() {
             <div className="flex flex-col items-center md:items-start">
               <Image 
                 src={isDarkMode ? "/assets/imagens/logobranco.png" : "/assets/imagens/logopreto.png"} 
-                alt="CONSERT Logo" 
+                alt="Gestão Consert Logo" 
                 width={180} 
                 height={180}
                 className="transition-all duration-500 ease-out hover:scale-105 hover:brightness-110 mb-6"
@@ -1351,20 +997,27 @@ export default function Home() {
                   <svg className="w-5 h-5 text-[#B8E55A] mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                   </svg>
-                  <span className={isDarkMode ? 'text-white/70' : 'text-gray-600'}>(11) 4002-8922</span>
+                  <a href="tel:+5512988353971" className={`hover:text-[#B8E55A] transition-colors ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
+                    (12) 98835-3971
+                  </a>
                 </li>
                 <li className="flex items-start">
                   <svg className="w-5 h-5 text-[#B8E55A] mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
-                  <span className={isDarkMode ? 'text-white/70' : 'text-gray-600'}>contato@consert.com.br</span>
+                  <a href="mailto:suporte@gestaoconsert.com.br" className={`hover:text-[#B8E55A] transition-colors ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
+                    suporte@gestaoconsert.com.br
+                  </a>
                 </li>
                 <li className="flex items-start">
                   <svg className="w-5 h-5 text-[#B8E55A] mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
-                  <span className={isDarkMode ? 'text-white/70' : 'text-gray-600'}>Av. Paulista, 1000<br />São Paulo, SP</span>
+                  <span className={isDarkMode ? 'text-white/70' : 'text-gray-600'}>
+                    Av. Princesa Isabel, 1417 — Loja 4<br />
+                    Ilhabela, SP
+                  </span>
                 </li>
               </ul>
               
@@ -1395,7 +1048,7 @@ export default function Home() {
           <div className={`border-t pt-8 pb-4 ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`}>
             <div className="flex flex-col md:flex-row justify-between items-center">
               <p className={`text-sm font-light mb-4 md:mb-0 ${isDarkMode ? 'text-white/50' : 'text-gray-500'}`}>
-                 © 2024 CONSERT. Todos os direitos reservados.
+                 © 2026 Gestão Consert. Todos os direitos reservados.
                </p>
               
               <div className="flex items-center space-x-6">
@@ -1407,7 +1060,7 @@ export default function Home() {
             
             <div className="mt-6 text-center">
               <p className={`text-xs ${isDarkMode ? 'text-white/40' : 'text-gray-500'}`}>
-                 <span className="text-[#B8E55A]">CONSERT</span> - Transformando assistências técnicas em negócios de sucesso desde 2022.
+                 <span className="text-[#B8E55A]">Gestão Consert</span> — Transformando assistências técnicas em negócios de sucesso desde 2022.
                </p>
             </div>
           </div>

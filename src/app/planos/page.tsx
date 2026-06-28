@@ -125,7 +125,7 @@ export default function PlanosPage() {
           {/* CTA Buttons */}
           <div className="hidden md:flex items-center space-x-6">
             <button 
-              onClick={() => router.push('/cadastro')}
+              onClick={() => router.push('/fale-conosco')}
               className="px-8 py-3 text-black bg-[#D1FE6E] rounded-full font-medium hover:bg-[#B8E55A] transition-all duration-300 transform hover:scale-105"
             >
               Começar Agora

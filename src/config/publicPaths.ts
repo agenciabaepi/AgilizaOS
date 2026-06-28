@@ -6,6 +6,7 @@ const PUBLIC_PATH_LIST = [
   '/admin-login',
   '/login',
   '/cadastro',
+  '/fale-conosco',
   '/empresa-desativada',
   '/',
   '/sobre',

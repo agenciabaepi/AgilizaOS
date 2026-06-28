@@ -973,10 +973,10 @@ function LoginClientInner() {
                     Não tem uma conta?{' '}
                     <button
                       type="button"
-                      onClick={() => router.push('/cadastro')}
+                      onClick={() => router.push('/fale-conosco')}
                       className="text-gray-900 hover:text-gray-700 font-medium underline transition-colors"
                     >
-                      Crie a sua agora
+                      Fale com nossa equipe
                     </button>
                   </p>
                 </div>

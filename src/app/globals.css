@@ -348,6 +348,109 @@ html.dark {
   animation-delay: 1.4s;
 }
 
+.app-showcase-image-fade {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 42%,
+    rgba(0, 0, 0, 0.85) 58%,
+    rgba(0, 0, 0, 0.45) 72%,
+    rgba(0, 0, 0, 0.15) 86%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 42%,
+    rgba(0, 0, 0, 0.85) 58%,
+    rgba(0, 0, 0, 0.45) 72%,
+    rgba(0, 0, 0, 0.15) 86%,
+    transparent 100%
+  );
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+@keyframes features-marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.features-marquee-row {
+  mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
+}
+
+.features-marquee-track {
+  animation: features-marquee 55s linear infinite;
+  will-change: transform;
+}
+
+.features-marquee-reverse {
+  animation-direction: reverse;
+}
+
+.features-marquee-row:hover .features-marquee-track {
+  animation-play-state: paused;
+}
+
+@keyframes system-showcase-marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.system-showcase-marquee {
+  mask-image: linear-gradient(to right, transparent, black 4%, black 96%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 4%, black 96%, transparent);
+}
+
+.system-showcase-track {
+  animation: system-showcase-marquee 75s linear infinite;
+  will-change: transform;
+}
+
+.system-showcase-marquee:hover .system-showcase-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .features-marquee-track {
+    animation: none;
+    flex-wrap: wrap;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .features-marquee-row {
+    mask-image: none;
+    -webkit-mask-image: none;
+    overflow: visible;
+  }
+
+  .system-showcase-track {
+    animation: none;
+    flex-wrap: wrap;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .system-showcase-marquee {
+    mask-image: none;
+    -webkit-mask-image: none;
+    overflow: visible;
+  }
+}
+
 .animate-progress-bar {
   animation: progress-bar 1.5s ease-in-out;
 }

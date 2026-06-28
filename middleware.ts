@@ -48,7 +48,7 @@ export async function middleware(request: NextRequest) {
 
   // Rotas públicas – lógica inline para evitar import no Edge Runtime (evita erro webpack)
   const publicPaths = [
-    '/login', '/cadastro', '/empresa-desativada', '/', '/sobre', '/termos', '/politicas-privacidade',
+    '/login', '/cadastro', '/fale-conosco', '/empresa-desativada', '/', '/sobre', '/termos', '/politicas-privacidade',
     '/planos', '/pagamentos/sucesso', '/pagamentos/falha', '/pagamentos/pendente',
     '/instrucoes-verificacao', '/clear-auth', '/clear-cache', '/os', '/os/buscar',
   ];
