@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import logo from '@/assets/imagens/logobranco.png';
 import { FiCheckCircle, FiMail, FiLock, FiArrowRight } from 'react-icons/fi';
+import { LANDING_TRIAL } from '@/config/landing';
 
 export default function CadastroSucessoPage() {
   const router = useRouter();
@@ -47,7 +48,7 @@ export default function CadastroSucessoPage() {
             <FiCheckCircle className="w-20 h-20 text-[#D1FE6E] mx-auto mb-4" />
             <h1 className="text-3xl font-light text-white mb-4">Cadastro concluído!</h1>
             <p className="text-white/70 mb-6">
-              Sua empresa foi criada e você tem acesso ao sistema por 15 dias gratuitamente.
+              Sua empresa foi criada e você tem acesso ao sistema por {LANDING_TRIAL.days} dias gratuitamente.
             </p>
           </div>
 
@@ -89,7 +90,7 @@ export default function CadastroSucessoPage() {
           <div className="rounded-lg p-6 mb-6 border" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)', border: '1px solid rgba(255,255,255,0.12)' }}>
             <h2 className="text-lg font-medium text-white mb-2">Informações importantes</h2>
             <ul className="text-sm text-white/70 space-y-2">
-              <li>• Seu período de teste é de 15 dias gratuitos</li>
+              <li>• Seu período de teste é de {LANDING_TRIAL.days} dias gratuitos</li>
               <li>• Você pode fazer login com seu e-mail e senha</li>
               <li>• Todos os dados estão seguros na nuvem</li>
               <li>• Suporte disponível durante o período de teste</li>

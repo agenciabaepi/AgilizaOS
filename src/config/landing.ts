@@ -1,9 +1,11 @@
+import { DIAS_TRIAL_GRATIS } from './trial';
+
 export const LANDING_TRIAL = {
-  days: 7,
-  label: '7 dias grátis',
-  shortLabel: 'Testar 7 dias grátis',
+  days: DIAS_TRIAL_GRATIS,
+  label: `${DIAS_TRIAL_GRATIS} dias grátis`,
+  shortLabel: `Testar ${DIAS_TRIAL_GRATIS} dias grátis`,
   note: 'Sem cartão de crédito. Cancele quando quiser.',
-  description: 'Teste o sistema completo por 7 dias, sem compromisso.',
+  description: `Teste o sistema completo por ${DIAS_TRIAL_GRATIS} dias, sem compromisso.`,
 } as const;
 
 export const SYSTEM_FEATURES = [

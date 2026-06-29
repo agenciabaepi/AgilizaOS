@@ -14,6 +14,7 @@ import {
   FaArrowLeft
 } from 'react-icons/fa';
 import { mask as masker } from 'remask';
+import { LANDING_TRIAL } from '@/config/landing';
 
 export default function CadastroEmpresa() {
   const [step, setStep] = useState(1);
@@ -296,7 +297,7 @@ export default function CadastroEmpresa() {
           </button>
         </div>
         <p className="text-center text-[#D1FE6E]/80 font-medium text-sm mb-4">
-          Experimente gratuitamente por 15 dias. Sem cartão de crédito!
+          Experimente gratuitamente por {LANDING_TRIAL.days} dias. Sem cartão de crédito!
         </p>
         
         {/* Indicador de Etapas */}

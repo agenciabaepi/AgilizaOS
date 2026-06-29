@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from './Button';
+import { DIAS_TRIAL_GRATIS } from '@/config/trial';
 
 interface TrialExpiredBannerProps {
   assinaturaId: string;
@@ -104,7 +105,7 @@ export default function TrialExpiredBanner({
             Período de Teste Expirado
           </h3>
           <p className="text-red-700 text-sm">
-            Seu período gratuito de 15 dias expirou. Para continuar usando o Consert, 
+            Seu período gratuito de {DIAS_TRIAL_GRATIS} dias expirou. Para continuar usando o Consert, 
             escolha um plano e faça o pagamento.
           </p>
         </div>

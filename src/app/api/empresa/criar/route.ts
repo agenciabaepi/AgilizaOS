@@ -133,7 +133,7 @@ export async function POST(request: Request) {
         .single();
 
       if (planoTrial) {
-        // Alinhar ao trial implícito (empresa.created_at + 15 dias), não ao relógio do request
+        // Alinhar ao trial implícito (empresa.created_at + DIAS_TRIAL_GRATIS), não ao relógio do request
         const dataInicio = empresa.created_at
           ? new Date(empresa.created_at as string)
           : new Date();

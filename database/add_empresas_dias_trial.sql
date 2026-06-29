@@ -1,4 +1,4 @@
--- Prazo de teste customizado por empresa (null = padrão 15 dias em config/trial.ts)
+-- Prazo de teste customizado por empresa (null = padrão 7 dias em config/trial.ts)
 ALTER TABLE public.empresas
   ADD COLUMN IF NOT EXISTS dias_trial INTEGER NULL;
 
@@ -56,7 +56,7 @@ BEGIN
         OR (
           a.data_trial_fim IS NULL
           AND (
-            timezone('America/Sao_Paulo', e_created + (COALESCE(e_dias_trial, 15) || ' days')::interval)
+            timezone('America/Sao_Paulo', e_created + (COALESCE(e_dias_trial, 7) || ' days')::interval)
           )::date >= br_today
         )
       )
@@ -91,7 +91,7 @@ BEGIN
     RETURN false;
   END IF;
 
-  trial_fim_ts := e_created + (COALESCE(e_dias_trial, 15) || ' days')::interval;
+  trial_fim_ts := e_created + (COALESCE(e_dias_trial, 7) || ' days')::interval;
   ref_date := (timezone('America/Sao_Paulo', trial_fim_ts))::date;
   RETURN ref_date >= br_today;
 END;
