@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { isAdminAuthorized } from '@/lib/admin-auth';
 import {
   dataFimTrialAPartirDe,
@@ -23,6 +24,39 @@ function parseDataTrialFim(v: unknown): string | null {
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return null;
   return d.toISOString();
+}
+
+/** `assinaturas.plano_id` é NOT NULL — reutiliza existente ou busca plano Trial. */
+async function resolveTrialPlanoId(
+  supabase: SupabaseClient,
+  existingPlanoId?: string | null
+): Promise<string> {
+  if (existingPlanoId) return existingPlanoId;
+
+  const { data: planoTrial } = await supabase
+    .from('planos')
+    .select('id')
+    .eq('nome', 'Trial')
+    .maybeSingle();
+  if (planoTrial?.id) return planoTrial.id;
+
+  const { data: planoIlike } = await supabase
+    .from('planos')
+    .select('id')
+    .ilike('nome', '%trial%')
+    .limit(1)
+    .maybeSingle();
+  if (planoIlike?.id) return planoIlike.id;
+
+  const { data: primeiroPlano } = await supabase
+    .from('planos')
+    .select('id')
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (primeiroPlano?.id) return primeiroPlano.id;
+
+  throw new Error('Nenhum plano cadastrado. Crie um plano "Trial" em planos antes de definir o período de teste.');
 }
 
 /**
@@ -101,11 +135,16 @@ export async function POST(
 
     const { data: assinaturaAtual } = await supabase
       .from('assinaturas')
-      .select('id, status')
+      .select('id, status, plano_id')
       .eq('empresa_id', empresaId)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    const planoId = await resolveTrialPlanoId(
+      supabase,
+      assinaturaAtual?.plano_id as string | null | undefined
+    );
 
     const agora = new Date().toISOString();
     const obs = `Trial definido pelo admin: ${diasEfetivos} dias (${contarDe === 'criacao' ? 'desde criação' : 'a partir de hoje'}). Fim: ${dataTrialFim}`;
@@ -115,6 +154,7 @@ export async function POST(
         .from('assinaturas')
         .update({
           status: 'trial',
+          plano_id: planoId,
           data_trial_fim: dataTrialFim,
           data_inicio: contarDe === 'criacao' ? createdAt : agora,
           observacoes: obs,
@@ -128,6 +168,7 @@ export async function POST(
     } else {
       const { error: insertError } = await supabase.from('assinaturas').insert({
         empresa_id: empresaId,
+        plano_id: planoId,
         status: 'trial',
         data_inicio: contarDe === 'criacao' ? createdAt : agora,
         data_trial_fim: dataTrialFim,
