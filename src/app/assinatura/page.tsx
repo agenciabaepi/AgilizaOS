@@ -9,6 +9,7 @@ import { FiCreditCard, FiCheckCircle, FiClock, FiRefreshCw, FiArrowRight, FiX } 
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import PixQRCode from '@/components/PixQRCode';
+import RenovarSistemaShowcase from '@/components/assinatura/RenovarSistemaShowcase';
 import { useSubscription, dispatchAssinaturaUpdated } from '@/hooks/useSubscription';
 import { computeDiasTrialTotal, dataFimTrialAPartirDe } from '@/config/trial';
 
@@ -386,6 +387,10 @@ export default function AssinaturaPage() {
                 <FiArrowRight size={16} />
               </Button>
             </Link>
+          </div>
+
+          <div className="mb-6">
+            <RenovarSistemaShowcase />
           </div>
 
           {/* Resumo da assinatura (vencimento e dias restantes) */}

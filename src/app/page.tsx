@@ -12,29 +12,7 @@ import SystemShowcaseSlider from '@/components/landing/SystemShowcaseSlider';
 import PricingSection from '@/components/landing/PricingSection';
 import AppShowcase from '@/components/landing/AppShowcase';
 import { abrirWhatsApp } from '@/config/contato';
-import { LANDING_TRIAL } from '@/config/landing';
-
-const SYSTEM_FEATURES = [
-  'Ordens de serviço completas',
-  'App mobile para técnicos',
-  'Dashboard e relatórios em tempo real',
-  'Comissões de técnicos',
-  'Contas a pagar',
-  'Financeiro e lucro',
-  'Produtos, estoque e catálogo',
-  'Gestão de clientes',
-  'Caixa e fluxo financeiro',
-  'Laudos com IA',
-  'WhatsApp integrado',
-  'Checklist digital',
-  'Orçamentos e PDV',
-  'Bancada do técnico',
-  'Multi-usuários e permissões',
-  'Impressão e PDF',
-  'Lembretes e alertas',
-  'Fornecedores e equipamentos',
-  'Sistema de notas fiscais (NFC)',
-];
+import { LANDING_TRIAL, SYSTEM_FEATURES } from '@/config/landing';
 
 export default function Home() {
   const router = useRouter();
