@@ -14,6 +14,8 @@ export type ComputeAssinaturaVencidaOptions = {
   empresaIdPresent?: boolean;
   /** Admin liberou acesso sem assinatura paga (coluna `empresas.sistema_liberado`). */
   sistemaLiberado?: boolean;
+  /** Dias de trial customizados (`empresas.dias_trial`). */
+  empresaDiasTrial?: number | null;
   /** Se definido, usa dias civis nesse fuso; senão, o mesmo critério `diffDiasCalendario` (local do ambiente). */
   timeZone?: string;
 };
@@ -41,7 +43,7 @@ export function computeAssinaturaVencidaPorBilling(
   if (!assinatura) {
     const created = typeof empresaCreatedAt === 'string' ? empresaCreatedAt.trim() : '';
     if (!created) return true;
-    const implicitEnd = dataFimTrialAPartirDe(created);
+    const implicitEnd = dataFimTrialAPartirDe(created, opts?.empresaDiasTrial);
     if (!implicitEnd) return true;
     const d = diff(implicitEnd);
     return d !== null && d < 0;
@@ -69,7 +71,7 @@ export function computeAssinaturaVencidaPorBilling(
     } else {
       const created = typeof empresaCreatedAt === 'string' ? empresaCreatedAt.trim() : '';
       if (created) {
-        const implicitEnd = dataFimTrialAPartirDe(created);
+        const implicitEnd = dataFimTrialAPartirDe(created, opts?.empresaDiasTrial);
         if (implicitEnd) {
           const d = diff(implicitEnd);
           if (d !== null && d < 0) return true;

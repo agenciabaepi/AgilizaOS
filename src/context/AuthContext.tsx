@@ -31,6 +31,8 @@ interface EmpresaData {
   recursos_customizados?: Record<string, boolean> | null; // Recursos customizados pelo admin
   /** Data de criação da empresa (trial implícito quando não há linha em `assinaturas`). */
   created_at?: string | null;
+  /** Prazo de teste customizado pelo admin (dias). */
+  dias_trial?: number | null;
 }
 
 interface AuthContextType {

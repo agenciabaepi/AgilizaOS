@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getEmpresaIdForUser, getSessionUserId } from '@/lib/api/routeAuthEmpresa';
+import { getEmpresaIdForUser, getSessionUserId, getUsuarioForAuth } from '@/lib/api/routeAuthEmpresa';
 import { createAdminClient } from '@/lib/supabaseClient';
-import { appendMensagem, getEmpresaConfig } from '@/lib/whatsapp-crm/conversations';
+import {
+  appendMensagem,
+  getEmpresaConfig,
+  updateMensagemEntrega,
+} from '@/lib/whatsapp-crm/conversations';
 import { sendWhatsAppTextMessage } from '@/lib/whatsapp-crm/graph-api';
 
 async function resolveEmpresa(req: NextRequest) {
@@ -67,32 +71,42 @@ export async function POST(
     }
 
     const config = await getEmpresaConfig(supabase, auth.empresaId);
-    const sendResult = await sendWhatsAppTextMessage({
-      to: conversa.telefone,
-      message: conteudo.trim(),
-      config,
-    });
+    if (!config?.ativo) {
+      return NextResponse.json({ error: 'WhatsApp não configurado ou inativo' }, { status: 400 });
+    }
+
+    const texto = conteudo.trim();
+    const usuario = await getUsuarioForAuth(auth.userId);
 
     const msg = await appendMensagem(supabase, {
       conversa_id: conversaId,
       empresa_id: auth.empresaId,
       direcao: 'saida',
       tipo: 'texto',
-      conteudo: conteudo.trim(),
-      meta_message_id: sendResult.messageId,
-      status_entrega: sendResult.success ? 'enviada' : 'falha',
+      conteudo: texto,
+      status_entrega: 'enviada',
       os_id: conversa.os_id,
-      enviado_por_usuario_id: auth.userId,
+      enviado_por_usuario_id: usuario?.id ?? null,
     });
 
-    if (!sendResult.success) {
-      return NextResponse.json(
-        { success: false, error: sendResult.error, data: msg },
-        { status: 502 }
-      );
-    }
+    const sendResult = await sendWhatsAppTextMessage({
+      to: conversa.telefone,
+      message: texto,
+      config,
+    });
 
-    return NextResponse.json({ success: true, data: msg });
+    const msgFinal = await updateMensagemEntrega(supabase, msg.id, {
+      meta_message_id: sendResult.messageId ?? null,
+      status_entrega: sendResult.success ? 'enviada' : 'falha',
+      erro_entrega: sendResult.success ? null : sendResult.error ?? 'Falha ao enviar',
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: msgFinal,
+      enviado_whatsapp: sendResult.success,
+      erro: sendResult.success ? undefined : sendResult.error,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erro interno';
     return NextResponse.json({ error: message }, { status: 500 });

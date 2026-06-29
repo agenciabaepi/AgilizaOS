@@ -28,6 +28,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { canUseModule } from '@/lib/permissions'
+import { WHATSAPP_CRM_ENABLED } from '@/config/whatsapp-crm-config'
 
 const EmpresaPage = dynamic(() => import('./empresa/page'), { ssr: false })
 import UsuariosPage from './usuarios/page'
@@ -91,9 +92,10 @@ function ConfiguracoesInner() {
     if (!canUseModule('configuracoes', usuarioData.nivel, usuarioData.permissoes)) return []
     return tabsConfig
       .map((tab, index) => ({ tab, index }))
-      .filter(({ tab }) =>
-        canUseModule(tab.permissao, usuarioData.nivel, usuarioData.permissoes)
-      )
+      .filter(({ tab }) => {
+        if (tab.permissao === 'whatsapp' && !WHATSAPP_CRM_ENABLED) return false
+        return canUseModule(tab.permissao, usuarioData.nivel, usuarioData.permissoes)
+      })
   }, [usuarioData])
 
   useEffect(() => {

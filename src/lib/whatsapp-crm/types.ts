@@ -61,6 +61,29 @@ export interface WhatsAppConversa {
   /** Joins opcionais */
   clientes?: { id: string; nome: string; telefone?: string; celular?: string; email?: string; documento?: string; observacoes?: string } | null;
   ordens_servico?: { id: string; numero_os: number; status: string; equipamento?: string; marca?: string; modelo?: string } | null;
+  usuarios?: { id: string; nome: string; nivel?: string } | null;
+}
+
+export interface WhatsAppAtendente {
+  id: string;
+  nome: string;
+  nivel: string | null;
+}
+
+export interface WhatsAppOrdemResumo {
+  id: string;
+  numero_os: number;
+  status: string | null;
+  status_tecnico: string | null;
+  equipamento: string | null;
+  marca: string | null;
+  modelo: string | null;
+  cor: string | null;
+  valor_faturado: number | null;
+  valor_servico: number | null;
+  valor_peca: number | null;
+  created_at: string;
+  data_entrega: string | null;
 }
 
 export interface WhatsAppMensagem {

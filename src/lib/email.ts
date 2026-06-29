@@ -1,87 +1,232 @@
+import fs from 'fs'
+import path from 'path'
 import nodemailer from 'nodemailer'
 
-// Função para criar o transportador SMTP dinamicamente
+const LOGO_CID = 'logo-consert@gestaoconsert'
+const LOGO_PUBLIC_URL = 'https://gestaoconsert.com.br/assets/imagens/logobranco.png'
+
+const BRAND = {
+  green: '#D1FE6E',
+  greenDark: '#9BCF4A',
+  dark: '#111827',
+  muted: '#6B7280',
+  border: '#E5E7EB',
+  bg: '#F3F4F6',
+} as const
+
 function criarTransporter() {
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.hostinger.com',
     port: parseInt(process.env.SMTP_PORT || '465'),
-    secure: process.env.SMTP_SECURE === 'true' || true, // true para 465, false para outros
+    secure: process.env.SMTP_SECURE === 'true' || true,
     auth: {
       user: process.env.SMTP_USER || 'suporte@gestaoconsert.com.br',
-      pass: process.env.SMTP_PASS
-    }
+      pass: process.env.SMTP_PASS,
+    },
   })
 }
 
-// Gerar código de verificação de 6 dígitos
+function getSiteBaseUrl(): string {
+  const url =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    'https://gestaoconsert.com.br'
+  return url.replace(/\/$/, '')
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+/** Logo embutido no e-mail (CID) — não depende de URL externa no Gmail/Outlook */
+function getEmailLogoAttachment(): nodemailer.SendMailOptions['attachments'] {
+  const logoPath = path.join(process.cwd(), 'public/assets/imagens/logobranco.png')
+  if (!fs.existsSync(logoPath)) return []
+
+  return [
+    {
+      filename: 'logobranco.png',
+      path: logoPath,
+      cid: LOGO_CID,
+    },
+  ]
+}
+
+function getEmailLogoSrc(): string {
+  const logoPath = path.join(process.cwd(), 'public/assets/imagens/logobranco.png')
+  return fs.existsSync(logoPath) ? `cid:${LOGO_CID}` : LOGO_PUBLIC_URL
+}
+
+/** Layout base para e-mails transacionais do Consert */
+function buildEmailLayout(options: {
+  preheader: string
+  title: string
+  bodyHtml: string
+  footerNote?: string
+}): string {
+  const baseUrl = getSiteBaseUrl()
+  const logoSrc = getEmailLogoSrc()
+  const loginUrl = `${baseUrl}/login`
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title>${escapeHtml(options.title)}</title>
+  <!--[if mso]>
+  <style type="text/css">
+    body, table, td { font-family: Arial, Helvetica, sans-serif !important; }
+  </style>
+  <![endif]-->
+</head>
+<body style="margin:0;padding:0;background-color:${BRAND.bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
+    ${escapeHtml(options.preheader)}
+  </div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:${BRAND.bg};padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;background-color:#ffffff;border-radius:16px;overflow:hidden;border:1px solid ${BRAND.border};box-shadow:0 4px 24px rgba(17,24,39,0.08);">
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg, ${BRAND.dark} 0%, #1f2937 100%);padding:28px 32px;text-align:center;">
+              <a href="${baseUrl}" style="text-decoration:none;display:inline-block;">
+                <img
+                  src="${logoSrc}"
+                  alt="Consert — Gestão para assistências técnicas"
+                  width="200"
+                  style="display:block;margin:0 auto;max-width:200px;width:200px;height:auto;border:0;"
+                />
+              </a>
+            </td>
+          </tr>
+          <!-- Body -->
+          <tr>
+            <td style="padding:32px 32px 24px;">
+              ${options.bodyHtml}
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="padding:20px 32px 28px;border-top:1px solid ${BRAND.border};background-color:#FAFAFA;">
+              <p style="margin:0 0 12px;font-size:13px;line-height:1.5;color:${BRAND.muted};text-align:center;">
+                ${options.footerNote ?? 'Este e-mail foi enviado automaticamente. Não responda a esta mensagem.'}
+              </p>
+              <p style="margin:0;font-size:12px;line-height:1.5;color:#9CA3AF;text-align:center;">
+                <a href="${baseUrl}" style="color:#374151;text-decoration:none;font-weight:500;">gestaoconsert.com.br</a>
+                &nbsp;·&nbsp;
+                <a href="${loginUrl}" style="color:#374151;text-decoration:none;font-weight:500;">Acessar o sistema</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+        <p style="margin:20px 0 0;font-size:11px;color:#9CA3AF;text-align:center;">
+          © ${new Date().getFullYear()} Gestão Consert
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+}
+
 export function gerarCodigoVerificacao(): string {
   return Math.floor(100000 + Math.random() * 900000).toString()
 }
 
-// Enviar email de verificação
 export async function enviarEmailVerificacao(
-  email: string, 
-  codigo: string, 
+  email: string,
+  codigo: string,
   nomeEmpresa: string
 ): Promise<boolean> {
   try {
     const transporter = criarTransporter()
-    const info = await transporter.sendMail({
-      from: '"Gestão Concert" <suporte@gestaoconsert.com.br>',
+    const baseUrl = getSiteBaseUrl()
+    const loginUrl = `${baseUrl}/login`
+    const empresa = escapeHtml(nomeEmpresa)
+
+    const bodyHtml = `
+      <h1 style="margin:0 0 8px;font-size:22px;font-weight:600;color:${BRAND.dark};letter-spacing:-0.02em;">
+        Bem-vindo, ${empresa}!
+      </h1>
+      <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:${BRAND.muted};">
+        Obrigado por se cadastrar no Consert. Para ativar sua conta e acessar o sistema,
+        confirme seu e-mail com o código abaixo no primeiro login.
+      </p>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 24px;">
+        <tr>
+          <td style="background-color:#F9FAFB;border:2px dashed ${BRAND.border};border-radius:12px;padding:24px;text-align:center;">
+            <p style="margin:0 0 8px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:${BRAND.muted};">
+              Seu código de verificação
+            </p>
+            <p style="margin:0;font-size:36px;font-weight:700;letter-spacing:0.35em;color:${BRAND.dark};font-family:'Courier New',Courier,monospace;padding-left:0.35em;">
+              ${codigo}
+            </p>
+            <p style="margin:12px 0 0;font-size:13px;color:${BRAND.muted};">
+              Válido por <strong style="color:${BRAND.dark};">24 horas</strong>
+            </p>
+          </td>
+        </tr>
+      </table>
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 24px;">
+        <tr>
+          <td style="border-radius:10px;background-color:${BRAND.green};">
+            <a
+              href="${loginUrl}"
+              style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:600;color:${BRAND.dark};text-decoration:none;"
+            >
+              Ir para o login
+            </a>
+          </td>
+        </tr>
+      </table>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+        <tr>
+          <td style="background-color:#FFFBEB;border-left:4px solid #F59E0B;border-radius:8px;padding:14px 16px;">
+            <p style="margin:0;font-size:13px;line-height:1.55;color:#92400E;">
+              <strong>Dica:</strong> Na tela de login, informe este código quando solicitado.
+              Não encontrou o e-mail? Verifique a pasta de spam ou use &quot;Reenviar código&quot;.
+            </p>
+          </td>
+        </tr>
+      </table>`
+
+    const html = buildEmailLayout({
+      preheader: `Seu código de verificação Consert: ${codigo}`,
+      title: 'Confirme seu cadastro',
+      bodyHtml,
+      footerNote:
+        'Se você não solicitou este cadastro, pode ignorar este e-mail com segurança.',
+    })
+
+    const text = `Consert — Confirme seu cadastro
+
+Olá, ${nomeEmpresa}!
+
+Seu código de verificação: ${codigo}
+(Válido por 24 horas)
+
+Acesse ${loginUrl} e informe o código no primeiro login.
+
+Se você não solicitou este cadastro, ignore este e-mail.
+
+— Gestão Consert
+${baseUrl}`
+
+    await transporter.sendMail({
+      from: '"Gestão Consert" <suporte@gestaoconsert.com.br>',
       to: email,
-      subject: 'Confirme seu cadastro - Gestão Concert',
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Confirmação de Cadastro</title>
-        </head>
-        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
-          <div style="background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <h1 style="color: #333; margin: 0;">Gestão Concert</h1>
-              <p style="color: #666; margin: 10px 0 0 0;">Sistema de Gestão para Assistências Técnicas</p>
-            </div>
-            
-            <h2 style="color: #333; margin-bottom: 20px;">Bem-vindo, ${nomeEmpresa}!</h2>
-            
-            <p style="color: #555; line-height: 1.6; margin-bottom: 20px;">
-              Obrigado por se cadastrar na Gestão Concert! Para concluir seu cadastro e ter acesso ao sistema, 
-              você precisa confirmar seu endereço de e-mail.
-            </p>
-            
-            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center; margin: 30px 0;">
-              <p style="color: #333; margin-bottom: 10px; font-weight: bold;">Seu código de verificação é:</p>
-              <div style="font-size: 32px; font-weight: bold; color: #007bff; letter-spacing: 5px; margin: 10px 0;">
-                ${codigo}
-              </div>
-              <p style="color: #666; font-size: 14px; margin-top: 10px;">
-                Este código é válido por 24 horas
-              </p>
-            </div>
-            
-            <p style="color: #555; line-height: 1.6; margin-bottom: 20px;">
-              Na próxima vez que fizer login, insira este código para ativar sua conta e começar a usar 
-              todas as funcionalidades do sistema.
-            </p>
-            
-            <div style="background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin: 20px 0;">
-              <p style="color: #1976d2; margin: 0; font-size: 14px;">
-                <strong>Dica:</strong> Salve este e-mail ou anote o código em um local seguro.
-              </p>
-            </div>
-            
-            <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
-            
-            <p style="color: #666; font-size: 12px; text-align: center; margin: 0;">
-              Este e-mail foi enviado automaticamente. Não responda a esta mensagem.<br>
-              Se você não solicitou este cadastro, pode ignorar este e-mail.
-            </p>
-          </div>
-        </body>
-        </html>
-      `
+      subject: 'Confirme seu cadastro — Gestão Consert',
+      html,
+      text,
+      attachments: getEmailLogoAttachment(),
     })
 
     return true
@@ -91,7 +236,6 @@ export async function enviarEmailVerificacao(
   }
 }
 
-// Verificar se as configurações estão corretas
 export async function verificarConfiguracao(): Promise<boolean> {
   try {
     const transporter = criarTransporter()

@@ -156,15 +156,12 @@ function LoginClientInner() {
       const data = await response.json();
 
       if (response.ok) {
-        addToast('success', 'Email verificado com sucesso! Agora você pode fazer login.');
-        // Limpar URL e voltar para modo de login
+        addToast('success', 'Email verificado com sucesso! Agora faça login com sua senha.');
+        setLoginInput(pendingEmail);
         window.history.replaceState({}, '', '/login');
         setShowVerification(false);
         setVerificationCode('');
         setPendingEmail('');
-        // Limpar campos do formulário de login
-        setLoginInput('');
-        setPassword('');
       } else {
         addToast('error', data.error || 'Código inválido ou expirado');
       }
@@ -240,122 +237,33 @@ function LoginClientInner() {
         return;
       }
       emailToLogin = result.email;
+
+      // Admin: confirmar email com código antes do primeiro login
+      if (result.nivel === 'admin' && !result.email_verificado) {
+        setIsSubmitting(false);
+        loginInProgress.current = false;
+        setPendingEmail(emailToLogin);
+        setShowVerification(true);
+        addToast('warning', 'Confirme seu email. Digite o código de 6 dígitos enviado para sua caixa de entrada.');
+        return;
+      }
+
+      // Demais usuários: empresa precisa ter admin com email verificado
+      if (result.nivel !== 'admin' && !result.empresa_verificada) {
+        setIsSubmitting(false);
+        loginInProgress.current = false;
+        addToast(
+          'error',
+          'A conta da empresa ainda não foi confirmada. Peça ao administrador para verificar o email.'
+        );
+        return;
+      }
     } catch {
       setIsSubmitting(false);
       loginInProgress.current = false;
       addToast('error', 'Erro ao verificar usuário. Tente novamente.');
       return;
     }
-    
-    // Verificação de email/usuário — pular se não conseguir (RLS pode bloquear)
-    // A autenticação real é feita pelo signInWithPassword abaixo
-    let usuarioVerificacao: { email_verificado?: boolean; auth_user_id?: string; nivel?: string; empresa_id?: string } | null = null;
-    try {
-      const { data, error: verificacaoError } = await supabase
-        .from('usuarios')
-        .select('email_verificado, auth_user_id, nivel, empresa_id')
-        .eq('email', emailToLogin)
-        .single();
-      if (!verificacaoError && data) {
-        usuarioVerificacao = data;
-      }
-    } catch {
-      // RLS pode bloquear — seguir com login normal
-    }
-    
-    // Verificação de email desabilitada - permitir login sem verificação obrigatória
-    // (Comentado para permitir que usuários existentes façam login normalmente)
-    /*
-    // Se o usuário é ADMIN (criador da empresa), verificar se o email foi confirmado
-    if (usuarioVerificacao?.nivel === 'admin' && !usuarioVerificacao?.email_verificado) {
-      setIsSubmitting(false);
-      loginInProgress.current = false;
-      setPendingEmail(emailToLogin);
-      setShowVerification(true);
-      addToast('warning', 'Email não verificado. Digite o código enviado para seu email.');
-      return;
-    }
-    
-    // Se o usuário NÃO é admin, verificar se há pelo menos um ADMIN da empresa verificado
-    // OU se a empresa já está funcionando (tem usuários, ordens, etc - indicando que já foi verificada no passado)
-    if (usuarioVerificacao?.nivel !== 'admin' && usuarioVerificacao?.empresa_id) {
-      // Buscar TODOS os admins da empresa para verificar se pelo menos um foi verificado
-      const { data: adminsEmpresa, error: adminError } = await supabase
-        .from('usuarios')
-        .select('email_verificado, nome, email')
-        .eq('empresa_id', usuarioVerificacao.empresa_id)
-        .eq('nivel', 'admin');
-      
-      console.log('🔍 Debug - Verificação de admins da empresa:', {
-        empresa_id: usuarioVerificacao.empresa_id,
-        adminsEncontrados: adminsEmpresa?.length || 0,
-        adminsDetalhes: adminsEmpresa?.map(a => ({
-          nome: a.nome,
-          email: a.email,
-          verificado: a.email_verificado
-        })),
-        adminError,
-        temAdminVerificado: adminsEmpresa?.some(a => a.email_verificado) || false
-      });
-      
-      if (adminError) {
-        console.error('🔍 Debug - Erro ao buscar admins da empresa:', adminError);
-        setIsSubmitting(false);
-        loginInProgress.current = false;
-        addToast('error', 'Erro ao verificar empresa. Tente novamente.');
-        return;
-      }
-      
-      // Verificar se há pelo menos um admin verificado
-      const temAdminVerificado = adminsEmpresa && adminsEmpresa.length > 0 && 
-        adminsEmpresa.some(admin => admin.email_verificado === true);
-      
-      // Se não tem admin verificado, verificar se a empresa já está ativa (tem ordens, usuários, etc)
-      // Isso indica que a empresa já foi verificada no passado
-      if (!temAdminVerificado) {
-        // Verificar se a empresa já tem atividade (indica que já foi verificada antes)
-        const { data: empresaAtiva, error: empresaError } = await supabase
-          .from('empresas')
-          .select('id')
-          .eq('id', usuarioVerificacao.empresa_id)
-          .single();
-        
-        // Verificar se a empresa tem ordens de serviço (indica atividade)
-        const { count: ordensCount } = await supabase
-          .from('ordens_servico')
-          .select('*', { count: 'exact', head: true })
-          .eq('empresa_id', usuarioVerificacao.empresa_id);
-        
-        const empresaTemAtividade = ordensCount && ordensCount > 0;
-        
-        console.log('🔍 Debug - Verificação adicional de empresa:', {
-          empresa_id: usuarioVerificacao.empresa_id,
-          empresaEncontrada: !!empresaAtiva,
-          temOrdens: empresaTemAtividade,
-          permitirLoginPorAtividade: empresaTemAtividade
-        });
-        
-        // Se a empresa não tem admin verificado E não tem atividade, bloquear login
-        if (!empresaTemAtividade) {
-          console.warn('⚠️ Nenhum admin da empresa verificado e empresa sem atividade:', {
-            empresa_id: usuarioVerificacao.empresa_id,
-            totalAdmins: adminsEmpresa?.length || 0,
-            adminsNaoVerificados: adminsEmpresa?.filter(a => !a.email_verificado).map(a => ({
-              nome: a.nome,
-              email: a.email
-            })) || []
-          });
-          setIsSubmitting(false);
-          loginInProgress.current = false;
-          addToast('error', 'Empresa não verificada. Entre em contato com o administrador.');
-          return;
-        }
-        
-        // Se tem atividade mas não tem admin verificado, apenas logar (empresa já estava funcionando)
-        console.log('✅ Empresa já tem atividade, permitindo login mesmo sem admin verificado');
-      }
-    }
-    */
     
     // Encerrar sessão anterior para não misturar empresa/assinatura entre usuários
     try {
@@ -799,10 +707,7 @@ function LoginClientInner() {
                     Verificar Email
                   </h1>
                   <p className="text-gray-600 font-light">
-                    Como administrador, seu email precisa ser verificado.
-                  </p>
-                  <p className="text-gray-600 font-light">
-                    Digite o código enviado para:
+                    Digite o código de 6 dígitos enviado para seu email ao se cadastrar.
                   </p>
                   <p className="text-blue-600 font-medium mt-1">
                     {pendingEmail}
@@ -988,10 +893,10 @@ function LoginClientInner() {
                     Não tem uma conta?{' '}
                     <button
                       type="button"
-                      onClick={() => router.push('/fale-conosco')}
+                      onClick={() => router.push('/cadastro')}
                       className="text-gray-900 hover:text-gray-700 font-medium underline transition-colors"
                     >
-                      Fale com nossa equipe
+                      Criar conta grátis
                     </button>
                   </p>
                 </div>

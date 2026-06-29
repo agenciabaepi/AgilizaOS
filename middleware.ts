@@ -3,6 +3,31 @@ import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 // Import dinâmico para evitar travar "Compiling middleware" no Turbopack (carrega só em rotas privadas)
 
+const WHATSAPP_CRM_ENABLED =
+  process.env.NEXT_PUBLIC_WHATSAPP_CRM_ENABLED === 'true' ||
+  process.env.NEXT_PUBLIC_ENVIRONMENT === 'beta' ||
+  process.env.NEXT_PUBLIC_ENVIRONMENT === 'development';
+
+function blockWhatsAppCrmRoutes(request: NextRequest): NextResponse | null {
+  if (WHATSAPP_CRM_ENABLED) return null;
+
+  const { pathname } = request.nextUrl;
+
+  if (pathname.startsWith('/api/whatsapp/crm')) {
+    return NextResponse.json({ error: 'Recurso indisponível' }, { status: 404 });
+  }
+
+  if (pathname === '/whatsapp' || pathname.startsWith('/whatsapp/')) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
+  if (pathname === '/configuracoes/whatsapp') {
+    return NextResponse.redirect(new URL('/configuracoes', request.url));
+  }
+
+  return null;
+}
+
 /**
  * Middleware de autenticação - Primeira linha de defesa
  *
@@ -16,6 +41,9 @@ import { createServerClient } from '@supabase/ssr';
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  const crmBlock = blockWhatsAppCrmRoutes(request);
+  if (crmBlock) return crmBlock;
 
   // ✅ Primeira carga: / vai direto para /login (página mais leve, evita travar 20+ min na home pesada)
   if (pathname === '/') {

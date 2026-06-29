@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabaseClient';
 import { phonesMatch, toWhatsAppId } from './normalize-phone';
 import type { WhatsAppConversa, WhatsAppEmpresaConfig } from './types';
 import { AUTOMACOES_PADRAO } from './template-vars';
+import { CONVERSA_USUARIO_JOIN } from './atendentes';
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
 
@@ -145,7 +146,8 @@ export async function listConversas(
     .select(
       `*,
       clientes ( id, nome, telefone, celular, email ),
-      ordens_servico ( id, numero_os, status, equipamento, marca, modelo )`
+      ordens_servico ( id, numero_os, status, equipamento, marca, modelo ),
+      ${CONVERSA_USUARIO_JOIN}`
     )
     .eq('empresa_id', empresaId)
     .order('ultima_mensagem_em', { ascending: false, nullsFirst: false })
@@ -168,6 +170,7 @@ export async function appendMensagem(
     conteudo: string;
     meta_message_id?: string;
     status_entrega?: string;
+    erro_entrega?: string;
     os_id?: string;
     automacao_id?: string;
     enviado_por_usuario_id?: string;
@@ -186,6 +189,7 @@ export async function appendMensagem(
       conteudo: params.conteudo,
       meta_message_id: params.meta_message_id ?? null,
       status_entrega: params.status_entrega ?? null,
+      erro_entrega: params.erro_entrega ?? null,
       os_id: params.os_id ?? null,
       automacao_id: params.automacao_id ?? null,
       enviado_por_usuario_id: params.enviado_por_usuario_id ?? null,
@@ -201,16 +205,61 @@ export async function appendMensagem(
     .eq('id', params.conversa_id)
     .single();
 
-  await supabase
-    .from('whatsapp_conversas')
-    .update({
-      ultima_mensagem_preview: preview,
-      ultima_mensagem_em: now,
-      updated_at: now,
-      nao_lidas:
-        params.direcao === 'entrada' ? (conv?.nao_lidas ?? 0) + 1 : conv?.nao_lidas ?? 0,
-    })
-    .eq('id', params.conversa_id);
+  const conversaUpdates: Record<string, unknown> = {
+    ultima_mensagem_preview: preview,
+    ultima_mensagem_em: now,
+    updated_at: now,
+    nao_lidas:
+      params.direcao === 'entrada' ? (conv?.nao_lidas ?? 0) + 1 : conv?.nao_lidas ?? 0,
+  };
+
+  if (params.direcao === 'entrada') {
+    conversaUpdates.status = 'aberta';
+  }
+
+  await supabase.from('whatsapp_conversas').update(conversaUpdates).eq('id', params.conversa_id);
 
   return msg;
+}
+
+export async function updateMensagemEntrega(
+  supabase: SupabaseAdmin,
+  mensagemId: string,
+  params: {
+    meta_message_id?: string | null;
+    status_entrega?: string | null;
+    erro_entrega?: string | null;
+  }
+) {
+  const { data, error } = await supabase
+    .from('whatsapp_mensagens')
+    .update(params)
+    .eq('id', mensagemId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/** Remove credenciais, inbox, mensagens e automações WhatsApp da empresa. */
+export async function clearEmpresaWhatsAppData(supabase: SupabaseAdmin, empresaId: string) {
+  const { error: convError } = await supabase
+    .from('whatsapp_conversas')
+    .delete()
+    .eq('empresa_id', empresaId);
+  if (convError) throw convError;
+
+  const { error: autoError } = await supabase
+    .from('whatsapp_automacoes')
+    .delete()
+    .eq('empresa_id', empresaId);
+  if (autoError) throw autoError;
+
+  const { error: cfgError } = await supabase
+    .from('whatsapp_empresa_config')
+    .delete()
+    .eq('empresa_id', empresaId);
+  if (cfgError) throw cfgError;
+
+  return { ok: true };
 }

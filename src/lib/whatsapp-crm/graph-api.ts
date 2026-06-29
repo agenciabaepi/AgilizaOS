@@ -15,6 +15,23 @@ export interface SendTextMessageResult {
   error?: string;
 }
 
+function humanizeWhatsAppError(raw: string): string {
+  const lower = raw.toLowerCase();
+  if (raw.includes('131047') || lower.includes('re-engagement') || lower.includes('24 hour')) {
+    return 'Fora da janela de 24h: o cliente precisa ter enviado mensagem recentemente, ou use um template aprovado na Meta.';
+  }
+  if (raw.includes('131030') || lower.includes('not in allowed') || lower.includes('recipient')) {
+    return 'Número não autorizado. Em modo teste, cadastre o celular na Meta (WhatsApp > API Setup > números de teste).';
+  }
+  if (raw.includes('190') || lower.includes('expired') || lower.includes('session has expired')) {
+    return 'Token expirado. Reconecte o WhatsApp em Configurações.';
+  }
+  if (lower.includes('not configured') || lower.includes('credenciais')) {
+    return raw;
+  }
+  return raw;
+}
+
 function resolveCredentials(config?: Pick<WhatsAppEmpresaConfig, 'phone_number_id' | 'access_token'> | null) {
   const phoneNumberId = config?.phone_number_id || process.env.WHATSAPP_PHONE_NUMBER_ID;
   const accessToken = config?.access_token || process.env.WHATSAPP_ACCESS_TOKEN;
@@ -28,7 +45,7 @@ export async function sendWhatsAppTextMessage(
   const { phoneNumberId, accessToken } = resolveCredentials(params.config);
 
   if (!phoneNumberId || !accessToken) {
-    return { success: false, error: 'Credenciais WhatsApp não configuradas' };
+    return { success: false, error: humanizeWhatsAppError('Credenciais WhatsApp não configuradas') };
   }
 
   const to = params.to.replace(/\D/g, '');
@@ -54,7 +71,8 @@ export async function sendWhatsAppTextMessage(
 
     if (!response.ok) {
       const errMsg = data?.error?.message || `HTTP ${response.status}`;
-      return { success: false, error: errMsg };
+      const errCode = data?.error?.code ? ` (#${data.error.code})` : '';
+      return { success: false, error: humanizeWhatsAppError(`${errMsg}${errCode}`) };
     }
 
     return {

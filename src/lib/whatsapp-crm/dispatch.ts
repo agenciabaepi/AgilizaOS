@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabaseClient';
 import { WHATSAPP_AUTOMATION_ENABLED } from '@/config/whatsapp-config';
+import { WHATSAPP_CRM_ENABLED } from '@/config/whatsapp-crm-config';
 import { sendWhatsAppTextMessage } from './graph-api';
 import { getOrCreateConversa, appendMensagem, getEmpresaConfig } from './conversations';
 import { syncOsContexto } from './os-context';
@@ -34,6 +35,10 @@ function formatValor(valor: number | null | undefined): string {
 export async function dispatchAutomacaoOs(
   payload: DispatchAutomacaoPayload
 ): Promise<{ sent: boolean; reason?: string }> {
+  if (!WHATSAPP_CRM_ENABLED) {
+    return { sent: false, reason: 'crm_disabled' };
+  }
+
   if (!WHATSAPP_AUTOMATION_ENABLED) {
     return { sent: false, reason: 'automation_disabled' };
   }
@@ -137,6 +142,7 @@ export async function dispatchAutomacaoOs(
     conteudo: mensagem,
     meta_message_id: sendResult.messageId,
     status_entrega: sendResult.success ? 'enviada' : 'falha',
+    erro_entrega: sendResult.success ? undefined : sendResult.error ?? 'Falha ao enviar',
     os_id: os.id,
     automacao_id: automacao.id,
   });

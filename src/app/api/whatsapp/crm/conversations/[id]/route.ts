@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getEmpresaIdForUser, getSessionUserId } from '@/lib/api/routeAuthEmpresa';
 import { createAdminClient } from '@/lib/supabaseClient';
 import { getOsContextoByConversa } from '@/lib/whatsapp-crm/os-context';
+import { listOrdensClienteConversa } from '@/lib/whatsapp-crm/client-orders';
+import { CONVERSA_USUARIO_JOIN } from '@/lib/whatsapp-crm/atendentes';
 
 async function resolveEmpresa(req: NextRequest) {
   const userId = await getSessionUserId(req);
@@ -27,7 +29,8 @@ export async function GET(
       .select(
         `*,
         clientes ( id, nome, telefone, celular, email, documento, observacoes ),
-        ordens_servico ( id, numero_os, status, status_tecnico, equipamento, marca, modelo, valor_faturado, valor_servico, valor_peca )`
+        ordens_servico ( id, numero_os, status, status_tecnico, equipamento, marca, modelo, valor_faturado, valor_servico, valor_peca ),
+        ${CONVERSA_USUARIO_JOIN}`
       )
       .eq('id', id)
       .eq('empresa_id', auth.empresaId)
@@ -50,6 +53,11 @@ export async function GET(
 
     const osContexto = await getOsContextoByConversa(supabase, id);
 
+    const ordensCliente = await listOrdensClienteConversa(supabase, auth.empresaId, {
+      cliente_id: conversa.cliente_id,
+      telefone: conversa.telefone,
+    });
+
     await supabase
       .from('whatsapp_conversas')
       .update({ nao_lidas: 0 })
@@ -62,6 +70,7 @@ export async function GET(
         mensagens: mensagens ?? [],
         notas: notas ?? [],
         os_contexto: osContexto,
+        ordens_cliente: ordensCliente,
       },
     });
   } catch (err) {
@@ -93,7 +102,12 @@ export async function PATCH(
       .update(updates)
       .eq('id', id)
       .eq('empresa_id', auth.empresaId)
-      .select()
+      .select(
+        `*,
+        clientes ( id, nome, telefone, celular, email ),
+        ordens_servico ( id, numero_os, status, equipamento, marca, modelo ),
+        ${CONVERSA_USUARIO_JOIN}`
+      )
       .single();
 
     if (error) throw error;

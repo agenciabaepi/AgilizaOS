@@ -9,6 +9,7 @@ import {
   canUseModule,
   getHomePathForUser,
 } from '@/lib/permissions';
+import { WHATSAPP_CRM_ENABLED } from '@/config/whatsapp-crm-config';
 
 /** Permissão exigida por índice de aba em /configuracoes?tab=N */
 const CONFIG_TAB_PERMISSIONS: Record<number, string> = {
@@ -70,6 +71,11 @@ export default function RoutePermissionGuard({ children }: { children: React.Rea
       if (tabParam !== null) {
         const tabIndex = Number(tabParam);
         const tabPerm = CONFIG_TAB_PERMISSIONS[tabIndex];
+        if (tabPerm === 'whatsapp' && !WHATSAPP_CRM_ENABLED) {
+          setAllowed(false);
+          router.replace(getHomePathForUser(nivel, rawPermissoes));
+          return;
+        }
         if (
           tabPerm &&
           !canUseModule(tabPerm, nivel, rawPermissoes)

@@ -106,10 +106,15 @@ export function ConversationList({
                         OS #{c.ordens_servico.numero_os}
                       </span>
                     )}
+                    {c.usuarios?.nome && (
+                      <span className="inline-flex mt-1 max-w-full text-[10px] bg-violet-100 text-violet-800 px-1.5 py-0.5 rounded truncate">
+                        {c.usuarios.nome}
+                      </span>
+                    )}
                   </div>
                   <div className="text-right shrink-0">
                     <span className="text-[10px] text-gray-400">{formatTime(c.ultima_mensagem_em)}</span>
-                    {c.nao_lidas > 0 && (
+                    {c.nao_lidas > 0 && selectedId !== c.id && (
                       <span className="mt-1 ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-green-600 text-[10px] text-white">
                         {c.nao_lidas}
                       </span>

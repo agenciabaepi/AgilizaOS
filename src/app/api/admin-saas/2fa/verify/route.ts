@@ -53,13 +53,15 @@ export async function POST(req: NextRequest) {
     }
 
     const cookieStore = await cookies();
-    cookieStore.set('admin_saas_access', '1', {
+    const cookieOpts = {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       path: '/',
       maxAge: 60 * 60 * 24 * 7, // 7 dias
-      sameSite: 'lax',
-    });
+      sameSite: 'lax' as const,
+    };
+    cookieStore.set('admin_saas_access', '1', cookieOpts);
+    cookieStore.set('admin_saas_email', email, cookieOpts);
 
     return NextResponse.json({ ok: true });
   } catch (e) {

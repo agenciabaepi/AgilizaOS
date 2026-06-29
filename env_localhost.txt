@@ -14,3 +14,5 @@ WHATSAPP_PHONE_NUMBER_ID=783032591562273
 # Environment
 NODE_ENV=development
 NEXT_PUBLIC_ENVIRONMENT=development
+# CRM WhatsApp habilitado em dev (equivalente a beta)
+NEXT_PUBLIC_WHATSAPP_CRM_ENABLED=true

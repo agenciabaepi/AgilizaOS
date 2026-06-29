@@ -20,7 +20,7 @@ export async function empresaBloqueadaParaUsoSaasAdmin(
       .eq('empresa_id', empresaId)
       .order('created_at', { ascending: false })
       .limit(30),
-    admin.from('empresas').select('created_at, ativo, sistema_liberado').eq('id', empresaId).maybeSingle(),
+    admin.from('empresas').select('created_at, ativo, sistema_liberado, dias_trial').eq('id', empresaId).maybeSingle(),
   ]);
 
   if (emp && emp.ativo === false) {
@@ -33,7 +33,8 @@ export async function empresaBloqueadaParaUsoSaasAdmin(
 
   const row = pickAssinaturaParaContexto(
     (rows ?? []) as Record<string, unknown>[],
-    emp?.created_at as string | undefined
+    emp?.created_at as string | undefined,
+    typeof emp?.dias_trial === 'number' ? emp.dias_trial : null
   );
   const assinatura = row
     ? {
@@ -47,5 +48,6 @@ export async function empresaBloqueadaParaUsoSaasAdmin(
   return computeAssinaturaVencidaPorBilling(assinatura, emp?.created_at as string | undefined, {
     empresaIdPresent: true,
     timeZone: BILLING_TIME_ZONE,
+    empresaDiasTrial: typeof emp?.dias_trial === 'number' ? emp.dias_trial : null,
   });
 }

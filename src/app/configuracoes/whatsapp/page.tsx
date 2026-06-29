@@ -11,9 +11,11 @@ import {
   ExternalLink,
   CheckCircle2,
   AlertCircle,
+  Trash2,
 } from 'lucide-react';
 import type { WhatsAppAutomacao } from '@/lib/whatsapp-crm/types';
 import { EmbeddedSignupConnect } from '@/components/whatsapp-crm/EmbeddedSignupConnect';
+import { whatsappCrmFetch } from '@/lib/api/whatsappCrmFetch';
 
 const EVENTO_LABELS: Record<string, string> = {
   os_criada: 'OS cadastrada',
@@ -42,6 +44,7 @@ export default function WhatsAppPage({ embedded = false }: { embedded?: boolean 
   const [automacoes, setAutomacoes] = useState<WhatsAppAutomacao[]>([]);
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
+  const [limpando, setLimpando] = useState(false);
   const [form, setForm] = useState({
     phone_number_id: '',
     access_token: '',
@@ -58,21 +61,31 @@ export default function WhatsAppPage({ embedded = false }: { embedded?: boolean 
     setLoading(true);
     try {
       const [cfgRes, autoRes] = await Promise.all([
-        fetch('/api/whatsapp/crm/config'),
-        fetch('/api/whatsapp/crm/automations'),
+        whatsappCrmFetch('/api/whatsapp/crm/config'),
+        whatsappCrmFetch('/api/whatsapp/crm/automations'),
       ]);
       const cfgJson = await cfgRes.json();
       const autoJson = await autoRes.json();
-      if (cfgJson.data) {
-        setConfig(cfgJson.data);
-        setForm((f) => ({
-          ...f,
-          phone_number_id: cfgJson.data.phone_number_id ?? '',
-          business_account_id: cfgJson.data.business_account_id ?? '',
-          ativo: cfgJson.data.ativo ?? true,
-        }));
+      if (cfgJson.success) {
+        if (cfgJson.data) {
+          setConfig(cfgJson.data);
+          setForm((f) => ({
+            ...f,
+            phone_number_id: cfgJson.data.phone_number_id ?? '',
+            business_account_id: cfgJson.data.business_account_id ?? '',
+            ativo: cfgJson.data.ativo ?? true,
+          }));
+        } else {
+          setConfig(null);
+          setForm({
+            phone_number_id: '',
+            access_token: '',
+            business_account_id: '',
+            ativo: true,
+          });
+        }
       }
-      if (autoJson.data) setAutomacoes(autoJson.data);
+      if (autoJson.success) setAutomacoes(autoJson.data ?? []);
     } finally {
       setLoading(false);
     }
@@ -81,7 +94,7 @@ export default function WhatsAppPage({ embedded = false }: { embedded?: boolean 
   async function salvarConfig() {
     setSalvando(true);
     try {
-      const res = await fetch('/api/whatsapp/crm/config', {
+      const res = await whatsappCrmFetch('/api/whatsapp/crm/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
@@ -99,7 +112,7 @@ export default function WhatsAppPage({ embedded = false }: { embedded?: boolean 
   }
 
   async function toggleAutomacao(id: string, ativo: boolean) {
-    const res = await fetch('/api/whatsapp/crm/automations', {
+    const res = await whatsappCrmFetch('/api/whatsapp/crm/automations', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, ativo }),
@@ -107,6 +120,38 @@ export default function WhatsAppPage({ embedded = false }: { embedded?: boolean 
     const json = await res.json();
     if (json.success) {
       setAutomacoes((prev) => prev.map((a) => (a.id === id ? { ...a, ativo } : a)));
+    }
+  }
+
+  async function limparDadosWhatsApp() {
+    if (
+      !confirm(
+        'Isso remove credenciais da API, conversas, mensagens, notas e automações desta assistência. Continuar?'
+      )
+    ) {
+      return;
+    }
+    if (!confirm('Tem certeza? Esta ação não pode ser desfeita.')) return;
+
+    setLimpando(true);
+    try {
+      const res = await whatsappCrmFetch('/api/whatsapp/crm/reset', { method: 'DELETE' });
+      const json = await res.json();
+      if (json.success) {
+        setConfig(null);
+        setAutomacoes([]);
+        setForm({
+          phone_number_id: '',
+          access_token: '',
+          business_account_id: '',
+          ativo: true,
+        });
+        alert('Dados do WhatsApp removidos com sucesso.');
+      } else {
+        alert(json.error || 'Erro ao limpar dados');
+      }
+    } finally {
+      setLimpando(false);
     }
   }
 
@@ -286,6 +331,28 @@ export default function WhatsAppPage({ embedded = false }: { embedded?: boolean 
               </div>
             )}
           </div>
+          </div>
+
+          <div className="rounded-xl border border-red-200 bg-red-50/50 p-6 space-y-3">
+            <div className="flex items-start gap-3">
+              <Trash2 size={18} className="text-red-600 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-red-900">Limpar dados do WhatsApp</h3>
+                <p className="text-sm text-red-800/90 mt-1">
+                  Remove a conexão com a API (Phone Number ID, token), todo o inbox, mensagens,
+                  notas internas e regras de automação desta empresa. Não afeta a configuração na Meta.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void limparDadosWhatsApp()}
+                  disabled={limpando}
+                  className="mt-4 inline-flex items-center gap-2 rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                >
+                  <Trash2 size={15} />
+                  {limpando ? 'Limpando...' : 'Limpar dados da API'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       ) : (

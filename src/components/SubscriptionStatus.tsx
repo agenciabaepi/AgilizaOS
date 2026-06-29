@@ -22,7 +22,7 @@ const SubscriptionStatusContent = () => {
       return;
     }
     const fimIso =
-      assinatura.data_trial_fim || dataFimTrialAPartirDe(empresaData?.created_at);
+      assinatura.data_trial_fim || dataFimTrialAPartirDe(empresaData?.created_at, empresaData?.dias_trial);
     if (!fimIso) {
       setTempoRestante('');
       return;
@@ -119,7 +119,8 @@ const SubscriptionStatusContent = () => {
     // log suprimido
     const diasRestantes = diasRestantesTrial();
     const isProximoDoFim = diasRestantes <= 3;
-    const fimTrialTitle = assinatura.data_trial_fim || dataFimTrialAPartirDe(empresaData?.created_at);
+    const fimTrialTitle =
+      assinatura.data_trial_fim || dataFimTrialAPartirDe(empresaData?.created_at, empresaData?.dias_trial);
     const titleTrial =
       `Teste gratuito de ${DIAS_TRIAL_GRATIS} dias. Restam ${diasRestantes} dia(s) (${tempoRestante || '—'}). ` +
       (empresaData?.created_at

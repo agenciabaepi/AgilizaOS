@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { MS_TRIAL_GRATIS } from '@/config/trial';
+import { enviarEmailVerificacao, gerarCodigoVerificacao } from '@/lib/email';
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -162,26 +163,32 @@ export async function POST(request: Request) {
 
   // 5. Enviar código de verificação por email
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/email/enviar-codigo`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        usuarioId: usuario.id,
-        email: email,
-        nomeEmpresa: nomeEmpresa
-      })
+    const codigo = gerarCodigoVerificacao();
+
+    await supabaseAdmin
+      .from('codigo_verificacao')
+      .update({ usado: true })
+      .eq('usuario_id', usuario.id)
+      .eq('usado', false);
+
+    const { error: codigoError } = await supabaseAdmin.from('codigo_verificacao').insert({
+      usuario_id: usuario.id,
+      codigo,
+      email,
+      usado: false,
+      expira_em: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     });
 
-    if (!response.ok) {
-      console.error('Erro ao enviar código de verificação:', await response.text());
-      // Não falhar o cadastro por causa do email
+    if (codigoError) {
+      console.error('Erro ao salvar código de verificação:', codigoError);
     } else {
+      const emailEnviado = await enviarEmailVerificacao(email, codigo, nomeEmpresa);
+      if (!emailEnviado) {
+        console.error('Erro ao enviar email de verificação para:', email);
       }
+    }
   } catch (error) {
     console.error('Erro ao enviar código de verificação:', error);
-    // Não falhar o cadastro por causa do email
   }
 
   return NextResponse.json({ 

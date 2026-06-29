@@ -16,8 +16,8 @@ export async function POST(request: NextRequest) {
     const admin = getSupabaseAdmin();
 
     const usuarioQuery = login.includes('@')
-      ? admin.from('usuarios').select('auth_user_id').eq('email', login).maybeSingle()
-      : admin.from('usuarios').select('auth_user_id').eq('usuario', login).maybeSingle();
+      ? admin.from('usuarios').select('auth_user_id, email_verificado, nivel, empresa_id').eq('email', login).maybeSingle()
+      : admin.from('usuarios').select('auth_user_id, email_verificado, nivel, empresa_id').eq('usuario', login).maybeSingle();
 
     const { data: usuario, error } = await usuarioQuery;
 
@@ -36,7 +36,44 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
     }
 
-    return NextResponse.json({ email: authUser.user.email });
+    let emailVerificado = usuario.email_verificado === true;
+    let empresaVerificada = emailVerificado;
+
+    // Contas legadas já em uso: não exigir código novamente
+    if (!emailVerificado && usuario.empresa_id) {
+      const { count: ordensCount } = await admin
+        .from('ordens_servico')
+        .select('*', { count: 'exact', head: true })
+        .eq('empresa_id', usuario.empresa_id);
+
+      if ((ordensCount ?? 0) > 0) {
+        emailVerificado = true;
+        empresaVerificada = true;
+        await admin
+          .from('usuarios')
+          .update({ email_verificado: true })
+          .eq('auth_user_id', usuario.auth_user_id)
+          .eq('email_verificado', false);
+      }
+    }
+
+    if (usuario.nivel !== 'admin' && usuario.empresa_id && !empresaVerificada) {
+      const { count } = await admin
+        .from('usuarios')
+        .select('*', { count: 'exact', head: true })
+        .eq('empresa_id', usuario.empresa_id)
+        .eq('nivel', 'admin')
+        .eq('email_verificado', true);
+
+      empresaVerificada = (count ?? 0) > 0;
+    }
+
+    return NextResponse.json({
+      email: authUser.user.email,
+      email_verificado: emailVerificado,
+      nivel: usuario.nivel,
+      empresa_verificada: empresaVerificada,
+    });
   } catch (error) {
     console.error('Erro POST /api/auth/resolve-username:', error);
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 });

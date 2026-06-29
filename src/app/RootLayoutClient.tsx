@@ -26,6 +26,7 @@ import { SubscriptionProvider } from '@/context/SubscriptionContext';
 import SubscriptionVencidaGuard from '@/components/SubscriptionVencidaGuard';
 import { ThemeProvider } from '@/context/ThemeContext';
 import SupabaseStatusBanner from '@/components/SupabaseStatusBanner';
+import ImpersonationBanner from '@/components/ImpersonationBanner';
 
 function AuthContent({ children }: { children: React.ReactNode }) {
   const { isLoggingOut, session, empresaData } = useAuth();
@@ -68,6 +69,7 @@ function AuthContent({ children }: { children: React.ReactNode }) {
     </div>
   ) : (
     <>
+      <ImpersonationBanner />
       {banner && (
         <div style={{
           position: 'sticky', top: 0, zIndex: 60,

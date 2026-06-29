@@ -1,5 +1,6 @@
 import { matchesPermission, getAllGrantableKeys } from '@/config/grantablePermissions';
 import { getRequiredPermission } from '@/config/pagePermissions';
+import { WHATSAPP_CRM_ENABLED } from '@/config/whatsapp-crm-config';
 import { getDashboardPathForNivel, isAllowedDashboardPath } from '@/lib/dashboardRouting';
 
 export {
@@ -83,6 +84,7 @@ export function canUseModule(
   nivel: UserNivel | null | undefined,
   rawPermissoes: string[] | null | undefined
 ): boolean {
+  if (key === 'whatsapp' && !WHATSAPP_CRM_ENABLED) return false;
   if (hasFullAccess(nivel)) return true;
   if (!shouldEnforcePermissions(nivel, rawPermissoes)) return true;
   const effective = resolveUserPermissions(nivel, rawPermissoes);
@@ -219,6 +221,16 @@ export function checkRouteAccess(
   nivel: UserNivel | null | undefined,
   rawPermissoes: unknown
 ): boolean {
+  const clean = pathname.split('?')[0];
+  if (
+    !WHATSAPP_CRM_ENABLED &&
+    (clean === '/whatsapp' ||
+      clean.startsWith('/whatsapp/') ||
+      clean === '/configuracoes/whatsapp')
+  ) {
+    return false;
+  }
+
   if (hasFullAccess(nivel)) return true;
   if (blocksWrongRoleDashboard(pathname, nivel)) return false;
   if (isBlockedByNivel(pathname, nivel)) return false;

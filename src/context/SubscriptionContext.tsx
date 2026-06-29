@@ -90,8 +90,12 @@ function planoFromAssinaturaRow(row: Record<string, unknown>): Plano {
 
 const ID_ASSINATURA_TRIAL_IMPLICITA = '__trial_implicito__';
 
-function buildAssinaturaTrialImplicita(empresaId: string, empresaCreatedAt: string | null | undefined): Assinatura | null {
-  const dataTrialFim = dataFimTrialAPartirDe(empresaCreatedAt);
+function buildAssinaturaTrialImplicita(
+  empresaId: string,
+  empresaCreatedAt: string | null | undefined,
+  empresaDiasTrial?: number | null
+): Assinatura | null {
+  const dataTrialFim = dataFimTrialAPartirDe(empresaCreatedAt, empresaDiasTrial);
   if (!empresaCreatedAt || !dataTrialFim) return null;
   const fakeRow: Record<string, unknown> = {
     id: ID_ASSINATURA_TRIAL_IMPLICITA,
@@ -294,7 +298,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         if (!assinaturaError && assinaturaData && assinaturaData.length > 0) {
           const picked = pickAssinaturaParaContexto(
             assinaturaData as Record<string, unknown>[],
-            empresaCriadaEmParaPick
+            empresaCriadaEmParaPick,
+            empresaDataSnapshot?.dias_trial
           );
           if (picked) primeiraAssinatura = picked;
         } else if (assinaturaError && assinaturaError.code !== 'PGRST116') {
@@ -322,7 +327,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         loadedEmpresaIdRef.current = empresaId;
         await fetchLimitesForEmpresa(empresaId, assinaturaMapeada.plano);
       } else if (empresaCriadaEmParaPick) {
-        const implicit = buildAssinaturaTrialImplicita(empresaId, empresaCriadaEmParaPick);
+        const implicit = buildAssinaturaTrialImplicita(
+          empresaId,
+          empresaCriadaEmParaPick,
+          empresaDataSnapshot?.dias_trial
+        );
         if (implicit) {
           setAssinatura(implicit);
           setLoadedEmpresaId(empresaId);
@@ -407,17 +416,19 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       const d = diffDiasCalendario(assinatura.data_trial_fim);
       return d !== null && d < 0;
     }
-    const end = dataFimTrialAPartirDe(empresaData?.created_at);
+    const end = dataFimTrialAPartirDe(empresaData?.created_at, empresaData?.dias_trial);
     if (!end) return false;
     const d = diffDiasCalendario(end);
     return d !== null && d < 0;
-  }, [assinatura, empresaData?.created_at]);
+  }, [assinatura, empresaData?.created_at, empresaData?.dias_trial]);
 
   const isSubscriptionActive = useCallback((): boolean => {
     if (!assinatura) return false;
     if (assinatura.status === 'cancelled' || assinatura.status === 'expired') return false;
     if (assinatura.status === 'trial') {
-      const ref = assinatura.data_trial_fim || dataFimTrialAPartirDe(empresaData?.created_at);
+      const ref =
+        assinatura.data_trial_fim ||
+        dataFimTrialAPartirDe(empresaData?.created_at, empresaData?.dias_trial);
       if (ref) {
         const d = diffDiasCalendario(ref);
         if (d !== null && d < 0) return false;
@@ -428,7 +439,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       if (d !== null && d < 0) return false;
     }
     return true;
-  }, [assinatura, empresaData?.created_at]);
+  }, [assinatura, empresaData?.created_at, empresaData?.dias_trial]);
 
   const isAssinaturaVencida = useCallback((): boolean => {
     if (!empresaIdAtual) return false;
@@ -440,6 +451,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     if (assinatura && assinatura.empresa_id !== empresaIdAtual) return false;
     const empresaCreatedAt =
       empresaData?.id === empresaIdAtual ? empresaData?.created_at : undefined;
+    const empresaDiasTrial =
+      empresaData?.id === empresaIdAtual ? empresaData?.dias_trial : undefined;
     return computeAssinaturaVencidaPorBilling(
       assinatura
         ? {
@@ -454,6 +467,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         loading: false,
         empresaIdPresent: true,
         sistemaLiberado: liberado,
+        empresaDiasTrial,
       }
     );
   }, [
@@ -462,6 +476,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     empresaData?.id,
     empresaData?.sistema_liberado,
     empresaData?.created_at,
+    empresaData?.dias_trial,
     loading,
     loadedEmpresaId,
     assinatura,
@@ -477,12 +492,14 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   const diasRestantesTrial = useCallback((): number => {
     if (!assinatura || assinatura.status !== 'trial') return 0;
-    const ref = assinatura.data_trial_fim || dataFimTrialAPartirDe(empresaData?.created_at);
+    const ref =
+      assinatura.data_trial_fim ||
+      dataFimTrialAPartirDe(empresaData?.created_at, empresaData?.dias_trial);
     if (!ref) return 0;
     const d = diffDiasCalendario(ref);
     if (d === null) return 0;
     return Math.max(0, d);
-  }, [assinatura, empresaData?.created_at]);
+  }, [assinatura, empresaData?.created_at, empresaData?.dias_trial]);
 
   const temRecurso = useCallback((_recurso: string): boolean => true, []);
 

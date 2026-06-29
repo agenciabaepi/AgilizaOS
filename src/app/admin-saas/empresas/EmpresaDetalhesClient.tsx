@@ -7,6 +7,7 @@ import { FiArrowLeft, FiDollarSign, FiUsers, FiBox, FiFileText, FiTrendingUp, Fi
 import { BuildingOfficeIcon as FiBuilding } from '@heroicons/react/24/outline';
 import { DIAS_TRIAL_GRATIS } from '@/config/trial';
 import AdminEmpresaClientesSection from './AdminEmpresaClientesSection';
+import AdminEmpresaUsuariosSection from './AdminEmpresaUsuariosSection';
 
 function formatarDataCurta(iso: string | null | undefined) {
   if (!iso) return '—';
@@ -19,6 +20,8 @@ function formatarDataCurta(iso: string | null | undefined) {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR');
 }
+
+const PRESETS_DIAS_TRIAL = [7, 15, 30, 60, 90] as const;
 
 type EmpresaDetalhes = {
   id: string;
@@ -43,6 +46,7 @@ type EmpresaDetalhes = {
     ordens: number;
     usoMb: number;
   };
+  dias_trial?: number | null;
   billing?: {
     plano: { id: string | null; nome: string };
     assinaturaStatus: string | null;
@@ -56,6 +60,7 @@ type EmpresaDetalhes = {
     ultimoPagamentoValor: number | null;
     dataTrialFim?: string | null;
     diasTrialRestantes?: number | null;
+    diasTrial?: number | null;
     trialImplicito?: boolean;
   };
   recursos_customizados?: Record<string, boolean> | null;
@@ -598,6 +603,10 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
   const [cancelandoAssinatura, setCancelandoAssinatura] = useState(false);
   const [valorAssinaturaInline, setValorAssinaturaInline] = useState('');
   const [salvandoValorAssinatura, setSalvandoValorAssinatura] = useState(false);
+  const [diasTrialInput, setDiasTrialInput] = useState(String(DIAS_TRIAL_GRATIS));
+  const [contarTrialDe, setContarTrialDe] = useState<'hoje' | 'criacao'>('hoje');
+  const [dataTrialFimInput, setDataTrialFimInput] = useState('');
+  const [salvandoTrial, setSalvandoTrial] = useState(false);
 
   // Função para recarregar dados da empresa (`silent` evita spinner em atualizações após modais)
   const recarregarEmpresa = async (opts?: { silent?: boolean }) => {
@@ -635,7 +644,18 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
     setValorAssinaturaInline(
       v != null && Number.isFinite(Number(v)) ? String(Number(v)) : ''
     );
-  }, [empresa?.id, empresa?.billing?.valorMensal]);
+    const dias =
+      empresa.billing?.diasTrial ??
+      empresa.dias_trial ??
+      DIAS_TRIAL_GRATIS;
+    setDiasTrialInput(String(dias));
+    if (empresa.billing?.dataTrialFim) {
+      const d = new Date(empresa.billing.dataTrialFim);
+      if (!Number.isNaN(d.getTime())) {
+        setDataTrialFimInput(d.toISOString().slice(0, 10));
+      }
+    }
+  }, [empresa?.id, empresa?.billing?.valorMensal, empresa?.billing?.diasTrial, empresa?.billing?.dataTrialFim, empresa?.dias_trial]);
 
   async function patchEmpresa(payload: Record<string, unknown>) {
     const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_SITE_URL || '');
@@ -715,6 +735,52 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
       alert(e.message || 'Erro ao salvar valor da assinatura');
     } finally {
       setSalvandoValorAssinatura(false);
+    }
+  }
+
+  async function salvarPrazoTrial() {
+    if (!empresa) return;
+
+    const payload: Record<string, unknown> = {
+      contar_de: contarTrialDe,
+    };
+
+    if (dataTrialFimInput.trim()) {
+      payload.data_trial_fim = `${dataTrialFimInput.trim()}T23:59:59.999Z`;
+    } else {
+      const dias = parseInt(diasTrialInput, 10);
+      if (!Number.isFinite(dias) || dias < 1 || dias > 365) {
+        alert('Informe entre 1 e 365 dias de teste, ou escolha uma data de término.');
+        return;
+      }
+      payload.dias_trial = dias;
+    }
+
+    const msg =
+      empresa.billing?.assinaturaStatus === 'active' || empresa.billing?.assinaturaStatus === 'ativa'
+        ? 'Esta empresa tem assinatura ativa. Definir trial vai alterar o status para período de teste. Continuar?'
+        : null;
+    if (msg && !window.confirm(msg)) return;
+
+    setSalvandoTrial(true);
+    try {
+      const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_SITE_URL || '');
+      const res = await fetch(`${baseUrl}/api/admin-saas/empresas/${empresaId}/trial`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        throw new Error(json.message || 'Falha ao salvar prazo de teste');
+      }
+      alert(json.message || 'Prazo de teste atualizado.');
+      await recarregarEmpresa({ silent: true });
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Erro ao salvar prazo de teste');
+    } finally {
+      setSalvandoTrial(false);
     }
   }
 
@@ -944,7 +1010,13 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
               empresa.billing.cobrancaStatus === 'Trial encerrado') && (
             <div className="mt-3 text-sm text-gray-600 space-y-1 border-t border-gray-100 pt-3">
               <div>
-                <span className="text-gray-500">Fim do período de teste ({DIAS_TRIAL_GRATIS} dias):</span>{' '}
+                <span className="text-gray-500">Fim do período de teste</span>
+                {empresa.billing.diasTrial != null ? (
+                  <span className="text-gray-500"> ({empresa.billing.diasTrial} dias)</span>
+                ) : (
+                  <span className="text-gray-500"> (padrão {DIAS_TRIAL_GRATIS} dias)</span>
+                )}
+                :{' '}
                 <span className="font-semibold text-gray-900">{formatarDataCurta(empresa.billing.dataTrialFim)}</span>
               </div>
               {empresa.billing.cobrancaStatus === 'Trial' && empresa.billing.diasTrialRestantes != null && (
@@ -962,6 +1034,100 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
               )}
             </div>
           )}
+
+          {/* Configurar prazo de teste */}
+          <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
+            <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+              Prazo de teste
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {PRESETS_DIAS_TRIAL.map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => {
+                    setDiasTrialInput(String(d));
+                    setDataTrialFimInput('');
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+                    diasTrialInput === String(d) && !dataTrialFimInput
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-300'
+                  }`}
+                >
+                  {d} dias
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="dias-trial-custom" className="block text-xs font-medium text-gray-600 mb-1">
+                  Dias personalizados
+                </label>
+                <input
+                  id="dias-trial-custom"
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={diasTrialInput}
+                  onChange={(e) => {
+                    setDiasTrialInput(e.target.value);
+                    setDataTrialFimInput('');
+                  }}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label htmlFor="data-trial-fim" className="block text-xs font-medium text-gray-600 mb-1">
+                  Ou data de término
+                </label>
+                <input
+                  id="data-trial-fim"
+                  type="date"
+                  value={dataTrialFimInput}
+                  onChange={(e) => setDataTrialFimInput(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
+            <fieldset className="space-y-2">
+              <legend className="text-xs font-medium text-gray-600">Contar prazo a partir de</legend>
+              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input
+                  type="radio"
+                  name="contar-trial"
+                  checked={contarTrialDe === 'hoje'}
+                  onChange={() => setContarTrialDe('hoje')}
+                  className="text-indigo-600"
+                />
+                Hoje (estender ou reiniciar teste)
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input
+                  type="radio"
+                  name="contar-trial"
+                  checked={contarTrialDe === 'criacao'}
+                  onChange={() => setContarTrialDe('criacao')}
+                  className="text-indigo-600"
+                />
+                Criação da empresa
+              </label>
+            </fieldset>
+            <Button
+              type="button"
+              size="sm"
+              disabled={salvandoTrial}
+              onClick={salvarPrazoTrial}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              {salvandoTrial ? 'Salvando...' : 'Salvar prazo de teste'}
+            </Button>
+            <p className="text-[11px] text-gray-500 leading-snug">
+              Atualiza <code className="text-[10px] bg-gray-50 px-1 rounded">empresas.dias_trial</code> e grava o fim do
+              trial em <code className="text-[10px] bg-gray-50 px-1 rounded">assinaturas</code>. Use &quot;a partir de
+              hoje&quot; para estender testes expirados.
+            </p>
+          </div>
         </div>
 
         {/* Usuários */}
@@ -1170,6 +1336,8 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
           </div>
         </div>
       </div>
+
+      <AdminEmpresaUsuariosSection empresaId={empresaId} empresaNome={empresa.nome} />
 
       <AdminEmpresaClientesSection empresaId={empresaId} />
 

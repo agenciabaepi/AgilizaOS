@@ -205,7 +205,7 @@ export async function GET(
       assinatura = data || null;
     } catch {}
 
-    const tf = computeAdminEmpresaTrialFields(assinatura, empresa.created_at);
+    const tf = computeAdminEmpresaTrialFields(assinatura, empresa.created_at, empresa.dias_trial);
 
     let planoNome = 'Assinatura';
     if (assinatura?.plano_id) {
@@ -276,6 +276,7 @@ export async function GET(
       ultimoPagamentoValor: ultimoPagamento?.valor || null,
       dataTrialFim: tf.dataTrialFim,
       diasTrialRestantes: tf.diasTrialRestantes,
+      diasTrial: empresa.dias_trial ?? null,
       trialImplicito: tf.trialImplicito,
     };
 

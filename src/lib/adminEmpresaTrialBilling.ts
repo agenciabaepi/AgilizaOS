@@ -22,7 +22,8 @@ export type AdminTrialFields = {
  */
 export function computeAdminEmpresaTrialFields(
   assinatura: AdminAssinaturaLite,
-  empresaCreatedAt: string | null | undefined
+  empresaCreatedAt: string | null | undefined,
+  empresaDiasTrial?: number | null
 ): AdminTrialFields {
   let dataTrialFim: string | null =
     typeof assinatura?.data_trial_fim === 'string' && assinatura.data_trial_fim.trim()
@@ -31,7 +32,7 @@ export function computeAdminEmpresaTrialFields(
 
   const trialImplicito = !assinatura && !!empresaCreatedAt?.trim();
   if (trialImplicito) {
-    dataTrialFim = dataFimTrialAPartirDe(empresaCreatedAt);
+    dataTrialFim = dataFimTrialAPartirDe(empresaCreatedAt, empresaDiasTrial);
   }
 
   const diasDelta = dataTrialFim ? diffDiasCalendario(dataTrialFim) : null;

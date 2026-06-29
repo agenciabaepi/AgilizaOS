@@ -45,3 +45,23 @@ export async function getEmpresaIdForUser(userId: string): Promise<string | null
   if (error || !data?.empresa_id) return null;
   return data.empresa_id as string;
 }
+
+export interface UsuarioAuthRow {
+  id: string;
+  nome: string | null;
+  nivel: string | null;
+  empresa_id: string | null;
+}
+
+/** Registro em `usuarios` vinculado ao auth (auth_user_id ou id legado). */
+export async function getUsuarioForAuth(userId: string): Promise<UsuarioAuthRow | null> {
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from('usuarios')
+    .select('id, nome, nivel, empresa_id')
+    .or(`auth_user_id.eq.${userId},id.eq.${userId}`)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data as UsuarioAuthRow;
+}

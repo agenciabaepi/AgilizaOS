@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Script from 'next/script';
 import { MessageCircle, Loader2, Smartphone } from 'lucide-react';
+import { whatsappCrmFetch } from '@/lib/api/whatsappCrmFetch';
 
 declare global {
   interface Window {
@@ -50,7 +51,7 @@ export function EmbeddedSignupConnect({ onConnected }: EmbeddedSignupConnectProp
     }
 
     try {
-      const res = await fetch('/api/whatsapp/crm/embedded-signup', {
+      const res = await whatsappCrmFetch('/api/whatsapp/crm/embedded-signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

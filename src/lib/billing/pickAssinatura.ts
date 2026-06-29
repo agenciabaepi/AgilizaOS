@@ -4,7 +4,8 @@ import { dataFimTrialAPartirDe } from '@/config/trial';
 /** Trial ainda dentro do período (último dia civil incluso). */
 export function trialRowCalendarValid(
   row: Record<string, unknown>,
-  empresaCreatedAt: string | null | undefined
+  empresaCreatedAt: string | null | undefined,
+  empresaDiasTrial?: number | null
 ): boolean {
   if (String(row.status) !== 'trial') return false;
   const dtf = row.data_trial_fim as string | null | undefined;
@@ -14,7 +15,7 @@ export function trialRowCalendarValid(
   }
   const created = typeof empresaCreatedAt === 'string' ? empresaCreatedAt.trim() : '';
   if (!created) return false;
-  const end = dataFimTrialAPartirDe(created);
+  const end = dataFimTrialAPartirDe(created, empresaDiasTrial);
   if (!end) return false;
   const d = diffDiasCalendario(end);
   return d !== null && d >= 0;
@@ -40,7 +41,8 @@ export function activeRowCalendarValid(row: Record<string, unknown>): boolean {
  */
 export function pickAssinaturaParaContexto(
   rows: Record<string, unknown>[],
-  empresaCreatedAt: string | null | undefined
+  empresaCreatedAt: string | null | undefined,
+  empresaDiasTrial?: number | null
 ): Record<string, unknown> | null {
   if (!rows?.length) return null;
   const sorted = [...rows].sort(
@@ -48,7 +50,7 @@ export function pickAssinaturaParaContexto(
       new Date(String(b.created_at ?? 0)).getTime() - new Date(String(a.created_at ?? 0)).getTime()
   );
 
-  const validTrial = sorted.find((r) => trialRowCalendarValid(r, empresaCreatedAt));
+  const validTrial = sorted.find((r) => trialRowCalendarValid(r, empresaCreatedAt, empresaDiasTrial));
   if (validTrial) return validTrial;
 
   const validActive = sorted.find((r) => activeRowCalendarValid(r));

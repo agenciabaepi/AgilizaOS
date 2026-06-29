@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import CadastroWrapper from './CadastroWrapper';
 
 export default function CadastroPage() {
-  redirect('/fale-conosco');
+  return <CadastroWrapper />;
 }

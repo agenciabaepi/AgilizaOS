@@ -3,6 +3,8 @@ import { getTecnicoByWhatsApp, getComissoesTecnico, formatComissoesMessage, getS
 import { getChatGPTResponse, isChatGPTAvailable } from '@/lib/chatgpt';
 import { getUsuarioByWhatsApp, getUserDataByLevel } from '@/lib/user-data';
 import { WHATSAPP_WEBHOOK_ENABLED } from '@/config/whatsapp-config';
+import { WHATSAPP_CRM_ENABLED } from '@/config/whatsapp-crm-config';
+import { processWhatsAppCrmWebhook } from '@/lib/whatsapp-crm/webhook-handler';
 
 export async function GET(request: NextRequest) {
   try {
@@ -367,6 +369,18 @@ export async function POST(request: NextRequest) {
 
     // Receber o body da requisição
     const body = await request.json();
+
+    // Inbox CRM — persiste mensagens independente do bot abaixo (somente beta)
+    if (WHATSAPP_CRM_ENABLED && body.object === 'whatsapp_business_account') {
+      try {
+        const crmResult = await processWhatsAppCrmWebhook(body);
+        if (crmResult.processed > 0) {
+          console.log(`✅ CRM: ${crmResult.processed} mensagem(ns) salva(s)`);
+        }
+      } catch (crmErr) {
+        console.error('❌ CRM webhook processing failed:', crmErr);
+      }
+    }
     
     // Processar webhook do WhatsApp
     // Estrutura: body.entry[0].changes[0].value.messages[0]

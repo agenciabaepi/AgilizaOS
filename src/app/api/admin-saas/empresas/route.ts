@@ -209,7 +209,7 @@ export async function GET(req: NextRequest) {
           assinatura = data || null;
         } catch {}
 
-        const tf = computeAdminEmpresaTrialFields(assinatura, e.created_at);
+        const tf = computeAdminEmpresaTrialFields(assinatura, e.created_at, e.dias_trial);
 
         let planoNome = 'Assinatura';
         if (assinatura?.plano_id) {

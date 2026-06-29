@@ -7,6 +7,7 @@ import {
   seedAutomacoesPadrao,
 } from '@/lib/whatsapp-crm/conversations';
 import { validateWhatsAppCredentials } from '@/lib/whatsapp-crm/graph-api';
+import { subscribeWabaWebhooks } from '@/lib/whatsapp-crm/embedded-signup';
 
 async function resolveEmpresa(req: NextRequest) {
   const userId = await getSessionUserId(req);
@@ -69,13 +70,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const wabaId = business_account_id ?? existing?.business_account_id ?? existing?.waba_id;
+    if (wabaId) {
+      try {
+        await subscribeWabaWebhooks(wabaId, tokenToUse);
+      } catch (e) {
+        console.warn('WABA webhook subscribe:', e);
+      }
+    }
+
     const config = await upsertEmpresaConfig(supabase, auth.empresaId, {
       phone_number_id,
       access_token: tokenToUse,
-      business_account_id: business_account_id ?? null,
+      business_account_id: wabaId ?? null,
+      waba_id: wabaId ?? null,
       display_phone_number: validation.displayPhone ?? null,
       ativo: ativo ?? true,
-      webhook_verified: false,
+      webhook_verified: true,
     });
 
     await seedAutomacoesPadrao(supabase, auth.empresaId);
