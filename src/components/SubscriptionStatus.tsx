@@ -128,14 +128,14 @@ const SubscriptionStatusContent = () => {
       empresaCreatedAt: empresaData?.created_at,
     });
     const titleTrial =
-      `Teste gratuito de ${diasTotalTrial} dias. Restam ${diasRestantes} dia(s) (${tempoRestante || '—'}). ` +
-      (empresaData?.created_at
-        ? `Cadastro: ${new Date(empresaData.created_at).toLocaleDateString('pt-BR')}. `
-        : '') +
-      (fimTrialTitle
-        ? `Fim do trial: ${new Date(fimTrialTitle).toLocaleDateString('pt-BR')}. `
-        : '') +
-      'Clique para ver assinatura.';
+      `Teste de ${diasTotalTrial} dias · ${diasRestantes} dia(s) restante(s)` +
+      (fimTrialTitle ? ` · até ${new Date(fimTrialTitle).toLocaleDateString('pt-BR')}` : '') +
+      '. Clique para ver assinatura.';
+
+    const labelVisivel =
+      diasRestantes <= 1 && tempoRestante
+        ? `Teste · ${tempoRestante}`
+        : `Teste · ${diasRestantes}d rest.`;
 
     return (
       <div 
@@ -150,12 +150,10 @@ const SubscriptionStatusContent = () => {
         <FiClock className={`w-4 h-4 shrink-0 ${
           isProximoDoFim ? 'text-red-500' : 'text-orange-500'
         }`} />
-        <span className={`text-[10px] sm:text-xs font-medium leading-tight text-left ${
+        <span className={`text-[10px] sm:text-xs font-medium leading-tight ${
           isProximoDoFim ? 'text-red-700' : 'text-orange-700'
         }`}>
-          <span className="hidden sm:inline">Teste {diasTotalTrial} dias · </span>
-          <span className="sm:hidden">{diasTotalTrial}d · </span>
-          {diasRestantes}d rest. · {tempoRestante || '—'}
+          {labelVisivel}
         </span>
       </div>
     );

@@ -300,8 +300,6 @@ export default function AssinaturaPage() {
     dataTrialFim: dataFimTrialIso,
     empresaCreatedAt: dataCadastroEmpresa,
   });
-  const inicioTrialIso =
-    (assinatura?.data_inicio && String(assinatura.data_inicio).trim()) || dataCadastroEmpresa;
   const diasRest = emTesteGratis
     ? diasRestantesTrial()
     : !statusCanceladoOuInativo && assinatura?.proxima_cobranca
@@ -333,24 +331,6 @@ export default function AssinaturaPage() {
               <p className="text-gray-600 dark:text-gray-400 mt-1">
                 Histórico de pagamentos da sua assinatura
               </p>
-              {emTesteGratis && (
-                <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-100">
-                  <FiClock className="shrink-0 text-amber-600 dark:text-amber-400" size={18} />
-                  <span>
-                    <strong>Teste gratuito de {diasTotalTrial} dias</strong>
-                    {' · '}
-                    <span className="whitespace-nowrap">
-                      {diasRestantesTrial()} dia{diasRestantesTrial() === 1 ? '' : 's'} restante{diasRestantesTrial() === 1 ? '' : 's'}
-                    </span>
-                    {dataFimTrialIso && (
-                      <>
-                        {' · '}
-                        até {formatarDataShort(dataFimTrialIso)}
-                      </>
-                    )}
-                  </span>
-                </div>
-              )}
               {(emTesteGratis || trialEncerrado) && dataCadastroEmpresa && (
                 <div
                   className={`mt-3 rounded-xl border px-3 py-2.5 text-sm ${
@@ -368,38 +348,35 @@ export default function AssinaturaPage() {
                   >
                     Período de teste
                   </p>
-                  <dl className="grid gap-1 sm:grid-cols-2 sm:gap-x-4">
+                  <dl className="grid gap-1 sm:grid-cols-3 sm:gap-x-4">
                     <div>
                       <dt className={`text-xs ${trialEncerrado ? 'text-red-800/80 dark:text-red-200/80' : 'text-zinc-500 dark:text-zinc-400'}`}>
-                        Cadastro da empresa
+                        Prazo total
                       </dt>
-                      <dd className="font-medium tabular-nums">{formatarData(dataCadastroEmpresa)}</dd>
+                      <dd className="font-medium tabular-nums">{diasTotalTrial} dias</dd>
                     </div>
                     <div>
                       <dt className={`text-xs ${trialEncerrado ? 'text-red-800/80 dark:text-red-200/80' : 'text-zinc-500 dark:text-zinc-400'}`}>
-                        Encerramento do trial
+                        {trialEncerrado ? 'Encerrou em' : 'Encerra em'}
                       </dt>
                       <dd className="font-medium tabular-nums">
                         {dataFimTrialIso ? formatarDataShort(dataFimTrialIso) : '—'}
                       </dd>
                     </div>
+                    {!trialEncerrado && (
+                      <div>
+                        <dt className="text-xs text-zinc-500 dark:text-zinc-400">Dias restantes</dt>
+                        <dd className="font-medium tabular-nums text-amber-800 dark:text-amber-200">
+                          {diasRestantesTrial()} dia{diasRestantesTrial() === 1 ? '' : 's'}
+                        </dd>
+                      </div>
+                    )}
                   </dl>
-                  <p
-                    className={`text-xs mt-2 ${
-                      trialEncerrado ? 'text-red-900/90 dark:text-red-100/90' : 'text-zinc-500 dark:text-zinc-400'
-                    }`}
-                  >
-                    {trialEncerrado
-                      ? `O período de teste de ${diasTotalTrial} dias terminou. Escolha um plano para voltar a usar o sistema.`
-                      : `São ${diasTotalTrial} dias corridos${
-                          inicioTrialIso && dataCadastroEmpresa &&
-                          new Date(inicioTrialIso).toDateString() === new Date(dataCadastroEmpresa).toDateString()
-                            ? ' a partir do cadastro'
-                            : inicioTrialIso
-                              ? ` a partir de ${formatarData(inicioTrialIso)}`
-                              : ''
-                        }. Após o encerramento é necessário assinar um plano.`}
-                  </p>
+                  {trialEncerrado && (
+                    <p className="text-xs mt-2 text-red-900/90 dark:text-red-100/90">
+                      O período de teste terminou. Escolha um plano para voltar a usar o sistema.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -426,11 +403,6 @@ export default function AssinaturaPage() {
                       ? formatarDataShort(assinatura.proxima_cobranca)
                       : '—'}
               </p>
-              {emTesteGratis && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Prazo total: {diasTotalTrial} dias gratuitos
-                </p>
-              )}
             </div>
             <div className="bg-white dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700 p-4">
               <p className="text-sm text-gray-500 dark:text-gray-400">Dias restantes</p>
@@ -446,22 +418,12 @@ export default function AssinaturaPage() {
                       ? (diasRest >= 0 ? `${diasRest} dias` : 'Vencida')
                       : '—')}
               </p>
-              {emTesteGratis && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Contagem em dias corridos até o fim do teste
-                </p>
-              )}
             </div>
             <div className="bg-white dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700 p-4">
               <p className="text-sm text-gray-500 dark:text-gray-400">Status da assinatura</p>
               <p className="text-xl font-bold text-gray-900 dark:text-white mt-1">
                 {labelStatus}
               </p>
-              {emTesteGratis && (
-                <p className="text-xs text-amber-700 dark:text-amber-300 mt-1 font-medium">
-                  Teste gratuito ({diasTotalTrial} dias)
-                </p>
-              )}
             </div>
           </div>
 
