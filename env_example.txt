@@ -23,11 +23,17 @@ NEXT_PUBLIC_SUCCESS_URL=https://your-app.vercel.app/pagamentos/sucesso
 NEXT_PUBLIC_FAILURE_URL=https://your-app.vercel.app/pagamentos/falha
 NEXT_PUBLIC_PENDING_URL=https://your-app.vercel.app/pagamentos/pendente
 
-# Email Configuration (opcional)
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_USER=your-email@gmail.com
-EMAIL_PASS=your-app-password
+# Email / SMTP (obrigatório para código de verificação no cadastro)
+SMTP_HOST=smtp.hostinger.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=suporte@gestaoconsert.com.br
+SMTP_PASS=your-smtp-password
+# Legado (também aceito se SMTP_* não estiver definido):
+# EMAIL_HOST=smtp.hostinger.com
+# EMAIL_PORT=587
+# EMAIL_USER=your-email@gmail.com
+# EMAIL_PASS=your-app-password
 
 # WhatsApp Cloud API Configuration
 WHATSAPP_APP_ID=1342089140921867

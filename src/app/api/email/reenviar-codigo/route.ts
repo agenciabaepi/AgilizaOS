@@ -1,84 +1,94 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
-import { enviarEmailVerificacao, gerarCodigoVerificacao } from '@/lib/email'
+import { enviarEmailVerificacao, normalizeEmail } from '@/lib/email'
+import { isSmtpConfigured } from '@/lib/smtp-config'
+import { getActiveVerificationCode, issueVerificationCode } from '@/lib/verification-code'
+
+async function buscarUsuarioPendenteVerificacao(email: string) {
+  const emailNorm = normalizeEmail(email)
+  const admin = getSupabaseAdmin()
+
+  const { data: usuario, error } = await admin
+    .from('usuarios')
+    .select('id, nome, email, email_verificado, empresa_id')
+    .ilike('email', emailNorm)
+    .maybeSingle()
+
+  if (error) {
+    console.error('Erro ao buscar usuário para reenvio:', error)
+    throw new Error('DB_ERROR')
+  }
+
+  if (!usuario) return null
+  if (usuario.email_verificado === true) return null
+  return usuario
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const { email } = await request.json()
-    // Validar parâmetros obrigatórios
-    if (!email) {
+    const body = await request.json().catch(() => ({}))
+    const email = typeof body.email === 'string' ? body.email : ''
+    const force = body.force === true
+
+    if (!email.trim()) {
+      return NextResponse.json({ error: 'Email é obrigatório' }, { status: 400 })
+    }
+
+    if (!isSmtpConfigured()) {
+      console.error('❌ Reenvio bloqueado: SMTP_PASS/EMAIL_PASS não configurado no servidor')
       return NextResponse.json(
-        { error: 'Email é obrigatório' },
-        { status: 400 }
+        { error: 'Serviço de e-mail temporariamente indisponível. Tente novamente em alguns minutos ou fale com o suporte.' },
+        { status: 503 }
       )
     }
 
-    // Buscar usuário pelo email
-    const { data: usuario, error: usuarioError } = await getSupabaseAdmin()
-      .from('usuarios')
-      .select(`
-        id,
-        nome,
-        email,
-        email_verificado,
-        empresa_id
-      `)
-      .eq('email', email)
-      .eq('email_verificado', false)
-      .single()
+    const usuario = await buscarUsuarioPendenteVerificacao(email)
 
-    if (usuarioError || !usuario) {
+    if (!usuario) {
       return NextResponse.json(
         { error: 'Usuário não encontrado ou email já verificado' },
         { status: 404 }
       )
     }
 
-    // Gerar novo código de verificação
-    const codigo = gerarCodigoVerificacao()
+    const admin = getSupabaseAdmin()
+    const emailNorm = normalizeEmail(usuario.email || email)
 
-    // Invalidar códigos anteriores do usuário
-    await getSupabaseAdmin()
-      .from('codigo_verificacao')
-      .update({ usado: true })
-      .eq('usuario_id', usuario.id)
-      .eq('usado', false)
-
-    // Salvar novo código no banco
-    const { error: codigoError } = await getSupabaseAdmin()
-      .from('codigo_verificacao')
-      .insert({
-        usuario_id: usuario.id,
-        codigo: codigo,
-        email: email,
-        usado: false,
-        expira_em: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 horas
-      })
-
-    if (codigoError) {
-      console.error('Erro ao salvar código:', codigoError)
-      return NextResponse.json(
-        { error: 'Erro interno do servidor' },
-        { status: 500 }
-      )
-    }
-
-    // Buscar nome da empresa se tiver empresa_id
     let nomeEmpresa = 'Empresa'
     if (usuario.empresa_id) {
-      const { data: empresa } = await getSupabaseAdmin()
+      const { data: empresa } = await admin
         .from('empresas')
         .select('nome')
         .eq('id', usuario.empresa_id)
         .single()
-      
-      if (empresa?.nome) {
-        nomeEmpresa = empresa.nome
+
+      if (empresa?.nome) nomeEmpresa = empresa.nome
+    }
+
+    if (!force) {
+      const active = await getActiveVerificationCode(admin, usuario.id)
+      if (active) {
+        const emailEnviado = await enviarEmailVerificacao(emailNorm, active.codigo, nomeEmpresa)
+        if (!emailEnviado) {
+          return NextResponse.json(
+            { error: 'Erro ao enviar email de verificação' },
+            { status: 500 }
+          )
+        }
+        return NextResponse.json({
+          success: true,
+          message: 'Código reenviado para seu e-mail.',
+          reused: true,
+        })
       }
     }
-    
-    // Enviar email
-    const emailEnviado = await enviarEmailVerificacao(email, codigo, nomeEmpresa)
+
+    const issued = await issueVerificationCode(admin, usuario.id, emailNorm)
+    if (!issued.ok) {
+      return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
+    }
+
+    const emailEnviado = await enviarEmailVerificacao(emailNorm, issued.codigo, nomeEmpresa)
 
     if (!emailEnviado) {
       return NextResponse.json(
@@ -86,17 +96,16 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
-    
+
     return NextResponse.json({
       success: true,
-      message: 'Novo código de verificação enviado com sucesso'
+      message: 'Novo código de verificação enviado com sucesso',
     })
-
   } catch (error) {
+    if (error instanceof Error && error.message === 'DB_ERROR') {
+      return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
+    }
     console.error('Erro na API de reenvio de código:', error)
-    return NextResponse.json(
-      { error: 'Erro interno do servidor' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }
 }

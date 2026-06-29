@@ -30,6 +30,7 @@ function LoginClientInner() {
   
   // ✅ PROTEÇÃO ADICIONAL: Ref para controlar execução única
   const loginInProgress = useRef(false);
+  const autoResendDone = useRef(false);
   
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -89,10 +90,38 @@ function LoginClientInner() {
     }
     
     if (email && verificacao === 'pending') {
-      setPendingEmail(email);
+      setPendingEmail(email.trim().toLowerCase());
       setShowVerification(true);
     }
   }, []);
+
+  // Reenvia código automaticamente ao abrir a tela de verificação (cadastro ou login)
+  useEffect(() => {
+    if (!showVerification || !pendingEmail || autoResendDone.current) return;
+    autoResendDone.current = true;
+
+    (async () => {
+      try {
+        const response = await fetch('/api/email/reenviar-codigo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: pendingEmail }),
+        });
+        const data = await response.json();
+        if (response.ok) {
+          if (data.reused) {
+            addToast('success', 'Código reenviado para seu e-mail.');
+          } else {
+            addToast('success', 'Código enviado para seu e-mail.');
+          }
+        } else if (response.status === 503) {
+          addToast('error', data.error || 'Serviço de e-mail indisponível no momento.');
+        }
+      } catch {
+        /* usuário pode clicar em Reenviar código */
+      }
+    })();
+  }, [showVerification, pendingEmail, addToast]);
   
   // 🔒 CORREÇÃO DE HIDRATAÇÃO: Aguardar montagem no cliente
   useEffect(() => {
@@ -182,13 +211,13 @@ function LoginClientInner() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email: pendingEmail })
+        body: JSON.stringify({ email: pendingEmail, force: true }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        addToast('success', 'Novo código enviado para seu email!');
+        addToast('success', data.reused ? 'Código ainda válido — confira seu e-mail.' : 'Novo código enviado para seu email!');
       } else {
         addToast('error', data.error || 'Erro ao reenviar código');
       }

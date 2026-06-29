@@ -1,82 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
-import { enviarEmailVerificacao, gerarCodigoVerificacao } from '@/lib/email'
+import { enviarEmailVerificacao, normalizeEmail } from '@/lib/email'
+import { isSmtpConfigured } from '@/lib/smtp-config'
+import { issueVerificationCode } from '@/lib/verification-code'
 
 export async function POST(request: NextRequest) {
   try {
-    const { usuarioId, email, nomeEmpresa } = await request.json()
+    const body = await request.json().catch(() => ({}))
+    const usuarioId = body.usuarioId
+    const emailRaw = typeof body.email === 'string' ? body.email : ''
+    const nomeEmpresa = typeof body.nomeEmpresa === 'string' ? body.nomeEmpresa : ''
 
-    // Validar parâmetros obrigatórios
-    if (!usuarioId || !email || !nomeEmpresa) {
+    if (!usuarioId || !emailRaw.trim() || !nomeEmpresa.trim()) {
       return NextResponse.json(
         { error: 'usuarioId, email e nomeEmpresa são obrigatórios' },
         { status: 400 }
       )
     }
 
-    // Verificar se o usuário existe
-    const { data: usuario, error: usuarioError } = await getSupabaseAdmin()
+    if (!isSmtpConfigured()) {
+      console.error('❌ Envio bloqueado: SMTP_PASS/EMAIL_PASS não configurado no servidor')
+      return NextResponse.json(
+        { error: 'Serviço de e-mail temporariamente indisponível. Tente novamente em alguns minutos ou fale com o suporte.' },
+        { status: 503 }
+      )
+    }
+
+    const email = normalizeEmail(emailRaw)
+    const admin = getSupabaseAdmin()
+
+    const { data: usuario, error: usuarioError } = await admin
       .from('usuarios')
       .select('id, email')
       .eq('id', usuarioId)
       .single()
 
     if (usuarioError || !usuario) {
-      return NextResponse.json(
-        { error: 'Usuário não encontrado' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
     }
 
-    // Gerar código de verificação
-    const codigo = gerarCodigoVerificacao()
-
-    // Invalidar códigos anteriores do usuário
-    await getSupabaseAdmin()
-      .from('codigo_verificacao')
-      .update({ usado: true })
-      .eq('usuario_id', usuarioId)
-      .eq('usado', false)
-
-    // Salvar novo código no banco
-    const { error: codigoError } = await getSupabaseAdmin()
-      .from('codigo_verificacao')
-      .insert({
-        usuario_id: usuarioId,
-        codigo: codigo,
-        email: email,
-        usado: false,
-        expira_em: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 horas
-      })
-
-    if (codigoError) {
-      console.error('Erro ao salvar código:', codigoError)
-      return NextResponse.json(
-        { error: 'Erro interno do servidor' },
-        { status: 500 }
-      )
+    const issued = await issueVerificationCode(admin, usuarioId, email)
+    if (!issued.ok) {
+      return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
     }
 
-    // Enviar email
-    const emailEnviado = await enviarEmailVerificacao(email, codigo, nomeEmpresa)
+    const emailEnviado = await enviarEmailVerificacao(email, issued.codigo, nomeEmpresa)
 
     if (!emailEnviado) {
-      return NextResponse.json(
-        { error: 'Erro ao enviar email de verificação' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'Erro ao enviar email de verificação' }, { status: 500 })
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Código de verificação enviado com sucesso'
+      message: 'Código de verificação enviado com sucesso',
     })
-
   } catch (error) {
     console.error('Erro na API de envio de código:', error)
-    return NextResponse.json(
-      { error: 'Erro interno do servidor' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }
 }

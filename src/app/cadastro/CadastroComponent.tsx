@@ -218,7 +218,7 @@ export default function CadastroEmpresa() {
     // Prepara o corpo da requisição
     const payload = {
       nome: form.nome,
-      email: form.email,
+      email: form.email.trim().toLowerCase(),
       senha: form.senha,
       nomeEmpresa: form.nomeEmpresa,
       whatsapp: form.whatsapp,
@@ -266,10 +266,13 @@ export default function CadastroEmpresa() {
       }
       
       toast.success(result.message || 'Cadastro realizado com sucesso!');
+      if (result.email_enviado === false) {
+        toast.error('Não foi possível enviar o e-mail agora. Na próxima tela, use "Reenviar código".');
+      }
       
       // Aguarda um pouco antes de redirecionar para instruções de verificação
       setTimeout(() => {
-        router.push(`/instrucoes-verificacao?email=${encodeURIComponent(form.email)}`);
+        router.push(`/instrucoes-verificacao?email=${encodeURIComponent(form.email.trim().toLowerCase())}`);
       }, 2000);
       
     } catch (error: unknown) {

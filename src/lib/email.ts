@@ -1,6 +1,9 @@
 import fs from 'fs'
 import path from 'path'
 import nodemailer from 'nodemailer'
+import { getSmtpConfig, isSmtpConfigured } from '@/lib/smtp-config'
+
+export { isSmtpConfigured, normalizeEmail } from '@/lib/smtp-config'
 
 const LOGO_CID = 'logo-consert@gestaoconsert'
 const LOGO_PUBLIC_URL = 'https://gestaoconsert.com.br/assets/imagens/logobranco.png'
@@ -15,13 +18,14 @@ const BRAND = {
 } as const
 
 function criarTransporter() {
+  const smtp = getSmtpConfig()
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.hostinger.com',
-    port: parseInt(process.env.SMTP_PORT || '465'),
-    secure: process.env.SMTP_SECURE === 'true' || true,
+    host: smtp.host,
+    port: smtp.port,
+    secure: smtp.secure,
     auth: {
-      user: process.env.SMTP_USER || 'suporte@gestaoconsert.com.br',
-      pass: process.env.SMTP_PASS,
+      user: smtp.user,
+      pass: smtp.pass,
     },
   })
 }
@@ -146,6 +150,11 @@ export async function enviarEmailVerificacao(
   codigo: string,
   nomeEmpresa: string
 ): Promise<boolean> {
+  if (!isSmtpConfigured()) {
+    console.error('❌ SMTP não configurado (SMTP_PASS ou EMAIL_PASS ausente) — e-mail não enviado')
+    return false
+  }
+
   try {
     const transporter = criarTransporter()
     const baseUrl = getSiteBaseUrl()

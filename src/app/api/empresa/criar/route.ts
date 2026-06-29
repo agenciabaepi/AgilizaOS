@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { MS_TRIAL_GRATIS } from '@/config/trial';
-import { enviarEmailVerificacao, gerarCodigoVerificacao } from '@/lib/email';
+import { enviarEmailVerificacao, normalizeEmail } from '@/lib/email';
+import { isSmtpConfigured } from '@/lib/smtp-config';
+import { issueVerificationCode } from '@/lib/verification-code';
 
 export async function POST(request: Request) {
   const body = await request.json();
   const supabaseAdmin = getSupabaseAdmin();
   const {
     nome,
-    email,
+    email: emailRaw,
     senha,
     nomeEmpresa,
     cidade,
@@ -19,6 +21,11 @@ export async function POST(request: Request) {
     website,
     plano
   } = body;
+
+  const email = normalizeEmail(String(emailRaw || ''));
+  if (!email) {
+    return NextResponse.json({ error: 'E-mail inválido.' }, { status: 400 });
+  }
 
   // Normalizar cpf e cnpj
   const cpf = cpfOriginal?.replace(/\D/g, '') || null;
@@ -162,40 +169,33 @@ export async function POST(request: Request) {
   }
 
   // 5. Enviar código de verificação por email
+  let emailEnviado = false;
   try {
-    const codigo = gerarCodigoVerificacao();
-
-    await supabaseAdmin
-      .from('codigo_verificacao')
-      .update({ usado: true })
-      .eq('usuario_id', usuario.id)
-      .eq('usado', false);
-
-    const { error: codigoError } = await supabaseAdmin.from('codigo_verificacao').insert({
-      usuario_id: usuario.id,
-      codigo,
-      email,
-      usado: false,
-      expira_em: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    });
-
-    if (codigoError) {
-      console.error('Erro ao salvar código de verificação:', codigoError);
+    if (!isSmtpConfigured()) {
+      console.error('❌ Cadastro sem envio de e-mail: SMTP_PASS/EMAIL_PASS não configurado');
     } else {
-      const emailEnviado = await enviarEmailVerificacao(email, codigo, nomeEmpresa);
-      if (!emailEnviado) {
-        console.error('Erro ao enviar email de verificação para:', email);
+      const issued = await issueVerificationCode(supabaseAdmin, usuario.id, email);
+
+      if (!issued.ok) {
+        console.error('Erro ao salvar código de verificação:', issued.error);
+      } else {
+        emailEnviado = await enviarEmailVerificacao(email, issued.codigo, nomeEmpresa);
+        if (!emailEnviado) {
+          console.error('Erro ao enviar email de verificação para:', email);
+        }
       }
     }
   } catch (error) {
     console.error('Erro ao enviar código de verificação:', error);
   }
 
-  return NextResponse.json({ 
-    sucesso: true, 
+  return NextResponse.json({
+    sucesso: true,
     empresa_id: empresa.id,
     usuario_id: usuario.id,
-    email_enviado: true,
-    message: 'Cadastro realizado com sucesso! Verifique seu email para ativar sua conta.' 
+    email_enviado: emailEnviado,
+    message: emailEnviado
+      ? 'Cadastro realizado com sucesso! Verifique seu email para ativar sua conta.'
+      : 'Cadastro realizado! Use "Reenviar código" na tela de login se não receber o e-mail em alguns minutos.',
   });
 }

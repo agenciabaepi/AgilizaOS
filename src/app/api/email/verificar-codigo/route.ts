@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
+import { normalizeEmail } from '@/lib/email'
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, codigo } = await request.json()
+    const body = await request.json().catch(() => ({}))
+    const emailRaw = typeof body.email === 'string' ? body.email : ''
+    const codigo = typeof body.codigo === 'string' ? body.codigo.trim() : ''
 
-    // Validar parâmetros obrigatórios
-    if (!email || !codigo) {
+    if (!emailRaw.trim() || !codigo) {
       return NextResponse.json(
         { error: 'Email e código são obrigatórios' },
         { status: 400 }
       )
     }
+
+    const email = normalizeEmail(emailRaw)
 
     // Buscar código válido
     const { data: codigoVerificacao, error: codigoError } = await getSupabaseAdmin()
@@ -28,7 +32,7 @@ export async function POST(request: NextRequest) {
           email_verificado
         )
       `)
-      .eq('email', email)
+      .ilike('email', email)
       .eq('codigo', codigo)
       .eq('usado', false)
       .gte('expira_em', new Date().toISOString())
