@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import PixQRCode from '@/components/PixQRCode';
 import { useSubscription, dispatchAssinaturaUpdated } from '@/hooks/useSubscription';
-import { DIAS_TRIAL_GRATIS, dataFimTrialAPartirDe } from '@/config/trial';
+import { computeDiasTrialTotal, dataFimTrialAPartirDe } from '@/config/trial';
 
 /** Cobrança vinda do Asaas (API cobrancas-asaas) */
 interface CobrancaAsaas {
@@ -293,7 +293,15 @@ export default function AssinaturaPage() {
     (assinatura?.data_inicio ? String(assinatura.data_inicio).trim() : null);
   const dataFimTrialIso =
     (assinatura?.data_trial_fim && String(assinatura.data_trial_fim).trim()) ||
-    (dataCadastroEmpresa ? dataFimTrialAPartirDe(dataCadastroEmpresa) : null);
+    (dataCadastroEmpresa ? dataFimTrialAPartirDe(dataCadastroEmpresa, empresaData?.dias_trial) : null);
+  const diasTotalTrial = computeDiasTrialTotal({
+    empresaDiasTrial: empresaData?.dias_trial,
+    dataInicio: assinatura?.data_inicio,
+    dataTrialFim: dataFimTrialIso,
+    empresaCreatedAt: dataCadastroEmpresa,
+  });
+  const inicioTrialIso =
+    (assinatura?.data_inicio && String(assinatura.data_inicio).trim()) || dataCadastroEmpresa;
   const diasRest = emTesteGratis
     ? diasRestantesTrial()
     : !statusCanceladoOuInativo && assinatura?.proxima_cobranca
@@ -329,7 +337,7 @@ export default function AssinaturaPage() {
                 <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-100">
                   <FiClock className="shrink-0 text-amber-600 dark:text-amber-400" size={18} />
                   <span>
-                    <strong>Teste gratuito de {DIAS_TRIAL_GRATIS} dias</strong>
+                    <strong>Teste gratuito de {diasTotalTrial} dias</strong>
                     {' · '}
                     <span className="whitespace-nowrap">
                       {diasRestantesTrial()} dia{diasRestantesTrial() === 1 ? '' : 's'} restante{diasRestantesTrial() === 1 ? '' : 's'}
@@ -382,8 +390,15 @@ export default function AssinaturaPage() {
                     }`}
                   >
                     {trialEncerrado
-                      ? `O período de teste de ${DIAS_TRIAL_GRATIS} dias terminou. Escolha um plano para voltar a usar o sistema.`
-                      : `São ${DIAS_TRIAL_GRATIS} dias corridos a partir do cadastro. Após essa data é necessário assinar um plano.`}
+                      ? `O período de teste de ${diasTotalTrial} dias terminou. Escolha um plano para voltar a usar o sistema.`
+                      : `São ${diasTotalTrial} dias corridos${
+                          inicioTrialIso && dataCadastroEmpresa &&
+                          new Date(inicioTrialIso).toDateString() === new Date(dataCadastroEmpresa).toDateString()
+                            ? ' a partir do cadastro'
+                            : inicioTrialIso
+                              ? ` a partir de ${formatarData(inicioTrialIso)}`
+                              : ''
+                        }. Após o encerramento é necessário assinar um plano.`}
                   </p>
                 </div>
               )}
@@ -413,7 +428,7 @@ export default function AssinaturaPage() {
               </p>
               {emTesteGratis && (
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Prazo total: {DIAS_TRIAL_GRATIS} dias gratuitos
+                  Prazo total: {diasTotalTrial} dias gratuitos
                 </p>
               )}
             </div>
@@ -444,7 +459,7 @@ export default function AssinaturaPage() {
               </p>
               {emTesteGratis && (
                 <p className="text-xs text-amber-700 dark:text-amber-300 mt-1 font-medium">
-                  Teste gratuito ({DIAS_TRIAL_GRATIS} dias)
+                  Teste gratuito ({diasTotalTrial} dias)
                 </p>
               )}
             </div>

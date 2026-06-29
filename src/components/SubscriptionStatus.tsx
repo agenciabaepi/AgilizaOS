@@ -1,6 +1,6 @@
 import { useSubscription } from '@/hooks/useSubscription';
 import { useAuth } from '@/context/AuthContext';
-import { DIAS_TRIAL_GRATIS, dataFimTrialAPartirDe } from '@/config/trial';
+import { computeDiasTrialTotal, dataFimTrialAPartirDe } from '@/config/trial';
 import { FiStar, FiClock, FiAlertTriangle } from 'react-icons/fi';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -64,7 +64,7 @@ const SubscriptionStatusContent = () => {
     const interval = setInterval(calcularTempoRestante, 30000);
 
     return () => clearInterval(interval);
-  }, [assinatura, empresaData?.created_at]);
+  }, [assinatura, empresaData?.created_at, empresaData?.dias_trial]);
 
   const handleTrialClick = () => {
     if (assinatura?.status === 'trial') {
@@ -121,8 +121,14 @@ const SubscriptionStatusContent = () => {
     const isProximoDoFim = diasRestantes <= 3;
     const fimTrialTitle =
       assinatura.data_trial_fim || dataFimTrialAPartirDe(empresaData?.created_at, empresaData?.dias_trial);
+    const diasTotalTrial = computeDiasTrialTotal({
+      empresaDiasTrial: empresaData?.dias_trial,
+      dataInicio: assinatura.data_inicio,
+      dataTrialFim: fimTrialTitle,
+      empresaCreatedAt: empresaData?.created_at,
+    });
     const titleTrial =
-      `Teste gratuito de ${DIAS_TRIAL_GRATIS} dias. Restam ${diasRestantes} dia(s) (${tempoRestante || '—'}). ` +
+      `Teste gratuito de ${diasTotalTrial} dias. Restam ${diasRestantes} dia(s) (${tempoRestante || '—'}). ` +
       (empresaData?.created_at
         ? `Cadastro: ${new Date(empresaData.created_at).toLocaleDateString('pt-BR')}. `
         : '') +
@@ -147,8 +153,8 @@ const SubscriptionStatusContent = () => {
         <span className={`text-[10px] sm:text-xs font-medium leading-tight text-left ${
           isProximoDoFim ? 'text-red-700' : 'text-orange-700'
         }`}>
-          <span className="hidden sm:inline">Teste {DIAS_TRIAL_GRATIS} dias · </span>
-          <span className="sm:hidden">{DIAS_TRIAL_GRATIS}d · </span>
+          <span className="hidden sm:inline">Teste {diasTotalTrial} dias · </span>
+          <span className="sm:hidden">{diasTotalTrial}d · </span>
           {diasRestantes}d rest. · {tempoRestante || '—'}
         </span>
       </div>
