@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { MS_TRIAL_GRATIS } from '@/config/trial';
+import { EMAIL_VERIFICATION_ENABLED } from '@/config/email-verification';
 import { enviarEmailVerificacao, normalizeEmail } from '@/lib/email';
 import { isSmtpConfigured } from '@/lib/smtp-config';
 import { issueVerificationCode } from '@/lib/verification-code';
@@ -121,7 +122,7 @@ export async function POST(request: Request) {
       usuario: email.split('@')[0], // Usar parte do email como usuário
       empresa_id: empresa.id,
       nivel: 'admin',
-      email_verificado: false // Email ainda não verificado
+      email_verificado: !EMAIL_VERIFICATION_ENABLED,
     })
     .select()
     .single();
@@ -168,25 +169,27 @@ export async function POST(request: Request) {
     // Não falhar a criação da empresa por causa da assinatura
   }
 
-  // 5. Enviar código de verificação por email
+  // 5. Enviar código de verificação por email (quando habilitado)
   let emailEnviado = false;
-  try {
-    if (!isSmtpConfigured()) {
-      console.error('❌ Cadastro sem envio de e-mail: SMTP_PASS/EMAIL_PASS não configurado');
-    } else {
-      const issued = await issueVerificationCode(supabaseAdmin, usuario.id, email);
-
-      if (!issued.ok) {
-        console.error('Erro ao salvar código de verificação:', issued.error);
+  if (EMAIL_VERIFICATION_ENABLED) {
+    try {
+      if (!isSmtpConfigured()) {
+        console.error('❌ Cadastro sem envio de e-mail: SMTP_PASS/EMAIL_PASS não configurado');
       } else {
-        emailEnviado = await enviarEmailVerificacao(email, issued.codigo, nomeEmpresa);
-        if (!emailEnviado) {
-          console.error('Erro ao enviar email de verificação para:', email);
+        const issued = await issueVerificationCode(supabaseAdmin, usuario.id, email);
+
+        if (!issued.ok) {
+          console.error('Erro ao salvar código de verificação:', issued.error);
+        } else {
+          emailEnviado = await enviarEmailVerificacao(email, issued.codigo, nomeEmpresa);
+          if (!emailEnviado) {
+            console.error('Erro ao enviar email de verificação para:', email);
+          }
         }
       }
+    } catch (error) {
+      console.error('Erro ao enviar código de verificação:', error);
     }
-  } catch (error) {
-    console.error('Erro ao enviar código de verificação:', error);
   }
 
   return NextResponse.json({
@@ -194,8 +197,10 @@ export async function POST(request: Request) {
     empresa_id: empresa.id,
     usuario_id: usuario.id,
     email_enviado: emailEnviado,
-    message: emailEnviado
-      ? 'Cadastro realizado com sucesso! Verifique seu email para ativar sua conta.'
-      : 'Cadastro realizado! Use "Reenviar código" na tela de login se não receber o e-mail em alguns minutos.',
+    message: EMAIL_VERIFICATION_ENABLED
+      ? emailEnviado
+        ? 'Cadastro realizado com sucesso! Verifique seu email para ativar sua conta.'
+        : 'Cadastro realizado! Use "Reenviar código" na tela de login se não receber o e-mail em alguns minutos.'
+      : 'Cadastro realizado com sucesso! Faça login para começar a usar o sistema.',
   });
 }

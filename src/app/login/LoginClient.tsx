@@ -11,6 +11,7 @@ import { ToastProvider, useToast } from '@/components/Toast';
 import { ConfirmProvider, useConfirm } from '@/components/ConfirmDialog';
 import { FaEye, FaEyeSlash, FaArrowLeft, FaArrowRight } from 'react-icons/fa';
 import { getDashboardPath } from '@/lib/dashboardRouting';
+import { EMAIL_VERIFICATION_ENABLED } from '@/config/email-verification';
 
 function LoginClientInner() {
   const [loginInput, setLoginInput] = useState('');
@@ -89,7 +90,7 @@ function LoginClientInner() {
       window.location.href = '/empresa-desativada';
     }
     
-    if (email && verificacao === 'pending') {
+    if (email && verificacao === 'pending' && EMAIL_VERIFICATION_ENABLED) {
       setPendingEmail(email.trim().toLowerCase());
       setShowVerification(true);
     }
@@ -97,6 +98,7 @@ function LoginClientInner() {
 
   // Reenvia código automaticamente ao abrir a tela de verificação (cadastro ou login)
   useEffect(() => {
+    if (!EMAIL_VERIFICATION_ENABLED) return;
     if (!showVerification || !pendingEmail || autoResendDone.current) return;
     autoResendDone.current = true;
 
@@ -268,7 +270,7 @@ function LoginClientInner() {
       emailToLogin = result.email;
 
       // Admin: confirmar email com código antes do primeiro login
-      if (result.nivel === 'admin' && !result.email_verificado) {
+      if (EMAIL_VERIFICATION_ENABLED && result.nivel === 'admin' && !result.email_verificado) {
         setIsSubmitting(false);
         loginInProgress.current = false;
         setPendingEmail(emailToLogin);
@@ -278,7 +280,7 @@ function LoginClientInner() {
       }
 
       // Demais usuários: empresa precisa ter admin com email verificado
-      if (result.nivel !== 'admin' && !result.empresa_verificada) {
+      if (EMAIL_VERIFICATION_ENABLED && result.nivel !== 'admin' && !result.empresa_verificada) {
         setIsSubmitting(false);
         loginInProgress.current = false;
         addToast(

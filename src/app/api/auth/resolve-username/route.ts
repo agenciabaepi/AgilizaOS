@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { EMAIL_VERIFICATION_ENABLED } from '@/config/email-verification';
 
 /**
  * Resolve nome de usuário ou e-mail → e-mail canônico do Auth (onde a senha é validada).
@@ -36,8 +37,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
     }
 
-    let emailVerificado = usuario.email_verificado === true;
+    let emailVerificado = EMAIL_VERIFICATION_ENABLED ? usuario.email_verificado === true : true;
     let empresaVerificada = emailVerificado;
+
+    if (!EMAIL_VERIFICATION_ENABLED) {
+      return NextResponse.json({
+        email: authUser.user.email,
+        email_verificado: true,
+        nivel: usuario.nivel,
+        empresa_verificada: true,
+      });
+    }
 
     // Contas legadas já em uso: não exigir código novamente
     if (!emailVerificado && usuario.empresa_id) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { enviarEmailVerificacao, normalizeEmail } from '@/lib/email'
 import { isSmtpConfigured } from '@/lib/smtp-config'
+import { EMAIL_VERIFICATION_ENABLED } from '@/config/email-verification'
 import { getActiveVerificationCode, issueVerificationCode } from '@/lib/verification-code'
 
 async function buscarUsuarioPendenteVerificacao(email: string) {
@@ -26,6 +27,10 @@ async function buscarUsuarioPendenteVerificacao(email: string) {
 
 export async function POST(request: NextRequest) {
   try {
+    if (!EMAIL_VERIFICATION_ENABLED) {
+      return NextResponse.json({ error: 'Verificação de e-mail desativada' }, { status: 404 })
+    }
+
     const body = await request.json().catch(() => ({}))
     const email = typeof body.email === 'string' ? body.email : ''
     const force = body.force === true

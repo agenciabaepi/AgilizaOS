@@ -15,6 +15,7 @@ import {
 } from 'react-icons/fa';
 import { mask as masker } from 'remask';
 import { LANDING_TRIAL } from '@/config/landing';
+import { EMAIL_VERIFICATION_ENABLED } from '@/config/email-verification';
 
 export default function CadastroEmpresa() {
   const [step, setStep] = useState(1);
@@ -266,13 +267,16 @@ export default function CadastroEmpresa() {
       }
       
       toast.success(result.message || 'Cadastro realizado com sucesso!');
-      if (result.email_enviado === false) {
+      if (EMAIL_VERIFICATION_ENABLED && result.email_enviado === false) {
         toast.error('Não foi possível enviar o e-mail agora. Na próxima tela, use "Reenviar código".');
       }
       
-      // Aguarda um pouco antes de redirecionar para instruções de verificação
       setTimeout(() => {
-        router.push(`/instrucoes-verificacao?email=${encodeURIComponent(form.email.trim().toLowerCase())}`);
+        if (EMAIL_VERIFICATION_ENABLED) {
+          router.push(`/instrucoes-verificacao?email=${encodeURIComponent(form.email.trim().toLowerCase())}`);
+        } else {
+          router.push('/login');
+        }
       }, 2000);
       
     } catch (error: unknown) {

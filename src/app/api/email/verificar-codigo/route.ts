@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { normalizeEmail } from '@/lib/email'
+import { EMAIL_VERIFICATION_ENABLED } from '@/config/email-verification'
 
 export async function POST(request: NextRequest) {
   try {
+    if (!EMAIL_VERIFICATION_ENABLED) {
+      return NextResponse.json({ error: 'Verificação de e-mail desativada' }, { status: 404 })
+    }
+
     const body = await request.json().catch(() => ({}))
     const emailRaw = typeof body.email === 'string' ? body.email : ''
     const codigo = typeof body.codigo === 'string' ? body.codigo.trim() : ''
