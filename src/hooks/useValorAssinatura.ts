@@ -3,11 +3,10 @@
 import { useState, useEffect } from 'react';
 
 /**
- * Hook para obter o valor mensal da assinatura (R$)
- * Usado em: landing, planos, pagar, renovar
+ * Valor mensal da assinatura (R$). Só preenchido após o fetch — evita flash de valor padrão na UI.
  */
 export function useValorAssinatura() {
-  const [valor, setValor] = useState<number>(119.9);
+  const [valor, setValor] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -28,5 +27,11 @@ export function useValorAssinatura() {
     };
   }, []);
 
-  return { valor, loading };
+  const ready = !loading && valor !== null;
+
+  return { valor, loading, ready };
+}
+
+export function formatarValorAssinatura(valor: number): string {
+  return valor.toFixed(2).replace('.', ',');
 }

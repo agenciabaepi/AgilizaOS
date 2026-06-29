@@ -10,7 +10,7 @@ import { useValorAssinatura } from '@/hooks/useValorAssinatura';
 export default function PlanosPage() {
   const router = useRouter();
   const { usuarioData } = useAuth();
-  const { valor } = useValorAssinatura();
+  const { valor, ready } = useValorAssinatura();
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [loading, setLoading] = useState<string | null>(null);
 
@@ -30,8 +30,8 @@ export default function PlanosPage() {
     {
       id: 'unico',
       nome: 'Assinatura',
-      preco: `R$ ${valor.toFixed(2).replace('.', ',')}`,
-      valor,
+      preco: ready && valor != null ? `R$ ${valor.toFixed(2).replace('.', ',')}` : null,
+      valor: valor ?? 0,
       periodo: '/mês',
       descricao: 'Todos os recursos do sistema liberados',
       badge: 'Assinatura única',
@@ -216,7 +216,11 @@ export default function PlanosPage() {
                     {/* Price */}
                     <div className="mb-8">
                       <div className="flex items-baseline">
-                        <span className="text-4xl font-light text-white">{plano.preco}</span>
+                        {plano.preco ? (
+                          <span className="text-4xl font-light text-white">{plano.preco}</span>
+                        ) : (
+                          <span className="inline-block h-10 w-36 bg-white/20 rounded animate-pulse" aria-hidden />
+                        )}
                         <span className="text-white/60 text-sm ml-2">{plano.periodo}</span>
                       </div>
                     </div>
