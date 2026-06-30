@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getSessionUserId, getEmpresaIdForUser } from '@/lib/api/routeAuthEmpresa';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 /**
@@ -8,10 +8,8 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin';
  */
 export async function PUT(req: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    const userId = await getSessionUserId(req);
+    if (!userId) {
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
     }
 
@@ -24,20 +22,15 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    const admin = getSupabaseAdmin();
-    const { data: usuario, error: usuarioError } = await admin
-      .from('usuarios')
-      .select('id, empresa_id')
-      .eq('auth_user_id', user.id)
-      .single();
-
-    if (usuarioError || !usuario?.empresa_id) {
+    const empresaId = await getEmpresaIdForUser(userId);
+    if (!empresaId) {
       return NextResponse.json(
         { error: 'Usuário ou empresa não encontrados' },
         { status: 403 }
       );
     }
 
+    const admin = getSupabaseAdmin();
     const body = await req.json();
 
     // Garantir que não altera empresa_id
@@ -75,7 +68,7 @@ export async function PUT(req: NextRequest) {
       .from('produtos_servicos')
       .update(allowed)
       .eq('id', produtoId)
-      .eq('empresa_id', usuario.empresa_id)
+      .eq('empresa_id', empresaId)
       .select()
       .single();
 

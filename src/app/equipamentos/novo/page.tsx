@@ -412,77 +412,69 @@ export default function NovoProdutoPage() {
   }, [user, usuarioData?.empresa_id, empresaData?.id]);
 
   useEffect(() => {
-    console.log('🔍 produtoId da URL:', produtoId);
-    if (produtoId) {
-      console.log('📋 Buscando produto com ID:', produtoId);
-      // Buscar produto usando API
-      fetch(`/api/produtos-servicos/buscar?produtoId=${produtoId}`, {
-        cache: 'no-store',
-        headers: {
-          'Cache-Control': 'no-cache'
-        }
-      })
-        .then(response => {
-          console.log('📡 Status da resposta:', response.status);
-          return response.json();
-        })
-        .then(({ data, error }: { data: any; error: any }) => {
-          console.log('📊 Resposta da busca do produto:', { data, error });
-          const produtoData = data;
-          console.log('📦 produtoData processado:', produtoData);
-          if (produtoData && !error) {
-            console.log('✅ Carregando dados do produto no formulário...');
-            console.log('🔍 Dados específicos:', {
-              nome: produtoData.nome,
-              preco: produtoData.preco,
-              custo: produtoData.custo,
-              marca: produtoData.marca,
-              ncm: produtoData.ncm,
-              cfop: produtoData.cfop
-            });
-            setFormData({
-              nome: produtoData.nome || '',
-              tipo: produtoData.tipo || '',
-              codigo: produtoData.codigo || '',
-              grupo: produtoData.grupo_id || '',
-              categoria: produtoData.categoria_id || '',
-              subcategoria: produtoData.subcategoria_id || '',
-              custo: produtoData.custo?.toString() || '',
-              preco: produtoData.preco?.toString() || '',
-              unidade: produtoData.unidade || '',
-              fornecedor_id: produtoData.fornecedor_id || '',
-              marca: produtoData.marca || '',
-              estoque_min: (produtoData.estoque_min ?? produtoData.estoque_minimo)?.toString() || '',
-              estoque_max: produtoData.estoque_max?.toString() || '',
-              estoque_atual: produtoData.estoque_atual?.toString() || '',
-              situacao: produtoData.situacao || '',
-              ncm: produtoData.ncm || '',
-              cfop: produtoData.cfop || '',
-              cst: produtoData.cst || '',
-              cest: produtoData.cest || '',
-              largura_cm: produtoData.largura_cm?.toString() || '',
-              altura_cm: produtoData.altura_cm?.toString() || '',
-              profundidade_cm: produtoData.profundidade_cm?.toString() || '',
-              peso_g: produtoData.peso_g?.toString() || '',
-              obs: produtoData.obs || '',
-              ativo: produtoData.ativo ? 'true' : 'false',
-              codigo_barras: produtoData.codigo_barras || '',
-            });
-            setExistingImageUrls(produtoData.imagens_url || []);
-            console.log('✅ Formulário atualizado com dados do produto');
-          } else {
-            console.log('❌ Erro ao carregar produto:', error);
-            addToast('error', 'Erro ao carregar produto para edição.');
-          }
-        })
-        .catch(error => {
-          console.error('❌ Erro na requisição:', error);
-          addToast('error', 'Erro ao carregar produto para edição.');
+    if (!produtoId) return;
+
+    let cancelled = false;
+
+    const carregarProduto = async () => {
+      try {
+        const headers = await bearerAuthHeadersForApi(session, { 'Cache-Control': 'no-cache' });
+        const response = await fetch(`/api/produtos-servicos/buscar?produtoId=${produtoId}`, {
+          cache: 'no-store',
+          credentials: 'include',
+          headers,
         });
-    } else {
-      console.log('⚠️ Nenhum produtoId encontrado na URL');
-    }
-  }, [produtoId, addToast]);
+        const { data: produtoData, error } = await response.json();
+
+        if (cancelled) return;
+
+        if (!response.ok || !produtoData || error) {
+          addToast('error', typeof error === 'string' ? error : 'Erro ao carregar produto para edição.');
+          return;
+        }
+
+        setFormData({
+          nome: produtoData.nome || '',
+          tipo: produtoData.tipo || '',
+          codigo: produtoData.codigo || '',
+          grupo: produtoData.grupo_id || '',
+          categoria: produtoData.categoria_id || '',
+          subcategoria: produtoData.subcategoria_id || '',
+          custo: produtoData.custo?.toString() || '',
+          preco: produtoData.preco?.toString() || '',
+          unidade: produtoData.unidade || '',
+          fornecedor_id: produtoData.fornecedor_id || '',
+          marca: produtoData.marca || '',
+          estoque_min: (produtoData.estoque_min ?? produtoData.estoque_minimo)?.toString() || '',
+          estoque_max: produtoData.estoque_max?.toString() || '',
+          estoque_atual: produtoData.estoque_atual?.toString() || '',
+          situacao: produtoData.situacao || '',
+          ncm: produtoData.ncm || '',
+          cfop: produtoData.cfop || '',
+          cst: produtoData.cst || '',
+          cest: produtoData.cest || '',
+          largura_cm: produtoData.largura_cm?.toString() || '',
+          altura_cm: produtoData.altura_cm?.toString() || '',
+          profundidade_cm: produtoData.profundidade_cm?.toString() || '',
+          peso_g: produtoData.peso_g?.toString() || '',
+          obs: produtoData.obs || '',
+          ativo: produtoData.ativo ? 'true' : 'false',
+          codigo_barras: produtoData.codigo_barras || '',
+        });
+        setExistingImageUrls(produtoData.imagens_url || produtoData.imagens || []);
+      } catch {
+        if (!cancelled) {
+          addToast('error', 'Erro ao carregar produto para edição.');
+        }
+      }
+    };
+
+    carregarProduto();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [produtoId, session, addToast]);
 
   const handleSubmit = async () => {
     // Gerar código sequencial por empresa, somente se não estiver editando (novo produto)
@@ -648,9 +640,11 @@ export default function NovoProdutoPage() {
       });
       
       try {
+        const headers = await bearerAuthHeadersForApi(session, { 'Content-Type': 'application/json' });
         const response = await fetch(`/api/produtos-servicos/atualizar?produtoId=${produtoId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          headers,
           body: JSON.stringify(updatePayload),
         });
 

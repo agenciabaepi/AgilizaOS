@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { getSessionUserId, getEmpresaIdForUser } from '@/lib/api/routeAuthEmpresa';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 /**
@@ -9,10 +9,8 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin';
  */
 export async function GET(req: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    const userId = await getSessionUserId(req);
+    if (!userId) {
       return NextResponse.json(
         { data: null, error: 'Não autenticado' },
         { status: 401 }
@@ -28,25 +26,19 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const admin = getSupabaseAdmin();
-    const { data: usuario, error: usuarioError } = await admin
-      .from('usuarios')
-      .select('id, empresa_id')
-      .eq('auth_user_id', user.id)
-      .single();
-
-    if (usuarioError || !usuario?.empresa_id) {
+    const empresaId = await getEmpresaIdForUser(userId);
+    if (!empresaId) {
       return NextResponse.json(
         { data: null, error: 'Usuário ou empresa não encontrados' },
         { status: 403 }
       );
     }
 
-    const { data: produto, error } = await admin
+    const { data: produto, error } = await getSupabaseAdmin()
       .from('produtos_servicos')
       .select('*')
       .eq('id', produtoId)
-      .eq('empresa_id', usuario.empresa_id)
+      .eq('empresa_id', empresaId)
       .single();
 
     if (error || !produto) {
