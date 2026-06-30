@@ -259,9 +259,8 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
 
   const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
   const pathname = usePathname();
-  const isNovaOSFullScreen = pathname === '/nova-os';
-  const isPDVFullScreen = pathname.startsWith('/caixa/pdv');
-  const isFullScreenPage = isNovaOSFullScreen || isPDVFullScreen;
+  const isFullScreenPage = pathname === '/nova-os';
+  const isPdvPage = pathname.startsWith('/caixa/pdv');
 
   useEffect(() => {
     const stored = localStorage.getItem('menuExpandido') === 'true';
@@ -906,7 +905,7 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
           </div>
         )}
         {/* Conteúdo principal - min-w-0 para permitir scroll horizontal em tabelas em qualquer resolução */}
-        <main className={`flex-1 w-full min-w-0 ${isFullScreenPage ? 'pb-6 pt-0 px-0' : 'pb-6 px-4 md:px-6 pt-6'}`}>
+        <main className={`flex-1 w-full min-w-0 ${isFullScreenPage ? 'pb-6 pt-0 px-0' : isPdvPage ? 'pb-4 pt-3 px-2 sm:px-3 md:px-4' : 'pb-6 px-4 md:px-6 pt-6'}`}>
           <div className="w-full min-w-0 max-w-full">
             {children}
           </div>

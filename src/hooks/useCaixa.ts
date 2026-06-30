@@ -131,65 +131,84 @@ export const useCaixa = () => {
 
   const abrirCaixa = async (valorAbertura: number, observacoes?: string) => {
     if (!usuarioData?.empresa_id) throw new Error('Empresa não encontrada');
+    if (!usuarioData?.id) throw new Error('Usuário não encontrado');
 
     setLoading(true);
     try {
-      // Verificar se já existe turno aberto
-      const { data: turnoExistente } = await supabase
+      const { data: turnoExistente, error: turnoExistenteError } = await supabase
         .from('turnos_caixa')
         .select('id')
         .eq('empresa_id', usuarioData.empresa_id)
         .eq('status', 'aberto')
         .maybeSingle();
 
+      if (turnoExistenteError) {
+        throw new Error(`Erro ao verificar turno: ${turnoExistenteError.message}`);
+      }
+
       if (turnoExistente) {
         throw new Error('Já existe um turno aberto');
       }
 
-      // Buscar ou criar caixa padrão
-      let { data: caixa } = await supabase
+      let caixaId: string | undefined;
+
+      const { data: caixaExistente, error: caixaSelectError } = await supabase
         .from('caixas')
         .select('id')
         .eq('empresa_id', usuarioData.empresa_id)
         .eq('nome', 'Caixa Principal')
         .maybeSingle();
 
-      if (!caixa) {
-        const { data: novoCaixa } = await supabase
+      if (caixaSelectError) {
+        console.warn('Erro ao buscar caixa principal:', caixaSelectError.message);
+      } else if (caixaExistente?.id) {
+        caixaId = caixaExistente.id;
+      } else {
+        const { data: novoCaixa, error: caixaInsertError } = await supabase
           .from('caixas')
           .insert({
             nome: 'Caixa Principal',
-            empresa_id: usuarioData.empresa_id
+            empresa_id: usuarioData.empresa_id,
           })
           .select('id')
           .single();
-        caixa = novoCaixa;
+
+        if (caixaInsertError) {
+          console.warn('Erro ao criar caixa principal:', caixaInsertError.message);
+        } else if (novoCaixa?.id) {
+          caixaId = novoCaixa.id;
+        }
       }
 
-      // Buscar usuario_id
-      const { data: usuario } = await supabase
-        .from('usuarios')
-        .select('id')
-        .eq('auth_user_id', (await supabase.auth.getUser()).data.user?.id)
-        .single();
+      const insertPayload: Record<string, unknown> = {
+        usuario_id: usuarioData.id,
+        valor_abertura: valorAbertura,
+        observacoes: observacoes ?? null,
+        empresa_id: usuarioData.empresa_id,
+        data_abertura: new Date().toISOString(),
+        status: 'aberto',
+      };
 
-      if (!usuario) throw new Error('Usuário não encontrado');
+      if (caixaId) {
+        insertPayload.caixa_id = caixaId;
+      }
 
-      // Criar novo turno
-      const { data: novoTurno } = await supabase
+      const { data: novoTurno, error: turnoError } = await supabase
         .from('turnos_caixa')
-        .insert({
-          caixa_id: caixa.id,
-          usuario_id: usuario.id,
-          valor_abertura: valorAbertura,
-          observacoes,
-          empresa_id: usuarioData.empresa_id
-        })
+        .insert(insertPayload)
         .select(`
           *,
           usuario:usuario_id(nome)
         `)
         .single();
+
+      if (turnoError) {
+        throw new Error(turnoError.message);
+      }
+
+      if (!novoTurno) {
+        throw new Error('Não foi possível abrir o turno de caixa');
+      }
 
       setTurnoAtual(novoTurno);
       setMovimentacoes([]);
@@ -411,6 +430,7 @@ export const useCaixa = () => {
     turnoAtual,
     movimentacoes,
     loading,
+    verificacaoInicial,
     abrirCaixa,
     fecharCaixa,
     adicionarMovimentacao,
