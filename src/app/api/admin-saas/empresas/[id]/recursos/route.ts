@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { isAdminAuthorized } from '@/lib/admin-auth';
+import { PREMIUM_MODULES, LEGACY_MODULE_ALIASES, type PremiumModule } from '@/config/planModules';
+import { normalizeModulo } from '@/lib/billing/planResources';
 
 /**
  * Atualiza recursos customizados de uma empresa
@@ -30,10 +32,12 @@ export async function POST(
     const supabase = getSupabaseAdmin();
 
     // Validar que todos os valores são booleanos
-    const recursosValidados: Record<string, boolean> = {};
+    const recursosValidados: Partial<Record<PremiumModule, boolean>> = {};
     for (const [key, value] of Object.entries(recursos)) {
-      if (typeof value === 'boolean') {
-        recursosValidados[key] = value;
+      if (typeof value !== 'boolean') continue;
+      const mod = normalizeModulo(key);
+      if (mod in PREMIUM_MODULES || key in LEGACY_MODULE_ALIASES) {
+        recursosValidados[mod as PremiumModule] = value;
       }
     }
 

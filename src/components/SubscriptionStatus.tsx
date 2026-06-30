@@ -96,7 +96,7 @@ const SubscriptionStatusContent = () => {
       if (testeGratisExpirado) {
         router.push('/teste-expirado');
       } else {
-        router.push('/planos/renovar');
+        router.push('/assinatura');
       }
     };
     return (

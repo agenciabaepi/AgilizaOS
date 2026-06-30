@@ -42,6 +42,7 @@ import AvisosBanner from '@/components/AvisosBanner';
 import FinanceiroAlertsBanner from '@/components/FinanceiroAlertsBanner';
 import AppStoreBanner from '@/components/AppStoreBanner';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useSubscription } from '@/hooks/useSubscription';
 import { getDashboardPathForNivel, isUserHomePath } from '@/lib/dashboardRouting';
 import { getMenuAccentColor, MENU_ACCENT_DEFAULT } from '@/lib/menuTheme';
 
@@ -307,6 +308,8 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
 
   const isTecnico = usuarioData?.nivel === 'tecnico';
   const { podeVer } = usePermissions();
+  const { temRecurso } = useSubscription();
+  const podeVerWhatsApp = podeVer('whatsapp') && temRecurso('whatsapp_crm');
   const podeVerModulo = podeVer;
   const dashboardPath = getDashboardPathForNivel(usuarioData?.nivel);
   const dashboardAtivo = isUserHomePath(pathname || '', usuarioData?.nivel);
@@ -356,7 +359,7 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
           {podeVer('dashboard') && matchesSearch('Dashboard') && (
             <SidebarButton path={dashboardPath} icon={<FiHome size={22} strokeWidth={1.75} />} label="Dashboard" isActive={dashboardAtivo} menuRecolhido={false} />
           )}
-          {podeVer('whatsapp') && matchesSearch('WhatsApp') && (
+          {podeVerWhatsApp && matchesSearch('WhatsApp') && (
             <SidebarButton path="/whatsapp" icon={<FiMessageCircle size={22} strokeWidth={1.75} />} label="WhatsApp" isActive={pathname === '/whatsapp' || pathname.startsWith('/whatsapp/')} menuRecolhido={false} />
           )}
                   {/* Lembretes */}
@@ -574,7 +577,7 @@ export default function MenuLayout({ children }: { children: ReactNode }) {
               {podeVer('dashboard') && (
                 <SidebarButton path={dashboardPath} icon={<FiHome size={22} strokeWidth={1.75} />} label="Dashboard" isActive={dashboardAtivo} menuRecolhido={false} />
               )}
-              {podeVer('whatsapp') && (
+              {podeVerWhatsApp && (
                 <SidebarButton path="/whatsapp" icon={<FiMessageCircle size={22} strokeWidth={1.75} />} label="WhatsApp" isActive={pathname === '/whatsapp' || pathname.startsWith('/whatsapp/')} menuRecolhido={false} />
               )}
               {/* Lembretes */}

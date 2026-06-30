@@ -1,55 +1,34 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
-
-/* PDV AgilizaPDV — scoped under .pdv-root */
+/* PDV — identidade Gestão Consert (Inter, zinc, botões padrão) */
 .pdv-root {
-    /* Cores principais */
-    --color-primary: #1d4ed8;
-    --color-primary-hover: #1e40af;
-    --color-primary-light: rgba(29, 78, 216, 0.08);
-    --color-primary-foreground: #fff;
-  
-    /* Superfícies */
-    --color-bg: #f7f7f7;
+    --color-primary: #000000;
+    --color-primary-hover: #262626;
+    --color-primary-light: #f3f4f6;
+    --color-primary-foreground: #ffffff;
+    --color-accent: #2563eb;
+    --color-accent-light: #eff6ff;
+
+    --color-bg: #f9fafb;
     --color-surface: #ffffff;
     --color-surface-elevated: #ffffff;
-    --color-border: #e5e5e5;
-    --color-border-focus: var(--color-primary);
-  
-    /* Texto */
-    --color-text: #3e3e3e;
-    --color-text-secondary: #717171;
-    --color-text-muted: #a6a6a6;
-  
-    /* Estados */
-    --color-success: #50a773;
-    --color-success-bg: rgba(80, 167, 115, 0.1);
+    --color-border: #e5e7eb;
+    --color-border-focus: #000000;
+
+    --color-text: #111827;
+    --color-text-secondary: #6b7280;
+    --color-text-muted: #9ca3af;
+
+    --color-success: #16a34a;
+    --color-success-bg: #f0fdf4;
     --color-error: #dc2626;
-    --color-error-bg: rgba(220, 38, 38, 0.08);
-    --color-warning: #e6a23c;
-    --color-warning-bg: rgba(230, 162, 60, 0.1);
-    --color-info: #409eff;
-    --color-info-bg: rgba(64, 158, 255, 0.08);
-  
-    /* Pastéis — acentos suaves para cards, tags e destaques */
-    --pastel-cream: #f9ebdd;
-    --pastel-cream-accent: #f5d1a4;
-    --pastel-coral: #f5c8b4;
-    --pastel-coral-accent: #edb09a;
-    --pastel-lilac: #eadbe5;
-    --pastel-lilac-accent: #d4bfd0;
-    --pastel-mint: #d8f0e4;
-    --pastel-mint-accent: #b8e0cc;
-    --pastel-sky: #dce9f5;
-    --pastel-sky-accent: #b8d4ed;
-    --pastel-rose: #f5dde3;
-    --pastel-rose-accent: #edb8c8;
-    --pastel-honey: #f5ecc4;
-    --pastel-honey-accent: #eddda0;
-  
-    /* Tipografia */
-    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --color-error-bg: #fef2f2;
+    --color-warning: #d97706;
+    --color-warning-bg: #fffbeb;
+    --color-info: #2563eb;
+    --color-info-bg: #eff6ff;
+
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --font-mono: ui-monospace, monospace;
-  
+
     --text-xs: 0.75rem;
     --text-sm: 0.875rem;
     --text-base: 1rem;
@@ -57,12 +36,11 @@
     --text-xl: 1.25rem;
     --text-2xl: 1.5rem;
     --text-3xl: 1.875rem;
-  
+
     --font-medium: 500;
     --font-semibold: 600;
     --font-bold: 700;
-  
-    /* Espaçamento */
+
     --space-1: 0.25rem;
     --space-2: 0.5rem;
     --space-3: 0.75rem;
@@ -71,20 +49,17 @@
     --space-6: 1.5rem;
     --space-8: 2rem;
     --space-10: 2.5rem;
-  
-    /* Raios */
-    --radius-sm: 6px;
-    --radius-md: 8px;
-    --radius-lg: 12px;
-    --radius-xl: 16px;
+
+    --radius-sm: 0.375rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 0.75rem;
     --radius-full: 9999px;
-  
-    /* Sombras */
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
-    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
-  
-    /* Transições */
+
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+
     --transition-fast: 150ms ease;
     --transition-normal: 200ms ease;
 
@@ -94,18 +69,37 @@
   color: var(--color-text);
 }
 
-/* Button */
+.dark .pdv-root {
+  --color-primary: #fafafa;
+  --color-primary-hover: #e4e4e7;
+  --color-primary-foreground: #09090b;
+  --color-primary-light: #27272a;
+  --color-accent: #60a5fa;
+  --color-accent-light: rgba(37, 99, 235, 0.15);
+  --color-bg: #09090b;
+  --color-surface: #18181b;
+  --color-border: #3f3f46;
+  --color-border-focus: #fafafa;
+  --color-text: #fafafa;
+  --color-text-secondary: #a1a1aa;
+  --color-text-muted: #71717a;
+  --color-success-bg: rgba(22, 163, 74, 0.12);
+  --color-error-bg: rgba(220, 38, 38, 0.12);
+  --color-warning-bg: rgba(217, 119, 6, 0.12);
+}
+
+/* Button — alinhado ao @/components/Button */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   font-family: var(--font-sans);
-  font-weight: var(--font-medium);
+  font-weight: 500;
   border: 1px solid transparent;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background-color var(--transition-fast), border-color var(--transition-fast), opacity var(--transition-fast);
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast), opacity var(--transition-fast);
 }
 .btn:disabled {
   opacity: 0.5;
@@ -128,27 +122,36 @@
   color: var(--color-text);
   border-color: var(--color-border);
 }
-.btn--secondary:hover:not(:disabled) { background: var(--color-bg); }
+.btn--secondary:hover:not(:disabled) {
+  background: var(--color-primary-light);
+  color: var(--color-text);
+}
 
 .btn--ghost {
   background: transparent;
+  color: var(--color-text-secondary);
+}
+.btn--ghost:hover:not(:disabled) {
+  background: var(--color-primary-light);
   color: var(--color-text);
 }
-.btn--ghost:hover:not(:disabled) { background: var(--color-primary-light); }
 
 .btn--danger {
-  background: var(--color-error);
+  background: #ef4444;
   color: #fff;
-  border-color: var(--color-error);
+  border-color: #ef4444;
 }
-.btn--danger:hover:not(:disabled) { opacity: 0.9; }
+.btn--danger:hover:not(:disabled) { background: #dc2626; }
 
 .btn--outline {
   background: transparent;
-  color: var(--color-primary);
-  border-color: var(--color-primary);
+  color: var(--color-text);
+  border-color: var(--color-border);
 }
-.btn--outline:hover:not(:disabled) { background: var(--color-primary-light); }
+.btn--outline:hover:not(:disabled) {
+  background: var(--color-primary-light);
+  border-color: var(--color-text-muted);
+}
 
 .btn .btn-icon { width: 1.25rem; height: 1.25rem; flex-shrink: 0; }
 
@@ -172,8 +175,14 @@
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 .input-el:focus, .input-select:focus, .input-textarea:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-light);
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 2px rgb(0 0 0 / 0.08);
+  outline: none;
+}
+.dark .pdv-root .input-el:focus,
+.dark .pdv-root .input-select:focus,
+.dark .pdv-root .input-textarea:focus {
+  box-shadow: 0 0 0 2px rgb(250 250 250 / 0.12);
 }
 .input-el::placeholder, .input-textarea::placeholder { color: var(--color-text-muted); }
 .input-error .input-el, .input-error .input-select, .input-error .input-textarea {
@@ -978,10 +987,16 @@
   to { opacity: 1; transform: scale(1); }
 }
 .dialog-header {
-  padding: var(--space-5) var(--space-6);
+  padding: var(--space-4) var(--space-5);
   border-bottom: 1px solid var(--color-border);
+}
+
+.dialog-header h2,
+#dialog-title {
+  margin: 0;
   font-size: var(--text-lg);
   font-weight: var(--font-semibold);
+  color: var(--color-text);
 }
 
 .dialog-header--with-extra {
@@ -1030,13 +1045,14 @@
   word-break: break-word;
 }
 
-.dialog-body { padding: var(--space-6); }
+.dialog-body { padding: var(--space-4) var(--space-5); }
 .dialog-footer {
-  padding: var(--space-4) var(--space-6);
+  padding: var(--space-3) var(--space-5);
   border-top: 1px solid var(--color-border);
   display: flex;
   justify-content: flex-end;
-  gap: var(--space-3);
+  gap: var(--space-2);
+  background: var(--color-bg);
 }
 
 /* Layout sidebar nav link hover */
@@ -1056,22 +1072,22 @@
 }
 
 .pdv-pro__surface {
-  background: var(--pdv-pro-surface);
-  border: 1px solid var(--pdv-pro-line);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-sm);
-  padding: var(--space-5) var(--space-6);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
 }
 
 .pdv-page--pro {
-  gap: var(--space-5);
+  gap: var(--space-4);
 }
 
 .pdv-pro .card {
-  border-radius: 14px;
-  border-color: rgba(15, 23, 42, 0.07);
-  box-shadow: none;
-  background: #fafbfc;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  background: var(--color-surface);
 }
 
 .pdv-pro .pdv-caixa-card {
@@ -1082,21 +1098,25 @@
 .pdv-pro .pdv-cupom-total,
 .pdv-pro .pdv-subtotal-valor,
 .pdv-pro .pdv-cart-item-total {
-  color: var(--color-primary) !important;
+  color: var(--color-accent) !important;
 }
 
 .pdv-pro .pdv-produto-card:hover:not(:disabled) {
-  border-color: rgba(29, 78, 216, 0.45);
-  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.08);
+  border-color: var(--color-border-focus);
+  box-shadow: var(--shadow-sm);
 }
 
 .pdv-pro .pdv-forma-btn {
-  background: linear-gradient(145deg, #1e40af 0%, var(--color-primary) 100%);
-  box-shadow: 0 4px 14px rgba(29, 78, 216, 0.22);
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  box-shadow: none;
 }
 
 .pdv-pro .pdv-forma-btn:hover:not(:disabled) {
-  box-shadow: 0 6px 18px rgba(29, 78, 216, 0.3);
+  background: var(--color-primary-light);
+  border-color: var(--color-text-muted);
+  box-shadow: none;
 }
 
 .pdv-pro--empty {
@@ -1314,7 +1334,7 @@
 }
 .pdv-valor-total {
   font-weight: var(--font-bold);
-  color: var(--color-primary);
+  color: var(--color-accent);
   font-size: var(--text-base);
 }
 
@@ -1633,14 +1653,14 @@
 
 .pdv-caixa-livre-badge {
   display: inline-block;
-  padding: var(--space-2) var(--space-5);
-  border-radius: 999px;
-  font-size: var(--text-base);
-  font-weight: var(--font-bold);
+  padding: var(--space-1) var(--space-4);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
   letter-spacing: 0.02em;
-  color: #065f46;
-  background: rgba(16, 185, 129, 0.18);
-  border: 1px solid rgba(16, 185, 129, 0.45);
+  color: var(--color-success);
+  background: var(--color-success-bg);
+  border: 1px solid color-mix(in srgb, var(--color-success) 25%, transparent);
 }
 
 .pdv-caixa-livre-logo {
@@ -1983,20 +2003,22 @@
   justify-content: center;
   gap: 4px;
   padding: var(--space-2) var(--space-1);
-  background: linear-gradient(145deg, #5b4bb3 0%, #4a3d9e 100%);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   font-size: 11px;
   font-weight: var(--font-medium);
   cursor: pointer;
-  transition: transform 0.1s ease, box-shadow 0.15s ease;
-  min-height: 48px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  min-height: 44px;
 }
 
 .pdv-forma-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(91, 75, 179, 0.35);
+  background: var(--color-primary-light);
+  border-color: var(--color-text-muted);
+  box-shadow: none;
+  transform: none;
 }
 
 .pdv-forma-btn:active:not(:disabled) {
@@ -2009,19 +2031,23 @@
 }
 
 .pdv-forma-btn--cashback {
-  background: linear-gradient(145deg, #0d9488 0%, #0f766e 100%);
+  background: var(--color-success-bg);
+  border-color: color-mix(in srgb, var(--color-success) 30%, var(--color-border));
+  color: var(--color-success);
 }
 
 .pdv-forma-btn--cashback:hover:not(:disabled) {
-  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.35);
+  box-shadow: none;
 }
 
 .pdv-forma-btn--prazo {
-  background: linear-gradient(145deg, #4f46e5 0%, #4338ca 100%);
+  background: var(--color-info-bg);
+  border-color: color-mix(in srgb, var(--color-info) 30%, var(--color-border));
+  color: var(--color-info);
 }
 
 .pdv-forma-btn--prazo:hover:not(:disabled) {
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);
+  box-shadow: none;
 }
 
 .pdv-prazo-toggle-row {
@@ -2540,9 +2566,9 @@
 .pdv-grid--design {
   grid-template-columns: 1fr;
   gap: var(--space-3);
-  background: var(--color-bg);
-  border-radius: var(--radius-xl);
-  padding: var(--space-3);
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
   --pdv-icon-sm: 14px;
   --pdv-icon-md: 16px;
   --pdv-icon-slot: 20px;
@@ -3415,9 +3441,9 @@
 }
 
 .pdv-drawer-forma-card--ativa {
-  border-color: var(--color-primary);
+  border-color: var(--color-text);
   background: var(--color-primary-light);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 25%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-text) 15%, transparent);
 }
 
 .pdv-drawer-forma-card--outras {
@@ -3437,8 +3463,8 @@
   height: 28px;
   flex-shrink: 0;
   border-radius: var(--radius-sm);
-  background: var(--color-primary-light);
-  color: var(--color-primary);
+  background: var(--color-accent-light);
+  color: var(--color-accent);
 }
 
 .pdv-drawer-forma-card-text {
@@ -3525,7 +3551,7 @@
   padding: 0 6px;
   border-radius: var(--radius-full);
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-primary-foreground);
   font-size: 10px;
 }
 
@@ -3796,24 +3822,24 @@
 .pdv-quick-action {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
+  gap: 6px;
+  padding: 8px 12px;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text-secondary);
   font-size: var(--text-sm);
-  font-weight: var(--font-medium);
+  font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
-  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 
 .pdv-quick-action:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--color-primary) 35%, var(--color-border));
-  color: var(--color-primary);
+  border-color: var(--color-text-muted);
+  color: var(--color-text);
   background: var(--color-primary-light);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  box-shadow: none;
 }
 
 .pdv-quick-action:disabled {
@@ -3834,12 +3860,13 @@
 
 .pdv-quick-action--success {
   color: var(--color-success);
-  border-color: color-mix(in srgb, var(--color-success) 35%, var(--color-border));
+  border-color: color-mix(in srgb, var(--color-success) 30%, var(--color-border));
+  background: var(--color-success-bg);
 }
 
 .pdv-quick-action--success:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--color-success) 8%, var(--color-surface));
-  border-color: color-mix(in srgb, var(--color-success) 45%, var(--color-border));
+  background: var(--color-success-bg);
+  border-color: var(--color-success);
   color: var(--color-success);
 }
 
@@ -4093,13 +4120,22 @@
   font-weight: var(--font-semibold);
   color: var(--color-text-secondary);
   white-space: nowrap;
-  padding: var(--space-2) var(--space-2);
+  padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .pdv-cupom-table--design td {
-  padding: var(--space-2);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+}
+
+.pdv-cupom-table--design tbody tr:hover {
+  background: var(--color-primary-light);
 }
 
 .pdv-cupom-desc-val {
@@ -4136,7 +4172,7 @@
 
 .pdv-item-acao-btn:hover {
   background: var(--color-primary-light);
-  color: var(--color-primary);
+  color: var(--color-text);
 }
 
 .pdv-cupom-acoes-cell {
@@ -4223,6 +4259,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  box-shadow: var(--shadow-sm);
 }
 
 .pdv-resumo-card-label {
@@ -4240,18 +4277,19 @@
 
 .pdv-total-bar {
   flex-shrink: 0;
-  background: linear-gradient(90deg, #d4edda 0%, #c3e6cb 100%);
-  border: 1px solid #b8dfc4;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: var(--space-3) var(--space-4);
   text-align: center;
+  box-shadow: var(--shadow-sm);
 }
 
 .pdv-total-bar-label {
   font-size: var(--text-xl);
   font-weight: var(--font-bold);
   font-variant-numeric: tabular-nums;
-  color: #1a1a1a;
+  color: var(--color-text);
   letter-spacing: -0.02em;
 }
 
@@ -4945,8 +4983,9 @@
 }
 
 .pdv-root--embedded .pdv-pro__surface {
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-lg);
+  padding: 0;
+  border: none;
+  box-shadow: none;
 }
 
 .pdv-root--embedded .pdv-page--pro {
@@ -5091,9 +5130,7 @@
 
 @media (max-width: 900px) {
   .pdv-root--embedded .pdv-pro__surface {
-    padding: var(--space-2) var(--space-3);
-    border: none;
-    box-shadow: none;
+    padding: 0;
   }
 
   .pdv-root--embedded .pdv-grid--design {

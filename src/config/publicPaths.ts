@@ -12,7 +12,6 @@ const PUBLIC_PATH_LIST = [
   '/sobre',
   '/termos',
   '/politicas-privacidade',
-  '/planos',
   '/pagamentos/sucesso',
   '/pagamentos/falha',
   '/pagamentos/pendente',

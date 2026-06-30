@@ -1,33 +1,34 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { PLANO_SLUGS } from '@/config/planModules';
 
-/** Valor padrão quando não há config no banco */
-const VALOR_PADRAO = 119.9;
+const VALOR_PADRAO_COMPLETO = 149.9;
 
 /**
  * GET /api/assinatura/valor
- * Retorna o valor mensal da assinatura (público, usado na landing, planos, pagar, renovar)
+ * @deprecated Preferir GET /api/planos/publicos. Retorna preço do Plano Completo.
  */
 export async function GET() {
   try {
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
-      .from('config_sistema')
-      .select('valor')
-      .eq('chave', 'valor_assinatura_mensal')
+      .from('planos')
+      .select('preco')
+      .eq('slug', PLANO_SLUGS.COMPLETO)
+      .eq('ativo', true)
       .maybeSingle();
 
     if (error) {
-      console.warn('config_sistema valor_assinatura_mensal:', error.message);
-      return NextResponse.json({ valor: VALOR_PADRAO });
+      console.warn('planos completo preco:', error.message);
+      return NextResponse.json({ valor: VALOR_PADRAO_COMPLETO });
     }
 
-    const valor = data?.valor != null ? parseFloat(String(data.valor)) : VALOR_PADRAO;
-    const valorFinal = Number.isFinite(valor) && valor > 0 ? valor : VALOR_PADRAO;
+    const valor = data?.preco != null ? parseFloat(String(data.preco)) : VALOR_PADRAO_COMPLETO;
+    const valorFinal = Number.isFinite(valor) && valor > 0 ? valor : VALOR_PADRAO_COMPLETO;
 
     return NextResponse.json({ valor: valorFinal });
   } catch (err) {
     console.error('GET /api/assinatura/valor:', err);
-    return NextResponse.json({ valor: VALOR_PADRAO });
+    return NextResponse.json({ valor: VALOR_PADRAO_COMPLETO });
   }
 }

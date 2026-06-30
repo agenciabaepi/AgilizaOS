@@ -29,7 +29,7 @@ const links = [
   { href: '/admin-saas/aparelhos', label: 'Aparelhos', icon: FiSmartphone },
   { href: '/admin-saas/cores', label: 'Cores', icon: FiDroplet },
   { href: '/admin-saas/checklist', label: 'Checklist', icon: FiCheckSquare },
-  { href: '/admin-saas/config', label: 'Config e preço', icon: FiSettings },
+  { href: '/admin-saas/planos', label: 'Planos e preços', icon: FiSettings },
 ];
 
 export default function NavAdminSaaS() {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { ativarAssinaturaPorPagamento } from '@/lib/billing/ativarAssinaturaPagamento';
 import {
   getPayment,
   getCustomer,
@@ -15,57 +16,6 @@ export const dynamic = 'force-dynamic';
 
 /** 1 mês de acesso após pagamento confirmado */
 const DIAS_ACESSO_PAGAMENTO = 30;
-
-async function ativarAssinaturaPorEmpresa(
-  supabase: ReturnType<typeof getSupabaseAdmin>,
-  empresaId: string,
-  now: string,
-  dataFim: Date
-) {
-  const { data: assinatura } = await supabase
-    .from('assinaturas')
-    .select('id')
-    .eq('empresa_id', empresaId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
-
-  if (assinatura?.id) {
-    await supabase
-      .from('assinaturas')
-      .update({
-        status: 'active',
-        data_inicio: now,
-        data_fim: dataFim.toISOString(),
-        data_trial_fim: null,
-        proxima_cobranca: dataFim.toISOString(),
-        updated_at: now,
-      })
-      .eq('id', assinatura.id);
-    return;
-  }
-
-  // Empresa sem assinatura: criar uma com o primeiro plano e ativar por 1 mês
-  const { data: plano } = await supabase
-    .from('planos')
-    .select('id')
-    .limit(1)
-    .single();
-
-  if (plano?.id) {
-    await supabase.from('assinaturas').insert({
-      empresa_id: empresaId,
-      plano_id: plano.id,
-      status: 'active',
-      data_inicio: now,
-      data_fim: dataFim.toISOString(),
-      data_trial_fim: null,
-      proxima_cobranca: dataFim.toISOString(),
-      valor: 0,
-      updated_at: now,
-    });
-  }
-}
 
 export async function GET(req: NextRequest) {
   try {
@@ -93,7 +43,7 @@ export async function GET(req: NextRequest) {
     // Tentar descobrir a empresa associada a esse paymentId
     const { data: pagamentoRow } = await supabase
       .from('pagamentos')
-      .select('id, empresa_id, status, paid_at, valor')
+      .select('id, empresa_id, status, paid_at, valor, plano_slug')
       .eq('mercadopago_payment_id', paymentId)
       .single();
 
@@ -181,6 +131,7 @@ export async function GET(req: NextRequest) {
             status: 'approved',
             paid_at: nowIso,
             valor,
+            plano_slug: pagamentoRow?.plano_slug ?? undefined,
           },
           { onConflict: 'mercadopago_payment_id' }
         )
@@ -192,7 +143,13 @@ export async function GET(req: NextRequest) {
     }
 
     // Ativar/renovar assinatura por 30 dias a partir da data de pagamento
-    await ativarAssinaturaPorEmpresa(supabase, empresaIdParaAssinatura, nowIso, dataFim);
+    await ativarAssinaturaPorPagamento(
+      supabase,
+      empresaIdParaAssinatura,
+      nowIso,
+      dataFim,
+      pagamentoRow?.plano_slug as string | null
+    );
 
     return NextResponse.json({ status: 'approved' });
   } catch (err: unknown) {

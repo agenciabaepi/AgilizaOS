@@ -91,7 +91,7 @@ export default function TesteExpiradoPage() {
                 Ver assinatura e pagamentos
               </Button>
             </Link>
-            <Link href="/planos/renovar">
+            <Link href="/assinatura">
               <Button variant="outline" className="w-full sm:w-auto">
                 Escolher plano
               </Button>

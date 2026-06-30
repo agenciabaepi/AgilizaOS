@@ -622,7 +622,7 @@ export default function CadastroEmpresa() {
             <div className="flex flex-col items-center md:items-start">
               <h3 className="text-white font-semibold mb-4 text-center md:text-left">Produto</h3>
               <div className="space-y-3 text-center md:text-left">
-                <a href="/planos" className="block text-white/60 hover:text-[#D1FE6E] transition-colors text-sm">Planos</a>
+                <a href="/#planos" className="block text-white/60 hover:text-[#D1FE6E] transition-colors text-sm">Planos</a>
                 <a href="/funcionalidades" className="block text-white/60 hover:text-[#D1FE6E] transition-colors text-sm">Funcionalidades</a>
                 <a href="/precos" className="block text-white/60 hover:text-[#D1FE6E] transition-colors text-sm">Preços</a>
                 <a href="/demo" className="block text-white/60 hover:text-[#D1FE6E] transition-colors text-sm">Demonstração</a>

@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useState, ReactNode, useCallback,
 import { supabase, fetchUserDataOptimized } from '@/lib/supabaseClient';
 import { Session, User } from '@supabase/supabase-js';
 import { podeUsarFuncionalidade as podeUsarFuncionalidadeUtil, isUsuarioTeste as isUsuarioTesteUtil } from '@/config/featureFlags';
+import { temAcessoRecurso } from '@/lib/billing/planResources';
 import { handleAuthError, isInvalidRefreshTokenError, setupAuthErrorRecovery } from '@/utils/clearAuth';
 
 interface UsuarioData {
@@ -310,8 +311,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return isUsuarioTesteUtil(usuarioData);
   }, [usuarioData]);
 
-  // Plano único R$119,90 - todos têm acesso a todos os recursos
-  const temRecurso = useCallback((_recurso: string): boolean => true, []);
+  const temRecurso = useCallback(
+    (recurso: string): boolean => {
+      if (empresaData?.sistema_liberado) return true;
+      return temAcessoRecurso(recurso, {
+        planoRecursos: recursosPlano,
+        recursosCustomizados: empresaData?.recursos_customizados ?? null,
+        isTrial: false,
+        sistemaLiberado: empresaData?.sistema_liberado === true,
+      });
+    },
+    [recursosPlano, empresaData?.recursos_customizados, empresaData?.sistema_liberado]
+  );
 
   // ✅ IMPLEMENTAR: Funções de autenticação que estavam faltando
   const signIn = useCallback(async (email: string, password: string) => {

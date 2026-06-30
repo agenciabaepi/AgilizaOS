@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { ativarAssinaturaPorPagamento } from '@/lib/billing/ativarAssinaturaPagamento';
 import {
   listCustomersByEmail,
   listPaymentsByCustomer,
@@ -14,58 +15,6 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const DIAS_ACESSO_PAGAMENTO = 30;
-
-async function ativarAssinaturaPorEmpresa(
-  supabase: ReturnType<typeof getSupabaseAdmin>,
-  empresaId: string,
-  now: string,
-  dataFim: Date
-) {
-  const { data: assinatura } = await supabase
-    .from('assinaturas')
-    .select('id')
-    .eq('empresa_id', empresaId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
-
-  if (assinatura?.id) {
-    await supabase
-      .from('assinaturas')
-      .update({
-        status: 'active',
-        data_inicio: now,
-        data_fim: dataFim.toISOString(),
-        data_trial_fim: null,
-        proxima_cobranca: dataFim.toISOString(),
-        updated_at: now,
-      })
-      .eq('id', assinatura.id);
-    return true;
-  }
-
-  const { data: plano } = await supabase
-    .from('planos')
-    .select('id')
-    .limit(1)
-    .single();
-
-  if (plano?.id) {
-    const { error } = await supabase.from('assinaturas').insert({
-      empresa_id: empresaId,
-      plano_id: plano.id,
-      status: 'active',
-      data_inicio: now,
-      data_fim: dataFim.toISOString(),
-      data_trial_fim: null,
-      proxima_cobranca: dataFim.toISOString(),
-      valor: 0,
-      updated_at: now,
-    });
-    return !error;
-  }
-  return false;
-}
 
 /**
  * Sincroniza a assinatura com o Asaas: busca o último pagamento pago da empresa
@@ -170,7 +119,19 @@ export async function GET(req: NextRequest) {
     dataFim.setDate(dataFim.getDate() + DIAS_ACESSO_PAGAMENTO);
     const now = dataInicio.toISOString();
 
-    const ativou = await ativarAssinaturaPorEmpresa(admin, empresa.id, now, dataFim);
+    const { data: pagamentoLocal } = await admin
+      .from('pagamentos')
+      .select('plano_slug')
+      .eq('mercadopago_payment_id', ultimoPago.id)
+      .maybeSingle();
+
+    const ativou = await ativarAssinaturaPorPagamento(
+      admin,
+      empresa.id,
+      now,
+      dataFim,
+      pagamentoLocal?.plano_slug as string | null
+    );
 
     if (!ativou) {
       return NextResponse.json(

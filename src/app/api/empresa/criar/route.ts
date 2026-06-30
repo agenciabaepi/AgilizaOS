@@ -101,7 +101,7 @@ export async function POST(request: Request) {
       email,
       website,
       plano,
-      maxusuarios: plano === 'basico' ? 2 : plano === 'pro' ? 5 : 10,
+      maxusuarios: 10,
       user_id
     })
     .select()

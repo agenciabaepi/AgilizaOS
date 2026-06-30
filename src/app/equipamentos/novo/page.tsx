@@ -18,7 +18,7 @@ import { useConfirm } from '@/components/ConfirmDialog';
 import { useAuth } from '@/context/AuthContext';
 import { resolveEmpresaIdForClient } from '@/lib/resolve-empresa-id';
 import { bearerAuthHeadersForApi } from '@/lib/api/clientAuthHeaders';
-import { SubscriptionGuard } from '@/components/SubscriptionGuard';
+import TrialLimitGuard from '@/components/TrialLimitGuard';
 import { FiPlus, FiX } from 'react-icons/fi';
 
 export default function NovoProdutoPage() {
@@ -696,7 +696,7 @@ export default function NovoProdutoPage() {
   };
 
   return (
-    <SubscriptionGuard tipo="produtos">
+    <TrialLimitGuard tipo="produtos">
       <MenuLayout>
         <main className="flex flex-col items-center justify-start flex-1 px-4 py-8">
           <div className="w-full max-w-5xl">
@@ -1485,6 +1485,6 @@ export default function NovoProdutoPage() {
           </div>
         )}
       </MenuLayout>
-    </SubscriptionGuard>
+    </TrialLimitGuard>
   );
 }

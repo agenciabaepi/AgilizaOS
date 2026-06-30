@@ -83,7 +83,7 @@ export const PAGE_PERMISSIONS = {
 
   // Assinatura e planos
   '/assinatura': 'assinatura',
-  '/planos/renovar': 'assinatura',
+  '/assinatura/pagar/[plano]': 'assinatura',
   '/teste-expirado': 'dashboard',
 
   // Sobre / políticas
@@ -122,8 +122,6 @@ export const PAGE_PERMISSIONS = {
   '/fale-conosco': null,
   '/cadastro': null,
   '/cadastro/sucesso': null,
-  '/planos': null,
-  '/planos/pagar/[plano]': null,
   '/pagamentos/pendente': null,
   '/pagamentos/falha': null,
   '/empresa-desativada': null,

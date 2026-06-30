@@ -16,6 +16,8 @@ import { diffDiasCalendario } from '@/lib/assinaturaCalendario';
 import { dataFimTrialAPartirDe } from '@/config/trial';
 import { computeAssinaturaVencidaPorBilling } from '@/lib/billing/empresaSaasBilling';
 import { pickAssinaturaParaContexto } from '@/lib/billing/pickAssinatura';
+import { temAcessoRecurso } from '@/lib/billing/planResources';
+import { PLANO_SLUGS } from '@/config/planModules';
 
 /** Disparar após pagamento aprovado para o guard atualizar e liberar o acesso */
 export function dispatchAssinaturaUpdated() {
@@ -35,6 +37,7 @@ interface Plano {
   limite_fornecedores: number;
   limite_ordens?: number;
   recursos_disponiveis: Record<string, unknown>;
+  slug?: string | null;
 }
 
 interface Assinatura {
@@ -85,6 +88,7 @@ function planoFromAssinaturaRow(row: Record<string, unknown>): Plano {
     limite_fornecedores: typeof p?.limite_fornecedores === 'number' ? p.limite_fornecedores : LIMITES_PADRAO.limite_fornecedores,
     limite_ordens: 100,
     recursos_disponiveis: (p?.recursos_disponiveis as Record<string, unknown>) || {},
+    slug: typeof p?.slug === 'string' ? p.slug : null,
   };
 }
 
@@ -132,7 +136,8 @@ type SubscriptionContextValue = {
   isAssinaturaVencida: () => boolean;
   podeCriar: (tipo: 'usuarios' | 'produtos' | 'servicos' | 'clientes' | 'ordens' | 'fornecedores') => boolean;
   diasRestantesTrial: () => number;
-  temRecurso: (_recurso: string) => boolean;
+  temRecurso: (recurso: string) => boolean;
+  planoSlug: string | null;
   carregarAssinatura: () => Promise<void>;
   carregarLimites: () => Promise<void>;
 };
@@ -287,7 +292,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
           .from('assinaturas')
           .select(`
             *,
-            planos(nome, descricao, preco, limite_usuarios, limite_produtos, limite_clientes, limite_fornecedores, recursos_disponiveis)
+            planos(nome, descricao, preco, slug, limite_usuarios, limite_produtos, limite_clientes, limite_fornecedores, recursos_disponiveis)
           `)
           .eq('empresa_id', empresaId)
           .order('created_at', { ascending: false })
@@ -501,7 +506,35 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     return Math.max(0, d);
   }, [assinatura, empresaData?.created_at, empresaData?.dias_trial]);
 
-  const temRecurso = useCallback((_recurso: string): boolean => true, []);
+  const isTrialAtivo = useCallback((): boolean => {
+    if (!assinatura) return false;
+    if (assinatura.status !== 'trial') return false;
+    return !isTrialExpired();
+  }, [assinatura, isTrialExpired]);
+
+  const planoSlug = useMemo(() => {
+    if (assinatura?.plano?.slug) return assinatura.plano.slug;
+    if (isTrialAtivo()) return PLANO_SLUGS.TRIAL;
+    return null;
+  }, [assinatura?.plano?.slug, isTrialAtivo]);
+
+  const temRecurso = useCallback(
+    (recurso: string): boolean => {
+      if (sistemaLiberado) return true;
+      return temAcessoRecurso(recurso, {
+        planoRecursos: assinatura?.plano?.recursos_disponiveis ?? null,
+        recursosCustomizados: empresaData?.recursos_customizados ?? null,
+        isTrial: isTrialAtivo(),
+        sistemaLiberado,
+      });
+    },
+    [
+      assinatura?.plano?.recursos_disponiveis,
+      empresaData?.recursos_customizados,
+      isTrialAtivo,
+      sistemaLiberado,
+    ]
+  );
 
   const carregarAssinatura = useCallback(async () => {
     await fetchAssinatura({ silent: hasLoadedOnceRef.current });
@@ -524,6 +557,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       podeCriar,
       diasRestantesTrial,
       temRecurso,
+      planoSlug,
       carregarAssinatura,
       carregarLimites,
     }),
@@ -537,6 +571,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       podeCriar,
       diasRestantesTrial,
       temRecurso,
+      planoSlug,
       carregarAssinatura,
       carregarLimites,
     ]

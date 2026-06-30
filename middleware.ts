@@ -45,7 +45,18 @@ export async function middleware(request: NextRequest) {
   const crmBlock = blockWhatsAppCrmRoutes(request);
   if (crmBlock) return crmBlock;
 
-  // ✅ Primeira carga: / vai direto para /login (página mais leve, evita travar 20+ min na home pesada)
+  // Legado: planos públicos movidos para /assinatura (dentro do sistema)
+  if (pathname === '/planos' || pathname === '/planos/renovar') {
+    return NextResponse.redirect(new URL('/assinatura', request.url));
+  }
+  if (pathname.startsWith('/planos/pagar/')) {
+    const slug = pathname.slice('/planos/pagar/'.length).split('/')[0];
+    if (slug) {
+      return NextResponse.redirect(new URL(`/assinatura/pagar/${slug}`, request.url));
+    }
+  }
+
+  // ✅ Primeira carga: / vai direto para /login
   if (pathname === '/') {
     return NextResponse.redirect(new URL('/login', request.url));
   }
@@ -77,7 +88,7 @@ export async function middleware(request: NextRequest) {
   // Rotas públicas – lógica inline para evitar import no Edge Runtime (evita erro webpack)
   const publicPaths = [
     '/login', '/cadastro', '/fale-conosco', '/empresa-desativada', '/', '/sobre', '/termos', '/politicas-privacidade',
-    '/planos', '/pagamentos/sucesso', '/pagamentos/falha', '/pagamentos/pendente',
+    '/pagamentos/sucesso', '/pagamentos/falha', '/pagamentos/pendente',
     '/instrucoes-verificacao', '/clear-auth', '/clear-cache', '/os', '/os/buscar',
   ];
   const isPublicPath = publicPaths.some((path) => {

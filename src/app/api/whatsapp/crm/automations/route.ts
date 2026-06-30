@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getEmpresaIdForUser, getSessionUserId } from '@/lib/api/routeAuthEmpresa';
 import { createAdminClient } from '@/lib/supabaseClient';
 import { seedAutomacoesPadrao } from '@/lib/whatsapp-crm/conversations';
+import { assertWhatsAppCrmAccess } from '@/lib/whatsapp-crm/guard';
 
 async function resolveEmpresa(req: NextRequest) {
   const userId = await getSessionUserId(req);
@@ -13,6 +14,9 @@ async function resolveEmpresa(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
+    const blocked = await assertWhatsAppCrmAccess(req);
+    if (blocked) return blocked;
+
     const auth = await resolveEmpresa(req);
     if (!auth) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
@@ -35,6 +39,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const blocked = await assertWhatsAppCrmAccess(req);
+    if (blocked) return blocked;
+
     const auth = await resolveEmpresa(req);
     if (!auth) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
@@ -67,6 +74,9 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
+    const blocked = await assertWhatsAppCrmAccess(req);
+    if (blocked) return blocked;
+
     const auth = await resolveEmpresa(req);
     if (!auth) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
@@ -96,6 +106,9 @@ export async function PUT(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+    const blocked = await assertWhatsAppCrmAccess(req);
+    if (blocked) return blocked;
+
     const auth = await resolveEmpresa(req);
     if (!auth) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 

@@ -102,10 +102,6 @@ export default function CadastroSucessoPage() {
               <FiArrowRight className="w-4 h-4" />
               Ir para o Login
             </button>
-            
-            <button onClick={() => router.push('/planos')} className="flex-1 bg-white/10 text-white px-6 py-3 rounded-lg font-medium border border-white/20 hover:bg-white/15 transition">
-              Ver Planos
-            </button>
           </div>
 
           <div className="text-center mt-6">

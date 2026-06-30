@@ -8,6 +8,7 @@ import Underline from '@tiptap/extension-underline';
 import { useState, useEffect } from 'react';
 import { FiBold, FiItalic, FiUnderline, FiList, FiAlignLeft, FiAlignCenter, FiAlignRight, FiLink, FiZap, FiLoader } from 'react-icons/fi';
 import { useToast } from '@/components/Toast';
+import { useSubscription } from '@/hooks/useSubscription';
 
 interface LaudoEditorProps {
   value: string;
@@ -27,6 +28,8 @@ export default function LaudoEditor({
   readOnly = false
 }: LaudoEditorProps) {
   const { addToast } = useToast();
+  const { temRecurso } = useSubscription();
+  const podeUsarIA = temRecurso('ia');
   const [mounted, setMounted] = useState(false);
   const [corrigindo, setCorrigindo] = useState(false);
 
@@ -213,8 +216,7 @@ export default function LaudoEditor({
           <FiLink className="w-4 h-4" />
         </button>
         
-        {/* Botão de correção com IA */}
-        {(
+        {podeUsarIA && (
           <>
             <div className="w-px bg-gray-300 mx-1 h-6"></div>
             <button
@@ -225,7 +227,7 @@ export default function LaudoEditor({
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                   : 'bg-purple-100 text-purple-600 hover:bg-purple-200'
               }`}
-              title="Corrigir texto com IA (ChatGPT)"
+              title="Corrigir texto com IA"
               type="button"
             >
               {corrigindo ? (

@@ -293,7 +293,7 @@ export default function ClienteForm({ cliente, returnToOS }: { cliente?: Cliente
             Para criar mais clientes, escolha um plano adequado às suas necessidades.
           </p>
           <button 
-            onClick={() => window.location.href = '/planos'}
+            onClick={() => window.location.href = '/assinatura'}
             className="bg-black text-white px-4 py-2 rounded-md text-sm hover:bg-gray-800 transition-colors"
           >
             Ver planos disponíveis

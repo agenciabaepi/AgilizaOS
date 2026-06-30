@@ -8,6 +8,7 @@ import {
 } from '@/lib/whatsapp-crm/conversations';
 import { validateWhatsAppCredentials } from '@/lib/whatsapp-crm/graph-api';
 import { subscribeWabaWebhooks } from '@/lib/whatsapp-crm/embedded-signup';
+import { assertWhatsAppCrmAccess } from '@/lib/whatsapp-crm/guard';
 
 async function resolveEmpresa(req: NextRequest) {
   const userId = await getSessionUserId(req);
@@ -19,6 +20,9 @@ async function resolveEmpresa(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
+    const blocked = await assertWhatsAppCrmAccess(req);
+    if (blocked) return blocked;
+
     const auth = await resolveEmpresa(req);
     if (!auth) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
@@ -41,6 +45,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const blocked = await assertWhatsAppCrmAccess(req);
+    if (blocked) return blocked;
+
     const auth = await resolveEmpresa(req);
     if (!auth) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 

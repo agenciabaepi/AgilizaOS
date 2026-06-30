@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabaseClient';
 import { getOsContextoByConversa } from '@/lib/whatsapp-crm/os-context';
 import { listOrdensClienteConversa } from '@/lib/whatsapp-crm/client-orders';
 import { CONVERSA_USUARIO_JOIN } from '@/lib/whatsapp-crm/atendentes';
+import { assertWhatsAppCrmAccess } from '@/lib/whatsapp-crm/guard';
 
 async function resolveEmpresa(req: NextRequest) {
   const userId = await getSessionUserId(req);
@@ -18,6 +19,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const blocked = await assertWhatsAppCrmAccess(req);
+    if (blocked) return blocked;
+
     const auth = await resolveEmpresa(req);
     if (!auth) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
@@ -84,6 +88,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const blocked = await assertWhatsAppCrmAccess(req);
+    if (blocked) return blocked;
+
     const auth = await resolveEmpresa(req);
     if (!auth) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 

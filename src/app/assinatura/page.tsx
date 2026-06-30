@@ -6,10 +6,10 @@ import MenuLayout from '@/components/MenuLayout';
 import AuthGuardFinal from '@/components/AuthGuardFinal';
 import { Button } from '@/components/Button';
 import { FiCreditCard, FiCheckCircle, FiClock, FiRefreshCw, FiArrowRight, FiX } from 'react-icons/fi';
-import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import PixQRCode from '@/components/PixQRCode';
 import RenovarSistemaShowcase from '@/components/assinatura/RenovarSistemaShowcase';
+import PlanosAssinaturaCards from '@/components/assinatura/PlanosAssinaturaCards';
 import { useSubscription, dispatchAssinaturaUpdated } from '@/hooks/useSubscription';
 import { computeDiasTrialTotal, dataFimTrialAPartirDe } from '@/config/trial';
 
@@ -381,12 +381,29 @@ export default function AssinaturaPage() {
                 </div>
               )}
             </div>
-            <Link href="/planos/renovar">
+            <a href="#planos-assinatura">
               <Button className="flex items-center gap-2">
-                Renovar assinatura
+                Ver planos
                 <FiArrowRight size={16} />
               </Button>
-            </Link>
+            </a>
+          </div>
+
+          <div className="mb-8">
+            <PlanosAssinaturaCards
+              titulo={
+                trialEncerrado || statusCanceladoOuInativo
+                  ? 'Escolha um plano para continuar'
+                  : emTesteGratis
+                    ? 'Assine antes do fim do teste'
+                    : 'Planos disponíveis'
+              }
+              subtitulo={
+                trialEncerrado
+                  ? 'Seu período de teste encerrou. Selecione Básico ou Completo para reativar o acesso.'
+                  : 'O Básico inclui todo o sistema. O Completo adiciona Nota Fiscal, IA e CRM WhatsApp.'
+              }
+            />
           </div>
 
           <div className="mb-6">
@@ -394,7 +411,13 @@ export default function AssinaturaPage() {
           </div>
 
           {/* Resumo da assinatura (vencimento e dias restantes) */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="bg-white dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700 p-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Plano</p>
+              <p className="text-xl font-bold text-gray-900 dark:text-white mt-1 truncate">
+                {assinatura?.plano?.nome || '—'}
+              </p>
+            </div>
             <div className="bg-white dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700 p-4">
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {emTesteGratis ? 'Fim do período de teste' : 'Próximo vencimento'}

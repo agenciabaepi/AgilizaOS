@@ -8,6 +8,8 @@ import { BuildingOfficeIcon as FiBuilding } from '@heroicons/react/24/outline';
 import { DIAS_TRIAL_GRATIS } from '@/config/trial';
 import AdminEmpresaClientesSection from './AdminEmpresaClientesSection';
 import AdminEmpresaUsuariosSection from './AdminEmpresaUsuariosSection';
+import PremiumRecursosForm from '@/components/admin/PremiumRecursosForm';
+import type { PremiumModule } from '@/config/planModules';
 
 function formatarDataCurta(iso: string | null | undefined) {
   if (!iso) return '—';
@@ -218,7 +220,7 @@ const ModalAlterarPlano = ({ empresa, onClose, onSuccess }: { empresa: EmpresaDe
 
 // Modal de Gerenciar Recursos (definido antes do componente principal)
 const ModalGerenciarRecursos = ({ empresa, onClose, onSuccess }: { empresa: EmpresaDetalhes; onClose: () => void; onSuccess: () => void }) => {
-  const [recursosCustomizados, setRecursosCustomizados] = useState<Record<string, boolean>>({});
+  const [recursosCustomizados, setRecursosCustomizados] = useState<Partial<Record<PremiumModule, boolean>>>({});
   const [salvandoRecursos, setSalvandoRecursos] = useState(false);
 
   useEffect(() => {
@@ -267,123 +269,16 @@ const ModalGerenciarRecursos = ({ empresa, onClose, onSuccess }: { empresa: Empr
       <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Gerenciar Recursos - {empresa.nome}</h3>
         <p className="text-sm text-gray-600 mb-6">
-          Libere ou bloqueie recursos específicos para esta empresa. 
-          <br />
-          <span className="font-medium">Por padrão, os recursos seguem a assinatura da empresa.</span>
-          <br />
-          <span className="text-xs text-gray-500">Recursos marcados aqui sobrescrevem os recursos da assinatura.</span>
+          Libere módulos premium manualmente para esta empresa. Por padrão, o acesso segue o plano da assinatura.
         </p>
-        
-        <div className="space-y-4 mb-6">
-          {/* Financeiro */}
-          <div className="border border-gray-200 rounded-lg p-4">
-            <h4 className="font-semibold text-gray-900 mb-3">Módulo Financeiro</h4>
-            <div className="space-y-2">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={recursosCustomizados['financeiro'] === true}
-                  onChange={(e) => setRecursosCustomizados({
-                    ...recursosCustomizados,
-                    financeiro: e.target.checked
-                  })}
-                  className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
-                />
-                <span className="text-sm text-gray-700">Financeiro Completo</span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={recursosCustomizados['vendas'] === true}
-                  onChange={(e) => setRecursosCustomizados({
-                    ...recursosCustomizados,
-                    vendas: e.target.checked
-                  })}
-                  className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
-                />
-                <span className="text-sm text-gray-700">Vendas</span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={recursosCustomizados['contas_pagar'] === true}
-                  onChange={(e) => setRecursosCustomizados({
-                    ...recursosCustomizados,
-                    contas_pagar: e.target.checked
-                  })}
-                  className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
-                />
-                <span className="text-sm text-gray-700">Contas a Pagar</span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={recursosCustomizados['movimentacao_caixa'] === true}
-                  onChange={(e) => setRecursosCustomizados({
-                    ...recursosCustomizados,
-                    movimentacao_caixa: e.target.checked
-                  })}
-                  className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
-                />
-                <span className="text-sm text-gray-700">Movimentações de Caixa</span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={recursosCustomizados['lucro_desempenho'] === true}
-                  onChange={(e) => setRecursosCustomizados({
-                    ...recursosCustomizados,
-                    lucro_desempenho: e.target.checked
-                  })}
-                  className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
-                />
-                <span className="text-sm text-gray-700">Lucro & Desempenho</span>
-              </label>
-            </div>
-          </div>
 
-          {/* WhatsApp e Automações */}
-          <div className="border border-gray-200 rounded-lg p-4">
-            <h4 className="font-semibold text-gray-900 mb-3">Automações</h4>
-            <div className="space-y-2">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={recursosCustomizados['whatsapp'] === true}
-                  onChange={(e) => setRecursosCustomizados({
-                    ...recursosCustomizados,
-                    whatsapp: e.target.checked
-                  })}
-                  className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
-                />
-                <span className="text-sm text-gray-700">WhatsApp</span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={recursosCustomizados['chatgpt'] === true}
-                  onChange={(e) => setRecursosCustomizados({
-                    ...recursosCustomizados,
-                    chatgpt: e.target.checked
-                  })}
-                  className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
-                />
-                <span className="text-sm text-gray-700">ChatGPT / IA</span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={recursosCustomizados['editor_foto'] === true}
-                  onChange={(e) => setRecursosCustomizados({
-                    ...recursosCustomizados,
-                    editor_foto: e.target.checked
-                  })}
-                  className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
-                />
-                <span className="text-sm text-gray-700">Editor de Fotos</span>
-              </label>
-            </div>
-          </div>
+        <div className="border border-gray-200 rounded-lg p-4 mb-6">
+          <h4 className="font-semibold text-gray-900 mb-3">Módulos Premium</h4>
+          <PremiumRecursosForm
+            valores={recursosCustomizados}
+            onChange={setRecursosCustomizados}
+            disabled={salvandoRecursos}
+          />
         </div>
 
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-6">

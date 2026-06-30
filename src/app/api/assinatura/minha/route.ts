@@ -57,7 +57,11 @@ export async function GET(req: NextRequest) {
         .eq('empresa_id', empresaId)
         .order('created_at', { ascending: false })
         .limit(30),
-      admin.from('empresas').select('created_at, sistema_liberado').eq('id', empresaId).maybeSingle(),
+      admin
+        .from('empresas')
+        .select('created_at, sistema_liberado, recursos_customizados')
+        .eq('id', empresaId)
+        .maybeSingle(),
     ]);
 
     const empresaCreatedAt = (empRow?.created_at as string | undefined) ?? null;
@@ -78,7 +82,7 @@ export async function GET(req: NextRequest) {
     if (planoId) {
       const { data: p } = await admin
         .from('planos')
-        .select('nome, descricao, preco, limite_usuarios, limite_produtos, limite_clientes, limite_fornecedores, recursos_disponiveis')
+        .select('nome, descricao, preco, slug, limite_usuarios, limite_produtos, limite_clientes, limite_fornecedores, recursos_disponiveis')
         .eq('id', planoId)
         .maybeSingle();
       planos = p as Record<string, unknown> | null;
@@ -88,6 +92,7 @@ export async function GET(req: NextRequest) {
       assinatura: { ...row, planos },
       empresa_created_at: empresaCreatedAt,
       sistema_liberado: sistemaLiberado,
+      recursos_customizados: empRow?.recursos_customizados ?? null,
     });
   } catch (e) {
     console.error('GET /api/assinatura/minha:', e);

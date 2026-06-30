@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionUserId } from '@/lib/api/routeAuthEmpresa';
 import { buscarInfoAparelho, isChatGPTAvailable } from '@/lib/chatgpt';
+import { assertTemRecurso } from '@/lib/billing/assertPlanResource';
 
 const rateLimitMap = new Map<string, number>();
 const RATE_LIMIT_MS = 3000;
 
 export async function GET(request: NextRequest) {
   try {
+    const access = await assertTemRecurso(request, 'ia');
+    if (!access.ok) return access.response;
+
     const userId = await getSessionUserId(request);
     if (!userId) {
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });

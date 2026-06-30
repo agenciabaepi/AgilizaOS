@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { corrigirLaudoTecnico, isChatGPTAvailable } from '@/lib/chatgpt';
+import { assertTemRecurso } from '@/lib/billing/assertPlanResource';
 
 /**
  * POST /api/laudo/corrigir
  * Corrige e melhora o texto do laudo técnico usando IA (ChatGPT).
- * Body: { texto: string }
- * Resposta: { success: true, textoCorrigido: string } ou { success: false, message: string }
  */
 export async function POST(req: NextRequest) {
   try {
+    const access = await assertTemRecurso(req, 'ia');
+    if (!access.ok) return access.response;
+
     const body = await req.json();
     const texto = typeof body.texto === 'string' ? body.texto : '';
 

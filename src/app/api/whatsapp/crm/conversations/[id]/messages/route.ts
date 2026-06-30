@@ -7,6 +7,7 @@ import {
   updateMensagemEntrega,
 } from '@/lib/whatsapp-crm/conversations';
 import { sendWhatsAppTextMessage } from '@/lib/whatsapp-crm/graph-api';
+import { assertWhatsAppCrmAccess } from '@/lib/whatsapp-crm/guard';
 
 async function resolveEmpresa(req: NextRequest) {
   const userId = await getSessionUserId(req);
@@ -21,6 +22,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const blocked = await assertWhatsAppCrmAccess(req);
+    if (blocked) return blocked;
+
     const auth = await resolveEmpresa(req);
     if (!auth) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 

@@ -14,7 +14,7 @@ interface PixQRCodeProps {
   onSuccess?: () => void;
   onError?: (error: string) => void;
   mock?: boolean;
-  planoSlug?: 'basico' | 'pro' | 'avancado' | string;
+  planoSlug?: 'basico' | 'completo' | string;
   /** Quando informado, usa cobrança existente (pendente) em vez de criar nova */
   existingPaymentId?: string;
 }

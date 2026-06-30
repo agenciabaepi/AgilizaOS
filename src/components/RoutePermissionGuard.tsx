@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { useSubscription } from '@/hooks/useSubscription';
 import { isPublicPath } from '@/config/publicPaths';
 import {
   checkRouteAccess,
@@ -10,8 +11,9 @@ import {
   getHomePathForUser,
 } from '@/lib/permissions';
 import { WHATSAPP_CRM_ENABLED } from '@/config/whatsapp-crm-config';
+import { getRequiredResource, CONFIG_TAB_PREMIUM_MODULES } from '@/config/pageResources';
+import UpgradeRequiredModal from '@/components/UpgradeRequiredModal';
 
-/** Permissão exigida por índice de aba em /configuracoes?tab=N */
 const CONFIG_TAB_PERMISSIONS: Record<number, string> = {
   0: 'empresa',
   1: 'usuarios',
@@ -32,24 +34,24 @@ function isAdminRoute(pathname: string): boolean {
   return pathname.startsWith('/admin-login') || pathname.startsWith('/admin-saas');
 }
 
-/**
- * Guarda de permissões no cliente — complementa o middleware.
- * Bloqueia acesso direto por URL e navegação client-side.
- */
 export default function RoutePermissionGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || '';
   const searchParams = useSearchParams();
   const router = useRouter();
   const { usuarioData, userDataReady } = useAuth();
+  const { temRecurso, loading: subscriptionLoading } = useSubscription();
   const [allowed, setAllowed] = useState<boolean | null>(null);
+  const [blockedResource, setBlockedResource] = useState<string | null>(null);
 
   useEffect(() => {
+    setBlockedResource(null);
+
     if (isAdminRoute(pathname) || isPublicPath(pathname)) {
       setAllowed(true);
       return;
     }
 
-    if (!userDataReady) return;
+    if (!userDataReady || subscriptionLoading) return;
 
     if (!usuarioData) {
       setAllowed(true);
@@ -65,21 +67,33 @@ export default function RoutePermissionGuard({ children }: { children: React.Rea
       return;
     }
 
-    // /configuracoes?tab=N — validar permissão da aba específica
+    const requiredFromPath = getRequiredResource(pathname);
+    if (requiredFromPath && !temRecurso(requiredFromPath)) {
+      setBlockedResource(requiredFromPath);
+      setAllowed(false);
+      return;
+    }
+
     if (pathname === '/configuracoes' || pathname.startsWith('/configuracoes')) {
       const tabParam = searchParams.get('tab');
       if (tabParam !== null) {
         const tabIndex = Number(tabParam);
         const tabPerm = CONFIG_TAB_PERMISSIONS[tabIndex];
+        const premiumMod = CONFIG_TAB_PREMIUM_MODULES[tabIndex];
+
         if (tabPerm === 'whatsapp' && !WHATSAPP_CRM_ENABLED) {
           setAllowed(false);
           router.replace(getHomePathForUser(nivel, rawPermissoes));
           return;
         }
-        if (
-          tabPerm &&
-          !canUseModule(tabPerm, nivel, rawPermissoes)
-        ) {
+
+        if (premiumMod && !temRecurso(premiumMod)) {
+          setBlockedResource(premiumMod);
+          setAllowed(false);
+          return;
+        }
+
+        if (tabPerm && !canUseModule(tabPerm, nivel, rawPermissoes)) {
           setAllowed(false);
           router.replace(getHomePathForUser(nivel, rawPermissoes));
           return;
@@ -88,19 +102,31 @@ export default function RoutePermissionGuard({ children }: { children: React.Rea
     }
 
     setAllowed(true);
-  }, [pathname, searchParams, usuarioData, userDataReady, router]);
+  }, [
+    pathname,
+    searchParams,
+    usuarioData,
+    userDataReady,
+    subscriptionLoading,
+    temRecurso,
+    router,
+  ]);
 
   if (isAdminRoute(pathname) || isPublicPath(pathname)) {
     return <>{children}</>;
   }
 
-  if (!userDataReady || allowed === null) {
+  if (!userDataReady || subscriptionLoading || allowed === null) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-white gap-3">
         <div className="h-10 w-10 animate-spin rounded-full border-2 border-gray-900 border-t-transparent" />
         <p className="text-sm text-gray-500">Verificando permissões...</p>
       </div>
     );
+  }
+
+  if (blockedResource) {
+    return <UpgradeRequiredModal resource={blockedResource} />;
   }
 
   if (!allowed) {

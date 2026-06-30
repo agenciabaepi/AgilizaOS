@@ -1140,6 +1140,10 @@ export function PDVPage() {
 
   return (
     <div className="pdv-root pdv-root--embedded">
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-zinc-100">PDV</h1>
+        <p className="text-sm text-gray-600 dark:text-zinc-400">Frente de caixa — vendas e recebimentos</p>
+      </div>
       <div className="pdv-pro">
         <div className="pdv-pro__surface">
           <div className="pdv-page pdv-page--pro">

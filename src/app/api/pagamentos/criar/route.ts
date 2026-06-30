@@ -155,6 +155,8 @@ export async function POST(req: NextRequest) {
         mercadopago_payment_id: payment.id,
         status: payment.status || 'PENDING',
         valor: numValor,
+        plano_slug:
+          plano_slug === 'basico' || plano_slug === 'completo' ? plano_slug : null,
       })
       .select('id')
       .single();
