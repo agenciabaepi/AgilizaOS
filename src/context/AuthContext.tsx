@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo, useRef } from 'react';
 import { supabase, fetchUserDataOptimized } from '@/lib/supabaseClient';
 import { Session, User } from '@supabase/supabase-js';
 import { podeUsarFuncionalidade as podeUsarFuncionalidadeUtil, isUsuarioTeste as isUsuarioTesteUtil } from '@/config/featureFlags';
@@ -78,7 +78,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [catalogoHabilitado, setCatalogoHabilitado] = useState(true);
   const [recursosPlano, setRecursosPlano] = useState<Record<string, boolean>>({});
 
-  // ✅ OTIMIZADO: Função para buscar dados do usuário com timeout e retry
+  const authSnapshotRef = useRef({
+    userId: null as string | null,
+    userDataReady: false,
+    empresaId: null as string | null,
+  });
+  authSnapshotRef.current = {
+    userId: user?.id ?? null,
+    userDataReady,
+    empresaId: usuarioData?.empresa_id?.trim() || null,
+  };
   const fetchUserData = useCallback(async (userId: string, sessionData: Session) => {
     let retryCount = 0;
     const maxRetries = 3;
@@ -263,6 +272,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (event === 'SIGNED_IN' && session) {
           setSession(session);
           setUser(session.user);
+
+          const snap = authSnapshotRef.current;
+          if (
+            snap.userDataReady &&
+            snap.userId === session.user.id &&
+            snap.empresaId
+          ) {
+            return;
+          }
 
           // ✅ DADOS TEMPORÁRIOS SEGUROS
           setUserDataReady(false);

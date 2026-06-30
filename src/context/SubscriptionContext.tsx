@@ -157,6 +157,10 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const hiddenAtRef = useRef<number | null>(null);
   const hasLoadedOnceRef = useRef(false);
   const loadedEmpresaIdRef = useRef<string | null>(null);
+  const prevAuthEmpresaRef = useRef<{ userId: string | null; empresaId: string | null }>({
+    userId: null,
+    empresaId: null,
+  });
   const empresaDataRef = useRef(empresaData);
   empresaDataRef.current = empresaData;
 
@@ -170,9 +174,32 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    fetchSeqRef.current += 1;
-    setSistemaLiberado(false);
-    resetSubscriptionState();
+    const userId = user?.id ?? null;
+    const empresaId = empresaIdAtual;
+    const prev = prevAuthEmpresaRef.current;
+
+    if (!userId) {
+      prevAuthEmpresaRef.current = { userId: null, empresaId: null };
+      fetchSeqRef.current += 1;
+      setSistemaLiberado(false);
+      resetSubscriptionState();
+      return;
+    }
+
+    // Placeholder do auth (empresa_id vazio) — não derrubar cache da assinatura
+    if (!empresaId) return;
+
+    const userChanged = prev.userId !== null && prev.userId !== userId;
+    const empresaChanged = prev.empresaId !== null && prev.empresaId !== empresaId;
+    const isFirstLoad = prev.userId === null;
+
+    prevAuthEmpresaRef.current = { userId, empresaId };
+
+    if (isFirstLoad || userChanged || empresaChanged) {
+      fetchSeqRef.current += 1;
+      setSistemaLiberado(false);
+      resetSubscriptionState();
+    }
   }, [user?.id, empresaIdAtual, resetSubscriptionState]);
 
   const fetchLimitesForEmpresa = async (empresaId: string, planoLimite?: Plano) => {

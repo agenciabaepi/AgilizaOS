@@ -25,6 +25,7 @@ import {
   FiTrendingUp,
 } from 'react-icons/fi';
 import DashboardCard from '@/components/ui/DashboardCard';
+import DashboardAppPromoBanner from '@/components/dashboard/DashboardAppPromoBanner';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
@@ -380,12 +381,14 @@ export default function DashboardOverview() {
   if (!empresaId) return null;
 
   return (
-    <div className="space-y-8 px-2 md:px-0">
+    <div className="space-y-6 px-2 md:px-0">
       <div>
         <h1 className="text-xl md:text-2xl font-semibold text-zinc-900 dark:text-zinc-50 tracking-tight">
           Painel
         </h1>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 capitalize">{refLabel}</p>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5 capitalize">{refLabel}</p>
+
+        <DashboardAppPromoBanner />
       </div>
 
       {loading ? (
