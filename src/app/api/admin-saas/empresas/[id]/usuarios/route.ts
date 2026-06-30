@@ -21,7 +21,9 @@ export async function GET(
 
     const { data: usuarios, error } = await supabase
       .from('usuarios')
-      .select('id, nome, email, usuario, nivel, auth_user_id, created_at')
+      .select(
+        'id, nome, email, usuario, nivel, auth_user_id, created_at, email_verificado, email_verificado_em, primeiro_login_em, verificacao_liberada_admin, verificacao_liberada_em, verificacao_liberada_por'
+      )
       .eq('empresa_id', empresaId)
       .order('nome', { ascending: true });
 

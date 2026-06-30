@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { EMAIL_VERIFICATION_ENABLED } from '@/config/email-verification';
+import { usuarioPassouVerificacaoEmail } from '@/lib/user-verification-tracking';
 
 /**
  * Resolve nome de usuário ou e-mail → e-mail canônico do Auth (onde a senha é validada).
@@ -17,8 +18,8 @@ export async function POST(request: NextRequest) {
     const admin = getSupabaseAdmin();
 
     const usuarioQuery = login.includes('@')
-      ? admin.from('usuarios').select('auth_user_id, email_verificado, nivel, empresa_id').eq('email', login).maybeSingle()
-      : admin.from('usuarios').select('auth_user_id, email_verificado, nivel, empresa_id').eq('usuario', login).maybeSingle();
+      ? admin.from('usuarios').select('auth_user_id, email_verificado, email_verificado_em, verificacao_liberada_admin, nivel, empresa_id').eq('email', login).maybeSingle()
+      : admin.from('usuarios').select('auth_user_id, email_verificado, email_verificado_em, verificacao_liberada_admin, nivel, empresa_id').eq('usuario', login).maybeSingle();
 
     const { data: usuario, error } = await usuarioQuery;
 
@@ -37,7 +38,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
     }
 
-    let emailVerificado = EMAIL_VERIFICATION_ENABLED ? usuario.email_verificado === true : true;
+    let emailVerificado = EMAIL_VERIFICATION_ENABLED
+      ? usuarioPassouVerificacaoEmail(usuario)
+      : true;
     let empresaVerificada = emailVerificado;
 
     if (!EMAIL_VERIFICATION_ENABLED) {
@@ -73,7 +76,7 @@ export async function POST(request: NextRequest) {
         .select('*', { count: 'exact', head: true })
         .eq('empresa_id', usuario.empresa_id)
         .eq('nivel', 'admin')
-        .eq('email_verificado', true);
+        .or('email_verificado.eq.true,verificacao_liberada_admin.eq.true');
 
       empresaVerificada = (count ?? 0) > 0;
     }

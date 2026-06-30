@@ -423,6 +423,14 @@ function LoginClientInner() {
     
     // Login bem-sucedido
     addToast('success', 'Login realizado com sucesso! Redirecionando...');
+
+    fetch('/api/auth/registrar-acesso', {
+      method: 'POST',
+      credentials: 'include',
+      headers: session?.access_token
+        ? { Authorization: `Bearer ${session.access_token}` }
+        : undefined,
+    }).catch(() => undefined);
     
     // 🔒 LIMPEZA COMPLETA: Limpar dados antigos antes de salvar novos
     try {

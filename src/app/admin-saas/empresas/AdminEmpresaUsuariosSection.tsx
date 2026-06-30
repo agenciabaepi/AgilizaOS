@@ -2,10 +2,16 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/Button';
-import { finalizeImpersonationLogin, exitImpersonationClient } from '@/lib/impersonation-client';
-import { FiExternalLink, FiLogIn, FiRefreshCw, FiUsers } from 'react-icons/fi';
+import { finalizeImpersonationLogin } from '@/lib/impersonation-client';
+import {
+  VERIFICACAO_EMAIL_LABEL,
+  formatarDataAdmin,
+  resolveVerificacaoEmailStatus,
+  type UsuarioVerificacaoRow,
+} from '@/lib/user-verification-tracking';
+import { FiExternalLink, FiLogIn, FiRefreshCw, FiShield, FiUsers } from 'react-icons/fi';
 
-type UsuarioEmpresa = {
+type UsuarioEmpresa = UsuarioVerificacaoRow & {
   id: string;
   nome: string;
   email?: string | null;
@@ -23,6 +29,13 @@ const NIVEL_LABEL: Record<string, string> = {
   usuarioteste: 'Teste',
 };
 
+const STATUS_BADGE: Record<string, string> = {
+  verificado_codigo: 'bg-green-100 text-green-800',
+  liberado_admin: 'bg-indigo-100 text-indigo-800',
+  verificado_cadastro: 'bg-emerald-50 text-emerald-700',
+  pendente: 'bg-amber-100 text-amber-800',
+};
+
 type Props = {
   empresaId: string;
   empresaNome?: string;
@@ -33,6 +46,7 @@ export default function AdminEmpresaUsuariosSection({ empresaId, empresaNome }: 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
+  const [liberandoId, setLiberandoId] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -90,6 +104,39 @@ export default function AdminEmpresaUsuariosSection({ empresaId, empresaNome }: 
     }
   }
 
+  async function liberarVerificacao(usuario: UsuarioEmpresa) {
+    const nome = usuario.nome || usuario.email || 'usuário';
+    if (
+      !window.confirm(
+        `Liberar verificação de e-mail para "${nome}" sem código?\n\nO usuário poderá entrar mesmo com verificação de e-mail ativa no sistema.`
+      )
+    ) {
+      return;
+    }
+
+    setLiberandoId(usuario.id);
+    try {
+      const res = await fetch(
+        `/api/admin-saas/empresas/${empresaId}/usuarios/${usuario.id}/verificacao`,
+        {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ liberar: true }),
+        }
+      );
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        throw new Error(json.message || 'Falha ao liberar verificação');
+      }
+      await carregar();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Erro ao liberar verificação');
+    } finally {
+      setLiberandoId(null);
+    }
+  }
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       <div className="flex items-center justify-between gap-4 mb-4">
@@ -99,7 +146,9 @@ export default function AdminEmpresaUsuariosSection({ empresaId, empresaNome }: 
           </div>
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Usuários da empresa</h2>
-            <p className="text-sm text-gray-500">Entre como qualquer usuário para suporte ou diagnóstico.</p>
+            <p className="text-sm text-gray-500">
+              Primeiro login, verificação de e-mail e acesso para suporte.
+            </p>
           </div>
         </div>
         <button
@@ -127,38 +176,96 @@ export default function AdminEmpresaUsuariosSection({ empresaId, empresaNome }: 
                 <th className="px-3 py-2">Nome</th>
                 <th className="px-3 py-2">Login</th>
                 <th className="px-3 py-2">Nível</th>
-                <th className="px-3 py-2 text-right">Ação</th>
+                <th className="px-3 py-2">Primeiro login</th>
+                <th className="px-3 py-2">Verificação e-mail</th>
+                <th className="px-3 py-2 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {usuarios.map((u) => (
-                <tr key={u.id} className="hover:bg-gray-50/80">
-                  <td className="px-3 py-3 font-medium text-gray-900">{u.nome || '—'}</td>
-                  <td className="px-3 py-3 text-gray-600">
-                    <div>{u.usuario ? `@${u.usuario}` : u.email || '—'}</div>
-                    {u.usuario && u.email ? (
-                      <div className="text-xs text-gray-400">{u.email}</div>
-                    ) : null}
-                  </td>
-                  <td className="px-3 py-3">
-                    <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                      {NIVEL_LABEL[u.nivel || ''] || u.nivel || '—'}
-                    </span>
-                  </td>
-                  <td className="px-3 py-3 text-right">
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={impersonatingId === u.id}
-                      onClick={() => entrarComo(u)}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                    >
-                      <FiLogIn className="mr-1.5" size={14} />
-                      {impersonatingId === u.id ? 'Entrando...' : 'Entrar como'}
-                    </Button>
-                  </td>
-                </tr>
-              ))}
+              {usuarios.map((u) => {
+                const statusVerificacao = resolveVerificacaoEmailStatus(u);
+                const pendenteVerificacao = statusVerificacao === 'pendente';
+
+                return (
+                  <tr key={u.id} className="hover:bg-gray-50/80 align-top">
+                    <td className="px-3 py-3 font-medium text-gray-900">{u.nome || '—'}</td>
+                    <td className="px-3 py-3 text-gray-600">
+                      <div>{u.usuario ? `@${u.usuario}` : u.email || '—'}</div>
+                      {u.usuario && u.email ? (
+                        <div className="text-xs text-gray-400">{u.email}</div>
+                      ) : null}
+                    </td>
+                    <td className="px-3 py-3">
+                      <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                        {NIVEL_LABEL[u.nivel || ''] || u.nivel || '—'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3">
+                      {u.primeiro_login_em ? (
+                        <div>
+                          <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Sim
+                          </span>
+                          <div className="text-xs text-gray-500 mt-1 tabular-nums">
+                            {formatarDataAdmin(u.primeiro_login_em)}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                          Ainda não
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-3">
+                      <span
+                        className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE[statusVerificacao]}`}
+                      >
+                        {VERIFICACAO_EMAIL_LABEL[statusVerificacao]}
+                      </span>
+                      {u.email_verificado_em ? (
+                        <div className="text-xs text-gray-500 mt-1 tabular-nums">
+                          Código: {formatarDataAdmin(u.email_verificado_em)}
+                        </div>
+                      ) : null}
+                      {u.verificacao_liberada_admin && u.verificacao_liberada_em ? (
+                        <div className="text-xs text-gray-500 mt-1">
+                          Admin: {formatarDataAdmin(u.verificacao_liberada_em)}
+                          {u.verificacao_liberada_por ? (
+                            <span className="block text-gray-400">{u.verificacao_liberada_por}</span>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className="px-3 py-3 text-right whitespace-nowrap">
+                      <div className="flex flex-col items-end gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={impersonatingId === u.id}
+                          onClick={() => entrarComo(u)}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                        >
+                          <FiLogIn className="mr-1.5" size={14} />
+                          {impersonatingId === u.id ? 'Entrando...' : 'Entrar como'}
+                        </Button>
+                        {pendenteVerificacao ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={liberandoId === u.id}
+                            onClick={() => liberarVerificacao(u)}
+                            className="text-xs"
+                          >
+                            <FiShield className="mr-1" size={12} />
+                            {liberandoId === u.id ? 'Liberando...' : 'Liberar sem código'}
+                          </Button>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -166,7 +273,8 @@ export default function AdminEmpresaUsuariosSection({ empresaId, empresaNome }: 
 
       <p className="mt-4 text-xs text-gray-500 flex items-start gap-1.5">
         <FiExternalLink className="shrink-0 mt-0.5" size={12} />
-        Todas as impersonations são registradas com data, admin e usuário alvo. Use apenas para suporte autorizado.
+        Primeiro login é registrado na primeira entrada bem-sucedida. Verificação por código grava data em{' '}
+        <code className="text-[10px] bg-gray-50 px-1 rounded">email_verificado_em</code>.
       </p>
     </div>
   );

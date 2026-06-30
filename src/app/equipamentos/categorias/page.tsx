@@ -2,12 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
-import { supabaseConfig } from '@/lib/supabase-config';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
 import MenuLayout from '@/components/MenuLayout';
+import { resolveEmpresaIdForClient } from '@/lib/resolve-empresa-id';
 import { FiPlus, FiEdit, FiTrash2, FiChevronDown, FiChevronRight, FiFolder, FiTag, FiGrid } from 'react-icons/fi';
 
 interface Grupo {
@@ -76,65 +76,44 @@ export default function CategoriasPage() {
 
   // Resolver empresa do usuário
   useEffect(() => {
-    
-    const resolverEmpresa = async () => {
-      try {
-        
-        // Priorizar empresaData.id se disponível
-        if (empresaData?.id) {
-          setEmpresaId(empresaData.id);
-        } else if (usuarioData?.empresa_id) {
-          setEmpresaId(usuarioData.empresa_id);
-        } else {
-          const { data: { user } } = await supabase.auth.getUser();
-          
-          if (user) {
-            const { data: userData, error } = await supabase
-              .from('usuarios')
-              .select('empresa_id, nome, email, nivel')
-              .eq('auth_user_id', user.id)
-              .single();
-            
-            
-            if (userData?.empresa_id) {
-              setEmpresaId(userData.empresa_id);
-            } else {
-              
-            }
-          } else {
-            
-          }
-        }
-      } catch (error) {
-        
-      }
+    let cancelled = false;
+
+    (async () => {
+      const id = await resolveEmpresaIdForClient(empresaData, usuarioData);
+      if (!cancelled) setEmpresaId(id);
+    })();
+
+    return () => {
+      cancelled = true;
     };
+  }, [usuarioData?.empresa_id, empresaData?.id, usuarioData, empresaData]);
 
-    resolverEmpresa();
-  }, [usuarioData?.empresa_id, empresaData?.id]);
-
-  // Carregar dados após obter empresa
+  // Carregar dados somente com empresa_id definido
   useEffect(() => {
-    // Sempre carregar, independente de empresaId
-    carregarDados();
+    if (!empresaId) return;
+    carregarDados(empresaId);
   }, [empresaId]);
 
-  const carregarDados = async () => {
+  const carregarDados = async (idEmpresa: string) => {
     try {
       setLoading(true);
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 15000);
 
-      const fetchJson = (url: string) =>
-        fetch(url, { cache: 'no-store', signal: controller.signal })
-          .then(r => (r.ok ? r.json() : []))
-          .catch(() => []);
+      const fetchJson = async (url: string) => {
+        const res = await fetch(url, { cache: 'no-store', signal: controller.signal, credentials: 'include' });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || `Erro ${res.status}`);
+        }
+        return res.json();
+      };
 
-      const sufixo = empresaId ? `?empresaId=${empresaId}` : '';
+      const sufixo = `?empresaId=${encodeURIComponent(idEmpresa)}`;
       const [grps, cats, subs] = await Promise.all([
         fetchJson(`/api/grupos/listar${sufixo}`),
         fetchJson(`/api/categorias/listar${sufixo}`),
-        fetchJson(`/api/subcategorias/listar${sufixo}`)
+        fetchJson(`/api/subcategorias/listar${sufixo}`),
       ]);
 
       clearTimeout(timeout);
@@ -142,7 +121,8 @@ export default function CategoriasPage() {
       setCategorias(Array.isArray(cats) ? cats : []);
       setSubcategorias(Array.isArray(subs) ? subs : []);
     } catch (error) {
-      addToast('error', 'Erro ao carregar categorias. Verifique se as tabelas foram criadas.');
+      console.error('Erro ao carregar categorias:', error);
+      addToast('error', 'Erro ao carregar categorias. Tente atualizar a página.');
     } finally {
       setLoading(false);
     }
@@ -161,37 +141,36 @@ export default function CategoriasPage() {
     }
 
     try {
-      if (editandoGrupo) {
-        const { error } = await supabase
-          .from('grupos_produtos')
-          .update({
-            nome: formGrupo.nome,
-            descricao: formGrupo.descricao
-          })
-          .eq('id', editandoGrupo.id);
-          
-        if (error) throw error;
-        addToast('success', 'Grupo atualizado com sucesso!');
-      } else {
-        const { error } = await supabase
-          .from('grupos_produtos')
-          .insert({
-            nome: formGrupo.nome,
-            descricao: formGrupo.descricao,
-            empresa_id: empresaId
-          });
-          
-        if (error) throw error;
-        addToast('success', 'Grupo criado com sucesso!');
+      const res = await fetch('/api/grupos/salvar', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(
+          editandoGrupo
+            ? { id: editandoGrupo.id, nome: formGrupo.nome, descricao: formGrupo.descricao }
+            : { nome: formGrupo.nome, descricao: formGrupo.descricao }
+        ),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Erro ao salvar grupo');
       }
+
+      addToast('success', editandoGrupo ? 'Grupo atualizado com sucesso!' : 'Grupo criado com sucesso!');
 
       setModalGrupo(false);
       setFormGrupo({ nome: '', descricao: '' });
       setEditandoGrupo(null);
-      await carregarDados();
+
+      if (empresaId) {
+        await carregarDados(empresaId);
+      } else if (data?.id) {
+        setGrupos((prev) => (editandoGrupo ? prev.map((g) => (g.id === data.id ? data : g)) : [...prev, data]));
+      }
     } catch (error) {
       console.error('Erro ao salvar grupo:', error);
-      addToast('error', 'Erro ao salvar grupo');
+      addToast('error', error instanceof Error ? error.message : 'Erro ao salvar grupo');
     }
   };
 
@@ -212,7 +191,7 @@ export default function CategoriasPage() {
         .eq('id', grupo.id);
       
       addToast('success', 'Grupo excluído com sucesso!');
-      await carregarDados();
+      if (empresaId) await carregarDados(empresaId);
     } catch (error) {
       console.error('Erro ao excluir grupo:', error);
       addToast('error', 'Erro ao excluir grupo');
@@ -258,7 +237,7 @@ export default function CategoriasPage() {
       setModalCategoria(false);
       setFormCategoria({ nome: '', descricao: '', grupo_id: '' });
       setEditandoCategoria(null);
-      await carregarDados();
+      if (empresaId) await carregarDados(empresaId);
     } catch (error) {
       console.error('Erro ao salvar categoria:', error);
       addToast('error', 'Erro ao salvar categoria');
@@ -282,7 +261,7 @@ export default function CategoriasPage() {
         .eq('id', categoria.id);
       
       addToast('success', 'Categoria excluída com sucesso!');
-      await carregarDados();
+      if (empresaId) await carregarDados(empresaId);
     } catch (error) {
       console.error('Erro ao excluir categoria:', error);
       addToast('error', 'Erro ao excluir categoria');
@@ -328,7 +307,7 @@ export default function CategoriasPage() {
       setModalSubcategoria(false);
       setFormSubcategoria({ nome: '', descricao: '', categoria_id: '' });
       setEditandoSubcategoria(null);
-      await carregarDados();
+      if (empresaId) await carregarDados(empresaId);
     } catch (error) {
       console.error('Erro ao salvar subcategoria:', error);
       addToast('error', 'Erro ao salvar subcategoria');
@@ -352,7 +331,7 @@ export default function CategoriasPage() {
         .eq('id', subcategoria.id);
       
       addToast('success', 'Subcategoria excluída com sucesso!');
-      await carregarDados();
+      if (empresaId) await carregarDados(empresaId);
     } catch (error) {
       console.error('Erro ao excluir subcategoria:', error);
       addToast('error', 'Erro ao excluir subcategoria');
@@ -421,7 +400,7 @@ export default function CategoriasPage() {
     setModalSubcategoria(true);
   };
 
-  if (loading) {
+  if (loading || !empresaId) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>

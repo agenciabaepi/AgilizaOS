@@ -1,31 +1,29 @@
 import { NextResponse } from 'next/server';
-import { supabaseConfig } from '@/lib/supabase-config';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const empresaId = searchParams.get('empresaId');
-    
-    // Segurança: exigir empresaId
+
     if (!empresaId) {
       return NextResponse.json({ error: 'empresaId é obrigatório' }, { status: 400 });
     }
-    
-    const url = `${supabaseConfig.url}/rest/v1/categorias_produtos?select=id,nome,descricao,grupo_id,empresa_id,created_at&empresa_id=eq.${empresaId}&order=nome.asc`;
-    
-    const res = await fetch(url, {
-      headers: {
-        apikey: supabaseConfig.serviceRoleKey,
-        Authorization: `Bearer ${supabaseConfig.serviceRoleKey}`,
-        Accept: 'application/json'
-      },
-      cache: 'no-store'
-    });
-    const data = await res.json();
-    return NextResponse.json(Array.isArray(data) ? data : [], { status: 200 });
+
+    const { data, error } = await getSupabaseAdmin()
+      .from('categorias_produtos')
+      .select('id, nome, descricao, grupo_id, empresa_id, created_at')
+      .eq('empresa_id', empresaId)
+      .order('nome', { ascending: true });
+
+    if (error) {
+      console.error('Erro ao listar categorias:', error);
+      return NextResponse.json({ error: 'Erro ao buscar categorias' }, { status: 500 });
+    }
+
+    return NextResponse.json(data ?? []);
   } catch (e) {
-    return NextResponse.json([], { status: 200 });
+    console.error('GET categorias/listar:', e);
+    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }
-
-

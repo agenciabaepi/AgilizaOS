@@ -70,7 +70,10 @@ export async function POST(request: NextRequest) {
     // Marcar email como verificado
     const { error: updateUsuarioError } = await getSupabaseAdmin()
       .from('usuarios')
-      .update({ email_verificado: true })
+      .update({
+        email_verificado: true,
+        email_verificado_em: new Date().toISOString(),
+      })
       .eq('id', codigoVerificacao.usuario_id)
 
     if (updateUsuarioError) {

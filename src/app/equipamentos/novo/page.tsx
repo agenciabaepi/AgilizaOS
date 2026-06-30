@@ -16,6 +16,7 @@ import { Select } from '@/components/Select';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { useAuth } from '@/context/AuthContext';
+import { resolveEmpresaIdForClient } from '@/lib/resolve-empresa-id';
 import { SubscriptionGuard } from '@/components/SubscriptionGuard';
 
 export default function NovoProdutoPage() {
@@ -66,70 +67,43 @@ export default function NovoProdutoPage() {
   // Usar o cliente importado
   const { addToast } = useToast();
   const confirm = useConfirm();
-  const { user, usuarioData } = useAuth();
+  const { user, usuarioData, empresaData } = useAuth();
 
   // Função para carregar categorias - usando as mesmas APIs da página de categorias
   const carregarCategorias = async () => {
     setLoadingCategorias(true);
-    console.log('🔄 Carregando categorias...');
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 15000);
 
-      const fetchJson = (url: string) =>
-        fetch(url, { cache: 'no-store', signal: controller.signal })
-          .then(r => (r.ok ? r.json() : []))
-          .catch(() => []);
+      const fetchJson = async (url: string) => {
+        const res = await fetch(url, { cache: 'no-store', signal: controller.signal, credentials: 'include' });
+        if (!res.ok) return [];
+        return res.json();
+      };
 
-      console.log('📋 Buscando grupos, categorias e subcategorias...');
-      
-      // Determinar empresa_id
-      let empresaIdAtual = usuarioData?.empresa_id;
-      console.log('🔍 empresaId inicial:', empresaIdAtual);
-      
-      if (!empresaIdAtual && user?.id) {
-        console.log('🔍 Buscando empresa_id do usuário...');
-        try {
-          const response = await fetch(`/api/usuarios/buscar-empresa?authUserId=${user.id}`);
-          if (response.ok) {
-            const data = await response.json();
-            empresaIdAtual = data.empresa_id;
-            console.log('🔍 empresaId encontrado:', empresaIdAtual);
-          }
-        } catch (error) {
-          console.error('Erro ao buscar empresa_id:', error);
-        }
-      }
-      
+      const empresaIdAtual = await resolveEmpresaIdForClient(empresaData, usuarioData);
       if (!empresaIdAtual) {
-        console.warn('⚠️ empresa_id não encontrado - usando empresa padrão');
-        // Usar empresa padrão para teste
-        empresaIdAtual = '3a3958e9-9ac7-4f04-9d0b-d537df70a4ac';
+        setGrupos([]);
+        setCategorias([]);
+        setSubcategorias([]);
+        return;
       }
-      
-      console.log('🔍 empresaId final:', empresaIdAtual);
-      
+
       const sufixo = `?empresaId=${encodeURIComponent(empresaIdAtual)}`;
       const [gruposData, categoriasData, subcategoriasData] = await Promise.all([
         fetchJson(`/api/grupos/listar${sufixo}`),
         fetchJson(`/api/categorias/listar${sufixo}`),
-        fetchJson(`/api/subcategorias/listar${sufixo}`)
+        fetchJson(`/api/subcategorias/listar${sufixo}`),
       ]);
 
       clearTimeout(timeout);
-      
-      console.log('📊 Resultados:', { 
-        grupos: gruposData?.length || 0, 
-        categorias: categoriasData?.length || 0, 
-        subcategorias: subcategoriasData?.length || 0 
-      });
 
       setGrupos(Array.isArray(gruposData) ? gruposData : []);
       setCategorias(Array.isArray(categoriasData) ? categoriasData : []);
       setSubcategorias(Array.isArray(subcategoriasData) ? subcategoriasData : []);
-      console.log('✅ Categorias carregadas com sucesso');
     } catch (error) {
-      console.error('❌ Erro ao carregar categorias:', error);
+      console.error('Erro ao carregar categorias:', error);
       addToast('error', 'Erro ao carregar categorias');
     } finally {
       setLoadingCategorias(false);
