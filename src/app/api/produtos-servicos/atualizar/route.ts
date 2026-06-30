@@ -53,7 +53,7 @@ export async function PUT(req: NextRequest) {
     const allowList = [
       'nome', 'tipo', 'codigo', 'grupo_id', 'categoria_id', 'subcategoria_id',
       'fornecedor_id', 'custo', 'preco', 'unidade', 'marca',
-      'estoque_min', 'estoque_max', 'estoque_atual', 'estoque_minimo',
+      'estoque_min', 'estoque_max', 'estoque_atual',
       'situacao', 'ncm', 'cfop', 'cst', 'cest',
       'largura_cm', 'altura_cm', 'profundidade_cm', 'peso_g',
       'obs', 'ativo', 'codigo_barras', 'imagens_url', 'imagens',
@@ -66,6 +66,9 @@ export async function PUT(req: NextRequest) {
           (allowed as Record<string, unknown>)[key] = payload[key];
         }
       }
+    }
+    if (payload.estoque_minimo !== undefined && allowed.estoque_min === undefined) {
+      allowed.estoque_min = payload.estoque_minimo;
     }
 
     const { data, error } = await admin

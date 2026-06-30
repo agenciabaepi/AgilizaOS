@@ -43,6 +43,16 @@ export default function NovoProdutoPage() {
   // Estados para fornecedores
   const [fornecedores, setFornecedores] = useState<Array<{id: string, nome: string}>>([]);
   const [loadingFornecedores, setLoadingFornecedores] = useState(false);
+  const [modalNovoFornecedor, setModalNovoFornecedor] = useState(false);
+  const [salvandoFornecedor, setSalvandoFornecedor] = useState(false);
+  const [formNovoFornecedor, setFormNovoFornecedor] = useState({ nome: '', cnpj: '', telefone: '', email: '' });
+
+  // Estados para marcas
+  const [marcas, setMarcas] = useState<Array<{ id: string; nome: string }>>([]);
+  const [loadingMarcas, setLoadingMarcas] = useState(false);
+  const [modalNovaMarca, setModalNovaMarca] = useState(false);
+  const [salvandoMarca, setSalvandoMarca] = useState(false);
+  const [formNovaMarca, setFormNovaMarca] = useState({ nome: '' });
   const [formData, setFormData] = useState({
     nome: '',
     tipo: 'produto',
@@ -121,42 +131,60 @@ export default function NovoProdutoPage() {
     }
   };
 
-  // Função para carregar fornecedores (usa usuarioData do Auth quando disponível)
+  // Função para carregar fornecedores
   const carregarFornecedores = async () => {
     setLoadingFornecedores(true);
     try {
-      let empresaId = usuarioData?.empresa_id;
-
-      if (!empresaId && user?.id) {
-        try {
-          const response = await fetch(`/api/usuarios/buscar-empresa?authUserId=${user.id}`);
-          if (response.ok) {
-            const data = await response.json();
-            empresaId = data.empresa_id;
-          }
-        } catch (_e) {
-          // ignora; vamos mostrar toast só se realmente não tiver empresa
-        }
-      }
-
-      if (!empresaId) {
-        addToast('error', 'Empresa não encontrada. Verifique se você está associado a uma empresa.');
+      const empresaIdAtual = await resolveEmpresaIdForClient(empresaData, usuarioData);
+      if (!empresaIdAtual) {
+        setFornecedores([]);
         return;
       }
 
-      const { data: fornecedoresData } = await supabase
-        .from('fornecedores')
-        .select('id, nome')
-        .eq('empresa_id', empresaId)
-        .eq('ativo', true)
-        .order('nome');
+      const res = await fetch(`/api/fornecedores/listar?empresaId=${encodeURIComponent(empresaIdAtual)}`, {
+        cache: 'no-store',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        setFornecedores([]);
+        return;
+      }
 
-      setFornecedores(fornecedoresData || []);
+      const data = await res.json();
+      setFornecedores(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Erro ao carregar fornecedores:', error);
       addToast('error', 'Erro ao carregar fornecedores');
     } finally {
       setLoadingFornecedores(false);
+    }
+  };
+
+  const carregarMarcas = async () => {
+    setLoadingMarcas(true);
+    try {
+      const empresaIdAtual = await resolveEmpresaIdForClient(empresaData, usuarioData);
+      if (!empresaIdAtual) {
+        setMarcas([]);
+        return;
+      }
+
+      const res = await fetch(`/api/marcas-produtos/listar?empresaId=${encodeURIComponent(empresaIdAtual)}`, {
+        cache: 'no-store',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        setMarcas([]);
+        return;
+      }
+
+      const data = await res.json();
+      setMarcas(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Erro ao carregar marcas:', error);
+      addToast('error', 'Erro ao carregar marcas');
+    } finally {
+      setLoadingMarcas(false);
     }
   };
 
@@ -298,6 +326,75 @@ export default function NovoProdutoPage() {
     }
   };
 
+  const salvarNovoFornecedor = async () => {
+    if (!formNovoFornecedor.nome.trim()) {
+      addToast('error', 'Nome do fornecedor é obrigatório');
+      return;
+    }
+
+    setSalvandoFornecedor(true);
+    try {
+      const headers = await bearerAuthHeadersForApi(session, { 'Content-Type': 'application/json' });
+      const res = await fetch('/api/fornecedores/salvar', {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify({
+          nome: formNovoFornecedor.nome.trim(),
+          cnpj: formNovoFornecedor.cnpj.trim(),
+          telefone: formNovoFornecedor.telefone.trim(),
+          email: formNovoFornecedor.email.trim(),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Erro ao criar fornecedor');
+
+      setFornecedores((prev) => [...prev, { id: data.id, nome: data.nome }]);
+      setFormData((prev) => ({ ...prev, fornecedor_id: data.id }));
+      setFormNovoFornecedor({ nome: '', cnpj: '', telefone: '', email: '' });
+      setModalNovoFornecedor(false);
+      addToast('success', 'Fornecedor criado!');
+    } catch (error) {
+      addToast('error', error instanceof Error ? error.message : 'Erro ao criar fornecedor');
+    } finally {
+      setSalvandoFornecedor(false);
+    }
+  };
+
+  const salvarNovaMarca = async () => {
+    if (!formNovaMarca.nome.trim()) {
+      addToast('error', 'Nome da marca é obrigatório');
+      return;
+    }
+
+    setSalvandoMarca(true);
+    try {
+      const headers = await bearerAuthHeadersForApi(session, { 'Content-Type': 'application/json' });
+      const res = await fetch('/api/marcas-produtos/salvar', {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify({ nome: formNovaMarca.nome.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Erro ao criar marca');
+
+      const novaMarca = { id: data.id, nome: data.nome };
+      setMarcas((prev) => {
+        const exists = prev.some((m) => m.nome.toLowerCase() === novaMarca.nome.toLowerCase());
+        return exists ? prev : [...prev, novaMarca].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+      });
+      setFormData((prev) => ({ ...prev, marca: data.nome }));
+      setFormNovaMarca({ nome: '' });
+      setModalNovaMarca(false);
+      addToast('success', 'Marca criada!');
+    } catch (error) {
+      addToast('error', error instanceof Error ? error.message : 'Erro ao criar marca');
+    } finally {
+      setSalvandoMarca(false);
+    }
+  };
+
   const grupoSelecionadoNome = grupos.find((g) => g.id === formData.grupo)?.nome;
   const categoriaSelecionadaNome = categorias.find((c) => c.id === formData.categoria)?.nome;
 
@@ -306,12 +403,13 @@ export default function NovoProdutoPage() {
       carregarCategorias();
   }, []);
 
-  // Carregar fornecedores quando usuário ou empresa do contexto estiver disponível
+  // Carregar fornecedores e marcas quando usuário ou empresa do contexto estiver disponível
   useEffect(() => {
-    if (user || usuarioData?.empresa_id) {
+    if (user || usuarioData?.empresa_id || empresaData?.id) {
       carregarFornecedores();
+      carregarMarcas();
     }
-  }, [user, usuarioData?.empresa_id]);
+  }, [user, usuarioData?.empresa_id, empresaData?.id]);
 
   useEffect(() => {
     console.log('🔍 produtoId da URL:', produtoId);
@@ -821,7 +919,17 @@ export default function NovoProdutoPage() {
                         </div>
                         {/* Fornecedor */}
                         <div>
-                          <Label htmlFor="fornecedor">Fornecedor</Label>
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <Label htmlFor="fornecedor">Fornecedor</Label>
+                            <button
+                              type="button"
+                              onClick={() => setModalNovoFornecedor(true)}
+                              className="text-xs text-[#6B8F2E] hover:text-[#4a6320] font-medium inline-flex items-center gap-1"
+                            >
+                              <FiPlus size={12} />
+                              Novo fornecedor
+                            </button>
+                          </div>
                           <Select
                             id="fornecedor"
                             value={formData.fornecedor_id}
@@ -838,13 +946,34 @@ export default function NovoProdutoPage() {
                         </div>
                         {/* Marca */}
                         <div>
-                          <Label htmlFor="marca">Marca</Label>
-                          <Input
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <Label htmlFor="marca">Marca</Label>
+                            <button
+                              type="button"
+                              onClick={() => setModalNovaMarca(true)}
+                              className="text-xs text-[#6B8F2E] hover:text-[#4a6320] font-medium inline-flex items-center gap-1"
+                            >
+                              <FiPlus size={12} />
+                              Nova marca
+                            </button>
+                          </div>
+                          <Select
                             id="marca"
                             value={formData.marca}
                             onChange={(e) => setFormData({ ...formData, marca: e.target.value })}
-                            placeholder="Ex: Samsung"
-                          />
+                            disabled={loadingMarcas}
+                          >
+                            <option value="">Selecione uma marca</option>
+                            {marcas.map((marca) => (
+                              <option key={marca.id} value={marca.nome}>
+                                {marca.nome}
+                              </option>
+                            ))}
+                            {formData.marca &&
+                              !marcas.some((m) => m.nome.toLowerCase() === formData.marca.toLowerCase()) && (
+                                <option value={formData.marca}>{formData.marca}</option>
+                              )}
+                          </Select>
                         </div>
                         {/* Estoque Mínimo */}
                         <div>
@@ -1241,6 +1370,120 @@ export default function NovoProdutoPage() {
                   </Button>
                   <Button type="button" onClick={salvarNovaCategoria} disabled={salvandoCategoria}>
                     {salvandoCategoria ? 'Salvando...' : 'Criar categoria'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: novo fornecedor */}
+        {modalNovoFornecedor && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+            onClick={() => !salvandoFornecedor && setModalNovoFornecedor(false)}
+          >
+            <div
+              className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setModalNovoFornecedor(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                aria-label="Fechar"
+              >
+                <FiX size={20} />
+              </button>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Novo fornecedor</h3>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="novo-forn-nome">Nome *</Label>
+                  <Input
+                    id="novo-forn-nome"
+                    value={formNovoFornecedor.nome}
+                    onChange={(e) => setFormNovoFornecedor({ ...formNovoFornecedor, nome: e.target.value })}
+                    placeholder="Ex: Distribuidora ABC"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="novo-forn-cnpj">CNPJ</Label>
+                  <Input
+                    id="novo-forn-cnpj"
+                    value={formNovoFornecedor.cnpj}
+                    onChange={(e) => setFormNovoFornecedor({ ...formNovoFornecedor, cnpj: e.target.value })}
+                    placeholder="Opcional"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="novo-forn-tel">Telefone</Label>
+                  <Input
+                    id="novo-forn-tel"
+                    value={formNovoFornecedor.telefone}
+                    onChange={(e) => setFormNovoFornecedor({ ...formNovoFornecedor, telefone: e.target.value })}
+                    placeholder="Opcional"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="novo-forn-email">E-mail</Label>
+                  <Input
+                    id="novo-forn-email"
+                    type="email"
+                    value={formNovoFornecedor.email}
+                    onChange={(e) => setFormNovoFornecedor({ ...formNovoFornecedor, email: e.target.value })}
+                    placeholder="Opcional"
+                  />
+                </div>
+                <div className="flex gap-2 justify-end pt-2">
+                  <Button type="button" variant="outline" onClick={() => setModalNovoFornecedor(false)} disabled={salvandoFornecedor}>
+                    Cancelar
+                  </Button>
+                  <Button type="button" onClick={salvarNovoFornecedor} disabled={salvandoFornecedor}>
+                    {salvandoFornecedor ? 'Salvando...' : 'Criar fornecedor'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: nova marca */}
+        {modalNovaMarca && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+            onClick={() => !salvandoMarca && setModalNovaMarca(false)}
+          >
+            <div
+              className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setModalNovaMarca(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                aria-label="Fechar"
+              >
+                <FiX size={20} />
+              </button>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Nova marca</h3>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="nova-marca-nome">Nome *</Label>
+                  <Input
+                    id="nova-marca-nome"
+                    value={formNovaMarca.nome}
+                    onChange={(e) => setFormNovaMarca({ nome: e.target.value })}
+                    placeholder="Ex: Samsung"
+                    autoFocus
+                  />
+                </div>
+                <div className="flex gap-2 justify-end pt-2">
+                  <Button type="button" variant="outline" onClick={() => setModalNovaMarca(false)} disabled={salvandoMarca}>
+                    Cancelar
+                  </Button>
+                  <Button type="button" onClick={salvarNovaMarca} disabled={salvandoMarca}>
+                    {salvandoMarca ? 'Salvando...' : 'Criar marca'}
                   </Button>
                 </div>
               </div>

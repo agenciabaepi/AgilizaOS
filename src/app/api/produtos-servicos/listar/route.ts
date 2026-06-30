@@ -3,6 +3,9 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { createClient } from '@supabase/supabase-js';
 
+const LIST_SELECT =
+  'id,codigo,nome,tipo,preco,custo,estoque_atual,estoque_min,unidade,fornecedor,codigo_barras,categoria,marca,ativo,situacao,obs,imagens_url,grupo_id,grupos_produtos(nome)';
+
 /**
  * GET /api/produtos-servicos/listar?empresaId=xxx&tipo=produto|servico
  * Lista produtos/serviços da empresa do usuário logado.
@@ -97,19 +100,23 @@ export async function GET(req: NextRequest) {
       return q;
     };
 
-    let query = buildQuery(admin, '*, grupos_produtos(nome)');
+    let query = buildQuery(admin, LIST_SELECT);
 
-    const { data, error } = await query;
+    let { data, error } = await query;
 
     if (error) {
-      // Se a relação grupos_produtos não existir, listar sem join
       const isJoinError =
         error.message?.includes('grupos_produtos') ||
         (error as { code?: string }).code === 'PGRST204';
       if (isJoinError) {
-        const { data: fallbackData, error: fallbackError } = await buildQuery(admin, '*');
-        if (!fallbackError) return NextResponse.json(fallbackData ?? []);
+        const fallbackSelect = LIST_SELECT.replace(',grupos_produtos(nome)', '');
+        const fallback = await buildQuery(admin, fallbackSelect);
+        data = fallback.data;
+        error = fallback.error;
       }
+    }
+
+    if (error) {
       console.error('Erro ao listar produtos/serviços:', error);
       return NextResponse.json(
         { error: (error as { message?: string }).message || 'Erro ao listar' },

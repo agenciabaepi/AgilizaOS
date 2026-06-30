@@ -1,34 +1,17 @@
-// NOVO SISTEMA DE PRODUTOS E SERVIÇOS
-// NOVO SISTEMA DE PRODUTOS E SERVIÇOS
 'use client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import MenuLayout from '@/components/MenuLayout';
 import { Button } from '@/components/Button';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useToast, ToastProvider } from '@/components/Toast';
-import { Chart, ArcElement, Tooltip, Legend } from 'chart.js';
-import {
-  Chart as ChartJS,
-  ArcElement as ArcElement2,
-  Tooltip as Tooltip2,
-  Legend as Legend2,
-  DoughnutController,
-} from 'chart.js';
-import Image from 'next/image';
 import { DataTable, Column } from '@/components/DataTable';
-
 import DashboardCard from '@/components/ui/DashboardCard';
-
-ChartJS.register(ArcElement2, Tooltip2, Legend2, DoughnutController);
-import { useRef } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { bearerAuthHeadersForApi } from '@/lib/api/clientAuthHeaders';
+import { useConfirm } from '@/components/ConfirmDialog';
 import { supabase } from '@/lib/supabaseClient';
 import { TagIcon } from '@heroicons/react/24/outline';
-import { useAuth } from '@/context/AuthContext';
-import { interceptSupabaseQuery } from '@/utils/supabaseInterceptor';
-import { useConfirm } from '@/components/ConfirmDialog';
-
-// Usar o cliente importado
 
 type Tipo = 'produto' | 'servico';
 
@@ -41,7 +24,7 @@ interface ProdutoServico {
   custo: number | null;
   estoque_atual: number | null;
   unidade: string;
-  estoque_minimo?: number | null;
+  estoque_min?: number | null;
   fornecedor?: string;
   codigo_barras?: string;
   categoria?: string;
@@ -86,66 +69,35 @@ export default function ProdutosServicosPage() {
   const [abaSelecionada, setAbaSelecionada] = useState<'produto' | 'servico'>('produto');
   const [mensagemAviso, setMensagemAviso] = useState('');
   const [carregando, setCarregando] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  // Novo estado para modal de fornecedor
   const [mostrarModalFornecedor, setMostrarModalFornecedor] = useState(false);
   const [novoFornecedor, setNovoFornecedor] = useState('');
-  // Estado para lista de fornecedores
-  const [listaFornecedores, setListaFornecedores] = useState<{ id: string; nome: string }[]>([]);
-  const [buscandoFornecedor, setBuscandoFornecedor] = useState(false);
   const [ativo, setAtivo] = useState(true);
 
   const { addToast } = useToast();
   const confirm = useConfirm();
   const router = useRouter();
 
-  Chart.register(ArcElement, Tooltip, Legend);
+  const buscar = useCallback(async () => {
+    if (!empresaId) return;
 
-  // Função buscar movida para fora do useEffect para reuso
-  const buscar = async () => {
     setCarregando(true);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     try {
-      // Determinar empresa_id
-      let empresaIdAtual = usuarioData?.empresa_id;
-      if (!empresaIdAtual) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user?.id) {
-          const { data } = await supabase
-            .from('usuarios')
-            .select('empresa_id')
-            .eq('auth_user_id', user.id)
-            .single();
-          empresaIdAtual = data?.empresa_id || null as any;
+      const headers = await bearerAuthHeadersForApi(session);
+      const res = await fetch(
+        `/api/produtos-servicos/listar?empresaId=${encodeURIComponent(empresaId)}`,
+        {
+          cache: 'no-store',
+          signal: controller.signal,
+          credentials: 'include',
+          headers,
         }
-      }
-
-      // Fornecedores (mantém supabase direto) – apenas se houver empresa definida
-      if (empresaIdAtual) {
-        const { data: fornecedoresData } = await supabase
-          .from('fornecedores')
-          .select('id,nome')
-          .eq('empresa_id', empresaIdAtual);
-        setListaFornecedores(fornecedoresData || []);
-      } else {
-        setListaFornecedores([]);
-      }
-
-      // Produtos e serviços via API interna - com filtro por empresa
-      const url = `/api/produtos-servicos/listar?empresaId=${encodeURIComponent(empresaIdAtual || '')}`;
-      const headers: Record<string, string> = {};
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`;
-      }
-      const res = await fetch(url, {
-        cache: 'no-store',
-        signal: controller.signal,
-        credentials: 'same-origin',
-        headers,
-      });
+      );
       const dados = await res.json();
 
       if (!res.ok) {
@@ -155,97 +107,25 @@ export default function ProdutosServicosPage() {
         return;
       }
 
-      const sortedData = (Array.isArray(dados) ? dados : []).slice().sort((a: any, b: any) => {
-        const at = new Date(a.criado_em || a.created_at || 0).getTime();
-        const bt = new Date(b.criado_em || b.created_at || 0).getTime();
-        return bt - at;
-      });
-      setLista(sortedData);
-    } catch (erro) {
+      setLista(Array.isArray(dados) ? dados : []);
+    } catch {
       addToast('error', 'Erro ao carregar dados');
       setLista([]);
     } finally {
       clearTimeout(timeoutId);
       setCarregando(false);
     }
-  };
+  }, [empresaId, session]);
 
-  // Chave estável para o useEffect (tamanho do array de deps deve ser constante)
-  const listarDeps = `${!!session}-${usuarioData?.empresa_id ?? ''}`;
   useEffect(() => {
-    if (session) {
+    if (session && empresaId) {
       buscar();
     }
-  }, [listarDeps]);
+  }, [session, empresaId, buscar]);
 
-  const graficoRef = useRef<HTMLCanvasElement | null>(null);
-
-  // useEffect responsável pelos gráficos de produtos e serviços
-  /*
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const { Chart, registerables } = require('chart.js');
-      Chart.register(...registerables);
-
-      const produtosAtivos = lista.filter(p => p.tipo === 'produto' && p.ativo).length;
-      const produtosInativos = lista.filter(p => p.tipo === 'produto' && !p.ativo).length;
-      const servicosAtivos = lista.filter(p => p.tipo === 'servico' && p.ativo).length;
-      const servicosInativos = lista.filter(p => p.tipo === 'servico' && !p.ativo).length;
-
-      const canvasProdutos = document.getElementById('graficoProdutos') as HTMLCanvasElement;
-      if (canvasProdutos) {
-        const ctx = canvasProdutos.getContext('2d');
-        if (ctx) {
-          if (Chart.getChart(ctx)) {
-            Chart.getChart(ctx)?.destroy();
-          }
-          new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-              labels: ['Ativos', 'Inativos'],
-              datasets: [{
-                data: [produtosAtivos, produtosInativos],
-                backgroundColor: ['#cffb6d', '#000000']
-              }]
-            },
-            options: {
-              responsive: true,
-              plugins: { legend: { position: 'bottom' } }
-            }
-          });
-        }
-      }
-
-      const canvasServicos = document.getElementById('graficoServicos') as HTMLCanvasElement;
-      if (canvasServicos) {
-        const ctx = canvasServicos.getContext('2d');
-        if (ctx) {
-          if (Chart.getChart(ctx)) {
-            Chart.getChart(ctx)?.destroy();
-          }
-          new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-              labels: ['Ativos', 'Inativos'],
-              datasets: [{
-                data: [servicosAtivos, servicosInativos],
-                backgroundColor: ['#cffb6d', '#000000']
-              }]
-            },
-            options: {
-              responsive: true,
-              plugins: { legend: { position: 'bottom' } }
-            }
-          });
-        }
-      }
-    }
-  }, [lista]);
-  */
-
-  // useEffect para buscar fornecedores removido, pois a busca foi incorporada à nova função buscar
-
-  // A função buscar anterior foi removida, pois a busca agora é feita no useEffect acima
+    setPage(1);
+  }, [abaSelecionada, searchTerm]);
 
   const salvar = async () => {
     if (!nome || !preco) return;
@@ -277,7 +157,7 @@ export default function ProdutosServicosPage() {
       preco: parseFloat(preco),
       custo: tipo === 'produto' ? parseFloat(custo || '0') : null,
       estoque_atual: tipo === 'produto' ? parseInt(estoque || '0') : null,
-      estoque_minimo: tipo === 'produto' ? parseInt(estoqueMinimo || '0') : null,
+      estoque_min: tipo === 'produto' ? parseInt(estoqueMinimo || '0') : null,
       unidade,
       empresa_id: empresaId,
       fornecedor: tipo === 'produto' ? fornecedor || null : null,
@@ -334,7 +214,7 @@ export default function ProdutosServicosPage() {
     setPreco(item.preco.toString());
     setCusto(item.custo?.toString() ?? '');
     setEstoque(item.estoque_atual?.toString() || '');
-    setEstoqueMinimo(item.estoque_minimo?.toString() || '');
+    setEstoqueMinimo(item.estoque_min?.toString() || '');
     setUnidade(item.unidade);
     setAtivo(item.ativo ?? true);
   };
@@ -348,7 +228,7 @@ export default function ProdutosServicosPage() {
       preco: parseFloat(preco),
       custo: tipo === 'produto' ? parseFloat(custo || '0') : null,
       estoque_atual: tipo === 'produto' ? parseInt(estoque || '0') : null,
-      estoque_minimo: tipo === 'produto' ? parseInt(estoqueMinimo || '0') : null,
+      estoque_min: tipo === 'produto' ? parseInt(estoqueMinimo || '0') : null,
       unidade,
       fornecedor: tipo === 'produto' ? fornecedor || null : null,
       codigo_barras: tipo === 'produto' ? codigoBarras || null : null,
@@ -376,34 +256,54 @@ export default function ProdutosServicosPage() {
   };
 
   // Filtro e paginação
-  const filtered = lista.filter(item => item.tipo === abaSelecionada);
+  const produtos = useMemo(() => lista.filter((item) => item.tipo === 'produto'), [lista]);
+  const servicos = useMemo(() => lista.filter((item) => item.tipo === 'servico'), [lista]);
+
+  const filtered = useMemo(() => {
+    const byTab = lista.filter((item) => item.tipo === abaSelecionada);
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return byTab;
+
+    return byTab.filter(
+      (prod) =>
+        (prod.nome ?? '').toLowerCase().includes(term) ||
+        (prod.codigo ?? '').toLowerCase().includes(term) ||
+        (prod.categoria ?? '').toLowerCase().includes(term) ||
+        (prod.codigo_barras ?? '').toLowerCase().includes(term) ||
+        (prod.marca ?? '').toLowerCase().includes(term)
+    );
+  }, [lista, abaSelecionada, searchTerm]);
+
   const totalPages = Math.ceil(filtered.length / pageSize) || 1;
   const startIndex = (page - 1) * pageSize;
   const paginated = filtered.slice(startIndex, startIndex + pageSize);
 
   // DataTable columns definition
   const columns: Column<ProdutoServico>[] = [
-    { key: 'codigo', header: 'Código', width: 'w-16' },
+    { key: 'codigo', header: 'Código', width: 'w-12 sm:w-16', cellClassName: 'whitespace-nowrap' },
     ...(abaSelecionada === 'produto'
       ? [{
           key: 'imagens_url',
           header: 'Imagem',
-          render: (row: any) =>
+          headerClassName: 'hidden sm:table-cell',
+          cellClassName: 'hidden sm:table-cell',
+          render: (row: ProdutoServico) =>
             row.imagens_url?.[0]
               ? (
-                <div className="w-10 h-10 rounded overflow-hidden">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded overflow-hidden shrink-0">
                   <img
                     src={row.imagens_url[0] || '/assets/imagens/imagem-produto.jpg'}
                     alt={row.nome}
                     width={40}
                     height={40}
+                    loading="lazy"
                     className="object-cover w-full h-full"
                     onError={e => { (e.currentTarget as HTMLImageElement).src = '/assets/imagens/imagem-produto.jpg'; }}
                   />
                 </div>
               )
               : (
-                <div className="w-10 h-10 rounded overflow-hidden">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded overflow-hidden shrink-0">
                   <img
                     src={'/assets/imagens/imagem-produto.jpg'}
                     alt={row.nome}
@@ -418,24 +318,37 @@ export default function ProdutosServicosPage() {
     {
       key: 'nome',
       header: 'Nome',
+      cellClassName: 'min-w-[140px] max-w-[220px] lg:max-w-none',
       render: row => (
         <div>
-          <div className="font-semibold">{row.nome}</div>
-          {row.obs && <div className="text-xs text-gray-500">{row.obs}</div>}
+          <div className="font-semibold break-words leading-snug">{row.nome}</div>
+          <div className="lg:hidden mt-1 space-y-0.5 text-xs text-gray-500">
+            <div>R$ {row.preco.toFixed(2)}</div>
+            {abaSelecionada === 'produto' && row.estoque_atual != null && (
+              <div>Estoque: {row.estoque_atual}</div>
+            )}
+            {row.grupos_produtos?.nome && (
+              <div className="truncate">{row.grupos_produtos.nome}</div>
+            )}
+          </div>
+          {row.obs && <div className="text-xs text-gray-500 mt-1 hidden md:block line-clamp-2">{row.obs}</div>}
         </div>
       )
     },
     {
       key: 'tipo',
       header: 'Tipo',
+      headerClassName: 'hidden lg:table-cell',
+      cellClassName: 'hidden lg:table-cell capitalize whitespace-nowrap',
       render: row => <span className="capitalize">{row.tipo}</span>
     },
-    // Nova coluna Grupo
     {
       key: 'grupos_produtos',
       header: 'Grupo',
+      headerClassName: 'hidden xl:table-cell',
+      cellClassName: 'hidden xl:table-cell max-w-[140px]',
       render: row => (
-        <span className="text-sm text-gray-600">
+        <span className="text-sm text-gray-600 break-words">
           {row.grupos_produtos?.nome || '-'}
         </span>
       )
@@ -443,6 +356,8 @@ export default function ProdutosServicosPage() {
     {
       key: 'situacao',
       header: 'Status',
+      headerClassName: 'hidden md:table-cell',
+      cellClassName: 'hidden md:table-cell whitespace-nowrap',
       render: row => (
         <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
           row.ativo ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-500'
@@ -452,6 +367,8 @@ export default function ProdutosServicosPage() {
     {
       key: 'preco',
       header: 'Preço',
+      headerClassName: 'hidden lg:table-cell',
+      cellClassName: 'hidden lg:table-cell whitespace-nowrap',
       render: row => `R$ ${row.preco.toFixed(2)}`
     },
     ...(abaSelecionada === 'produto'
@@ -459,18 +376,22 @@ export default function ProdutosServicosPage() {
           {
             key: 'estoque_atual',
             header: 'Estoque',
-            render: (row: any) => (
+            headerClassName: 'hidden lg:table-cell',
+            cellClassName: 'hidden lg:table-cell',
+            render: (row: ProdutoServico) => {
+              const estoqueMin = row.estoque_min ?? null;
+              return (
               <span>
                 {row.tipo === 'produto' ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col xl:flex-row xl:items-center gap-1 xl:gap-2">
                     <span
                       className={
-                        "font-semibold " +
+                        "font-semibold whitespace-nowrap " +
                         (
-                          row.estoque_atual !== null && row.estoque_minimo !== null
-                            ? row.estoque_atual < row.estoque_minimo
+                          row.estoque_atual !== null && estoqueMin !== null
+                            ? row.estoque_atual < estoqueMin
                               ? 'text-red-600'
-                              : row.estoque_atual <= row.estoque_minimo * 1.2
+                              : row.estoque_atual <= estoqueMin * 1.2
                                 ? 'text-yellow-600'
                                 : 'text-green-600'
                             : ''
@@ -479,45 +400,47 @@ export default function ProdutosServicosPage() {
                     >
                       {row.estoque_atual}
                     </span>
-                    {row.estoque_atual !== null && row.estoque_minimo !== null && (
+                    {row.estoque_atual !== null && estoqueMin !== null && (
                       <>
-                        {row.estoque_atual < row.estoque_minimo && (
-                          <span className="text-xs text-red-800 bg-red-100 px-2 py-0.5 rounded-full">Estoque baixo</span>
+                        {row.estoque_atual < estoqueMin && (
+                          <span className="text-xs text-red-800 bg-red-100 px-2 py-0.5 rounded-full whitespace-nowrap">Baixo</span>
                         )}
-                        {row.estoque_atual >= row.estoque_minimo && row.estoque_atual <= row.estoque_minimo * 1.2 && (
-                          <span className="text-xs text-yellow-800 bg-yellow-100 px-2 py-0.5 rounded-full">Estoque próximo</span>
+                        {row.estoque_atual >= estoqueMin && row.estoque_atual <= estoqueMin * 1.2 && (
+                          <span className="text-xs text-yellow-800 bg-yellow-100 px-2 py-0.5 rounded-full whitespace-nowrap">Próximo</span>
                         )}
-                        {row.estoque_atual > row.estoque_minimo * 1.2 && (
-                          <span className="text-xs text-green-800 bg-green-100 px-2 py-0.5 rounded-full">Estoque OK</span>
+                        {row.estoque_atual > estoqueMin * 1.2 && (
+                          <span className="text-xs text-green-800 bg-green-100 px-2 py-0.5 rounded-full whitespace-nowrap">OK</span>
                         )}
                       </>
                     )}
                   </div>
                 ) : '-'}
               </span>
-            )
+            );
+            }
           },
-          { key: 'unidade', header: 'Unidade' },
-          { key: 'fornecedor', header: 'Fornecedor' },
-          { key: 'codigo_barras', header: 'Código Barras' },
+          { key: 'unidade', header: 'Unidade', headerClassName: 'hidden xl:table-cell', cellClassName: 'hidden xl:table-cell whitespace-nowrap' },
+          { key: 'fornecedor', header: 'Fornecedor', headerClassName: 'hidden 2xl:table-cell', cellClassName: 'hidden 2xl:table-cell max-w-[120px] truncate' },
+          { key: 'codigo_barras', header: 'Cód. Barras', headerClassName: 'hidden 2xl:table-cell', cellClassName: 'hidden 2xl:table-cell whitespace-nowrap font-mono text-xs' },
         ]
       : []),
   ];
 
   // Dados reais para os cards
-  const produtos = lista.filter(item => item.tipo === 'produto');
-  const servicos = lista.filter(item => item.tipo === 'servico');
   const totalProdutos = produtos.length;
   const totalServicos = servicos.length;
   const produtosEmEstoque = produtos.reduce((acc, p) => acc + (p.estoque_atual || 0), 0);
-  const produtosAbaixoMinimo = produtos.filter(p => p.estoque_atual !== null && p.estoque_minimo !== null && p.estoque_atual < p.estoque_minimo!).length;
+  const produtosAbaixoMinimo = produtos.filter((p) => {
+    const min = p.estoque_min ?? null;
+    return p.estoque_atual !== null && min !== null && p.estoque_atual < min;
+  }).length;
   const valorTotalEstoque = produtos.reduce((acc, p) => acc + ((p.estoque_atual || 0) * (p.custo || 0)), 0);
 
   return (
     
       <ToastProvider>
         <MenuLayout>
-          <div className="pt-20 px-6 w-full">
+          <div className="pt-20 px-4 sm:px-6 w-full min-w-0 max-w-full overflow-x-hidden">
             {/* Cards resumo de produtos e serviços - dados reais */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <DashboardCard
@@ -569,14 +492,14 @@ export default function ProdutosServicosPage() {
               </div>
               */}
 
-              <section className="col-span-1 md:col-span-2 bg-white p-5 rounded-lg shadow-md border border-gray-200">
+              <section className="col-span-1 md:col-span-2 bg-white p-4 sm:p-5 rounded-lg shadow-md border border-gray-200 min-w-0">
                 <div className="flex items-center mb-4 space-x-2">
-                  <TagIcon className="h-6 w-6 text-indigo-500" />
-                  <h2 className="text-lg font-semibold">Produtos e Serviços Cadastrados</h2>
+                  <TagIcon className="h-6 w-6 text-indigo-500 shrink-0" />
+                  <h2 className="text-base sm:text-lg font-semibold">Produtos e Serviços Cadastrados</h2>
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between mb-4 gap-4">
-                  <div className="inline-flex space-x-2 bg-gray-100 rounded-full p-1 mb-6">
+                <div className="flex flex-col gap-3 mb-4 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
+                  <div className="inline-flex w-full sm:w-auto space-x-1 sm:space-x-2 bg-gray-100 rounded-full p-1">
                     <button
                       className={`px-5 py-2 text-sm font-medium rounded-full transition-all ${
                         abaSelecionada === 'produto'
@@ -599,35 +522,18 @@ export default function ProdutosServicosPage() {
                     </button>
                   </div>
 
-                  {/* Novo Produto button above search */}
-                  <div className="flex-1 flex justify-end mb-2">
-                    <Link href="/equipamentos/novo">
-                      <Button>+ Novo Produto</Button>
+                  <div className="flex flex-col gap-2 w-full lg:flex-1 lg:flex-row lg:items-center lg:justify-end">
+                    <Link href="/equipamentos/novo" className="w-full sm:w-auto">
+                      <Button className="w-full sm:w-auto">+ Novo Produto</Button>
                     </Link>
-                  </div>
 
-                  <div className="relative w-full md:w-72">
+                    <div className="relative w-full sm:w-72">
                     <input
                       type="text"
                       placeholder="Pesquisar item..."
+                      value={searchTerm}
                       className="w-full border border-gray-300 rounded-full px-4 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[#cffb6d]"
-                      onChange={(e) => {
-                        const search = e.target.value;
-                        if ((search ?? '').trim() === '') {
-                          buscar(); // Recarrega todos os itens se o campo estiver vazio
-                        } else {
-                          setLista((produtos) => {
-                            const filtered = produtos.filter(
-                              (prod) =>
-                                (prod.nome ?? '').toLowerCase().includes((search ?? '').toLowerCase()) ||
-                                (prod.categoria ?? '').toLowerCase().includes((search ?? '').toLowerCase()) ||
-                                (prod.codigo_barras ?? '').toLowerCase().includes((search ?? '').toLowerCase()) ||
-                                (prod.marca ?? '').toLowerCase().includes((search ?? '').toLowerCase())
-                            );
-                            return filtered;
-                          });
-                        }
-                      }}
+                      onChange={(e) => setSearchTerm(e.target.value)}
                     />
                     <svg
                       className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 pointer-events-none"
@@ -638,12 +544,16 @@ export default function ProdutosServicosPage() {
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M16.65 16.65A7.5 7.5 0 1116.65 2a7.5 7.5 0 010 15z" />
                     </svg>
+                    </div>
                   </div>
                 </div>
 
-                
+                <p className="text-xs text-gray-400 mb-2 lg:hidden">Deslize horizontalmente para ver mais colunas →</p>
 
-                <div className="overflow-x-auto">
+                <div className="min-w-0">
+                {carregando ? (
+                  <div className="py-10 text-center text-sm text-gray-500">Carregando produtos...</div>
+                ) : (
                 <DataTable
   columns={columns}
   data={paginated}
@@ -651,6 +561,7 @@ export default function ProdutosServicosPage() {
   onEdit={row => router.push(`/equipamentos/novo?produtoId=${row.id}`)}
   onDelete={row => excluir(row.id)}
 />
+                )}
                 </div>
               </section>
             </div>
