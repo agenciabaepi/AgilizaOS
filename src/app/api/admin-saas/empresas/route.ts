@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { isAdminAuthorized } from '@/lib/admin-auth';
 import { computeAdminEmpresaTrialFields } from '@/lib/adminEmpresaTrialBilling';
+import { loadAssinaturaGovernanteAdmin } from '@/lib/billing/adminEmpresaAssinatura';
 
 export async function GET(req: NextRequest) {
   try {
@@ -196,18 +197,12 @@ export async function GET(req: NextRequest) {
         ]);
         const usoMb = 0;
 
-        // Assinatura e cobrança
-        let assinatura: any = null;
-        try {
-          const { data } = await supabase
-            .from('assinaturas')
-            .select('id,status,proxima_cobranca,plano_id,created_at,data_trial_fim,valor')
-            .eq('empresa_id', e.id)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
-          assinatura = data || null;
-        } catch {}
+        const assinatura = await loadAssinaturaGovernanteAdmin(
+          supabase,
+          e.id,
+          e.created_at,
+          e.dias_trial
+        );
 
         const tf = computeAdminEmpresaTrialFields(assinatura, e.created_at, e.dias_trial);
 
@@ -216,14 +211,14 @@ export async function GET(req: NextRequest) {
           try {
             const { data: plano } = await supabase
               .from('planos')
-              .select('nome')
+              .select('nome, slug')
               .eq('id', assinatura.plano_id)
               .limit(1)
               .single();
             if (plano?.nome) planoNome = plano.nome;
           } catch {}
         }
-        if (tf.trialImplicito && tf.dataTrialFim) {
+        if (tf.trialImplicito && tf.dataTrialFim && !assinatura?.plano_id) {
           planoNome = 'Trial';
         }
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { isAdminAuthorized } from '@/lib/admin-auth';
 import { computeAdminEmpresaTrialFields } from '@/lib/adminEmpresaTrialBilling';
+import { loadAssinaturaGovernanteAdmin } from '@/lib/billing/adminEmpresaAssinatura';
 
 /**
  * Busca detalhes completos de uma empresa
@@ -192,34 +193,31 @@ export async function GET(
       storageUsoMb(empresaId),
     ]);
 
-    // Assinatura e cobrança
-    let assinatura: any = null;
-    try {
-      const { data } = await supabase
-        .from('assinaturas')
-        .select('id,status,proxima_cobranca,plano_id,created_at,data_trial_fim,valor')
-        .eq('empresa_id', empresaId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-      assinatura = data || null;
-    } catch {}
+    // Assinatura e cobrança (mesma linha governante do app — evita divergência com múltiplas linhas)
+    const assinatura = await loadAssinaturaGovernanteAdmin(
+      supabase,
+      empresaId,
+      empresa.created_at,
+      empresa.dias_trial
+    );
 
     const tf = computeAdminEmpresaTrialFields(assinatura, empresa.created_at, empresa.dias_trial);
 
     let planoNome = 'Assinatura';
+    let planoSlug: string | null = null;
     if (assinatura?.plano_id) {
       try {
         const { data: plano } = await supabase
           .from('planos')
-          .select('nome')
+          .select('nome, slug')
           .eq('id', assinatura.plano_id)
           .limit(1)
           .single();
         if (plano?.nome) planoNome = plano.nome;
+        if (plano?.slug) planoSlug = plano.slug;
       } catch {}
     }
-    if (tf.trialImplicito && tf.dataTrialFim) {
+    if (tf.trialImplicito && tf.dataTrialFim && !planoSlug) {
       planoNome = 'Trial';
     }
 
@@ -265,7 +263,7 @@ export async function GET(
         : null;
 
     const billing = {
-      plano: { id: assinatura?.plano_id || null, nome: planoNome },
+      plano: { id: assinatura?.plano_id || null, nome: planoNome, slug: planoSlug },
       assinaturaStatus: assinatura?.status || null,
       valorMensal: Number.isFinite(valorMensal as number) ? (valorMensal as number) : null,
       proximaCobranca: assinatura?.proxima_cobranca || null,

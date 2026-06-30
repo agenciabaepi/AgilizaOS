@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { isAdminAuthorized } from '@/lib/admin-auth';
 import { PLANOS_VENDA, type PlanoSlug } from '@/config/planModules';
+import {
+  arquivarTrialsParalelos,
+  resolveAssinaturaIdParaAlteracao,
+} from '@/lib/billing/adminEmpresaAssinatura';
 
 function parseValorMonetarioInput(v: unknown): number | null {
   if (v == null || v === '') return null;
@@ -75,6 +79,19 @@ export async function POST(
       );
     }
 
+    const { data: empresa, error: empresaError } = await supabase
+      .from('empresas')
+      .select('id, created_at, dias_trial')
+      .eq('id', empresaId)
+      .single();
+
+    if (empresaError || !empresa) {
+      return NextResponse.json(
+        { ok: false, message: 'Empresa não encontrada' },
+        { status: 404 }
+      );
+    }
+
     let valorCobranca = Number(plano.preco);
     const manual = parseValorMonetarioInput(valor_mensal);
     if (manual != null) {
@@ -86,24 +103,17 @@ export async function POST(
         ? ` Valor mensal manual: R$ ${valorCobranca.toFixed(2)} (preço do plano: R$ ${Number(plano.preco).toFixed(2)}).`
         : '';
 
-    const { data: assinaturaAtual, error: assinaturaError } = await supabase
-      .from('assinaturas')
-      .select('id, status, data_fim')
-      .eq('empresa_id', empresaId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (assinaturaError) {
-      return NextResponse.json(
-        { ok: false, error: assinaturaError.message },
-        { status: 500 }
-      );
-    }
+    const assinaturaId = await resolveAssinaturaIdParaAlteracao(
+      supabase,
+      empresaId,
+      empresa.created_at as string | null,
+      empresa.dias_trial as number | null | undefined
+    );
 
     const agora = new Date();
     const dataFim = new Date(agora);
     dataFim.setMonth(dataFim.getMonth() + 1);
+    const agoraIso = agora.toISOString();
 
     const assinaturaPayload = {
       plano_id: plano.id,
@@ -114,14 +124,16 @@ export async function POST(
       proxima_cobranca: dataFim.toISOString(),
       observacoes:
         (observacoes || `Plano alterado para ${plano.nome} pelo admin`) + obsExtra,
-      updated_at: agora.toISOString(),
+      updated_at: agoraIso,
     };
 
-    if (assinaturaAtual) {
+    let assinaturaPrincipalId: string;
+
+    if (assinaturaId) {
       const { error: updateError } = await supabase
         .from('assinaturas')
         .update(assinaturaPayload)
-        .eq('id', assinaturaAtual.id);
+        .eq('id', assinaturaId);
 
       if (updateError) {
         return NextResponse.json(
@@ -129,21 +141,29 @@ export async function POST(
           { status: 500 }
         );
       }
+      assinaturaPrincipalId = assinaturaId;
     } else {
-      const { error: createError } = await supabase.from('assinaturas').insert({
-        empresa_id: empresaId,
-        ...assinaturaPayload,
-        data_inicio: agora.toISOString(),
-        observacoes: (observacoes || `Assinatura criada para ${plano.nome} pelo admin`) + obsExtra,
-      });
+      const { data: inserted, error: createError } = await supabase
+        .from('assinaturas')
+        .insert({
+          empresa_id: empresaId,
+          ...assinaturaPayload,
+          data_inicio: agoraIso,
+          observacoes: (observacoes || `Assinatura criada para ${plano.nome} pelo admin`) + obsExtra,
+        })
+        .select('id')
+        .single();
 
-      if (createError) {
+      if (createError || !inserted?.id) {
         return NextResponse.json(
-          { ok: false, error: createError.message },
+          { ok: false, error: createError?.message || 'Falha ao criar assinatura' },
           { status: 500 }
         );
       }
+      assinaturaPrincipalId = inserted.id;
     }
+
+    await arquivarTrialsParalelos(supabase, empresaId, assinaturaPrincipalId, agoraIso);
 
     const empresaUpdate: Record<string, unknown> = {
       plano: slug || plano.nome.toLowerCase(),
@@ -153,7 +173,17 @@ export async function POST(
       empresaUpdate.recursos_customizados = null;
     }
 
-    await supabase.from('empresas').update(empresaUpdate).eq('id', empresaId);
+    const { error: empresaUpdateError } = await supabase
+      .from('empresas')
+      .update(empresaUpdate)
+      .eq('id', empresaId);
+
+    if (empresaUpdateError) {
+      return NextResponse.json(
+        { ok: false, error: empresaUpdateError.message },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       ok: true,
