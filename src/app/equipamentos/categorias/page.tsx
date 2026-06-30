@@ -277,42 +277,38 @@ export default function CategoriasPage() {
       return;
     }
 
-    // Verificação de null adicionada
-    if (!empresaId) {
-      addToast('error', 'Dados do usuário não disponíveis');
-      return;
-    }
-
     try {
-      if (editandoSubcategoria) {
-        await supabase
-          .from('subcategorias_produtos')
-          .update({
-            nome: formSubcategoria.nome,
-            descricao: formSubcategoria.descricao,
-            categoria_id: formSubcategoria.categoria_id
-          })
-          .eq('id', editandoSubcategoria.id);
-        addToast('success', 'Subcategoria atualizada com sucesso!');
-      } else {
-        await supabase
-          .from('subcategorias_produtos')
-          .insert({
-            nome: formSubcategoria.nome,
-            descricao: formSubcategoria.descricao,
-            categoria_id: formSubcategoria.categoria_id,
-            empresa_id: empresaId
-          });
-        addToast('success', 'Subcategoria criada com sucesso!');
-      }
+      const headers = await bearerAuthHeadersForApi(session, { 'Content-Type': 'application/json' });
+      const res = await fetch('/api/subcategorias/salvar', {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify(
+          editandoSubcategoria
+            ? {
+                id: editandoSubcategoria.id,
+                nome: formSubcategoria.nome,
+                descricao: formSubcategoria.descricao,
+                categoria_id: formSubcategoria.categoria_id,
+              }
+            : {
+                nome: formSubcategoria.nome,
+                descricao: formSubcategoria.descricao,
+                categoria_id: formSubcategoria.categoria_id,
+              }
+        ),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Erro ao salvar subcategoria');
 
+      addToast('success', editandoSubcategoria ? 'Subcategoria atualizada com sucesso!' : 'Subcategoria criada com sucesso!');
       setModalSubcategoria(false);
       setFormSubcategoria({ nome: '', descricao: '', categoria_id: '' });
       setEditandoSubcategoria(null);
       if (empresaId) await carregarDados(empresaId);
     } catch (error) {
       console.error('Erro ao salvar subcategoria:', error);
-      addToast('error', 'Erro ao salvar subcategoria');
+      addToast('error', error instanceof Error ? error.message : 'Erro ao salvar subcategoria');
     }
   };
 

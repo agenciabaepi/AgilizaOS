@@ -31,10 +31,13 @@ export default function NovoProdutoPage() {
   const [subcategorias, setSubcategorias] = useState<Array<{id: string, nome: string, categoria_id: string}>>([]);
   const [loadingCategorias, setLoadingCategorias] = useState(false);
   const [modalNovaCategoria, setModalNovaCategoria] = useState(false);
+  const [modalNovaSubcategoria, setModalNovaSubcategoria] = useState(false);
   const [modalNovoGrupo, setModalNovoGrupo] = useState(false);
   const [salvandoCategoria, setSalvandoCategoria] = useState(false);
+  const [salvandoSubcategoria, setSalvandoSubcategoria] = useState(false);
   const [salvandoGrupo, setSalvandoGrupo] = useState(false);
   const [formNovaCategoria, setFormNovaCategoria] = useState({ nome: '', descricao: '' });
+  const [formNovaSubcategoria, setFormNovaSubcategoria] = useState({ nome: '', descricao: '' });
   const [formNovoGrupo, setFormNovoGrupo] = useState({ nome: '', descricao: '' });
   
   // Estados para fornecedores
@@ -254,7 +257,49 @@ export default function NovoProdutoPage() {
     }
   };
 
+  const salvarNovaSubcategoria = async () => {
+    if (!formData.categoria) {
+      addToast('error', 'Selecione uma categoria antes de criar a subcategoria');
+      return;
+    }
+    if (!formNovaSubcategoria.nome.trim()) {
+      addToast('error', 'Nome da subcategoria é obrigatório');
+      return;
+    }
+
+    setSalvandoSubcategoria(true);
+    try {
+      const headers = await bearerAuthHeadersForApi(session, { 'Content-Type': 'application/json' });
+      const res = await fetch('/api/subcategorias/salvar', {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify({
+          nome: formNovaSubcategoria.nome.trim(),
+          descricao: formNovaSubcategoria.descricao.trim(),
+          categoria_id: formData.categoria,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Erro ao criar subcategoria');
+
+      setSubcategorias((prev) => [
+        ...prev,
+        { id: data.id, nome: data.nome, categoria_id: data.categoria_id },
+      ]);
+      setFormData((prev) => ({ ...prev, subcategoria: data.id }));
+      setFormNovaSubcategoria({ nome: '', descricao: '' });
+      setModalNovaSubcategoria(false);
+      addToast('success', 'Subcategoria criada!');
+    } catch (error) {
+      addToast('error', error instanceof Error ? error.message : 'Erro ao criar subcategoria');
+    } finally {
+      setSalvandoSubcategoria(false);
+    }
+  };
+
   const grupoSelecionadoNome = grupos.find((g) => g.id === formData.grupo)?.nome;
+  const categoriaSelecionadaNome = categorias.find((c) => c.id === formData.categoria)?.nome;
 
   // Carregar categorias ao montar o componente - SEM FILTRO DE EMPRESA
   useEffect(() => {
@@ -668,14 +713,27 @@ export default function NovoProdutoPage() {
                     </div>
                     {/* Subcategoria */}
                     <div>
-                      <Label htmlFor="subcategoria">Subcategoria</Label>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <Label htmlFor="subcategoria">Subcategoria</Label>
+                        <button
+                          type="button"
+                          onClick={() => setModalNovaSubcategoria(true)}
+                          disabled={!formData.categoria}
+                          className="text-xs text-[#6B8F2E] hover:text-[#4a6320] font-medium inline-flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <FiPlus size={12} />
+                          Nova subcategoria
+                        </button>
+                      </div>
                       <Select
                         id="subcategoria"
                         value={formData.subcategoria}
                         onChange={(e) => setFormData({ ...formData, subcategoria: e.target.value })}
                         disabled={loadingCategorias || !formData.categoria}
                       >
-                        <option value="">Selecione uma subcategoria</option>
+                        <option value="">
+                          {formData.categoria ? 'Selecione uma subcategoria' : 'Selecione uma categoria primeiro'}
+                        </option>
                         {subcategoriasDaCategoria.map(subcategoria => (
                           <option key={subcategoria.id} value={subcategoria.id}>{subcategoria.nome}</option>
                         ))}
@@ -1069,6 +1127,63 @@ export default function NovoProdutoPage() {
                   </Button>
                   <Button type="button" onClick={salvarNovoGrupo} disabled={salvandoGrupo}>
                     {salvandoGrupo ? 'Salvando...' : 'Criar grupo'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: nova subcategoria */}
+        {modalNovaSubcategoria && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+            onClick={() => !salvandoSubcategoria && setModalNovaSubcategoria(false)}
+          >
+            <div
+              className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setModalNovaSubcategoria(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                aria-label="Fechar"
+              >
+                <FiX size={20} />
+              </button>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">Nova subcategoria</h3>
+              {categoriaSelecionadaNome && (
+                <p className="text-sm text-gray-500 mb-4">
+                  Categoria: <span className="font-medium text-gray-700">{categoriaSelecionadaNome}</span>
+                </p>
+              )}
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="nova-sub-nome">Nome *</Label>
+                  <Input
+                    id="nova-sub-nome"
+                    value={formNovaSubcategoria.nome}
+                    onChange={(e) => setFormNovaSubcategoria({ ...formNovaSubcategoria, nome: e.target.value })}
+                    placeholder="Ex: Dome 2MP"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="nova-sub-desc">Descrição</Label>
+                  <Input
+                    id="nova-sub-desc"
+                    value={formNovaSubcategoria.descricao}
+                    onChange={(e) => setFormNovaSubcategoria({ ...formNovaSubcategoria, descricao: e.target.value })}
+                    placeholder="Opcional"
+                  />
+                </div>
+                <div className="flex gap-2 justify-end pt-2">
+                  <Button type="button" variant="outline" onClick={() => setModalNovaSubcategoria(false)} disabled={salvandoSubcategoria}>
+                    Cancelar
+                  </Button>
+                  <Button type="button" onClick={salvarNovaSubcategoria} disabled={salvandoSubcategoria}>
+                    {salvandoSubcategoria ? 'Salvando...' : 'Criar subcategoria'}
                   </Button>
                 </div>
               </div>
