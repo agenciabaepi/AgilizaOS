@@ -8,6 +8,7 @@ import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
 import MenuLayout from '@/components/MenuLayout';
 import { resolveEmpresaIdForClient } from '@/lib/resolve-empresa-id';
+import { bearerAuthHeadersForApi } from '@/lib/api/clientAuthHeaders';
 import { FiPlus, FiEdit, FiTrash2, FiChevronDown, FiChevronRight, FiFolder, FiTag, FiGrid } from 'react-icons/fi';
 
 interface Grupo {
@@ -44,7 +45,7 @@ interface Subcategoria {
 
 export default function CategoriasPage() {
   
-  const { usuarioData, empresaData } = useAuth();
+  const { usuarioData, empresaData, session } = useAuth();
   const { addToast } = useToast();
   const confirm = useConfirm();
 
@@ -141,10 +142,11 @@ export default function CategoriasPage() {
     }
 
     try {
+      const headers = await bearerAuthHeadersForApi(session, { 'Content-Type': 'application/json' });
       const res = await fetch('/api/grupos/salvar', {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(
           editandoGrupo
             ? { id: editandoGrupo.id, nome: formGrupo.nome, descricao: formGrupo.descricao }

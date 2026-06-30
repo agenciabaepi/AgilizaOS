@@ -17,7 +17,9 @@ import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { useAuth } from '@/context/AuthContext';
 import { resolveEmpresaIdForClient } from '@/lib/resolve-empresa-id';
+import { bearerAuthHeadersForApi } from '@/lib/api/clientAuthHeaders';
 import { SubscriptionGuard } from '@/components/SubscriptionGuard';
+import { FiPlus, FiX } from 'react-icons/fi';
 
 export default function NovoProdutoPage() {
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
@@ -28,6 +30,12 @@ export default function NovoProdutoPage() {
   const [categorias, setCategorias] = useState<Array<{id: string, nome: string, grupo_id: string}>>([]);
   const [subcategorias, setSubcategorias] = useState<Array<{id: string, nome: string, categoria_id: string}>>([]);
   const [loadingCategorias, setLoadingCategorias] = useState(false);
+  const [modalNovaCategoria, setModalNovaCategoria] = useState(false);
+  const [modalNovoGrupo, setModalNovoGrupo] = useState(false);
+  const [salvandoCategoria, setSalvandoCategoria] = useState(false);
+  const [salvandoGrupo, setSalvandoGrupo] = useState(false);
+  const [formNovaCategoria, setFormNovaCategoria] = useState({ nome: '', descricao: '' });
+  const [formNovoGrupo, setFormNovoGrupo] = useState({ nome: '', descricao: '' });
   
   // Estados para fornecedores
   const [fornecedores, setFornecedores] = useState<Array<{id: string, nome: string}>>([]);
@@ -67,7 +75,7 @@ export default function NovoProdutoPage() {
   // Usar o cliente importado
   const { addToast } = useToast();
   const confirm = useConfirm();
-  const { user, usuarioData, empresaData } = useAuth();
+  const { user, usuarioData, empresaData, session } = useAuth();
 
   // Função para carregar categorias - usando as mesmas APIs da página de categorias
   const carregarCategorias = async () => {
@@ -168,9 +176,85 @@ export default function NovoProdutoPage() {
     setFormData(prev => ({
       ...prev,
       categoria: categoriaId,
-      subcategoria: '' // Limpar subcategoria quando categoria muda
+      subcategoria: ''
     }));
   };
+
+  const salvarNovoGrupo = async () => {
+    if (!formNovoGrupo.nome.trim()) {
+      addToast('error', 'Nome do grupo é obrigatório');
+      return;
+    }
+
+    setSalvandoGrupo(true);
+    try {
+      const headers = await bearerAuthHeadersForApi(session, { 'Content-Type': 'application/json' });
+      const res = await fetch('/api/grupos/salvar', {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify({
+          nome: formNovoGrupo.nome.trim(),
+          descricao: formNovoGrupo.descricao.trim(),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Erro ao criar grupo');
+
+      setGrupos((prev) => [...prev, { id: data.id, nome: data.nome }]);
+      handleGrupoChange(data.id);
+      setFormNovoGrupo({ nome: '', descricao: '' });
+      setModalNovoGrupo(false);
+      addToast('success', 'Grupo criado!');
+    } catch (error) {
+      addToast('error', error instanceof Error ? error.message : 'Erro ao criar grupo');
+    } finally {
+      setSalvandoGrupo(false);
+    }
+  };
+
+  const salvarNovaCategoria = async () => {
+    if (!formData.grupo) {
+      addToast('error', 'Selecione um grupo antes de criar a categoria');
+      return;
+    }
+    if (!formNovaCategoria.nome.trim()) {
+      addToast('error', 'Nome da categoria é obrigatório');
+      return;
+    }
+
+    setSalvandoCategoria(true);
+    try {
+      const headers = await bearerAuthHeadersForApi(session, { 'Content-Type': 'application/json' });
+      const res = await fetch('/api/categorias/salvar', {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify({
+          nome: formNovaCategoria.nome.trim(),
+          descricao: formNovaCategoria.descricao.trim(),
+          grupo_id: formData.grupo,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Erro ao criar categoria');
+
+      setCategorias((prev) => [
+        ...prev,
+        { id: data.id, nome: data.nome, grupo_id: data.grupo_id },
+      ]);
+      handleCategoriaChange(data.id);
+      setFormNovaCategoria({ nome: '', descricao: '' });
+      setModalNovaCategoria(false);
+      addToast('success', 'Categoria criada!');
+    } catch (error) {
+      addToast('error', error instanceof Error ? error.message : 'Erro ao criar categoria');
+    } finally {
+      setSalvandoCategoria(false);
+    }
+  };
+
+  const grupoSelecionadoNome = grupos.find((g) => g.id === formData.grupo)?.nome;
 
   // Carregar categorias ao montar o componente - SEM FILTRO DE EMPRESA
   useEffect(() => {
@@ -531,7 +615,17 @@ export default function NovoProdutoPage() {
                     </div>
                     {/* Grupo */}
                     <div>
-                      <Label htmlFor="grupo">Grupo</Label>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <Label htmlFor="grupo">Grupo</Label>
+                        <button
+                          type="button"
+                          onClick={() => setModalNovoGrupo(true)}
+                          className="text-xs text-[#6B8F2E] hover:text-[#4a6320] font-medium inline-flex items-center gap-1"
+                        >
+                          <FiPlus size={12} />
+                          Novo grupo
+                        </button>
+                      </div>
                       <Select
                         id="grupo"
                         value={formData.grupo}
@@ -546,14 +640,27 @@ export default function NovoProdutoPage() {
                     </div>
                     {/* Categoria */}
                     <div>
-                      <Label htmlFor="categoria">Categoria</Label>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <Label htmlFor="categoria">Categoria</Label>
+                        <button
+                          type="button"
+                          onClick={() => setModalNovaCategoria(true)}
+                          disabled={!formData.grupo}
+                          className="text-xs text-[#6B8F2E] hover:text-[#4a6320] font-medium inline-flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <FiPlus size={12} />
+                          Nova categoria
+                        </button>
+                      </div>
                       <Select
                         id="categoria"
                         value={formData.categoria}
                         onChange={(e) => handleCategoriaChange(e.target.value)}
                         disabled={loadingCategorias || !formData.grupo}
                       >
-                        <option value="">Selecione uma categoria</option>
+                        <option value="">
+                          {formData.grupo ? 'Selecione uma categoria' : 'Selecione um grupo primeiro'}
+                        </option>
                         {categoriasDoGrupo.map(categoria => (
                           <option key={categoria.id} value={categoria.id}>{categoria.nome}</option>
                         ))}
@@ -916,6 +1023,115 @@ export default function NovoProdutoPage() {
             </div>
           </div>
         </main>
+
+        {/* Modal: novo grupo */}
+        {modalNovoGrupo && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+            onClick={() => !salvandoGrupo && setModalNovoGrupo(false)}
+          >
+            <div
+              className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setModalNovoGrupo(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                aria-label="Fechar"
+              >
+                <FiX size={20} />
+              </button>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Novo grupo</h3>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="novo-grupo-nome">Nome *</Label>
+                  <Input
+                    id="novo-grupo-nome"
+                    value={formNovoGrupo.nome}
+                    onChange={(e) => setFormNovoGrupo({ ...formNovoGrupo, nome: e.target.value })}
+                    placeholder="Ex: CFTV"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="novo-grupo-desc">Descrição</Label>
+                  <Input
+                    id="novo-grupo-desc"
+                    value={formNovoGrupo.descricao}
+                    onChange={(e) => setFormNovoGrupo({ ...formNovoGrupo, descricao: e.target.value })}
+                    placeholder="Opcional"
+                  />
+                </div>
+                <div className="flex gap-2 justify-end pt-2">
+                  <Button type="button" variant="outline" onClick={() => setModalNovoGrupo(false)} disabled={salvandoGrupo}>
+                    Cancelar
+                  </Button>
+                  <Button type="button" onClick={salvarNovoGrupo} disabled={salvandoGrupo}>
+                    {salvandoGrupo ? 'Salvando...' : 'Criar grupo'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: nova categoria */}
+        {modalNovaCategoria && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+            onClick={() => !salvandoCategoria && setModalNovaCategoria(false)}
+          >
+            <div
+              className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setModalNovaCategoria(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                aria-label="Fechar"
+              >
+                <FiX size={20} />
+              </button>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">Nova categoria</h3>
+              {grupoSelecionadoNome && (
+                <p className="text-sm text-gray-500 mb-4">
+                  Grupo: <span className="font-medium text-gray-700">{grupoSelecionadoNome}</span>
+                </p>
+              )}
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="nova-cat-nome">Nome *</Label>
+                  <Input
+                    id="nova-cat-nome"
+                    value={formNovaCategoria.nome}
+                    onChange={(e) => setFormNovaCategoria({ ...formNovaCategoria, nome: e.target.value })}
+                    placeholder="Ex: Câmeras IP"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="nova-cat-desc">Descrição</Label>
+                  <Input
+                    id="nova-cat-desc"
+                    value={formNovaCategoria.descricao}
+                    onChange={(e) => setFormNovaCategoria({ ...formNovaCategoria, descricao: e.target.value })}
+                    placeholder="Opcional"
+                  />
+                </div>
+                <div className="flex gap-2 justify-end pt-2">
+                  <Button type="button" variant="outline" onClick={() => setModalNovaCategoria(false)} disabled={salvandoCategoria}>
+                    Cancelar
+                  </Button>
+                  <Button type="button" onClick={salvarNovaCategoria} disabled={salvandoCategoria}>
+                    {salvandoCategoria ? 'Salvando...' : 'Criar categoria'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </MenuLayout>
     </SubscriptionGuard>
   );
