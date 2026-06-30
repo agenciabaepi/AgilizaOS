@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { isAdminAuthorized } from '@/lib/admin-auth';
+import { PLANOS_VENDA, type PlanoSlug } from '@/config/planModules';
 
 function parseValorMonetarioInput(v: unknown): number | null {
   if (v == null || v === '') return null;
@@ -17,7 +18,7 @@ function parseValorMonetarioInput(v: unknown): number | null {
 }
 
 /**
- * Altera o plano de uma empresa
+ * Altera o plano de uma empresa (Básico ou Completo).
  * POST /api/admin-saas/empresas/[id]/alterar-plano
  */
 export async function POST(
@@ -32,28 +33,45 @@ export async function POST(
 
     const { id: empresaId } = await params;
     const body = await req.json();
-    const { plano_id, observacoes, valor_mensal } = body;
+    const { plano_id, plano_slug, observacoes, valor_mensal, limpar_recursos_customizados } = body;
 
-    if (!plano_id) {
+    if (!plano_id && !plano_slug) {
       return NextResponse.json(
-        { ok: false, message: 'plano_id é obrigatório' },
+        { ok: false, message: 'plano_id ou plano_slug é obrigatório' },
         { status: 400 }
       );
     }
 
     const supabase = getSupabaseAdmin();
 
-    // Verificar se o plano existe
-    const { data: plano, error: planoError } = await supabase
+    let planoQuery = supabase
       .from('planos')
-      .select('id, nome, preco')
-      .eq('id', plano_id)
-      .single();
+      .select('id, nome, preco, slug, recursos_disponiveis')
+      .eq('ativo', true);
+
+    if (plano_id) {
+      planoQuery = planoQuery.eq('id', plano_id);
+    } else {
+      planoQuery = planoQuery.eq('slug', String(plano_slug).trim().toLowerCase());
+    }
+
+    const { data: plano, error: planoError } = await planoQuery.single();
 
     if (planoError || !plano) {
       return NextResponse.json(
         { ok: false, message: 'Plano não encontrado' },
         { status: 404 }
+      );
+    }
+
+    const slug = (plano.slug || '').toLowerCase() as PlanoSlug;
+    if (!PLANOS_VENDA.includes(slug)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: `Apenas os planos Básico e Completo podem ser atribuídos. Plano "${plano.nome}" não é vendável.`,
+        },
+        { status: 400 }
       );
     }
 
@@ -68,7 +86,6 @@ export async function POST(
         ? ` Valor mensal manual: R$ ${valorCobranca.toFixed(2)} (preço do plano: R$ ${Number(plano.preco).toFixed(2)}).`
         : '';
 
-    // Buscar assinatura atual da empresa
     const { data: assinaturaAtual, error: assinaturaError } = await supabase
       .from('assinaturas')
       .select('id, status, data_fim')
@@ -77,24 +94,33 @@ export async function POST(
       .limit(1)
       .maybeSingle();
 
+    if (assinaturaError) {
+      return NextResponse.json(
+        { ok: false, error: assinaturaError.message },
+        { status: 500 }
+      );
+    }
+
     const agora = new Date();
     const dataFim = new Date(agora);
-    dataFim.setMonth(dataFim.getMonth() + 1); // Próximo mês
+    dataFim.setMonth(dataFim.getMonth() + 1);
 
-    // Se já existe assinatura, atualizar
+    const assinaturaPayload = {
+      plano_id: plano.id,
+      valor: valorCobranca,
+      status: 'active' as const,
+      data_fim: dataFim.toISOString(),
+      data_trial_fim: null,
+      proxima_cobranca: dataFim.toISOString(),
+      observacoes:
+        (observacoes || `Plano alterado para ${plano.nome} pelo admin`) + obsExtra,
+      updated_at: agora.toISOString(),
+    };
+
     if (assinaturaAtual) {
       const { error: updateError } = await supabase
         .from('assinaturas')
-        .update({
-          plano_id: plano_id,
-          valor: valorCobranca,
-          status: 'active',
-          data_fim: dataFim.toISOString(),
-          proxima_cobranca: dataFim.toISOString(),
-          observacoes:
-            (observacoes || `Plano alterado para ${plano.nome} pelo admin`) + obsExtra,
-          updated_at: new Date().toISOString(),
-        })
+        .update(assinaturaPayload)
         .eq('id', assinaturaAtual.id);
 
       if (updateError) {
@@ -103,53 +129,39 @@ export async function POST(
           { status: 500 }
         );
       }
-
-      // Atualizar também a coluna plano na tabela empresas (compatibilidade)
-      await supabase
-        .from('empresas')
-        .update({ plano: plano.nome.toLowerCase() })
-        .eq('id', empresaId);
-
-      return NextResponse.json({
-        ok: true,
-        message: `Plano alterado para ${plano.nome} com sucesso`,
+    } else {
+      const { error: createError } = await supabase.from('assinaturas').insert({
+        empresa_id: empresaId,
+        ...assinaturaPayload,
+        data_inicio: agora.toISOString(),
+        observacoes: (observacoes || `Assinatura criada para ${plano.nome} pelo admin`) + obsExtra,
       });
+
+      if (createError) {
+        return NextResponse.json(
+          { ok: false, error: createError.message },
+          { status: 500 }
+        );
+      }
     }
 
-    // Se não existe assinatura, criar nova
-    const { error: createError } = await supabase.from('assinaturas').insert({
-      empresa_id: empresaId,
-      plano_id: plano_id,
-      status: 'active',
-      valor: valorCobranca,
-      data_inicio: agora.toISOString(),
-      data_fim: dataFim.toISOString(),
-      proxima_cobranca: dataFim.toISOString(),
-      observacoes: (observacoes || `Assinatura criada para ${plano.nome} pelo admin`) + obsExtra,
-    });
+    const empresaUpdate: Record<string, unknown> = {
+      plano: slug || plano.nome.toLowerCase(),
+    };
 
-    if (createError) {
-      return NextResponse.json(
-        { ok: false, error: createError.message },
-        { status: 500 }
-      );
+    if (limpar_recursos_customizados !== false) {
+      empresaUpdate.recursos_customizados = null;
     }
 
-    // Atualizar também a coluna plano na tabela empresas (compatibilidade)
-    await supabase
-      .from('empresas')
-      .update({ plano: plano.nome.toLowerCase() })
-      .eq('id', empresaId);
+    await supabase.from('empresas').update(empresaUpdate).eq('id', empresaId);
 
     return NextResponse.json({
       ok: true,
-      message: `Assinatura criada para ${plano.nome} com sucesso`,
+      message: `Plano alterado para ${plano.nome} com sucesso`,
+      plano: { id: plano.id, slug, nome: plano.nome },
     });
-  } catch (err: any) {
-    return NextResponse.json(
-      { ok: false, error: err?.message || 'Erro inesperado' },
-      { status: 500 }
-    );
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Erro inesperado';
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }
-

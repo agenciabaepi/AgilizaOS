@@ -98,15 +98,8 @@ export default function EmpresasClient() {
 
   const [showCreate, setShowCreate] = useState(false);
   const [createData, setCreateData] = useState({ nome: '', email: '', cnpj: '' });
-  const [showAlterarPlano, setShowAlterarPlano] = useState(false);
-  const [empresaSelecionada, setEmpresaSelecionada] = useState<Empresa | null>(null);
-  const [planos, setPlanos] = useState<Array<{ id: string; nome: string; descricao: string; preco: number }>>([]);
-  const [planoSelecionado, setPlanoSelecionado] = useState<string>('');
-  const [valorMensalManual, setValorMensalManual] = useState('');
-  const [observacoes, setObservacoes] = useState('');
-  const [alterandoPlano, setAlterandoPlano] = useState(false);
-  
   const [showGerenciarRecursos, setShowGerenciarRecursos] = useState(false);
+  const [empresaSelecionada, setEmpresaSelecionada] = useState<Empresa | null>(null);
   const [recursosCustomizados, setRecursosCustomizados] = useState<Partial<Record<PremiumModule, boolean>>>({});
   const [salvandoRecursos, setSalvandoRecursos] = useState(false);
   const safePageSize = Math.max(1, pageSize);
@@ -213,65 +206,6 @@ export default function EmpresasClient() {
     setShowCreate(false);
     setCreateData({ nome: '', email: '', cnpj: '' });
     await fetchItems({ keepPage: true });
-  }
-
-  async function handleAlterarPlano(e: Empresa) {
-    setEmpresaSelecionada(e);
-    setShowAlterarPlano(true);
-    setPlanoSelecionado(e.billing?.plano?.id || '');
-    const vm = e.billing?.valorMensal;
-    setValorMensalManual(vm != null && Number.isFinite(Number(vm)) ? String(Number(vm)) : '');
-    setObservacoes('');
-
-    // Buscar planos disponíveis
-    try {
-      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
-      const res = await fetch(`${baseUrl}/api/admin-saas/planos`, { cache: 'no-store' });
-      const json = await res.json();
-      if (res.ok && json.ok) {
-        setPlanos(json.planos || []);
-      }
-    } catch (err) {
-      console.error('Erro ao buscar planos:', err);
-    }
-  }
-
-  async function confirmarAlterarPlano() {
-    if (!empresaSelecionada || !planoSelecionado) return;
-
-    setAlterandoPlano(true);
-    try {
-      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
-      const trimmed = valorMensalManual.trim();
-      let valor_mensal: number | undefined;
-      if (trimmed) {
-        const n = parseFloat(trimmed.replace(/\./g, '').replace(',', '.'));
-        if (Number.isFinite(n) && n > 0) valor_mensal = n;
-      }
-      const res = await fetch(`${baseUrl}/api/admin-saas/empresas/${empresaSelecionada.id}/alterar-plano`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          plano_id: planoSelecionado,
-          observacoes: observacoes || undefined,
-          ...(valor_mensal != null ? { valor_mensal } : {}),
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        throw new Error(json.message || 'Falha ao alterar assinatura');
-      }
-      setShowAlterarPlano(false);
-      setEmpresaSelecionada(null);
-      setPlanoSelecionado('');
-      setValorMensalManual('');
-      setObservacoes('');
-      await fetchItems({ keepPage: true });
-    } catch (err: any) {
-      setError(err.message || 'Erro ao alterar assinatura');
-    } finally {
-      setAlterandoPlano(false);
-    }
   }
 
   async function handleGerenciarRecursos(e: Empresa) {
@@ -645,99 +579,6 @@ export default function EmpresasClient() {
                   className="bg-gray-900 hover:bg-gray-800 text-white"
                 >
                   Salvar
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de Alterar Assinatura */}
-      {showAlterarPlano && empresaSelecionada && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowAlterarPlano(false)}>
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Alterar Assinatura da Empresa</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Empresa</label>
-                <div className="text-sm text-gray-900 font-medium">{empresaSelecionada.nome}</div>
-                {empresaSelecionada.billing?.plano?.nome && (
-                  <div className="text-xs text-gray-500 mt-1">
-                    Assinatura atual: <span className="font-medium">{empresaSelecionada.billing.plano.nome}</span>
-                  </div>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nova Assinatura</label>
-                <select
-                  value={planoSelecionado}
-                  onChange={(e) => setPlanoSelecionado(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                >
-                  <option value="">Selecione um plano</option>
-                  {planos.map((plano) => (
-                    <option key={plano.id} value={plano.id}>
-                      {plano.nome} - R$ {plano.preco.toFixed(2)}/mês
-                    </option>
-                  ))}
-                </select>
-                {planos.find(p => p.id === planoSelecionado) && (
-                  <div className="mt-2 text-xs text-gray-600">
-                    {planos.find(p => p.id === planoSelecionado)?.descricao}
-                  </div>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Valor mensal (R$) — opcional
-                </label>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={valorMensalManual}
-                  onChange={(e) => setValorMensalManual(e.target.value)}
-                  placeholder={
-                    planos.find((p) => p.id === planoSelecionado)
-                      ? `Padrão do plano: ${planos.find((p) => p.id === planoSelecionado)!.preco.toFixed(2)}`
-                      : 'Ex: 99,90'
-                  }
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                  Deixe em branco para usar o preço do plano. Preencha para um valor personalizado nesta empresa.
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Observações (opcional)</label>
-                <textarea
-                  value={observacoes}
-                  onChange={(e) => setObservacoes(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                  rows={3}
-                  placeholder="Observações sobre a alteração da assinatura..."
-                />
-              </div>
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setShowAlterarPlano(false);
-                    setEmpresaSelecionada(null);
-                    setPlanoSelecionado('');
-                    setValorMensalManual('');
-                    setObservacoes('');
-                  }}
-                  className="border-gray-300 hover:bg-gray-50"
-                  disabled={alterandoPlano}
-                >
-                  Cancelar
-                </Button>
-                <Button 
-                  onClick={confirmarAlterarPlano}
-                  className="bg-gray-900 hover:bg-gray-800 text-white"
-                  disabled={!planoSelecionado || alterandoPlano}
-                >
-                  {alterandoPlano ? 'Alterando...' : 'Confirmar Alteração'}
                 </Button>
               </div>
             </div>
