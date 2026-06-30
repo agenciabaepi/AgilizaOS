@@ -7,6 +7,13 @@ import {
   createPaymentPix,
   getPixQrCode,
 } from '@/lib/asaas';
+import { PLANO_SLUGS } from '@/config/planModules';
+import {
+  obterPrecoPlano,
+  reservarCupomDesconto,
+  cancelarReservaCupom,
+} from '@/lib/billing/cupomServer';
+import { normalizarCodigoCupom } from '@/lib/billing/cupomDesconto';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,7 +45,7 @@ function formatDueDate(daysFromNow = 1): string {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { valor, descricao, mock, plano_slug } = body;
+    const { valor, descricao, mock, plano_slug, cupom_codigo } = body;
 
     if (mock === true) {
       const fakeId = `mock_${Date.now()}`;
@@ -50,14 +57,6 @@ export async function POST(req: NextRequest) {
         pagamento_id: fakeId,
         status: 'PENDING',
       });
-    }
-
-    const numValor = Number(valor);
-    if (!Number.isFinite(numValor) || numValor <= 0) {
-      return NextResponse.json(
-        { success: false, error: 'Valor inválido' },
-        { status: 400 }
-      );
     }
 
     const authHeader = req.headers.get('Authorization');
@@ -128,6 +127,72 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const planoSlugValido =
+      plano_slug === PLANO_SLUGS.BASICO || plano_slug === PLANO_SLUGS.COMPLETO
+        ? plano_slug
+        : null;
+
+    let valorOriginal: number;
+    if (planoSlugValido) {
+      const precoPlano = await obterPrecoPlano(admin, planoSlugValido);
+      if (precoPlano === null) {
+        return NextResponse.json(
+          { success: false, error: 'Preço do plano indisponível' },
+          { status: 400 }
+        );
+      }
+      valorOriginal = precoPlano;
+    } else {
+      const numValor = Number(valor);
+      if (!Number.isFinite(numValor) || numValor <= 0) {
+        return NextResponse.json(
+          { success: false, error: 'Valor inválido' },
+          { status: 400 }
+        );
+      }
+      valorOriginal = numValor;
+    }
+
+    const codigoCupom =
+      typeof cupom_codigo === 'string' && cupom_codigo.trim()
+        ? normalizarCodigoCupom(cupom_codigo)
+        : null;
+
+    if (codigoCupom && !planoSlugValido) {
+      return NextResponse.json(
+        { success: false, error: 'Cupom só pode ser usado na assinatura de um plano' },
+        { status: 400 }
+      );
+    }
+
+    let valorCobranca = valorOriginal;
+    let cupomUsoId: string | null = null;
+    let valorDesconto: number | null = null;
+
+    if (codigoCupom) {
+      const reserva = await reservarCupomDesconto(
+        admin,
+        codigoCupom,
+        usuario.empresa_id,
+        valorOriginal
+      );
+      if (!reserva.ok) {
+        return NextResponse.json(
+          { success: false, error: reserva.error },
+          { status: 400 }
+        );
+      }
+      cupomUsoId = reserva.cupom_uso_id ?? null;
+      valorCobranca = reserva.valor_final;
+      valorDesconto = reserva.valor_desconto;
+      if (!cupomUsoId) {
+        return NextResponse.json(
+          { success: false, error: 'Falha ao reservar cupom' },
+          { status: 500 }
+        );
+      }
+    }
+
     const customerName = (empresaData.nome || 'Cliente').trim();
     const customerEmail = (empresaData.email || user.email || `contato-${empresaData.id}@temp.com`).trim();
     const cpfCnpj = empresaData.cnpj ? String(empresaData.cnpj).replace(/\D/g, '') : undefined;
@@ -138,12 +203,22 @@ export async function POST(req: NextRequest) {
       cpfCnpj: cpfCnpj || undefined,
     });
 
-    const payment = await createPaymentPix({
-      customer: customer.id,
-      value: numValor,
-      dueDate: formatDueDate(1),
-      description: descricao || `Mensalidade ConsertOS - R$ ${numValor.toFixed(2)}`,
-    });
+    let payment;
+    try {
+      payment = await createPaymentPix({
+        customer: customer.id,
+        value: valorCobranca,
+        dueDate: formatDueDate(1),
+        description:
+          descricao ||
+          `Mensalidade ConsertOS - R$ ${valorCobranca.toFixed(2)}${codigoCupom ? ` (cupom ${codigoCupom})` : ''}`,
+      });
+    } catch (asaasErr) {
+      if (cupomUsoId) {
+        await cancelarReservaCupom(admin, cupomUsoId);
+      }
+      throw asaasErr;
+    }
 
     const qrData = await getPixQrCode(payment.id);
 
@@ -154,18 +229,28 @@ export async function POST(req: NextRequest) {
         empresa_id: usuario.empresa_id,
         mercadopago_payment_id: payment.id,
         status: payment.status || 'PENDING',
-        valor: numValor,
-        plano_slug:
-          plano_slug === 'basico' || plano_slug === 'completo' ? plano_slug : null,
+        valor: valorCobranca,
+        valor_original: codigoCupom ? valorOriginal : null,
+        cupom_uso_id: cupomUsoId,
+        plano_slug: planoSlugValido,
       })
       .select('id')
       .single();
 
     if (insertError) {
+      if (cupomUsoId) {
+        await cancelarReservaCupom(admin, cupomUsoId);
+      }
       console.warn('Pagamento criado no Asaas, mas falha ao salvar no banco (tabela pagamentos):', insertError.message);
-      // Continua e retorna o PIX para o usuário poder pagar; registro local pode ser ajustado depois
     } else if (pagamentoRow?.id) {
       pagamentoId = pagamentoRow.id;
+      if (cupomUsoId) {
+        await admin
+          .from('cupons_uso')
+          .update({ pagamento_id: pagamentoRow.id })
+          .eq('id', cupomUsoId)
+          .eq('status', 'reservado');
+      }
     }
 
     return NextResponse.json({
@@ -175,6 +260,10 @@ export async function POST(req: NextRequest) {
       payment_id: payment.id,
       pagamento_id: pagamentoId,
       status: payment.status || 'PENDING',
+      valor: valorCobranca,
+      valor_original: codigoCupom ? valorOriginal : undefined,
+      valor_desconto: valorDesconto ?? undefined,
+      cupom_codigo: codigoCupom ?? undefined,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erro ao criar PIX';

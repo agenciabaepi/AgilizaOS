@@ -15,11 +15,13 @@ interface PixQRCodeProps {
   onError?: (error: string) => void;
   mock?: boolean;
   planoSlug?: 'basico' | 'completo' | string;
+  cupomCodigo?: string | null;
+  onPixCreated?: () => void;
   /** Quando informado, usa cobrança existente (pendente) em vez de criar nova */
   existingPaymentId?: string;
 }
 
-export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, planoSlug, existingPaymentId }: PixQRCodeProps) {
+export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, planoSlug, cupomCodigo, onPixCreated, existingPaymentId }: PixQRCodeProps) {
   const [loading, setLoading] = useState(!!existingPaymentId);
   const [qrCodeData, setQrCodeData] = useState<{
     qr_code?: string;
@@ -174,6 +176,7 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, 
           descricao: descricao || `Pagamento - R$ ${valor.toFixed(2)}`,
           mock: !!mock,
           plano_slug: planoSlug || null,
+          cupom_codigo: cupomCodigo || null,
         }),
         signal: controller.signal,
       });
@@ -197,6 +200,7 @@ export default function PixQRCode({ valor, descricao, onSuccess, onError, mock, 
                   pagamento_id: data.pagamento_id,
                   status: data.status,
                 });
+                onPixCreated?.();
                 // Timer simples de validade visual (5 min)
                 setExpiresIn(5 * 60);
                 // NÃO chamar onSuccess aqui - só quando pagamento for realmente confirmado (polling)

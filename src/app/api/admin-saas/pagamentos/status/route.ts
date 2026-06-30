@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { ativarAssinaturaPorPagamento } from '@/lib/billing/ativarAssinaturaPagamento';
+import { confirmarCupomUso } from '@/lib/billing/cupomServer';
 import {
   getPayment,
   getCustomer,
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
     // Tentar descobrir a empresa associada a esse paymentId
     const { data: pagamentoRow } = await supabase
       .from('pagamentos')
-      .select('id, empresa_id, status, paid_at, valor, plano_slug')
+      .select('id, empresa_id, status, paid_at, valor, plano_slug, cupom_uso_id, valor_original')
       .eq('mercadopago_payment_id', paymentId)
       .single();
 
@@ -140,6 +141,10 @@ export async function GET(req: NextRequest) {
       if (upsertErr) console.warn('pagamentos/status: upsert pagamento (assinatura):', upsertErr.message);
     } catch (e) {
       console.warn('pagamentos/status: erro ao registrar pagamento local:', e);
+    }
+
+    if (pagamentoRow?.cupom_uso_id) {
+      await confirmarCupomUso(supabase, pagamentoRow.cupom_uso_id, pagamentoRow.id);
     }
 
     // Ativar/renovar assinatura por 30 dias a partir da data de pagamento

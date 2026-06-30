@@ -1,9 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import MenuLayout from '@/components/MenuLayout';
 import AuthGuardFinal from '@/components/AuthGuardFinal';
 import PixQRCode from '@/components/PixQRCode';
+import CupomDescontoInput, { type CupomAplicado } from '@/components/billing/CupomDescontoInput';
 import { Button } from '@/components/Button';
 import { formatarValorAssinatura, usePlanosPublicos } from '@/hooks/usePlanosPublicos';
 import { PLANO_SLUGS, PREMIUM_MODULES, type PlanoSlug } from '@/config/planModules';
@@ -32,6 +34,8 @@ export default function AssinaturaPagarPlanoPage() {
   const slugParam = String(params?.plano ?? '');
   const { basico, completo, ready } = usePlanosPublicos();
   const mock = search?.get('mock') === '1';
+  const [cupom, setCupom] = useState<CupomAplicado | null>(null);
+  const [pixGerado, setPixGerado] = useState(false);
 
   const slug =
     slugParam === PLANO_SLUGS.BASICO || slugParam === PLANO_SLUGS.COMPLETO
@@ -50,6 +54,8 @@ export default function AssinaturaPagarPlanoPage() {
           premium: slug === PLANO_SLUGS.COMPLETO,
         }
       : null;
+
+  const valorFinal = cupom?.valor_final ?? plano?.valor ?? 0;
 
   return (
     <AuthGuardFinal>
@@ -86,9 +92,20 @@ export default function AssinaturaPagarPlanoPage() {
                       <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">{plano.descricao}</div>
                     </div>
                     <div className="text-right shrink-0">
-                      <div className="text-green-700 dark:text-green-400 font-extrabold text-2xl">
-                        R$ {formatarValorAssinatura(plano.valor)}
-                      </div>
+                      {cupom ? (
+                        <>
+                          <div className="text-sm text-gray-400 line-through">
+                            R$ {formatarValorAssinatura(plano.valor)}
+                          </div>
+                          <div className="text-green-700 dark:text-green-400 font-extrabold text-2xl">
+                            R$ {formatarValorAssinatura(valorFinal)}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-green-700 dark:text-green-400 font-extrabold text-2xl">
+                          R$ {formatarValorAssinatura(plano.valor)}
+                        </div>
+                      )}
                       <div className="text-[11px] text-gray-500">mensal</div>
                     </div>
                   </div>
@@ -109,11 +126,24 @@ export default function AssinaturaPagarPlanoPage() {
               <div className="bg-white dark:bg-zinc-800 rounded-xl border border-gray-200 dark:border-zinc-700 p-6">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Pagamento via PIX</h2>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Rápido, seguro e sem taxas</p>
+
+                <div className="mb-4">
+                  <CupomDescontoInput
+                    planoSlug={plano.id as PlanoSlug}
+                    valorOriginal={plano.valor}
+                    disabled={pixGerado}
+                    onApplied={setCupom}
+                    onClear={() => setCupom(null)}
+                  />
+                </div>
+
                 <PixQRCode
-                  valor={plano.valor}
+                  valor={valorFinal}
                   descricao={`Plano ${plano.nome}`}
                   planoSlug={plano.id}
+                  cupomCodigo={cupom?.codigo ?? null}
                   mock={mock}
+                  onPixCreated={() => setPixGerado(true)}
                   onSuccess={() => router.push('/dashboard')}
                 />
               </div>

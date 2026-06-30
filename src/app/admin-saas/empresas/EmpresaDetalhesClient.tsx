@@ -681,32 +681,43 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
 
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-        </div>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
       </div>
     );
   }
 
   if (error || !empresa) {
     return (
-      <div className="p-6">
+      <div className="space-y-4">
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
           {error || 'Empresa não encontrada'}
         </div>
-        <Button onClick={() => router.push('/admin-saas/empresas')} className="mt-4">
+        <Button onClick={() => router.push('/admin-saas/empresas')}>
           Voltar para lista
         </Button>
       </div>
     );
   }
 
+  const cobrancaBadgeClass =
+    empresa.billing?.cobrancaStatus === 'Sistema liberado'
+      ? 'bg-sky-100 text-sky-800'
+      : empresa.billing?.cobrancaStatus === 'Em dia'
+        ? 'bg-green-100 text-green-800'
+        : empresa.billing?.cobrancaStatus === 'Trial'
+          ? 'bg-yellow-100 text-yellow-800'
+          : empresa.billing?.cobrancaStatus === 'Trial encerrado'
+            ? 'bg-amber-100 text-amber-900'
+            : empresa.billing?.cobrancaStatus === 'Vencido'
+              ? 'bg-red-100 text-red-800'
+              : 'bg-gray-100 text-gray-700';
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center gap-4 min-w-0">
           <Button
             variant="outline"
             onClick={() => router.push('/admin-saas/empresas')}
@@ -736,7 +747,7 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
             <p className="text-sm text-gray-500">Detalhes completos da empresa</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {empresa.status === 'pendente' && (
             <>
               <Button
@@ -806,241 +817,259 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
         </div>
       </div>
 
-      {/* Cards de Informações */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Status */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="h-12 w-12 rounded-lg bg-blue-50 flex items-center justify-center">
-              <FiBuilding className="text-blue-600 w-6 h-6" />
+      {/* Resumo rápido */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center">
+              <FiBuilding className="text-blue-600 w-5 h-5" />
             </div>
             {empresa.status && (
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                ${empresa.status === 'aprovada' ? 'bg-green-100 text-green-800' : ''}
-                ${empresa.status === 'pendente' ? 'bg-yellow-100 text-yellow-800' : ''}
-                ${empresa.status === 'reprovada' ? 'bg-red-100 text-red-800' : ''}
-              `}>
+              <span
+                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                  empresa.status === 'aprovada'
+                    ? 'bg-green-100 text-green-800'
+                    : empresa.status === 'pendente'
+                      ? 'bg-yellow-100 text-yellow-800'
+                      : empresa.status === 'reprovada'
+                        ? 'bg-red-100 text-red-800'
+                        : 'bg-gray-100 text-gray-700'
+                }`}
+              >
                 {empresa.status}
               </span>
             )}
           </div>
-          <div className="text-sm font-medium text-gray-600 mb-1">Status</div>
-          <div className="text-2xl font-bold text-gray-900">
-            {empresa.ativo ? 'Ativa' : 'Inativa'}
-          </div>
+          <p className="text-sm font-medium text-gray-500">Status</p>
+          <p className="text-2xl font-bold text-gray-900 mt-0.5">{empresa.ativo ? 'Ativa' : 'Inativa'}</p>
+          {empresa.sistema_liberado && (
+            <p className="mt-2 text-xs text-sky-700 font-medium">Sistema liberado</p>
+          )}
         </div>
 
-        {/* Plano */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="h-12 w-12 rounded-lg bg-purple-50 flex items-center justify-center">
-              <FiDollarSign className="text-purple-600" size={24} />
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="h-10 w-10 rounded-lg bg-purple-50 flex items-center justify-center">
+              <FiDollarSign className="text-purple-600 w-5 h-5" />
             </div>
             {empresa.billing?.cobrancaStatus && (
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                empresa.billing.cobrancaStatus === 'Sistema liberado' ? 'bg-sky-100 text-sky-800' :
-                empresa.billing.cobrancaStatus === 'Em dia' ? 'bg-green-100 text-green-800' :
-                empresa.billing.cobrancaStatus === 'Trial' ? 'bg-yellow-100 text-yellow-800' :
-                empresa.billing.cobrancaStatus === 'Trial encerrado' ? 'bg-amber-100 text-amber-900' :
-                empresa.billing.cobrancaStatus === 'Vencido' ? 'bg-red-100 text-red-800' :
-                'bg-gray-100 text-gray-700'
-              }`}>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cobrancaBadgeClass}`}>
                 {empresa.billing.cobrancaStatus}
               </span>
             )}
           </div>
-          <div className="text-sm font-medium text-gray-600 mb-1">Assinatura</div>
-          <div className="text-2xl font-bold text-gray-900">
-            {empresa.billing?.plano?.nome || 'Assinatura'}
-          </div>
+          <p className="text-sm font-medium text-gray-500">Assinatura</p>
+          <p className="text-xl font-bold text-gray-900 mt-0.5 leading-tight">
+            {empresa.billing?.plano?.nome || 'Sem plano'}
+          </p>
           {empresa.billing?.valorMensal != null && Number.isFinite(Number(empresa.billing.valorMensal)) && (
             <p className="mt-2 text-sm text-gray-600">
-              Valor mensal na base:{' '}
-              <span className="font-semibold text-gray-900">
-                {Number(empresa.billing.valorMensal).toLocaleString('pt-BR', {
-                  style: 'currency',
-                  currency: 'BRL',
-                })}
-              </span>
+              {Number(empresa.billing.valorMensal).toLocaleString('pt-BR', {
+                style: 'currency',
+                currency: 'BRL',
+              })}
+              <span className="text-gray-400"> /mês</span>
             </p>
-          )}
-          {(empresa.billing?.assinaturaStatus === 'active' ||
-            empresa.billing?.assinaturaStatus === 'ativa' ||
-            empresa.billing?.assinaturaStatus === 'trial') && (
-            <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
-              <div className="text-xs font-medium text-gray-600">Valor mensal manual</div>
-              <div className="flex flex-wrap gap-2 items-end">
-                <div className="flex-1 min-w-[140px]">
-                  <label htmlFor="valor-assinatura-inline" className="sr-only">
-                    Valor mensal em reais
-                  </label>
-                  <input
-                    id="valor-assinatura-inline"
-                    type="text"
-                    inputMode="decimal"
-                    value={valorAssinaturaInline}
-                    onChange={(e) => setValorAssinaturaInline(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                    placeholder="Ex: 149,90"
-                  />
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={salvandoValorAssinatura}
-                  onClick={salvarValorAssinaturaInline}
-                  className="bg-gray-900 hover:bg-gray-800 text-white"
-                >
-                  {salvandoValorAssinatura ? 'Salvando...' : 'Salvar valor'}
-                </Button>
-              </div>
-              <p className="text-[11px] text-gray-500 leading-snug">
-                Atualiza só o valor cobrado registrado na assinatura (sem trocar o plano). Se não existir linha em
-                assinaturas, use &quot;Alterar assinatura&quot;.
-              </p>
-            </div>
           )}
           {empresa.billing?.dataTrialFim &&
             (empresa.billing.cobrancaStatus === 'Trial' ||
               empresa.billing.cobrancaStatus === 'Trial encerrado') && (
-            <div className="mt-3 text-sm text-gray-600 space-y-1 border-t border-gray-100 pt-3">
-              <div>
-                <span className="text-gray-500">Fim do período de teste</span>
+            <p className="mt-2 text-xs text-gray-600">
+              Teste até {formatarDataCurta(empresa.billing.dataTrialFim)}
+              {empresa.billing.cobrancaStatus === 'Trial' && empresa.billing.diasTrialRestantes != null && (
+                <> · {empresa.billing.diasTrialRestantes}d rest.</>
+              )}
+            </p>
+          )}
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+          <div className="h-10 w-10 rounded-lg bg-green-50 flex items-center justify-center mb-3">
+            <FiUsers className="text-green-600 w-5 h-5" />
+          </div>
+          <p className="text-sm font-medium text-gray-500">Usuários</p>
+          <p className="text-2xl font-bold text-gray-900 mt-0.5">{empresa.metrics?.usuarios ?? 0}</p>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+          <div className="h-10 w-10 rounded-lg bg-orange-50 flex items-center justify-center mb-3">
+            <FiFileText className="text-orange-600 w-5 h-5" />
+          </div>
+          <p className="text-sm font-medium text-gray-500">Ordens de Serviço</p>
+          <p className="text-2xl font-bold text-gray-900 mt-0.5">{empresa.metrics?.ordens ?? 0}</p>
+        </div>
+      </div>
+
+      {/* Gestão de assinatura e trial */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-1">Assinatura e período de teste</h2>
+        <p className="text-sm text-gray-500 mb-6">
+          Ajuste valor cobrado e prazo de teste sem sair desta página.
+        </p>
+
+        <div className="space-y-6">
+          {empresa.billing?.dataTrialFim &&
+            (empresa.billing.cobrancaStatus === 'Trial' ||
+              empresa.billing.cobrancaStatus === 'Trial encerrado') && (
+            <div className="rounded-lg bg-gray-50 border border-gray-100 px-4 py-3 space-y-1">
+              <p className="text-sm text-gray-700">
+                <span className="font-medium text-gray-900">Fim do período de teste</span>
                 {empresa.billing.diasTrial != null ? (
                   <span className="text-gray-500"> ({empresa.billing.diasTrial} dias)</span>
                 ) : (
                   <span className="text-gray-500"> (padrão {DIAS_TRIAL_GRATIS} dias)</span>
                 )}
-                :{' '}
-                <span className="font-semibold text-gray-900">{formatarDataCurta(empresa.billing.dataTrialFim)}</span>
-              </div>
+                : {formatarDataCurta(empresa.billing.dataTrialFim)}
+              </p>
               {empresa.billing.cobrancaStatus === 'Trial' && empresa.billing.diasTrialRestantes != null && (
-                <div className="text-gray-700">
-                  Restam{' '}
-                  <span className="font-semibold text-gray-900">{empresa.billing.diasTrialRestantes}</span> dia
-                  {empresa.billing.diasTrialRestantes === 1 ? '' : 's'} (contagem em dias corridos, igual ao app).
-                </div>
+                <p className="text-sm text-gray-600">
+                  Restam <span className="font-semibold text-gray-900">{empresa.billing.diasTrialRestantes}</span> dia
+                  {empresa.billing.diasTrialRestantes === 1 ? '' : 's'} (dias corridos, igual ao app).
+                </p>
               )}
               {empresa.billing.trialImplicito && (
-                <p className="text-xs text-amber-800 leading-relaxed">
-                  Trial implícito: não há linha em <code className="text-[11px] bg-amber-50 px-1 rounded">assinaturas</code>
-                  ; o prazo segue a data de criação da empresa.
+                <p className="text-xs text-amber-800">
+                  Trial implícito: sem linha em assinaturas; o prazo segue a data de criação da empresa.
                 </p>
               )}
             </div>
           )}
 
-          {/* Configurar prazo de teste */}
-          <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
-            <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
-              Prazo de teste
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {PRESETS_DIAS_TRIAL.map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  onClick={() => {
-                    setDiasTrialInput(String(d));
-                    setDataTrialFimInput('');
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
-                    diasTrialInput === String(d) && !dataTrialFimInput
-                      ? 'bg-indigo-600 text-white border-indigo-600'
-                      : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-300'
-                  }`}
-                >
-                  {d} dias
-                </button>
-              ))}
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label htmlFor="dias-trial-custom" className="block text-xs font-medium text-gray-600 mb-1">
-                  Dias personalizados
-                </label>
-                <input
-                  id="dias-trial-custom"
-                  type="number"
-                  min={1}
-                  max={365}
-                  value={diasTrialInput}
-                  onChange={(e) => {
-                    setDiasTrialInput(e.target.value);
-                    setDataTrialFimInput('');
-                  }}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+            {(empresa.billing?.assinaturaStatus === 'active' ||
+              empresa.billing?.assinaturaStatus === 'ativa' ||
+              empresa.billing?.assinaturaStatus === 'trial') && (
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-gray-800">Valor mensal manual</h3>
+                <div className="flex flex-wrap gap-2 items-end">
+                  <div className="flex-1 min-w-[160px]">
+                    <label htmlFor="valor-assinatura-inline" className="block text-xs font-medium text-gray-600 mb-1">
+                      Valor em reais
+                    </label>
+                    <input
+                      id="valor-assinatura-inline"
+                      type="text"
+                      inputMode="decimal"
+                      value={valorAssinaturaInline}
+                      onChange={(e) => setValorAssinaturaInline(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                      placeholder="Ex: 149,90"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={salvandoValorAssinatura}
+                    onClick={salvarValorAssinaturaInline}
+                    className="bg-gray-900 hover:bg-gray-800 text-white"
+                  >
+                    {salvandoValorAssinatura ? 'Salvando...' : 'Salvar valor'}
+                  </Button>
+                </div>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Atualiza só o valor na assinatura, sem trocar o plano. Se não houver linha em assinaturas, use
+                  &quot;Alterar assinatura&quot; nas ações rápidas.
+                </p>
               </div>
-              <div>
-                <label htmlFor="data-trial-fim" className="block text-xs font-medium text-gray-600 mb-1">
-                  Ou data de término
-                </label>
-                <input
-                  id="data-trial-fim"
-                  type="date"
-                  value={dataTrialFimInput}
-                  onChange={(e) => setDataTrialFimInput(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                />
-              </div>
-            </div>
-            <fieldset className="space-y-2">
-              <legend className="text-xs font-medium text-gray-600">Contar prazo a partir de</legend>
-              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                <input
-                  type="radio"
-                  name="contar-trial"
-                  checked={contarTrialDe === 'hoje'}
-                  onChange={() => setContarTrialDe('hoje')}
-                  className="text-indigo-600"
-                />
-                Hoje (estender ou reiniciar teste)
-              </label>
-              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                <input
-                  type="radio"
-                  name="contar-trial"
-                  checked={contarTrialDe === 'criacao'}
-                  onChange={() => setContarTrialDe('criacao')}
-                  className="text-indigo-600"
-                />
-                Criação da empresa
-              </label>
-            </fieldset>
-            <Button
-              type="button"
-              size="sm"
-              disabled={salvandoTrial}
-              onClick={salvarPrazoTrial}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            )}
+
+            <div
+              className={`space-y-4 ${
+                !(empresa.billing?.assinaturaStatus === 'active' ||
+                  empresa.billing?.assinaturaStatus === 'ativa' ||
+                  empresa.billing?.assinaturaStatus === 'trial')
+                  ? 'lg:col-span-2'
+                  : ''
+              }`}
             >
-              {salvandoTrial ? 'Salvando...' : 'Salvar prazo de teste'}
-            </Button>
-            <p className="text-[11px] text-gray-500 leading-snug">
-              Atualiza <code className="text-[10px] bg-gray-50 px-1 rounded">empresas.dias_trial</code> e grava o fim do
-              trial em <code className="text-[10px] bg-gray-50 px-1 rounded">assinaturas</code>. Use &quot;a partir de
-              hoje&quot; para estender testes expirados.
-            </p>
+              <h3 className="text-sm font-semibold text-gray-800">Configurar prazo de teste</h3>
+              <div className="flex flex-wrap gap-2">
+                {PRESETS_DIAS_TRIAL.map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => {
+                      setDiasTrialInput(String(d));
+                      setDataTrialFimInput('');
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+                      diasTrialInput === String(d) && !dataTrialFimInput
+                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-300'
+                    }`}
+                  >
+                    {d} dias
+                  </button>
+                ))}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="dias-trial-custom" className="block text-xs font-medium text-gray-600 mb-1">
+                    Dias personalizados
+                  </label>
+                  <input
+                    id="dias-trial-custom"
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={diasTrialInput}
+                    onChange={(e) => {
+                      setDiasTrialInput(e.target.value);
+                      setDataTrialFimInput('');
+                    }}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="data-trial-fim" className="block text-xs font-medium text-gray-600 mb-1">
+                    Ou data de término
+                  </label>
+                  <input
+                    id="data-trial-fim"
+                    type="date"
+                    value={dataTrialFimInput}
+                    onChange={(e) => setDataTrialFimInput(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+              <fieldset className="space-y-2">
+                <legend className="text-xs font-medium text-gray-600 mb-1">Contar prazo a partir de</legend>
+                <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="contar-trial"
+                    checked={contarTrialDe === 'hoje'}
+                    onChange={() => setContarTrialDe('hoje')}
+                    className="text-indigo-600"
+                  />
+                  Hoje (estender ou reiniciar teste)
+                </label>
+                <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="contar-trial"
+                    checked={contarTrialDe === 'criacao'}
+                    onChange={() => setContarTrialDe('criacao')}
+                    className="text-indigo-600"
+                  />
+                  Criação da empresa
+                </label>
+              </fieldset>
+              <Button
+                type="button"
+                size="sm"
+                disabled={salvandoTrial}
+                onClick={salvarPrazoTrial}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                {salvandoTrial ? 'Salvando...' : 'Salvar prazo de teste'}
+              </Button>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                Atualiza o prazo de teste da empresa. Use &quot;a partir de hoje&quot; para estender testes expirados.
+              </p>
+            </div>
           </div>
-        </div>
-
-        {/* Usuários */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="h-12 w-12 rounded-lg bg-green-50 flex items-center justify-center mb-4">
-            <FiUsers className="text-green-600" size={24} />
-          </div>
-          <div className="text-sm font-medium text-gray-600 mb-1">Usuários</div>
-          <div className="text-2xl font-bold text-gray-900">{empresa.metrics?.usuarios ?? 0}</div>
-        </div>
-
-        {/* Ordens de Serviço */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="h-12 w-12 rounded-lg bg-orange-50 flex items-center justify-center mb-4">
-            <FiFileText className="text-orange-600" size={24} />
-          </div>
-          <div className="text-sm font-medium text-gray-600 mb-1">Ordens de Serviço</div>
-          <div className="text-2xl font-bold text-gray-900">{empresa.metrics?.ordens ?? 0}</div>
         </div>
       </div>
 
