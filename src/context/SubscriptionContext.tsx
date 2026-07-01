@@ -151,6 +151,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [loadedEmpresaId, setLoadedEmpresaId] = useState<string | null>(null);
   const [sistemaLiberado, setSistemaLiberado] = useState(false);
+  const [acessoBloqueadoServidor, setAcessoBloqueadoServidor] = useState<boolean | null>(null);
 
   const empresaIdAtual = usuarioData?.empresa_id?.trim() || null;
   const fetchSeqRef = useRef(0);
@@ -182,6 +183,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       prevAuthEmpresaRef.current = { userId: null, empresaId: null };
       fetchSeqRef.current += 1;
       setSistemaLiberado(false);
+      setAcessoBloqueadoServidor(null);
       resetSubscriptionState();
       return;
     }
@@ -198,6 +200,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     if (isFirstLoad || userChanged || empresaChanged) {
       fetchSeqRef.current += 1;
       setSistemaLiberado(false);
+      setAcessoBloqueadoServidor(null);
       resetSubscriptionState();
     }
   }, [user?.id, empresaIdAtual, resetSubscriptionState]);
@@ -299,6 +302,9 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
             empresaCriadaEm = json.empresa_created_at;
           }
           if (json?.sistema_liberado === true) liberadoApi = true;
+          if (typeof json?.acesso_bloqueado === 'boolean') {
+            setAcessoBloqueadoServidor(json.acesso_bloqueado);
+          }
         }
       } catch {
         /* fallback */
@@ -481,6 +487,10 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     if (liberado) return false;
     if (loading || loadedEmpresaId !== empresaIdAtual) return false;
     if (assinatura && assinatura.empresa_id !== empresaIdAtual) return false;
+
+    if (acessoBloqueadoServidor === true) return true;
+    if (acessoBloqueadoServidor === false) return false;
+
     const empresaCreatedAt =
       empresaData?.id === empresaIdAtual ? empresaData?.created_at : undefined;
     const empresaDiasTrial =
@@ -512,6 +522,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     loading,
     loadedEmpresaId,
     assinatura,
+    acessoBloqueadoServidor,
   ]);
 
   const podeCriar = useCallback(

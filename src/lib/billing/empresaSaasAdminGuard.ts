@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { computeAssinaturaVencidaPorBilling } from '@/lib/billing/empresaSaasBilling';
-import { BILLING_TIME_ZONE } from '@/lib/billing/billingTimeZone';
 import { pickAssinaturaParaContexto } from '@/lib/billing/pickAssinatura';
+import { corrigirAssinaturaAtivaIndevida } from '@/lib/billing/ativarAssinaturaSegura';
+import { expirarTrialsVencidosEmpresa, computeAcessoBloqueadoServidor } from '@/lib/billing/trialBilling';
 
 /**
  * Quando a API usa service role, o RLS do Supabase não aplica — use esta função
@@ -31,23 +31,50 @@ export async function empresaBloqueadaParaUsoSaasAdmin(
     return false;
   }
 
-  const row = pickAssinaturaParaContexto(
-    (rows ?? []) as Record<string, unknown>[],
+  await expirarTrialsVencidosEmpresa(
+    admin,
+    empresaId,
     emp?.created_at as string | undefined,
     typeof emp?.dias_trial === 'number' ? emp.dias_trial : null
   );
-  const assinatura = row
+
+  const { data: rowsAfterExpire } = await admin
+    .from('assinaturas')
+    .select('status, data_trial_fim, proxima_cobranca, data_fim, created_at, observacoes')
+    .eq('empresa_id', empresaId)
+    .order('created_at', { ascending: false })
+    .limit(30);
+
+  const row = pickAssinaturaParaContexto(
+    (rowsAfterExpire ?? rows ?? []) as Record<string, unknown>[],
+    emp?.created_at as string | undefined,
+    typeof emp?.dias_trial === 'number' ? emp.dias_trial : null
+  );
+
+  const rowSanitizada = row
+    ? await corrigirAssinaturaAtivaIndevida(
+        admin,
+        empresaId,
+        row,
+        emp?.sistema_liberado === true
+      )
+    : null;
+
+  const assinatura = rowSanitizada
     ? {
-        status: String(row.status),
-        data_trial_fim: row.data_trial_fim as string | null | undefined,
-        proxima_cobranca: row.proxima_cobranca as string | null | undefined,
-        data_fim: row.data_fim as string | null | undefined,
+        status: String(rowSanitizada.status),
+        data_trial_fim: rowSanitizada.data_trial_fim as string | null | undefined,
+        proxima_cobranca: rowSanitizada.proxima_cobranca as string | null | undefined,
+        data_fim: rowSanitizada.data_fim as string | null | undefined,
+        observacoes: rowSanitizada.observacoes as string | null | undefined,
       }
     : null;
 
-  return computeAssinaturaVencidaPorBilling(assinatura, emp?.created_at as string | undefined, {
-    empresaIdPresent: true,
-    timeZone: BILLING_TIME_ZONE,
+  return computeAcessoBloqueadoServidor(admin, {
+    empresaId,
+    assinatura,
+    empresaCreatedAt: emp?.created_at as string | undefined,
     empresaDiasTrial: typeof emp?.dias_trial === 'number' ? emp.dias_trial : null,
+    sistemaLiberado: emp?.sistema_liberado === true,
   });
 }

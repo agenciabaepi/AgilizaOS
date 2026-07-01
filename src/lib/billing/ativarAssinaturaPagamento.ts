@@ -3,7 +3,7 @@ import { PLANO_SLUGS } from '@/config/planModules';
 
 /**
  * Ativa ou renova assinatura após pagamento confirmado.
- * Usa `plano_slug` do pagamento; fallback para plano Completo.
+ * ⚠️ Não chamar diretamente — use `processarPagamentoConfirmado` em ativarAssinaturaSegura.ts.
  */
 export async function ativarAssinaturaPorPagamento(
   supabase: SupabaseClient,

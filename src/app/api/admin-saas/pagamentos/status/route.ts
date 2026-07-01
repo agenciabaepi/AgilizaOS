@@ -1,22 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import { ativarAssinaturaPorPagamento } from '@/lib/billing/ativarAssinaturaPagamento';
-import { confirmarCupomUso } from '@/lib/billing/cupomServer';
 import {
   getPayment,
-  getCustomer,
   isPaymentConfirmed,
-  listPaymentsByCustomer,
-  pickLatestConfirmedAsaasPayment,
-  parseAsaasBillingDate,
-  type AsaasPayment,
 } from '@/lib/asaas';
+import { processarPagamentoConfirmado } from '@/lib/billing/ativarAssinaturaSegura';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-/** 1 mês de acesso após pagamento confirmado */
-const DIAS_ACESSO_PAGAMENTO = 30;
 
 export async function GET(req: NextRequest) {
   try {
@@ -41,120 +32,32 @@ export async function GET(req: NextRequest) {
     const statusAsaas = payment?.status || 'PENDING';
     const approvedThisPayment = isPaymentConfirmed(statusAsaas);
 
-    // Tentar descobrir a empresa associada a esse paymentId
     const { data: pagamentoRow } = await supabase
       .from('pagamentos')
-      .select('id, empresa_id, status, paid_at, valor, plano_slug, cupom_uso_id, valor_original')
+      .select('id, empresa_id, status, plano_slug')
       .eq('mercadopago_payment_id', paymentId)
-      .single();
+      .maybeSingle();
 
-    let empresaIdParaAssinatura: string | null = pagamentoRow?.empresa_id ?? null;
-
-    // Se ainda não temos empresa mas o pagamento tem customer, tenta descobrir pelo e-mail do cliente Asaas
-    const customerId = payment?.customer;
-    if (!empresaIdParaAssinatura && customerId) {
-      try {
-        const customer = await getCustomer(customerId);
-        const email = customer?.email?.trim();
-        if (email) {
-          // Busca exata primeiro; depois case-insensitive (ilike) se não achar
-          let { data: empresa } = await supabase
-            .from('empresas')
-            .select('id')
-            .eq('email', email)
-            .limit(1)
-            .single();
-
-          if (!empresa?.id) {
-            const { data: list } = await supabase
-              .from('empresas')
-              .select('id')
-              .ilike('email', email)
-              .limit(1);
-            empresa = list?.[0] ?? null;
-          }
-
-          if (empresa?.id) {
-            empresaIdParaAssinatura = empresa.id;
-          } else {
-            console.warn('pagamentos/status: empresa não encontrada para email Asaas:', email);
-          }
-        }
-      } catch (e) {
-        console.warn('pagamentos/status: erro ao buscar empresa por cliente Asaas:', e);
-      }
+    if (!approvedThisPayment) {
+      return NextResponse.json({ status: statusAsaas });
     }
 
-    // Se não achamos empresa, apenas devolve o status atual do pagamento
-    if (!empresaIdParaAssinatura) {
-      const statusFront = approvedThisPayment ? 'approved' : statusAsaas;
-      return NextResponse.json({ status: statusFront });
+    if (!pagamentoRow?.empresa_id) {
+      console.warn(
+        'pagamentos/status: pagamento confirmado no Asaas sem vínculo local — assinatura NÃO ativada',
+        paymentId
+      );
+      return NextResponse.json({ status: 'approved' });
     }
 
-    let ultimoPago: AsaasPayment | null = null;
-    if (customerId) {
-      try {
-        const payments = await listPaymentsByCustomer(customerId);
-        ultimoPago = pickLatestConfirmedAsaasPayment(payments);
-      } catch (e) {
-        console.warn('pagamentos/status: erro ao listar pagamentos do cliente Asaas:', e);
-      }
+    const result = await processarPagamentoConfirmado(supabase, {
+      asaasPaymentId: paymentId,
+      empresaId: pagamentoRow.empresa_id,
+    });
+
+    if (!result.ok) {
+      console.warn('pagamentos/status: falha ao processar pagamento confirmado:', result);
     }
-
-    if (!ultimoPago && approvedThisPayment && payment) {
-      ultimoPago = payment;
-    }
-
-    // Se ainda assim não houver pagamento confirmado, apenas retorna o status atual
-    if (!ultimoPago) {
-      const statusFront = approvedThisPayment ? 'approved' : statusAsaas;
-      return NextResponse.json({ status: statusFront });
-    }
-
-    const dataInicio =
-      parseAsaasBillingDate(ultimoPago.paymentDate) ??
-      parseAsaasBillingDate(ultimoPago.dueDate) ??
-      new Date();
-    const dataFim = new Date(dataInicio);
-    dataFim.setDate(dataFim.getDate() + DIAS_ACESSO_PAGAMENTO);
-
-    const nowIso = dataInicio.toISOString();
-
-    // Atualizar/registrar pagamento localmente na tabela `pagamentos`
-    try {
-      const valor = typeof ultimoPago.value === 'number' ? ultimoPago.value : 0;
-      const { error: upsertErr } = await supabase
-        .from('pagamentos')
-        .upsert(
-          {
-            empresa_id: empresaIdParaAssinatura,
-            mercadopago_payment_id: ultimoPago.id,
-            status: 'approved',
-            paid_at: nowIso,
-            valor,
-            plano_slug: pagamentoRow?.plano_slug ?? undefined,
-          },
-          { onConflict: 'mercadopago_payment_id' }
-        )
-        .select()
-        .single();
-      if (upsertErr) console.warn('pagamentos/status: upsert pagamento (assinatura):', upsertErr.message);
-    } catch (e) {
-      console.warn('pagamentos/status: erro ao registrar pagamento local:', e);
-    }
-
-    if (pagamentoRow?.cupom_uso_id) {
-      await confirmarCupomUso(supabase, pagamentoRow.cupom_uso_id, pagamentoRow.id);
-    }
-
-    // Ativar/renovar assinatura por 30 dias a partir da data de pagamento
-    await ativarAssinaturaPorPagamento(
-      supabase,
-      empresaIdParaAssinatura,
-      nowIso,
-      dataFim,
-      pagamentoRow?.plano_slug as string | null
-    );
 
     return NextResponse.json({ status: 'approved' });
   } catch (err: unknown) {

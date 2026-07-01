@@ -1,11 +1,17 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
+import SubscriptionVencidaGuard from '@/components/SubscriptionVencidaGuard';
+
 interface TrialExpiredGuardProps {
   children: React.ReactNode;
 }
 
+/**
+ * Guard legado — delega para SubscriptionVencidaGuard (trial vencido + assinatura expirada).
+ */
 export default function TrialExpiredGuard({ children }: TrialExpiredGuardProps) {
-  // ✅ ACESSO TOTALMENTE LIVRE: Sem verificações de trial ou bloqueios
-  // Apenas proteção por empresa_id será mantida nos componentes individuais
-  return <>{children}</>;
-} 
+  const pathname = usePathname();
+  void pathname;
+  return <SubscriptionVencidaGuard>{children}</SubscriptionVencidaGuard>;
+}

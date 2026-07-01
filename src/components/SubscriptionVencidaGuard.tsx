@@ -42,7 +42,14 @@ export default function SubscriptionVencidaGuard({ children }: { children: React
   }
 
   if (loading) {
-    return <>{children}</>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-zinc-900">
+        <div
+          className="h-10 w-10 animate-spin rounded-full border-2 border-gray-900 dark:border-white border-t-transparent"
+          aria-label="Verificando assinatura"
+        />
+      </div>
+    );
   }
 
   if (!isAssinaturaVencida()) {

@@ -258,29 +258,6 @@ export default function AssinaturaPage() {
     if (empresaData?.id) carregar();
   }, [empresaData?.id, carregar]);
 
-  /** Uma vez por empresa: alinha vencimento no Supabase com o último PIX pago no Asaas (rota antes quebrada). */
-  useEffect(() => {
-    if (!empresaData?.id) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const authHeader = session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
-        const res = await fetch('/api/assinatura/sincronizar', {
-          cache: 'no-store',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json', ...authHeader },
-        });
-        if (!cancelled && res.ok) dispatchAssinaturaUpdated();
-      } catch {
-        /* silencioso */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [empresaData?.id]);
-
   const pendentes = itens.filter((p) => {
     const s = (getStatus(p) || '').toLowerCase();
     return s === 'pending' || !getDataPagamento(p);
