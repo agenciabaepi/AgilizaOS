@@ -19,8 +19,10 @@ export async function GET(req: NextRequest) {
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    let query = supabase.from('empresas').select('*', { count: 'exact' })
-      .order('nome', { ascending: true })
+    let query = supabase
+      .from('empresas')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false, nullsFirst: false })
       .range(from, to);
 
     if (search) {

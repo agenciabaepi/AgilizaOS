@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -125,8 +125,6 @@ export default function DashboardOverview() {
       fornecedor?: string | null;
     }>
   >([]);
-
-  const refLabel = useMemo(() => format(new Date(), "MMMM yyyy", { locale: ptBR }), []);
 
   const load = useCallback(async () => {
     if (!empresaId) {
@@ -382,14 +380,7 @@ export default function DashboardOverview() {
 
   return (
     <div className="space-y-6 px-2 md:px-0">
-      <div>
-        <h1 className="text-xl md:text-2xl font-semibold text-zinc-900 dark:text-zinc-50 tracking-tight">
-          Painel
-        </h1>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5 capitalize">{refLabel}</p>
-
-        <DashboardAppPromoBanner />
-      </div>
+      <DashboardAppPromoBanner />
 
       {loading ? (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">

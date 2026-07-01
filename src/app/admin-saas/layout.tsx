@@ -39,7 +39,7 @@ export default async function AdminSaaSLayout({ children }: { children: React.Re
       <main className="ml-64 flex flex-col min-h-screen bg-gray-50">
         <HeaderAdminSaaS />
         <div className="flex-1 overflow-auto">
-          <div className="p-6 lg:p-8 max-w-[1400px] mx-auto w-full">
+          <div className="px-4 lg:px-5 py-5 lg:py-6 w-full max-w-none">
             {children}
           </div>
         </div>
