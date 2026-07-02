@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { FiSearch, FiPlus, FiX, FiPackage } from 'react-icons/fi';
 import { useToast } from '@/hooks/useToast';
 import { useAuth } from '@/context/AuthContext';
-import { bearerAuthHeaders } from '@/lib/api/clientAuthHeaders';
+import { bearerAuthHeadersForApi } from '@/lib/api/clientAuthHeaders';
 import type { TipoEquipamento, TipoEquipamentoSelecionado } from '@/types/equipamentos';
 import { tipoEquipamentoLabel } from '@/types/equipamentos';
 import { toTipoEquipamentoSelecionado } from '@/lib/equipamentos-tipos-merge';
@@ -46,7 +46,10 @@ export default function EquipamentoSelector({
     try {
       const res = await fetch(
         `/api/equipamentos-tipos?empresa_id=${empresaId}&ativo=true&unificado=true`,
-        { headers: bearerAuthHeaders(session), credentials: 'include' }
+        {
+          headers: await bearerAuthHeadersForApi(session),
+          credentials: 'include',
+        }
       );
       const data = await res.json();
       if (res.ok) {
@@ -121,7 +124,7 @@ export default function EquipamentoSelector({
       const nome = newTipo.nome.trim().toUpperCase();
       const res = await fetch('/api/equipamentos-tipos', {
         method: 'POST',
-        headers: bearerAuthHeaders(session, { 'Content-Type': 'application/json' }),
+        headers: await bearerAuthHeadersForApi(session, { 'Content-Type': 'application/json' }),
         credentials: 'include',
         body: JSON.stringify({
           nome,

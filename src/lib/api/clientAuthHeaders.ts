@@ -20,7 +20,11 @@ export async function bearerAuthHeadersForApi(
   session: Session | null | undefined,
   extra?: Record<string, string>
 ): Promise<Record<string, string>> {
-  const token = (await getAccessTokenForApi()) ?? session?.access_token;
+  let token = (await getAccessTokenForApi()) ?? session?.access_token ?? null;
+  if (!token) {
+    await new Promise((r) => setTimeout(r, 150));
+    token = (await getAccessTokenForApi()) ?? session?.access_token ?? null;
+  }
   const headers: Record<string, string> = { ...(extra || {}) };
   if (token) headers.Authorization = `Bearer ${token}`;
   return headers;

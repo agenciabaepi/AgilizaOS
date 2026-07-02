@@ -1,7 +1,28 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+/** Sinônimos comuns → código do catálogo Consert */
+const TIPO_ALIASES: Record<string, string> = {
+  COMPUTADOR: 'DESKTOP',
+  PC: 'DESKTOP',
+  DESKTOP: 'DESKTOP',
+  SMARTPHONE: 'CELULAR',
+  SMART_PHONE: 'CELULAR',
+  CELULAR: 'CELULAR',
+  NOTEBOOK: 'NOTEBOOK',
+  LAPTOP: 'NOTEBOOK',
+  TABLET: 'TABLET',
+  IMPRESSORA: 'IMPRESSORA',
+  PRINTER: 'IMPRESSORA',
+};
+
 export function normalizeTipoCodigo(value: unknown): string {
-  return String(value || '').trim().toUpperCase();
+  const raw = String(value || '')
+    .trim()
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/\s+/g, '_');
+  return TIPO_ALIASES[raw] ?? raw;
 }
 
 /** Resolve tipo_id + codigo para insert/update de aparelhos */

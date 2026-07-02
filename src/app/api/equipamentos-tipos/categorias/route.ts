@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { getEmpresaIdForUser, getSessionUserId } from '@/lib/api/routeAuthEmpresa';
+import { listCategoriasEquipamentoComChecklist } from '@/lib/equipamentos-categorias-server';
 
 /**
  * GET /api/equipamentos-tipos/categorias?empresa_id=xxx
- * Retorna lista de categorias distintas dos tipos de equipamentos da empresa.
+ * Tipos de equipamento (catálogo Consert + custom) com contagem de itens de checklist.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -42,34 +43,9 @@ export async function GET(request: NextRequest) {
     }
 
     const admin = getSupabaseAdmin();
-    const { data, error } = await admin
-      .from('equipamentos_tipos')
-      .select('categoria')
-      .eq('empresa_id', empresaId)
-      .eq('ativo', true);
+    const categorias = await listCategoriasEquipamentoComChecklist(admin, empresaId);
 
-    if (error) {
-      console.error('Erro ao buscar categorias:', error);
-      return NextResponse.json(
-        { error: error.message || 'Erro ao buscar categorias', categorias: [] },
-        { status: 500 }
-      );
-    }
-
-    const seen = new Set<string>();
-    const categoriasUnicas = (data || [])
-      .map((r) => (r.categoria && String(r.categoria).trim()) || '')
-      .filter((c) => c)
-      .filter((c) => {
-        if (seen.has(c)) return false;
-        seen.add(c);
-        return true;
-      })
-      .map((categoria) => ({ categoria }));
-
-    return NextResponse.json({
-      categorias: categoriasUnicas,
-    });
+    return NextResponse.json({ categorias });
   } catch (err) {
     console.error('Erro GET /api/equipamentos-tipos/categorias:', err);
     return NextResponse.json(

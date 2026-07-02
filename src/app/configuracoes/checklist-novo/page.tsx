@@ -19,18 +19,22 @@ interface ChecklistItem {
   ativo: boolean;
   ordem: number;
   obrigatorio: boolean;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
+  origem?: 'catalogo_global' | 'empresa';
 }
 
 interface CategoriaEquipamento {
   categoria: string;
+  nome?: string;
+  tipo_id?: string | null;
+  origem?: string;
   total_equipamentos: number;
   total_checklist: number;
 }
 
 export default function ChecklistNovoPage() {
-  const { empresaData, session } = useAuth();
+  const { empresaData, session, user } = useAuth();
   const { addToast } = useToast();
   const { podeAcessar } = useConfigPermission('checklist');
   
@@ -54,9 +58,11 @@ export default function ChecklistNovoPage() {
     ativo: true
   });
 
+  const authReady = Boolean(user?.id || session?.access_token);
+
   // Buscar categorias de equipamentos da empresa
   const fetchCategorias = useCallback(async () => {
-    if (!empresaData?.id) return;
+    if (!empresaData?.id || !authReady) return;
 
     try {
       const response = await fetch(`/api/equipamentos-tipos/categorias?empresa_id=${empresaData.id}`, {
@@ -66,12 +72,14 @@ export default function ChecklistNovoPage() {
       
       if (response.ok) {
         const data = await response.json();
-        setCategorias(data.categorias || []);
+        const lista = data.categorias || [];
+        setCategorias(lista);
         
-        // Auto-selecionar primeira categoria se houver
-        if (data.categorias?.length > 0 && !categoriaSelecionada) {
-          setCategoriaSelecionada(data.categorias[0].categoria);
+        if (lista.length > 0 && !categoriaSelecionada) {
+          setCategoriaSelecionada(lista[0].categoria);
         }
+      } else if (response.status === 401) {
+        console.warn('⚠️ Sessão ainda não disponível para categorias de checklist');
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
         console.error('❌ Erro ao buscar categorias:', errorData);
@@ -83,7 +91,7 @@ export default function ChecklistNovoPage() {
     } finally {
       setLoading(false);
     }
-  }, [empresaData?.id, addToast, categoriaSelecionada, session?.access_token]);
+  }, [empresaData?.id, authReady, addToast, categoriaSelecionada, session?.access_token, user?.id]);
 
   // Buscar itens de checklist para a categoria selecionada
   const fetchItens = useCallback(async () => {
@@ -95,27 +103,33 @@ export default function ChecklistNovoPage() {
     setLoadingItens(true);
 
     try {
+      const catMeta = categorias.find((c) => c.categoria === categoriaSelecionada);
       const merged = await fetchChecklistItensMerged({
         empresaId: empresaData.id,
         session,
         equipamentoCategoria: normalizeTipoCodigo(categoriaSelecionada),
+        tipoCatalogoId: catMeta?.tipo_id,
       });
       setItens(merged);
     } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Erro de conexão';
       console.error('❌ Erro ao buscar itens:', error);
-      addToast('error', 'Erro de conexão ao carregar itens');
+      if (!msg.toLowerCase().includes('autentic')) {
+        addToast('error', msg);
+      }
       setItens([]);
     } finally {
       setLoadingItens(false);
     }
-  }, [empresaData?.id, categoriaSelecionada, addToast, session?.access_token]);
+  }, [empresaData?.id, categoriaSelecionada, categorias, addToast, session?.access_token, user?.id, authReady]);
 
   // Carregar categorias na inicialização
   useEffect(() => {
-    if (empresaData?.id) {
+    if (empresaData?.id && authReady) {
+      setLoading(true);
       fetchCategorias();
     }
-  }, [fetchCategorias]);
+  }, [empresaData?.id, authReady, fetchCategorias]);
 
   // Carregar itens quando categoria mudar
   useEffect(() => {
@@ -247,13 +261,13 @@ export default function ChecklistNovoPage() {
     }
   };
 
-  if (loading) {
+  if (loading || (empresaData?.id && !authReady)) {
     return (
       <div className="p-6 max-w-7xl mx-auto">
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <h2 className="text-lg font-semibold text-blue-800 mb-2">Carregando...</h2>
-          <p className="text-blue-600">Buscando categorias de equipamentos...</p>
+          <p className="text-blue-600">Preparando tipos de equipamento e checklists...</p>
         </div>
       </div>
     );
@@ -268,7 +282,7 @@ export default function ChecklistNovoPage() {
           Gerenciar Checklists
         </h1>
         <p className="text-gray-600">
-          Configure checklists personalizados para cada categoria de equipamento.
+          Itens padrão do Consert já vêm prontos por tipo de aparelho. Você pode adicionar itens personalizados da sua oficina.
         </p>
       </div>
 
@@ -277,17 +291,21 @@ export default function ChecklistNovoPage() {
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
           <FiPackage className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-yellow-800 mb-2">
-            Nenhuma categoria encontrada
+            Nenhum tipo de equipamento disponível
           </h3>
           <p className="text-yellow-600 mb-4">
-            Você precisa cadastrar equipamentos primeiro para criar checklists personalizados.
+            Os tipos padrão (Celular, Notebook, Tablet, etc.) são carregados automaticamente.
+            Se esta lista continuar vazia, verifique sua sessão ou execute o script SQL do catálogo no Supabase.
           </p>
           <Button 
             variant="outline" 
             className="text-yellow-700 border-yellow-300"
-            onClick={() => window.location.href = '/configuracoes?tab=3'}
+            onClick={() => {
+              setLoading(true);
+              fetchCategorias();
+            }}
           >
-            Ir para Equipamentos
+            Tentar novamente
           </Button>
         </div>
       ) : (
@@ -308,7 +326,7 @@ export default function ChecklistNovoPage() {
                     <div className="flex items-center gap-2">
                       <FiPackage className="text-blue-600" />
                       <span className="font-medium">
-                        {categoriaSelecionada || 'Selecione uma categoria'}
+                        {categorias.find((c) => c.categoria === categoriaSelecionada)?.nome || categoriaSelecionada || 'Selecione uma categoria'}
                       </span>
                     </div>
                     {dropdownOpen ? <FiChevronUp /> : <FiChevronDown />}
@@ -330,10 +348,11 @@ export default function ChecklistNovoPage() {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <FiPackage className="text-blue-600" />
-                              <span className="font-medium">{cat.categoria}</span>
+                              <span className="font-medium">{cat.nome || cat.categoria}</span>
                             </div>
                             <div className="text-xs text-gray-500">
-                              {cat.total_equipamentos} equip. • {cat.total_checklist} itens
+                              {cat.total_checklist} itens
+                              {cat.origem === 'catalogo_global' ? ' • padrão' : ''}
                             </div>
                           </div>
                         </button>
@@ -390,7 +409,7 @@ export default function ChecklistNovoPage() {
               <div className="p-4 border-b border-gray-200 bg-gray-50">
                 <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                   <FiPackage className="text-blue-600" />
-                  Checklist para {categoriaSelecionada}
+                  Checklist para {categorias.find((c) => c.categoria === categoriaSelecionada)?.nome || categoriaSelecionada}
                   {loadingItens && (
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 ml-2"></div>
                   )}
@@ -446,6 +465,11 @@ export default function ChecklistNovoPage() {
                                 Obrigatório
                               </span>
                             )}
+                            {item.origem === 'catalogo_global' && (
+                              <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+                                Padrão Consert
+                              </span>
+                            )}
                           </div>
                           {item.descricao && (
                             <p className="text-sm text-gray-600">{item.descricao}</p>
@@ -456,24 +480,28 @@ export default function ChecklistNovoPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2 ml-4">
-                          <Button
-                            onClick={() => openModal(item)}
-                            variant="outline"
-                            size="sm"
-                            className="flex items-center gap-1"
-                          >
-                            <FiEdit size={16} />
-                            Editar
-                          </Button>
-                          <Button
-                            onClick={() => handleDelete(item.id)}
-                            variant="outline"
-                            size="sm"
-                            className="text-red-600 border-red-300 hover:bg-red-50 flex items-center gap-1"
-                          >
-                            <FiTrash2 size={16} />
-                            Excluir
-                          </Button>
+                          {item.origem !== 'catalogo_global' && (
+                            <>
+                              <Button
+                                onClick={() => openModal(item)}
+                                variant="outline"
+                                size="sm"
+                                className="flex items-center gap-1"
+                              >
+                                <FiEdit size={16} />
+                                Editar
+                              </Button>
+                              <Button
+                                onClick={() => handleDelete(item.id)}
+                                variant="outline"
+                                size="sm"
+                                className="text-red-600 border-red-300 hover:bg-red-50 flex items-center gap-1"
+                              >
+                                <FiTrash2 size={16} />
+                                Excluir
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </div>
                     ))}
