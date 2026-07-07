@@ -40,7 +40,7 @@ export async function GET(
           id, numero_os, equipamento, marca, modelo, cor, numero_serie, acessorios, condicoes_equipamento,
           status, status_tecnico, created_at, prazo_entrega, data_entrega,
           problema_relatado, servico, observacao, checklist_entrada, laudo,
-          imagens, imagens_tecnico, empresa_id, cliente_id, senha_acesso, termo_garantia_id,
+          imagens, imagens_tecnico, videos_tecnico, empresa_id, cliente_id, senha_acesso, termo_garantia_id,
           peca, qtd_peca, valor_peca, qtd_servico, valor_servico, desconto, valor_faturado
         `)
         .eq('id', id)
@@ -55,7 +55,7 @@ export async function GET(
           id, numero_os, equipamento, marca, modelo, cor, numero_serie, acessorios, condicoes_equipamento,
           status, status_tecnico, created_at, prazo_entrega, data_entrega,
           problema_relatado, servico, observacao, checklist_entrada, laudo,
-          imagens, imagens_tecnico, empresa_id, cliente_id, senha_acesso, termo_garantia_id,
+          imagens, imagens_tecnico, videos_tecnico, empresa_id, cliente_id, senha_acesso, termo_garantia_id,
           peca, qtd_peca, valor_peca, qtd_servico, valor_servico, desconto, valor_faturado
         `)
         .eq('numero_os', id)
@@ -70,7 +70,7 @@ export async function GET(
           id, numero_os, equipamento, marca, modelo, cor, numero_serie, acessorios, condicoes_equipamento,
           status, status_tecnico, created_at, prazo_entrega, data_entrega,
           problema_relatado, servico, observacao, checklist_entrada, laudo,
-          imagens, imagens_tecnico, empresa_id, cliente_id, senha_acesso, termo_garantia_id,
+          imagens, imagens_tecnico, videos_tecnico, empresa_id, cliente_id, senha_acesso, termo_garantia_id,
           peca, qtd_peca, valor_peca, qtd_servico, valor_servico, desconto, valor_faturado
         `)
         .eq('numero_os', parseInt(id, 10))

@@ -1425,12 +1425,15 @@ function NovaOS2Content() {
     }
   }
 
+  const isChecklistEtapa = etapaAtual === 3;
+  const pageMaxWidthClass = isChecklistEtapa ? 'max-w-7xl' : 'max-w-4xl';
+
   return (
     <MenuLayout>
       <div className="w-full min-h-screen bg-gradient-to-b from-slate-50 via-gray-50 to-slate-100/80 pb-6">
         {/* Barra fixa só com Voltar - no lugar do header */}
         <div className="sticky top-0 z-20 w-full bg-white/95 backdrop-blur-sm border-b border-gray-200 px-4 md:px-6 py-3">
-          <div className="relative mx-auto flex max-w-4xl items-center justify-between">
+          <div className={`relative mx-auto flex ${pageMaxWidthClass} items-center justify-between`}>
             <button
               type="button"
               onClick={() => router.push('/ordens')}
@@ -1460,7 +1463,7 @@ function NovaOS2Content() {
           </div>
         </div>
 
-        <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
+        <div className={`mx-auto w-full ${pageMaxWidthClass} px-4 py-6 sm:px-6 sm:py-8`}>
           <header className="mb-8 text-center">
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">
               Nova Ordem de Serviço
@@ -1503,6 +1506,7 @@ function NovaOS2Content() {
           <NovaOSWizardLayout
             etapas={etapas}
             etapaAtual={etapaAtual}
+            wide={isChecklistEtapa}
             onEtapaClick={irParaEtapa}
             navegacaoLivreEtapas
             contextChips={getWizardContextChips()}
@@ -2243,7 +2247,7 @@ function NovaOS2Content() {
             )}
 
             {etapaAtual === 3 && (
-              <div className="w-full flex flex-col gap-5">
+              <div className="w-full flex flex-col gap-4">
                 <div className="text-center sm:text-left">
                   <h2 className="text-xl font-bold text-gray-900 flex items-center justify-center sm:justify-start gap-2">
                     <FiList className="text-blue-600" />
@@ -2257,6 +2261,7 @@ function NovaOS2Content() {
                 </div>
                 {dadosEquipamento.tipo ? (
                   <DynamicChecklist
+                    layout="wide"
                     equipamentoCategoria={tipoEquipamentoSelecionado?.codigo || dadosEquipamento.tipo}
                     tipoCatalogoId={tipoEquipamentoSelecionado?.catalogoId}
                     value={checklistEntrada}

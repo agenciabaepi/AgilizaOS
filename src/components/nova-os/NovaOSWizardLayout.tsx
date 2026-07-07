@@ -15,6 +15,8 @@ interface NovaOSWizardLayoutProps {
   onEtapaClick?: (etapa: number) => void;
   navegacaoLivreEtapas?: boolean;
   contextChips?: NovaOSContextChip[];
+  /** Etapa Checklist: área mais larga e menos rolagem vertical */
+  wide?: boolean;
   children: ReactNode;
   onAnterior: () => void;
   onProxima: () => void;
@@ -164,6 +166,7 @@ export default function NovaOSWizardLayout({
   onEtapaClick,
   navegacaoLivreEtapas = true,
   contextChips = [],
+  wide = false,
   children,
   onAnterior,
   onProxima,
@@ -211,8 +214,12 @@ export default function NovaOSWizardLayout({
     return () => clearTimeout(t);
   }, [etapaAtual, updateScrollState]);
 
+  const widthClass = wide
+    ? 'max-w-6xl lg:max-w-7xl'
+    : 'max-w-3xl lg:max-w-4xl';
+
   return (
-    <div className={`relative mx-auto w-full max-w-3xl lg:max-w-4xl ${showFloatingNav ? 'pb-28' : 'pb-6'}`}>
+    <div className={`relative mx-auto w-full ${widthClass} ${showFloatingNav ? 'pb-28' : 'pb-6'}`}>
       {/* Mobile: passo atual + números clicáveis */}
       <div className="mb-4 md:hidden">
         <div className="mb-3 flex items-center justify-between rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
@@ -285,7 +292,7 @@ export default function NovaOSWizardLayout({
             : 'pointer-events-none translate-y-full opacity-0'
         }`}
       >
-        <div className="pointer-events-auto mx-auto w-full max-w-3xl px-4 sm:px-6 lg:max-w-4xl">
+        <div className={`pointer-events-auto mx-auto w-full px-4 sm:px-6 ${widthClass}`}>
           <WizardNavButtons
             {...navProps}
             className="mb-3 border-gray-200/90 bg-white/95 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] backdrop-blur-md"

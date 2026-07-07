@@ -38,6 +38,8 @@ interface DynamicChecklistProps {
   equipamentoCategoria?: string;
   /** ID em equipamentos_tipos_catalogo — melhora o match com itens do admin SaaS */
   tipoCatalogoId?: string | null;
+  /** Layout mais largo (Nova OS) — mais colunas e cards compactos */
+  layout?: 'default' | 'wide';
   onValidationChange?: (validation: ValidationResult) => void;
 }
 
@@ -48,6 +50,7 @@ export default function DynamicChecklist({
   showAparelhoNaoLiga = true,
   equipamentoCategoria,
   tipoCatalogoId,
+  layout = 'default',
   onValidationChange
 }: DynamicChecklistProps) {
   const { empresaData, session } = useAuth();
@@ -212,8 +215,10 @@ export default function DynamicChecklist({
     );
   }
 
+  const isWide = layout === 'wide';
+
   return (
-    <div className="space-y-6">
+    <div className={isWide ? 'space-y-5' : 'space-y-6'}>
       {!aparelhoNaoLiga && (
         <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
           <p className="font-medium">Como responder</p>
@@ -249,65 +254,75 @@ export default function DynamicChecklist({
       )}
 
       {/* Itens de checklist por categoria */}
-      {!aparelhoNaoLiga && Object.keys(itensPorCategoria).map(categoria => (
-        <div key={categoria} className="space-y-3">
-          <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-            {getCategoriaLabel(categoria)}
-          </h4>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {itensPorCategoria[categoria].map((item) => {
-              const ok = isChecklistItemOk(checklistData, item.id);
-              const fail = isChecklistItemFail(checklistData, item.id);
-              const label = formatChecklistItemLabel(item.nome);
+      {!aparelhoNaoLiga &&
+        Object.keys(itensPorCategoria).map((categoria) => (
+          <div key={categoria} className={isWide ? 'space-y-2.5' : 'space-y-3'}>
+            <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+              {getCategoriaLabel(categoria)}
+            </h4>
 
-              return (
-                <div key={item.id} className="p-3 bg-gray-50 rounded-lg border border-gray-100">
-                  <div className="mb-2">
-                    <span className="text-sm font-medium text-gray-800">
-                      {label}
-                      {item.obrigatorio && (
-                        <span className="ml-1 text-xs text-red-500 font-semibold">*</span>
+            <div
+              className={
+                isWide
+                  ? 'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3'
+                  : 'grid grid-cols-1 gap-3 md:grid-cols-2'
+              }
+            >
+              {itensPorCategoria[categoria].map((item) => {
+                const ok = isChecklistItemOk(checklistData, item.id);
+                const fail = isChecklistItemFail(checklistData, item.id);
+                const label = formatChecklistItemLabel(item.nome);
+
+                return (
+                  <div
+                    key={item.id}
+                    className="min-w-0 rounded-lg border border-gray-100 bg-gray-50 p-3"
+                  >
+                    <div className="mb-2.5">
+                      <span className="text-sm font-medium leading-snug text-gray-800">
+                        {label}
+                        {item.obrigatorio && (
+                          <span className="ml-1 text-xs font-semibold text-red-500">*</span>
+                        )}
+                      </span>
+                      {item.descricao && (
+                        <p className="mt-0.5 text-xs leading-snug text-gray-500">{item.descricao}</p>
                       )}
-                    </span>
-                    {item.descricao && (
-                      <p className="text-xs text-gray-500 mt-0.5">{item.descricao}</p>
-                    )}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={disabled || aparelhoNaoLiga}
+                        onClick={() => handleItemStatus(item.id, true)}
+                        className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium transition-colors ${
+                          ok
+                            ? 'border-green-600 bg-green-600 text-white'
+                            : 'border-gray-300 bg-white text-gray-700 hover:border-green-400 hover:text-green-700'
+                        } disabled:cursor-not-allowed disabled:opacity-50`}
+                      >
+                        <FiCheck size={14} />
+                        Funciona
+                      </button>
+                      <button
+                        type="button"
+                        disabled={disabled || aparelhoNaoLiga}
+                        onClick={() => handleItemStatus(item.id, false)}
+                        className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium transition-colors ${
+                          fail
+                            ? 'border-red-600 bg-red-600 text-white'
+                            : 'border-gray-300 bg-white text-gray-700 hover:border-red-400 hover:text-red-700'
+                        } disabled:cursor-not-allowed disabled:opacity-50`}
+                      >
+                        <FiX size={14} />
+                        Não funciona
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      disabled={disabled || aparelhoNaoLiga}
-                      onClick={() => handleItemStatus(item.id, true)}
-                      className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${
-                        ok
-                          ? 'bg-green-600 border-green-600 text-white'
-                          : 'bg-white border-gray-300 text-gray-700 hover:border-green-400 hover:text-green-700'
-                      } disabled:opacity-50 disabled:cursor-not-allowed`}
-                    >
-                      <FiCheck size={14} />
-                      Funciona
-                    </button>
-                    <button
-                      type="button"
-                      disabled={disabled || aparelhoNaoLiga}
-                      onClick={() => handleItemStatus(item.id, false)}
-                      className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${
-                        fail
-                          ? 'bg-red-600 border-red-600 text-white'
-                          : 'bg-white border-gray-300 text-gray-700 hover:border-red-400 hover:text-red-700'
-                      } disabled:opacity-50 disabled:cursor-not-allowed`}
-                    >
-                      <FiX size={14} />
-                      Não funciona
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
 
       {/* Mensagem quando aparelho não liga */}
       {aparelhoNaoLiga && (

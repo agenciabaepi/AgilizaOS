@@ -18,6 +18,7 @@ import {
 } from 'react-icons/fi';
 import ChecklistPublic from '@/components/ChecklistPublic';
 import LaudoRenderer from '@/components/LaudoRenderer';
+import VideosOS from '@/components/VideosOS';
 import { getStatusTecnicoLabel } from '@/utils/statusLabels';
 
 const STORAGE_KEY = 'os_senha_';
@@ -44,6 +45,7 @@ interface DadosOS {
   laudo?: string | null;
   imagens?: string | null;
   imagens_tecnico?: string | null;
+  videos_tecnico?: string | null;
   empresa_id?: string;
   empresa_nome?: string;
   cliente?: { nome?: string; telefone?: string; email?: string; endereco?: string } | null;
@@ -188,6 +190,11 @@ export default function OSStatusPublicoPage() {
     .map((u) => u.trim())
     .filter(Boolean);
   const imageTecnicoUrls = (dados?.imagens_tecnico ?? '')
+    .toString()
+    .split(',')
+    .map((u) => u.trim())
+    .filter(Boolean);
+  const videoTecnicoUrls = (dados?.videos_tecnico ?? '')
     .toString()
     .split(',')
     .map((u) => u.trim())
@@ -468,7 +475,7 @@ export default function OSStatusPublicoPage() {
           )}
 
           {/* ——— Separação: Laudo e orçamento (parte do técnico) ——— */}
-          {(dados.laudo || imageTecnicoUrls.length > 0 || dados.servico || dados.peca || (dados.valor_servico != null && dados.valor_servico > 0) || (dados.valor_peca != null && dados.valor_peca > 0) || (dados.valor_faturado != null && dados.valor_faturado > 0)) && (
+          {(dados.laudo || imageTecnicoUrls.length > 0 || videoTecnicoUrls.length > 0 || dados.servico || dados.peca || (dados.valor_servico != null && dados.valor_servico > 0) || (dados.valor_peca != null && dados.valor_peca > 0) || (dados.valor_faturado != null && dados.valor_faturado > 0)) && (
             <>
               <div className="flex items-center gap-3 py-4">
                 <div className="flex-1 h-px bg-gray-300 dark:bg-zinc-600" />
@@ -492,13 +499,15 @@ export default function OSStatusPublicoPage() {
                 )}
 
                 {/* Orçamento + Fotos do técnico */}
-                {(imageTecnicoUrls.length > 0 || dados.servico || dados.peca || (dados.valor_servico != null && dados.valor_servico > 0) || (dados.valor_peca != null && dados.valor_peca > 0) || (dados.valor_faturado != null && dados.valor_faturado > 0)) && (
+                {(imageTecnicoUrls.length > 0 || videoTecnicoUrls.length > 0 || dados.servico || dados.peca || (dados.valor_servico != null && dados.valor_servico > 0) || (dados.valor_peca != null && dados.valor_peca > 0) || (dados.valor_faturado != null && dados.valor_faturado > 0)) && (
             <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border border-gray-200 dark:border-zinc-600 p-4 sm:p-6 space-y-6">
               <div className="flex items-center gap-2 sm:gap-3 pb-3 border-b border-gray-200 dark:border-zinc-600">
                 <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-lg flex-shrink-0">
                   <FiDollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 dark:text-green-300" />
                 </div>
-                <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-zinc-100">Orçamento e fotos do serviço</h2>
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-zinc-100">
+                  Orçamento{videoTecnicoUrls.length > 0 ? ', fotos e vídeos' : ' e fotos'} do serviço
+                </h2>
               </div>
 
               {/* Valores do orçamento */}
@@ -540,7 +549,7 @@ export default function OSStatusPublicoPage() {
 
               {/* Linha divisória + Fotos do técnico (anexo do serviço) */}
               {imageTecnicoUrls.length > 0 && (
-                <div className="pt-4 border-t border-gray-200 dark:border-zinc-600">
+                <div className={videoTecnicoUrls.length > 0 ? 'pb-4 border-b border-gray-200 dark:border-zinc-600' : 'pt-4 border-t border-gray-200 dark:border-zinc-600'}>
                   <h3 className="text-sm font-medium text-gray-600 dark:text-zinc-400 mb-2">Fotos do serviço</h3>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {imageTecnicoUrls.map((url, i) => (
@@ -554,6 +563,16 @@ export default function OSStatusPublicoPage() {
                       </button>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {videoTecnicoUrls.length > 0 && (
+                <div className={imageTecnicoUrls.length > 0 ? 'pt-4' : 'pt-4 border-t border-gray-200 dark:border-zinc-600'}>
+                  <VideosOS
+                    videos={dados.videos_tecnico || ''}
+                    ordemId={String(dados.numero_os ?? dados.id)}
+                    titulo="Vídeos do serviço"
+                  />
                 </div>
               )}
             </div>
