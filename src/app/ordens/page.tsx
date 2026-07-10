@@ -663,7 +663,6 @@ export default function ListaOrdensPage() {
                 .select('id, os_id, valor, status, tipo')
                 .eq('empresa_id', empresaId)
                 .in('os_id', osIds)
-                .in('tipo', ['pecas', 'servicos'])
             ]);
 
             // Processar vendas — vincular por nº da OS nas observações (prioridade) para todas as linhas

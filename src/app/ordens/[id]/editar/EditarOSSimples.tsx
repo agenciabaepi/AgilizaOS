@@ -27,6 +27,8 @@ import {
   type OsEditarDraftPayload,
 } from '@/lib/osEditDraft';
 import { FiArrowLeft, FiSave, FiUser, FiCheckCircle, FiTool, FiFileText, FiEdit3, FiClock } from 'react-icons/fi';
+import { calcularLucroOS, somarCustosContasPagarOS } from '@/lib/osCustosContasPagar';
+import { podeVerLucroOperacionalOS } from '@/lib/permissions';
 
 interface Item {
   id?: string;
@@ -146,7 +148,10 @@ export default function EditarOSSimples() {
   // Produtos e Serviços
   const [servicos, setServicos] = useState<Item[]>([]);
   const [produtos, setProdutos] = useState<Item[]>([]);
+  const [custosOS, setCustosOS] = useState(0);
   const redirectingEntregueRef = useRef(false);
+
+  const podeVerLucroOS = podeVerLucroOperacionalOS(usuarioData?.nivel, usuarioData?.permissoes);
 
   const getDraftSnapshot = useCallback((): OsEditarDraftPayload => ({
     observacoesInternas,
@@ -252,6 +257,34 @@ export default function EditarOSSimples() {
       fetchTecnicos();
     }
   }, [usuarioData?.empresa_id]);
+
+  useEffect(() => {
+    if (!podeVerLucroOS || !ordem?.empresa_id || !id) {
+      setCustosOS(0);
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const { data: contas } = await supabase
+          .from('contas_pagar')
+          .select('valor')
+          .eq('empresa_id', ordem.empresa_id)
+          .eq('os_id', id);
+        if (!cancelled) {
+          setCustosOS(somarCustosContasPagarOS(contas));
+        }
+      } catch {
+        if (!cancelled) setCustosOS(0);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [podeVerLucroOS, ordem?.empresa_id, id]);
 
   // Atualizar status selecionado quando a ordem for carregada
   useEffect(() => {
@@ -1178,6 +1211,10 @@ export default function EditarOSSimples() {
   }
 
   const totais = calcularTotais();
+  const { lucro: lucroPrevisto, margem: margemPrevista } = calcularLucroOS(
+    totais.totalGeral,
+    podeVerLucroOS ? custosOS : 0
+  );
 
   return (
     
@@ -1359,6 +1396,26 @@ export default function EditarOSSimples() {
                   <span>Total:</span>
                   <span className="text-green-600">{formatCurrency(totais.totalGeral)}</span>
                 </div>
+                {podeVerLucroOS && custosOS > 0 && (
+                  <>
+                    <div className="flex justify-between text-sm pt-1">
+                      <span>Custo (contas a pagar):</span>
+                      <span className="text-red-600">-{formatCurrency(custosOS)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm font-semibold">
+                      <span>Lucro previsto:</span>
+                      <span className={lucroPrevisto >= 0 ? 'text-green-600' : 'text-red-600'}>
+                        {formatCurrency(lucroPrevisto)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-500">
+                      <span>Margem prevista:</span>
+                      <span className={margemPrevista >= 0 ? 'text-green-600' : 'text-red-600'}>
+                        {margemPrevista.toFixed(1)}%
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>

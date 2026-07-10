@@ -25,6 +25,8 @@ import {
   resolverTermoPadraoEmpresa,
   type TermoGarantia,
 } from '@/lib/termoGarantiaPadrao';
+import { calcularLucroOS, somarCustosContasPagarOS } from '@/lib/osCustosContasPagar';
+import { podeVerLucroOperacionalOS } from '@/lib/permissions';
 
 type LinhaPagamentoEntrega = { id: string; forma: string; valor: string };
 
@@ -55,7 +57,8 @@ const VisualizarOrdemServicoPage = () => {
   const router = useRouter();
   const { id } = useParams();
   const { addToast } = useToast();
-  const { empresaData } = useAuth();
+  const { empresaData, usuarioData } = useAuth();
+  const podeVerLucroOS = podeVerLucroOperacionalOS(usuarioData?.nivel, usuarioData?.permissoes);
   const { historico, loading: loadingHistorico, buscarHistoricoOS, registrarHistorico } = useHistoricoOS();
   const [ordem, setOrdem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -224,20 +227,6 @@ const VisualizarOrdemServicoPage = () => {
               .then(({ data: emp }) => { if (typeof emp?.link_publico_ativo === 'boolean') setLinkPublicoAtivo(emp.link_publico_ativo); })
               .catch(() => { /* mantém true se coluna não existir ou der erro */ });
           }
-          // Buscar custos vinculados à OS (contas_pagar por os_id)
-          try {
-            const { data: contas } = await supabase
-              .from('contas_pagar')
-              .select('valor, tipo, status')
-              .eq('empresa_id', data.empresa_id)
-              .eq('os_id', String(id));
-            const totalCustos = (contas || [])
-              .filter((c: any) => c.tipo === 'pecas' || c.tipo === 'servicos')
-              .reduce((acc: number, c: any) => acc + Number(c.valor || 0), 0);
-            setCustosOS(totalCustos);
-          } catch (e) {
-            setCustosOS(0);
-          }
         }
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
@@ -250,6 +239,34 @@ const VisualizarOrdemServicoPage = () => {
   useEffect(() => {
     void carregarOrdem();
   }, [carregarOrdem]);
+
+  useEffect(() => {
+    if (!podeVerLucroOS || !ordem?.empresa_id || !id) {
+      setCustosOS(0);
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const { data: contas } = await supabase
+          .from('contas_pagar')
+          .select('valor')
+          .eq('empresa_id', ordem.empresa_id)
+          .eq('os_id', String(id));
+        if (!cancelled) {
+          setCustosOS(somarCustosContasPagarOS(contas));
+        }
+      } catch {
+        if (!cancelled) setCustosOS(0);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [podeVerLucroOS, ordem?.empresa_id, id]);
 
   useEffect(() => {
     if (empresaData?.id) {
@@ -630,9 +647,8 @@ const VisualizarOrdemServicoPage = () => {
 
   const calcularPrevisao = () => {
     const { valorFinal } = calcularValores();
-    const custoPrevisto = Number(custosOS || 0);
-    const lucroPrevisto = valorFinal - custoPrevisto;
-    const margemPrevista = valorFinal > 0 ? (lucroPrevisto / valorFinal) * 100 : 0;
+    const custoPrevisto = podeVerLucroOS ? Number(custosOS || 0) : 0;
+    const { lucro: lucroPrevisto, margem: margemPrevista } = calcularLucroOS(valorFinal, custoPrevisto);
     return { valorPrevisto: valorFinal, custoPrevisto, lucroPrevisto, margemPrevista };
   };
 
@@ -1384,6 +1400,8 @@ const VisualizarOrdemServicoPage = () => {
                 {/* Resumo Final */}
                 {(() => {
                   const { valorTotal, valorFinal } = calcularValores();
+                  const { custoPrevisto, lucroPrevisto, margemPrevista } = calcularPrevisao();
+                  const entregue = ordem.status === 'ENTREGUE';
                   return (
                     <div className="border-t dark:border-zinc-600 pt-4 space-y-2">
                       <div className="flex justify-between text-sm">
@@ -1398,6 +1416,26 @@ const VisualizarOrdemServicoPage = () => {
                         <span className="dark:text-zinc-100">Total:</span>
                         <span className="text-green-600 dark:text-green-400">{formatCurrency(valorFinal)}</span>
                       </div>
+                      {podeVerLucroOS && custoPrevisto > 0 && (
+                        <>
+                          <div className="flex justify-between text-sm pt-1">
+                            <span className="dark:text-zinc-400">Custo (contas a pagar):</span>
+                            <span className="font-medium text-red-600 dark:text-red-400">-{formatCurrency(custoPrevisto)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm font-semibold">
+                            <span className="dark:text-zinc-100">{entregue ? 'Lucro:' : 'Lucro previsto:'}</span>
+                            <span className={lucroPrevisto >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+                              {formatCurrency(lucroPrevisto)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-xs text-gray-500 dark:text-zinc-400">
+                            <span>{entregue ? 'Margem:' : 'Margem prevista:'}</span>
+                            <span className={margemPrevista >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+                              {margemPrevista.toFixed(1)}%
+                            </span>
+                          </div>
+                        </>
+                      )}
                       {ordem.valor_faturado && Math.abs(ordem.valor_faturado - valorFinal) > 0.01 && (
                         <div className="flex justify-between text-sm bg-yellow-50 dark:bg-yellow-900/20 p-2 rounded border border-yellow-200 dark:border-yellow-800">
                           <span>Faturado:</span>
@@ -1408,41 +1446,6 @@ const VisualizarOrdemServicoPage = () => {
                   );
                 })()}
               </div>
-
-              {/* Previsão Financeira (quando ainda não entregue/faturada) */}
-              {ordem.status !== 'ENTREGUE' && (
-                <div className="bg-white rounded-xl shadow-sm border border-yellow-200 p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-yellow-100 rounded-lg">
-                      <FiDollarSign className="w-5 h-5 text-yellow-700" />
-                    </div>
-                    <h2 className="text-xl font-semibold text-gray-900">Previsão Financeira</h2>
-                  </div>
-                  {(() => {
-                    const { valorPrevisto, custoPrevisto, lucroPrevisto, margemPrevista } = calcularPrevisao();
-                    return (
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-gray-700 dark:text-zinc-300">Receita prevista:</span>
-                          <span className="font-semibold text-green-700 dark:text-green-400">{formatCurrency(valorPrevisto)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-700 dark:text-zinc-300">Custos previstos (peças/serviços):</span>
-                          <span className="font-semibold text-red-700 dark:text-red-400">{formatCurrency(custoPrevisto)}</span>
-                        </div>
-                        <div className="flex justify-between border-t dark:border-zinc-600 pt-2">
-                          <span className="text-gray-900 dark:text-zinc-100 font-medium">Lucro previsto:</span>
-                          <span className={`font-bold ${lucroPrevisto >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>{formatCurrency(lucroPrevisto)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-700 dark:text-zinc-300">Margem prevista:</span>
-                          <span className={`font-medium ${margemPrevista >= 0 ? 'text-green-700' : 'text-red-700'}`}>{margemPrevista.toFixed(1)}%</span>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
 
               {/* Garantia */}
               <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm dark:shadow-none border border-gray-200 dark:border-zinc-600 p-6">

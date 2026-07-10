@@ -57,140 +57,11 @@ export async function GET(
       return count || 0;
     }
 
-    async function storageUsoMb(empresaId: string): Promise<number> {
-      let totalBytes = 0;
-
-      // 1. Bucket 'produtos' - usar API de Storage
-      try {
-        const prefix = `produtos/${empresaId}/`;
-        
-        // Função recursiva para listar todos os arquivos
-        const listAllFiles = async (path: string): Promise<any[]> => {
-          const { data, error } = await supabase.storage
-            .from('produtos')
-            .list(path, {
-              limit: 10000,
-              sortBy: { column: 'name', order: 'asc' },
-            });
-          
-          if (error || !data) return [];
-          
-          const files: any[] = [];
-          for (const item of data) {
-            if (item.id) {
-              // É um arquivo (tem id)
-              files.push(item);
-            } else {
-              // É uma pasta, listar recursivamente
-              const subFiles = await listAllFiles(`${path}${item.name}/`);
-              files.push(...subFiles);
-            }
-          }
-          return files;
-        };
-        
-        const allFiles = await listAllFiles(prefix);
-        totalBytes += allFiles.reduce((acc: number, file: any) => {
-          // O tamanho pode estar em metadata.size ou size diretamente
-          const size = file.metadata?.size || file.size || 0;
-          return acc + Number(size);
-        }, 0);
-      } catch (err) {
-        console.error('Erro ao calcular storage produtos:', err);
-      }
-
-      // 2. Bucket 'anexos-contas' - relacionar via contas_pagar
-      try {
-        const { data: contasIds } = await supabase
-          .from('contas_pagar')
-          .select('id')
-          .eq('empresa_id', empresaId);
-        
-        if (contasIds && contasIds.length > 0) {
-          const contaIdsArray = contasIds.map(c => c.id);
-          
-          // Listar todos os arquivos do bucket
-          const { data: anexosList, error: anexosError } = await supabase.storage
-            .from('anexos-contas')
-            .list('', {
-              limit: 10000,
-              sortBy: { column: 'name', order: 'asc' },
-            });
-          
-          if (!anexosError && anexosList) {
-            // Filtrar anexos que pertencem às contas da empresa
-            // Padrão: anexo_{contaId}_...
-            const anexosEmpresa = anexosList.filter((file: any) => 
-              file.id && contaIdsArray.some(contaId => file.name?.startsWith(`anexo_${contaId}_`))
-            );
-            totalBytes += anexosEmpresa.reduce((acc: number, file: any) => {
-              const size = file.metadata?.size || file.size || 0;
-              return acc + Number(size);
-            }, 0);
-          }
-        }
-      } catch (err) {
-        console.error('Erro ao calcular storage anexos:', err);
-      }
-
-      // 3. Bucket 'ordens-imagens' - relacionar via ordens_servico
-      try {
-        const { data: ordensIds } = await supabase
-          .from('ordens_servico')
-          .select('id')
-          .eq('empresa_id', empresaId);
-        
-        if (ordensIds && ordensIds.length > 0) {
-          const ordemIdsArray = ordensIds.map(o => o.id);
-          
-          // Listar todas as pastas (cada pasta é uma ordem)
-          const { data: folders, error: foldersError } = await supabase.storage
-            .from('ordens-imagens')
-            .list('', {
-              limit: 10000,
-              sortBy: { column: 'name', order: 'asc' },
-            });
-          
-          if (!foldersError && folders) {
-            for (const folder of folders) {
-              // Extrair ordemId do nome da pasta (pode ser {ordemId} ou {ordemId}/)
-              const ordemId = folder.name.replace('/', '');
-              
-              if (ordemIdsArray.includes(ordemId)) {
-                // Listar arquivos dentro desta pasta
-                const { data: files, error: filesError } = await supabase.storage
-                  .from('ordens-imagens')
-                  .list(folder.name, {
-                    limit: 10000,
-                  });
-                
-                if (!filesError && files) {
-                  totalBytes += files.reduce((acc: number, file: any) => {
-                    if (file.id) {
-                      const size = file.metadata?.size || file.size || 0;
-                      return acc + Number(size);
-                    }
-                    return acc;
-                  }, 0);
-                }
-              }
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Erro ao calcular storage ordens-imagens:', err);
-      }
-
-      // Converter bytes para MB com 2 casas decimais
-      return Math.round((totalBytes / (1024 * 1024)) * 100) / 100;
-    }
-
-    const [usuarios, produtos, servicos, ordens, usoMb] = await Promise.all([
+    const [usuarios, produtos, servicos, ordens] = await Promise.all([
       countBy('usuarios', empresaId),
       countProdutos(empresaId),
       countServicos(empresaId),
       countBy('ordens_servico', empresaId),
-      storageUsoMb(empresaId),
     ]);
 
     // Assinatura e cobrança (mesma linha governante do app — evita divergência com múltiplas linhas)
@@ -280,7 +151,7 @@ export async function GET(
 
     const empresaCompleta = {
       ...empresa,
-      metrics: { usuarios, produtos, servicos, ordens, usoMb },
+      metrics: { usuarios, produtos, servicos, ordens, usoMb: null as number | null },
       billing,
     };
 

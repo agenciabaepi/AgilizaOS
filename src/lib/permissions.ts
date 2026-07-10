@@ -91,6 +91,17 @@ export function canUseModule(
   return matchesPermission(effective, key);
 }
 
+/** Custo/lucro da O.S. — uso interno; não exibir em telas ou documentos do cliente. */
+export function podeVerLucroOperacionalOS(
+  nivel: UserNivel | null | undefined,
+  rawPermissoes: string[] | null | undefined
+): boolean {
+  return (
+    canUseModule('lucro-desempenho', nivel, rawPermissoes) ||
+    canUseModule('contas-a-pagar', nivel, rawPermissoes)
+  );
+}
+
 export function canAccessPath(
   pathname: string,
   permissoes: string[] | null | undefined,

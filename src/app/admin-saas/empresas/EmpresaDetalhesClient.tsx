@@ -47,7 +47,7 @@ type EmpresaDetalhes = {
     produtos: number;
     servicos: number;
     ordens: number;
-    usoMb: number;
+    usoMb: number | null;
   };
   dias_trial?: number | null;
   billing?: {
@@ -353,6 +353,8 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
   const [contarTrialDe, setContarTrialDe] = useState<'hoje' | 'criacao'>('hoje');
   const [dataTrialFimInput, setDataTrialFimInput] = useState('');
   const [salvandoTrial, setSalvandoTrial] = useState(false);
+  const [storageMb, setStorageMb] = useState<number | null>(null);
+  const [carregandoStorage, setCarregandoStorage] = useState(false);
 
   // Função para recarregar dados da empresa (`silent` evita spinner em atualizações após modais)
   const recarregarEmpresa = async (opts?: { silent?: boolean }) => {
@@ -383,6 +385,34 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
     recarregarEmpresa();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empresaId]);
+
+  useEffect(() => {
+    if (!empresaId || loading) return;
+    let cancelled = false;
+    setCarregandoStorage(true);
+    setStorageMb(null);
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/admin-saas/empresas/${empresaId}/storage`, {
+          cache: 'no-store',
+          credentials: 'include',
+        });
+        const json = await res.json();
+        if (!cancelled && res.ok && json.ok) {
+          setStorageMb(typeof json.usoMb === 'number' ? json.usoMb : 0);
+        }
+      } catch (e) {
+        console.error('Erro ao carregar storage:', e);
+      } finally {
+        if (!cancelled) setCarregandoStorage(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [empresaId, loading]);
 
   useEffect(() => {
     if (!empresa) return;
@@ -1063,7 +1093,9 @@ export default function EmpresaDetalhesClient({ empresaId }: { empresaId: string
                 <FiDollarSign className="text-gray-400" size={20} />
                 <span className="text-sm text-gray-700">Storage (MB)</span>
               </div>
-              <span className="text-sm font-semibold text-gray-900">{empresa.metrics?.usoMb ?? 0}</span>
+              <span className="text-sm font-semibold text-gray-900">
+                {carregandoStorage ? '…' : (storageMb ?? empresa.metrics?.usoMb ?? 0)}
+              </span>
             </div>
           </div>
         </div>

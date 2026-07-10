@@ -1,4 +1,4 @@
-import OpenAI from 'openai';
+import OpenAI, { toFile } from 'openai';
 import type { DadosUsuario } from './user-data';
 import type { AparelhoInfoIA } from '@/types/aparelhos';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
@@ -572,5 +572,213 @@ export async function buscarInfoAparelho(
   }
 
   return info;
+}
+
+export type LaudoChatMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+};
+
+export type LaudoChatReply = {
+  message: string;
+  laudo: string | null;
+};
+
+const LAUDO_ASSISTENTE_SYSTEM = `Você é um assistente especializado em laudos técnicos para assistência técnica de equipamentos eletrônicos no Brasil.
+
+O técnico está redigindo o laudo de uma ordem de serviço e conversa com você para:
+- Corrigir ortografia, gramática e clareza
+- Melhorar a redação técnica profissional
+- Sugerir como descrever defeitos, testes e conclusões
+- Transformar ditado ou rascunho em texto adequado para laudo
+
+REGRAS:
+- Responda sempre em português brasileiro
+- Mantenha termos técnicos e informações factuais do técnico
+- NÃO invente defeitos, peças ou testes que o técnico não mencionou
+- Quando corrigir ou reescrever texto para o laudo, apresente o texto pronto para uso em parágrafos claros
+- Seja conversacional e objetivo; pode fazer perguntas curtas se faltar contexto
+- Não use markdown pesado; prefira texto corrido com parágrafos separados por linha em branco
+- Mensagens do usuário podem ser ditado bruto (transcrição de áudio): interprete o pedido e responda de forma conversacional
+- O técnico pode enviar FOTOS de placas, aparelhos, componentes ou defeitos visíveis. Analise apenas o que é visível na imagem; não invente danos que não aparecem na foto
+- Com FOTOS: leia com atenção TODOS os textos visíveis (etiquetas, silk screen, números de peça, MAC, FCC, WLAN, modelos como DW1707, conectores U.FL, etc.)
+- Identifique o componente com base no que está escrito e visível (ex.: placa WLAN M.2, fonte, placa-mãe, bateria, display)
+- NUNCA diga que "não consegue identificar" sem antes listar o que conseguiu ler na imagem e dar uma hipótese técnica fundamentada no que é visível
+
+FORMATO DE RESPOSTA (OBRIGATÓRIO):
+Retorne APENAS um JSON válido com esta estrutura exata:
+{
+  "message": "texto conversacional curto (explicação, confirmação ou pergunta)",
+  "laudo": "texto técnico do laudo pronto para o documento, ou null"
+}
+
+REGRAS DO JSON:
+- "message": SOMENTE a parte conversacional. NUNCA inclua o texto do laudo aqui. Sem "---", sem blocos de laudo.
+- "laudo": SOMENTE o texto técnico do laudo (parágrafos claros). Sem "Claro!", sem "aqui está", sem despedidas. Use null quando não houver texto de laudo nesta resposta (ex.: só uma pergunta).`;
+
+function toLaudoApiMessage(
+  m: LaudoChatMessage,
+  imageDetail: 'low' | 'high' = 'low'
+): OpenAI.Chat.Completions.ChatCompletionMessageParam {
+  if (m.role === 'assistant') {
+    return { role: 'assistant', content: m.content.trim() };
+  }
+
+  const images = (m.images || []).filter((b) => typeof b === 'string' && b.length > 0).slice(0, 2);
+  if (images.length === 0) {
+    return { role: 'user', content: m.content.trim() };
+  }
+
+  const userQuestion = m.content.trim();
+  const text = userQuestion
+    ? `${userQuestion}\n\n(Leia etiquetas e códigos visíveis na foto; identifique a peça/componente com base no que aparece na imagem.)`
+    : 'Analise esta imagem no contexto de assistência técnica. Leia todas as etiquetas e textos visíveis, identifique a peça/componente e descreva o que observar para o laudo.';
+
+  return {
+    role: 'user',
+    content: [
+      { type: 'text', text },
+      ...images.map((base64) => ({
+        type: 'image_url' as const,
+        image_url: {
+          url: `data:image/jpeg;base64,${base64}`,
+          detail: imageDetail,
+        },
+      })),
+    ],
+  };
+}
+
+/**
+ * Conversa com o técnico sobre o laudo (estilo ChatGPT).
+ */
+export async function chatLaudoTecnico(
+  messages: LaudoChatMessage[],
+  context?: { laudoAtual?: string; numeroOS?: string }
+): Promise<LaudoChatReply | null> {
+  try {
+    const client = getOpenAIClient();
+    if (!client) return null;
+
+    const valid = messages.filter(
+      (m) =>
+        (m.role === 'user' || m.role === 'assistant') &&
+        typeof m.content === 'string' &&
+        (m.content.trim().length > 0 || (m.images?.length ?? 0) > 0)
+    );
+    if (valid.length === 0) return null;
+
+    let systemContent = LAUDO_ASSISTENTE_SYSTEM;
+    if (context?.numeroOS) {
+      systemContent += `\n\nContexto: ordem de serviço #${context.numeroOS}.`;
+    }
+    if (context?.laudoAtual) {
+      const laudoLimpo = context.laudoAtual
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (laudoLimpo.length > 0) {
+        systemContent += `\n\nLaudo atual do técnico (referência):\n${laudoLimpo.slice(0, 4000)}`;
+      }
+    }
+
+    const recent = valid.slice(-16);
+    const lastUserImageIdx = recent.reduce(
+      (found, m, i) => (m.role === 'user' && (m.images?.length ?? 0) > 0 ? i : found),
+      -1
+    );
+    const hasVision = lastUserImageIdx >= 0;
+
+    const apiMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+      { role: 'system', content: systemContent },
+      ...recent.map((m, i) =>
+        toLaudoApiMessage(m, i === lastUserImageIdx ? 'high' : 'low')
+      ),
+    ];
+
+    const completion = await client.chat.completions.create({
+      model: hasVision ? 'gpt-4o' : 'gpt-4o-mini',
+      messages: apiMessages,
+      max_tokens: 2000,
+      temperature: 0.5,
+      response_format: { type: 'json_object' },
+    });
+
+    const raw = completion.choices[0]?.message?.content?.trim();
+    if (!raw) return null;
+
+    try {
+      const parsed = JSON.parse(raw) as { message?: string; laudo?: string | null };
+      const message = typeof parsed.message === 'string' ? parsed.message.trim() : '';
+      const laudo =
+        typeof parsed.laudo === 'string' && parsed.laudo.trim() ? parsed.laudo.trim() : null;
+      if (!message && !laudo) return null;
+      return { message, laudo };
+    } catch {
+      return { message: raw, laudo: null };
+    }
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('❌ Erro no chat de laudo:', msg);
+    return null;
+  }
+}
+
+/**
+ * Transcreve áudio (ditado) com Whisper e opcionalmente melhora para laudo técnico.
+ */
+export async function transcreverAudioLaudo(
+  audioBuffer: Buffer,
+  mimeType: string,
+  melhorarParaLaudo = true
+): Promise<string | null> {
+  try {
+    const client = getOpenAIClient();
+    if (!client) return null;
+
+    const ext =
+      mimeType.includes('webm') ? 'webm' :
+      mimeType.includes('wav') ? 'wav' :
+      mimeType.includes('mp3') || mimeType.includes('mpeg') ? 'mp3' :
+      mimeType.includes('mp4') ? 'mp4' :
+      'm4a';
+
+    const file = await toFile(audioBuffer, `audio.${ext}`, {
+      type: mimeType || 'audio/m4a',
+    });
+
+    const transcription = await client.audio.transcriptions.create({
+      file,
+      model: 'whisper-1',
+      language: 'pt',
+    });
+
+    const textoBruto = transcription.text?.trim();
+    if (!textoBruto) return null;
+
+    if (!melhorarParaLaudo) return textoBruto;
+
+    const completion = await client.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: `Você recebe a transcrição de um técnico de assistência descrevendo um laudo.
+Corrija erros de transcrição, pontuação e gramática.
+Mantenha todas as informações técnicas mencionadas.
+Retorne APENAS o texto corrigido, em português brasileiro, pronto para o técnico revisar.`,
+        },
+        { role: 'user', content: textoBruto },
+      ],
+      max_tokens: 1500,
+      temperature: 0.3,
+    });
+
+    return completion.choices[0]?.message?.content?.trim() || textoBruto;
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('❌ Erro ao transcrever áudio do laudo:', msg);
+    return null;
+  }
 }
 

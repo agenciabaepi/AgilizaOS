@@ -567,7 +567,24 @@ function ContasAPagarPageContent() {
     setEditingConta(null);
     setEditarTodasParcelas(false);
     setParcelasRelacionadasEdicao([]);
-    resetForm();
+    const tipoDefault =
+      activeTab === 'pecas' ? 'pecas' : activeTab === 'variaveis' ? 'variavel' : 'fixa';
+    setFormData({
+      descricao: '',
+      categoria_id: '',
+      tipo: tipoDefault,
+      valor: '',
+      data_vencimento: '',
+      fornecedor: '',
+      observacoes: '',
+      os_id: '',
+      peca_nome: '',
+      peca_quantidade: 1,
+      conta_fixa: false,
+      parcelas_totais: 1,
+      parcela_atual: 1,
+      data_fixa_mes: 1,
+    });
     setShowModal(true);
   };
 
