@@ -124,6 +124,7 @@ function StatusCicloBadge({ status }: { status: CicloMensal['status'] }) {
 
 export default function AdminEmpresaPagamentosSection({ empresaId }: Props) {
   const [loading, setLoading] = useState(true);
+  const [liberando, setLiberando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pagamentos, setPagamentos] = useState<PagamentoRow[]>([]);
   const [ciclos, setCiclos] = useState<CicloMensal[]>([]);
@@ -165,6 +166,27 @@ export default function AdminEmpresaPagamentosSection({ empresaId }: Props) {
     }
   }, [empresaId]);
 
+  const liberarPorPagamento = useCallback(async () => {
+    setLiberando(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin-saas/empresas/${empresaId}/liberar-pagamento`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.error || 'Falha ao liberar assinatura');
+      }
+      setSincronizacaoMsg(json.message || `Assinatura liberada até ${json.coberturaAte}`);
+      await carregar();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro ao liberar');
+    } finally {
+      setLiberando(false);
+    }
+  }, [empresaId, carregar]);
+
   useEffect(() => {
     carregar();
   }, [carregar]);
@@ -182,16 +204,27 @@ export default function AdminEmpresaPagamentosSection({ empresaId }: Props) {
             em 15/07 deve aparecer atrasado e bloquear o acesso.
           </p>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={carregar}
-          disabled={loading}
-          className="border-gray-300 text-gray-700"
-        >
-          <FiRefreshCw className={`mr-2 ${loading ? 'animate-spin' : ''}`} />
-          Atualizar
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={liberarPorPagamento}
+            disabled={loading || liberando}
+            className="border-emerald-300 text-emerald-800 bg-emerald-50"
+          >
+            {liberando ? 'Liberando...' : 'Liberar por pagamento Asaas'}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={carregar}
+            disabled={loading}
+            className="border-gray-300 text-gray-700"
+          >
+            <FiRefreshCw className={`mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Atualizar
+          </Button>
+        </div>
       </div>
 
       {sincronizacaoMsg && (

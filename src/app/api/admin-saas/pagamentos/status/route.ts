@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
 
     const payment = await getPayment(paymentId);
     const statusAsaas = payment?.status || 'PENDING';
-    const approvedThisPayment = isPaymentConfirmed(statusAsaas);
+    const approvedThisPayment = isPaymentConfirmed(statusAsaas, payment?.paymentDate);
 
     const { data: pagamentoRow } = await supabase
       .from('pagamentos')

@@ -132,7 +132,7 @@ export async function processarPagamentoConfirmado(
   }
 
   const statusAsaas = paymentAsaas?.status || '';
-  if (!isPaymentConfirmed(statusAsaas)) {
+  if (!isPaymentConfirmed(statusAsaas, paymentAsaas?.paymentDate)) {
     return {
       ok: false,
       error: 'Pagamento ainda não confirmado no gateway',
@@ -308,110 +308,257 @@ export async function repararAssinaturaComAsaas(
   const local = await reconciliarPagamentosPendentesEmpresa(supabase, empresaId);
   if (local.ok) return local;
 
-  // 2) Busca no Asaas pelo e-mail da empresa
+  // 2) Liberação forçada pelo último pagamento confirmado no Asaas
+  const forced = await forcarLiberacaoPorUltimoPagamentoAsaas(supabase, empresaId);
+  if (forced.ok) return forced;
+
+  return local.ok ? local : forced;
+}
+
+/** YYYY-MM-DD em UTC (alinha com parseAsaasBillingDate meio-dia UTC). */
+function toYmdUtc(d: Date): string {
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function addDaysYmd(ymd: string, days: number): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return toYmdUtc(dt);
+}
+
+function hojeYmdUtc(): string {
+  // Dia civil em São Paulo (evita liberar/bloquear no fuso errado perto da meia-noite)
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+  } catch {
+    return toYmdUtc(new Date());
+  }
+}
+
+/**
+ * Liberação definitiva: pega o último pagamento confirmado no Asaas (e-mail ou IDs locais)
+ * e grava `active` + proxima_cobranca/data_fim = pago + 30 dias.
+ * Não depende de status local "approved" prévio.
+ */
+export async function forcarLiberacaoPorUltimoPagamentoAsaas(
+  supabase: SupabaseClient,
+  empresaId: string
+): Promise<ProcessarPagamentoResult & { coberturaAte?: string; paymentId?: string }> {
   const { data: empresa } = await supabase
     .from('empresas')
-    .select('id, email')
+    .select('id, email, created_at, dias_trial')
     .eq('id', empresaId)
     .maybeSingle();
 
-  const email = typeof empresa?.email === 'string' ? empresa.email.trim() : '';
-  if (!email) {
-    return local.ok
-      ? local
-      : {
-          ok: false,
-          error: local.error || 'Empresa sem e-mail para consultar Asaas',
-          code: local.code || 'sem_email',
-        };
+  if (!empresa) {
+    return { ok: false, error: 'Empresa não encontrada', code: 'empresa_nao_encontrada' };
   }
 
-  let confirmedIds: string[] = [];
-  try {
-    const customers = await listCustomersByEmail(email);
-    const all: { id: string; paymentDate?: string; dueDate?: string; value?: number }[] = [];
-    for (const c of customers) {
-      const payments = await listPaymentsByCustomer(c.id);
-      for (const p of payments) {
-        if (!p?.id || !isPaymentConfirmed(p.status || '')) continue;
-        all.push({
+  type Cand = { id: string; paymentDate?: string; dueDate?: string; value?: number };
+  const byId = new Map<string, Cand>();
+
+  // 1) IDs já salvos no banco
+  const { data: locais } = await supabase
+    .from('pagamentos')
+    .select('mercadopago_payment_id')
+    .eq('empresa_id', empresaId)
+    .not('mercadopago_payment_id', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(30);
+
+  for (const row of locais || []) {
+    const id = String(row.mercadopago_payment_id || '').trim();
+    if (!id || id.startsWith('mock_')) continue;
+    try {
+      const p = await getPayment(id);
+      if (p?.id && isPaymentConfirmed(p.status || '', p.paymentDate)) {
+        byId.set(p.id, {
           id: p.id,
           paymentDate: p.paymentDate,
           dueDate: p.dueDate,
           value: p.value,
         });
       }
+    } catch {
+      /* ignore */
     }
-    // Mais recentes primeiro
-    all.sort((a, b) => {
-      const da = a.paymentDate || a.dueDate || '';
-      const db = b.paymentDate || b.dueDate || '';
-      return String(db).localeCompare(String(da));
-    });
-    confirmedIds = all.map((p) => p.id);
+  }
 
-    // Garante vínculo local para cada cobrança confirmada (até 10)
-    for (const p of all.slice(0, 10)) {
-      const { data: existing } = await supabase
-        .from('pagamentos')
-        .select('id')
-        .eq('mercadopago_payment_id', p.id)
-        .maybeSingle();
-
-      if (!existing?.id) {
-        const paidAt =
-          parseAsaasBillingDate(p.paymentDate)?.toISOString() ||
-          parseAsaasBillingDate(p.dueDate)?.toISOString() ||
-          new Date().toISOString();
-        await supabase.from('pagamentos').insert({
-          empresa_id: empresaId,
-          mercadopago_payment_id: p.id,
-          status: 'PENDING',
-          valor: Number(p.value) || 0,
-          paid_at: null,
-          created_at: paidAt,
-        });
+  // 2) Clientes Asaas pelo e-mail da empresa
+  const email = typeof empresa.email === 'string' ? empresa.email.trim() : '';
+  if (email) {
+    try {
+      const customers = await listCustomersByEmail(email);
+      for (const c of customers) {
+        const payments = await listPaymentsByCustomer(c.id);
+        for (const p of payments) {
+          if (!p?.id || !isPaymentConfirmed(p.status || '', p.paymentDate)) continue;
+          byId.set(p.id, {
+            id: p.id,
+            paymentDate: p.paymentDate,
+            dueDate: p.dueDate,
+            value: p.value,
+          });
+        }
       }
+    } catch (e) {
+      console.warn('forcarLiberacao: listCustomersByEmail falhou', e);
     }
-  } catch (e) {
-    console.error('repararAssinaturaComAsaas Asaas:', e);
-    return local;
   }
 
-  if (!confirmedIds.length) return local;
+  const candidatos = [...byId.values()].sort((a, b) => {
+    const da = a.paymentDate || a.dueDate || '';
+    const db = b.paymentDate || b.dueDate || '';
+    return String(db).localeCompare(String(da));
+  });
 
-  // 3) Processa do mais recente ao mais antigo
-  let lastError: ProcessarPagamentoResult = local;
-  for (const paymentId of confirmedIds.slice(0, 10)) {
-    const result = await processarPagamentoConfirmado(supabase, {
-      asaasPaymentId: paymentId,
-      empresaId,
+  const latest = candidatos[0];
+  if (!latest) {
+    return {
+      ok: false,
+      error:
+        email
+          ? `Nenhum pagamento confirmado no Asaas para ${email}`
+          : 'Nenhum pagamento confirmado no Asaas (empresa sem e-mail)',
+      code: 'sem_pagamento_asaas',
+    };
+  }
+
+  const baseYmd =
+    (latest.paymentDate && /^\d{4}-\d{2}-\d{2}/.test(latest.paymentDate)
+      ? latest.paymentDate.slice(0, 10)
+      : null) ||
+    (latest.dueDate && /^\d{4}-\d{2}-\d{2}/.test(latest.dueDate)
+      ? latest.dueDate.slice(0, 10)
+      : null) ||
+    hojeYmdUtc();
+
+  const coberturaYmd = addDaysYmd(baseYmd, DIAS_ACESSO_PAGAMENTO);
+  const dataInicio =
+    parseAsaasBillingDate(latest.paymentDate) ??
+    parseAsaasBillingDate(latest.dueDate) ??
+    new Date();
+  const nowIso = dataInicio.toISOString();
+  const dataFimIso = `${coberturaYmd}T12:00:00.000Z`;
+  const dataFim = new Date(dataFimIso);
+
+  // Cobertura já no passado? Não liberar com pagamento antigo
+  if (coberturaYmd < hojeYmdUtc()) {
+    return {
+      ok: false,
+      error: `Último pagamento Asaas cobre só até ${coberturaYmd} (já passou)`,
+      code: 'cobertura_expirada',
+      coberturaAte: coberturaYmd,
+      paymentId: latest.id,
+    };
+  }
+
+  // Garante linha local approved (necessário para assinaturaAtivaTemDireito)
+  const { data: pagLocal } = await supabase
+    .from('pagamentos')
+    .select('id, plano_slug')
+    .eq('mercadopago_payment_id', latest.id)
+    .maybeSingle();
+
+  const planoSlug: string | null = (pagLocal?.plano_slug as string | null) ?? null;
+  if (!pagLocal?.id) {
+    await supabase.from('pagamentos').insert({
+      empresa_id: empresaId,
+      mercadopago_payment_id: latest.id,
+      status: 'approved',
+      valor: Number(latest.value) || 0,
+      paid_at: nowIso,
     });
-    if (result.ok) return result;
-    lastError = result;
+  } else {
+    await supabase
+      .from('pagamentos')
+      .update({
+        status: 'approved',
+        paid_at: nowIso,
+        valor: Number(latest.value) || 0,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', pagLocal.id);
   }
 
-  // 4) Fallback: pega o último confirmado e tenta de novo
-  try {
-    const customers = await listCustomersByEmail(email);
-    const flat: Awaited<ReturnType<typeof listPaymentsByCustomer>> = [];
-    for (const c of customers) {
-      flat.push(...(await listPaymentsByCustomer(c.id)));
+  // Ativação "oficial" (plano / arquivar trials)
+  await ativarAssinaturaPorPagamento(supabase, empresaId, nowIso, dataFim, planoSlug);
+
+  // Nuclear: sempre grava datas na(s) assinatura(s) da empresa — não confiar só no caminho acima
+  const payloadAssinatura = {
+    status: 'active' as const,
+    data_fim: dataFimIso,
+    proxima_cobranca: dataFimIso,
+    data_trial_fim: null,
+    updated_at: new Date().toISOString(),
+    observacoes: `[auto] Liberação forçada pelo pagamento Asaas ${latest.id} (cobertura até ${coberturaYmd})`,
+  };
+
+  const { data: rowsUpd, error: updErr } = await supabase
+    .from('assinaturas')
+    .update(payloadAssinatura)
+    .eq('empresa_id', empresaId)
+    .in('status', ['active', 'ativa', 'expired', 'trial', 'cancelled', 'pending_payment', 'suspended'])
+    .select('id');
+
+  if (updErr || !rowsUpd?.length) {
+    const { error: insErr } = await supabase.from('assinaturas').insert({
+      empresa_id: empresaId,
+      status: 'active',
+      data_inicio: nowIso,
+      data_fim: dataFimIso,
+      proxima_cobranca: dataFimIso,
+      valor: Number(latest.value) || 0,
+      observacoes: `[auto] Liberação forçada (insert) pagamento ${latest.id}`,
+    });
+    if (insErr) {
+      return {
+        ok: false,
+        error: insErr.message || updErr?.message || 'Falha ao gravar assinatura',
+        code: 'ativacao_falhou',
+        paymentId: latest.id,
+      };
     }
-    const latest = pickLatestConfirmedAsaasPayment(flat);
-    if (latest?.id) {
-      const result = await processarPagamentoConfirmado(supabase, {
-        asaasPaymentId: latest.id,
-        empresaId,
-      });
-      if (result.ok) return result;
-      lastError = result;
-    }
-  } catch {
-    /* ignore */
   }
 
-  return lastError;
+  // Confirma leitura: se ainda estiver no passado, falha explícita
+  const { data: checkRows } = await supabase
+    .from('assinaturas')
+    .select('id, status, proxima_cobranca, data_fim')
+    .eq('empresa_id', empresaId)
+    .order('updated_at', { ascending: false })
+    .limit(5);
+
+  const okRow = (checkRows || []).find((r) => {
+    const prox = String(r.proxima_cobranca || r.data_fim || '').slice(0, 10);
+    return r.status === 'active' && prox >= coberturaYmd.slice(0, 10);
+  });
+
+  if (!okRow) {
+    return {
+      ok: false,
+      error: 'Pagamento encontrado, mas a assinatura no banco não atualizou. Verifique permissões/RLS do service role.',
+      code: 'ativacao_nao_persistiu',
+      coberturaAte: coberturaYmd,
+      paymentId: latest.id,
+    };
+  }
+
+  return {
+    ok: true,
+    activated: true,
+    coberturaAte: coberturaYmd,
+    paymentId: latest.id,
+  };
 }
 
 /** Assinatura `active` só é válida com pagamento aprovado, liberação admin ou observação de concessão admin. */
@@ -429,18 +576,26 @@ export async function assinaturaAtivaTemDireito(
     return true;
   }
 
-  const { count, error } = await supabase
+  // Se a cobertura ainda é válida no calendário, não derruba
+  if (activeRowCalendarValid(assinatura) && (assinatura.data_fim || assinatura.proxima_cobranca)) {
+    return true;
+  }
+
+  const { data: pagos, error } = await supabase
     .from('pagamentos')
-    .select('id', { count: 'exact', head: true })
+    .select('id, status')
     .eq('empresa_id', empresaId)
-    .eq('status', 'approved');
+    .limit(50);
 
   if (error) {
     console.warn('assinaturaAtivaTemDireito:', error.message);
     return false;
   }
 
-  return (count ?? 0) > 0;
+  return (pagos || []).some((p) => {
+    const s = String(p.status || '').toLowerCase();
+    return ['approved', 'confirmed', 'received', 'pago'].includes(s);
+  });
 }
 
 /** Corrige assinatura ativa sem direito (auto-ativação indevida). */
@@ -451,6 +606,11 @@ export async function corrigirAssinaturaAtivaIndevida(
   sistemaLiberado: boolean
 ): Promise<Record<string, unknown>> {
   if (String(assinatura.status) !== 'active' && String(assinatura.status) !== 'ativa') {
+    return assinatura;
+  }
+
+  // NUNCA reverter se ainda há cobertura futura válida
+  if (activeRowCalendarValid(assinatura) && (assinatura.data_fim || assinatura.proxima_cobranca)) {
     return assinatura;
   }
 

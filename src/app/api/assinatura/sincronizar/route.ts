@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import { reconciliarPagamentosPendentesEmpresa, repararAssinaturaComAsaas } from '@/lib/billing/ativarAssinaturaSegura';
+import { forcarLiberacaoPorUltimoPagamentoAsaas } from '@/lib/billing/ativarAssinaturaSegura';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -41,8 +41,8 @@ async function getAuthUser(req: NextRequest) {
 }
 
 /**
- * Reconcilia com Asaas e libera assinatura se houver pagamento confirmado.
- * Repara inclusive quando a cobrança existe só no Asaas ou ficou approved sem ativar.
+ * Libera assinatura com base no último pagamento confirmado no Asaas.
+ * Usar no botão Atualizar quando o PIX já aparece como Pago mas o sistema segue vencido.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -62,32 +62,29 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Usuário ou empresa não encontrados' }, { status: 403 });
     }
 
-    // Reparo completo (local + Asaas)
-    let result = await repararAssinaturaComAsaas(admin, usuario.empresa_id);
-    if (!result.ok) {
-      result = await reconciliarPagamentosPendentesEmpresa(admin, usuario.empresa_id);
-    }
+    const result = await forcarLiberacaoPorUltimoPagamentoAsaas(admin, usuario.empresa_id);
 
     if (!result.ok) {
-      const status =
-        result.code === 'sem_pendentes' || result.code === 'not_confirmed' || result.code === 'sem_email'
-          ? 404
-          : 400;
-      return NextResponse.json({
-        ok: false,
-        activated: false,
-        error: result.error,
-        code: result.code,
-      }, { status });
+      return NextResponse.json(
+        {
+          ok: false,
+          activated: false,
+          error: result.error,
+          code: result.code,
+          coberturaAte: 'coberturaAte' in result ? result.coberturaAte : undefined,
+          paymentId: 'paymentId' in result ? result.paymentId : undefined,
+        },
+        { status: 400 }
+      );
     }
 
     return NextResponse.json({
       ok: true,
       activated: true,
       alreadyActive: result.alreadyActive === true,
-      message: result.alreadyActive
-        ? 'Assinatura já estava ativa para o último pagamento confirmado.'
-        : 'Assinatura ativada após confirmação do pagamento.',
+      coberturaAte: result.coberturaAte,
+      paymentId: result.paymentId,
+      message: `Assinatura liberada até ${result.coberturaAte} (pagamento ${result.paymentId}).`,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erro ao sincronizar';

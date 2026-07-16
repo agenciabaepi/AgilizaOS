@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { pickAssinaturaParaContexto } from '@/lib/billing/pickAssinatura';
 import {
   corrigirAssinaturaAtivaIndevida,
-  repararAssinaturaComAsaas,
+  forcarLiberacaoPorUltimoPagamentoAsaas,
 } from '@/lib/billing/ativarAssinaturaSegura';
 import {
   computeAcessoBloqueadoServidor,
@@ -89,7 +89,7 @@ export async function GET(req: NextRequest) {
     if (aErr || !rows?.length) {
       // Sem linha: ainda tenta reparar se houver pagamento Asaas
       if (!sistemaLiberado) {
-        await repararAssinaturaComAsaas(admin, empresaId);
+        await forcarLiberacaoPorUltimoPagamentoAsaas(admin, empresaId);
         const { data: rowsNovas } = await admin
           .from('assinaturas')
           .select('*')
@@ -152,7 +152,7 @@ export async function GET(req: NextRequest) {
 
     // Pagou no Asaas mas assinatura ainda vencida → reparar e recarregar
     if (acessoBloqueado && !sistemaLiberado) {
-      const reparo = await repararAssinaturaComAsaas(admin, empresaId);
+      const reparo = await forcarLiberacaoPorUltimoPagamentoAsaas(admin, empresaId);
       if (reparo.ok) {
         const { data: rowsApos } = await admin
           .from('assinaturas')

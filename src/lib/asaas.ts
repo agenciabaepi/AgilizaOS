@@ -187,8 +187,15 @@ export async function getPixQrCode(paymentId: string): Promise<AsaasPixQrCode> {
 }
 
 /** Status considerado "pago" para liberar acesso */
-export function isPaymentConfirmed(status: string): boolean {
-  return status === 'CONFIRMED' || status === 'RECEIVED';
+export function isPaymentConfirmed(status: string, paymentDate?: string | null): boolean {
+  const s = String(status || '').trim().toUpperCase();
+  if (['CONFIRMED', 'RECEIVED', 'RECEIVED_IN_CASH'].includes(s)) return true;
+  // Asaas às vezes preenche paymentDate antes/fora do status final
+  const paidAt = typeof paymentDate === 'string' ? paymentDate.trim() : '';
+  if (paidAt && !['PENDING', 'OVERDUE', 'REFUNDED', 'REFUND_REQUESTED', 'DELETED', 'CANCELLED', 'CHARGEBACK_REQUESTED', 'CHARGEBACK_DISPUTE'].includes(s)) {
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -220,7 +227,7 @@ export function pickLatestConfirmedAsaasPayment(payments: AsaasPayment[]): Asaas
   let best: AsaasPayment | null = null;
   let bestT = -Infinity;
   for (const p of payments) {
-    if (!isPaymentConfirmed(p.status || '')) continue;
+    if (!isPaymentConfirmed(p.status || '', p.paymentDate)) continue;
     const t = effectiveSortTimeMs(p);
     if (t > bestT) {
       bestT = t;

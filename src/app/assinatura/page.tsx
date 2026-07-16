@@ -505,13 +505,16 @@ export default function AssinaturaPage() {
                   const json = await res.json().catch(() => null);
                   if (res.ok && json?.activated) {
                     dispatchAssinaturaUpdated();
-                    // Recarrega para limpar badge "Assinatura Expirada" e guard
                     window.location.reload();
                     return;
                   }
+                  alert(
+                    json?.error ||
+                      'Não foi possível liberar a assinatura automaticamente. Verifique se o e-mail da empresa é o mesmo do cliente no Asaas.'
+                  );
                   if (res.ok) dispatchAssinaturaUpdated();
                 } catch {
-                  /* segue para recarregar lista */
+                  alert('Erro ao sincronizar. Tente novamente.');
                 }
                 carregar();
               }}

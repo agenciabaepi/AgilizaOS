@@ -8,8 +8,7 @@ import {
   buildCiclosMensais,
   toDateOnlyPagamento,
 } from '@/lib/billing/verificarCiclosPagamento';
-import { DIAS_ACESSO_PAGAMENTO } from '@/lib/billing/ativarAssinaturaSegura';
-import { reconciliarPagamentosPendentesEmpresa } from '@/lib/billing/ativarAssinaturaSegura';
+import { DIAS_ACESSO_PAGAMENTO, forcarLiberacaoPorUltimoPagamentoAsaas } from '@/lib/billing/ativarAssinaturaSegura';
 import {
   getPayment,
   listCustomersByEmail,
@@ -183,13 +182,13 @@ export async function GET(
     let sincronizado = false;
     let sincronizacaoMsg: string | null = null;
 
-    // Se há pagamento confirmado cobrindo hoje, mas assinatura ainda bloqueia → forçar reconciliação
+    // Se há pagamento confirmado cobrindo hoje, mas assinatura ainda bloqueia → forçar liberação
     if (resumo.emDia && resumo.coberturaAte) {
-      const syncResult = await reconciliarPagamentosPendentesEmpresa(supabase, empresaId);
+      const syncResult = await forcarLiberacaoPorUltimoPagamentoAsaas(supabase, empresaId);
       if (syncResult.ok) {
         sincronizado = true;
         sincronizacaoMsg =
-          'Assinatura liberada a partir do pagamento confirmado no Asaas (reconciliação automática).';
+          `Assinatura liberada até ${syncResult.coberturaAte} (pagamento Asaas ${syncResult.paymentId}).`;
         const reloaded = await loadAssinaturaGovernanteAdmin(
           supabase,
           empresaId,

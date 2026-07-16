@@ -23,7 +23,8 @@ export function trialRowCalendarValid(
 
 /** Assinatura ativa com data fim / próxima cobrança ainda ok (dias civis locais). */
 export function activeRowCalendarValid(row: Record<string, unknown>): boolean {
-  if (String(row.status) !== 'active') return false;
+  const status = String(row.status || '');
+  if (status !== 'active' && status !== 'ativa') return false;
   if (row.data_fim) {
     const d0 = diffDiasCalendario(row.data_fim as string);
     if (d0 !== null && d0 < 0) return false;
